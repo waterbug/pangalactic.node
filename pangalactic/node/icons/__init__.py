@@ -1,0 +1,2 @@
+"""PanGalaxian Icons"""
+

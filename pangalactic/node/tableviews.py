@@ -1,0 +1,131 @@
+"""
+Widgets based on QTableView
+"""
+# PyQt
+from PyQt5 import QtWidgets
+from PyQt5.QtCore import Qt, QTimer
+
+# Louie
+from louie import dispatcher
+
+# pangalactic
+from pangalactic.core.meta        import PGEF_COL_WIDTHS
+from pangalactic.core.uberorb     import orb
+from pangalactic.node.tablemodels import (ObjectTableModel,
+                                          MatrixTableModel,
+                                          SpecialSortModel)
+from pangalactic.node.pgxnobject  import PgxnObject
+
+
+class ObjectTableView(QtWidgets.QTableView):
+    """
+    A table view with special sorting capabilities.
+    """
+    def __init__(self, objs, view=None, parent=None):
+        """
+        Initialize
+
+        objs (Identifiable):  objects (rows)
+        view (list of str):  specified attributes (columns)
+        """
+        super(ObjectTableView, self).__init__(parent=parent)
+        orb.log.info('* [ObjectTableView] initializing ...')
+        if objs:
+            cname = objs[0].__class__.__name__
+            orb.log.info('  - for class: "{}"'.format(cname))
+        else:
+            orb.log.info('  - no objects provided.')
+        self.main_table_model = ObjectTableModel(objs, view=view, parent=self)
+        self.view = self.main_table_model.view
+        self.main_table_proxy = SpecialSortModel(parent=self)
+        self.main_table_proxy.setSourceModel(self.main_table_model)
+        self.setStyleSheet('font-size: 12px')
+        # disable sorting while loading data
+        self.setSortingEnabled(False)
+        self.setSelectionBehavior(QtWidgets.QTableView.SelectRows)
+        self.setModel(self.main_table_proxy)
+        column_header = self.horizontalHeader()
+        column_header.setStyleSheet('font-weight: bold')
+        # TODO:  try setting header colors using Qt functions ...
+        column_header.setSectionsMovable(True)
+        # NOTE:  the following line will make table width fit into window
+        #        ... but it also makes column widths non-adjustable
+        # column_header.setSectionResizeMode(column_header.Stretch)
+        # row_header = self.verticalHeader()
+        # NOTE:  enable sorting *after* setting model but *before* resizing to
+        # contents (so column sizing includes sort indicators)
+        self.setSortingEnabled(True)
+        # wrap columns that hold TEXT_PROPERTIES
+        self.setTextElideMode(Qt.ElideNone)
+        for i, a in enumerate(self.view):
+            self.setColumnWidth(i, PGEF_COL_WIDTHS.get(a, 100))
+        # self.resizeRowsToContents()
+        # QTimer trick ...
+        QTimer.singleShot(0, self.resizeRowsToContents)
+        # IMPORTANT:  after a sort, rows retain the heights they had before
+        # the sort (i.e. wrong) unless this is done:
+        self.main_table_proxy.layoutChanged.connect(
+                                    self.resizeRowsToContents)
+        # sort by underlying model intrinsic order
+        # ("row numbers" [aka vertical header] are column -1)
+        self.main_table_proxy.sort(-1, Qt.AscendingOrder)
+        self.doubleClicked.connect(self.main_table_row_double_clicked)
+        self.setMinimumSize(300, 200)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                           QtWidgets.QSizePolicy.Expanding)
+
+    def main_table_row_double_clicked(self, clicked_index):
+        # NOTE: maybe not the most elegant way to do this ... look again later
+        mapped_row = self.main_table_proxy.mapToSource(clicked_index).row()
+        orb.log.debug(
+            '* [ObjectTableView] row double-clicked [mapped row: {}]'.format(
+                                                            str(mapped_row)))
+        oid = getattr(self.main_table_model.objs[mapped_row], 'oid')
+        obj = orb.get(oid)
+        dlg = PgxnObject(obj, parent=self)
+        dlg.show()
+
+
+class MatrixWidget(QtWidgets.QDialog):
+    """
+    A table for comparing objects side-by-side by parameter values.
+    """
+    def __init__(self, objs, parameters, parent=None):
+        """
+        Initialize
+
+        objs (Identifiable):  objects to be compared
+        parameters (list of str):  ids of parameters to compare by
+        """
+        super(MatrixWidget, self).__init__(parent=parent)
+        self.objs = objs
+        self.parameters = parameters
+        tablemodel = MatrixTableModel(objs, parameters, parent=self)
+        self.tableview = QtWidgets.QTableView()
+        self.tableview.setModel(tablemodel)
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.layout.addWidget(self.tableview)
+        self.bbox = QtWidgets.QDialogButtonBox(
+                                        QtWidgets.QDialogButtonBox.Cancel)
+        self.bbox.rejected.connect(self.reject)
+        self.layout.addWidget(self.bbox)
+        self.setLayout(self.layout)
+        self.resize(self.tableview.width()-200,
+                    self.tableview.height()-100)
+        dispatcher.connect(self.refresh, 'new object')
+
+    def refresh(self, obj=None):
+        # TODO: a more elegant refresh with setData() etc.
+        if (obj and obj.__class__.__name__ == 'Acu'
+            and obj.assembly in self.objs):
+            self.layout.removeWidget(self.bbox)
+            self.layout.removeWidget(self.tableview)
+            tablemodel = MatrixTableModel(self.objs, self.parameters,
+                                          parent=self)
+            self.tableview = QtWidgets.QTableView()
+            self.tableview.setModel(tablemodel)
+            self.layout.addWidget(self.tableview)
+            self.layout.addWidget(self.bbox)
+            self.resize(self.tableview.width()-200,
+                        self.tableview.height()-100)
+
