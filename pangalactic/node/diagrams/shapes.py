@@ -201,6 +201,12 @@ class Block(QtWidgets.QGraphicsItem):
             self.port_blocks[port.oid] = pb
             orb.log.debug('    position: {!r}'.format(pb.pos()))
             orb.log.debug('    scene coords: {!r}'.format(pb.scenePos()))
+        # once all port blocks are created, resize if necessary to fit them
+        comfy_height = self.childrenBoundingRect().height() + 50
+        if comfy_height > self.rect.height():
+            self.prepareGeometryChange()
+            self.rect.setHeight(comfy_height)
+            self.update()
 
 
 class ObjectBlock(Block):
