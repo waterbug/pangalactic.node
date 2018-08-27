@@ -50,7 +50,6 @@ from pangalactic.core.utils.meta      import (asciify,
                                               uncook_datetime)
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_xlsx
-from pangalactic.node.message_bus     import PgxnMessageBus
 from pangalactic.node.buttons         import ButtonLabel, MenuButton
 from pangalactic.node.dashboards      import SystemDashboard
 from pangalactic.node.dialogs         import (CloakingDialog, CondaDialog,
@@ -61,7 +60,9 @@ from pangalactic.node.dialogs         import (CloakingDialog, CondaDialog,
                                               OptionNotification,
                                               PrefsDialog, Viewer3DDialog)
 from pangalactic.node.filters         import FilterDialog
+from pangalactic.node.helpwidget      import HelpWidget
 from pangalactic.node.libraries       import LibraryDialog, LibraryListWidget
+from pangalactic.node.message_bus     import PgxnMessageBus
 from pangalactic.node.modeler         import ModelWindow, ProductInfoPanel
 from pangalactic.node.pgxnobject      import PgxnObject
 from pangalactic.node.startup         import setup_dirs_and_state
@@ -1247,9 +1248,14 @@ class Main(QtWidgets.QMainWindow):
 
     def _create_actions(self):
         orb.log.debug('* creating actions ...')
+        app_name = config.get('app_name', 'Pangalaxian'),
+        self.about_action = self.create_action(
+                                    "About",
+                                    slot=self.show_about,
+                                    tip="About {}".format(app_name))
         self.help_action = self.create_action(
                                     "Help",
-                                    slot=self.show_about,
+                                    slot=self.show_help,
                                     icon='tardis',
                                     tip="Help")
         self.new_project_action = self.create_action(
@@ -1816,7 +1822,16 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(system_tools_button)
 
         self.toolbar.addAction(self.view_cad_action)
-        self.toolbar.addAction(self.help_action)
+
+        help_icon_file = 'tardis' + state['icon_type']
+        help_icon_path = os.path.join(orb.icon_dir, help_icon_file)
+        help_actions = [self.help_action,
+                        self.about_action]
+        help_button = MenuButton(QtGui.QIcon(help_icon_path),
+                                 tooltip='Help',
+                                 actions=help_actions, parent=self)
+        self.toolbar.addWidget(help_button)
+
         self.toolbar.addSeparator()
 
         project_label = QtWidgets.QLabel('Project:  ')
@@ -2936,6 +2951,11 @@ class Main(QtWidgets.QMainWindow):
             </ul>
             </html>
         """ % (app, version))
+
+    def show_help(self):
+        help_url = 'file:///home/waterbug/gitlab/cattens/doc/user_guide.html'
+        help_widget = HelpWidget(help_url, parent=self)
+        help_widget.show()
 
     def view_cad(self, file_path):
         orb.log.info('* view_cad({})'.format(file_path))
