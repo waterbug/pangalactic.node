@@ -1,0 +1,61 @@
+package:
+  name: pangalactic.node
+  version: "0.1.dev92"
+
+source:
+  path: # [path to source]
+
+build:
+  entry_points:
+    - pangalaxian = pangalactic.node.pangalaxian:run
+
+requirements:
+  build:
+    - python
+    - setuptools
+
+  run:
+    - conda
+    - jpeg >=9b
+    - matplotlib
+    - openjpeg >=2.3.0
+    - pangalactic.core >=0.1.dev92
+    - pillow <=4.1.1    # 4.2.x is broken
+    - pyqt >=5.6
+    - python >=2.7
+    - pythonocc-core    # from pythonocc channel
+    # -----------------------------------------------------
+    # pythonocc pulls in these dependencies from dlr-sc channel:
+    # - freeimageplus
+    # - gl2ps
+    # - jpeg 9b
+    # - tbb
+    # -----------------------------------------------------
+    - pytz
+    - ruamel_yaml <=0.15
+    - service_identity
+    - sqlalchemy
+    - twisted
+    - zope
+    - zope.interface
+    # -----------------------------------------------------
+    # packages locally built and installed from local repo
+    - autobahn
+    - binaryornot
+    - louie
+    - qt5reactor
+    # -----------------------------------------------------
+    # packages copied into local repo (platform-specific versions)
+    # service_identity (reqd. by autobahn)
+    # txaio (reqd. by autobahn)
+    # -----------------------------------------------------
+
+# test:
+  # imports:
+    # - sometestpackage
+
+about:
+  # home: https://pangalactic.us
+  license: NASA
+  # license_file: LICENSE
+

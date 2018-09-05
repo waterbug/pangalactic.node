@@ -139,14 +139,16 @@ class PgxnForm(QWidget):
                 # order parameters -- editable (non-computed) parameters first
                 pref_editables = [pid for pid in PGXN_PARAMETERS
                                   if pid in parms
-                                  and not parms[pid]['computed']]
+                                  and not parms[pid].get('computed')]
                 np_editables = [pid for pid in parms
                                 if pid not in PGXN_PARAMETERS
-                                and not parms[pid]['computed']]
+                                and not parms[pid].get('computed')]
                 editables = pref_editables + np_editables
                 pref_computeds = [pid for pid in PGXN_PARAMETERS
-                                  if pid in parms and parms[pid]['computed']]
-                np_computeds = [pid for pid in parms if parms[pid]['computed']
+                                  if pid in parms
+                                  and parms[pid].get('computed')]
+                np_computeds = [pid for pid in parms
+                                if parms[pid].get('computed')
                                 and pid not in PGXN_PARAMETERS]
                 computeds = pref_computeds + np_computeds
                 p_ordering = editables + computeds
