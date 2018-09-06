@@ -5,7 +5,7 @@ Based on:
   * pyqt twisted socket client example, by Eli Bendersky (eliben@gmail.com)
   * autobahn/crossbar gauges example, by Elvis Stansvik
     https://github.com/estan/gauges
-  * crossbarexamples "advanced" (CRA) auth example
+  * crossbar examples "advanced" (CRA) auth example
 """
 import argparse, random, six, sys, time
 from copy import deepcopy
@@ -30,7 +30,7 @@ from pangalactic.node.widgets         import AutosizingListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus
 
 message_bus = PgxnMessageBus()
-cert_fname = './.crossbar_for_test_pger/server_cert.pem'
+cert_fname = './.crossbar_for_test_vger/server_cert.pem'
 cert = crypto.load_certificate(
         crypto.FILETYPE_PEM,
         six.u(open(cert_fname, 'r').read()))
@@ -151,8 +151,8 @@ class MainWindow(QMainWindow):
         # self.w.setWidth(200)
         self.w.show()
         if str(subject) in ['decloaked', 'modified']:
-            self.log('* calling rpc pger.get_object() on {}'.format(content[0]))
-            rpc = message_bus.session.call(u'pger.get_object', content[0])
+            self.log('* calling rpc vger.get_object() on {}'.format(content[0]))
+            rpc = message_bus.session.call(u'vger.get_object', content[0])
             rpc.addCallback(self.on_get_object_result)
             rpc.addErrback(self.on_failure)
 
@@ -259,7 +259,7 @@ class MainWindow(QMainWindow):
         self.sync_project_button.setVisible(True)
         if self.noadmin:
             self.log('  - no admin service -- getting roles from repo ...')
-            rpc = message_bus.session.call(u'pger.get_role_assignments',
+            rpc = message_bus.session.call(u'vger.get_role_assignments',
                                            self.userid)
         else:
             self.log('  - calling admin service for assigned roles ...')
@@ -342,7 +342,7 @@ class MainWindow(QMainWindow):
     def subscribe_to_channels(self, channels=None):
         channels = channels or []
         if not channels:
-            channels = [u'pger.channel.public', u'pger.channel.H2G2']
+            channels = [u'vger.channel.public', u'vger.channel.H2G2']
         if not self.noadmin:
             channels.append(u'omb.roleassignment')
             channels.append(u'omb.organizationlist')
@@ -362,7 +362,7 @@ class MainWindow(QMainWindow):
         # get Person object corresponding to login userid
         self.log('* calling rpc get_user_object ...')
         if self.noadmin:
-            rpc = message_bus.session.call(u'pger.get_user_object',
+            rpc = message_bus.session.call(u'vger.get_user_object',
                                            self.userid)
         else:
             # TODO:  admin service rpc ...
@@ -382,24 +382,24 @@ class MainWindow(QMainWindow):
         self.log('* return from get_user_object:  {}'.format(data))
 
     def on_check_version(self):
-        self.log('* calling rpc "pger.get_version()" ...')
-        rpc = message_bus.session.call(u'pger.get_version')
+        self.log('* calling rpc "vger.get_version()" ...')
+        rpc = message_bus.session.call(u'vger.get_version')
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
 
     def on_cloaked_selected(self, item):
         self.log('* on_cloaked_selected()')
-        self.log('  calling rpc "pger.decloak()" ...')
+        self.log('  calling rpc "vger.decloak()" ...')
         obj_oid = self.cloaked[self.cloaked_list.currentRow()]
         actor_oid = 'H2G2'
         # for testing "public" decloak:
         # actor_oid = ''
-        rpc = message_bus.session.call(u'pger.decloak', obj_oid, actor_oid)
+        rpc = message_bus.session.call(u'vger.decloak', obj_oid, actor_oid)
         rpc.addCallback(self.on_decloak_result)
         rpc.addErrback(self.on_failure)
 
     def on_decloak_result(self, stuff):
-        self.log('* result received from rpc pger.decloak:  %s' % str(stuff))
+        self.log('* result received from rpc vger.decloak:  %s' % str(stuff))
         actor_oids, msg, obj_oid = stuff
         if not msg:
             if obj_oid in self.cloaked:
@@ -420,10 +420,10 @@ class MainWindow(QMainWindow):
         self.log('* on_decloaked_selected()')
         self.log('  randomly modifying object ...')
         obj_oid = self.decloaked[self.decloaked_list.currentRow()]
-        # randomly modify the object to test 'pger.modify' ...
+        # randomly modify the object to test 'vger.modify' ...
         self.MOD_COUNT += 1
         new_desc = 'modification ' + str(self.MOD_COUNT)
-        rpc = message_bus.session.call(u'pger.modify', obj_oid,
+        rpc = message_bus.session.call(u'vger.modify', obj_oid,
                                        description=new_desc)
         rpc.addCallback(self.on_modify)
         rpc.addErrback(self.on_failure)
@@ -440,7 +440,7 @@ class MainWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable):  object whose cloaking info is to be shown
         """
-        rpc = message_bus.session.call(u'pger.get_cloaking_status',
+        rpc = message_bus.session.call(u'vger.get_cloaking_status',
                                        self.test_oid)
         rpc.addCallback(self.on_get_cloaking_status)
         rpc.addErrback(self.on_failure)
@@ -477,18 +477,18 @@ class MainWindow(QMainWindow):
                               mod_datetime=now, version='1', iteration=0,
                               version_sequence=0, product_type=ptype['oid'],
                               parameters=obj_parms)
-        self.log('* calling rpc "pger.save()" ...')
+        self.log('* calling rpc "vger.save()" ...')
         self.last_saved_obj = serialized_obj
         if self.system_level_obj:
             self.add_acu_button.setVisible(True)
         else:
             self.add_psu_button.setVisible(True)
-        rpc = message_bus.session.call(u'pger.save', [serialized_obj])
+        rpc = message_bus.session.call(u'vger.save', [serialized_obj])
         rpc.addCallback(self.on_save_result)
         rpc.addErrback(self.on_failure)
 
     def on_save_result(self, stuff):
-        self.log('* result received from rpc "pger.save":  %s' % str(stuff))
+        self.log('* result received from rpc "vger.save":  %s' % str(stuff))
         if stuff.get('new_obj_dts'):
             self.log('  - adding new cloaked objects ...')
             for oid in stuff['new_obj_dts']:
@@ -539,7 +539,7 @@ class MainWindow(QMainWindow):
         self.cloaked = []
         self.cloaked_list.clear()
         self.add_psu_button.setVisible(False)
-        rpc = message_bus.session.call(u'pger.save', [psu])
+        rpc = message_bus.session.call(u'vger.save', [psu])
         rpc.addCallback(self.on_save_result)
         rpc.addErrback(self.on_failure)
 
@@ -571,7 +571,7 @@ class MainWindow(QMainWindow):
         self.remove_comp_button.setVisible(True)
         self.cloaked = []
         self.cloaked_list.clear()
-        rpc = message_bus.session.call(u'pger.save', [acu])
+        rpc = message_bus.session.call(u'vger.save', [acu])
         rpc.addCallback(self.on_save_result)
         rpc.addErrback(self.on_failure)
 
@@ -584,7 +584,7 @@ class MainWindow(QMainWindow):
             acu = self.latest_acu
             self.latest_acu = None
             self.remove_comp_button.setVisible(False)
-            rpc = message_bus.session.call(u'pger.save', [acu])
+            rpc = message_bus.session.call(u'vger.save', [acu])
             rpc.addCallback(self.on_save_result)
             rpc.addErrback(self.on_failure)
         else:
@@ -592,14 +592,14 @@ class MainWindow(QMainWindow):
             return
 
     def on_get_object(self):
-        self.log('* calling rpc "pger.get_object()" ...')
-        rpc = message_bus.session.call(u'pger.get_object', 'H2G2')
+        self.log('* calling rpc "vger.get_object()" ...')
+        rpc = message_bus.session.call(u'vger.get_object', 'H2G2')
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
 
     def on_sync_project(self):
-        self.log('* calling rpc pger.sync_project({})'.format('H2G2'))
-        rpc = message_bus.session.call(u'pger.sync_project', 'H2G2', [])
+        self.log('* calling rpc vger.sync_project({})'.format('H2G2'))
+        rpc = message_bus.session.call(u'vger.sync_project', 'H2G2', [])
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
 

@@ -435,7 +435,7 @@ class ModelWindow(QMainWindow):
             orb.log.info('  ... no object, returning.')
             return
         # NOTE:  do not write to a file -- orb._save_diagramz() does that
-        # TODO: also send the serialized "model" to pger to be saved there ...
+        # TODO: also send the serialized "model" to vger to be saved there ...
         # TODO: need to define a Model, Representation, and RepresentationFile
         try:
             scene = self.diagram_view.scene()

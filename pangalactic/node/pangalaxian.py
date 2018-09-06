@@ -334,8 +334,8 @@ class Main(QtWidgets.QMainWindow):
         # update is currently only implemented for Windows
         if sys.platform == 'win32':
             try:
-                orb.log.info('  calling rpc pger.get_version() ...')
-                rpc = message_bus.session.call(u'pger.get_version')
+                orb.log.info('  calling rpc vger.get_version() ...')
+                rpc = message_bus.session.call(u'vger.get_version')
                 rpc.addCallback(self.check_version)
                 rpc.addErrback(self.on_failure)
             except:
@@ -344,8 +344,8 @@ class Main(QtWidgets.QMainWindow):
         elif sys.platform == 'linux2':
             # if we are on linux, just log the result
             try:
-                orb.log.info('  testing rpc pger.get_version() ...')
-                rpc = message_bus.session.call(u'pger.get_version')
+                orb.log.info('  testing rpc vger.get_version() ...')
+                rpc = message_bus.session.call(u'vger.get_version')
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
                 orb.log.info('* calling sync_with_services() ...')
@@ -363,7 +363,7 @@ class Main(QtWidgets.QMainWindow):
             args = []
             kw = {'selective': True, 'no_filter': True}
         else:
-            proc = u'pger.get_role_assignments'
+            proc = u'vger.get_role_assignments'
             args = [state['userid']]
             kw = {'no_filter': True}
         orb.log.info('* calling rpc "{}"'.format(proc))
@@ -403,8 +403,8 @@ class Main(QtWidgets.QMainWindow):
         Handle result of the rpc that got our Person object and role
         assignments.  If the 'adminserv' option is True, the admin service is
         called using the rpc 'omb.state.query'; if False (for use in
-        testing), the 'pger' service is called using the rpc
-        'pger.get_role_assignments'.  Because the 'no_filter' keyword arg is
+        testing), the 'vger' service is called using the rpc
+        'vger.get_role_assignments'.  Because the 'no_filter' keyword arg is
         used, the returned data includes the full serialized objects, and has
         the format:
 
@@ -552,7 +552,7 @@ class Main(QtWidgets.QMainWindow):
                                                 str(state['assigned_roles'])))
                 except:
                     orb.log.debug('    - no assigned roles found.')
-                channels = [u'pger.channel.'+orgs[chan_oid]
+                channels = [u'vger.channel.'+orgs[chan_oid]
                             for chan_oid in state['assigned_roles']
                             if chan_oid != 'global']
                 orb.log.debug('    channels we will subscribe to: {}'.format(
@@ -589,7 +589,7 @@ class Main(QtWidgets.QMainWindow):
                 self.role_label.setText('online [no project selected]')
         else:
             self.role_label.setText('online [no roles assigned]')
-        channels.append(u'pger.channel.public')
+        channels.append(u'vger.channel.public')
         channels.append(u'omb.roleassignment')
         channels.append(u'omb.organizationlist')
         return channels
@@ -597,7 +597,7 @@ class Main(QtWidgets.QMainWindow):
     def subscribe_to_mbus_channels(self, channels):
         # TODO: subscribe to channels for all our projects (as determined from
         # our role assignments)
-        channels = channels or [u'pger.channel.public']
+        channels = channels or [u'vger.channel.public']
         orb.log.info('* attempting to subscribe to channels:  %s' % str(
                                                                     channels))
         subs = []
@@ -623,7 +623,7 @@ class Main(QtWidgets.QMainWindow):
             data (tuple):  version (str), schema_change (bool)
         """
         orb.log.info('[pgxn] check_version()')
-        orb.log.info('       -> rpc: pger.get_version()')
+        orb.log.info('       -> rpc: vger.get_version()')
         orb.log.info("  - output: {}".format(str(data)))
         version, schema_change = data
         # use >= in case I forget to update the server, or whatever
@@ -668,16 +668,16 @@ class Main(QtWidgets.QMainWindow):
             data:  parameter required for callback (ignored)
 
         Return:
-            deferred: result of `pger.sync_parameter_definitions` rpc
+            deferred: result of `vger.sync_parameter_definitions` rpc
         """
-        orb.log.info('[pgxn] rpc: pger.sync_parameter_definitions()')
+        orb.log.info('[pgxn] rpc: vger.sync_parameter_definitions()')
         self.statusbar.showMessage('syncing parameter definitions ...')
         # exclude refdata (already shared)
         pd_mod_dts = orb.get_mod_dts(cname='ParameterDefinition')
         data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
-        orb.log.info('       -> rpc: pger.sync_parameter_definitions()')
-        return message_bus.session.call(u'pger.sync_parameter_definitions',
+        orb.log.info('       -> rpc: vger.sync_parameter_definitions()')
+        return message_bus.session.call(u'vger.sync_parameter_definitions',
                                         data)
 
     def sync_user_created_objs_to_repo(self, data):
@@ -698,8 +698,8 @@ class Main(QtWidgets.QMainWindow):
         self.statusbar.showMessage('syncing locally created objects ...')
         oids = [o.oid for o in self.local_user.created_objects]
         data = orb.get_mod_dts(oids=oids)
-        orb.log.info('       -> rpc: pger.sync_objects()')
-        return message_bus.session.call(u'pger.sync_objects', data)
+        orb.log.info('       -> rpc: vger.sync_objects()')
+        return message_bus.session.call(u'vger.sync_objects', data)
 
     def sync_library_objs(self, data):
         """
@@ -718,7 +718,7 @@ class Main(QtWidgets.QMainWindow):
         # come back in the set of oids to be ignored
         data = orb.get_mod_dts(cname='HardwareProduct')
         data.update(orb.get_mod_dts(cname='Template'))
-        return message_bus.session.call(u'pger.sync_library_objects', data)
+        return message_bus.session.call(u'vger.sync_library_objects', data)
 
     def sync_projects_with_roles(self, data):
         """
@@ -732,7 +732,7 @@ class Main(QtWidgets.QMainWindow):
         for org_oid in set(state['assigned_roles']).union(
                        set(state['admin_of'])):
             if org_oid and not orb.get(org_oid):
-                rpc = message_bus.session.call(u'pger.get_object', org_oid)
+                rpc = message_bus.session.call(u'vger.get_object', org_oid)
                 rpc.addCallback(self.on_rpc_get_object)
                 rpc.addErrback(self.on_failure)
         return True
@@ -753,7 +753,7 @@ class Main(QtWidgets.QMainWindow):
             data:  parameter required for callback (ignored)
 
         Return:
-            deferred: result of `pger.sync_project` rpc
+            deferred: result of `vger.sync_project` rpc
         """
         orb.log.info('[pgxn] sync_current_project()')
         proj_oid = state.get('project')
@@ -770,7 +770,7 @@ class Main(QtWidgets.QMainWindow):
                     data[obj.oid] = dts
         else:
             self.statusbar.showMessage('synced.')
-        return message_bus.session.call(u'pger.sync_project', proj_oid, data)
+        return message_bus.session.call(u'vger.sync_project', proj_oid, data)
 
     def on_user_objs_sync_result(self, data):
         self.on_sync_result(data, user_objs_sync=True)
@@ -782,13 +782,13 @@ class Main(QtWidgets.QMainWindow):
         """
         Callback function to process the result of the following rpcs:
 
-            - `pger.sync_parameter_definitions` -- which is called by:
+            - `vger.sync_parameter_definitions` -- which is called by:
                 + self.sync_parameter_definitions()
 
-            - `pger.sync_objects` -- which is called by:
+            - `vger.sync_objects` -- which is called by:
                 + self.sync_user_created_objs_to_repo()
 
-            - `pger.sync_project` -- which is called by:
+            - `vger.sync_project` -- which is called by:
                 + self.sync_current_project()
 
         The server response is a list of lists:
@@ -808,7 +808,7 @@ class Main(QtWidgets.QMainWindow):
                 objects sync
 
         Return:
-            deferred:  result of `pger.save` rpc
+            deferred:  result of `vger.save` rpc
         """
         orb.log.info('[pgxn] on_sync_result()')
         orb.log.debug('       data: {}'.format(str(data)))
@@ -883,12 +883,12 @@ class Main(QtWidgets.QMainWindow):
             self.statusbar.showMessage('saving local objs to repo ...')
         else:
             self.statusbar.showMessage('synced.')
-        return message_bus.session.call(u'pger.save', sobjs_to_save)
+        return message_bus.session.call(u'vger.save', sobjs_to_save)
 
     def on_sync_library_result(self, data, project_sync=False):
         """
         Callback function to process the result of the
-        `pger.sync_library_objects` rpc.  The server response is a list of
+        `vger.sync_library_objects` rpc.  The server response is a list of
         lists:
 
             [0]:  server objects with later mod_datetime(s) or not found in the
@@ -908,7 +908,7 @@ class Main(QtWidgets.QMainWindow):
             data:  response from the server
 
         Return:
-            deferred:  result of `pger.save` rpc
+            deferred:  result of `vger.save` rpc
         """
         orb.log.info('[pgxn] on_sync_library_result()')
         orb.log.debug('       data: {}'.format(str(data)))
@@ -957,7 +957,7 @@ class Main(QtWidgets.QMainWindow):
         # if library objects have been added or deleted, call _update_views()
         if update_needed:
             self._update_views()
-        return message_bus.session.call(u'pger.save', sobjs_to_save)
+        return message_bus.session.call(u'vger.save', sobjs_to_save)
 
     def on_pubsub_msg(self, msg):
         for item in msg.items():
@@ -1012,13 +1012,13 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('       (local "cloaking" signal received ...)')
         # TODO:  if not connected, show a warning to that effect ...
         if oid:
-            rpc = message_bus.session.call(u'pger.get_cloaking_status', oid)
+            rpc = message_bus.session.call(u'vger.get_cloaking_status', oid)
             rpc.addCallback(self.on_get_cloaking_status)
             rpc.addErrback(self.on_failure)
 
     def decloak(self, oid='', actor_oid=''):
         """
-        Call 'pger.decloak' with the specified arguments, in response to a
+        Call 'vger.decloak' with the specified arguments, in response to a
         local 'decloaking' signal.
 
         Keyword Args:
@@ -1040,9 +1040,9 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.info('       cannot decloak to SANDBOX.')
                 return
         if oid and actor_oid:
-            orb.log.info('       sending pger.decloak("{}", "{}")'.format(oid,
+            orb.log.info('       sending vger.decloak("{}", "{}")'.format(oid,
                                                                     actor_oid))
-            rpc = message_bus.session.call(u'pger.decloak', oid, actor_oid)
+            rpc = message_bus.session.call(u'vger.decloak', oid, actor_oid)
             rpc.addCallback(self.on_get_cloaking_status)
             rpc.addErrback(self.on_failure)
 
@@ -1133,7 +1133,7 @@ class Main(QtWidgets.QMainWindow):
         else:
             # get object from repository ...
             orb.log.info('  - decloaked object unknown -- get from repo...')
-            rpc = message_bus.session.call(u'pger.get_object', obj_oid,
+            rpc = message_bus.session.call(u'vger.get_object', obj_oid,
                                            include_components=True)
             rpc.addCallback(self.on_rpc_get_object)
             rpc.addErrback(self.on_failure)
@@ -1975,9 +1975,9 @@ class Main(QtWidgets.QMainWindow):
         if obj:
             self.project = obj
             if state['connected']:
-                orb.log.info('  calling pger.save() for project id: {}'.format(
+                orb.log.info('  calling vger.save() for project id: {}'.format(
                                                                        obj.id))
-                rpc = message_bus.session.call(u'pger.save',
+                rpc = message_bus.session.call(u'vger.save',
                                                serialize(orb, [obj]))
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
@@ -2027,7 +2027,7 @@ class Main(QtWidgets.QMainWindow):
             elif dts > obj.mod_datetime:
                 # get the remote object
                 orb.log.info('  remote object is newer, getting...')
-                rpc = message_bus.session.call(u'pger.get_object', obj.oid,
+                rpc = message_bus.session.call(u'vger.get_object', obj.oid,
                                                include_components=True)
                 rpc.addCallback(self.on_remote_get_mod_object)
                 rpc.addErrback(self.on_failure)
@@ -2036,7 +2036,7 @@ class Main(QtWidgets.QMainWindow):
         else:
             orb.log.info('  ')
             orb.log.info('  object not found in local db, getting ...')
-            rpc = message_bus.session.call(u'pger.get_object', obj.oid,
+            rpc = message_bus.session.call(u'vger.get_object', obj.oid,
                                            include_components=True)
             rpc.addCallback(self.on_remote_get_mod_object)
             rpc.addErrback(self.on_failure)
@@ -2159,9 +2159,9 @@ class Main(QtWidgets.QMainWindow):
                         serialized_objs = serialize(orb, [obj])
                 else:
                     serialized_objs = serialize(orb, [obj])
-                orb.log.info('  calling rpc pger.save() on obj id: {}'.format(
+                orb.log.info('  calling rpc vger.save() on obj id: {}'.format(
                                                                      obj.id))
-                rpc = message_bus.session.call(u'pger.save', serialized_objs)
+                rpc = message_bus.session.call(u'vger.save', serialized_objs)
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
         else:
@@ -2212,7 +2212,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info('  - publishing "deleted" msg to public channel')
             # cname is not needed for pub/sub msg because if it is of interest
             # to a remote user, they have the object
-            message_bus.session.publish(u'pger.channel.public',
+            message_bus.session.publish(u'vger.channel.public',
                                         {u'deleted': oid})
             if oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(oid)
@@ -3676,8 +3676,8 @@ class Main(QtWidgets.QMainWindow):
         # if state.get('connected'):
             # # if connected to mbus, get_version is a quicker way to check
             # # whether a new version is available
-            # orb.log.info('  calling rpc pger.get_version() ...')
-            # rpc = message_bus.session.call(u'pger.get_version')
+            # orb.log.info('  calling rpc vger.get_version() ...')
+            # rpc = message_bus.session.call(u'vger.get_version')
             # rpc.addCallback(self.check_version)
             # rpc.addErrback(self.on_failure)
         # else:
