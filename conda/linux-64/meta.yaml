@@ -1,9 +1,9 @@
 package:
-  name: pangalactic
-  version: "0.1.dev61"
+  name: pangalactic.node
+  version: "0.1.dev92"
 
 source:
-        path: /home/waterbug/gitlab/pgef
+        path: /home/waterbug/gitlab/pangalactic.node
 
 build:
   entry_points:
@@ -15,33 +15,23 @@ requirements:
     - setuptools
 
   run:
-    - autobahn 0.17.1  # conda-forge
+    - pangalactic.core >=0.1.dev92
+    - autobahn
+    - binaryornot
     - conda
-    - binaryornot       # conda-forge
-    - hdf5 <=1.8.18     # otherwise, get HDF5ExtError
-    - inflect           # conda-forge
+    - inflect
     - jpeg >=9b
     - matplotlib
-    - numpy >=1.13.3
     - openjpeg >=2.3.0
-    - pandas
     - pillow <=4.1.1    # 4.2.x is broken
     - pyqt >=5.6
     - python >=2.7
-    - pytables
-    - pythonocc-core    # dlr-sc
+    - pythonocc-core
     - pytz
-    - rdflib            # conda-forge
     - ruamel_yaml
     - service_identity
     - sqlalchemy
-    - twisted <=16.6
-    - tzlocal
-    - unidecode
-    - xlrd
-    - xlwt
-    - xlsxwriter
-    - zope
+    - twisted
     - zope.interface
     # locally created conda packages
     - louie
