@@ -2953,7 +2953,7 @@ class Main(QtWidgets.QMainWindow):
         """ % (app, version))
 
     def show_help(self):
-        help_url = 'file:///home/waterbug/gitlab/cattens/doc/user_guide.html'
+        help_url = 'file://' + os.path.join(orb.home, 'doc', 'user_guide.html')
         help_widget = HelpWidget(help_url, parent=self)
         help_widget.show()
 
