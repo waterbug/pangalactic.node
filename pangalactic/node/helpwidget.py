@@ -22,7 +22,7 @@ class HelpWidget(QDialog):
         self.create_widgets()
         self.layout_widgets()
         self.create_connections()
-        self.text_browser.setSearchPaths([":/help"])
+        # self.text_browser.setSearchPaths([":/help"])
         self.text_browser.setSource(QUrl(page))
         self.resize(1200, 900)
         self.setWindowTitle("{0} Help".format(

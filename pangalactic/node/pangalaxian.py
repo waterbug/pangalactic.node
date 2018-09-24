@@ -4,9 +4,9 @@
 Pangalaxian (the PanGalactic GUI client) main window
 """
 import argparse, atexit, os, platform, shutil, six, subprocess, traceback
+import urlparse, urllib
 from collections import OrderedDict
 from distutils   import spawn
-from urlparse    import urlparse
 
 # special treatment of `sys` module to set default encoding to utf-8
 # NOTE: this is to prevent UnicodeDecodeError: 'ascii' codec can't decode ...
@@ -2953,7 +2953,8 @@ class Main(QtWidgets.QMainWindow):
         """ % (app, version))
 
     def show_help(self):
-        help_url = 'file://' + os.path.join(orb.home, 'doc', 'user_guide.html')
+        ug_path = os.path.join(orb.home, 'doc', 'user_guide.html')
+        help_url = urlparse.urljoin('file:', urllib.pathname2url(ug_path))
         help_widget = HelpWidget(help_url, parent=self)
         help_widget.show()
 
@@ -3541,7 +3542,7 @@ class Main(QtWidgets.QMainWindow):
             for rf in rfs:
                 # look for the file and, if found, copy it ...
                 if rf.url:
-                    u = urlparse(asciify(rf.url))
+                    u = urlparse.urlparse(asciify(rf.url))
                     fpath = os.path.join(orb.test_data_dir, u.netloc)
                     if u.scheme == 'vault' and os.path.exists(fpath):
                         shutil.copy(fpath, orb.vault)
