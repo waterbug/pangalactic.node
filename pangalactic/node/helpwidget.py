@@ -6,7 +6,7 @@ import os
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtGui import QIcon, QKeySequence
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog,
-    QLabel, QTextBrowser, QToolBar, QVBoxLayout)
+    QDialogButtonBox, QLabel, QTextBrowser, QToolBar, QVBoxLayout)
 
 # pangalactic
 from pangalactic.core         import state
@@ -36,6 +36,13 @@ class HelpWidget(QDialog):
                                     icon="left_arrow",
                                     tip="Back to previous page")
         self.back_action.setShortcut(QKeySequence.Back)
+        # "forward" does not work correctly (confused by links in the TOC)
+        # self.forward_action = self.create_action(
+                                    # "Go Forward",
+                                    # slot=self.text_browser.forward,
+                                    # icon="right_arrow",
+                                    # tip="Back to previous page")
+        # self.forward_action.setShortcut(QKeySequence.Forward)
         self.home_action = self.create_action(
                                     "Home",
                                     slot=self.text_browser.home,
@@ -46,6 +53,7 @@ class HelpWidget(QDialog):
 
         self.tool_bar = QToolBar()
         self.tool_bar.addAction(self.back_action)
+        # self.tool_bar.addAction(self.forward_action)
         self.tool_bar.addAction(self.home_action)
         self.tool_bar.addWidget(self.page_label)
 
@@ -70,6 +78,9 @@ class HelpWidget(QDialog):
         layout = QVBoxLayout()
         layout.addWidget(self.tool_bar)
         layout.addWidget(self.text_browser, 1)
+        bbox = QDialogButtonBox(QDialogButtonBox.Close)
+        bbox.rejected.connect(self.reject)
+        layout.addWidget(bbox)
         self.setLayout(layout)
 
     def create_connections(self):
