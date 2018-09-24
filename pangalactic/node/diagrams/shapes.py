@@ -16,6 +16,7 @@ from PyQt5.QtGui import QColor
 from louie import dispatcher
 
 # pangalactic
+from pangalactic.core             import diagramz
 from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import parameterz
 from pangalactic.core.uberorb     import orb
@@ -483,6 +484,14 @@ class SubjectBlock(Block):
                                  type_of_port=port_type, of_product=self.obj)
                 orb.db.commit()
                 dispatcher.send('new object', obj=new_port)
+                # mark existing diagrams containing that object as "dirty" (the
+                # block will draw itself correctly but saved diagrams need to
+                # be redrawn to accommodate the block if it is larger) ... the
+                # "dirty" flag will be reset by the 'save_diagram' function
+                # when the new diagram is saved.
+                for diagram in diagramz.values():
+                    if self.obj.oid in diagram['object_blocks']:
+                        diagram['dirty'] = True
                 self.rebuild_port_blocks()
             else:
                 orb.log.info("  - dropped port type oid not in db.")

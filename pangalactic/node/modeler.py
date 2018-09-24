@@ -390,12 +390,15 @@ class ModelWindow(QMainWindow):
         elif hasattr(self.obj, 'systems') and len(self.obj.systems):
             # self.obj is a Project
             objs = [psu.system for psu in self.obj.systems]
-        if model:
+        if model and not model.get('dirty'):
             orb.log.info('  - restoring saved block diagram ...')
             scene.restore_diagram(model, objs)
         else:
-            orb.log.info('  - no block diagram found in cache or files,')
-            orb.log.info('    generating one ...')
+            if model and model.get('dirty'):
+                orb.log.info('  - block diagram found needed redrawing,')
+            elif not model:
+                orb.log.info('  - no block diagram found in cache or files ')
+            orb.log.info('    generating new block diagram ...')
             # orb.log.info('  - generating diagram (cache disabled for testing)')
             scene.create_ibd(objs)
             # create a block Model object if self.obj doesn't have one

@@ -372,7 +372,7 @@ class DiagramScene(QGraphicsScene):
                                                 self.get_routing_channel()))
         return dict(object_blocks=object_blocks,
                     subject_block=subject_block,
-                    flows=flows)
+                    flows=flows, dirty=False)
 
     def restore_diagram(self, model, objs):
         """
