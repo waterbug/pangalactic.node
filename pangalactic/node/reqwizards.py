@@ -28,37 +28,37 @@ all_req_fields=['id', 'name', 'description', 'rationale', 'id_ns', 'version',
                 'frozen', 'derived_from' ,'public', 'level', 'validated']
 
 
-def gen_req_id(requirement, discipline_id):
+def gen_req_id(project, level, version):
     """
     Generate the `id` attribute for a new requirement. (NOTE:  this function
     assumes that the requirement has already been created and is therefore
     included in the count of requirements for the project). The format of the
     returned `id` is as follows:
 
-        project.lvl.seq[.version].discipline
+        project_id.level.seq[.version]
 
     Args:
-        requirement (Requirement):  a Requirement instance
-        discipline_id (str):  identifier of a Discipline
+        project (Project):  a Project instance
+        level (int):  integer >= 0
+        version (str):  a version string or number
     """
-    project_oid = state.get('project')
-    proj = orb.get(project_oid)
-    new_id = proj.id + '.'
-    lvl = requirement.level
-    if lvl:
-        new_id += str(lvl) + '.'
+    new_id = project.id + '.'
+    if level:
+        new_id += str(level) + '.'
     else:
         new_id += '0.'
-    new_id += str(orb.count_reqts_for_project(proj))
+    seq = orb.count_reqts_for_project(project)
+    new_id += str(seq)
     # TODO:  versioning system TBD
-    if requirement.version:
-        new_id += '.' + str(requirement.version)
+    if version:
+        new_id += '.' + str(version)
     else:
         new_id += '.0'
-    if discipline_id:
-        new_id += '.' + discipline_id
-    else:
-        new_id += '.Global'
+    # NOTE:  discipline should be derived from allocation, not part of id
+    # if discipline_id:
+        # new_id += '.' + discipline_id
+    # else:
+        # new_id += '.Global'
     return new_id
 
 
@@ -133,13 +133,14 @@ class RequirementIDPage(QWizardPage):
         """
         perform = req_wizard_state.get('perform')
         proj_oid = state.get('project')
-        project = orb.get(proj_oid)
+        self.project = orb.get(proj_oid)
         req = orb.get(req_wizard_state.get('req_oid'))
         if req:
             self.req = req
         else:
-            self.req = clone("Requirement", owner=project, public=True)
-            req_wizard_state['req_oid'] = self.req.oid
+            self.req = clone("Requirement", owner=self.project, public=True)
+            orb.save([self.req])
+        req_wizard_state['req_oid'] = self.req.oid
         # Where the perform and functional differ
         main_view = []
         required = []
@@ -223,6 +224,9 @@ class RequirementIDPage(QWizardPage):
             return False
         self.level_cb.setDisabled(False)
         self.pgxn_obj.edit_button.clicked.connect(self.update_levels)
+        req_level = self.req.level or 0
+        self.req.id = gen_req_id(self.project, req_level, '0')
+        orb.save([self.req])
         return True
 
 
@@ -350,7 +354,7 @@ class ReqAllocPage(QWizardPage):
         dispatcher.connect(self.select_node, 'sys node selected')
         req_wizard_state['function'] = None
         self.setTitle("Requirement Allocation")
-        self.setSubTitle("Specify the function, if known, "
+        self.setSubTitle("Specify the function / subsystem, if known, "
                          "which will satisfy the requirement...")
         layout = self.layout()
         layout.addWidget(self.sys_tree)
@@ -371,27 +375,29 @@ class ReqAllocPage(QWizardPage):
             if stuff:
                 # TODO: Give nice little message to the user
                 pass
-
-            sr = clone('SystemRequirement', requirement=req, supported_by=link,
-                        id='req_allocation', name='test_allocation')
             fn_name = link.system_role
+            sr_id = 'SYSTEM-REQ-' + req.id + '-for-system-' + fn_name
+            sr_name = ' '.join(['System Requirement', req.name,
+                                'allocation to system', fn_name])
+            new_obj = clone('SystemRequirement', requirement=req,
+                            supported_by=link, id=sr_id, name=sr_name)
 
-        if hasattr(link, 'component'):
+        elif hasattr(link, 'component'):
             stuff = orb.search_exact(allocated_requirement=req, satisfied_by=link)
             if stuff:
                 # TODO: Give nice little message to the user
                 pass
-
-            sr = clone('RequirementAllocation', allocated_requirement=req,
-                    satisfied_by=link, id='req_allocation',
-                    name='test_allocation')
             fn_name = link.reference_designator
+            alloc_id = 'REQ-ALLOCATION-' + req.id + '-to-subsystem-' + fn_name
+            alloc_name = ' '.join(['Allocation of Requirement', req.name, 
+                                   'to subsystem', fn_name])
+            new_obj = clone('RequirementAllocation', allocated_requirement=req,
+                            satisfied_by=link, id=alloc_id, name=alloc_name)
 
         # TODO: get the selected name/product so it can be used in the shall
-        # statement. I think this will require better names for the sr created
-        # above.
+        # statement.
         req_wizard_state['function'] = fn_name
-        orb.save([sr])
+        orb.save([new_obj])
 
 class ReqSummaryPage(QWizardPage):
     """
@@ -434,8 +440,6 @@ class ReqSummaryPage(QWizardPage):
         self.allocation.setText(function)
         self.verification.setText(ver_method)
         requirement = orb.get(req_wizard_state.get('req_oid'))
-        requirement.id = gen_req_id(requirement, discipline_id)
-        orb.save([requirement])
         panels = ['main','info']
         self.pgxn_obj = PgxnObject(requirement, panels=panels,
                 edit_mode=False, mask=all_req_fields, required=[],
@@ -705,7 +709,7 @@ class PerformReqBuildShallPage(QWizardPage):
 
         self.setTitle('Shall Construction and Rationale')
         self.setSubTitle('Construct the shall statement using the instructions'
-                    ' bellow, and then provide the requirements rationale...')
+                    ' below, and then provide the requirements rationale...')
 
         # different shall cb options
         shall_general = ['shall', 'shall be', 'shall have']
@@ -1018,11 +1022,11 @@ class PerformReqBuildShallPage(QWizardPage):
                     shall_prev += ' '
         shall_prev += '.'
         if req_wizard_state.get('shall') and req_wizard_state.get('rationale'):
-            shall_rationale = "Shall Statement: \n" + req_wizard_state['shall']
-            shall_rationale+="\n Rationale: \n" + req_wizard_state['rationale']
+            shall_rat = "Shall Statement: \n" + req_wizard_state['shall']
+            shall_rat +="\n Rationale: \n" + req_wizard_state['rationale']
         else:
-            shall_rationale = "All of shall and rationale has not been entered"
-        QMessageBox.question(self, 'preview', shall_rationale, QMessageBox.Ok)
+            shall_rat = "Shall statement and rationale have not been entered."
+        QMessageBox.question(self, 'preview', shall_rat, QMessageBox.Ok)
 
     def isComplete(self):
         """
@@ -1061,8 +1065,8 @@ class PerformReqBuildShallPage(QWizardPage):
         # TODO: get the project
         # assign description and rationale
         requirement = orb.get(req_wizard_state.get('req_oid'))
-        requirement.description = req_wizard_state['shall']
-        requirement.rationale = req_wizard_state['rationale']
+        requirement.description = req_wizard_state.get('shall', '')
+        requirement.rationale = req_wizard_state.get('rationale', '')
         if not req_wizard_state.get('num1'):
             return False
         if self.first_num:
