@@ -401,7 +401,7 @@ class ReqAllocPage(QWizardPage):
 
 class ReqSummaryPage(QWizardPage):
     """
-    Page to view a summary of the before saving the new Requirement.
+    Page to view a summary before saving the new Requirement.
     """
     def __init__(self, parent=None):
         super(ReqSummaryPage, self).__init__(parent)
@@ -853,7 +853,6 @@ class PerformReqBuildShallPage(QWizardPage):
         self.rationale = QPlainTextEdit()
         self.rationale.textChanged.connect(self.completeChanged)
 
-
         # TODO: populate the shall statement -- this should be tied to a drop
         # event, change of shall type, num entry, and units change
 
@@ -1065,8 +1064,8 @@ class PerformReqBuildShallPage(QWizardPage):
         # TODO: get the project
         # assign description and rationale
         requirement = orb.get(req_wizard_state.get('req_oid'))
-        requirement.description = req_wizard_state.get('shall', '')
-        requirement.rationale = req_wizard_state.get('rationale', '')
+        requirement.description = req_wizard_state['shall']
+        requirement.rationale = req_wizard_state['rationale']
         if not req_wizard_state.get('num1'):
             return False
         if self.first_num:
@@ -1079,6 +1078,7 @@ class PerformReqBuildShallPage(QWizardPage):
         if self.num2:
             if not req_wizard_state.get('num2'):
                 return False
+        orb.save([requirement])
         return True
 
 

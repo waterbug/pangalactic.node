@@ -1336,24 +1336,18 @@ class Main(QtWidgets.QMainWindow):
                                     icon="new_doc",
                                     tip="Create a New Product Type",
                                     modes=['system', 'component', 'db'])
-        self.new_requirement_action = self.create_action(
-                                    "New Requirement",
-                                    slot=self.new_requirement,
-                                    icon="new_doc",
-                                    tip="Create a New Requirement",
-                                    modes=['system', 'component', 'db'])
         self.new_functional_requirement_action = self.create_action(
                                     "New Functional Requirement",
                                     slot=self.new_functional_requirement,
                                     icon="new_doc",
                                     tip="Create a New Requirement",
-                                    modes=['system', 'component', 'db'])
+                                    modes=['system'])
         self.new_performance_requirement_action=self.create_action(
                                     "New Performance Requirement",
                                     slot=self.new_perform_requirement,
                                     icon="new_doc",
                                     tip="Create a New Requirement",
-                                    modes=["system", "component","db"])
+                                    modes=["system"])
         self.new_test_action = self.create_action(
                                     "New Test",
                                     slot=self.new_test,
@@ -3121,24 +3115,6 @@ class Main(QtWidgets.QMainWindow):
                 orb.delete([req])
                 dispatcher.send(signal='deleted object', oid=oid,
                                 cname='Requirement')
-
-    def new_requirement(self):
-        # TODO:  Requirements need a Wizard
-        # NOTE:  for a Requirement, 'owner' may different than the project
-        project_oid = state.get('project')
-        if project_oid:
-            proj = orb.get(project_oid)
-            id_placeholder = proj.id + '-'
-            req = clone('Requirement', id=id_placeholder, owner=proj)
-        else:
-            req = clone('Requirement')
-        # modal_mode -> 'cancel' closes dialog
-        # panels = ['main', 'info', 'admin']
-        # panels = ['parameters']
-        panels = None
-        pxo = PgxnObject(req, edit_mode=True, new=True, modal_mode=True,
-                         panels=panels, parent=self)
-        pxo.show()
 
     def new_test(self):
         # TODO:  Wizard for Test?
