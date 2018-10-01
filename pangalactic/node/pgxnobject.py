@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QDialogButtonBox,
 
 from louie      import dispatcher
 from sqlalchemy import ForeignKey
+from sqlalchemy.orm.collections import InstrumentedList
 
 # pangalactic
 from pangalactic.core import state
@@ -409,11 +410,15 @@ class PgxnForm(QWidget):
     def on_view_related(self):
         orb.log.info('* [pgxnobj] view related object ...')
         widget = self.sender()
+        # TODO: handle get_value() for M2M and ONE2M relationships
+        # (InstrumentedList)
         obj = widget.get_value()
         orb.log.debug('* [pgxnobj]   object: %s' % str(obj))
         # TODO:  if editable, bring up selection list of possible values
         # or, if none, give option to create a new object (with pgxnobject)
-        if obj:
+        # NOTE: get_value() may return a sqlalchemy "InstrumentedList" -- in
+        # that case ignore it because it will cause a crash
+        if obj and not isinstance(obj, InstrumentedList):
             self.new_window = PgxnObject(obj)
             # show() -> non-modal dialog
             self.new_window.show()
