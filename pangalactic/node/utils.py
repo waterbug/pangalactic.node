@@ -263,7 +263,7 @@ def get_object_title(obj, new=False):
     if new:
         title += '<font color="blue">New {}</font>'.format(cname_display)
     else:
-        title += display_name(obj)
+        title += display_name(obj) or '[no name]'
     pt = ''
     if hasattr(obj, 'product_type'):
         pt = getattr(obj.product_type, 'name', cname_display)
