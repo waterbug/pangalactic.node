@@ -419,9 +419,17 @@ class NumericSortModel(QSortFilterProxyModel):
 
 
 class SpecialSortModel(QSortFilterProxyModel):
+    """
+    Model that sorts on "."-delimited string of concatenated segments, which
+    may be one of the 3 patterns:
 
+        version:  i.j.[k...] (integer segments)
+        numeric:  i.j (integer segments)
+        reqt id:  [project id].[sequence].[version]
+    """
     versionpat = r'[0-9][0-9]*(\.[0-9][0-9]*)*'
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
+    reqpat = r'[a-zA-Z][a-zA-Z0-9]*(\.[0-9][0-9]*)(\.[a-zA-Z0-9][a-zA-Z0-9]*)'
 
     def is_version(self, s):
         try:
@@ -433,6 +441,13 @@ class SpecialSortModel(QSortFilterProxyModel):
     def is_numeric(self, s):
         try:
             m = re.match(self.numpat, str(s))
+            return m.group(0) == s
+        except:
+            return False
+
+    def is_reqt_id(self, s):
+        try:
+            m = re.match(self.reqpat, str(s))
             return m.group(0) == s
         except:
             return False
@@ -454,6 +469,24 @@ class SpecialSortModel(QSortFilterProxyModel):
               self.is_numeric(right.data())):
             lvalue = float(left.data())
             rvalue = float(right.data())
+            if lvalue and rvalue:
+                return lvalue < rvalue
+            else:
+                return QSortFilterProxyModel.lessThan(self, left, right)
+        # Requirement ID Sort
+        # * tests for strings of [project id].[seq].[version]
+        elif (self.is_reqt_id(left.data()) and
+              self.is_reqt_id(right.data())):
+            ld = left.data().split('.')
+            if len(ld) == 3:
+                lvalue = [ld[0], int(ld[1]), ld[2]]
+            else:
+                lvalue = ld
+            rd = right.data().split('.')
+            if len(rd) == 3:
+                rvalue = [rd[0], int(rd[1]), rd[2]]
+            else:
+                rvalue = rd
             if lvalue and rvalue:
                 return lvalue < rvalue
             else:

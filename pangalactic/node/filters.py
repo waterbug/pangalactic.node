@@ -210,10 +210,12 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
         * numeric sort (for integers and floats)
         * version sort (for version strings: 'x.x.x', etc.)
+        * requirement sort for reqt id:  [project id].[sequence].[version]
         * text sort for everything else
     """
     versionpat = r'[0-9][0-9]*(\.[0-9][0-9]*)*'
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
+    reqpat = r'[a-zA-Z][a-zA-Z0-9]*(\.[0-9][0-9]*)(\.[a-zA-Z0-9][a-zA-Z0-9]*)'
 
     def __init__(self, ncols=None, col_labels=None, col_defs=None,
                  col_dtypes=None, filters=None, parent=None):
@@ -245,6 +247,13 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
         except:
             return False
 
+    def is_reqt_id(self, s):
+        try:
+            m = re.match(self.reqpat, str(s))
+            return m.group(0) == s
+        except:
+            return False
+
     def lessThan(self, left, right):
         try:
             dtype = self.col_dtypes[left.column()]
@@ -267,6 +276,24 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
               self.is_numeric(right.data())):
             lvalue = float(left.data())
             rvalue = float(right.data())
+            if lvalue and rvalue:
+                return lvalue < rvalue
+            else:
+                return QSortFilterProxyModel.lessThan(self, left, right)
+        # Requirement ID Sort
+        # * tests for strings of [project id].[seq].[version]
+        elif (self.is_reqt_id(left.data()) and
+              self.is_reqt_id(right.data())):
+            ld = left.data().split('.')
+            if len(ld) == 3:
+                lvalue = [ld[0], int(ld[1]), ld[2]]
+            else:
+                lvalue = ld
+            rd = right.data().split('.')
+            if len(rd) == 3:
+                rvalue = [rd[0], int(rd[1]), rd[2]]
+            else:
+                rvalue = rd
             if lvalue and rvalue:
                 return lvalue < rvalue
             else:

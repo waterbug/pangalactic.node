@@ -28,38 +28,63 @@ all_req_fields=['id', 'name', 'description', 'rationale', 'id_ns', 'version',
                 'frozen', 'derived_from' ,'public', 'level', 'validated']
 
 
-def gen_req_id(project, level, version):
+def gen_req_id(project, version=None, ancestor_reqt=None):
     """
     Generate the `id` attribute for a new requirement. (NOTE:  this function
-    assumes that the requirement has already been created and is therefore
+    assumes that the requirement has already been saved and is therefore
     included in the count of requirements for the project). The format of the
     returned `id` is as follows:
 
-        project_id.level.seq[.version]
+        project_id.seq[.version]
 
     Args:
         project (Project):  a Project instance
-        level (int):  integer >= 0
+
+    Keyword Args:
         version (str):  a version string or number
+        ancestor_reqt (Requirement):  the previous version of this requirement
     """
-    new_id = project.id + '.'
-    if level:
-        new_id += str(level) + '.'
+    orb.log.info('* gen_req_id:  generating a new requirement "id".')
+    # TODO:  if version is not 0, use seq number of ancestor requirement version
+    if (ancestor_reqt and
+        isinstance(ancestor_reqt, orb.classes['Requirement'])):
+        parts = ancestor_reqt.id.split('.')
+        if len(parts) == 3:
+            if version is not None and version:
+                # if a version is specified, use it
+                version = str(version)
+            else:
+                # if a version is not specified, try to increment
+                ancestor_version = parts[2]
+                try:
+                    version = int(ancestor_version) + 1
+                except:
+                    orb.log.info('  - ancestor version not integer; using 0.')
+            seq = parts[1]
+        else:
+            orb.log.info('  - ancestor reqt. has malformed "id".')
     else:
-        new_id += '0.'
-    seq = orb.count_reqts_for_project(project)
-    new_id += str(seq)
+        if version is not None and version:
+            version = str(version)
+        idvs = orb.get_idvs('Requirement')
+        # NOTE:  must check that idv[0] is not None (i.e. id is not assigned)
+        project_idvs = [idv for idv in idvs
+                        if idv[0] and (idv[0].split('.'))[0] == project.id]
+        # try:
+        seq = max([int(idv[0].split('.')[1]) for idv in project_idvs]) + 1
+        # except:
+            # orb.log.info('* gen_req_id: could not parse reqt ids.')
+    new_id = build_req_id(project, seq, version)
+    orb.log.info('* gen_req_id: generated reqt. id: {}'.format(new_id))
+    return new_id
+
+def build_req_id(project, seq, version):
     # TODO:  versioning system TBD
     if version:
-        new_id += '.' + str(version)
+        version = str(version)
     else:
-        new_id += '.0'
-    # NOTE:  discipline should be derived from allocation, not part of id
-    # if discipline_id:
-        # new_id += '.' + discipline_id
-    # else:
-        # new_id += '.Global'
-    return new_id
+        version = '0'
+    return '.'.join([project.id, str(seq), version])
 
 
 class ReqWizard(QWizard):
@@ -85,7 +110,6 @@ class ReqWizard(QWizard):
 
         if not performance:
             self.addPage(RequirementIDPage(self))
-            self.addPage(ReqDisciplinePage(self))
             self.addPage(ReqAllocPage(self))
             self.addPage(ReqVerificationPage(self))
             self.addPage(ReqSummaryPage(self))
@@ -93,7 +117,6 @@ class ReqWizard(QWizard):
             self.setGeometry(50, 50, 850, 900);
         else:
             self.addPage(RequirementIDPage(self))
-            self.addPage(ReqDisciplinePage(self))
             self.addPage(ReqAllocPage(self))
             self.addPage(PerformanceDefineParmPage(self))
             self.addPage(PerformReqBuildShallPage(self))
@@ -138,23 +161,29 @@ class RequirementIDPage(QWizardPage):
         if req:
             self.req = req
         else:
-            self.req = clone("Requirement", owner=self.project, public=True)
+            # NOTE: requirement id must be generated before cloning new reqt.;
+            # otherwise, generator will get confused
+            req_id = gen_req_id(self.project)
+            self.req = clone("Requirement", id=req_id, owner=self.project,
+                             public=True)
             orb.save([self.req])
         req_wizard_state['req_oid'] = self.req.oid
         # Where the perform and functional differ
         main_view = []
         required = []
         if perform:
-            main_view = ['name', 'derived_from']
+            main_view = ['id', 'name']
             required = ['name']
+            mask = ['id']
         else:
-            main_view = ['name', 'description', 'rationale',
-                        'derived_from', 'comment']
+            main_view = ['id', 'name', 'description', 'rationale', 'comment']
             required = ['name', 'description', 'rationale']
+            mask = ['id']
         panels = ['main']
         self.pgxn_obj = PgxnObject(self.req, embedded=True,
                         panels=panels, main_view=main_view,required=required,
-                        edit_mode=True,new=True, enable_delete=False)
+                        mask=mask, edit_mode=True,new=True,
+                        enable_delete=False)
         self.pgxn_obj.toolbar.hide()
         self.pgxn_obj.save_button.clicked.connect(self.completeChanged)
         self.pgxn_obj.save_button.clicked.connect(self.update_levels)
@@ -224,8 +253,7 @@ class RequirementIDPage(QWizardPage):
             return False
         self.level_cb.setDisabled(False)
         self.pgxn_obj.edit_button.clicked.connect(self.update_levels)
-        req_level = self.req.level or 0
-        self.req.id = gen_req_id(self.project, req_level, '0')
+        self.req.level = self.req.level or 0
         orb.save([self.req])
         return True
 
@@ -359,7 +387,7 @@ class ReqAllocPage(QWizardPage):
         layout = self.layout()
         layout.addWidget(self.sys_tree)
         self.setLayout(layout)
-        # default unless one is selected bellow
+        # default unless one is selected below
         req_wizard_state['function'] = self.project.id
 
     def select_node(self, link=None):
@@ -407,13 +435,10 @@ class ReqSummaryPage(QWizardPage):
         super(ReqSummaryPage, self).__init__(parent)
         layout = QVBoxLayout()
         form = QFormLayout()
-        self.discipline_label = 'Allocated Discipline:'
         self.allocation_label = 'Functional Allocation:'
         self.verification_label = 'Verification method:'
-        self.discipline = ValueLabel('')
         self.allocation = ValueLabel('')
         self.verification = ValueLabel('')
-        form.addRow(self.discipline_label, self.discipline)
         form.addRow(self.allocation_label, self.allocation)
         form.addRow(self.verification_label, self.verification)
         layout.addLayout(form)
@@ -425,18 +450,12 @@ class ReqSummaryPage(QWizardPage):
             main_layout.removeWidget(self.pgxn_obj)
         self.setTitle('New Requirement Summary')
         self.setSubTitle('Confirm all the information is correct...')
-        discipline_obj = req_wizard_state.get('discipline')
         function = req_wizard_state.get('function')
         ver_method = req_wizard_state.get('ver_type')
-        #check if the user is allocating later,
-        #will display not specified if not specified.
-        if not discipline_obj:
-            discipline_id = "System"
-        else:
-            discipline_id = discipline_obj.id
+        # check if the user is allocating later,
+        # will display not specified if not specified.
         if not function:
             function = "Not Specified"
-        self.discipline.setText(discipline_id)
         self.allocation.setText(function)
         self.verification.setText(ver_method)
         requirement = orb.get(req_wizard_state.get('req_oid'))
