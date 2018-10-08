@@ -1143,10 +1143,13 @@ class SystemTreeView(QTreeView):
             dlg = PgxnObject(obj, parent=self)
             dlg.show()
 
+    def highlight_allocated(self):
+
     def modify_node(self):
         """
-        Modify the 'quantity' and/or 'reference_designator' attributes of the
-        Acu object at the node.
+        For the selected node, edit the 'quantity' and [1] if an Acu object,
+        the 'reference_designator' attribute or [2] if a ProjectSystemUsage
+        object, the 'system_role' attribute.
         """
         orb.log.info('* SystemTreeView: modify_node() ...')
         for i in self.selectedIndexes():

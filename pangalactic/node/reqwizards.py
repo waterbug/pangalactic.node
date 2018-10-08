@@ -70,10 +70,10 @@ def gen_req_id(project, version=None, ancestor_reqt=None):
         # NOTE:  must check that idv[0] is not None (i.e. id is not assigned)
         project_idvs = [idv for idv in idvs
                         if idv[0] and (idv[0].split('.'))[0] == project.id]
-        # try:
-        seq = max([int(idv[0].split('.')[1]) for idv in project_idvs]) + 1
-        # except:
-            # orb.log.info('* gen_req_id: could not parse reqt ids.')
+        if project_idvs:
+            seq = max([int(idv[0].split('.')[1]) for idv in project_idvs]) + 1
+        else:
+            seq = 1
     new_id = build_req_id(project, seq, version)
     orb.log.info('* gen_req_id: generated reqt. id: {}'.format(new_id))
     return new_id
@@ -378,7 +378,7 @@ class ReqAllocPage(QWizardPage):
         proj = orb.get(project_oid)
         self.project = proj
         self.sys_tree = SystemTreeView(self.project, refdes=True)
-        self.sys_tree.expandAll()
+        self.sys_tree.expandToDepth(2)
         dispatcher.connect(self.select_node, 'sys node selected')
         req_wizard_state['function'] = None
         self.setTitle("Requirement Allocation")
@@ -397,11 +397,10 @@ class ReqAllocPage(QWizardPage):
         if not req:
             orb.log.info('* requirement not found')
             return
-        # TODO: generate an id (look in utils for methods)
         if hasattr(link, 'system'):
             stuff = orb.search_exact(requirement=req, supported_by=link)
             if stuff:
-                # TODO: Give nice little message to the user
+                # TODO: Give nice "already allocated" message to the user
                 pass
             fn_name = link.system_role
             sr_id = 'SYSTEM-REQ-' + req.id + '-for-system-' + fn_name
@@ -413,7 +412,7 @@ class ReqAllocPage(QWizardPage):
         elif hasattr(link, 'component'):
             stuff = orb.search_exact(allocated_requirement=req, satisfied_by=link)
             if stuff:
-                # TODO: Give nice little message to the user
+                # TODO: Give nice "already allocated" message to the user
                 pass
             fn_name = link.reference_designator
             alloc_id = 'REQ-ALLOCATION-' + req.id + '-to-subsystem-' + fn_name
@@ -612,7 +611,6 @@ class PerformReqBuildShallPage(QWizardPage):
         layout = QVBoxLayout()
         self.setLayout(layout)
         req_wizard_state['shall'] = None
-        req_wizard_state['rationale'] = None
 
     def initializePage(self):
         layout = self.layout()
@@ -869,7 +867,7 @@ class PerformReqBuildShallPage(QWizardPage):
         self.line_bottom.setFrameShadow(QFrame.Sunken)
 
         # rationale plain text edit
-        self.rationale = QPlainTextEdit()
+        self.rationale_field = QPlainTextEdit()
         self.rationale.textChanged.connect(self.completeChanged)
 
         # TODO: populate the shall statement -- this should be tied to a drop
@@ -938,7 +936,7 @@ class PerformReqBuildShallPage(QWizardPage):
         # rationale layout
         self.rationale_layout = QHBoxLayout()
         self.rationale_layout.addWidget(self.rationale_label)
-        self.rationale_layout.addWidget(self.rationale)
+        self.rationale_layout.addWidget(self.rationale_field)
         self.rationale_layout.setContentsMargins(0,40,0,40)
 
         # button with label to access instructions
@@ -1048,9 +1046,7 @@ class PerformReqBuildShallPage(QWizardPage):
 
     def isComplete(self):
         """
-        Check that num, rationale, and all added text are filled.  Make shall
-        nested for loop to go through the different entries.  In the shall use
-        columnCount and rowCount.
+        Check that num1, num2 (optional), rationale, and all added text are filled.
         """
         req_wizard_state['shall'] = ''
         items = []

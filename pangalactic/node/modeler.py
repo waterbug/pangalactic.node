@@ -262,9 +262,9 @@ class ModelWindow(QMainWindow):
         layout.addWidget(new_diagram_view)
         widget = QWidget()
         widget.setLayout(layout)
-        self.setCentralWidget(widget)
         self.diagram_view = new_diagram_view
         self.sceneScaleChanged("50%")
+        self.setCentralWidget(widget)
 
     def set_subject_from_diagram_drill_down(self, obj=None):
         """
