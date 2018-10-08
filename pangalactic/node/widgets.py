@@ -110,14 +110,14 @@ class ValueLabel(QLabel):
             self.setTextFormat(Qt.AutoText)
             self.setScaledContents(True)
             self.setWordWrap(True)
+            self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding,
+                                           QSizePolicy.Expanding))
         self.setFrameStyle(QFrame.Box | QFrame.Plain)
         self.setLineWidth(1)
         self.setStyleSheet('color: purple')
         self.setText(value)
         # THIS is the magic incantation to make word wrap work properly:
         self.setMinimumSize(self.sizeHint())
-        self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding,
-                                       QSizePolicy.Expanding))
 
 
 class ModeLabel(QLabel):
