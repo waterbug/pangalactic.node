@@ -110,8 +110,6 @@ class ValueLabel(QLabel):
             self.setTextFormat(Qt.AutoText)
             self.setScaledContents(True)
             self.setWordWrap(True)
-            self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding,
-                                           QSizePolicy.Expanding))
         self.setFrameStyle(QFrame.Box | QFrame.Plain)
         self.setLineWidth(1)
         self.setStyleSheet('color: purple')
