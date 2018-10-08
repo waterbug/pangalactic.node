@@ -89,7 +89,7 @@ class LeftPlaceHolder(QLabel):
 
 class NameLabel(QLabel):
     def __init__(self, name, parent=None, **kw):
-        super(NameLabel, self).__init__(margin=1, parent=parent)
+        super(NameLabel, self).__init__(margin=5, parent=parent)
         self.setText(name)
         hint = self.sizeHint()
         if hint.isValid():
@@ -100,23 +100,24 @@ class ValueLabel(QLabel):
 
     def __init__(self, value, w=None, h=None, wrappable=False,
                  parent=None, **kw):
-        super(ValueLabel, self).__init__(margin=1, parent=parent)
-        width = w or 250
-        height = h or 25
+        super(ValueLabel, self).__init__(margin=5, parent=parent)
+        self.w = w or 250
+        self.h = h or 25
         if wrappable:
             # don't set height (duh)
-            self.setMaximumWidth(width)
+            self.setMaximumWidth(self.w)
+            self.setMinimumWidth(self.w)
             self.setTextFormat(Qt.AutoText)
             self.setScaledContents(True)
             self.setWordWrap(True)
-        else:
-            self.setMinimumSize(QSize(width, height))
         self.setFrameStyle(QFrame.Box | QFrame.Plain)
         self.setLineWidth(1)
         self.setStyleSheet('color: purple')
         self.setText(value)
         # THIS is the magic incantation to make word wrap work properly:
         self.setMinimumSize(self.sizeHint())
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding,
+                                       QSizePolicy.Expanding))
 
 
 class ModeLabel(QLabel):
@@ -202,7 +203,6 @@ def get_widget(field_name, field_type, value=None, editable=True,
             # read-only boolean field -> disabled checkbox
             widget = widget_class(value=value, editable=editable)
         else:
-            # TODO: put a thin frame around "TextField" (multi-line) values
             if type(value) is unicode:
                 widget = ValueLabel(value, w=maxlen, wrappable=wrap_text,
                                     placeholder=placeholder)
