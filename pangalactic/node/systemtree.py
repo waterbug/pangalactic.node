@@ -1143,8 +1143,6 @@ class SystemTreeView(QTreeView):
             dlg = PgxnObject(obj, parent=self)
             dlg.show()
 
-    def highlight_allocated(self):
-
     def modify_node(self):
         """
         For the selected node, edit the 'quantity' and [1] if an Acu object,
