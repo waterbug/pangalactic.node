@@ -3087,6 +3087,16 @@ class Main(QtWidgets.QMainWindow):
             if req_oid:
                 req = orb.get(req_oid)
                 if req:
+                    # first delete allocations, if any
+                    allocs = orb.search_exact(cname='RequirementAllocation',
+                                              allocated_requirement=req)
+                    if allocs:
+                        orb.delete(allocs)
+                    srs = orb.search_exact(cname='SystemRequirement',
+                                           requirement=req)
+                    if srs:
+                        orb.delete(srs)
+                    # then delete the requirement
                     orb.delete([req])
                     dispatcher.send(signal='deleted object', oid=req_oid,
                                     cname='Requirement')
@@ -3109,6 +3119,16 @@ class Main(QtWidgets.QMainWindow):
             if req_oid:
                 req = orb.get(req_oid)
                 if req:
+                    # first delete allocations, if any
+                    allocs = orb.search_exact(cname='RequirementAllocation',
+                                              allocated_requirement=req)
+                    if allocs:
+                        orb.delete(allocs)
+                    srs = orb.search_exact(cname='SystemRequirement',
+                                           requirement=req)
+                    if srs:
+                        orb.delete(srs)
+                    # then delete the requirement
                     orb.delete([req])
                     dispatcher.send(signal='deleted object', oid=req_oid,
                                     cname='Requirement')

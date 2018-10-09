@@ -260,8 +260,12 @@ class SystemTreeModel(QAbstractItemModel):
     successful_drop = pyqtSignal()
     BRUSH = QBrush()
     RED_BRUSH = QBrush(Qt.red)
+    GRAY_BRUSH = QBrush(Qt.lightGray)
+    CYAN_BRUSH = QBrush(Qt.cyan)
+    YELLOW_BRUSH = QBrush(Qt.yellow)
 
-    def __init__(self, obj, refdes=True, parent=None):
+    def __init__(self, obj, refdes=True, show_allocs=False, req=None,
+                 parent=None):
         """
         Args:
             obj (Project): root object of the tree
@@ -269,11 +273,17 @@ class SystemTreeModel(QAbstractItemModel):
         Keyword Args:
             refdes (bool):  flag indicating whether to display the reference
                 designator as part of the tooltip
+            show_allocs (bool):  flag indicating whether to highlight nodes to
+                which a specified requirement has been allocated
+            req (Requirement):  the requirement whose allocations should be
+                highlighted if 'show_allocs' is True
             parent (QWidget): parent widget of the SystemTreeModel
         """
         super(SystemTreeModel, self).__init__(parent=parent)
         self.parent = parent
         self.refdes = refdes
+        self.show_allocs = show_allocs
+        self.req = req
         self.cols = []
         self.col_defs = []
         dash_name = state.get('dashboard_name')
@@ -514,6 +524,19 @@ class SystemTreeModel(QAbstractItemModel):
                     return self.BRUSH
                 else:
                     return self.RED_BRUSH
+        if role == Qt.BackgroundRole and self.show_allocs and self.req:
+            if isinstance(node.link, orb.classes['Acu']):
+                allocs = orb.search_exact(cname='RequirementAllocation',
+                                          allocated_requirement=self.req,
+                                          satisfied_by=node.link)
+                if allocs:
+                    return self.YELLOW_BRUSH
+            elif isinstance(node.link, orb.classes['SystemRequirement']):
+                srs = orb.search_exact(cname='SystemRequirement',
+                                       requirement=self.req,
+                                       supported_by=node.link)
+                if srs:
+                    return self.YELLOW_BRUSH
         if role == Qt.TextAlignmentRole:
             if index.column() == 0:
                 return Qt.AlignLeft
@@ -1005,7 +1028,8 @@ class SystemTreeModel(QAbstractItemModel):
 
 
 class SystemTreeView(QTreeView):
-    def __init__(self, obj, refdes=True, parent=None):
+    def __init__(self, obj, refdes=True, show_allocs=False, req=None,
+                 parent=None):
         """
         Args:
             obj (Project or Product): root object of the tree
@@ -1013,9 +1037,17 @@ class SystemTreeView(QTreeView):
         Keyword Args:
             refdes (bool):  flag indicating whether to display the reference
                 designator or the component name as the node name
+            show_allocs (bool):  flag indicating whether to highlight nodes to
+                which a specified requirement has been allocated
+            req (Requirement):  the requirement whose allocations should be
+                highlighted if 'show_allocs' is True
         """
         super(SystemTreeView, self).__init__(parent)
-        tree_model = SystemTreeModel(obj, refdes=refdes, parent=self)
+        self.show_allocs = show_allocs
+        self.req = req
+        tree_model = SystemTreeModel(obj, refdes=refdes,
+                                     show_allocs=show_allocs,
+                                     req=req, parent=self)
         self.proxy_model = SystemTreeProxyModel(tree_model, parent=self)
         self.source_model = self.proxy_model.sourceModel()
         self.proxy_model.setDynamicSortFilter(True)

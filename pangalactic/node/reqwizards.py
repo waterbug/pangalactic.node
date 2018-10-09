@@ -374,52 +374,68 @@ class ReqAllocPage(QWizardPage):
     def initializePage(self):
         if self.title():
             return;
-        project_oid = state.get('project')
-        proj = orb.get(project_oid)
-        self.project = proj
-        self.sys_tree = SystemTreeView(self.project, refdes=True)
-        self.sys_tree.expandToDepth(2)
-        dispatcher.connect(self.select_node, 'sys node selected')
-        req_wizard_state['function'] = None
+        self.req = orb.get(req_wizard_state.get('req_oid'))
+        if not self.req:
+            # TODO: if reqt cant be found, show messsage (page is useless then)
+            orb.log.info('* requirement not found')
         self.setTitle("Requirement Allocation")
         self.setSubTitle("Specify the function / subsystem, if known, "
                          "which will satisfy the requirement...")
+        project_oid = state.get('project')
+        proj = orb.get(project_oid)
+        self.project = proj
+        self.sys_tree = SystemTreeView(self.project, refdes=True,
+                                       show_allocs=True, req=self.req)
+        self.sys_tree.expandToDepth(2)
+        dispatcher.connect(self.select_node, 'sys node selected')
         layout = self.layout()
         layout.addWidget(self.sys_tree)
         self.setLayout(layout)
-        # default unless one is selected below
+        # default unless one is selected
         req_wizard_state['function'] = self.project.id
 
     def select_node(self, link=None):
-        if not link:
-            return
-        req = orb.get(req_wizard_state.get('req_oid'))
-        if not req:
-            orb.log.info('* requirement not found')
+        if not link or not self.req:
             return
         if hasattr(link, 'system'):
-            stuff = orb.search_exact(requirement=req, supported_by=link)
+            # check for existing SystemRequirement
+            stuff = orb.search_exact(cname='SystemRequirement',
+                                     requirement=self.req, supported_by=link)
             if stuff:
                 # TODO: Give nice "already allocated" message to the user
                 pass
             fn_name = link.system_role
-            sr_id = 'SYSTEM-REQ-' + req.id + '-for-system-' + fn_name
-            sr_name = ' '.join(['System Requirement', req.name,
-                                'allocation to system', fn_name])
-            new_obj = clone('SystemRequirement', requirement=req,
-                            supported_by=link, id=sr_id, name=sr_name)
+            _id = 'SYS-REQ-' + self.req.id + '-OF-SYS-' + fn_name
+            _name = ' '.join(['SYS REQ:', self.req.id,
+                              ':: OF SYS:', fn_name])
+            _descrip = ' '.join(['System Requirement:', self.req.name,
+                                 ':: Of Project:', link.project.id,
+                                 ':: System:', fn_name])
+            new_obj = clone('SystemRequirement', requirement=self.req,
+                            supported_by=link, id=_id, name=_name,
+                            description=_descrip)
 
         elif hasattr(link, 'component'):
-            stuff = orb.search_exact(allocated_requirement=req, satisfied_by=link)
+            # check for existing RequirementAllocation
+            stuff = orb.search_exact(cname='RequirementAllocation',
+                                     allocated_requirement=self.req,
+                                     satisfied_by=link)
             if stuff:
                 # TODO: Give nice "already allocated" message to the user
                 pass
             fn_name = link.reference_designator
-            alloc_id = 'REQ-ALLOCATION-' + req.id + '-to-subsystem-' + fn_name
-            alloc_name = ' '.join(['Allocation of Requirement', req.name, 
-                                   'to subsystem', fn_name])
-            new_obj = clone('RequirementAllocation', allocated_requirement=req,
-                            satisfied_by=link, id=alloc_id, name=alloc_name)
+            _id = 'REQ-ALLOC-' + self.req.id + '-TO-SUBSYS-' + fn_name
+            _id += '-OF-' + link.assembly.id
+            _name = ' '.join(['REQ ALLOC:', self.req.id, ':: TO SUBSYS:',
+                              fn_name, 'OF:', link.assembly.name])
+            _descrip = ' '.join(['Allocation of Requirement:', self.req.name,
+                                 ':: To Subsystem:', fn_name,
+                                 'Of System:', link.assembly.name])
+            new_obj = clone('RequirementAllocation',
+                            allocated_requirement=self.req,
+                            satisfied_by=link, id=_id, name=_name,
+                            description=_descrip)
+        self.sys_tree.clearSelection()
 
         # TODO: get the selected name/product so it can be used in the shall
         # statement.
