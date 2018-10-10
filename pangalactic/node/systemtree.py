@@ -531,7 +531,7 @@ class SystemTreeModel(QAbstractItemModel):
                                           satisfied_by=node.link)
                 if allocs:
                     return self.YELLOW_BRUSH
-            elif isinstance(node.link, orb.classes['SystemRequirement']):
+            elif isinstance(node.link, orb.classes['ProjectSystemUsage']):
                 srs = orb.search_exact(cname='SystemRequirement',
                                        requirement=self.req,
                                        supported_by=node.link)
@@ -1068,13 +1068,18 @@ class SystemTreeView(QTreeView):
         self.source_model.successful_drop.connect(self.on_successful_drop)
         self.create_actions()
         self.setup_context_menu()
-        self.expanded.connect(self.sys_node_expanded)
-        self.collapsed.connect(self.sys_node_collapsed)
-        self.clicked.connect(self.sys_node_selected)
-        dispatcher.connect(self.sys_node_expand, 'dash node expanded')
-        dispatcher.connect(self.sys_node_collapse, 'dash node collapsed')
-        dispatcher.connect(self.sys_node_select, 'dash node selected')
-        dispatcher.connect(self.sys_node_select, 'diagram go back')
+        # only use louie messages for assembly tree and dashboard tree
+        # (i.e., a shared model); ignore them when instantiated in reqt
+        # allocation mode (different models -> the indexes are not valid
+        # anyway!!)
+        if not show_allocs:
+            self.expanded.connect(self.sys_node_expanded)
+            self.collapsed.connect(self.sys_node_collapsed)
+            self.clicked.connect(self.sys_node_selected)
+            dispatcher.connect(self.sys_node_expand, 'dash node expanded')
+            dispatcher.connect(self.sys_node_collapse, 'dash node collapsed')
+            dispatcher.connect(self.sys_node_select, 'dash node selected')
+            dispatcher.connect(self.sys_node_select, 'diagram go back')
         self.setStyleSheet('font-weight: normal; font-size: 12px')
         self.proxy_model.sort(0)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)

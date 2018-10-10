@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QFormLayout, QHBoxLayout,
                              QPlainTextEdit, QPushButton, QRadioButton,
                              QVBoxLayout, QWizard, QWizardPage)
 
-from louie import dispatcher
+# from louie import dispatcher
 
 from pangalactic.core             import config, state
 from pangalactic.core.uberorb     import orb
@@ -387,14 +387,22 @@ class ReqAllocPage(QWizardPage):
         self.sys_tree = SystemTreeView(self.project, refdes=True,
                                        show_allocs=True, req=self.req)
         self.sys_tree.expandToDepth(2)
-        dispatcher.connect(self.select_node, 'sys node selected')
+        self.sys_tree.clicked.connect(self.on_select_node)
         layout = self.layout()
         layout.addWidget(self.sys_tree)
         self.setLayout(layout)
         # default unless one is selected
         req_wizard_state['function'] = self.project.id
 
-    def select_node(self, link=None):
+    def on_select_node(self, index):
+        link = None
+        if len(self.sys_tree.selectedIndexes()) == 1:
+            i = self.sys_tree.selectedIndexes()[0]
+            mapped_i = self.sys_tree.proxy_model.mapToSource(i)
+            # NOTE: might want to use obj -- getting it indirectly below for
+            # Acu as "assembly"
+            # obj = self.sys_tree.source_model.get_node(mapped_i).obj
+            link = self.sys_tree.source_model.get_node(mapped_i).link
         if not link or not self.req:
             return
         if hasattr(link, 'system'):
@@ -414,7 +422,6 @@ class ReqAllocPage(QWizardPage):
             new_obj = clone('SystemRequirement', requirement=self.req,
                             supported_by=link, id=_id, name=_name,
                             description=_descrip)
-
         elif hasattr(link, 'component'):
             # check for existing RequirementAllocation
             stuff = orb.search_exact(cname='RequirementAllocation',
@@ -726,9 +733,9 @@ class PerformReqBuildShallPage(QWizardPage):
             self.rationale_label.hide()
             self.rationale_layout.removeWidget(self.rationale_label)
             self.rationale_label.parent = None
-            self.rationale.hide()
-            self.rationale_layout.removeWidget(self.rationale)
-            self.rationale.parent = None
+            self.rationale_field.hide()
+            self.rationale_layout.removeWidget(self.rationale_field)
+            self.rationale_field.parent = None
             layout.removeItem(self.rationale_layout)
             self.rationale_layout.parent = None
             self.preview_button.hide()
@@ -884,7 +891,7 @@ class PerformReqBuildShallPage(QWizardPage):
 
         # rationale plain text edit
         self.rationale_field = QPlainTextEdit()
-        self.rationale.textChanged.connect(self.completeChanged)
+        self.rationale_field.textChanged.connect(self.completeChanged)
 
         # TODO: populate the shall statement -- this should be tied to a drop
         # event, change of shall type, num entry, and units change
@@ -1089,7 +1096,7 @@ class PerformReqBuildShallPage(QWizardPage):
         if req_wizard_state['shall'] == '':
             return False
         req_wizard_state['shall'] += '.'
-        req_wizard_state['rationale'] = self.rationale.toPlainText()
+        req_wizard_state['rationale'] = self.rationale_field.toPlainText()
         if not req_wizard_state['rationale']:
             return False
         # TODO: get the project
