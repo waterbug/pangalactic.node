@@ -393,10 +393,12 @@ class SubjectBlock(Block):
         description = '[{}]'.format(desc)
         # self.connectors = []
         self.setPos(position)
-        self.name_label = NameLabel(name, self, x=20, y=20)
         self.description_label = TextLabel(description, self,
                                            color='darkMagenta')
         self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
+        name_x = 20
+        name_y = self.description_label.boundingRect().height() + 5
+        self.name_label = NameLabel(name, self, x=name_x, y=name_y)
         self.rebuild_port_blocks()
         # make sure the SubjectBlock has the lowest z-value
         z_value = 0.0
@@ -1288,13 +1290,17 @@ class TextLabel(QtWidgets.QGraphicsTextItem):
     """
     # TODO:  add scrolling capability
     def __init__(self, text, parent, font=QtGui.QFont("Arial", POINT_SIZE),
-                 color=None, editable=False):
-        textw = '\n'.join(wrap(text, width=25, break_long_words=False))
+                 color=None, editable=False, nowrap=False):
+        if nowrap:
+            textw = text
+        else:
+            textw = '\n'.join(wrap(text, width=25, break_long_words=False))
         super(TextLabel, self).__init__(textw, parent=parent)
-        text_option = QtGui.QTextOption()
-        text_option.setWrapMode(QtGui.QTextOption.WordWrap)
-        self.document().setDefaultTextOption(text_option)
-        self.setTextWidth(parent.boundingRect().width() - 50)
+        if not nowrap:
+            text_option = QtGui.QTextOption()
+            text_option.setWrapMode(QtGui.QTextOption.WordWrap)
+            self.document().setDefaultTextOption(text_option)
+            self.setTextWidth(parent.boundingRect().width() - 50)
         self.setFont(font)
         if color in QTCOLORS:
             self.setDefaultTextColor(getattr(Qt, color))
