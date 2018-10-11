@@ -235,10 +235,8 @@ class SystemTreeProxyModel(QSortFilterProxyModel):
             return False
 
     def lessThan(self, left, right):
-        left_obj = self.sourceModel().data(left, Qt.UserRole)
-        lvalue = getattr(left_obj, 'id', '').lower()
-        right_obj = self.sourceModel().data(right, Qt.UserRole)
-        rvalue = getattr(right_obj, 'id', '').lower()
+        lvalue = str(self.sourceModel().data(left, Qt.DisplayRole)).lower()
+        rvalue = str(self.sourceModel().data(right, Qt.DisplayRole)).lower()
         return lvalue < rvalue
         # text_pattern = QRegExp("([\\w\\.]*@[\\w\\.]*)")
         # if left.column() == 1 and text_pattern.indexIn(lvalue) != -1:

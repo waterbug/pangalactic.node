@@ -543,6 +543,8 @@ class PgxnObject(QMainWindow):
         go_to_tab (int):  index of the tab to go to when rebuilding
         view (list):  names of the fields to be shown (a subset of
             self.schema['field_names'])
+        view_only (bool):  flag indicating that edit mode is unavailable
+            (default: False)
         mask (list of str):  list of fields to be displayed as read-only
         required (list of str):  list of fields that must not be null
         tabs (QTabWidget):  widget holding the interface's tabbed "pages"
@@ -550,7 +552,8 @@ class PgxnObject(QMainWindow):
     def __init__(self, obj, embedded=False, edit_mode=False,
                  enable_delete=True, view=None, main_view=None, mask=None,
                  required=None, panels=None, go_to_panel=None, new=False,
-                 test=False, modal_mode=False, parent=None, **kw):
+                 test=False, modal_mode=False, view_only=False, parent=None,
+                 **kw):
         """
         Initialize the dialog.
 
@@ -582,6 +585,8 @@ class PgxnObject(QMainWindow):
             modal_mode (bool):  flag indicating whether dialog should be modal
                 -- modal_mode is intended only for very small dialogs that
                 close upon saving (i.e., do not go into "view" mode)
+            view_only (bool):  flag indicating that edit mode is unavailable
+                (default: False)
             parent (QWidget): parent widget of this dialog (default: None)
         """
         super(PgxnObject, self).__init__(parent=parent)
@@ -589,6 +594,7 @@ class PgxnObject(QMainWindow):
         self.new          = new
         self.embedded     = embedded
         self.edit_mode    = edit_mode
+        self.view_only    = view_only
         self.mode_widgets = {}
         self.mode_widgets['view'] = set()
         self.mode_widgets['edit'] = set()
@@ -854,7 +860,7 @@ class PgxnObject(QMainWindow):
             else:
                 self.bbox = QDialogButtonBox()
                 # if embedded, no "Close" button (don't close the widget)
-                if 'modify' in perms:
+                if not self.view_only and 'modify' in perms:
                         self.edit_button = self.bbox.addButton('Edit',
                                                    QDialogButtonBox.ActionRole)
                 if (state.get('connected') and
@@ -897,7 +903,7 @@ class PgxnObject(QMainWindow):
                     orb.log.debug('            setting up view mode ...')
                     self.bbox = QDialogButtonBox()
                     orb.log.debug('            checking perms ...')
-                    if 'modify' in perms:
+                    if not self.view_only and 'modify' in perms:
                         orb.log.debug('            "modify" in perms --')
                         orb.log.debug('            adding "edit" button ...')
                         self.edit_button = self.bbox.addButton('Edit',
