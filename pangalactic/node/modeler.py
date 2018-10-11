@@ -237,7 +237,7 @@ class ModelWindow(QMainWindow):
         new_placeholder.setSizePolicy(QSizePolicy.Preferred,
                                       QSizePolicy.Preferred)
         self.setCentralWidget(new_placeholder)
-        if hasattr(self, 'placeholder'):
+        if getattr(self, 'placeholder', None):
             self.placeholder.close()
         self.placeholder = new_placeholder
 
@@ -249,12 +249,6 @@ class ModelWindow(QMainWindow):
         mw.show()
 
     def set_new_diagram_view(self):
-        if hasattr(self, 'diagram_view'):
-            try:
-                self.diagram_view.close()
-            except:
-                # hmm, my C++ object was already deleted
-                pass
         new_diagram_view = DiagramView(self.obj, embedded=True)
         new_diagram_view.setSizePolicy(QSizePolicy.Preferred,
                                        QSizePolicy.Preferred)
@@ -262,9 +256,17 @@ class ModelWindow(QMainWindow):
         layout.addWidget(new_diagram_view)
         widget = QWidget()
         widget.setLayout(layout)
+        self.setCentralWidget(widget)
+        if getattr(self, 'diagram_view', None):
+            try:
+                self.diagram_view.setAttribute(Qt.DeleteOnClose)
+                self.diagram_view.parent = None
+                self.diagram_view.close()
+            except:
+                # hmm, my C++ object was already deleted
+                pass
         self.diagram_view = new_diagram_view
         self.sceneScaleChanged("50%")
-        self.setCentralWidget(widget)
 
     def set_subject_from_diagram_drill_down(self, obj=None):
         """
