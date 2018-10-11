@@ -220,6 +220,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, ncols=None, col_labels=None, col_defs=None,
                  col_dtypes=None, filters=None, parent=None):
         super(ObjectSortFilterProxyModel, self).__init__(parent=parent)
+        self.setSortCaseSensitivity(Qt.CaseInsensitive)
         self.ncols = ncols or 2
         self.col_labels = col_labels or []
         self.col_defs = col_defs or []
@@ -286,12 +287,12 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
               self.is_reqt_id(right.data())):
             ld = left.data().split('.')
             if len(ld) == 3:
-                lvalue = [ld[0], int(ld[1]), ld[2]]
+                lvalue = [ld[0].lower(), int(ld[1]), ld[2].lower()]
             else:
                 lvalue = ld
             rd = right.data().split('.')
             if len(rd) == 3:
-                rvalue = [rd[0], int(rd[1]), rd[2]]
+                rvalue = [rd[0].lower(), int(rd[1]), rd[2].lower()]
             else:
                 rvalue = rd
             if lvalue and rvalue:
@@ -300,7 +301,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
                 return QSortFilterProxyModel.lessThan(self, left, right)
         else:
             lvalue = self.sourceModel().data(left)
-            rvalue = self.sourceModel().data(right) 
+            rvalue = self.sourceModel().data(right)
             text_pattern = QRegExp("([\\w\\.]*@[\\w\\.]*)")
 
             if left.column() == 1 and text_pattern.indexIn(lvalue) != -1:
@@ -309,7 +310,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             if right.column() == 1 and text_pattern.indexIn(rvalue) != -1:
                 rvalue = text_pattern.cap(1)
 
-            return lvalue < rvalue
+            return str(lvalue).lower() < str(rvalue).lower()
 
     def headerData(self, section, orientation, role):
         if (orientation == Qt.Horizontal and

@@ -479,12 +479,12 @@ class SpecialSortModel(QSortFilterProxyModel):
               self.is_reqt_id(right.data())):
             ld = left.data().split('.')
             if len(ld) == 3:
-                lvalue = [ld[0], int(ld[1]), ld[2]]
+                lvalue = [ld[0].lower(), int(ld[1]), ld[2].lower()]
             else:
                 lvalue = ld
             rd = right.data().split('.')
             if len(rd) == 3:
-                rvalue = [rd[0], int(rd[1]), rd[2]]
+                rvalue = [rd[0].lower(), int(rd[1]), rd[2].lower()]
             else:
                 rvalue = rd
             if lvalue and rvalue:
