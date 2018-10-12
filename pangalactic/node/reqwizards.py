@@ -290,7 +290,16 @@ class ReqVerificationPage(QWizardPage):
         self.button_group.addButton(analysis_button)
         self.button_group.addButton(inspection_button)
         self.button_group.addButton(later_button)
-
+        ver_type = req_wizard_state.get('ver_type')
+        if ver_type:
+            if ver_type == "Test":
+                test_button.setChecked(True)
+            elif ver_type == "Analysis":
+                analysis_button.setChecked(True)
+            elif ver_type == "Inspection":
+                inspection_button.setChecked(True)
+            elif ver_type == "Specify Verification Method Later":
+                later_button.setChecked(True)
         layout.addWidget(inst_label)
         layout.addWidget(test_button)
         layout.addWidget(analysis_button)
@@ -471,15 +480,13 @@ class ReqSummaryPage(QWizardPage):
         main_layout = self.layout()
         if self.title():
             main_layout.removeWidget(self.pgxn_obj)
-        self.setTitle('New Requirement Summary')
-        self.setSubTitle('Confirm all the information is correct...')
-        function = req_wizard_state.get('function')
-        ver_method = req_wizard_state.get('ver_type')
-        # check if the user is allocating later,
-        # will display not specified if not specified.
-        if not function:
-            function = "Not Specified"
+            self.pgxn_obj.close()
+        else:
+            self.setTitle('New Requirement Summary')
+            self.setSubTitle('Confirm all the information is correct...')
+        function = req_wizard_state.get('function', 'Not Specified')
         self.allocation.setText(function)
+        ver_method = req_wizard_state.get('ver_type', 'Not Specified')
         self.verification.setText(ver_method)
         requirement = orb.get(req_wizard_state.get('req_oid'))
         panels = ['main','info']
@@ -513,9 +520,6 @@ class PerformanceDefineParmPage(QWizardPage):
         super(PerformanceDefineParmPage, self).__init__(parent)
         layout = QVBoxLayout()
         self.setLayout(layout)
-        req_wizard_state['val_type'] = None
-        req_wizard_state['tolerance'] = None
-        req_wizard_state['dim'] = None
 
     def initializePage(self):
         if self.title():
@@ -569,6 +573,20 @@ class PerformanceDefineParmPage(QWizardPage):
         self.button_group.addButton(self.max_button)
         self.button_group.addButton(self.sing_button)
         self.button_group.addButton(self.range_button)
+        val_type = req_wizard_state.get('val_type')
+        if val_type:
+            if val_type == 'minimum':
+                self.min_button.setChecked(True)
+            elif val_type == 'maximum':
+                self.max_button.setChecked(True)
+            elif val_type == 'single value':
+                self.sing_button.setChecked(True)
+                tolerance = req_wizard_state.get('tolerance')
+                if tolerance:
+                    self.sing_cb.setDisabled(False)
+                    self.sing_cb.setCurrentText(tolerance)
+            elif val_type == 'range':
+                self.range_button.setChecked(True)
         self.button_group.buttonClicked.connect(self.button_changed)
         self.button_group.buttonClicked.connect(self.completeChanged)
 
@@ -612,7 +630,6 @@ class PerformanceDefineParmPage(QWizardPage):
             req_wizard_state['tolerance'] = self.sing_cb.currentText()
         else:
             self.sing_cb.setDisabled(True)
-            req_wizard_state['tolerance'] = None
 
     def isComplete(self):
         """
@@ -627,8 +644,7 @@ class PerformanceDefineParmPage(QWizardPage):
 
 class PerformReqBuildShallPage(QWizardPage):
     """
-    Drag and drop way the build the shall statement and also fills in the
-    rationale.
+    Build the shall statement and fill in the rationale.
     """
 
     def __init__(self, parent=None):
@@ -638,9 +654,7 @@ class PerformReqBuildShallPage(QWizardPage):
 
     def initializePage(self):
         layout = self.layout()
-
         if self.title():
-
             # remove from first hbox
             self.allocate_label.hide()
             self.shall_hbox_top.removeWidget(self.allocate_label)
@@ -651,15 +665,14 @@ class PerformReqBuildShallPage(QWizardPage):
             self.shall_cb.hide()
             self.shall_hbox_top.removeWidget(self.shall_cb)
             self.shall_cb.parent = None
-
             # remove from middle hbox
             self.predicate_field.hide()
             self.shall_hbox_middle.removeWidget(self.predicate_field)
             self.predicate_field.parent = None
-            if self.t_shall:
-                self.t_shall.hide()
-                self.shall_hbox_middle.removeWidget(self.t_shall)
-                self.t_shall.parent = None
+            if self.min_max_cb:
+                self.min_max_cb.hide()
+                self.shall_hbox_middle.removeWidget(self.min_max_cb)
+                self.min_max_cb.parent = None
                 self.base_val.hide()
                 self.shall_hbox_bottom.removeWidget(self.base_val)
                 self.base_val.parent = None
@@ -673,38 +686,33 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.units.hide()
                 self.shall_hbox_middle.removeWidget(self.units)
                 self.units.parent = None
-
-            if self.low_limit:
-                self.low_limit.hide()
-                self.shall_hbox_middle.removeWidget(self.low_limit)
-                self.low_limit.parent = None
-                self.up_limit.hide()
-                self.shall_hbox_middle.removeWidget(self.up_limit)
-                self.up_limit.parent = None
+            if self.lower_limit:
+                self.lower_limit.hide()
+                self.shall_hbox_middle.removeWidget(self.lower_limit)
+                self.lower_limit.parent = None
+                self.upper_limit.hide()
+                self.shall_hbox_middle.removeWidget(self.upper_limit)
+                self.upper_limit.parent = None
                 self.plus_minus_cb1.hide()
                 self.shall_hbox_middle.removeWidget(self.plus_minus_cb1)
                 self.plus_minus_cb1.parent = None
                 self.plus_minus_cb2.hide()
                 self.shall_hbox_middle.removeWidget(self.plus_minus_cb2)
                 self.plus_minus_cb2.parent = None
-
-
             if self.plus_minus_label:
                 self.plus_minus_label.hide()
                 self.shall_hbox_middle.removeWidget(self.plus_minus_label)
                 self.plus_minus_label.parent = None
-                self.tol_num.hide()
-                self.shall_hbox_middle.removeWidget(self.tol_num)
-                self.tol_num.parent = None
-
+                self.tol_val_field.hide()
+                self.shall_hbox_middle.removeWidget(self.tol_val_field)
+                self.tol_val_field.parent = None
             if self.range_label:
                 self.range_label.hide()
                 self.shall_hbox_middle.removeWidget(self.range_label)
                 self.range_label.parent = None
-                self.upper_val.hide()
-                self.shall_hbox_middle.removeWidget(self.upper_val)
-                self.upper_val.parent = None
-
+                self.max_val.hide()
+                self.shall_hbox_middle.removeWidget(self.max_val)
+                self.max_val.parent = None
             # remove from bottom hbox
             self.epilog_field.hide()
             self.shall_hbox_bottom.removeWidget(self.epilog_field)
@@ -748,9 +756,9 @@ class PerformReqBuildShallPage(QWizardPage):
                     ' below, and then provide the requirements rationale...')
 
         # different shall cb options
-        shall_general = ['shall', 'shall be', 'shall have']
-        max_shall = ['less than', 'not exceed', 'at most', 'maximum of']
-        min_shall = ['greater than', 'more than', 'at least', 'minimum of']
+        shall_options = ['shall', 'shall be', 'shall have']
+        max_options = ['less than', 'not exceed', 'at most', 'maximum of']
+        min_options = ['greater than', 'more than', 'at least', 'minimum of']
 
         # button with label to access instructions
         inst_button = QPushButton('Instructions')
@@ -760,38 +768,35 @@ class PerformReqBuildShallPage(QWizardPage):
         self.inst_form = QFormLayout()
         self.inst_form.addRow(inst_label, inst_button)
 
-        # gets the type from the previous page, tells if the type is max, min,
-        # single, or range value(s)
-        num_type = req_wizard_state.get('val_type')
-
-        # sets the list of options for
-        # the combobox. This has the max_shall
-        # or min_shall if it is a maximum or
-        # minimum value type and it will be
-        # none if it is single value or range.
-        shall_cb_options = None
-        if num_type == 'maximum':
-            shall_cb_options = max_shall
-        elif num_type == 'minimum':
-            shall_cb_options = min_shall
-
-        # shall type combobox
-        self.t_shall = None
+        # shall options combobox
         self.shall_cb = QComboBox()
-        for shall in shall_general:
-            self.shall_cb.addItem(shall)
-
-        # fill in the shall
-        if num_type == 'maximum' or num_type=='minimum':
-            self.t_shall = QComboBox()
-            for option in shall_cb_options:
-                self.t_shall.addItem(option)
-            # self.t_shall.currentIndexChanged.connect(self.completeChanged)
-
+        for opt in shall_options:
+            self.shall_cb.addItem(opt)
         self.shall_cb.setMaximumSize(120, 25)
+        shall_opt = req_wizard_state.get('shall_opt')
+        if shall_opt:
+            self.shall_cb.setCurrentText(shall_opt)
+        self.shall_cb.currentIndexChanged.connect(self.set_shall_opt)
 
-        if self.t_shall:
-            self.t_shall.setMaximumSize(150,25)
+        min_max_cb_options = None
+        self.min_max_cb = None
+        # gets the type from the previous page, says if the type is max, min,
+        # single, or range value(s)
+        val_type = req_wizard_state.get('val_type')
+        # if val_type is 'minimum' or 'maximum', set up min-max combo
+        if val_type in ['maximum', 'minimum']:
+            if val_type == 'maximum':
+                min_max_cb_options = max_options
+            elif val_type == 'minimum':
+                min_max_cb_options = min_options
+            self.min_max_cb = QComboBox()
+            for opt in min_max_cb_options:
+                self.min_max_cb.addItem(opt)
+            min_max_opt = req_wizard_state.get('min_max_opt')
+            if min_max_opt:
+                self.min_max_cb.setCurrentText(min_max_opt)
+            self.min_max_cb.currentIndexChanged.connect(self.set_min_max_opt)
+            self.min_max_cb.setMaximumSize(150,25)
 
         # premade labels text (non-editable labels)
         allocate = req_wizard_state.get('function')
@@ -805,30 +810,37 @@ class PerformReqBuildShallPage(QWizardPage):
         doubleValidator = QtGui.QDoubleValidator()
         self.base_val = QLineEdit()
         self.base_val.setValidator(doubleValidator)
+        base_val = req_wizard_state.get('base_val', '')
         self.base_val.setPlaceholderText('number')
+        if base_val:
+            self.base_val.setText(base_val)
         self.base_val.setMaximumSize(75,25)
-        self.base_val.setText(req_wizard_state.get('base_val', ''))
         self.base_val.textChanged.connect(self.num_entered)
-        self.upper_val = None
-        self.range_label = None
-        if num_type == 'range':
-            self.upper_val = QLineEdit()
-            self.upper_val.setValidator(doubleValidator)
-            self.upper_val.setPlaceholderText('number')
-            self.upper_val.setMaximumSize(75, 25)
-            self.upper_val.setText(req_wizard_state.get('upper_val', ''))
-            self.upper_val.textChanged.connect(self.num_entered)
+        if val_type == 'range':
+            # if range, base_val is reinterpreted as min value
+            self.base_val.setPlaceholderText('min. value')
+            self.max_val = QLineEdit()
+            self.max_val.setValidator(doubleValidator)
+            self.max_val.setMaximumSize(75, 25)
+            max_val = req_wizard_state.get('max_val', '')
+            if max_val:
+                self.max_val.setText(max_val)
+            else:
+                self.max_val.setPlaceholderText('max. value')
+            self.max_val.textChanged.connect(self.num_entered)
             self.range_label = QLabel('to')
             self.range_label.setMaximumSize(20, 25)
-
+        else:
+            self.max_val = None
+            self.range_label = None
         self.plus_minus_cb1 = QComboBox()
         self.plus_minus_cb2 = QComboBox()
-        self.tolerance = req_wizard_state.get('tolerance')
-        self.low_limit = None
+        self.lower_limit = None
         self.plus_minus_label = None
-        self.tol_num = None
-        if self.tolerance:
-            if self.tolerance == 'Asymmetric Tolerance':
+        self.tol_val_field = None
+        tolerance = req_wizard_state.get('tolerance')
+        if tolerance:
+            if tolerance == 'Asymmetric Tolerance':
                 plus = '+'
                 or_plus = 'or +'
                 minus = '-'
@@ -837,29 +849,31 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.plus_minus_cb1.addItem(minus)
                 self.plus_minus_cb2.addItem(or_plus)
                 self.plus_minus_cb2.addItem(or_minus)
-                self.low_limit = QLineEdit()
-                self.low_limit.setValidator(doubleValidator)
-                self.low_limit.setMaximumSize(50,25)
-                self.low_limit.setText(req_wizard_state.get('low_limit', ''))
-                self.low_limit.textChanged.connect(self.num_entered)
-                self.up_limit = QLineEdit()
-                self.up_limit.setValidator(doubleValidator)
-                self.up_limit.setMaximumSize(50,25)
-                self.up_limit.setText(req_wizard_state.get('up_limit', ''))
-                self.up_limit.textChanged.connect(self.num_entered)
-
-            elif self.tolerance == 'Symmetric Tolerance':
+                self.lower_limit = QLineEdit()
+                self.lower_limit.setValidator(doubleValidator)
+                self.lower_limit.setMaximumSize(50,25)
+                self.lower_limit.setPlaceholderText('lower limit')
+                self.lower_limit.setText(
+                                req_wizard_state.get('lower_limit', ''))
+                self.lower_limit.textChanged.connect(self.num_entered)
+                self.upper_limit = QLineEdit()
+                self.upper_limit.setValidator(doubleValidator)
+                self.upper_limit.setMaximumSize(50,25)
+                self.upper_limit.setPlaceholderText('upper limit')
+                self.upper_limit.setText(
+                                req_wizard_state.get('upper_limit', ''))
+                self.upper_limit.textChanged.connect(self.num_entered)
+            elif tolerance == 'Symmetric Tolerance':
                 self.plus_minus_label = QLabel('+/-')
                 self.plus_minus_label.setMaximumSize(30,25)
-                self.tol_num = QLineEdit()
-                self.tol_num.setValidator(doubleValidator)
-                self.tol_num.setMaximumSize(75,25)
-                self.tol_num.setPlaceholderText('number')
-                self.tol_num.textChanged.connect(self.num_entered)
-                # self.tol_num.textChanged.connect(self.completeChanged)
+                self.tol_val_field = QLineEdit()
+                self.tol_val_field.setValidator(doubleValidator)
+                self.tol_val_field.setMaximumSize(75,25)
+                self.tol_val_field.setPlaceholderText('tolerance')
+                self.tol_val_field.setText(req_wizard_state.get('tol_val', ''))
+                self.tol_val_field.textChanged.connect(self.num_entered)
 
         # units combo box.
-        # TODO: fill in units based on the dimension selected.
         self.units = QComboBox()
         key = req_wizard_state.get('dim')
         units_list = alt_units.get(key, None)
@@ -888,16 +902,28 @@ class PerformReqBuildShallPage(QWizardPage):
         self.rationale_field.setPlainText(
                                     req_wizard_state.get('rationale', ''))
 
-        # TODO: populate the shall statement -- this should be tied to a drop
-        # event, change of shall type, numeric entry, and units change
-
-        # Boxes for additional text that are in the shall statement
+        # optional text components of the shall statement
         self.subject_field = QLineEdit()
-        self.subject_field.setText(req_wizard_state.get('subject', ''))
+        subject = req_wizard_state.get('subject')
+        if subject:
+            self.subject_field.setReadOnly(False)
+            self.subject_field.setText(subject)
+        else:
+            self.subject_field.setReadOnly(True)
         self.predicate_field = QLineEdit()
-        self.predicate_field.setText(req_wizard_state.get('predicate', ''))
+        predicate = req_wizard_state.get('predicate')
+        if predicate:
+            self.predicate_field.setReadOnly(False)
+            self.predicate_field.setText(predicate)
+        else:
+            self.predicate_field.setReadOnly(True)
         self.epilog_field = QLineEdit()
-        self.epilog_field.setText(req_wizard_state.get('epilog', ''))
+        epilog = req_wizard_state.get('epilog')
+        if epilog:
+            self.epilog_field.setReadOnly(False)
+            self.epilog_field.setText(epilog)
+        else:
+            self.epilog_field.setReadOnly(True)
         text_boxes = [self.subject_field, self.predicate_field,
                       self.epilog_field]
 
@@ -913,35 +939,33 @@ class PerformReqBuildShallPage(QWizardPage):
         self.shall_hbox_top.addWidget(self.subject_field)
         self.shall_hbox_top.addWidget(self.shall_cb)
         self.shall_hbox_middle.addWidget(self.predicate_field)
-        # if self.t_shall tests True, then it is a maximum or a minumum;
+        # if self.min_max_cb tests True, then it is a maximum or a minumum;
         # otherwise it is a single value or a range
-        if self.t_shall:
-            self.shall_hbox_middle.addWidget(self.t_shall)
+        if self.min_max_cb:
+            self.shall_hbox_middle.addWidget(self.min_max_cb)
             self.shall_hbox_bottom.addWidget(self.base_val)
             self.shall_hbox_bottom.addWidget(self.units)
         else:
             self.shall_hbox_middle.addWidget(self.base_val)
-            if self.tolerance == 'Asymmetric Tolerance':
+            if tolerance == 'Asymmetric Tolerance':
                 self.shall_hbox_middle.addWidget(self.plus_minus_cb1)
-                self.shall_hbox_middle.addWidget(self.low_limit)
+                self.shall_hbox_middle.addWidget(self.lower_limit)
                 self.shall_hbox_middle.addWidget(self.plus_minus_cb2)
-                self.shall_hbox_middle.addWidget(self.up_limit)
+                self.shall_hbox_middle.addWidget(self.upper_limit)
                 self.shall_hbox_middle.addWidget(self.units)
-            elif self.tolerance == 'Symmetric Tolerance':
+            elif tolerance == 'Symmetric Tolerance':
                 self.shall_hbox_middle.addWidget(self.plus_minus_label)
-                self.shall_hbox_middle.addWidget(self.tol_num)
+                self.shall_hbox_middle.addWidget(self.tol_val_field)
                 self.shall_hbox_middle.addWidget(self.units)
-
-            elif self.upper_val:
+            elif self.max_val:
                 self.shall_hbox_middle.addWidget(self.range_label)
-                self.shall_hbox_middle.addWidget(self.upper_val)
+                self.shall_hbox_middle.addWidget(self.max_val)
                 self.shall_hbox_middle.addWidget(self.units)
 
         self.shall_hbox_bottom.addWidget(self.epilog_field)
 
         for box in text_boxes:
             box.setStyleSheet("QLineEdit {background-color: #EEEEEE}")
-            box.setReadOnly(True)
             box.setContextMenuPolicy(Qt.CustomContextMenu)
             box.customContextMenuRequested.connect(self.contextMenu)
             box.setPlaceholderText("right click to add text")
@@ -972,7 +996,6 @@ class PerformReqBuildShallPage(QWizardPage):
         self.preview_button.setMaximumSize(150,35)
         self.preview_form.addRow(self.preview_button)
 
-
         # fill the page, main layout
         layout.addLayout(self.inst_form)
         layout.addWidget(self.line_top)
@@ -981,15 +1004,21 @@ class PerformReqBuildShallPage(QWizardPage):
         layout.addLayout(self.rationale_layout)
         layout.addLayout(self.preview_form)
 
+    def set_shall_opt(self):
+        req_wizard_state['shall_opt'] = self.shall_cb.currentText()
+
+    def set_min_max_opt(self):
+        req_wizard_state['min_max_opt'] = self.min_max_cb.currentText()
+
     def num_entered(self):
         req_wizard_state['base_val'] = self.base_val.text()
-        if self.upper_val:
-            req_wizard_state['upper_val'] = self.upper_val.text()
-        if self.low_limit:
-            req_wizard_state['low_limit'] = self.low_limit.text()
-            req_wizard_state['up_limit'] = self.up_limit.text()
-        if self.tol_num:
-            req_wizard_state['tol_num'] = self.tol_num.text()
+        if self.max_val:
+            req_wizard_state['max_val'] = self.max_val.text()
+        if self.lower_limit:
+            req_wizard_state['lower_limit'] = self.lower_limit.text()
+            req_wizard_state['upper_limit'] = self.upper_limit.text()
+        if self.tol_val_field:
+            req_wizard_state['tol_val'] = self.tol_val_field.text()
 
     def contextMenu(self, event):
         self.selected_widget = self.sender()
@@ -1063,15 +1092,17 @@ class PerformReqBuildShallPage(QWizardPage):
                     shall_prev += ' '
         shall_prev += '.'
         if req_wizard_state.get('shall') and req_wizard_state.get('rationale'):
-            shall_rat = "Shall Statement: \n" + req_wizard_state['shall']
-            shall_rat +="\n Rationale: \n" + req_wizard_state['rationale']
+            shall_rat = "Shall Statement:\n{}".format(
+                                        req_wizard_state['shall'])
+            shall_rat +="\n\nRationale:\n{}".format(
+                                        req_wizard_state['rationale'])
         else:
             shall_rat = "Shall statement and rationale have not been saved."
         QMessageBox.question(self, 'preview', shall_rat, QMessageBox.Ok)
 
     def isComplete(self):
         """
-        Check that base_val, upper_val (optional), rationale, and all text
+        Check that base_val, max_val (optional), rationale, and all text
         fields are filled.
         """
         # numbers are saved to state as they are typed ... text fields are
@@ -1105,7 +1136,7 @@ class PerformReqBuildShallPage(QWizardPage):
                     # req_wizard_state['shall'] += ' '
         if req_wizard_state['shall'] == '':
             return False
-        req_wizard_state['shall'] += '.'
+        req_wizard_state['shall'] = req_wizard_state['shall'].strip() + '.'
         req_wizard_state['rationale'] = self.rationale_field.toPlainText()
         if not req_wizard_state.get('rationale'):
             return False
@@ -1116,15 +1147,15 @@ class PerformReqBuildShallPage(QWizardPage):
         requirement.rationale = req_wizard_state['rationale']
         if not req_wizard_state.get('base_val'):
             return False
-        if self.low_limit:
-            if (not req_wizard_state.get('low_limit') or
-                    not req_wizard_state.get('up_limit')):
+        if self.lower_limit:
+            if (not req_wizard_state.get('lower_limit') or
+                not req_wizard_state.get('upper_limit')):
                 return False
-        if self.tol_num:
-            if not req_wizard_state.get('tol_num'):
+        if self.tol_val_field:
+            if not req_wizard_state.get('tol_val'):
                 return False
-        if self.upper_val:
-            if not req_wizard_state.get('upper_val'):
+        if self.max_val:
+            if not req_wizard_state.get('max_val'):
                 return False
         orb.save([requirement])
         return True
@@ -1168,17 +1199,17 @@ class PerformanceMarginCalcPage(QWizardPage):
         subtraction_label = QLabel(' - ')
         mult_label = QLabel(' x ')
         line = QHLine()
-        up_layout = QHBoxLayout()
+        top_layout = QHBoxLayout()
         bottom_layout = QHBoxLayout()
-        up_layout.addWidget(upper_left_cb)
-        up_layout.addWidget(subtraction_label)
-        up_layout.addWidget(upper_right_cb)
+        top_layout.addWidget(upper_left_cb)
+        top_layout.addWidget(subtraction_label)
+        top_layout.addWidget(upper_right_cb)
         bottom_layout.addWidget(bottom_left_cb)
         bottom_layout.addWidget(mult_label)
         bottom_layout.addWidget(bottom_right_cb)
         self.layout = self.layout()
         self.layout.setSpacing(20)
-        self.layout.addLayout(up_layout)
+        self.layout.addLayout(top_layout)
         self.layout.addWidget(line)
         self.layout.addLayout(bottom_layout)
 
