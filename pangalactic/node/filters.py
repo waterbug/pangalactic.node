@@ -218,14 +218,13 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     reqpat = r'[a-zA-Z][a-zA-Z0-9]*(\.[0-9][0-9]*)(\.[a-zA-Z0-9][a-zA-Z0-9]*)'
 
     def __init__(self, ncols=None, col_labels=None, col_defs=None,
-                 col_dtypes=None, filters=None, parent=None):
+                 col_dtypes=None, parent=None):
         super(ObjectSortFilterProxyModel, self).__init__(parent=parent)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
         self.ncols = ncols or 2
         self.col_labels = col_labels or []
         self.col_defs = col_defs or []
         self.col_dtypes = col_dtypes or []
-        self.filters = filters or []
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         idxs = []
@@ -387,8 +386,30 @@ class ProxyView(QTableView):
 
 class FilterPanel(QWidget):
     def __init__(self, objs, view=None, label='', width=None, height=None,
-                 as_library=False, cname=None, filters=None, word_wrap=False,
+                 as_library=False, cname=None, word_wrap=False,
                  external_filters=False, parent=None):
+        """
+        Initialize.
+
+        Args:
+            objs (Identifiable):  objects to be displayed
+
+        Keyword Args:
+            view (iterable):  attributes of object to be shown
+            label (str):  string to use for title
+            width (int):  width of dialog widget
+            as_library (bool):  (default: False) flag whether to act as library
+                -- i.e. its objects can be drag/dropped onto other widgets
+            cname (str):  class name of the objects to be displayed ("objs" arg
+                will be ignored)
+            word_wrap (bool):  (default: False) flag whether to apply word wrap
+                to table cells
+            external_filters (bool):  (default: False) flag whether external
+                widgets will be called to select additional filter states --
+                so far this is only used for the Product library
+            height (int):  height of dialog widget
+            parent (QWidget): parent widget
+        """
         super(FilterPanel, self).__init__(parent=parent)
         self.as_library = as_library
         if as_library and cname:
@@ -627,6 +648,19 @@ class FilterPanel(QWidget):
 class FilterDialog(QDialog):
     def __init__(self, objs, view=None, label='', width=None, height=None,
                  parent=None):
+        """
+        Initialize.
+
+        Args:
+            objs (Identifiable):  objects to be displayed
+
+        Keyword Args:
+            view (iterable):  attributes of object to be shown
+            label (str):  string to use for title
+            width (int):  width of dialog widget
+            height (int):  height of dialog widget
+            parent (QWidget): parent widget
+        """
         super(FilterDialog, self).__init__(parent=parent)
         panel = FilterPanel(objs, view=view, label=label, parent=self)
         vbox = QVBoxLayout()

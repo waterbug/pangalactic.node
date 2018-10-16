@@ -330,6 +330,14 @@ class SystemTreeModel(QAbstractItemModel):
         self.root.children = [top_node]
         self.successful_drop_index = None
 
+    @property
+    def req(self):
+        return self._req
+
+    @req.setter
+    def req(self, r):
+        self._req = r
+
     def node_for_object(self, obj, parent, link=None):
         """
         Return a Node instance for an object and its "parent" object.  This is
@@ -522,7 +530,7 @@ class SystemTreeModel(QAbstractItemModel):
                     return self.BRUSH
                 else:
                     return self.RED_BRUSH
-        if role == Qt.BackgroundRole and self.show_allocs and self.req:
+        if role == Qt.BackgroundRole and self.req and self.show_allocs:
             if isinstance(node.link, orb.classes['Acu']):
                 allocs = orb.search_exact(cname='RequirementAllocation',
                                           allocated_requirement=self.req,
@@ -1042,7 +1050,6 @@ class SystemTreeView(QTreeView):
         """
         super(SystemTreeView, self).__init__(parent)
         self.show_allocs = show_allocs
-        self.req = req
         tree_model = SystemTreeModel(obj, refdes=refdes,
                                      show_allocs=show_allocs,
                                      req=req, parent=self)
@@ -1088,6 +1095,15 @@ class SystemTreeView(QTreeView):
             state['sys_trees'] = {}
         if not state['sys_trees'].get(self.project.id):
             state['sys_trees'][self.project.id] = {}
+
+    @property
+    def req(self):
+        return self.source_model._req
+
+    @req.setter
+    def req(self, r):
+        self.source_model._req = r
+        self.dataChanged(QModelIndex(), QModelIndex())
 
     def sizeHint(self):
         return QSize(300, 300)

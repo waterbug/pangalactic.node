@@ -77,6 +77,7 @@ from pangalactic.node.widgets         import (AutosizingListWidget,
 from pangalactic.node.wizards         import (NewProductWizard,
                                               DataImportWizard,
                                               wizard_state)
+from pangalactic.node.reqmanager      import RequirementManager
 from pangalactic.node.reqwizards      import ReqWizard, req_wizard_state
 from pangalactic.node.splash          import SplashScreen
 
@@ -1291,11 +1292,11 @@ class Main(QtWidgets.QMainWindow):
                                     slot=self.display_product_types,
                                     tip="Product Types Library",
                                     modes=['system', 'component', 'db'])
-        self.display_reqts_action = self.create_action(
-                                "Project Requirements",
-                                slot=self.display_project_requirements,
+        self.reqts_manager_action = self.create_action(
+                                "Project Requirements Manager",
+                                slot=self.display_requirements_manager,
                                 icon='lander',
-                                tip="Project Requirements for Current Project",
+                                tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         self.product_lib_action = self.create_action(
@@ -1793,7 +1794,7 @@ class Main(QtWidgets.QMainWindow):
                                 self.parameter_lib_action,
                                 # self.display_disciplines_action,
                                 self.display_product_types_action,
-                                self.display_reqts_action
+                                self.reqts_manager_action
                                 # self.compare_items_action
                                 ]
         if not platform.platform().startswith('Darwin'):
@@ -3180,17 +3181,12 @@ class Main(QtWidgets.QMainWindow):
                            height=self.geometry().height(), parent=self)
         dlg.show()
 
-    def display_project_requirements(self):
+    def display_requirements_manager(self):
         project_oid = state.get('project') or 'pgefobjects:SANDBOX'
         proj = orb.get(project_oid)
-        view = ['id', 'name', 'level', 'description', 'purpose', 'rationale',
-                'comment']
-        objs = orb.search_exact(cname='Requirement', owner=proj)
-        title = 'Project Requirements for {}'.format(proj.id)
-        dlg = FilterDialog(objs, label=title, view=view,
-                           height=self.geometry().height(),
-                           width=(2 * self.geometry().width() / 3),
-                           parent=self)
+        w = 2 * self.geometry().width() / 3
+        h = self.geometry().height()
+        dlg = RequirementManager(project=proj, width=w, height=h, parent=self)
         dlg.show()
 
     # def display_disciplines(self):
@@ -3756,7 +3752,7 @@ class Main(QtWidgets.QMainWindow):
             orb.db.commit()
         # save a serialized version of the db to vault/db.yaml
         self.statusbar.showMessage('Exporting local DB to vault...')
-        orb.dump_db()
+        # orb.dump_db()
         if state.get('connected'):
             message_bus.session = None
             state['connected'] = False

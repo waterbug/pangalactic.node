@@ -331,7 +331,7 @@ class ReqDisciplinePage(QWizardPage):
         disciplines = orb.get_by_type('Discipline')
         label = 'Discipline'
         self.discipline_panel = FilterPanel(disciplines, label=label,
-                parent=self)
+                                            parent=self)
         self.discipline_view = self.discipline_panel.proxy_view
         self.discipline_view.clicked.connect(self.discipline_selected)
         self.discipline_view.clicked.connect(self.completeChanged)
@@ -374,10 +374,10 @@ class ReqAllocPage(QWizardPage):
     component or subsystem of a system.
     """
 
-    def __init__(self,parent=None):
+    def __init__(self, parent=None):
         super(ReqAllocPage, self).__init__(parent)
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
 
     def initializePage(self):
         if self.title():
@@ -398,10 +398,20 @@ class ReqAllocPage(QWizardPage):
                                        show_allocs=True, req=self.req)
         self.sys_tree.expandToDepth(2)
         self.sys_tree.clicked.connect(self.on_select_node)
-        layout = self.layout()
-        layout.addWidget(self.sys_tree)
-        self.setLayout(layout)
-        # default unless one is selected
+        main_layout = self.layout()
+        content_layout = QHBoxLayout()
+        main_layout.addLayout(content_layout, stretch=1)
+        tree_layout = QVBoxLayout()
+        tree_layout.addWidget(self.sys_tree)
+        summary_layout = QVBoxLayout()
+        self.summary = QLabel()
+        summary_layout.addWidget(self.summary, stretch=1,
+                                 alignment=Qt.AlignTop)
+        content_layout.addLayout(tree_layout)
+        content_layout.addLayout(summary_layout)
+        self.update_summary()
+
+        # TODO: replace this with the allocation summary
         req_wizard_state['function'] = self.project.id
 
     def on_select_node(self, index):
@@ -420,44 +430,80 @@ class ReqAllocPage(QWizardPage):
             stuff = orb.search_exact(cname='SystemRequirement',
                                      requirement=self.req, supported_by=link)
             if stuff:
-                # TODO: Give nice "already allocated" message to the user
+                # TODO: dialog offering to remove the allocation
                 pass
-            fn_name = link.system_role
-            _id = 'SYS-REQ-' + self.req.id + '-OF-SYS-' + fn_name
-            _name = ' '.join(['SYS REQ:', self.req.id,
-                              ':: OF SYS:', fn_name])
-            _descrip = ' '.join(['System Requirement:', self.req.name,
-                                 ':: Of Project:', link.project.id,
-                                 ':: System:', fn_name])
-            new_obj = clone('SystemRequirement', requirement=self.req,
-                            supported_by=link, id=_id, name=_name,
-                            description=_descrip)
+            else:
+                fn_name = link.system_role
+                _id = 'SYS-REQ-' + self.req.id + '-OF-SYS-' + fn_name
+                _name = ' '.join(['SYS REQ:', self.req.id,
+                                  ':: OF SYS:', fn_name])
+                _descrip = ' '.join(['System Requirement:', self.req.name,
+                                     ':: Of Project:', link.project.id,
+                                     ':: System:', fn_name])
+                new_obj = clone('SystemRequirement', requirement=self.req,
+                                supported_by=link, id=_id, name=_name,
+                                description=_descrip)
         elif hasattr(link, 'component'):
             # check for existing RequirementAllocation
             stuff = orb.search_exact(cname='RequirementAllocation',
                                      allocated_requirement=self.req,
                                      satisfied_by=link)
             if stuff:
-                # TODO: Give nice "already allocated" message to the user
+                # TODO: dialog offering to remove the allocation
                 pass
-            fn_name = link.reference_designator
-            _id = 'REQ-ALLOC-' + self.req.id + '-TO-SUBSYS-' + fn_name
-            _id += '-OF-' + link.assembly.id
-            _name = ' '.join(['REQ ALLOC:', self.req.id, ':: TO SUBSYS:',
-                              fn_name, 'OF:', link.assembly.name])
-            _descrip = ' '.join(['Allocation of Requirement:', self.req.name,
-                                 ':: To Subsystem:', fn_name,
-                                 'Of System:', link.assembly.name])
-            new_obj = clone('RequirementAllocation',
-                            allocated_requirement=self.req,
-                            satisfied_by=link, id=_id, name=_name,
-                            description=_descrip)
+            else:
+                fn_name = link.reference_designator
+                _id = 'REQ-ALLOC-' + self.req.id + '-TO-SUBSYS-' + fn_name
+                _id += '-OF-' + link.assembly.id
+                _name = ' '.join(['REQ ALLOC:', self.req.id, ':: TO SUBSYS:',
+                                  fn_name, 'OF:', link.assembly.name])
+                _descrip = ' '.join(['Allocation of Requirement:',
+                                     self.req.name,
+                                     ':: To Subsystem:', fn_name,
+                                     'Of System:', link.assembly.name])
+                new_obj = clone('RequirementAllocation',
+                                allocated_requirement=self.req,
+                                satisfied_by=link, id=_id, name=_name,
+                                description=_descrip)
         self.sys_tree.clearSelection()
-
         # TODO: get the selected name/product so it can be used in the shall
         # statement.
         req_wizard_state['function'] = fn_name
         orb.save([new_obj])
+        self.update_summary()
+
+    def update_summary(self):
+        """
+        Update the summary of current allocations.
+        """
+        all_srs = orb.search_exact(cname='SystemRequirement',
+                                   requirement=self.req)
+        self.srs = [sr for sr in all_srs if
+                    getattr(sr.supported_by, 'project', None) == self.project]
+        nodes = self.sys_tree.source_model.object_nodes.values()
+        links = [node.link for node in nodes]
+        all_allocs = orb.search_exact(cname='RequirementAllocation',
+                                      allocated_requirement=self.req)
+        self.allocs = [ra for ra in all_allocs if ra.satisfied_by in links]
+        msg = '<h3>Requirement Allocations:</h3>'
+        if self.srs or self.allocs:
+            msg += '<ul>'
+            if self.srs:
+                for sr in self.srs:
+                    msg += ''.join(['<li><b>', sr.supported_by.system_role,
+                                    '</b></li>'])
+            if self.allocs:
+                for ra in self.allocs:
+                    msg += ''.join(['<li><b>',
+                                    ra.satisfied_by.reference_designator,
+                                    ' subsystem of ',
+                                    ra.satisfied_by.assembly.name,
+                                    '</b></li>'])
+            msg += '</ul>'
+        else:
+            msg += '[None]'
+        self.summary.setText(msg)
+
 
 class ReqSummaryPage(QWizardPage):
     """
