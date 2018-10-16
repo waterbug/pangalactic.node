@@ -1,6 +1,6 @@
 package:
   name: pangalactic.node
-  version: "0.1.dev92"
+  version: "0.1.dev93"
 
 source:
   path: # [path to source]
@@ -19,7 +19,7 @@ requirements:
     - jpeg >=9b
     - matplotlib
     - openjpeg >=2.3.0
-    - pangalactic.core >=0.1.dev92
+    - pangalactic.core >=0.1.dev93
     - pillow <=4.1.1    # 4.2.x is broken
     - pyqt >=5.6
     - python >=2.7
