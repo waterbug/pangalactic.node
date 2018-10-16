@@ -266,7 +266,7 @@ class ReqVerificationPage(QWizardPage):
         super(ReqVerificationPage, self).__init__(parent)
         layout = QVBoxLayout()
         self.setLayout(layout)
-        req_wizard_state['ver_type'] = 'Specify Verification Method Later'
+        req_wizard_state['ver_method'] = 'Specify Verification Method Later'
 
     def initializePage(self):
         if self.title():
@@ -290,15 +290,15 @@ class ReqVerificationPage(QWizardPage):
         self.button_group.addButton(analysis_button)
         self.button_group.addButton(inspection_button)
         self.button_group.addButton(later_button)
-        ver_type = req_wizard_state.get('ver_type')
-        if ver_type:
-            if ver_type == "Test":
+        ver_method = req_wizard_state.get('ver_method')
+        if ver_method:
+            if ver_method == "Test":
                 test_button.setChecked(True)
-            elif ver_type == "Analysis":
+            elif ver_method == "Analysis":
                 analysis_button.setChecked(True)
-            elif ver_type == "Inspection":
+            elif ver_method == "Inspection":
                 inspection_button.setChecked(True)
-            elif ver_type == "Specify Verification Method Later":
+            elif ver_method == "Specify Verification Method Later":
                 later_button.setChecked(True)
         layout.addWidget(inst_label)
         layout.addWidget(test_button)
@@ -309,7 +309,7 @@ class ReqVerificationPage(QWizardPage):
         self.setLayout(layout)
 
     def button_clicked(self):
-        req_wizard_state['ver_type'] = self.button_group.checkedButton().text()
+        req_wizard_state['ver_method'] = self.button_group.checkedButton().text()
 
 
 class ReqDisciplinePage(QWizardPage):
@@ -532,7 +532,7 @@ class ReqSummaryPage(QWizardPage):
             self.setSubTitle('Confirm all the information is correct...')
         function = req_wizard_state.get('function', 'Not Specified')
         self.allocation.setText(function)
-        ver_method = req_wizard_state.get('ver_type', 'Not Specified')
+        ver_method = req_wizard_state.get('ver_method', 'Not Specified')
         self.verification.setText(ver_method)
         requirement = orb.get(req_wizard_state.get('req_oid'))
         panels = ['main','info']

@@ -7,7 +7,6 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
                              QSizePolicy, QVBoxLayout)
 
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.meta  import get_attr_ext_name
 from pangalactic.node.filters     import FilterPanel
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.systemtree  import SystemTreeView
@@ -28,7 +27,7 @@ class RequirementManager(QDialog):
     def __init__(self, project=None, width=None, height=None, view=None,
                  req=None, parent=None):
         super(RequirementManager, self).__init__(parent=parent)
-        default_view = ['id', 'name', 'level', 'description', 'purpose',
+        default_view = ['id', 'name', 'level', 'description',
                         'rationale', 'comment']
         view = view or default_view
         self.req = req

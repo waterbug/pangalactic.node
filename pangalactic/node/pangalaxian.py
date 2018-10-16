@@ -59,7 +59,7 @@ from pangalactic.node.dialogs         import (CloakingDialog, CondaDialog,
                                               ObjectSelectionDialog,
                                               OptionNotification,
                                               PrefsDialog, Viewer3DDialog)
-from pangalactic.node.filters         import FilterDialog
+# from pangalactic.node.filters         import FilterDialog
 from pangalactic.node.helpwidget      import HelpWidget
 from pangalactic.node.libraries       import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus
@@ -3184,7 +3184,7 @@ class Main(QtWidgets.QMainWindow):
     def display_requirements_manager(self):
         project_oid = state.get('project') or 'pgefobjects:SANDBOX'
         proj = orb.get(project_oid)
-        w = 2 * self.geometry().width() / 3
+        w = 4 * self.geometry().width() / 5
         h = self.geometry().height()
         dlg = RequirementManager(project=proj, width=w, height=h, parent=self)
         dlg.show()
