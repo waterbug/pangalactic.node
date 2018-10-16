@@ -33,7 +33,8 @@ from pangalactic.core.parametrics import (add_parameter, delete_parameter,
 from pangalactic.core.uberorb     import orb
 # from pangalactic.core.units       import alt_units, in_si, ureg
 from pangalactic.core.units       import alt_units, ureg
-from pangalactic.core.utils.meta  import get_parameter_definition_oid
+from pangalactic.core.utils.meta  import (get_attr_ext_name,
+                                          get_parameter_definition_oid)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.validation import validate_all
 from pangalactic.node.utils       import (clone, get_object_title,
@@ -291,11 +292,8 @@ class PgxnForm(QWidget):
                 # TODO: explicitly set a default value of the correct type
                 val = getattr(obj, field_name, '')
             # external_name will be shown on the label in the user
-            # interface -- use field alias if the view contains one,
-            # otherwise use schema's `external_name` value for the
-            # field_name
-            external_name = (schema['fields'][field_name].get('external_name')
-                             or ' '.join(field_name.split('_')))
+            # interface
+            external_name = get_attr_ext_name(cname, field_name)
             obj_pk = getattr(obj, 'oid')
             max_length = schema['fields'][field_name].get('max_length', 80)
             nullable = schema['fields'][field_name].get('null')

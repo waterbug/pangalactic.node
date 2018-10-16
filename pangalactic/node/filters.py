@@ -12,7 +12,8 @@ from louie import dispatcher
 from pangalactic.core             import state
 from pangalactic.core.meta        import PGEF_COL_WIDTHS, PGEF_COL_NAMES
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.meta  import get_external_name_plural
+from pangalactic.core.utils.meta  import (get_external_name_plural,
+                                          get_attr_ext_name)
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ObjectTableModel
@@ -424,7 +425,9 @@ class FilterPanel(QWidget):
         schema = orb.schemas[self.cname]
         view = view or ['id', 'name', 'description']
         self.view = [a for a in view if a in schema['field_names']]
-        col_labels = [PGEF_COL_NAMES.get(a, a) for a in self.view]
+        # if col name, use that; otherwise, use external name
+        col_labels = [PGEF_COL_NAMES.get(a, get_attr_ext_name(self.cname, a))
+                      for a in self.view]
         col_defs = []
         col_dtypes = []
         for a in self.view:

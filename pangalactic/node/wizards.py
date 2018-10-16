@@ -59,12 +59,13 @@ class DataImportWizard(QtWidgets.QWizard):
         self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
         wizard_state['file_path'] = file_path
         intro_label = QtWidgets.QLabel(
-                "<p/>You have selected the file <b>&lt;%s&gt;</b>."
-                "<br>This wizard will assist in importing data from the "
-                "file ..." % wizard_state['file_path'])
+                "<p/>You have selected the file <b>&lt;%s&gt;</b>.".format(
+                wizard_state['file_path']))
+        intro_label += "<br>This wizard will assist in importing data ..."
         intro_label.setWordWrap(True)
         self.addPage(IntroPage(intro_label, parent=self))
         self.addPage(DataSetPage(parent=self))
+        # self.addPage(ObjectTypePage(parent=self))
         self.addPage(HeaderPage(parent=self))
         self.addPage(DataImportConclusionPage(self))
         self.setGeometry(50, 50, 800, 500)
@@ -279,6 +280,26 @@ class DataSetPage(QtWidgets.QWizardPage):
         self.hbox.addWidget(self.tableview, stretch=1,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
         self.updateGeometry()
+
+
+class ObjectTypePage(QtWidgets.QWizardPage):
+    def __init__(self, parent=None):
+        super(ObjectTypePage, self).__init__(parent=parent)
+        self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
+                           QtWidgets.QSizePolicy.MinimumExpanding)
+        self.vbox = QtWidgets.QVBoxLayout()
+        self.hbox = QtWidgets.QHBoxLayout()
+        self.hbox.addLayout(self.vbox)
+
+    def initializePage(self):
+        self.setTitle('Select the Type of Objects to be created from Data')
+        self.object_type_cb = QtWidgets.QComboBox()
+        self.object_type_cb.addItem('HardwareProduct')
+        self.object_type_cb.addItem('Requirement')
+        if wizard_state.get('cname', None):
+            self.object_type_cb.setCurrentText(wizard_state['cname'])
+        self.vbox.addWidget(self.object_type_cb,
+                            alignment=Qt.AlignLeft|Qt.AlignTop)
 
 
 class HeaderPage(QtWidgets.QWizardPage):

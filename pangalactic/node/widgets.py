@@ -11,7 +11,7 @@ from textwrap import wrap
 # pangalactic
 from pangalactic.core            import state
 from pangalactic.core.meta       import TEXT_PROPERTIES, SELECTABLE_VALUES
-from pangalactic.core.utils.meta import asciify
+from pangalactic.core.utils.meta import asciify, get_attr_ext_name
 from pangalactic.node.buttons    import FkButton
 from pangalactic.node.utils      import make_parm_html
 
