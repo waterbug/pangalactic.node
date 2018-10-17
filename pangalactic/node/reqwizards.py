@@ -535,11 +535,11 @@ class ReqSummaryPage(QWizardPage):
         ver_method = req_wizard_state.get('ver_method', 'Not Specified')
         self.verification.setText(ver_method)
         requirement = orb.get(req_wizard_state.get('req_oid'))
-        panels = ['main','info']
+        panels = ['main']
+        # main_view = ['id', 'name', 'description', 'rationale', 'comment']
         self.pgxn_obj = PgxnObject(requirement, panels=panels, edit_mode=False,
-                                   mask=all_req_fields, required=[],
-                                   view=all_req_fields, embedded=True,
-                                   view_only=True, new=False)
+                                   # main_view=main_view, required=[],
+                                   embedded=True, view_only=True, new=False)
         self.pgxn_obj.toolbar.hide()
         main_layout.addWidget(self.pgxn_obj)
 

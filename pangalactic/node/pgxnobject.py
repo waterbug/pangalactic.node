@@ -572,7 +572,7 @@ class PgxnObject(QMainWindow):
                 (default: None) -- if None, the fields specified for the
                 object's class in PGXN_REQD are used
             panels (list of str or None):  list of names of panels to include
-                in the interface (one of 'main', 'info', 'narrative', 'admin',
+                in the interface ('main', 'info', 'narrative', 'admin',
                 'parameters'); if None, all panels
             go_to_panel (str or None):  name of panel to show initially in the
                 interface (one of 'main', 'info', 'narrative', 'admin') -- NOTE
@@ -953,10 +953,10 @@ class PgxnObject(QMainWindow):
             notice = QMessageBox(QMessageBox.Warning, 'Cannot Delete', txt,
                                  QMessageBox.Ok, self)
             assemblies = [acu.assembly for acu in self.obj.where_used]
-            info = '<p><ul>{}</ul></p>'.format('\n'.join(
+            text = '<p><ul>{}</ul></p>'.format('\n'.join(
                            ['<li><b>{}</b><br>(id: {})</li>'.format(
                            a.name, a.id, a.oid) for a in assemblies]))
-            notice.setInformativeText(info)
+            notice.setInformativeText(text)
             notice.show()
             return
         elif getattr(self.obj, 'projects_using_system', None):

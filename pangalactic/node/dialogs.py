@@ -329,7 +329,7 @@ class CondaDialog(QDialog):
                 else:
                     heading_msg = 'Latest version of <font color="green">'
                     heading_msg += '{}</font>'.format(self.pkg_name)
-                    heading_msg += ' is already installed.'
+                    heading_msg += ' is installed.'
             else:
                 heading_msg = '<font color="red">Failure!</font>'
                 msg += '<b>Please notify your support person ...</b>'
