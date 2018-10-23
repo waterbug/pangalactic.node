@@ -3799,8 +3799,13 @@ def run(home='', splash_image=None, test_data=None, use_tls=True,
     y = screen_resolution.height()/2
     # BEGIN importing and installing the reactor
     import qt5reactor
-    qt5reactor.install()
-    from twisted.internet import reactor
+    try:
+        qt5reactor.install()
+        from twisted.internet import reactor
+    except:
+        from twisted.internet import reactor
+        rname = reactor.__name__
+        print('reactor "{}" already installed.'.format(rname))
     # from twisted.internet.defer import setDebugging
     # END importing and installing the reactor
     if splash_path:
