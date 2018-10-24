@@ -6,6 +6,15 @@ from setuptools import setup, find_packages
 
 VERSION = open('VERSION').read()[:-1]
 
+icon_mod_path = os.path.join('pangalactic', 'node', 'icons')
+icon_paths = [os.path.join(icon_mod_path, p)
+              for p in os.listdir(icon_mod_path)
+              if not p.startswith('__init__')]
+image_mod_path = os.path.join('pangalactic', 'node', 'images')
+image_data_paths = [os.path.join(image_mod_path, p)
+                   for p in os.listdir(image_mod_path)
+                   if not p.startswith('__init__')]
+
 long_description = (
     "pangalactic.node contains Pangalaxian, the Pan Galactic Engineering "
     "Framework (PGEF) desktop GUI client.")
@@ -21,6 +30,12 @@ setup(
     maintainer_email='waterbug@pangalactic.us',
     license='TBD',
     packages=find_packages(),
+    data_files=[
+        # icon files
+        (os.path.join(sitepkg_dir, icon_mod_path), icon_paths),
+        # image files
+        (os.path.join(sitepkg_dir, image_mod_path), image_paths)
+        ],
     zip_safe=False
 )
 
