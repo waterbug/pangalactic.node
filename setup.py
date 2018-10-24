@@ -2,6 +2,7 @@
 Setup script for pangalactic.node, containing Pangalaxian, the Pan Galactic
 Engineering Framework (PGEF) desktop GUI client.
 """
+import os, site
 from setuptools import setup, find_packages
 
 VERSION = open('VERSION').read()[:-1]
@@ -11,9 +12,11 @@ icon_paths = [os.path.join(icon_mod_path, p)
               for p in os.listdir(icon_mod_path)
               if not p.startswith('__init__')]
 image_mod_path = os.path.join('pangalactic', 'node', 'images')
-image_data_paths = [os.path.join(image_mod_path, p)
-                   for p in os.listdir(image_mod_path)
-                   if not p.startswith('__init__')]
+image_paths = [os.path.join(image_mod_path, p)
+               for p in os.listdir(image_mod_path)
+               if not p.startswith('__init__')]
+sitepkg_dir = [p for p in site.getsitepackages()
+               if p.endswith('site-packages')][0]
 
 long_description = (
     "pangalactic.node contains Pangalaxian, the Pan Galactic Engineering "
