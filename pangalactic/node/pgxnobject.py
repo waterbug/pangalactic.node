@@ -740,10 +740,10 @@ class PgxnObject(QMainWindow):
             txt = 'This Product is not used in any assemblies.'
         notice = QMessageBox(QMessageBox.Information, 'Where Used', txt,
                              QMessageBox.Ok, self)
-        if assemblies:
+        if assemblies and len(assemblies) > 0:
             info = '<p><ul>{}</ul></p>'.format('\n'.join(
                            ['<li><b>{}</b><br>(id: {})</li>'.format(
-                           a.name, a.id, a.oid) for a in assemblies]))
+                           a.name, a.id, a.oid) for a in assemblies if a]))
             notice.setInformativeText(info)
         notice.show()
 

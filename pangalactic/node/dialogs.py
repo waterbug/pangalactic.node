@@ -1,6 +1,12 @@
 """
 Various dialogs.
 """
+from __future__ import division
+from builtins import str
+from builtins import range
+# NOTE: fixed div's so old_div not needed
+# from past.utils import old_div
+from builtins import object
 import sys
 
 from PyQt5.QtCore import (pyqtSignal, Qt, QObject, QPoint, QRectF, QSize,
@@ -119,7 +125,7 @@ class ValidationDialog(QDialog):
         super(ValidationDialog, self).__init__(parent)
         self.setWindowTitle("Validation Error")
         form = QFormLayout(self)
-        for fname, msg in msg_dict.items():
+        for fname, msg in list(msg_dict.items()):
             field_label = QLabel(
                 '<b><font color="purple">{}</font></b>'.format(fname), self)
             msg_label = QLabel(
@@ -643,7 +649,7 @@ class UnitPrefsDialog(QDialog):
 
     def set_units(self):
         # msg = '<h3>Preferred Units set to:</h3><ul>'
-        for dims, widget in self.dim_widgets.items():
+        for dims, widget in list(self.dim_widgets.items()):
             prefs['units'][dims] = widget.get_value()
             # msg += '<li>{}: {}</li>'
         # msg += '</ul>'
@@ -817,14 +823,14 @@ class CircleWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.translate(self.width() / 2, self.height() / 2)
+        painter.translate(self.width() / 2.0, self.height() / 2.0)
 
         #range of diameter must start at a number greater than 0
         for diameter in range(1, 50, 9):
-            delta = abs((self.nframe % 64) - diameter / 2)
-            alpha = 255 - (delta * delta) / 4 - diameter
+            delta = abs((self.nframe % 64) - diameter / 2.0)
+            alpha = 255 - (delta * delta) / 4.0 - diameter
             if alpha > 0:
-                painter.setPen(QPen(QColor(0, diameter / 2, 127, alpha), 3))
+                painter.setPen(QPen(QColor(0, diameter / 2.0, 127, alpha), 3))
                 painter.drawEllipse(QRectF(
                     -diameter / 2.0,
                     -diameter / 2.0, 

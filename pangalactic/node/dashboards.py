@@ -6,6 +6,7 @@ and realtime updates of specified parameters of a system that is being modeled.
 """
 from __future__  import print_function
 
+from builtins import range
 from louie import dispatcher
 
 from PyQt5.QtCore    import Qt, QModelIndex, QItemSelectionModel

@@ -1,6 +1,11 @@
 """
 A canvas-style document editor example
 """
+from __future__ import division
+from __future__ import print_function
+from builtins import str
+# NOTE: divisions fixed so probably don't need old_div ...
+# from past.utils import old_div
 import functools, os, random, sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -12,11 +17,12 @@ from pangalactic.core.uberorb         import orb
 from pangalactic.core.utils.meta      import asciify
 from pangalactic.node.diagrams.shapes import TextItem, TextItemDlg
 
-MAC = True
-try:
-    from PyQt5.QtGui import qt_mac_set_native_menubar
-except ImportError:
-    MAC = False
+# NOTE: not using native Mac menus ...
+# MAC = True
+# try:
+    # from PyQt5.QtGui import qt_mac_set_native_menubar
+# except ImportError:
+    # MAC = False
 
 # A4 in points
 #PAGE_SIZE = (595, 842)
@@ -91,7 +97,7 @@ class BoxItem(QtWidgets.QGraphicsItem):
         Dirty = True
 
     def keyPressEvent(self, event):
-        factor = POINT_SIZE / 4
+        factor = POINT_SIZE // 4
         changed = False
         if event.modifiers() & Qt.ShiftModifier:
             if event.key() == Qt.Key_Left:
@@ -203,8 +209,8 @@ class DocForm(QtWidgets.QDialog):
                 ("&Save", self.save)]
         for text, slot in functions:
             button = QtWidgets.QPushButton(text)
-            if not MAC:
-                button.setFocusPolicy(Qt.NoFocus)
+            # if not MAC:
+                # button.setFocusPolicy(Qt.NoFocus)
             button.clicked.connect(slot)
             self.buttonLayout.addWidget(button)
         self.buttonLayout.addStretch()
@@ -388,8 +394,8 @@ class DocForm(QtWidgets.QDialog):
         try:
             file = QtCore.QFile(self.filename)
             if not file.open(QtCore.QIODevice.ReadOnly):
-                raise IOError, unicode(file.errorString())
-            items = self.scene.items()
+                raise IOError(str(file.errorString()))
+            items = list(self.scene.items())
             while items:
                 item = items.pop()
                 self.scene.removeItem(item)
@@ -399,13 +405,13 @@ class DocForm(QtWidgets.QDialog):
             stream.setVersion(QtCore.QDataStream.Qt_4_2)
             magic = stream.readInt32()
             if magic != MagicNumber:
-                raise IOError, "not a valid .pgd file"
+                raise IOError("not a valid .pgd file")
             fileVersion = stream.readInt16()
             if fileVersion != FileVersion:
-                raise IOError, "unrecognised .pgd file version"
+                raise IOError("unrecognised .pgd file version")
             while not file.atEnd():
                 self.readItemFromStream(stream)
-        except IOError, err:
+        except IOError as err:
             QtWidgets.QMessageBox.warning(self, "Page Designer -- Open Error",
                     "Failed to open {0}: {1}".format(self.filename, err))
         finally:
@@ -425,18 +431,18 @@ class DocForm(QtWidgets.QDialog):
             self.filename = asciify(fout[0])
         file = None
         try:
-            print 'file name is: "%s"' % str(self.filename)
+            print('file name is: "%s"' % str(self.filename))
             file = QtCore.QFile(self.filename)
             if not file.open(QtCore.QIODevice.WriteOnly):
-                raise IOError, unicode(file.errorString())
+                raise IOError(str(file.errorString()))
             self.scene.clearSelection()
             stream = QtCore.QDataStream(file)
             stream.setVersion(QtCore.QDataStream.Qt_4_2)
             stream.writeInt32(MagicNumber)
             stream.writeInt16(FileVersion)
-            for item in self.scene.items():
+            for item in list(self.scene.items()):
                 self.writeItemToStream(stream, item)
-        except IOError, err:
+        except IOError as err:
             QtWidgets.QMessageBox.warning(self, "Page Designer -- Save Error",
                     "Failed to save {0}: {1}".format(self.filename, err))
         finally:

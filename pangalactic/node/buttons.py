@@ -4,6 +4,8 @@ PanGalactic widgets based on QPushButton
 from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets  import QMenu, QPushButton
 
+from pangalactic.core.utils.meta import asciify
+
 
 class MenuButton(QPushButton):
     """
@@ -106,7 +108,7 @@ class FkButton(QPushButton):
         if hasattr(value, '__str__'):
             text = value.__str__()
         else:
-            text = str(value)
+            text = asciify(value)
         QPushButton.__init__(self, text, parent=parent)
         if editable:
             pass

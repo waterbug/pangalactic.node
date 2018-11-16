@@ -1,6 +1,7 @@
 """
 A diagram scene and view
 """
+from builtins import range
 import platform, random
 from PyQt5.QtGui     import QFont
 from PyQt5.QtWidgets import (QGraphicsItem, QGraphicsLineItem, QGraphicsScene,
@@ -19,7 +20,7 @@ class DiagramScene(QGraphicsScene):
     """
     The scene of a diagram
     """
-    insert_item, insert_connector, move_item  = range(3)
+    insert_item, insert_connector, move_item  = list(range(3))
     item_inserted = pyqtSignal(ObjectBlock)
     item_selected = pyqtSignal(QGraphicsItem)
     default_item_color = Qt.white
@@ -229,7 +230,7 @@ class DiagramScene(QGraphicsScene):
         # find all the object blocks and group them by left and right
         left_xs = []
         right_xs = []
-        for shape in self.items():
+        for shape in list(self.items()):
             if isinstance(shape, ObjectBlock):
                 rp = getattr(shape, 'right_ports', False)
                 if rp:
@@ -292,8 +293,8 @@ class DiagramScene(QGraphicsScene):
                 left_col = right_ports = True
                 p = QPointF(w, y_left_next)
                 i += 1.0
-            orb.log.info('    ... at position (%s, %s) ...' % (str(p.x()),
-                                                               str(p.y())))
+            orb.log.info('    ... at position ({}, {}) ...'.format(p.x(),
+                                                                   p.y()))
             new_item = self.create_item(ObjectBlock, obj=obj, pos=p,
                                         right_ports=right_ports)
             items.append(new_item)
@@ -339,7 +340,7 @@ class DiagramScene(QGraphicsScene):
         object_blocks = {}
         subject_block = {}
         flows = []
-        for shape in self.items():
+        for shape in list(self.items()):
             if isinstance(shape, ObjectBlock):
                 x = shape.x()
                 y = shape.y()
@@ -362,11 +363,6 @@ class DiagramScene(QGraphicsScene):
                 orb.log.debug('    start port = {}'.format(start))
                 orb.log.debug('    end port = {}'.format(end))
                 orb.log.debug('    context = {}'.format(context))
-            else:
-                # this gets very verbose ...
-                # orb.log.debug('* %s at %s not saved' %
-                              # (str(type(shape)), str(shape.pos())))
-                pass
         # check on routing channel ...
         orb.log.debug('* routing channel: {}'.format(
                                                 self.get_routing_channel()))
@@ -395,7 +391,7 @@ class DiagramScene(QGraphicsScene):
         if objs:
             objs_by_oid = {o.oid : o for o in objs}
             if model.get('object_blocks'):
-                for oid, item in model['object_blocks'].items():
+                for oid, item in list(model['object_blocks'].items()):
                     # first restore ObjectBlocks -- ports created automatically
                     # if the "obj" has a non-null "ports" attribute
                     if oid in objs_by_oid:
@@ -409,8 +405,8 @@ class DiagramScene(QGraphicsScene):
                                                                     obj.name))
                     x, y = item['x'], item['y']
                     p = QPointF(x, y)
-                    orb.log.info('    ... at position (%s, %s) ...' % (str(x),
-                                                                       str(y)))
+                    orb.log.info('    ... at position ({}, {}) ...'.format(
+                                                                        x, y))
                     rp = item.get('right_ports', False)
                     obj_block = self.create_item(None, obj=obj, pos=p,
                                                  right_ports=rp)
@@ -425,7 +421,7 @@ class DiagramScene(QGraphicsScene):
                             y_right_last = y
                             y_right_next = (y + obj_block.rect.height()
                                             + spacing)
-            for obj in objs_by_oid.values():
+            for obj in list(objs_by_oid.values()):
                 # create blocks for missing objs, if any
                 orb.log.info('  - adding missing block "{}" ...'.format(
                                                                     obj.name))
