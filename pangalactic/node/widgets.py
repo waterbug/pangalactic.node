@@ -1,3 +1,4 @@
+from builtins import str
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui  import QDoubleValidator, QIntValidator, QPixmap, QTextOption
 from PyQt5.QtWidgets  import (QCheckBox, QComboBox, QDateEdit, QDateTimeEdit,
@@ -11,7 +12,7 @@ from textwrap import wrap
 # pangalactic
 from pangalactic.core            import state
 from pangalactic.core.meta       import TEXT_PROPERTIES, SELECTABLE_VALUES
-from pangalactic.core.utils.meta import asciify, get_attr_ext_name
+from pangalactic.core.utils.meta import asciify
 from pangalactic.node.buttons    import FkButton
 from pangalactic.node.utils      import make_parm_html
 
@@ -201,11 +202,11 @@ def get_widget(field_name, field_type, value=None, editable=True,
             # read-only boolean field -> disabled checkbox
             widget = widget_class(value=value, editable=editable)
         else:
-            if type(value) is unicode:
+            if isinstance(value, str):
                 widget = ValueLabel(value, w=maxlen, wrappable=wrap_text,
                                     placeholder=placeholder)
             else:
-                widget = ValueLabel(unicode(value), w=maxlen,
+                widget = ValueLabel(str(value), w=maxlen,
                                     placeholder=placeholder)
         label = QLabel()
         if parm_field:
@@ -292,7 +293,7 @@ class AsciiSelectWidget(QComboBox):
         super(AsciiSelectWidget, self).__init__(parent=parent)
         self.setMinimumWidth(120)
         self.setMaximumWidth(250)
-        self.valid_values = SELECTABLE_VALUES[field_name].keys()
+        self.valid_values = list(SELECTABLE_VALUES[field_name].keys())
         self.addItems(self.valid_values)
         if value:
             self.set_value(value)

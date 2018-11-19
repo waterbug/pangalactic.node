@@ -2,6 +2,10 @@
 """
 Wizards
 """
+from builtins import zip
+from builtins import str
+from builtins import range
+from builtins import object
 import os
 from collections import OrderedDict as OD
 
@@ -24,6 +28,7 @@ from pangalactic.node.tablemodels import ListTableModel, ODTableModel
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import (AutosizingListView, NameLabel,
                                           PlaceHolder, ValueLabel)
+from functools import reduce
 
 # wizard_state keys:
 #   - file_path
@@ -227,7 +232,7 @@ class DataSetPage(QtWidgets.QWizardPage):
                                         "<b>Select a sheet<br>to import:</b>")
             # sheet list widget
             self.sl_model = QtGui.QStandardItemModel(parent=self)
-            sheet_names = self.datasets.keys()
+            sheet_names = list(self.datasets.keys())
             if sheet_names:
                 for name in sheet_names:
                     self.sl_model.appendRow(QtGui.QStandardItem(name))
@@ -365,7 +370,7 @@ class HeaderPage(QtWidgets.QWizardPage):
                                 "<hr>")
         # if there are checkboxes from a previous call, remove them ...
         if hasattr(self, 'cb_layout'):
-            for i in reversed(range(self.cb_layout.count())): 
+            for i in reversed(list(range(self.cb_layout.count()))):
                 self.cb_layout.itemAt(i).widget().setParent(None)
             self.cb_layout.setParent(None)
             self.cb_container.setParent(None)
@@ -387,7 +392,7 @@ class HeaderPage(QtWidgets.QWizardPage):
             cb = QtWidgets.QCheckBox()
             cb.clicked.connect(self.completeChanged)
             cb.clicked.connect(self.on_check_cb)
-            cb_label = QtWidgets.QLabel(str(name))
+            cb_label = QtWidgets.QLabel(name)
             cb_label.setFixedWidth(100)
             cb_label.setWordWrap(True)
             self.cbs.append(cb)
@@ -416,7 +421,7 @@ class HeaderPage(QtWidgets.QWizardPage):
         orb.log.debug('* wizard: selected columns:')
         for i, n in zip(wizard_state['column_numbers'],
                         wizard_state['column_names']):
-            orb.log.debug('  * [%s] %s' % (str(i), str(n)))
+            orb.log.debug('  * [{}] {}'.format(i, n))
 
     def isComplete(self):
         """
@@ -491,11 +496,11 @@ class MetaDataPage(QtWidgets.QWizardPage):
         # orb.data_store[wizard_state['dataset_name']] = df
 
     def on_row_clicked(self, idx):
-        orb.log.debug('* wizard: row %s is selected' % str(idx.row()))
+        orb.log.debug('* wizard: row {} is selected'.format(idx.row()))
         self.get_col_names(idx.row())
 
     def on_row_header_clicked(self, idx):
-        orb.log.debug('Row header %s was clicked' % str(idx))
+        orb.log.debug('Row header {} was clicked'.format(idx))
         self.get_col_names(idx)
 
     def isComplete(self):
@@ -733,17 +738,17 @@ class ProductTypePage(QtWidgets.QWizardPage):
     def on_check_all(self):
         if self.cb_all.isChecked():
             self.show_all_disciplines = True
-            for cb in self.checkboxes.values():
+            for cb in list(self.checkboxes.values()):
                 cb.setChecked(True)
         else:
             self.show_all_disciplines = False
-            for cb in self.checkboxes.values():
+            for cb in list(self.checkboxes.values()):
                 cb.setChecked(False)
         self.on_check_cb()
 
     def on_check_cb(self):
         d_oids = []
-        for d_oid, cb in self.checkboxes.items():
+        for d_oid, cb in list(self.checkboxes.items()):
             if cb.isChecked():
                 d_oids.append(d_oid)
         product_types = set()
@@ -769,13 +774,12 @@ class ProductTypePage(QtWidgets.QWizardPage):
 
     def product_type_selected(self, clicked_index):
         clicked_row = clicked_index.row()
-        orb.log.debug('* clicked row is "{}"'.format(str(clicked_row)))
+        orb.log.debug('* clicked row is "{}"'.format(clicked_row))
         mapped_row = self.product_type_panel.proxy_model.mapToSource(
                                                         clicked_index).row()
         wizard_state['product_type'] = self.product_type_panel.objs[mapped_row]
         orb.log.debug(
-            '  product type selected [mapped row] is: {}'.format(
-                                                            str(mapped_row)))
+            '  product type selected [mapped row] is: {}'.format(mapped_row))
         pt = wizard_state.get('product_type')
         pt_name = getattr(pt, 'name', '[not set]')
         orb.log.debug('  ... which is "{}"'.format(pt_name))
@@ -849,7 +853,7 @@ class MaturityLevelPage(QtWidgets.QWizardPage):
 
     def trl_selected(self, clicked_index):
         clicked_row = clicked_index.row()
-        orb.log.debug('* clicked row is "{}"'.format(str(clicked_row)))
+        orb.log.debug('* clicked row is "{}"'.format(clicked_row))
         wizard_state['trl'] = trls[clicked_row]
         orb.log.debug('  trl selected is: {}'.format(trls[clicked_row]))
         trl = wizard_state.get('trl')
@@ -939,7 +943,7 @@ class NewProductWizardConclusionPage(QtWidgets.QWizardPage):
 #  Concept Wizard Pages
 #################################
 
-class ConceptConclusionPage:
+class ConceptConclusionPage(object):
     pass
 
 # if __name__ == '__main__':
