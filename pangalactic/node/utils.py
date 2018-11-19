@@ -2,8 +2,13 @@
 """
 GUI related utility functions
 """
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
 import os
-from StringIO import StringIO
+from io import StringIO
 from uuid import uuid4
 
 from PyQt5        import QtWidgets
@@ -68,23 +73,10 @@ def clone(what, include_ports=True, include_components=True, **kw):
     """
     orb.log.info('* clone({})'.format(what))
     new = False
-    if type(what) in [str, unicode]:
-        # 'what' is a class name -- create a new instance from scratch
-        # TODO:  validation: every new object *must* have 'id' value
-        # TODO:  validation: a ParameterDefinition must have an 'id' value
-        # that is unique among ParameterDefinitions
-        # NOTE: possible future enhancement: parameter namespaces
-        new = True
-        cname = what
-        schema = orb.schemas[cname]
-        fields = schema['fields']
-        cls = orb.classes[cname]
-        newkw = dict([(a, kw[a]) for a in kw if a in fields])
-    else:
-        # 'what' is an object -- clone it to create a new instance
-        # TODO: URGENT!!  add logic above to object clones
+    cname = what.__class__.__name__
+    if cname in orb.classes:
+        # 'what' is a domain object -- clone it to create a new instance
         obj = what
-        cname = obj.__class__.__name__
         schema = orb.schemas[cname]
         fields = schema['fields']
         non_fk_fields = {a : fields[a] for a in fields
@@ -99,6 +91,19 @@ def clone(what, include_ports=True, include_components=True, **kw):
             elif a in non_fk_fields:
                 newkw[a] = getattr(obj, a)
         newkw['oid'] = str(uuid4())
+    else:
+        # TODO:  validation: what in orb.classes (otherwise, bail!)
+        # 'what' is a class name -- create a new instance from scratch
+        # TODO:  validation: every new object *must* have 'id' value
+        # TODO:  validation: a ParameterDefinition must have an 'id' value
+        # that is unique among ParameterDefinitions
+        # NOTE: possible future enhancement: parameter namespaces
+        new = True
+        cname = what
+        schema = orb.schemas[cname]
+        fields = schema['fields']
+        cls = orb.classes[cname]
+        newkw = dict([(a, kw[a]) for a in kw if a in fields])
     # generate a unique oid if one is not provided
     if not newkw.get('oid'):
         newkw['oid'] = str(uuid4())
@@ -384,7 +389,7 @@ def extract_mime_data(event, media_type):
     obj_name = QByteArray()
     obj_cname = QByteArray()
     stream >> icon >> obj_oid >> obj_id >> obj_name >> obj_cname
-    name = unicode(obj_name).decode('utf-8')
+    name = str(obj_name).decode('utf-8')
     return icon, str(obj_oid), str(obj_id), name, str(obj_cname)
 
 
@@ -407,7 +412,7 @@ def extract_mime_content(data, media_type):
     obj_name = QByteArray()
     obj_cname = QByteArray()
     stream >> icon >> obj_oid >> obj_id >> obj_name >> obj_cname
-    name = unicode(obj_name).decode('utf-8')
+    name = str(obj_name).decode('utf-8')
     return icon, str(obj_oid), str(obj_id), name, str(obj_cname)
 
 
@@ -417,8 +422,8 @@ def white_to_transparent(img):
     """
     img = img.convert("RGBA")
     pixdata = img.load()
-    for y in xrange(img.size[1]):
-        for x in xrange(img.size[0]):
+    for y in range(img.size[1]):
+        for x in range(img.size[0]):
             if pixdata[x, y] == (255, 255, 255, 255):
                 pixdata[x, y] = (255, 255, 255, 0)
     return img
@@ -437,11 +442,11 @@ def width_pad_image(img, width=0, left=False, right=False, transparent=True):
     newpixdata = newimg.load()
     if right and not left:
         # right padding
-        for y in xrange(img.size[1]):
-            for x in xrange(img.size[0]):
+        for y in range(img.size[1]):
+            for x in range(img.size[0]):
                 newpixdata[x, y] = pixdata[x, y]
-        for y in xrange(img.size[1]):
-            for x in xrange(img.size[0], width):
+        for y in range(img.size[1]):
+            for x in range(img.size[0], width):
                 newpixdata[x, y] = (255, 255, 255, 0)
     elif left and not right:
         # TODO:  left padding
@@ -465,36 +470,36 @@ def height_pad_image(img, height=0, top=False, bottom=False, transparent=True):
     newpixdata = newimg.load()
     if top and not bottom:
         # place the content in the new image
-        for x in xrange(img.size[0]):
-            for y in xrange(img.size[1]):
+        for x in range(img.size[0]):
+            for y in range(img.size[1]):
                 newpixdata[x, y] = pixdata[x, y]
         # pad the top
-        for x in xrange(img.size[0]):
-            for y in xrange(img.size[1], height):
+        for x in range(img.size[0]):
+            for y in range(img.size[1], height):
                 newpixdata[x, y] = (255, 255, 255, 0)
     elif bottom and not top:
         delta = height - img.size[1]
         # place the content in the new image higher by delta
-        for x in xrange(img.size[0]):
-            for y in xrange(delta, height):
+        for x in range(img.size[0]):
+            for y in range(delta, height):
                 newpixdata[x, y] = pixdata[x, y - delta]
         # pad the bottom
-        for x in xrange(img.size[0]):
-            for y in xrange(0, delta):
+        for x in range(img.size[0]):
+            for y in range(0, delta):
                 newpixdata[x, y] = (255, 255, 255, 0)
     else:  # center (pad bottom and top equally)
-        delta = int(float(height - img.size[1])/2.0)
+        delta = int(float(height - img.size[1] / 2.0))
         # place the content in the new image higher by delta
-        for x in xrange(img.size[0]):
-            for y in xrange(delta, height - delta - 1):
+        for x in range(img.size[0]):
+            for y in range(delta, height - delta - 1):
                 newpixdata[x, y] = pixdata[x, y - delta]
         # pad the bottom
-        for x in xrange(img.size[0]):
-            for y in xrange(0, delta):
+        for x in range(img.size[0]):
+            for y in range(0, delta):
                 newpixdata[x, y] = (255, 255, 255, 0)
         # pad the top
-        for x in xrange(img.size[0]):
-            for y in xrange(height - delta, height):
+        for x in range(img.size[0]):
+            for y in range(height - delta, height):
                 newpixdata[x, y] = (255, 255, 255, 0)
     return newimg
 

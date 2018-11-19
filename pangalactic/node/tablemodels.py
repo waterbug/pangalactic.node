@@ -2,6 +2,8 @@
 A set of custom TableModels for use with QTableView.
 """
 # stdlib
+from builtins import str
+from builtins import object
 import os, re
 # import sys  # only needed for testing stuff
 from collections import OrderedDict
@@ -91,7 +93,7 @@ class ODTableModel(QAbstractTableModel):
                                           'box'+state['icon_type'])))
 
     def columns(self):
-        return self.ods[0].keys()
+        return list(self.ods[0].keys())
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -215,7 +217,7 @@ class ObjectTableModel(ODTableModel):
                 self.column_labels = [pname_to_header_label(x)
                                       for x in self.view]
             else:
-                self.column_labels = ods[0].keys()
+                self.column_labels = list(ods[0].keys())
         else:
             ods = [{0:'no data'}]
             self.view = ['id']
@@ -348,7 +350,7 @@ class MatrixTableModel(ODTableModel):
                                       for o in self.objs]
                 self.column_labels.insert(0, 'Parameter')
             else:
-                self.column_labels = self.ods[0].keys()
+                self.column_labels = list(self.ods[0].keys())
         else:
             self.ods = [{0:'no data'}]
         super(MatrixTableModel, self).__init__(self.ods, parent=parent,

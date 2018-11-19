@@ -58,7 +58,8 @@ class LibraryListModel(QAbstractListModel):
         self.objs = []
         for obj in objs:
             self.add_object(obj)
-        orb.log.info("  - objs: %s" % str([obj.id for obj in self.objs]))
+        orb.log.info("  - objs: {}".format(', '.join(
+                                            [obj.id for obj in self.objs])))
 
     def add_object(self, obj):
         """
@@ -202,7 +203,7 @@ class LibraryListView(QListView):
         # mapped_row = self.table_proxy.mapToSource(clicked_index).row()
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0].row()
-            orb.log.debug('* clicked index: {}]'.format(str(i)))
+            orb.log.debug('* clicked index: {}]'.format(i))
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
             dlg = PgxnObject(obj, parent=self)
@@ -215,7 +216,7 @@ class LibraryListView(QListView):
         # TODO:  invoke a "Template Wizard"
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0].row()
-            orb.log.debug('* clicked index: {}]'.format(str(i)))
+            orb.log.debug('* clicked index: {}]'.format(i))
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
             template = create_template_from_product(obj)
@@ -442,7 +443,7 @@ class LibraryListWidget(QWidget):
 
     def on_product_types_selected(self, msg='', objs=None):
         orb.log.info('* on_product_types_selected:')
-        orb.log.info('  objs: {}'.format(str([o.id for o in objs])))
+        orb.log.info('  objs: {}'.format(', '.join([o.id for o in objs])))
         orb.log.info('  msg: {}'.format(msg))
         hw_lib = self.libraries.get('HardwareProduct')
         if hw_lib:
@@ -539,7 +540,7 @@ class LibraryDialog(QDialog):
 
     def on_product_types_selected(self, msg='', objs=None):
         orb.log.info('* on_product_types_selected:')
-        orb.log.info('  objs: {}'.format(str([o.id for o in objs])))
+        orb.log.info('  objs: {}'.format(', '.join([o.id for o in objs])))
         orb.log.info('  msg: {}'.format(msg))
         self.msg = msg
         self.product_types = objs

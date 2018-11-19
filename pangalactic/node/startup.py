@@ -2,6 +2,7 @@
 """
 Startup processes for pangalaxian.
 """
+from builtins import str
 import os, platform, shutil
 from copy import deepcopy
 
@@ -16,7 +17,7 @@ def setup_dirs_and_state():
     # create "icon_vault" for runtime-generated icons
     orb.icon_vault = os.path.join(orb.vault, 'icons')
     if not os.path.exists(orb.icon_vault):
-        os.makedirs(orb.icon_vault, mode=0755)
+        os.makedirs(orb.icon_vault, mode=0o755)
     # 'icon_type' is needed for 'load_reference_data()' (etc.) -- it is
     # determined by platform (any saved values will be overwritten).
     state['icon_type'] = '.ico'
@@ -30,7 +31,7 @@ def setup_dirs_and_state():
                       'logo': 'pangalactic_logo.png',
                       'tall_logo': 'pangalactic_logo.png',
                       'units': 'mks'}
-    orb.log.debug('* default config: %s' % str(default_config))
+    orb.log.debug('* default config: {}'.format(str(default_config)))
     # app config will have been loaded -- set any missing config vars using
     # default config
     for item in default_config:
@@ -45,8 +46,8 @@ def setup_dirs_and_state():
             prefs['dashboards'] = {'Mass-Power-Data':
                         ['m_total', 'm', 'P_total', 'P', 'R_total', 'R_D']}
             prefs['dashboard_names'] = ['Mass-Power-Data']
-        orb.log.info('* pref dashboards updated: %s' % str(
-                                            prefs['dashboard_names']))
+        orb.log.info('* pref dashboards updated: {}'.format(str(
+                                            prefs['dashboard_names'])))
     if not state.get('dashboard_name'):
         state['dashboard_name'] = prefs['dashboard_names'][0]
     if not prefs.get('default_parms'):
@@ -60,7 +61,7 @@ def setup_dirs_and_state():
     if not prefs['editor'].get('parameters'):
         # parameters: order of parameters in 'parameters' panels
         prefs['editor']['parameters'] = PGXN_PARAMETERS
-    orb.log.info('* prefs set: %s' % str(prefs))
+    orb.log.info('* prefs set: {}'.format(str(prefs)))
     # icon and image paths are set relative to home dir (icon_dir is used for
     # standard PanGalactic icons; icons created at runtime are saved into the
     # 'vault' directory, along with other runtime-created files)
@@ -84,7 +85,7 @@ def setup_dirs_and_state():
         for p in images_to_copy:
             shutil.copy(os.path.join(images_mod_path, p), orb.image_dir)
             images_cpd.append(p)
-        orb.log.info('  - new images installed: %s' % str(images_cpd))
+        orb.log.info('  - new images installed: {}'.format(str(images_cpd)))
     else:
         orb.log.info('  - all images already installed.')
     # [2] copy pangalactic icon files from 'icons' module to icon_dir
@@ -107,7 +108,7 @@ def setup_dirs_and_state():
         for p in icons_to_copy:
             shutil.copy(os.path.join(icons_mod_path, p), orb.icon_dir)
             icons_cpd.append(p)
-        orb.log.info('  - new icons installed: %s' % str(icons_cpd))
+        orb.log.info('  - new icons installed: {}'.format(str(icons_cpd)))
     else:
         orb.log.info('  - all icons already installed.')
 

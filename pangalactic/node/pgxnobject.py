@@ -3,7 +3,10 @@
 PgxnObject (a domain object viewer/editor)
 """
 from __future__  import print_function
+from __future__ import division
 # from collections import OrderedDict
+from builtins import str
+from builtins import range
 import math, os
 from functools import partial
 
@@ -136,7 +139,7 @@ class PgxnForm(QWidget):
             parms = parameterz.get(obj.oid)
             if parms:
                 orb.log.info('* [pgxnobj] parameters found: {}'.format(
-                                                            str(parms.keys())))
+                                                            str(list(parms.keys()))))
                 computed_note = False
                 # order parameters -- editable (non-computed) parameters first
                 pref_editables = [pid for pid in PGXN_PARAMETERS
@@ -163,7 +166,7 @@ class PgxnForm(QWidget):
                     orb.log.debug('  seq is {}'.format(str(seq)))
                     # NOTE:  'seq' is a 1-based sequence
                     orb.log.debug('  parms found: {}'.format(
-                                                        str(parms.keys())))
+                                                        str(list(parms.keys()))))
                     pids_on_panel = p_ordering[
                                             (seq-1)*PARMS_NBR : seq*PARMS_NBR]
                     orb.log.debug('  parms on this panel: {}'.format(
@@ -776,11 +779,11 @@ class PgxnObject(QMainWindow):
             # All subclasses of Modelable except the ones in PGXN_HIDE_PARMS
             # get a 'parameters' panel
             obj_parms = parameterz.get(self.obj.oid) or {}
-            if len(obj_parms.keys()) > PARMS_NBR:
-                n_of_parms = len(obj_parms.keys())
+            if len(list(obj_parms.keys())) > PARMS_NBR:
+                n_of_parms = len(list(obj_parms.keys()))
                 # allow 16 parameters to a panel ...
                 n_of_parm_panels = int(math.ceil(
-                                        float(n_of_parms)/float(PARMS_NBR)))
+                                       float(n_of_parms)/float(PARMS_NBR)))
                 for i in range(n_of_parm_panels):
                     tab_names.insert(i, 'parms_{}'.format(i+1))
             else:
@@ -1034,7 +1037,7 @@ class PgxnObject(QMainWindow):
         msg_dict = validate_all(fields_dict, cname, self.schema, self.view,
                                 required=required, idvs=self.all_idvs,
                                 html=True)
-        if msg_dict.keys():   # one or more field values are invalid
+        if list(msg_dict.keys()):   # one or more field values are invalid
             orb.log.debug('  validation errors: {}'.format(str(msg_dict)))
             # TODO:  validation dialog
             dlg = ValidationDialog(msg_dict)
@@ -1062,7 +1065,7 @@ class PgxnObject(QMainWindow):
             self.obj = clone('ParameterDefinition', id=new_id,
                              oid=get_parameter_definition_oid(new_id))
             orb.db.delete(temp_obj)
-            for name, val in fields_dict.items():
+            for name, val in list(fields_dict.items()):
                 setattr(self.obj, name, val)
                 orb.log.info('  [pgxnobj] - {}: {}'.format(
                                             name, val.__repr__()))
@@ -1078,7 +1081,7 @@ class PgxnObject(QMainWindow):
             dispatcher.send(signal="new object", obj=self.obj,
                             cname=cname)
         else:
-            for name, val in fields_dict.items():
+            for name, val in list(fields_dict.items()):
                 setattr(self.obj, name, val)
                 orb.log.debug('  [pgxnobj] - {}: {}'.format(
                               name, val.__repr__()))

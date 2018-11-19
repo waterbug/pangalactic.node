@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import range
 from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
                           QSortFilterProxyModel, QTimer, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
@@ -21,6 +23,7 @@ from pangalactic.node.utils       import (create_mime_data,
                                           create_template_from_product,
                                           get_pixmap)
 from pangalactic.node.widgets     import NameLabel
+from functools import reduce
 
 
 class ProductFilterDialog(QDialog):
@@ -121,17 +124,17 @@ class ProductFilterDialog(QDialog):
     def on_check_all(self):
         if self.cb_all.isChecked():
             self.show_all_disciplines = True
-            for cb in self.checkboxes.values():
+            for cb in list(self.checkboxes.values()):
                 cb.setChecked(True)
         else:
             self.show_all_disciplines = False
-            for cb in self.checkboxes.values():
+            for cb in list(self.checkboxes.values()):
                 cb.setChecked(False)
         self.on_check_cb()
 
     def on_check_cb(self):
         d_oids = []
-        for d_oid, cb in self.checkboxes.items():
+        for d_oid, cb in list(self.checkboxes.items()):
             if cb.isChecked():
                 d_oids.append(d_oid)
         product_types = set()
@@ -161,12 +164,11 @@ class ProductFilterDialog(QDialog):
 
     def product_type_selected(self, clicked_index):
         clicked_row = clicked_index.row()
-        orb.log.debug('* clicked row is "{}"'.format(str(clicked_row)))
+        orb.log.debug('* clicked row is "{}"'.format(clicked_row))
         mapped_row = self.product_type_panel.proxy_model.mapToSource(
                                                         clicked_index).row()
         orb.log.debug(
-            '  product type selected [mapped row] is: {}'.format(
-                                                            str(mapped_row)))
+            '  product type selected [mapped row] is: {}'.format(mapped_row))
         pt = self.product_type_panel.objs[mapped_row]
         pt_name = getattr(pt, 'name', '[not set]')
         orb.log.debug('  ... which is "{}"'.format(pt_name))
@@ -189,7 +191,7 @@ class ProductFilterDialog(QDialog):
                                                                 idx).row()])
         pts = [pt for pt in pts if pt.id != 'TBD']
         orb.log.debug(' - selected product types: {}'.format(
-                                              str([pt.id for pt in pts])))
+                                   '|'.join([pt.id for pt in pts])))
         if (self.cb_all.isChecked() or not pts
             or self.engineering_discipline_selected):
             # all or none -> ALL
@@ -585,7 +587,7 @@ class FilterPanel(QWidget):
         if len(self.proxy_view.selectedIndexes()) >= 1:
             i = self.proxy_model.mapToSource(
                 self.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('  at selected row: {}'.format(str(i)))
+            orb.log.debug('  at selected row: {}'.format(i))
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             if oid:
                 obj = orb.get(oid)
@@ -600,7 +602,7 @@ class FilterPanel(QWidget):
         if len(self.proxy_view.selectedIndexes()) >= 1:
             i = self.proxy_model.mapToSource(
                 self.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('* clicked index: {}]'.format(str(i)))
+            orb.log.debug('* clicked index: {}]'.format(i))
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             obj = orb.get(oid)
             template = create_template_from_product(obj)
@@ -612,7 +614,8 @@ class FilterPanel(QWidget):
         Convenience method for adding a new library object to the model, which
         calls the PyQt methods that signal the views to update.
         """
-        orb.log.debug('  [FilterPanel] add_object({})'.format(str(obj)))
+        orb.log.debug('  [FilterPanel] add_object({})'.format(
+                                            getattr(obj, 'id', 'unknown')))
         self.objs.append(obj)
         self.set_source_model(self.create_model())
 
@@ -620,7 +623,7 @@ class FilterPanel(QWidget):
         """
         Convenience method for deleting a library object from the model.
         """
-        orb.log.debug('  [FilterPanel] delete_object({})'.format(str(oid)))
+        orb.log.debug('  [FilterPanel] delete_object({})'.format(oid))
         try:
             oids = [o.oid for o in self.objs]
             row = oids.index(oid)   # raises ValueError if not found

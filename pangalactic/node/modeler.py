@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 from __future__  import print_function
 from __future__  import unicode_literals
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+# NOTE: fixed div's so old_div is not needed.
+# from past.utils import old_div
 import os
 from collections import namedtuple
-from urlparse    import urlparse
+from urllib.parse    import urlparse
 
 from louie import dispatcher
 
@@ -341,7 +346,7 @@ class ModelWindow(QMainWindow):
         # TODO:  enable multiple CAD models (e.g. "detailed" / "simplified")
         if self.model_files:
             self.models_by_label = {}
-            for oid, fpath in self.model_files.items():
+            for oid, fpath in list(self.model_files.items()):
                 model = orb.get(oid)
                 if getattr(model.type_of_model, 'oid', None) in ['step:203',
                                                                  'step:214']:

@@ -2,6 +2,8 @@
 """
 Requirements Wizards
 """
+from builtins import str
+from builtins import range
 import os
 from PyQt5 import QtGui
 from PyQt5.QtCore import Qt
@@ -480,7 +482,7 @@ class ReqAllocPage(QWizardPage):
                                    requirement=self.req)
         self.srs = [sr for sr in all_srs if
                     getattr(sr.supported_by, 'project', None) == self.project]
-        nodes = self.sys_tree.source_model.object_nodes.values()
+        nodes = list(self.sys_tree.source_model.object_nodes.values())
         links = [node.link for node in nodes]
         all_allocs = orb.search_exact(cname='RequirementAllocation',
                                       allocated_requirement=self.req)

@@ -98,7 +98,7 @@ class RequirementManager(QDialog):
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('  selected row: {}'.format(str(i)))
+            orb.log.debug('  selected row: {}'.format(i))
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
                           'oid', '')
             reqt = orb.get(oid)

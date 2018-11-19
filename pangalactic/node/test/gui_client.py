@@ -7,6 +7,11 @@ Based on:
     https://github.com/estan/gauges
   * crossbar examples "advanced" (CRA) auth example
 """
+from __future__ import division
+from __future__ import print_function
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import argparse, random, six, sys, time
 from copy import deepcopy
 from uuid import uuid4
@@ -83,24 +88,24 @@ class CircleWidget(QWidget):
     def sizeHint(self):
         return QSize(80, 80)
 
-    def next(self):
+    def __next__(self):
         self.nframe += 1
         self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.translate(self.width() / 2, self.height() / 2)
+        painter.translate(old_div(self.width(), 2), old_div(self.height(), 2))
 
         #range of diameter must start at a number greater than 0
         for diameter in range(1, 50, 9):
-            delta = abs((self.nframe % 64) - diameter / 2)
-            alpha = 255 - (delta * delta) / 4 - diameter
+            delta = abs((self.nframe % 64) - old_div(diameter, 2))
+            alpha = 255 - old_div((delta * delta), 4) - diameter
             if alpha > 0:
-                painter.setPen(QPen(QColor(0, diameter / 2, 127, alpha), 3))
+                painter.setPen(QPen(QColor(0, old_div(diameter, 2), 127, alpha), 3))
                 painter.drawEllipse(QRectF(
-                    -diameter / 2.0,
-                    -diameter / 2.0, 
+                    old_div(-diameter, 2.0),
+                    old_div(-diameter, 2.0), 
                     diameter, 
                     diameter))
 
@@ -140,7 +145,7 @@ class MainWindow(QMainWindow):
 
     def on_signal(self, msg):
         print("event received on: {}".format(msg))
-        subject, content = msg.items()[0]
+        subject, content = list(msg.items())[0]
         text = "Event: {} '{}'".format(str(subject), str(content))
         self.log("Event received:")
         self.log("      subject: {}".format(str(subject)))
@@ -228,7 +233,7 @@ class MainWindow(QMainWindow):
 
     def create_timer(self):
         self.circle_timer = QTimer(self)
-        self.circle_timer.timeout.connect(self.circle_widget.next)
+        self.circle_timer.timeout.connect(self.circle_widget.__next__)
         self.circle_timer.start(25)
 
     def login(self):
@@ -464,10 +469,10 @@ class MainWindow(QMainWindow):
         suffix = new_oid[0:5]
         ptype = product_types[random.randint(0, len(product_types) - 1)]
         new_id = 'TEST_' + ptype['id'][0:5] + '_' + suffix
-        new_name = unicode(ptype['name']) + ' ' + unicode(suffix)
+        new_name = str(ptype['name']) + ' ' + str(suffix)
         now = str(dtstamp())
         obj_parms = {}
-        for pid, parm in test_parms.items():
+        for pid, parm in list(test_parms.items()):
             obj_parms[pid] = deepcopy(parm)
         gen_test_pvals(obj_parms)
         user_oid = 'test:' + self.userid
@@ -504,7 +509,7 @@ class MainWindow(QMainWindow):
         self.test_oid = new_oid
         suffix = new_oid[0:5]
         new_id = 'TEST_PROJECT_' + suffix
-        new_name = unicode('Test Project ') + unicode(suffix)
+        new_name = str('Test Project ') + str(suffix)
         self.log('* calling rpc "omb.organization.add()" ...')
         self.log('  with arguments:')
         self.log('    oid = {}'.format(new_oid))
@@ -527,7 +532,7 @@ class MainWindow(QMainWindow):
             return
         new_oid = str(uuid4())
         new_id = 'psu-H2G2-' + self.last_saved_obj['id']
-        new_name = u'Test ProjectSystemUsage ' + unicode(new_id)
+        new_name = u'Test ProjectSystemUsage ' + str(new_id)
         now = str(dtstamp())
         user_oid = 'test:' + self.userid
         psu = dict(_cname='ProjectSystemUsage', oid=new_oid, id=new_id,
@@ -554,7 +559,7 @@ class MainWindow(QMainWindow):
         new_oid = str(uuid4())
         new_id = '-'.join(['acu', self.system_level_obj['id'],
                            self.last_saved_obj['id']])
-        new_name = u'Test Acu ' + unicode(new_id)
+        new_name = u'Test Acu ' + str(new_id)
         now = str(dtstamp())
         user_oid = 'test:' + self.userid
         acu = dict(_cname='Acu', oid=new_oid, id=new_id,

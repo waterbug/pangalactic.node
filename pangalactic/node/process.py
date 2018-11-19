@@ -1,14 +1,12 @@
 from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
 import json, sys
 # import subprocess
 from subprocess import PIPE, Popen
 from threading  import Thread
-
-try:
-    from Queue import Queue, Empty
-except ImportError:
-    # python 3.x
-    from queue import Queue, Empty
+# install_aliases() makes 'queue' python2-compatible
+from queue import Queue, Empty
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 

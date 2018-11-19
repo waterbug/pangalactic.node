@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import object
 import six
 from twisted.internet.defer import inlineCallbacks
 from autobahn.twisted.wamp import (Application, ApplicationRunner,

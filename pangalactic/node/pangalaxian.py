@@ -3,8 +3,14 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
+from __future__ import division
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
 import argparse, atexit, os, platform, shutil, six, subprocess, traceback
-import urlparse, urllib
+import urllib.parse, urllib.request, urllib.parse, urllib.error
 from collections import OrderedDict
 from distutils   import spawn
 
@@ -675,7 +681,7 @@ class Main(QtWidgets.QMainWindow):
         self.statusbar.showMessage('syncing parameter definitions ...')
         # exclude refdata (already shared)
         pd_mod_dts = orb.get_mod_dts(cname='ParameterDefinition')
-        data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
+        data = {pd_oid : mod_dt for pd_oid, mod_dt in list(pd_mod_dts.items())
                 if pd_oid not in ref_pd_oids}
         orb.log.info('       -> rpc: vger.sync_parameter_definitions()')
         return message_bus.session.call(u'vger.sync_parameter_definitions',
@@ -933,7 +939,7 @@ class Main(QtWidgets.QMainWindow):
             for o in objs_to_delete:
                 # TODO:  use 'get_perms' to determine permissions
                 if (hasattr(o, 'creator') and o.creator == self.local_user
-                    and o.oid not in trash.keys()):
+                    and o.oid not in list(trash.keys())):
                     objs_to_delete.remove(o)
                     local_objs.add(o)
                 # NOTE: ProjectSystemUsages are not relevant to library sync
@@ -944,8 +950,8 @@ class Main(QtWidgets.QMainWindow):
                 else:
                     objs_to_delete.add(o)
             if objs_to_delete:
-                orb.log.debug('       to be deleted: {}'.format(str([
-                              o.oid for o in objs_to_delete])))
+                orb.log.debug('       to be deleted: {}'.format(
+                              ', '.join([o.oid for o in objs_to_delete])))
                 orb.delete(objs_to_delete)
                 update_needed = True
             if local_objs:
@@ -953,19 +959,19 @@ class Main(QtWidgets.QMainWindow):
                                             # include_components=True)
                 sobjs_to_save = serialize(orb, local_objs)
         if sobjs_to_save:
-            orb.log.debug('       to be saved in repo: {}'.format(str(
-                          [sobj['oid'] for sobj in sobjs_to_save])))
+            orb.log.debug('       to be saved in repo: {}'.format(
+                          ', '.join([sobj['oid'] for sobj in sobjs_to_save])))
         # if library objects have been added or deleted, call _update_views()
         if update_needed:
             self._update_views()
         return message_bus.session.call(u'vger.save', sobjs_to_save)
 
     def on_pubsub_msg(self, msg):
-        for item in msg.items():
+        for item in list(msg.items()):
             subject, content = item
             orb.log.info("[pgxn] on_pubsub_msg")
-            orb.log.info("       subject: {}".format(str(subject)))
-            orb.log.info("       content: {}".format(str(content)))
+            orb.log.info("       subject: {}".format(subject))
+            orb.log.info("       content: {}".format(content))
             orb.log.info("       pop-up notification ...")
             # text = ('subject: {}<br>'.format(subject))
             obj_id = '[unknown]'
@@ -1502,13 +1508,13 @@ class Main(QtWidgets.QMainWindow):
         initial_size = self.size()
         if hasattr(orb, 'store'):
             orb.db.commit()
-        modal_actions = set.union(*[a for a in self.mode_widgets.values()])
+        modal_actions = set.union(*[a for a in list(self.mode_widgets.values())])
         if mode in self.modes:
             current_mode = state.get('mode')
             if current_mode in self.modes:
                 self.main_states[current_mode] = self.saveState(
                                             self.modes.index(current_mode))
-            state['mode'] = str(mode)
+            state['mode'] = mode
             for action in modal_actions:
                 action.setVisible(False)
             for action in set.union(self.mode_widgets[mode],
@@ -1599,8 +1605,8 @@ class Main(QtWidgets.QMainWindow):
         Arguments:
             name (str):  name of currently selected dataset
         """
-        orb.log.info('* setting dataset: {}'.format(str(name)))
-        state['dataset'] = str(name)
+        orb.log.info('* setting dataset: {}'.format(name))
+        state['dataset'] = name
 
     def del_dataset(self):
         pass
@@ -1613,7 +1619,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Sorted list of class names.
         """
-        names = orb.classes.keys()[:]
+        names = list(orb.classes.keys())[:]
         names.sort()
         return names
 
@@ -2288,8 +2294,8 @@ class Main(QtWidgets.QMainWindow):
                                                         ' *'])
                             tt_txt = u'<ul>\n'
                             for p_role in p_roles:
-                                tt_txt += u'<li>' + unicode(p.id) + ': '
-                                tt_txt += unicode(p_role) + u'</li>\n'
+                                tt_txt += u'<li>' + str(p.id) + u': '
+                                tt_txt += str(p_role) + u'</li>\n'
                             tt_txt += u'</ul>'
                         else:
                             role_label_txt = u': '.join([p.id, p_roles[0]])
@@ -2740,26 +2746,15 @@ class Main(QtWidgets.QMainWindow):
                                                    logo=self.logo)
             self.setCentralWidget(self.system_model_window)
         elif self.project:
-            orb.log.info('  - looking for project systems ...')
-            psus = self.project.systems
-            if psus:
-                orb.log.info('  - %i project systems found ...' % len(psus))
-                # systems = [psu.system for psu in psus]
-                # system = systems[0]
-                psize = (600, 400)
-                # if state.get('width') and state.get('height'):
-                    # w = int(float(state['width'])/2)
-                    # h = int(float(state['height'])/2)
-                    # psize = (w, h)
-                self.system_model_window = ModelWindow(obj=self.project,
-                                                       logo=self.logo,
-                                                       preferred_size=psize)
-                self.setCentralWidget(self.system_model_window)
-            else:
-                orb.log.info('         none found, setting placeholder...')
-                self.setCentralWidget(PlaceHolder(image=self.logo,
-                                                  min_size=300,
-                                                  parent=self))
+            psize = (600, 400)
+            # if state.get('width') and state.get('height'):
+                # w = int(float(state['width'])/2)
+                # h = int(float(state['height'])/2)
+                # psize = (w, h)
+            self.system_model_window = ModelWindow(obj=self.project,
+                                                   logo=self.logo,
+                                                   preferred_size=psize)
+            self.setCentralWidget(self.system_model_window)
         else:
             self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
                                               parent=self))
@@ -2949,7 +2944,7 @@ class Main(QtWidgets.QMainWindow):
 
     def show_help(self):
         ug_path = os.path.join(orb.home, 'doc', 'user_guide.html')
-        help_url = urlparse.urljoin('file:', urllib.pathname2url(ug_path))
+        help_url = urllib.parse.urljoin('file:', urllib.request.pathname2url(ug_path))
         help_widget = HelpWidget(help_url, parent=self)
         help_widget.show()
 
@@ -3161,7 +3156,7 @@ class Main(QtWidgets.QMainWindow):
         view = ['id', 'name', 'range_datatype', 'dimensions', 'description']
         dlg = LibraryDialog('ParameterDefinition', view=view,
                             height=self.geometry().height(),
-                            width=self.geometry().width()/2,
+                            width=self.geometry().width()//2,
                             parent=self)
         dlg.show()
 
@@ -3177,7 +3172,7 @@ class Main(QtWidgets.QMainWindow):
     def port_template_library(self):
         view = ['id', 'name', 'description', 'comment']
         dlg = LibraryDialog('PortTemplate', view=view,
-                           width=self.geometry().width()/2,
+                           width=self.geometry().width()//2,
                            height=self.geometry().height(), parent=self)
         dlg.show()
 
@@ -3199,8 +3194,8 @@ class Main(QtWidgets.QMainWindow):
     def display_product_types(self):
         view = ['id', 'name', 'description', 'comment']
         dlg = LibraryDialog('ProductType', view=view,
-                           width=self.geometry().width()/2,
-                           height=self.geometry().height(), parent=self)
+                            width=self.geometry().width()//2,
+                            height=self.geometry().height(), parent=self)
         dlg.show()
 
     def export_data_to_file(self):
@@ -3531,7 +3526,7 @@ class Main(QtWidgets.QMainWindow):
             for rf in rfs:
                 # look for the file and, if found, copy it ...
                 if rf.url:
-                    u = urlparse.urlparse(asciify(rf.url))
+                    u = urllib.parse.urlparse(asciify(rf.url))
                     fpath = os.path.join(orb.test_data_dir, u.netloc)
                     if u.scheme == 'vault' and os.path.exists(fpath):
                         shutil.copy(fpath, orb.vault)
@@ -3795,8 +3790,8 @@ def run(home='', splash_image=None, test_data=None, use_tls=True,
     splash_path = ''
     if home:
         splash_path = os.path.join(home, 'images', splash_image)
-    x = screen_resolution.width()/2
-    y = screen_resolution.height()/2
+    x = screen_resolution.width() // 2
+    y = screen_resolution.height() // 2
     # BEGIN importing and installing the reactor
     import qt5reactor
     qt5reactor.install()

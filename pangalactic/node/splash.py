@@ -1,3 +1,4 @@
+from builtins import range
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 
@@ -24,8 +25,8 @@ class SplashScreen(QtWidgets.QSplashScreen):
         self.setFont(font)
         self.setMask(self._pixmap.mask())
         if center_point:
-            x = center_point.x() - pixmap.width()/2
-            y = center_point.y() - pixmap.height()/2
+            x = center_point.x() - pixmap.width()//2
+            y = center_point.y() - pixmap.height()//2
             self.move(QtCore.QPoint(x,y))
         else:
             self.move(QtCore.QPoint(100,100))
@@ -120,8 +121,8 @@ if __name__ == '__main__':
     import sys
     app = QtWidgets.QApplication(sys.argv)
     screen_res = app.desktop().screenGeometry()
-    screen_center = QtCore.QPoint(screen_res.width()/2,
-                                  screen_res.height()/2)
+    screen_center = QtCore.QPoint(screen_res.width()//2,
+                                  screen_res.height()//2)
     show_splash(sys.argv[1], center_point=screen_center)
     app.quit()
 
