@@ -5,9 +5,10 @@ GUI related utility functions
 from __future__ import division
 from future import standard_library
 standard_library.install_aliases()
-from builtins import str
+# from builtins import str
 from builtins import range
-import os
+from past.utils import old_div
+import os, sys
 from io import StringIO
 from uuid import uuid4
 
@@ -73,10 +74,24 @@ def clone(what, include_ports=True, include_components=True, **kw):
     """
     orb.log.info('* clone({})'.format(what))
     new = False
-    cname = what.__class__.__name__
-    if cname in orb.classes:
+    if what in orb.classes:
+        # 'what' is a class name -- create a new instance from scratch
+        # TODO:  validation: every new object *must* have 'id' value
+        # TODO:  validation: a ParameterDefinition must have an 'id' value
+        # that is unique among ParameterDefinitions
+        # NOTE: possible future enhancement: parameter namespaces
+        new = True
+        cname = what
+        schema = orb.schemas[cname]
+        fields = schema['fields']
+        cls = orb.classes[cname]
+        newkw = dict([(a, kw[a]) for a in kw if a in fields])
+    else:
         # 'what' is a domain object -- clone it to create a new instance
+        # TODO: URGENT!!  add logic above to object clones
+        # TODO: URGENT!!  exception handling in case what is not a domain obj
         obj = what
+        cname = obj.__class__.__name__
         schema = orb.schemas[cname]
         fields = schema['fields']
         non_fk_fields = {a : fields[a] for a in fields
@@ -91,19 +106,6 @@ def clone(what, include_ports=True, include_components=True, **kw):
             elif a in non_fk_fields:
                 newkw[a] = getattr(obj, a)
         newkw['oid'] = str(uuid4())
-    else:
-        # TODO:  validation: what in orb.classes (otherwise, bail!)
-        # 'what' is a class name -- create a new instance from scratch
-        # TODO:  validation: every new object *must* have 'id' value
-        # TODO:  validation: a ParameterDefinition must have an 'id' value
-        # that is unique among ParameterDefinitions
-        # NOTE: possible future enhancement: parameter namespaces
-        new = True
-        cname = what
-        schema = orb.schemas[cname]
-        fields = schema['fields']
-        cls = orb.classes[cname]
-        newkw = dict([(a, kw[a]) for a in kw if a in fields])
     # generate a unique oid if one is not provided
     if not newkw.get('oid'):
         newkw['oid'] = str(uuid4())
@@ -351,22 +353,38 @@ def create_mime_data(obj, icon):
         data (QMimeData):  contents are:  icon, oid, id, name, class name
     """
     # TODO:  provide a default icon in case icon is empty
-    if obj:
-        data = QByteArray()
-        stream = QDataStream(data, QIODevice.WriteOnly)
-        obj_oid = QByteArray(str(obj.oid))
-        obj_id = QByteArray(str(obj.id))
-        name = obj.name or u'[no name]'
-        obj_name = QByteArray(name.encode('utf-8'))
-        cname = obj.__class__.__name__
-        # for Product and its subtypes, 
-        ba_cname = QByteArray(cname)
-        stream << icon << obj_oid << obj_id << obj_name << ba_cname
-        mime_data = QMimeData()
-        mime_data.setData(to_media_name(cname), data)
-        return mime_data
+    if sys.version_info < (3, 0):
+        # python 2 version
+        if obj:
+            data = QByteArray()
+            stream = QDataStream(data, QIODevice.WriteOnly)
+            obj_oid = QByteArray(str(obj.oid))
+            obj_id = QByteArray(str(obj.id))
+            name = obj.name or u'[no name]'
+            obj_name = QByteArray(name.encode('utf-8'))
+            cname = obj.__class__.__name__
+            # for Product and its subtypes, 
+            ba_cname = QByteArray(cname)
+            stream << icon << obj_oid << obj_id << obj_name << ba_cname
+            mime_data = QMimeData()
+            mime_data.setData(to_media_name(cname), data)
+            return mime_data
+        else:
+            # if no obj, return an empty QMimeData object
+            return QMimeData()
     else:
-        # if no obj, return an empty QMimeData object
+        # python 3 version
+        # example code -- adapt to our usage ...
+        # https://www.programcreek.com/python/example/82622/PyQt5.QtCore.QMimeData
+        # mimedata = QtCore.QMimeData()
+        # encoded_data = QtCore.QByteArray()
+        # stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
+        # for index in indexes:
+            # if index.isValid():
+                # text = self.data(index, 0)
+        # stream << QtCore.QByteArray(text.encode('utf-8'))
+        # mimedata.setData('application/vnd.treeviewdragdrop.list', encoded_data)
+        # return mimedata
         return QMimeData()
 
 
@@ -381,16 +399,21 @@ def extract_mime_data(event, media_type):
     Returns:
         data (tuple):  icon, oid, id, name, class name
     """
-    data = event.mimeData().data(media_type)
-    stream = QDataStream(data, QIODevice.ReadOnly)
-    icon = QIcon()
-    obj_oid = QByteArray()
-    obj_id = QByteArray()
-    obj_name = QByteArray()
-    obj_cname = QByteArray()
-    stream >> icon >> obj_oid >> obj_id >> obj_name >> obj_cname
-    name = str(obj_name).decode('utf-8')
-    return icon, str(obj_oid), str(obj_id), name, str(obj_cname)
+    if sys.version_info < (3, 0):
+        # python 2 version
+        data = event.mimeData().data(media_type)
+        stream = QDataStream(data, QIODevice.ReadOnly)
+        icon = QIcon()
+        obj_oid = QByteArray()
+        obj_id = QByteArray()
+        obj_name = QByteArray()
+        obj_cname = QByteArray()
+        stream >> icon >> obj_oid >> obj_id >> obj_name >> obj_cname
+        name = str(obj_name).decode('utf-8')
+        return icon, str(obj_oid), str(obj_id), name, str(obj_cname)
+    else:
+        # python 3 version
+        pass
 
 
 def extract_mime_content(data, media_type):
@@ -404,16 +427,21 @@ def extract_mime_content(data, media_type):
     Returns:
         stuff (tuple):  icon, oid, id, name, class name
     """
-    content = data.data(media_type)
-    stream = QDataStream(content, QIODevice.ReadOnly)
-    icon = QIcon()
-    obj_oid = QByteArray()
-    obj_id = QByteArray()
-    obj_name = QByteArray()
-    obj_cname = QByteArray()
-    stream >> icon >> obj_oid >> obj_id >> obj_name >> obj_cname
-    name = str(obj_name).decode('utf-8')
-    return icon, str(obj_oid), str(obj_id), name, str(obj_cname)
+    if sys.version_info < (3, 0):
+        # python 2 version
+        content = data.data(media_type)
+        stream = QDataStream(content, QIODevice.ReadOnly)
+        icon = QIcon()
+        obj_oid = QByteArray()
+        obj_id = QByteArray()
+        obj_name = QByteArray()
+        obj_cname = QByteArray()
+        stream >> icon >> obj_oid >> obj_id >> obj_name >> obj_cname
+        name = str(obj_name).decode('utf-8')
+        return icon, str(obj_oid), str(obj_id), name, str(obj_cname)
+    else:
+        # python 3
+        pass
 
 
 def white_to_transparent(img):
@@ -488,7 +516,7 @@ def height_pad_image(img, height=0, top=False, bottom=False, transparent=True):
             for y in range(0, delta):
                 newpixdata[x, y] = (255, 255, 255, 0)
     else:  # center (pad bottom and top equally)
-        delta = int(float(height - img.size[1] / 2.0))
+        delta = int(old_div(float(height - img.size[1]),2.0))
         # place the content in the new image higher by delta
         for x in range(img.size[0]):
             for y in range(delta, height - delta - 1):

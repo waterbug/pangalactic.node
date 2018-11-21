@@ -17,8 +17,14 @@ from distutils   import spawn
 # special treatment of `sys` module to set default encoding to utf-8
 # NOTE: this is to prevent UnicodeDecodeError: 'ascii' codec can't decode ...
 import sys
-reload(sys)  # reload is needed to get the `setdefaultencoding` fn.
-sys.setdefaultencoding('utf8')
+# python 3 has no 'reload()' function
+try:
+    # python 2
+    reload(sys)  # reload is needed to get the `setdefaultencoding` fn.
+    sys.setdefaultencoding('utf8')
+except:
+    # python 3 doesn't need this
+    pass
 
 from binaryornot.check import is_binary
 

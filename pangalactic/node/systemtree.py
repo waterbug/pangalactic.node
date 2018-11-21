@@ -528,11 +528,12 @@ class SystemTreeModel(QAbstractItemModel):
                 return node.name
         if role == Qt.ForegroundRole:
             if self.cols and index.column() > 0:
-                if get_pval(orb, node.obj.oid,
-                            self.cols[index.column()-1]) > 0:
-                    return self.BRUSH
-                else:
+                pval = get_pval(orb, node.obj.oid,
+                                self.cols[index.column()-1])
+                if isinstance(pval, (int, float)) and pval <= 0:
                     return self.RED_BRUSH
+                else:
+                    return self.BRUSH
         if role == Qt.BackgroundRole and self.req and self.show_allocs:
             if isinstance(node.link, orb.classes['Acu']):
                 allocs = orb.search_exact(cname='RequirementAllocation',

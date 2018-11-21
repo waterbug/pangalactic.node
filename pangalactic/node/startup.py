@@ -76,7 +76,9 @@ def setup_dirs_and_state():
     orb.log.debug('  - found %i images' % len(image_files))
     images_mod_path = images.__path__[0]
     image_res_files = set([s for s in os.listdir(images_mod_path)
-                          if not s.startswith('__init__')])
+                           if (not s.startswith('__init__')
+                           and not s.startswith('__pycache__'))
+                           ])
     images_to_copy = image_res_files - image_files
     orb.log.debug('  - images to be installed: %i' % len(images_to_copy))
     if images_to_copy:
@@ -99,7 +101,9 @@ def setup_dirs_and_state():
     orb.log.debug('  - found %i icons' % len(icon_files))
     icons_mod_path = icons.__path__[0]
     icon_res_files = set([s for s in os.listdir(icons_mod_path)
-                          if not s.startswith('__init__')])
+                          if (not s.startswith('__init__')
+                          and not s.startswith('__pycache__'))
+                          ])
     icons_to_copy = icon_res_files - icon_files
     orb.log.debug('  - icons to be installed: %i' % len(icons_to_copy))
     if icons_to_copy:
