@@ -505,8 +505,8 @@ if __name__ == "__main__":
     # fpath = '../../../test/data/io1-pe-203.stp'
     # CAX-IF test file "rocket"
     # fpath = '../../../test/data/s1-ug-203.stp'
-    # CAX-IF test file "bracket"
-    fpath = '../../../test/data/as1-oc-214.stp'
+    # CAX-IF test file "bracket" copied into current dir.
+    fpath = 'as1-oc-214.stp'
     app = QtWidgets.QApplication(sys.argv)
     frame = STEP3DViewer(fpath)
     frame.show()

@@ -3624,9 +3624,12 @@ class Main(QtWidgets.QMainWindow):
             # TODO: exception handling in case data import fails ...
             # TODO: add an "index" column for sorting, or else figure out how
             # to sort on the left header column ...
-            fpath = str(fpath)   # fpath is unicode; make str
             state['last_path'] = os.path.dirname(fpath)
-            orb.log.debug('  - calling view_cad("%s")' % fpath)
+            if sys.version_info[0] < 3:
+                # in python 2, view_cad() is looking for fpath as bytes (str)
+                fpath = fpath.encode('utf-8')
+            orb.log.debug('  - calling view_cad({})'.format(fpath))
+            orb.log.debug('    fpath type: {}'.format(type(fpath)))
             self.view_cad(fpath)
         else:
             return
