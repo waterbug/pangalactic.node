@@ -389,17 +389,6 @@ def create_mime_data(obj, icon):
             mime_data = QMimeData()
             mime_data.setData(to_media_name(obj.__class__.__name__), data)
             return mime_data
-        # example code -- adapt to our usage ...
-        # https://www.programcreek.com/python/example/82622/PyQt5.QtCore.QMimeData
-        # mimedata = QtCore.QMimeData()
-        # encoded_data = QtCore.QByteArray()
-        # stream = QtCore.QDataStream(encoded_data, QtCore.QIODevice.WriteOnly)
-        # for index in indexes:
-            # if index.isValid():
-                # text = self.data(index, 0)
-        # stream << QtCore.QByteArray(text.encode('utf-8'))
-        # mimedata.setData('application/vnd.treeviewdragdrop.list', encoded_data)
-        # return mimedata
         return QMimeData()
 
 
