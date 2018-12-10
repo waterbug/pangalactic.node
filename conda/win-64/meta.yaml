@@ -15,14 +15,13 @@ requirements:
     - setuptools
 
   run:
-    - conda
     - jpeg >=9b
     - matplotlib
     - openjpeg >=2.3.0
     - pangalactic.core >=0.1.dev98
     - pillow <=4.1.1    # 4.2.x is broken
-    - pyqt >=5.6
-    - python >=2.7
+    - pyqt >=5.6,<5.7
+    - python {{PY_VER}}*,>=3.6,<3.7
     - pythonocc-core    # from pythonocc channel
     # -----------------------------------------------------
     # pythonocc pulls in these dependencies from dlr-sc channel:
