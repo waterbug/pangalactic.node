@@ -1,26 +1,30 @@
 """
 Various dialogs.
 """
+# NOTE:  deprecated class CondaDialog retired to "pgef_sandbox" in
+# 'dialogs_with_CondaDialog.py'
+# NOTE:  deprecated modules p.n.threads and process have been retired to the
+# "pgef_sandbox", as they were used with the now-deprecated CondaDialog ...
+# from pangalactic.node.threads     import threadpool, Worker
+# from pangalactic.node.process     import run_conda
+
 from __future__ import division
-from builtins import str
 from builtins import range
 # NOTE: fixed div's so old_div not needed
 # from past.utils import old_div
 from builtins import object
 import sys
 
-from PyQt5.QtCore import (pyqtSignal, Qt, QObject, QPoint, QRectF, QSize,
-                          QVariant)
+from PyQt5.QtCore import (Qt, QPoint, QRectF, QSize, QVariant)
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                              QDialogButtonBox, QFormLayout, QFrame,
-                             QHBoxLayout, QLabel, QLineEdit, QProgressBar,
-                             QProgressDialog, QScrollArea, QSizePolicy,
-                             QTableView, QTextBrowser, QVBoxLayout, QWidget)
+                             QHBoxLayout, QLabel, QLineEdit, QProgressDialog,
+                             QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
-from pangalactic.core             import config, prefs, state
+from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
                                           SELECTION_VIEWS)
 from pangalactic.core.parametrics import parmz_by_dimz
@@ -30,9 +34,7 @@ from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.cad.viewer  import QtViewer3DColor
 from pangalactic.node.tablemodels import ObjectTableModel
-from pangalactic.node.threads     import threadpool, Worker
 from pangalactic.node.widgets     import NameLabel, UnitsWidget, ValueLabel
-from pangalactic.node.process     import run_conda
 from pangalactic.node.widgets     import AsciiFieldWidget, IntegerFieldWidget
 
 
@@ -138,29 +140,6 @@ class ValidationDialog(QDialog):
         self.buttons.accepted.connect(self.accept)
 
 
-# OutputStream and OutputWidget show output of text stream ... not currently
-# used (were used previously by CondaDialog)
-class OutputStream(QObject):
-    text_written = pyqtSignal(str)
-
-    def write(self, text):
-        self.text_written.emit(str(text))
-
-    def flush(self):
-        pass
-
-
-class OutputWidget(QTextBrowser):
-    def __init__(self, parent=None):
-        super(OutputWidget, self).__init__(parent)
-        palette = QPalette()
-        palette.setColor(QPalette.Base, QColor("#ddddfd"))
-        self.setPalette(palette)
-        self.setStyleSheet('font-size: 18px')
-        self.setSizePolicy(QSizePolicy.Expanding,
-                           QSizePolicy.Expanding)
-
-
 class ProgressDialog(QProgressDialog):
     def __init__(self, title='Progress', label='In progress...', maximum=10,
                  parent=None):
@@ -174,245 +153,6 @@ class ProgressDialog(QProgressDialog):
         self.setMinimumDuration(100)
         self.setValue(0)
         self.show()
-
-
-class CondaProgressDialog(QDialog):
-    def __init__(self, title, action_name, maximum=100, parent=None):
-        super(CondaProgressDialog, self).__init__(parent)
-        self.vbox = QVBoxLayout(self)
-        self.setModal(True)
-        self.setWindowTitle(title)
-        self.action_name = QLabel(action_name)
-        if action_name == 'List Packages':
-            self.connect_label = QLabel('<b>collecting package names ...</b>',
-                                        self)
-        else:
-            self.connect_label = QLabel('<b>connecting ...</b>', self)
-        self.install_label = QLabel('', self)
-        self.vbox.addWidget(self.action_name)
-        self.vbox.addWidget(self.connect_label)
-        self.vbox.addWidget(self.install_label)
-        self.progress_bar = QProgressBar(self)
-        # min and max both set to 0 initially so progress bar "spins" until
-        # the first signal is received from the process
-        self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(0)
-        self.vbox.addWidget(self.progress_bar)
-
-
-class CondaDialog(QDialog):
-    """
-    Dialog for interacting with conda.
-    """
-    CONDA_CHANNELS = ['defaults', 'conda-forge', 'pythonocc', 'oce', 'dlr-sc']
-
-    def __init__(self, option, parent=None):
-        """
-        Initialize a conda dialog for the specified option.
-
-        Args:
-            option (str):  one of
-                ['update'|'install_admin'|'update_admin'|'list']
-        """
-        super(CondaDialog, self).__init__(parent)
-        self.pkg_name = ''     # set to the pkg being installed/updated
-        self.current_pkg = ''  # tracks the current pkg being downloaded
-        self.cmd_type = ''
-        self.option = option
-        self.vbox = QVBoxLayout(self)
-        if option == 'list':
-            self.setWindowTitle("List Installed Packages")
-            self.status_heading = QLabel()
-            self.vbox.addWidget(self.status_heading)
-            self.status = QLabel()
-            self.scroll_area = QScrollArea(self)
-            self.scroll_area.setWidget(self.status)
-            self.scroll_area.setWidgetResizable(True)
-            self.vbox.addWidget(self.scroll_area)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.setGeometry(100, 100, 600, 600)
-        else:
-            if option == 'install_admin':
-                self.setWindowTitle("Install Admin Tool")
-            elif option == 'update_admin':
-                self.setWindowTitle("Update Admin Tool")
-            else:
-                self.setWindowTitle("Update")
-            self.status_heading = QLabel()
-            self.vbox.addWidget(self.status_heading)
-            self.status = QLabel()
-            self.vbox.addWidget(self.status)
-            self.vbox.addStretch(1)
-            self.setGeometry(100, 100, 600, 400)
-        # Cancel button
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Cancel, self)
-        self.buttons.rejected.connect(self.reject)
-        self.vbox.addWidget(self.buttons)
-        self.vbox.setAlignment(self.buttons, Qt.AlignLeft|Qt.AlignBottom)
-        if option == 'list':
-            self.on_list()
-        elif option == 'install_admin':
-            self.on_install_admin_tool()
-        else:
-            self.on_update()
-
-    def on_update(self):
-        """
-        Run conda update [app package].
-        """
-        orb.log.info('* CondaDialog.on_update()')
-        self.cmd_type = 'update'
-        update_args = ['update', '--json', '-y']
-        # NOTE:  THIS CODE USED FOR TESTING ONLY *********
-        # update_args = ['install', '--json', '-y']
-        # app_channel = 'http://pangalactic.us/conda_repo'
-        # app_channel = 'defaults'
-        # self.pkg_name = 'geos'    # or whatever
-        # ************************************************
-        app_channel = config.get('app_channel')
-        if app_channel:
-            update_args += ['-c', app_channel]
-        for channel in self.CONDA_CHANNELS:
-            update_args += ['-c', channel]
-        if self.option == 'update':
-            self.pkg_name = config.get('app_package_name', 'pangalactic')
-        else:  # option 'update_admin'
-            self.pkg_name = config.get('admin_package_name')
-        update_args.append(self.pkg_name)
-        update_args = tuple(update_args)
-        msg = '<b>Updating {} to latest version ...</b><br>'.format(
-                                                                self.pkg_name)
-        self.progress_dialog = CondaProgressDialog('Update', msg,
-                                                   parent=self)
-        self.progress_dialog.show()
-        worker = Worker(run_conda, *update_args)
-        worker.signals.progress.connect(self.increment_progress)
-        worker.signals.result.connect(self.report_result)
-        worker.signals.error.connect(self.log_error)
-        worker.signals.finished.connect(self.progress_done)
-        orb.log.debug('  - calling conda with args: {}'.format(
-                      str(update_args)))
-        threadpool.start(worker)
-
-    def log_error(self, error):
-        orb.log.info('* CondaDialog.log_error() ...')
-        exception_type, value, tb = error
-        orb.log.info('  - exception type: {}'.format(str(exception_type)))
-        orb.log.info('    value: {}'.format(str(value)))
-        orb.log.info('    traceback:')
-        orb.log.info(tb)
-
-    def report_result(self, res):
-        orb.log.info('* CondaDialog.report_result() ...')
-        orb.log.debug(str(res))  # this will log errors, if any
-        if res and len(res) == 2:
-            status, pkgs = res
-            orb.log.info('packages: {}'.format(str(pkgs)))
-            orb.log.info('status: {}'.format(status))
-            status_label = ''
-            heading = '<hr><h3>{}{}</h3>'
-            msg = ''
-            if status:
-                if pkgs:
-                    heading_msg = '<font color="green">Success!</font>'
-                    if self.cmd_type == 'list':
-                        msg += '<b>Installed Packages:</b>'
-                    else:
-                        status_label = 'Status: '
-                        msg += '<b>Packages Installed:</b>'
-                    msg += '<ul>'
-                    for pkg in pkgs:
-                        msg += '<li>{}</li>'.format(pkg)
-                    msg += '</ul>'
-                    if self.option == 'install_admin':
-                        state['admin_installed'] = True
-                        self.parent().run_admin_tool_action.setEnabled(True)
-                        self.parent().install_admin_action.setEnabled(False)
-                    if self.option == 'update':
-                        heading_msg += '<p><i>Please restart now to '
-                        heading_msg += 'activate the new version.</i></p>'
-                        state['restart_needed'] = True
-                else:
-                    heading_msg = 'Latest version of <font color="green">'
-                    heading_msg += '{}</font>'.format(self.pkg_name)
-                    heading_msg += ' is installed.'
-            else:
-                heading_msg = '<font color="red">Failure!</font>'
-                msg += '<b>Please notify your support person ...</b>'
-            self.status_heading.setText(heading.format(status_label,
-                                                       heading_msg))
-            self.status.setText(msg + '<hr>')
-
-    def progress_done(self):
-        if getattr(self, 'progress_dialog', None):
-            self.progress_dialog.done(0)
-
-    def increment_progress(self, pkg, n):
-        """
-        Increment progress dialog by value `n` (0 < n < 100).
-
-        Args:
-            pkg (str):  name of pkg being installed or updated
-            n (int):  % progress
-        """
-        if self.current_pkg != pkg:
-            self.current_pkg = pkg
-            msg = '<b>downloading {} ...</b>'.format(pkg)
-            self.progress_dialog.install_label.setText(msg)
-        if n == 100:
-            msg = '<b>installing {} ...</b>'.format(pkg)
-            self.progress_dialog.install_label.setText(msg)
-        self.progress_dialog.progress_bar.setMaximum(100)
-        self.progress_dialog.progress_bar.setValue(n)
-
-    def on_install_admin_tool(self):
-        orb.log.info('* CondaDialog.on_install_admin_tool()')
-        self.cmd_type = 'install'
-        self.pkg_name = config.get('admin_package_name')
-        if self.pkg_name:
-            # TODO:  check for admin_pkg_name availability in channels
-            install_args = ['install', '-y', '--json']
-            app_channel = config.get('app_channel',
-                                     'http://pangalactic.us/conda_repo')
-            if app_channel:
-                install_args += ['-c', app_channel]
-            for channel in self.CONDA_CHANNELS:
-                install_args += ['-c', channel]
-            install_args.append(self.pkg_name)
-            install_args = tuple(install_args)
-            msg = '<b>Installing "{}" ...</b>'.format(self.pkg_name)
-            self.progress_dialog = CondaProgressDialog('Install Admin Tool',
-                                                       msg, parent=self)
-            self.progress_dialog.show()
-            orb.log.debug('  - calling conda with args: {}'.format(
-                          str(install_args)))
-            worker = Worker(run_conda, *install_args)
-            worker.signals.progress.connect(self.increment_progress)
-            worker.signals.result.connect(self.report_result)
-            worker.signals.error.connect(self.log_error)
-            worker.signals.finished.connect(self.progress_done)
-            orb.log.info('  - installing "{}".'.format(self.pkg_name))
-            threadpool.start(worker)
-        else:
-            orb.log.info('  - failed: `admin_pkg_name` not set in config.')
-
-    def on_list(self):
-        orb.log.info('* CondaDialog.on_list()')
-        self.cmd_type = 'list'
-        msg = '<b>Listing installed packages ...</b>'
-        self.progress_dialog = CondaProgressDialog('List Packages',
-                                                   msg, parent=self)
-        self.progress_dialog.show()
-        # TODO:  'list' doesn't need progress, but we need to parse the json
-        # and format the output for presentation
-        args = ('list', '--json')
-        worker = Worker(run_conda, *args)
-        worker.signals.result.connect(self.report_result)
-        worker.signals.error.connect(self.log_error)
-        worker.signals.finished.connect(self.progress_done)
-        orb.log.info('  - calling conda with args:')
-        orb.log.info('    {}'.format(str(args)))
-        threadpool.start(worker)
 
 
 class Viewer3DDialog(QDialog):

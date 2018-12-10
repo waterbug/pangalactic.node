@@ -9,10 +9,9 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 from builtins import range
-import argparse, atexit, os, platform, shutil, six, subprocess, traceback
+import argparse, atexit, os, shutil, six, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
 from collections import OrderedDict
-from distutils   import spawn
 
 # special treatment of `sys` module to set default encoding to utf-8
 # NOTE: this is to prevent UnicodeDecodeError: 'ascii' codec can't decode ...
@@ -64,12 +63,13 @@ from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_xlsx
 from pangalactic.node.buttons         import ButtonLabel, MenuButton
 from pangalactic.node.dashboards      import SystemDashboard
-from pangalactic.node.dialogs         import (CloakingDialog, CondaDialog,
+from pangalactic.node.dialogs         import (CloakingDialog,
+                                              # CondaDialog, ## deprecated
                                               LoginDialog,
                                               # CircleWidget,
                                               # NotificationDialog,
                                               ObjectSelectionDialog,
-                                              OptionNotification,
+                                              # OptionNotification,
                                               PrefsDialog, Viewer3DDialog)
 # from pangalactic.node.filters         import FilterDialog
 from pangalactic.node.helpwidget      import HelpWidget
@@ -344,30 +344,7 @@ class Main(QtWidgets.QMainWindow):
         # set 'synced' state to False (informs check_version whether to run
         # sync_with_services())
         state['synced'] = False
-        # update is currently only implemented for Windows
-        if sys.platform == 'win32':
-            try:
-                orb.log.info('  calling rpc vger.get_version() ...')
-                rpc = message_bus.session.call(u'vger.get_version')
-                rpc.addCallback(self.check_version)
-                rpc.addErrback(self.on_failure)
-            except:
-                orb.log.info("  - version check failed, ignoring ...")
-                self.sync_with_services()
-        elif sys.platform == 'linux2':
-            # if we are on linux, just log the result
-            try:
-                orb.log.info('  testing rpc vger.get_version() ...')
-                rpc = message_bus.session.call(u'vger.get_version')
-                rpc.addCallback(self.on_result)
-                rpc.addErrback(self.on_failure)
-                orb.log.info('* calling sync_with_services() ...')
-                self.sync_with_services()
-            except:
-                orb.log.info("  - version check failed, ignoring ...")
-                self.sync_with_services()
-        else:
-            self.sync_with_services()
+        self.sync_with_services()
 
     def sync_with_services(self):
         state['synced'] = True
@@ -626,44 +603,6 @@ class Main(QtWidgets.QMainWindow):
 
     def on_pubsub_failure(self, f):
         orb.log.info("  - subscription failure: {}".format(f.get_traceback()))
-
-    def check_version(self, data):
-        """
-        Compare the version advertised by the server with our version; if not
-        equal, call conda_update().
-
-        Args:
-            data (tuple):  version (str), schema_change (bool)
-        """
-        orb.log.info('[pgxn] check_version()')
-        orb.log.info('       -> rpc: vger.get_version()')
-        orb.log.info("  - output: {}".format(str(data)))
-        version, schema_change = data
-        # use >= in case I forget to update the server, or whatever
-        if __version__ >= str(version):
-            orb.log.info("    ... version is latest, continuing ...")
-            if not state.get('synced'):
-                self.sync_with_services()
-        elif not self.auto_update:
-            orb.log.info("    ... no_auto_update is set, continuing ...")
-            if not state.get('synced'):
-                self.sync_with_services()
-        else:
-            # TODO: REQUIRE update if there is a schema change
-            orb.log.info("    ... new version available message ...")
-            message = """<p><b>A new release is available<br>
-                         Update {} now?</b></p>""".format(
-                                    config.get('app_name', 'Pangalaxian'))
-            dlg = OptionNotification("New Version Available", message, self)
-            # dlg.exec_() -> modal dialog
-            if dlg.exec_():
-                self.on_update()
-            else:
-                if not state.get('synced'):
-                    self.sync_with_services()
-
-    def on_check_version_failure(self, f):
-        orb.log.info("  - check_version failure: {}".format(f.get_traceback()))
 
     def sync_parameter_definitions(self, data):
         """
@@ -1442,32 +1381,12 @@ class Main(QtWidgets.QMainWindow):
         self.refresh_tree_action = self.create_action(
                                     "Refresh System Tree and Dashboard",
                                     slot=self.refresh_tree_and_dashboard)
-        # for now (until we figure out how to make conda-packaged pangalactic
-        # not freeze on the Mac), app_update_action and run_admin_tool_action
-        # will only be accessible if *not* running on Mac -- see menu
-        # construction below ...
-        self.app_update_action = self.create_action(
-                                    "Update {} ...".format(
-                                    config.get('app_name', 'Pangalaxian')),
-                                    slot=self.on_update)
-        self.install_admin_action = self.create_action(
-                                    "Install Admin Tool ...",
-                                    slot=self.on_install_admin)
-        self.update_admin_action = self.create_action(
-                                    "Update Admin Tool ...",
-                                    slot=self.on_update_admin)
-        self.run_admin_tool_action = self.create_action(
-                                    "Run Admin Tool",
-                                    slot=self.run_admin_tool)
         # self.compare_items_action = self.create_action(
                                     # "Compare Items by Parameters",
                                     # slot=self.compare_items)
         # self.load_requirements_action = self.create_action(
                                     # "Load Requirements",
                                     # slot=self.load_requirements)
-        self.conda_list_action = self.create_action(
-                                    "List Installed Packages ...",
-                                    slot=self.conda_list)
         self.exit_action = self.create_action(
                                     "Exit",
                                     slot=self.close)
@@ -1809,20 +1728,6 @@ class Main(QtWidgets.QMainWindow):
                                 self.reqts_manager_action
                                 # self.compare_items_action
                                 ]
-        if not platform.platform().startswith('Darwin'):
-            system_tools_actions.append(self.app_update_action)
-            system_tools_actions.append(self.conda_list_action)
-            if config.get('admin_script_name'):
-                system_tools_actions.append(self.install_admin_action)
-                system_tools_actions.append(self.run_admin_tool_action)
-                if state.get('admin_installed'):
-                    self.install_admin_action.setEnabled(False)
-                    self.run_admin_tool_action.setEnabled(True)
-                    self.update_admin_action.setEnabled(True)
-                else:
-                    self.install_admin_action.setEnabled(True)
-                    self.run_admin_tool_action.setEnabled(False)
-                    self.update_admin_action.setEnabled(False)
         system_tools_button = MenuButton(QtGui.QIcon(system_tools_icon_path),
                                    tooltip='Tools',
                                    actions=system_tools_actions, parent=self)
@@ -1887,37 +1792,15 @@ class Main(QtWidgets.QMainWindow):
         # self.circle_timer.timeout.connect(self.circle_widget.next)
         # self.circle_timer.start(25)
 
-    def init_menubar(self):
-        orb.log.debug('  - menubar is not being used.')
-        # orb.log.debug('  - initializing menubar ...')
-        # menubar = self.menuBar()
-        # # NOTE: trying this to see if it enables "local" menus on OSX
-        # menubar.setNativeMenuBar(False)
-        # file_menu = menubar.addMenu("&File")
-        # file_menu.addSeparator()
-        # if not sys.platform == 'darwin':    # exit not allowed on Mac app menu
-            # file_menu.addAction(self.exit_action)
-        # tools_menu = menubar.addMenu("&Tools")
-        # tools_menu.addAction(self.edit_prefs_action)
-        # # Load Test Objects is currently broken ...
-        # # tools_menu.addAction(self.load_test_objects_action)
-        # # tools_menu.addAction(self.load_requirements_action)
-        # tools_menu.addAction(self.compare_items_action)
-        # # NOTE: **IMPORTANT**: remove this when real "compare" is done
-        # if not state.get('test_objects_loaded'):
-            # self.compare_items_action.setEnabled(False)
-        # tools_menu = menubar.addMenu("&Help")
-        # tools_menu.addAction(self.help_action)
-        # self.menu = menubar
-        # orb.log.debug('    menubar initialized.')
-
     def _init_ui(self, width, height):
         orb.log.debug('* _init_ui() ...')
         # set a placeholder in central widget
         self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
                                           parent=self))
         self.init_toolbar()
-        self.init_menubar()
+        # menubar is not being used -- not compatible with Macs, using a
+        # toolbar instead ...
+        # self.init_menubar()
         self.setCorner(Qt.TopLeftCorner, Qt.TopDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
         self._setup_left_dock()
@@ -1990,9 +1873,11 @@ class Main(QtWidgets.QMainWindow):
                 rpc.addErrback(self.on_failure)
 
     def on_collaborate(self):
-        pass
+        pass   # to be implemented ...
         # NOTE:  the following code added the project to the admin service --
-        # to be implemented in a separate action ("collaborate")
+        # will be implemented in a separate action ("collaborate") which will
+        # set up a previously local-only project on the server so that other
+        # users can be given collaborative roles on it ...
         # if obj and state['connected'] and self.adminserv:
             # orb.log.info('  - calling rpc omb.organization.add')
             # orb.log.debug('    with arguments:')
@@ -3658,74 +3543,6 @@ class Main(QtWidgets.QMainWindow):
             prefs['clear_rows'] = dlg.get_clear_rows()
             prefs['dash_no_row_colors'] = not dlg.get_dash_row_colors()
             orb.log.info('  - edit_prefs dialog completed.')
-
-    # NOTE: this version of "on_update" may be reinstated in the future ...
-    # def on_update(self):
-        # """
-        # Handle "Update [app]" menu item: use 'get_version' rpc on repo to get
-        # the metadata on the latest version (version number and whether a schema
-        # change is involved); if a new version is available, check_version()
-        # callback will call conda_update().
-        # """
-        # if state.get('connected'):
-            # # if connected to mbus, get_version is a quicker way to check
-            # # whether a new version is available
-            # orb.log.info('  calling rpc vger.get_version() ...')
-            # rpc = message_bus.session.call(u'vger.get_version')
-            # rpc.addCallback(self.check_version)
-            # rpc.addErrback(self.on_failure)
-        # else:
-            # # if not connected to mbus, go ahead and hit the conda repo
-            # self.conda_update()
-
-    def on_update(self):
-        orb.log.info('* on_update()')
-        dlg = CondaDialog('update', parent=self)
-        dlg.show()
-
-    def on_update_admin(self):
-        orb.log.info('* on_update_admin()')
-        dlg = CondaDialog('update_admin', parent=self)
-        dlg.show()
-
-    def on_install_admin(self):
-        orb.log.info('* on_install_admin()')
-        # presume success ...
-        state['admin_installed'] = True
-        self.run_admin_tool_action.setEnabled(True)
-        self.install_admin_action.setEnabled(False)
-        self.update_admin_action.setEnabled(True)
-        dlg = CondaDialog('install_admin', parent=self)
-        dlg.show()
-
-    def conda_list(self):
-        orb.log.info('* conda_list()')
-        dlg = CondaDialog('list', parent=self)
-        dlg.show()
-
-    def run_admin_tool(self):
-        orb.log.info('* run_admin_tool()')
-        script_name = config.get('admin_script_name')
-        if not self.cert_path:
-            orb.log.info('  - no server cert file; cannot run admin tool.')
-            return
-        if script_name:
-            if spawn.find_executable(script_name):
-                cmd = ' '.join([script_name, '--cert', self.cert_path])
-                orb.log.info('  - starting "{}"'.format(cmd))
-                if sys.platform == 'win32':
-                    CREATE_NO_WINDOW = 0x08000000
-                    subprocess.call(cmd, creationflags=CREATE_NO_WINDOW)
-                else:
-                    subprocess.call(cmd)
-            else:
-                orb.log.info('  - admin script not found in path.')
-                # TODO:  pop-up with message
-                return
-        else:
-            orb.log.info('  - admin script name not identified in config.')
-            # TODO:  pop-up with message
-            return
 
     # def compare_items(self):
         # # TODO:  this is just a mock-up for prototyping -- FIXME!
