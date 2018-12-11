@@ -11,18 +11,20 @@ build:
 
 requirements:
   build:
-    - python
+    - python {{PY_VER}}
     - setuptools
 
   run:
-    - jpeg >=9b
+    - pangalactic.core >=0.1.dev98
+    - autobahn
+    - binaryornot
+    - future
     - matplotlib
     - openjpeg >=2.3.0
-    - pangalactic.core >=0.1.dev98
     - pillow <=4.1.1    # 4.2.x is broken
     - pyqt >=5.6,<5.7
-    - python {{PY_VER}}*,>=3.6,<3.7
-    - pythonocc-core    # from pythonocc channel
+    - python {{PY_VER}}
+    - pythonocc-core >=0.18.1   # from pythonocc channel
     # -----------------------------------------------------
     # pythonocc pulls in these dependencies from dlr-sc channel:
     # - freeimageplus
@@ -30,24 +32,18 @@ requirements:
     # - jpeg 9b
     # - tbb
     # -----------------------------------------------------
-    - pytz
+    # pinning ruamel_yaml advised for production-level stability
     - ruamel_yaml <=0.15
-    - service_identity
     - sqlalchemy
     - twisted
-    - zope
-    - zope.interface
+    # twisted pulls in these dependencies:
+    # - service_identity
+    # - zope
+    # - zope.interface
     # -----------------------------------------------------
     # packages locally built and installed from local repo
-    - autobahn
-    - binaryornot
     - louie
     - qt5reactor
-    # -----------------------------------------------------
-    # packages copied into local repo (platform-specific versions)
-    # service_identity (reqd. by autobahn)
-    # txaio (reqd. by autobahn)
-    # -----------------------------------------------------
 
 # test:
   # imports:
