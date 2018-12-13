@@ -6,21 +6,15 @@ from __future__ import division
 from builtins import bytes
 from future import standard_library
 standard_library.install_aliases()
-# from builtins import str
 from builtins import range
-from past.utils import old_div
 import os, sys
-from io import BytesIO
 from uuid import uuid4
 
-from PyQt5        import QtWidgets
-from PyQt5.QtCore import (QByteArray, QDataStream, QIODevice, QMimeData,
-                          QSize, QVariant)
-from PyQt5.QtGui  import (QAbstractTextDocumentLayout, QIcon, QPixmap,
-                          QTextDocument)
-
-from matplotlib import mathtext, font_manager
-from PIL import Image
+from PyQt5           import QtWidgets
+from PyQt5.QtCore    import (QByteArray, QDataStream, QIODevice, QMimeData,
+                             QSize, QVariant)
+from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QIcon, QPixmap,
+                             QTextDocument)
 
 # SqlAlchemy
 from sqlalchemy import ForeignKey
@@ -317,10 +311,8 @@ def get_icon_path(obj):
 
 def get_pixmap(obj):
     """
-    Get the icon pixmap for a PGEF object, returning a default pixmap if none
-    is found.  NOTE:  avoidance of circular dependency on the orb, which needs
-    to use other functions in this module, makes the signature a bit
-    cumbersome.
+    Get the icon pixmap for a PGEF object, returning a default pixmap ("box")
+    if none is found.
 
     Args:
         obj (a PGEF object):  object whose icon is to be gotten
@@ -479,155 +471,12 @@ def white_to_transparent(img):
     return img
 
 
-def width_pad_image(img, width=0, left=False, right=False, transparent=True):
-    """
-    Pad an image to a specified width.
-    """
-    # NOTE:  only transparent bg for now
-    if img.size[0] >= width:
-        return img
-    img = img.convert("RGBA")
-    pixdata = img.load()
-    newimg = Image.new(img.mode, (width, img.size[1]))
-    newpixdata = newimg.load()
-    if right and not left:
-        # right padding
-        for y in range(img.size[1]):
-            for x in range(img.size[0]):
-                newpixdata[x, y] = pixdata[x, y]
-        for y in range(img.size[1]):
-            for x in range(img.size[0], width):
-                newpixdata[x, y] = (255, 255, 255, 0)
-    elif left and not right:
-        # TODO:  left padding
-        pass
-    else:
-        # TODO:  left & right padding (center the image)
-        pass
-    return newimg
-
-
-def height_pad_image(img, height=0, top=False, bottom=False, transparent=True):
-    """
-    Pad an image to a specified height (default:  center it inside padding).
-    """
-    # NOTE:  only transparent bg for now
-    if img.size[1] >= height:
-        return img
-    img = img.convert("RGBA")
-    pixdata = img.load()
-    newimg = Image.new(img.mode, (img.size[0], height))
-    newpixdata = newimg.load()
-    if top and not bottom:
-        # place the content in the new image
-        for x in range(img.size[0]):
-            for y in range(img.size[1]):
-                newpixdata[x, y] = pixdata[x, y]
-        # pad the top
-        for x in range(img.size[0]):
-            for y in range(img.size[1], height):
-                newpixdata[x, y] = (255, 255, 255, 0)
-    elif bottom and not top:
-        delta = height - img.size[1]
-        # place the content in the new image higher by delta
-        for x in range(img.size[0]):
-            for y in range(delta, height):
-                newpixdata[x, y] = pixdata[x, y - delta]
-        # pad the bottom
-        for x in range(img.size[0]):
-            for y in range(0, delta):
-                newpixdata[x, y] = (255, 255, 255, 0)
-    else:  # center (pad bottom and top equally)
-        delta = int(old_div(float(height - img.size[1]),2.0))
-        # place the content in the new image higher by delta
-        for x in range(img.size[0]):
-            for y in range(delta, height - delta - 1):
-                newpixdata[x, y] = pixdata[x, y - delta]
-        # pad the bottom
-        for x in range(img.size[0]):
-            for y in range(0, delta):
-                newpixdata[x, y] = (255, 255, 255, 0)
-        # pad the top
-        for x in range(img.size[0]):
-            for y in range(height - delta, height):
-                newpixdata[x, y] = (255, 255, 255, 0)
-    return newimg
-
-
 def make_parm_html(parm_id):
     parts = parm_id.split('_')
     if len(parts) > 1:
         return '{}<sub>{}</sub>'.format(parts[0], parts[1])
     else:
         return parm_id
-
-
-def make_parameter_icon(obj, height=70, width=250, overwrite=False):
-    """
-    Create the image file of an icon (QIcon) for a ParameterDefinition
-    object, with height of 70 pixels, padded to the specified width.
-
-    Args:
-        obj (ParameterDefinition):  obj for which icon will be made
-        height (int): height of icon (pixels)
-        width (int): width to which icon should be padded (pixels)
-        overwrite (bool): if True, overwrite any existing file
-    """
-    param_id = obj.id   # 'x_y', which will be interpreted as "x sub y".
-    icon_path = get_icon_path(obj)
-    if not overwrite and os.path.exists(icon_path):
-        return
-    fontprops = font_manager.FontProperties(size='large')
-    memfile = BytesIO()
-    parts = param_id.split('_')
-    if len(parts) == 2:
-        n, sub = parts
-        mathtext.math_to_image('${}_{{{}}}$'.format(n, sub), memfile,
-                               prop=fontprops, dpi=300, format='png')
-    else:
-        n = parts[0]
-        mathtext.math_to_image('${}$'.format(n), memfile,
-                               prop=fontprops, dpi=300, format='png')
-    img = Image.open(memfile)
-    # # SCALING
-    # scale = 10.0
-    # w = int(float(img.size[0]) * scale)
-    # h = int(float(img.size[1]) * scale)
-    # img_resized = img.resize((w, h), Image.ANTIALIAS)
-    #
-    # # EXPERIMENT 1:  force a uniform height
-    # # (this failed because small letters became same height as capitols, etc.)
-    # resize to height of 32, maintaining aspect
-    # h_percent = 32.0/float(img.size[1])
-    # w = int(float(img.size[0]) * h_percent)
-    # img_resized = img.resize((w, 32), Image.ANTIALIAS)
-    #
-    # EXPERIMENT 2:  pad image to a specified height and width
-    img_no_bg = white_to_transparent(img)
-    # if no subscript ...
-    if len(parts) == 1:
-        # if lower-case, pad to specified height centered
-        if parts[0].islower():
-            ypad_img = height_pad_image(img_no_bg, height=height)
-        # otherwise, pad to specified height from bottom
-        else:
-            ypad_img = height_pad_image(img_no_bg, height=height, bottom=True)
-    # if subscript ...
-    else:
-        # if subscript contains a letter that goes below the line, pad the top
-        # to specified height
-        if set('gjpqy').intersection(param_id):
-            ypad_img = height_pad_image(img_no_bg, height=height, top=True)
-        # otherwise, pad to specified height centered
-        else:
-            ypad_img = height_pad_image(img_no_bg, height=height)
-    # width-padding
-    if width and (width > img_no_bg.size[0]):
-        # right-pad to specified width (i.e. left-justified)
-        icon_img = width_pad_image(ypad_img, width=width, right=True)
-    else:
-        icon_img = ypad_img
-    icon_img.save(icon_path, sizes=[(width, height)])
 
 
 class HTMLDelegate(QtWidgets.QStyledItemDelegate):

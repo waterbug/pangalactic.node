@@ -61,7 +61,7 @@ class HelpWidget(QDialog):
                       checkable=False):
         action = QAction(text, self)
         if icon is not None:
-            icon_file = icon + state.get('icon_type', '.ico')
+            icon_file = icon + state.get('icon_type', '.png')
             icon_dir = getattr(orb, 'icon_dir', 'icons')
             icon_path = os.path.join(icon_dir, icon_file)
             action.setIcon(QIcon(icon_path))

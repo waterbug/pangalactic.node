@@ -1,9 +1,11 @@
 from builtins import str
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui  import QDoubleValidator, QIntValidator, QPixmap, QTextOption
-from PyQt5.QtWidgets  import (QCheckBox, QComboBox, QDateEdit, QDateTimeEdit,
-                              QFrame, QLabel, QLineEdit, QListView,
-                              QListWidget, QSizePolicy, QTextEdit, QVBoxLayout)
+from PyQt5.QtCore import Qt, QMimeData, QSize
+from PyQt5.QtGui  import (QDoubleValidator, QDrag, QIntValidator, QPainter,
+                          QPixmap, QTextOption)
+from PyQt5.QtWidgets  import (QApplication, QCheckBox, QComboBox, QDateEdit,
+                              QDateTimeEdit, QFrame, QLabel, QLineEdit,
+                              QListView, QListWidget, QSizePolicy, QTextEdit,
+                              QVBoxLayout)
 from sqlalchemy   import (BigInteger, Boolean, Date, DateTime, Float,
                           ForeignKey, Integer, String, Text, Time, Unicode)
 
@@ -131,6 +133,59 @@ class ModeLabel(QLabel):
         self.setMinimumSize(QSize(width, height))
         self.setStyleSheet('color: purple; background-color: white;'
                            'font-weight: bold; font-size: larger')
+
+
+class ParameterLabel(QLabel):
+    """
+    Create an HTML label based on a ParameterDefinition id, for the purpose of
+    generating an icon.
+
+    Args:
+        parameter_definition (ParameterDefinition):  a ParameterDefinition
+            object
+    """
+    def __init__(self, parameter_definition, parent=None):
+        QLabel.__init__(self, parent=parent)
+        # 'x_y' will be interpreted as "x sub y".
+        # 'x_y_z' will be interpreted as "x sub y-z", etc.
+        pid = parameter_definition.id
+        parts = pid.split('_')
+        if len(parts) >= 2:
+            name, sub = parts[0], '-'.join(parts[1:])
+            html = '<b>{}<sub>{}</b>'.format(name, sub)
+        else:
+            html = '<b>{}</b>'.format(pid)
+        super(ParameterLabel, self).__init__(html)
+
+    def get_pixmap(self):
+        pixmap = QPixmap(self.size())
+        painter = QPainter(pixmap)
+        painter.drawPixmap(self.rect(), self.grab())
+        painter.end()
+        # 2nd arg is "mode": 1 is Qt.SmoothTransformation
+        pixmap_resized = pixmap.scaledToHeight(20, 1)
+        return pixmap_resized
+
+    def textFormat(self):
+        return Qt.RichText
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.drag_start_position = event.pos()
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.LeftButton):
+            return
+        min_dist = (event.pos() - self.drag_start_position).manhattanLength()
+        if min_dist < QApplication.startDragDistance():
+            return
+        drag = QDrag(self)
+        mimedata = QMimeData()
+        mimedata.setText(self.text())
+        drag.setMimeData(mimedata)
+        drag.setPixmap(self.get_pixmap())
+        drag.setHotSpot(event.pos())
+        drag.exec_(Qt.CopyAction | Qt.MoveAction)
 
 
 def get_widget(field_name, field_type, value=None, editable=True,

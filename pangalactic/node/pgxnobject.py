@@ -41,8 +41,7 @@ from pangalactic.core.utils.meta  import (get_attr_ext_name,
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.validation import validate_all
 from pangalactic.node.utils       import (clone, get_object_title,
-                                          extract_mime_data,
-                                          make_parameter_icon)
+                                          extract_mime_data)
 from pangalactic.node.widgets     import get_widget, UnitsWidget
 from pangalactic.node.dialogs     import (ObjectSelectionDialog,
                                           ProgressDialog,
@@ -1072,7 +1071,6 @@ class PgxnObject(QMainWindow):
             self.obj.create_datetime = NOW
             self.obj.mod_datetime = NOW
             orb.save([self.obj])
-            make_parameter_icon(self.obj)
             QApplication.processEvents()
             parent = self.parent()
             if parent:

@@ -20,10 +20,12 @@ def setup_dirs_and_state():
         os.makedirs(orb.icon_vault, mode=0o755)
     # 'icon_type' is needed for 'load_reference_data()' (etc.) -- it is
     # determined by platform (any saved values will be overwritten).
-    state['icon_type'] = '.ico'
-    if (platform.platform().startswith('Windows-10')
-        or platform.platform().startswith('Darwin')):
-        state['icon_type'] = '.png'
+    # NOTE: [2018-12-12] just go with .png (hopefully won't need to deal with
+    # .ico ... cross that bridge when/if we come to it)
+    state['icon_type'] = '.png'
+    # if (platform.platform().startswith('Windows-10')
+        # or platform.platform().startswith('Darwin')):
+        # state['icon_type'] = '.png'
     prefs['userid'] =  prefs.get('userid') or 'me'
     prefs['model_types'] =  prefs.get('model_types') or MODEL_TYPE_PREFS
 

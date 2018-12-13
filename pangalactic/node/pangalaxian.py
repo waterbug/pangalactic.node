@@ -83,7 +83,7 @@ from pangalactic.node.tablemodels     import ODTableModel, NumericSortModel
 # MatrixWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews  import MatrixWidget
 from pangalactic.node.tableviews      import ObjectTableView
-from pangalactic.node.utils           import clone, make_parameter_icon
+from pangalactic.node.utils           import clone
 from pangalactic.node.widgets         import (AutosizingListWidget,
                                               ModeLabel, PlaceHolder)
 from pangalactic.node.wizards         import (NewProductWizard,
@@ -174,7 +174,6 @@ class Main(QtWidgets.QMainWindow):
         # orb loads reference data when it starts up, which includes parameter
         # definition -- make sure all the parameter definitions have icons
         setup_dirs_and_state()
-        self.check_parameter_icons()
         self.get_or_create_local_user()
         self.app_test_data = test_data
         self.start_logging(console=console, debug=debug)
@@ -254,16 +253,6 @@ class Main(QtWidgets.QMainWindow):
     def add_splash_msg(self, msg):
         self.splash_msg += msg + '\n'
         dispatcher.send('splash message', message=self.splash_msg)
-
-    def check_parameter_icons(self):
-        """
-        Check if icons exist for ParameterDefinitions and create them if
-        any are needed.
-        """
-        orb.log.info('* [pgxn] check_parameter_icons()')
-        pds = orb.get_by_type('ParameterDefinition')
-        for pd in pds:
-            make_parameter_icon(pd)
 
     def get_or_create_local_user(self):
         """
@@ -776,12 +765,8 @@ class Main(QtWidgets.QMainWindow):
                     # if new Parameter Definitions found, create icons
                     pd_oids = [so['oid'] for so in sobjs
                                if so['_cname'] == 'ParameterDefinition']
-                    if pd_oids:
-                        for pd_oid in pd_oids:
-                            pd = orb.get(pd_oid)
-                            make_parameter_icon(pd)
-                        if hasattr(self, 'library_widget'):
-                            self.library_widget.refresh(
+                    if pd_oids and hasattr(self, 'library_widget'):
+                        self.library_widget.refresh(
                                                 cname='ParameterDefinition')
             except:
                 orb.log.info('      - deserialization failure')

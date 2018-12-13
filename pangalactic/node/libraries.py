@@ -23,6 +23,7 @@ from pangalactic.node.filters    import FilterPanel, ProductFilterDialog
 from pangalactic.node.utils      import (create_mime_data,
                                          create_template_from_product,
                                          get_pixmap)
+from pangalactic.node.widgets    import ParameterLabel
 from pangalactic.node.pgxnobject import PgxnObject
 
 
@@ -85,10 +86,10 @@ class LibraryListModel(QAbstractListModel):
         return Qt.CopyAction
 
     def data(self, index, role):
+        obj = self.objs[index.row()]
         if (not index.isValid() or
             not (0 <= index.row() < len(self.objs))):
             return QVariant()
-        obj = self.objs[index.row()]
         if role == Qt.DisplayRole:
             # how objects are displayed in the library widget
             return QVariant(obj.name)
@@ -169,10 +170,11 @@ class LibraryListView(QListView):
             self.setDragDropMode(QAbstractItemView.DragDrop)
         else:
             self.setDragEnabled(False)
-        if self.cname == "ParameterDefinition":
-            default_icon_size = QSize(125, 20)
-        else:
-            default_icon_size = QSize(16, 16)
+        # NOTE: ParameterDefinitions do not have icons now!
+        # if self.cname != "ParameterDefinition":
+            # default_icon_size = QSize(125, 20)
+        # else:
+        default_icon_size = QSize(16, 16)
         self.icon_size = icon_size or default_icon_size
         self.setIconSize(self.icon_size)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -188,12 +190,15 @@ class LibraryListView(QListView):
         self.pgxnobj_action = QAction('View this object', self)
         self.pgxnobj_action.triggered.connect(self.display_object)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
-        self.template_action = QAction('Create template from object',
-                                       self)
-        self.template_action.triggered.connect(self.create_template)
+        if self.cname != "ParameterDefinition":
+            # ParameterDefinitions do not have templates
+            self.template_action = QAction('Create template from object',
+                                           self)
+            self.template_action.triggered.connect(self.create_template)
 
     def setup_context_menu(self):
         self.addAction(self.pgxnobj_action)
+        # NOTE:  there may be templates for other object types in the future
         if self.cname == 'HardwareProduct':
             self.addAction(self.template_action)
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -240,15 +245,19 @@ class LibraryListView(QListView):
             return
         obj = self.model().data(index, Qt.UserRole)
         if isinstance(obj, orb.classes['Identifiable']):
-            icon = QIcon(get_pixmap(obj))
-            mime_data = create_mime_data(obj, icon)
             drag = QDrag(self)
-            drag.setMimeData(mime_data)
             if self.cname == "ParameterDefinition":
+                label = ParameterLabel(obj)
+                pixmap = label.get_pixmap()
                 drag.setHotSpot(QPoint(30, 25))
+                drag.setPixmap(pixmap)
+                icon = QIcon(pixmap)
             else:
+                icon = QIcon(get_pixmap(obj))
                 drag.setHotSpot(QPoint(20, 10))
-            drag.setPixmap(icon.pixmap(self.icon_size))
+                drag.setPixmap(icon.pixmap(self.icon_size))
+            mime_data = create_mime_data(obj, icon)
+            drag.setMimeData(mime_data)
             drag.exec_(Qt.CopyAction)
 
     def mouseMoveEvent(self, event):
