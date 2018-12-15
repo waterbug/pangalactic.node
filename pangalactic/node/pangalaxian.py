@@ -2746,12 +2746,16 @@ class Main(QtWidgets.QMainWindow):
         self.right_dock.setVisible(False)
         if hasattr(self, 'dashboard_panel'):
             self.dashboard_panel.setVisible(False)
+        if hasattr(self, 'product_info_panel'):
+            self.product_info_panel.setVisible(False)
         # if there is a current left dock widget, remove and destroy it
         ld_widget = self.left_dock.widget()
         if ld_widget:
             ld_widget.setAttribute(Qt.WA_DeleteOnClose)
             ld_widget.parent = None
             ld_widget.close()
+            # very important to set None: its C++ object is gone now ...
+            self.cname_list = None
         # set current left dock widget to 'cname_list'
         # ********************************************************
         # db view:  class selection list (tables)
