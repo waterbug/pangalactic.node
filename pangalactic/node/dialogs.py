@@ -35,7 +35,7 @@ from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.cad.viewer  import QtViewer3DColor
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.widgets     import NameLabel, UnitsWidget, ValueLabel
-from pangalactic.node.widgets     import AsciiFieldWidget, IntegerFieldWidget
+from pangalactic.node.widgets     import StringFieldWidget, IntegerFieldWidget
 
 
 COLORS = {True: 'green', False: 'red'}
@@ -196,7 +196,7 @@ class AssemblyNodeDialog(QDialog):
             ref_des_label = QLabel('System Role', self)
         else:
             ref_des_label = QLabel('Reference Designator', self)
-        self.ref_des_field = AsciiFieldWidget(parent=self, value=ref_des)
+        self.ref_des_field = StringFieldWidget(parent=self, value=ref_des)
         form.addRow(ref_des_label, self.ref_des_field)
         if not system:
             quantity_label = QLabel('Quantity', self)

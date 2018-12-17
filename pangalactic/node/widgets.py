@@ -14,6 +14,8 @@ from textwrap import wrap
 # pangalactic
 from pangalactic.core            import state
 from pangalactic.core.meta       import TEXT_PROPERTIES, SELECTABLE_VALUES
+### uncomment orb if debug logging is needed ...
+# from pangalactic.core.uberorb    import orb
 from pangalactic.core.utils.meta import asciify
 from pangalactic.node.buttons    import FkButton
 from pangalactic.node.utils      import make_parm_html
@@ -202,7 +204,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
             (QPushButton) types, for which the application may call a function
             to return a selection list of values, and that selection list may
             depend on the specific field name as context
-        field_type (str):  the name of the field type for which the widget is
+        field_type (class):  the class of the field for which the widget is
             being supplied
 
     Keyword Args:
@@ -229,7 +231,8 @@ def get_widget(field_name, field_type, value=None, editable=True,
         tuple: widget (QWidget) and label (QLabel)
     """
     # related_cname will be None for datatypes; a class name for FK fields
-    # print 'get_widget for field type:', str(field_type)
+    ### for EXTREMELY verbose debugging, uncomment:
+    # orb.log.debug('get_widget for field type: {}'.format(field_type))
     wrap_text = False
     if field_name in TEXT_PROPERTIES:
         widget_class = TextFieldWidget
@@ -239,10 +242,19 @@ def get_widget(field_name, field_type, value=None, editable=True,
         # its contents
         maxlen = 250
     elif field_name in SELECTABLE_VALUES:
+        ### for EXTREMELY verbose debugging, uncomment:
+        # orb.log.debug('* field "{}" is in SELECTABLE_VALUES'.format(
+                                                            # field_name))
         widget_class = select_widgets.get(field_type)
+        ### for EXTREMELY verbose debugging, uncomment:
+        # if widget_class:
+            # orb.log.debug('  ... setting widget {}'.format(widget_class))
+        # else:
+            # orb.log.debug('  ... selection widget not found...')
         if not widget_class:
             # in case this field_type is not found in select_widgets ...
             widget_class = widgets.get(field_type)
+            # orb.log.debug('  setting plain widget {}'.format(widget_class))
     else:
         widget_class = widgets.get(field_type)
     # print ' - widget_class = %s' % widget_class.__name__
@@ -306,14 +318,14 @@ class BooleanFieldWidget(QCheckBox):
         return self.isChecked()
 
 
-class AsciiFieldWidget(QLineEdit):
+class StringFieldWidget(QLineEdit):
     """
     Widget for `String` field (maps to `token` datatype in ontology -- intended
     to represent strings that can serve as programmatic names/tokens, i.e. not
     unicode).
     """
     def __init__(self, parent=None, value=None, maxlen=None, **kw):
-        super(AsciiFieldWidget, self).__init__(parent=parent)
+        super(StringFieldWidget, self).__init__(parent=parent)
         self.parm_field = kw.get('parm_field')
         self.parm_type = kw.get('parm_type')
         if maxlen is not None:
@@ -330,6 +342,7 @@ class AsciiFieldWidget(QLineEdit):
             self.setText('')
 
     def get_value(self):
+        # NOTE: in py 3, asciify returns a "transliterated" string (unicode)
         return asciify(str(self.text()))
 
     def sizeHint(self):
@@ -340,12 +353,12 @@ class AsciiFieldWidget(QLineEdit):
         return QSize(250, 25)
 
 
-class AsciiSelectWidget(QComboBox):
+class StringSelectWidget(QComboBox):
     """
     Widget for `String` field with a specified set of valid values.
     """
     def __init__(self, parent=None, field_name=None, value=None, **kw):
-        super(AsciiSelectWidget, self).__init__(parent=parent)
+        super(StringSelectWidget, self).__init__(parent=parent)
         self.setMinimumWidth(120)
         self.setMaximumWidth(250)
         self.valid_values = list(SELECTABLE_VALUES[field_name].keys())
@@ -588,25 +601,25 @@ widgets = {
     DateTime    : DateTimeFieldWidget,
     Float       : FloatFieldWidget,
     Integer     : IntegerFieldWidget,
-    String      : AsciiFieldWidget,
+    String      : StringFieldWidget,
     Text        : TextFieldWidget,
     Unicode     : UnicodeFieldWidget,
     Time        : TimeFieldWidget,
     ForeignKey  : FkButton,
-    'parameter' : AsciiFieldWidget,
+    'parameter' : StringFieldWidget,
     # FIXME: stop-gap pending policy for "non-functional" properties -- really
     # should at least make it some kind of list widget
     set         : TextFieldWidget
     }
 
 # currently only used for ParameterDefinition.range_datatype and dimensions
-# (both are string datatypes)
+# (both are String/Unicode datatypes)
 select_widgets = {
     # BigInteger  : IntegerSelectWidget,
     # Float       : FloatSelectWidget,
     # Integer     : IntegerSelectWidget,
-    String      : AsciiSelectWidget
-    # Unicode     : UnicodeSelectWidget,
+    String      : StringSelectWidget,
+    Unicode     : StringSelectWidget,
     # ForeignKey  : FkSelectWidget,
     # set         : TextSelectWidget
     }

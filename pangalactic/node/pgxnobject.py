@@ -184,7 +184,7 @@ class PgxnForm(QWidget):
                                                             self.on_set_units)
                     else:
                         units_widget = QLabel(units)
-                    # field_type 'parameter' -> AsciiFieldWidget for edit mode
+                    # field_type 'parameter' -> StringFieldWidget for edit mode
                     field_type = 'parameter'
                     # parm types are 'float', 'int', 'bool', or 'text'
                     parm_type = parm.get('range_datatype', 'float')
