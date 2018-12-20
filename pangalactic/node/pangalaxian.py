@@ -1300,15 +1300,23 @@ class Main(QtWidgets.QMainWindow):
         self.export_project_to_file_action = self.create_action(
                                     "Export Project to a File...",
                                     slot=self.export_project_to_file,
-                                    tip="Export Project to a File...")
+                                    tip="Export Project to a File...",
+                                    modes=['system'])
         self.export_reqts_to_file_action = self.create_action(
                                 "Export Project Requirements to a File...",
                                 slot=self.export_reqts_to_file,
-                                tip="Export Project Requirements to a File...")
+                                tip="Export Project Requirements to a File...",
+                                modes=['system'])
         self.output_mel_action = self.create_action(
                                     "Write MEL...",
                                     slot=self.output_mel,
-                                    tip="Write MEL...")
+                                    tip="Write MEL...",
+                                    modes=['system'])
+        self.dump_db_action = self.create_action(
+                                    "Dump Database to a File...",
+                                    slot=self.dump_database,
+                                    tip="Dump DB...",
+                                    modes=['db'])
         # actions accessible via the 'Import Data or Objects' toolbar menu:
         # * import_excel_data_action
         # * import_objects (import project or other serialized objs)
@@ -1319,11 +1327,13 @@ class Main(QtWidgets.QMainWindow):
         self.import_objects_action = self.create_action(
                                     "Import Project from a File...",
                                     slot=self.import_objects,
-                                    tip="Import Project from a File...")
+                                    tip="Import Project from a File...",
+                                    modes=['system'])
         self.import_reqts_from_file_action = self.create_action(
                             "Import Project Requirements from a File...",
                             slot=self.import_reqts_from_file,
-                            tip="Import Project Requirements from a File...")
+                            tip="Import Project Requirements from a File...",
+                            modes=['system'])
         # Load Test Objects needs more work -- make it local, or at least
         # non-polluting somehow ...
         self.load_test_objects_action = self.create_action(
@@ -1682,7 +1692,8 @@ class Main(QtWidgets.QMainWindow):
         export_icon_path = os.path.join(orb.icon_dir, export_icon_file)
         export_actions = [self.export_project_to_file_action,
                           self.export_reqts_to_file_action,
-                          self.output_mel_action]
+                          self.output_mel_action,
+                          self.dump_db_action]
         export_button = MenuButton(QtGui.QIcon(export_icon_path),
                                    tooltip='Export Data or Objects',
                                    actions=export_actions, parent=self)
@@ -3547,6 +3558,10 @@ class Main(QtWidgets.QMainWindow):
         if not state.get('last_path'):
             state['last_path'] = orb.test_data_dir
 
+    def dump_database(self):
+        orb.log.info('* dump_database()')
+        orb.dump_db()
+
     def closeEvent(self, event):
         # things to do when window is closed
         # TODO:  save more MainWindow state (see p. 190 in PyQt book)
@@ -3562,7 +3577,6 @@ class Main(QtWidgets.QMainWindow):
             orb.db.commit()
         # save a serialized version of the db to vault/db.yaml
         self.statusbar.showMessage('Exporting local DB to vault...')
-        # orb.dump_db()
         if state.get('connected'):
             message_bus.session = None
             state['connected'] = False
