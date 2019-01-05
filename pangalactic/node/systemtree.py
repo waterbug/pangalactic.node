@@ -24,7 +24,7 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.parametrics import get_pval, get_pval_as_str, parameterz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.utils.validation import get_assembly, get_bom_oids
+from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.core.units       import in_si
 from pangalactic.core.utils.meta  import display_id, get_acu_id, get_acu_name
 from pangalactic.node.dialogs     import AssemblyNodeDialog

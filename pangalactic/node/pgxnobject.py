@@ -39,7 +39,7 @@ from pangalactic.core.units       import alt_units, ureg
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_parameter_definition_oid)
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.utils.validation import validate_all
+from pangalactic.core.validation  import validate_all
 from pangalactic.node.utils       import (clone, get_object_title,
                                           extract_mime_data)
 from pangalactic.node.widgets     import get_widget, UnitsWidget
