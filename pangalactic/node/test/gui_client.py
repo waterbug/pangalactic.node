@@ -472,7 +472,7 @@ class MainWindow(QMainWindow):
         new_name = str(ptype['name']) + ' ' + str(suffix)
         now = str(dtstamp())
         obj_parms = {}
-        for pid, parm in list(test_parms.items()):
+        for pid, parm in test_parms.items():
             obj_parms[pid] = deepcopy(parm)
         gen_test_pvals(obj_parms)
         user_oid = 'test:' + self.userid

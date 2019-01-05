@@ -615,7 +615,7 @@ class Main(QtWidgets.QMainWindow):
         self.statusbar.showMessage('syncing parameter definitions ...')
         # exclude refdata (already shared)
         pd_mod_dts = orb.get_mod_dts(cname='ParameterDefinition')
-        data = {pd_oid : mod_dt for pd_oid, mod_dt in list(pd_mod_dts.items())
+        data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
         orb.log.info('       -> rpc: vger.sync_parameter_definitions()')
         return message_bus.session.call(u'vger.sync_parameter_definitions',
@@ -897,7 +897,7 @@ class Main(QtWidgets.QMainWindow):
         return message_bus.session.call(u'vger.save', sobjs_to_save)
 
     def on_pubsub_msg(self, msg):
-        for item in list(msg.items()):
+        for item in msg.items():
             subject, content = item
             orb.log.info("[pgxn] on_pubsub_msg")
             orb.log.info("       subject: {}".format(subject))
@@ -1428,7 +1428,7 @@ class Main(QtWidgets.QMainWindow):
         initial_size = self.size()
         if hasattr(orb, 'store'):
             orb.db.commit()
-        modal_actions = set.union(*[a for a in list(self.mode_widgets.values())])
+        modal_actions = set.union(*[a for a in self.mode_widgets.values()])
         if mode in self.modes:
             current_mode = state.get('mode')
             if current_mode in self.modes:

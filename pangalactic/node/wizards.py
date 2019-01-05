@@ -738,17 +738,17 @@ class ProductTypePage(QtWidgets.QWizardPage):
     def on_check_all(self):
         if self.cb_all.isChecked():
             self.show_all_disciplines = True
-            for cb in list(self.checkboxes.values()):
+            for cb in self.checkboxes.values():
                 cb.setChecked(True)
         else:
             self.show_all_disciplines = False
-            for cb in list(self.checkboxes.values()):
+            for cb in self.checkboxes.values():
                 cb.setChecked(False)
         self.on_check_cb()
 
     def on_check_cb(self):
         d_oids = []
-        for d_oid, cb in list(self.checkboxes.items()):
+        for d_oid, cb in self.checkboxes.items():
             if cb.isChecked():
                 d_oids.append(d_oid)
         product_types = set()

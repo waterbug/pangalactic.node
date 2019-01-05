@@ -230,7 +230,7 @@ class DiagramScene(QGraphicsScene):
         # find all the object blocks and group them by left and right
         left_xs = []
         right_xs = []
-        for shape in list(self.items()):
+        for shape in self.items():
             if isinstance(shape, ObjectBlock):
                 rp = getattr(shape, 'right_ports', False)
                 if rp:
@@ -340,7 +340,7 @@ class DiagramScene(QGraphicsScene):
         object_blocks = {}
         subject_block = {}
         flows = []
-        for shape in list(self.items()):
+        for shape in self.items():
             if isinstance(shape, ObjectBlock):
                 x = shape.x()
                 y = shape.y()
@@ -391,7 +391,7 @@ class DiagramScene(QGraphicsScene):
         if objs:
             objs_by_oid = {o.oid : o for o in objs}
             if model.get('object_blocks'):
-                for oid, item in list(model['object_blocks'].items()):
+                for oid, item in model['object_blocks'].items():
                     # first restore ObjectBlocks -- ports created automatically
                     # if the "obj" has a non-null "ports" attribute
                     if oid in objs_by_oid:
@@ -421,7 +421,7 @@ class DiagramScene(QGraphicsScene):
                             y_right_last = y
                             y_right_next = (y + obj_block.rect.height()
                                             + spacing)
-            for obj in list(objs_by_oid.values()):
+            for obj in objs_by_oid.values():
                 # create blocks for missing objs, if any
                 orb.log.info('  - adding missing block "{}" ...'.format(
                                                                     obj.name))

@@ -440,7 +440,7 @@ class DocForm(QtWidgets.QDialog):
             stream.setVersion(QtCore.QDataStream.Qt_4_2)
             stream.writeInt32(MagicNumber)
             stream.writeInt16(FileVersion)
-            for item in list(self.scene.items()):
+            for item in self.scene.items():
                 self.writeItemToStream(stream, item)
         except IOError as err:
             QtWidgets.QMessageBox.warning(self, "Page Designer -- Save Error",

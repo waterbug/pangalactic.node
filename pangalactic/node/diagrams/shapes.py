@@ -182,7 +182,7 @@ class Block(QtWidgets.QGraphicsItem):
             return
         # remove any existing port blocks
         if self.port_blocks:
-            for oid, pb in list(self.port_blocks.items()):
+            for oid, pb in self.port_blocks.items():
                 del self.port_blocks[oid]
                 self.scene().removeItem(pb)
         right = getattr(self, 'right_ports', True)
@@ -491,7 +491,7 @@ class SubjectBlock(Block):
                 # be redrawn to accommodate the block if it is larger) ... the
                 # "dirty" flag will be reset by the 'save_diagram' function
                 # when the new diagram is saved.
-                for diagram in list(diagramz.values()):
+                for diagram in diagramz.values():
                     if self.obj.oid in diagram['object_blocks']:
                         diagram['dirty'] = True
                 self.rebuild_port_blocks()
@@ -604,7 +604,7 @@ class PortBlock(QtWidgets.QGraphicsItem):
         response = confirm_dlg.exec_()
         if response == QtWidgets.QMessageBox.Yes:
             # delete connector(s) and their associated flows, if any ...
-            for shape in list(self.scene().items()):
+            for shape in self.scene().items():
                 if (isinstance(shape, RoutedConnector) and
                     (shape.start_item is self or shape.end_item is self)):
                     orb.delete([shape.flow])

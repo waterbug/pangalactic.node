@@ -346,7 +346,7 @@ class ModelWindow(QMainWindow):
         # TODO:  enable multiple CAD models (e.g. "detailed" / "simplified")
         if self.model_files:
             self.models_by_label = {}
-            for oid, fpath in list(self.model_files.items()):
+            for oid, fpath in self.model_files.items():
                 model = orb.get(oid)
                 if getattr(model.type_of_model, 'oid', None) in ['step:203',
                                                                  'step:214']:

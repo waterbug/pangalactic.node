@@ -1064,7 +1064,7 @@ class PgxnObject(QMainWindow):
             self.obj = clone('ParameterDefinition', id=new_id,
                              oid=get_parameter_definition_oid(new_id))
             orb.db.delete(temp_obj)
-            for name, val in list(fields_dict.items()):
+            for name, val in fields_dict.items():
                 setattr(self.obj, name, val)
                 orb.log.info('  [pgxnobj] - {}: {}'.format(
                                             name, val.__repr__()))
@@ -1079,7 +1079,7 @@ class PgxnObject(QMainWindow):
             dispatcher.send(signal="new object", obj=self.obj,
                             cname=cname)
         else:
-            for name, val in list(fields_dict.items()):
+            for name, val in fields_dict.items():
                 setattr(self.obj, name, val)
                 orb.log.debug('  [pgxnobj] - {}: {}'.format(
                               name, val.__repr__()))

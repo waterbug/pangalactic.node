@@ -127,7 +127,7 @@ class ValidationDialog(QDialog):
         super(ValidationDialog, self).__init__(parent)
         self.setWindowTitle("Validation Error")
         form = QFormLayout(self)
-        for fname, msg in list(msg_dict.items()):
+        for fname, msg in msg_dict.items():
             field_label = QLabel(
                 '<b><font color="purple">{}</font></b>'.format(fname), self)
             msg_label = QLabel(
@@ -389,7 +389,7 @@ class UnitPrefsDialog(QDialog):
 
     def set_units(self):
         # msg = '<h3>Preferred Units set to:</h3><ul>'
-        for dims, widget in list(self.dim_widgets.items()):
+        for dims, widget in self.dim_widgets.items():
             prefs['units'][dims] = widget.get_value()
             # msg += '<li>{}: {}</li>'
         # msg += '</ul>'
