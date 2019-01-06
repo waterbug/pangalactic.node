@@ -17,10 +17,9 @@ from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QFormLayout, QHBoxLayout,
 from pangalactic.core             import config, state
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import in_si, alt_units
-from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
-from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
+from pangalactic.node.widgets     import PlaceHolder, ValueLabel
 from pangalactic.node.systemtree  import SystemTreeView
 
 req_wizard_state = {}
@@ -93,7 +92,14 @@ class ReqWizard(QWizard):
     """
     Wizard for project requirements (both functional and performance)
     """
-    def __init__(self, parent=None, performance=False):
+    def __init__(self, req=None, parent=None, performance=False):
+        """
+        Initialize Requirements Wizard.
+
+        Args:
+            req (Requirement): a Requirement object (provided only when wizard
+                is being invoked in order to edit an existing requirement.
+        """
         super(ReqWizard, self).__init__(parent)
         self.setWizardStyle(QWizard.ClassicStyle)
         included_buttons = [QWizard.Stretch,
@@ -109,8 +115,12 @@ class ReqWizard(QWizard):
         project_oid = state.get('project')
         proj = orb.get(project_oid)
         self.project = proj
-
+        if isinstance(req, orb.classes['Requirement']):
+            req_wizard_state['req_oid'] = req.oid
+            req_wizard_state['ver_method'] = req.verification_method
+            performance = (req.requirement_type == 'performance')
         if not performance:
+            req_wizard_state['perform'] = False
             self.addPage(RequirementIDPage(self))
             self.addPage(ReqAllocPage(self))
             self.addPage(ReqVerificationPage(self))
@@ -118,6 +128,7 @@ class ReqWizard(QWizard):
             self.setWindowTitle('Functional Requirement Wizard')
             self.setGeometry(50, 50, 850, 900);
         else:
+            req_wizard_state['perform'] = True
             self.addPage(RequirementIDPage(self))
             self.addPage(ReqAllocPage(self))
             self.addPage(PerformanceDefineParmPage(self))
@@ -125,7 +136,6 @@ class ReqWizard(QWizard):
             self.addPage(PerformanceMarginCalcPage(self))
             self.addPage(ReqVerificationPage(self))
             self.addPage(ReqSummaryPage(self))
-            req_wizard_state['perform'] = True
             self.setWindowTitle('Performance Requirement Wizard')
             self.setGeometry(50, 50, 850, 750);
 
@@ -268,7 +278,6 @@ class ReqVerificationPage(QWizardPage):
         super(ReqVerificationPage, self).__init__(parent)
         layout = QVBoxLayout()
         self.setLayout(layout)
-        req_wizard_state['ver_method'] = 'Specify Verification Method Later'
 
     def initializePage(self):
         if self.title():
@@ -292,7 +301,8 @@ class ReqVerificationPage(QWizardPage):
         self.button_group.addButton(analysis_button)
         self.button_group.addButton(inspection_button)
         self.button_group.addButton(later_button)
-        ver_method = req_wizard_state.get('ver_method')
+        ver_method = req_wizard_state.get('ver_method',
+                                          'Specify Verification Method Later')
         if ver_method:
             if ver_method == "Test":
                 test_button.setChecked(True)
@@ -312,61 +322,6 @@ class ReqVerificationPage(QWizardPage):
 
     def button_clicked(self):
         req_wizard_state['ver_method'] = self.button_group.checkedButton().text()
-
-
-class ReqDisciplinePage(QWizardPage):
-    """
-    Page to tag the requirement with a discipline to which it is relevant.
-    """
-
-    def __init__(self, parent=None):
-        super(ReqDisciplinePage, self).__init__(parent=parent)
-        req_wizard_state['discipline'] = None
-
-    def initializePage(self):
-        if self.title():
-            return;
-
-        self.setTitle("Requirement Discipline Relevance")
-        self.setSubTitle("Specify the Discipline, if known, "
-                         "which will handle the requirement...")
-        disciplines = orb.get_by_type('Discipline')
-        label = 'Discipline'
-        self.discipline_panel = FilterPanel(disciplines, label=label,
-                                            parent=self)
-        self.discipline_view = self.discipline_panel.proxy_view
-        self.discipline_view.clicked.connect(self.discipline_selected)
-        self.discipline_view.clicked.connect(self.completeChanged)
-        hbox = QHBoxLayout()
-        hbox.addWidget(self.discipline_panel)
-        main_layout = QVBoxLayout()
-        main_layout.addLayout(hbox)
-        self.discipline_label = NameLabel('Selected Discipline:')
-        self.discipline_label.setVisible(False)
-        self.discipline_value_label = ValueLabel('')
-        self.discipline_value_label.setVisible(False)
-        discipline_layout = QHBoxLayout()
-        discipline_layout.addWidget(self.discipline_label)
-        discipline_layout.addWidget(self.discipline_value_label)
-        discipline_layout.addStretch(1)
-        main_layout.addLayout(discipline_layout)
-        self.setLayout(main_layout)
-
-    def discipline_selected(self, clicked_index):
-        mapped_row = self.discipline_panel.proxy_model.mapToSource(
-                                                clicked_index).row()
-        req_wizard_state['discipline'] = self.discipline_panel.objs[mapped_row]
-
-        discipline = req_wizard_state.get('discipline')
-        discipline_name = getattr(discipline, 'name', '[not set]')
-        orb.log.debug('  ... which is "{}"'.format(discipline_name))
-        if discipline:
-            self.discipline_label.setVisible(True)
-            self.discipline_value_label.setText(discipline_name)
-            self.discipline_value_label.setVisible(True)
-
-    def isComplete(self):
-        return True
 
 
 class ReqAllocPage(QWizardPage):
@@ -412,12 +367,12 @@ class ReqAllocPage(QWizardPage):
         content_layout.addLayout(tree_layout)
         content_layout.addLayout(summary_layout)
         self.update_summary()
-
         # TODO: replace this with the allocation summary
         req_wizard_state['function'] = self.project.id
 
     def on_select_node(self, index):
         link = None
+        fn_name = 'None'
         if len(self.sys_tree.selectedIndexes()) == 1:
             i = self.sys_tree.selectedIndexes()[0]
             mapped_i = self.sys_tree.proxy_model.mapToSource(i)
@@ -428,82 +383,38 @@ class ReqAllocPage(QWizardPage):
         if not link or not self.req:
             return
         if hasattr(link, 'system'):
-            # check for existing SystemRequirement
-            stuff = orb.search_exact(cname='SystemRequirement',
-                                     requirement=self.req, supported_by=link)
-            if stuff:
+            if self.req in link.system_requirements:
                 # TODO: dialog offering to remove the allocation
                 pass
             else:
-                fn_name = link.system_role
-                _id = 'SYS-REQ-' + self.req.id + '-OF-SYS-' + fn_name
-                _name = ' '.join(['SYS REQ:', self.req.id,
-                                  ':: OF SYS:', fn_name])
-                _descrip = ' '.join(['System Requirement:', self.req.name,
-                                     ':: Of Project:', link.project.id,
-                                     ':: System:', fn_name])
-                new_obj = clone('SystemRequirement', requirement=self.req,
-                                supported_by=link, id=_id, name=_name,
-                                description=_descrip)
+                self.req.allocated_to_system = link
+            fn_name = link.system_role
         elif hasattr(link, 'component'):
-            # check for existing RequirementAllocation
-            stuff = orb.search_exact(cname='RequirementAllocation',
-                                     allocated_requirement=self.req,
-                                     satisfied_by=link)
-            if stuff:
+            if self.req in link.allocated_requirements:
                 # TODO: dialog offering to remove the allocation
                 pass
             else:
-                fn_name = link.reference_designator
-                _id = 'REQ-ALLOC-' + self.req.id + '-TO-SUBSYS-' + fn_name
-                _id += '-OF-' + link.assembly.id
-                _name = ' '.join(['REQ ALLOC:', self.req.id, ':: TO SUBSYS:',
-                                  fn_name, 'OF:', link.assembly.name])
-                _descrip = ' '.join(['Allocation of Requirement:',
-                                     self.req.name,
-                                     ':: To Subsystem:', fn_name,
-                                     'Of System:', link.assembly.name])
-                new_obj = clone('RequirementAllocation',
-                                allocated_requirement=self.req,
-                                satisfied_by=link, id=_id, name=_name,
-                                description=_descrip)
+                self.req.allocated_to_function = link
+            fn_name = link.reference_designator
         self.sys_tree.clearSelection()
         # TODO: get the selected name/product so it can be used in the shall
         # statement.
         req_wizard_state['function'] = fn_name
-        orb.save([new_obj])
+        orb.save([self.req])
         self.update_summary()
 
     def update_summary(self):
         """
         Update the summary of current allocations.
         """
-        all_srs = orb.search_exact(cname='SystemRequirement',
-                                   requirement=self.req)
-        self.srs = [sr for sr in all_srs if
-                    getattr(sr.supported_by, 'project', None) == self.project]
-        nodes = list(self.sys_tree.source_model.object_nodes.values())
-        links = [node.link for node in nodes]
-        all_allocs = orb.search_exact(cname='RequirementAllocation',
-                                      allocated_requirement=self.req)
-        self.allocs = [ra for ra in all_allocs if ra.satisfied_by in links]
-        msg = '<h3>Requirement Allocations:</h3>'
-        if self.srs or self.allocs:
-            msg += '<ul>'
-            if self.srs:
-                for sr in self.srs:
-                    msg += ''.join(['<li><b>', sr.supported_by.system_role,
-                                    '</b></li>'])
-            if self.allocs:
-                for ra in self.allocs:
-                    msg += ''.join(['<li><b>',
-                                    ra.satisfied_by.reference_designator,
-                                    ' subsystem of ',
-                                    ra.satisfied_by.assembly.name,
-                                    '</b></li>'])
-            msg += '</ul>'
+        msg = '<h3>Requirement Allocation:</h3><b>'
+        if self.req.allocated_to_system:
+            msg += self.req.allocated_to_system.system_role
+        elif self.req.allocated_to_function:
+            msg += self.req.allocated_to_function.reference_designator
         else:
             msg += '[None]'
+        msg += '</b>'
         self.summary.setText(msg)
 
 
@@ -532,7 +443,7 @@ class ReqSummaryPage(QWizardPage):
         else:
             self.setTitle('New Requirement Summary')
             self.setSubTitle('Confirm all the information is correct...')
-        function = req_wizard_state.get('function', 'Not Specified')
+        function = req_wizard_state.get('function', 'No Allocation')
         self.allocation.setText(function)
         ver_method = req_wizard_state.get('ver_method', 'Not Specified')
         self.verification.setText(ver_method)

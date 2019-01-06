@@ -535,18 +535,12 @@ class SystemTreeModel(QAbstractItemModel):
                 else:
                     return self.BRUSH
         if role == Qt.BackgroundRole and self.req and self.show_allocs:
-            if isinstance(node.link, orb.classes['Acu']):
-                allocs = orb.search_exact(cname='RequirementAllocation',
-                                          allocated_requirement=self.req,
-                                          satisfied_by=node.link)
-                if allocs:
-                    return self.YELLOW_BRUSH
-            elif isinstance(node.link, orb.classes['ProjectSystemUsage']):
-                srs = orb.search_exact(cname='SystemRequirement',
-                                       requirement=self.req,
-                                       supported_by=node.link)
-                if srs:
-                    return self.YELLOW_BRUSH
+            # in case node.link is an Acu:
+            allocs = getattr(node.link, 'allocated_requirements', [])
+            # in case node.link is a ProjectSystemUsage:
+            srs = getattr(node.link, 'system_requirements', [])
+            if self.req in allocs or self.req in srs:
+                return self.YELLOW_BRUSH
         if role == Qt.TextAlignmentRole:
             if index.column() == 0:
                 return Qt.AlignLeft
