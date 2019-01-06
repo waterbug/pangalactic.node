@@ -591,7 +591,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info("  - subscribed to: {}".format(str(sub.topic)))
 
     def on_pubsub_failure(self, f):
-        orb.log.info("  - subscription failure: {}".format(f.get_traceback()))
+        orb.log.info("  - subscription failure: {}".format(f.getTraceback()))
 
     def sync_parameter_definitions(self, data):
         """
@@ -2065,7 +2065,7 @@ class Main(QtWidgets.QMainWindow):
         self.statusbar.showMessage('synced.')
 
     def on_failure(self, f):
-        orb.log.info("* rpc failure: {}".format(f.get_traceback()))
+        orb.log.info("* rpc failure: {}".format(f.getTraceback()))
 
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
