@@ -60,7 +60,7 @@ class LibraryListModel(QAbstractListModel):
         for obj in objs:
             self.add_object(obj)
         orb.log.info("  - objs: {}".format(', '.join(
-                                            [obj.id for obj in self.objs])))
+            [getattr(obj, 'id', 'none') or 'none' for obj in self.objs])))
 
     def add_object(self, obj):
         """
