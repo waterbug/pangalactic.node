@@ -859,7 +859,6 @@ class PgxnObject(QMainWindow):
                                                    QDialogButtonBox.ActionRole)
             else:
                 self.bbox = QDialogButtonBox()
-                # if embedded, no "Close" button (don't close the widget)
                 if not self.view_only and 'modify' in perms:
                         self.edit_button = self.bbox.addButton('Edit',
                                                    QDialogButtonBox.ActionRole)

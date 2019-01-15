@@ -18,6 +18,7 @@ from pangalactic.core.utils.meta  import (get_external_name_plural,
                                           get_attr_ext_name)
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.pgxnobject  import PgxnObject
+from pangalactic.node.reqwizards  import ReqWizard
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.utils       import (create_mime_data,
                                           create_template_from_product,
@@ -571,13 +572,20 @@ class FilterPanel(QWidget):
     def create_actions(self):
         self.pgxnobj_action = QAction('View this object', self)
         self.pgxnobj_action.triggered.connect(self.display_object)
+        self.reqwizard_action = QAction('Edit this requirement', self)
+        self.reqwizard_action.triggered.connect(self.edit_requirement)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
-        self.template_action = QAction('Create template from object',
-                                       self)
+        self.template_action = QAction('Create template from object', self)
         self.template_action.triggered.connect(self.create_template)
 
     def setup_context_menu(self):
-        self.addAction(self.pgxnobj_action)
+        if self.cname == 'Requirement':
+            # for Requirements, edit using ReqWizard
+            # TODO:  only offer this action if user is authorized to edit
+            self.addAction(self.reqwizard_action)
+        else:
+            # for all objs other than Requirements, use PgxnObject
+            self.addAction(self.pgxnobj_action)
         if self.cname == 'HardwareProduct':
             self.addAction(self.template_action)
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -593,6 +601,32 @@ class FilterPanel(QWidget):
                 obj = orb.get(oid)
                 dlg = PgxnObject(obj, parent=self)
                 dlg.show()
+
+    def edit_requirement(self):
+        orb.log.debug('* edit_requirement()')
+        if len(self.proxy_view.selectedIndexes()) >= 1:
+            i = self.proxy_model.mapToSource(
+                self.proxy_view.selectedIndexes()[0]).row()
+            orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
+            if oid:
+                req = orb.get(oid)
+                if req:
+                    wizard = ReqWizard(parent=self, req=req)
+                    if wizard.exec_() == QDialog.Accepted:
+                        orb.log.info('* reqt wizard accepted ...')
+                        if getattr(wizard, 'pgxn_obj', None):
+                            wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
+                            wizard.pgxn_obj.parent = None
+                            wizard.pgxn_obj.close()
+                            wizard.pgxn_obj = None
+                    else:
+                        orb.log.info('* reqt wizard cancelled ...')
+                        if getattr(wizard, 'pgxn_obj', None):
+                            wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
+                            wizard.pgxn_obj.parent = None
+                            wizard.pgxn_obj.close()
+                            wizard.pgxn_obj = None
 
     def create_template(self):
         """
@@ -641,9 +675,16 @@ class FilterPanel(QWidget):
 
     def on_mod_object_signal(self, obj=None, cname=''):
         orb.log.info('* [FilterPanel] received local "modified object" signal')
-        if obj and obj.__class__.__name__ == self.cname:
-            orb.log.debug('               ... on obj: {}'.format(obj.id))
-            self.set_source_model(self.create_model())
+        orb.log.debug('               on obj: {}'.format(obj.id))
+        if obj and isinstance(obj, orb.classes.get(self.cname)):
+            oids = [o.oid for o in self.objs]
+            if obj.oid in oids:
+                row = oids.index(obj.oid)   # raises ValueError if not found
+                # mod_obj = orb.get(obj.oid)
+                new_objs = self.objs[:row] + [obj] + self.objs[row+1:]
+                self.set_source_model(self.create_model(new_objs))
+            else:
+                orb.log.debug('               ... not in filtered objs.')
 
     def on_del_object_signal(self, oid='', cname=''):
         orb.log.info('* [FilterPanel] received local "deleted object" signal')
