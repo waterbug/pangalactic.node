@@ -180,11 +180,11 @@ class Block(QtWidgets.QGraphicsItem):
             return
         if not self.obj.ports:
             return
-        # remove any existing port blocks
+        # remove any existing port blocks and re-initialize port_blocks dict
         if self.port_blocks:
-            for oid, pb in self.port_blocks.items():
-                del self.port_blocks[oid]
+            for pb in self.port_blocks.values():
                 self.scene().removeItem(pb)
+            self.port_blocks = {}
         right = getattr(self, 'right_ports', True)
         # place initial port at 2 * port_spacing from top of block
         next_port_y = 2 * self.port_spacing

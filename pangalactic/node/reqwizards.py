@@ -291,6 +291,10 @@ class RequirementIDPage(QWizardPage):
             self.level_cb.setDisabled(False)
             # self.update_levels
             self.req.level = self.req.level or 0
+            if not req_wizard_state.get('performance'):
+                self.req.requirement_type = 'functional'
+            else:
+                self.req.requirement_type = 'performance'
             orb.save([self.req])
             return True
 
@@ -305,6 +309,7 @@ class ReqVerificationPage(QWizardPage):
         self.setLayout(layout)
 
     def initializePage(self):
+        self.req = orb.get(req_wizard_state.get('req_oid'))
         if self.title():
             return
         self.setTitle('Requirement Verification Method')
@@ -315,17 +320,17 @@ class ReqVerificationPage(QWizardPage):
         instructions += ' Later\''
         inst_label = QLabel(instructions)
         layout = self.layout()
-        self.button_group = QButtonGroup()
+        self.verif_method_buttons = QButtonGroup()
 
         test_button = QRadioButton("Test")
         analysis_button = QRadioButton("Analysis")
         inspection_button = QRadioButton("Inspection")
         later_button = QRadioButton("Specify Verification Method Later")
         later_button.setChecked(True)
-        self.button_group.addButton(test_button)
-        self.button_group.addButton(analysis_button)
-        self.button_group.addButton(inspection_button)
-        self.button_group.addButton(later_button)
+        self.verif_method_buttons.addButton(test_button)
+        self.verif_method_buttons.addButton(analysis_button)
+        self.verif_method_buttons.addButton(inspection_button)
+        self.verif_method_buttons.addButton(later_button)
         verification_method = req_wizard_state.get('verification_method',
                                           'Specify Verification Method Later')
         if verification_method:
@@ -342,12 +347,15 @@ class ReqVerificationPage(QWizardPage):
         layout.addWidget(analysis_button)
         layout.addWidget(inspection_button)
         layout.addWidget(later_button)
-        self.button_group.buttonClicked.connect(self.button_clicked)
+        self.verif_method_buttons.buttonClicked.connect(
+                                                self.set_verification_method)
         self.setLayout(layout)
 
-    def button_clicked(self):
-        req_wizard_state[
-            'verification_method'] = self.button_group.checkedButton().text()
+    def set_verification_method(self):
+        req_wizard_state['verification_method'
+                        ] = self.verif_method_buttons.checkedButton().text()
+        self.req.verification_method = req_wizard_state['verification_method']
+        orb.save([self.req])
 
 
 class ReqAllocPage(QWizardPage):
@@ -363,12 +371,12 @@ class ReqAllocPage(QWizardPage):
         self.setLayout(main_layout)
 
     def initializePage(self):
-        if self.title():
-            return;
         self.req = orb.get(req_wizard_state.get('req_oid'))
         if not self.req:
             # TODO: if reqt cant be found, show messsage (page is useless then)
-            orb.log.info('* requirement not found')
+            orb.log.info('* ReqAllocPage: requirement not found')
+        if self.title():
+            return;
         self.setTitle("Requirement Allocation")
         self.setSubTitle("Specify the project system(s) or function(s), "
                          "if known, which will satisfy the requirement...\n"
@@ -508,6 +516,10 @@ class PerformanceDefineParmPage(QWizardPage):
         self.setLayout(layout)
 
     def initializePage(self):
+        self.req = orb.get(req_wizard_state.get('req_oid'))
+        if not self.req:
+            # TODO: if reqt cant be found, show messsage (page is useless then)
+            orb.log.info('* Perf...Page: requirement not found')
         if self.title():
             return
 
@@ -540,25 +552,25 @@ class PerformanceDefineParmPage(QWizardPage):
         # form for the single value button to specify if it will use asymmetric
         # or symmetric tolerance.
         # TODO: handle single value, store in req_wizard_state
-        self.sing_form = QFormLayout()
+        self.single_form = QFormLayout()
         type_label = QLabel('Type: ')
         self.min_button = QRadioButton('minimum')
         self.max_button = QRadioButton('maximum')
-        self.sing_button = QRadioButton('single value')
+        self.single_button = QRadioButton('single value')
         self.range_button = QRadioButton('range')
-        self.sing_cb = QComboBox()
-        self.sing_cb.addItem('Symmetric Tolerance')
-        self.sing_cb.addItem('Asymmetric Tolerance')
-        self.sing_cb.currentIndexChanged.connect(self.tolerance_changed)
-        self.sing_form.addRow(self.sing_button, self.sing_cb)
-        self.sing_cb.setDisabled(True)
+        self.single_cb = QComboBox()
+        self.single_cb.addItem('Symmetric Tolerance')
+        self.single_cb.addItem('Asymmetric Tolerance')
+        self.single_cb.currentIndexChanged.connect(self.tolerance_changed)
+        self.single_form.addRow(self.single_button, self.single_cb)
+        self.single_cb.setDisabled(True)
 
         # Add to the button group and handle the button clicked
-        self.button_group = QButtonGroup()
-        self.button_group.addButton(self.min_button)
-        self.button_group.addButton(self.max_button)
-        self.button_group.addButton(self.sing_button)
-        self.button_group.addButton(self.range_button)
+        self.constraint_buttons = QButtonGroup()
+        self.constraint_buttons.addButton(self.min_button)
+        self.constraint_buttons.addButton(self.max_button)
+        self.constraint_buttons.addButton(self.single_button)
+        self.constraint_buttons.addButton(self.range_button)
         constraint_type = req_wizard_state.get('constraint_type')
         if constraint_type:
             if constraint_type == 'minimum':
@@ -566,25 +578,25 @@ class PerformanceDefineParmPage(QWizardPage):
             elif constraint_type == 'maximum':
                 self.max_button.setChecked(True)
             elif constraint_type == 'single value':
-                self.sing_button.setChecked(True)
+                self.single_button.setChecked(True)
                 tolerance = req_wizard_state.get('tolerance')
                 if tolerance:
-                    self.sing_cb.setDisabled(False)
-                    self.sing_cb.setCurrentText(tolerance)
+                    self.single_cb.setDisabled(False)
+                    self.single_cb.setCurrentText(tolerance)
             elif constraint_type == 'range':
                 self.range_button.setChecked(True)
-        self.button_group.buttonClicked.connect(self.button_changed)
-        self.button_group.buttonClicked.connect(self.completeChanged)
+        self.constraint_buttons.buttonClicked.connect(self.set_constraint_type)
+        self.constraint_buttons.buttonClicked.connect(self.completeChanged)
 
         # create and add buttons to a vertical box layout
-        type_layout.radio_button_layout = QVBoxLayout()
-        type_layout.radio_button_layout.addWidget(self.min_button)
-        type_layout.radio_button_layout.addWidget(self.max_button)
-        type_layout.radio_button_layout.addLayout(self.sing_form)
-        type_layout.radio_button_layout.addWidget(self.range_button)
+        radio_button_layout = QVBoxLayout()
+        radio_button_layout.addWidget(self.min_button)
+        radio_button_layout.addWidget(self.max_button)
+        radio_button_layout.addLayout(self.single_form)
+        radio_button_layout.addWidget(self.range_button)
 
         # add radio_button_layout to the main type layout.
-        type_layout.addRow(type_label, type_layout.radio_button_layout)
+        type_layout.addRow(type_label, radio_button_layout)
 
         # set inner layout spacing
         dim_layout.setContentsMargins(100, 40, 100, 40)
@@ -598,24 +610,24 @@ class PerformanceDefineParmPage(QWizardPage):
         layout.addLayout(type_layout)
 
     def tolerance_changed(self):
-        req_wizard_state['tolerance'] = self.sing_cb.currentText()
+        req_wizard_state['tolerance'] = self.single_cb.currentText()
 
     def dim_changed(self):
         req_wizard_state['dim'] = self.dim_cb.currentText()
 
-    def button_changed(self):
+    def set_constraint_type(self):
         """
-        Handle the selection in the type button selection. Also enables and
-        disables the combobox for the symmetric and asymmetric options with the
-        single value button.
+        Set the constraint type. This also enables and disables the combobox
+        for the symmetric and asymmetric options with the single value button.
         """
-        b = self.button_group.checkedButton()
+        b = self.constraint_buttons.checkedButton()
         req_wizard_state['constraint_type'] = b.text()
-        if b == self.sing_button:
-            self.sing_cb.setDisabled(False)
-            req_wizard_state['tolerance'] = self.sing_cb.currentText()
+        self.req.constraint_type = b.text()
+        if b == self.single_button:
+            self.single_cb.setDisabled(False)
+            req_wizard_state['tolerance'] = self.single_cb.currentText()
         else:
-            self.sing_cb.setDisabled(True)
+            self.single_cb.setDisabled(True)
 
     def isComplete(self):
         """
@@ -640,6 +652,7 @@ class PerformReqBuildShallPage(QWizardPage):
         self.setLayout(layout)
 
     def initializePage(self):
+        self.req = orb.get(req_wizard_state.get('req_oid'))
         layout = self.layout()
         if self.title():
             # remove from first hbox
@@ -826,7 +839,7 @@ class PerformReqBuildShallPage(QWizardPage):
         self.lower_limit = None
         self.plus_minus_label = None
         self.tol_val_field = None
-        tolerance = req_wizard_state.get('tolerance')
+        tolerance = req_wizard_state.get('constraint_type')
         if tolerance:
             if tolerance == 'Asymmetric Tolerance':
                 plus = '+'
@@ -841,15 +854,15 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.lower_limit.setValidator(doubleValidator)
                 self.lower_limit.setMaximumSize(50,25)
                 self.lower_limit.setPlaceholderText('lower limit')
-                self.lower_limit.setText(
-                                req_wizard_state.get('lower_limit', ''))
+                self.upper_limit.setText(
+                        req_wizard_state.get('constraint_tolerance_lower', ''))
                 self.lower_limit.textChanged.connect(self.num_entered)
                 self.upper_limit = QLineEdit()
                 self.upper_limit.setValidator(doubleValidator)
                 self.upper_limit.setMaximumSize(50,25)
                 self.upper_limit.setPlaceholderText('upper limit')
                 self.upper_limit.setText(
-                                req_wizard_state.get('upper_limit', ''))
+                        req_wizard_state.get('constraint_tolerance_upper', ''))
                 self.upper_limit.textChanged.connect(self.num_entered)
             elif tolerance == 'Symmetric Tolerance':
                 self.plus_minus_label = QLabel('+/-')
@@ -858,7 +871,8 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.tol_val_field.setValidator(doubleValidator)
                 self.tol_val_field.setMaximumSize(75,25)
                 self.tol_val_field.setPlaceholderText('tolerance')
-                self.tol_val_field.setText(req_wizard_state.get('tol_val', ''))
+                self.tol_val_field.setText(
+                            req_wizard_state.get('constraint_tolerance', ''))
                 self.tol_val_field.textChanged.connect(self.num_entered)
 
         # units combo box.
@@ -997,16 +1011,26 @@ class PerformReqBuildShallPage(QWizardPage):
 
     def set_min_max_text(self):
         req_wizard_state['min_max_text'] = self.min_max_cb.currentText()
+        self.req.min_max_text = self.min_max_cb.currentText()
+        orb.save([self.req])
 
     def num_entered(self):
         req_wizard_state['base_val'] = self.base_val.text()
+        self.req.minimum_value = float(self.base_val.text())
         if self.max_val:
             req_wizard_state['max_val'] = self.max_val.text()
+            self.req.maximum_value = float(self.max_val.text())
         if self.lower_limit:
             req_wizard_state['lower_limit'] = self.lower_limit.text()
+            self.req.constraint_tolerance_lower = float(
+                                            self.lower_limit.text())
             req_wizard_state['upper_limit'] = self.upper_limit.text()
+            self.req.constraint_tolerance_upper = float(
+                                            self.upper_limit.text())
         if self.tol_val_field:
             req_wizard_state['tol_val'] = self.tol_val_field.text()
+            self.req.constraint_tolerance = float(self.tol_val_field.text())
+        orb.save([self.req])
 
     def contextMenu(self, event):
         self.selected_widget = self.sender()
