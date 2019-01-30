@@ -393,7 +393,7 @@ class ReqAllocPage(QWizardPage):
         self.sys_tree = SystemTreeView(self.project, refdes=True,
                                        show_allocs=True, req=self.req)
         self.sys_tree.expandToDepth(2)
-        self.sys_tree.clicked.connect(self.on_select_node)
+        self.sys_tree.doubleClicked.connect(self.on_select_node)
         main_layout = self.layout()
         content_layout = QHBoxLayout()
         main_layout.addLayout(content_layout, stretch=1)
@@ -423,17 +423,23 @@ class ReqAllocPage(QWizardPage):
             return
         if hasattr(link, 'system'):
             if self.req in link.system_requirements:
-                # TODO: dialog offering to remove the allocation
-                pass
+                # if this is an existing allocation, remove it
+                self.req.allocated_to_system = None
             else:
                 self.req.allocated_to_system = link
+                # if allocating to system, remove any allocation to function
+                if self.req.allocated_to_function:
+                    self.req.allocated_to_function = None
             fn_name = link.system_role
         elif hasattr(link, 'component'):
             if self.req in link.allocated_requirements:
-                # TODO: dialog offering to remove the allocation
-                pass
+                # if this is an existing allocation, remove it
+                self.req.allocated_to_function = None
             else:
                 self.req.allocated_to_function = link
+                # if allocating to function, remove any allocation to system
+                if self.req.allocated_to_system:
+                    self.req.allocated_to_system = None
             fn_name = link.reference_designator
         self.sys_tree.clearSelection()
         # TODO: get the selected name/product so it can be used in the shall
@@ -446,15 +452,20 @@ class ReqAllocPage(QWizardPage):
         """
         Update the summary of current allocations.
         """
-        msg = '<h3>Requirement Allocation:</h3><b>'
+        msg = '<h3>Requirement Allocation:</h3><ul><li><b>'
         if self.req.allocated_to_system:
+            msg += '<font color="green">'
             msg += self.req.allocated_to_system.system_role
+            msg += '</font>'
         elif self.req.allocated_to_function:
+            msg += '<font color="green">'
             msg += self.req.allocated_to_function.reference_designator
+            msg += '</font>'
         else:
             msg += '[None]'
-        msg += '</b>'
+        msg += '</b></li></ul>'
         self.summary.setText(msg)
+        self.sys_tree.expandToDepth(1)
 
 
 class ReqSummaryPage(QWizardPage):
@@ -678,13 +689,36 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.min_max_cb.hide()
                 self.shall_hbox_middle.removeWidget(self.min_max_cb)
                 self.min_max_cb.parent = None
-            if getattr(self, 'req_target_value', None):
+            if getattr(self, 'target_value', None):
                 self.target_value.hide()
                 self.shall_hbox_middle.removeWidget(self.target_value)
                 self.target_value.parent = None
-                self.units.hide()
-                self.shall_hbox_middle.removeWidget(self.units)
-                self.units.parent = None
+                if getattr(self, 'lower_limit', None):
+                    self.minus_label.hide()
+                    self.shall_hbox_middle.removeWidget(self.minus_label)
+                    self.minus_label.parent = None
+                    self.lower_limit.hide()
+                    self.shall_hbox_middle.removeWidget(self.lower_limit)
+                    self.lower_limit.parent = None
+                    self.plus_label.hide()
+                    self.shall_hbox_middle.removeWidget(self.plus_label)
+                    self.plus_label.parent = None
+                    self.upper_limit.hide()
+                    self.shall_hbox_middle.removeWidget(self.upper_limit)
+                    self.upper_limit.parent = None
+                    self.units.hide()
+                    self.shall_hbox_middle.removeWidget(self.units)
+                    self.units.parent = None
+                if getattr(self, 'plus_minus_label', None):
+                    self.plus_minus_label.hide()
+                    self.shall_hbox_middle.removeWidget(self.plus_minus_label)
+                    self.plus_minus_label.parent = None
+                    self.tol_val_field.hide()
+                    self.shall_hbox_middle.removeWidget(self.tol_val_field)
+                    self.tol_val_field.parent = None
+                    self.units.hide()
+                    self.shall_hbox_middle.removeWidget(self.units)
+                    self.units.parent = None
             if getattr(self, 'minimum_value', None):
                 self.minimum_value.hide()
                 self.shall_hbox_middle.removeWidget(self.minimum_value)
@@ -699,29 +733,6 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.units.hide()
                 self.shall_hbox_middle.removeWidget(self.units)
                 self.units.parent = None
-            if self.lower_limit:
-                self.minus_label.hide()
-                self.shall_hbox_middle.removeWidget(self.minus_label)
-                self.minus_label.parent = None
-                self.lower_limit.hide()
-                self.shall_hbox_middle.removeWidget(self.lower_limit)
-                self.lower_limit.parent = None
-                self.plus_label.hide()
-                self.shall_hbox_middle.removeWidget(self.plus_label)
-                self.plus_label.parent = None
-                self.upper_limit.hide()
-                self.shall_hbox_middle.removeWidget(self.upper_limit)
-                self.upper_limit.parent = None
-                self.units.hide()
-                self.shall_hbox_middle.removeWidget(self.units)
-                self.units.parent = None
-            if self.plus_minus_label:
-                self.plus_minus_label.hide()
-                self.shall_hbox_middle.removeWidget(self.plus_minus_label)
-                self.plus_minus_label.parent = None
-                self.tol_val_field.hide()
-                self.shall_hbox_middle.removeWidget(self.tol_val_field)
-                self.tol_val_field.parent = None
             if self.range_label:
                 self.range_label.hide()
                 self.shall_hbox_middle.removeWidget(self.range_label)
@@ -732,6 +743,9 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.minimum_value.hide()
                 self.shall_hbox_middle.removeWidget(self.minimum_value)
                 self.minimum_value.parent = None
+                self.units.hide()
+                self.shall_hbox_middle.removeWidget(self.units)
+                self.units.parent = None
             # remove from bottom hbox
             self.epilog_field.hide()
             self.shall_hbox_bottom.removeWidget(self.epilog_field)
@@ -999,7 +1013,6 @@ class PerformReqBuildShallPage(QWizardPage):
         else:
             if self.target_value:
                 self.shall_hbox_middle.addWidget(self.target_value)
-                self.shall_hbox_middle.addWidget(self.units)
                 if tolerance_type == 'Asymmetric Tolerance':
                     self.shall_hbox_middle.addWidget(self.minus_label)
                     self.shall_hbox_middle.addWidget(self.lower_limit)
@@ -1068,45 +1081,52 @@ class PerformReqBuildShallPage(QWizardPage):
         orb.save([self.req])
 
     def num_entered(self):
-        req_wizard_state['req_target_value'] = self.target_value.text()
-        if self.maximum_value:
-            maximum = self.maximum_value.text()
+        if self.target_value:
+            tv_txt = self.target_value.text()
             try:
-                req_wizard_state['req_maximum_value'] = float(maximum)
-                self.req.req_maximum_value = float(maximum)
+                req_wizard_state['req_target_value'] = float(tv_txt)
+                self.req.req_target_value = float(tv_txt)
             except:
-                # either field was empty or bad value
+                # field was empty or bad value
+                pass
+        if self.maximum_value:
+            max_txt = self.maximum_value.text()
+            try:
+                req_wizard_state['req_maximum_value'] = float(max_txt)
+                self.req.req_maximum_value = float(max_txt)
+            except:
+                # field was empty or bad value
                 pass
         if self.minimum_value:
-            minimum = self.minimum_value.text()
+            min_txt = self.minimum_value.text()
             try:
-                req_wizard_state['req_minimum_value'] = float(minimum)
-                self.req.req_minimum_value = float(minimum)
+                req_wizard_state['req_minimum_value'] = float(min_txt)
+                self.req.req_minimum_value = float(min_txt)
             except:
-                # either field was empty or bad value
+                # field was empty or bad value
                 pass
         if self.lower_limit:
-            lower = self.lower_limit.text()
+            lower_txt = self.lower_limit.text()
             try:
-                req_wizard_state['req_tolerance_lower'] = float(lower)
-                self.req.req_tolerance_lower = float(lower)
+                req_wizard_state['req_tolerance_lower'] = float(lower_txt)
+                self.req.req_tolerance_lower = float(lower_txt)
             except:
-                # either field was empty or bad value
+                # field was empty or bad value
                 pass
-            upper = self.upper_limit.text()
+            upper_txt = self.upper_limit.text()
             try:
-                req_wizard_state['req_tolerance_upper'] = float(upper)
-                self.req.req_tolerance_upper = float(upper)
+                req_wizard_state['req_tolerance_upper'] = float(upper_txt)
+                self.req.req_tolerance_upper = float(upper_txt)
             except:
-                # either field was empty or bad value
+                # field was empty or bad value
                 pass
         if self.tol_val_field:
-            tolerance = self.tol_val_field.text()
+            tol_txt = self.tol_val_field.text()
             try:
-                req_wizard_state['req_tolerance'] = float(tolerance)
-                self.req.req_tolerance = float(tolerance)
+                req_wizard_state['req_tolerance'] = float(tol_txt)
+                self.req.req_tolerance = float(tol_txt)
             except:
-                # either field was empty or bad value
+                # field was empty or bad value
                 pass
         orb.save([self.req])
 
