@@ -134,7 +134,8 @@ class Node(object):
             return getattr(self.obj, 'name', None) or getattr(self.obj, 'id')
         else:
             if (self.link and
-                getattr(self.link, 'component', None) == self.obj):
+                ((getattr(self.link, 'component', None) == self.obj)
+                 or (getattr(self.link, 'system', None) == self.obj))):
                 if getattr(self.link, 'reference_designator', None):
                     return (self.link.reference_designator + ': '
                             + getattr(self.obj, 'name', 'TBD'))

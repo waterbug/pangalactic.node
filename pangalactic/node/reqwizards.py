@@ -393,6 +393,7 @@ class ReqAllocPage(QWizardPage):
         self.sys_tree = SystemTreeView(self.project, refdes=True,
                                        show_allocs=True, req=self.req)
         self.sys_tree.expandToDepth(2)
+        self.sys_tree.setExpandsOnDoubleClick(False)
         self.sys_tree.doubleClicked.connect(self.on_select_node)
         main_layout = self.layout()
         content_layout = QHBoxLayout()
@@ -552,8 +553,8 @@ class PerformanceDefineParmPage(QWizardPage):
         dim_label = QLabel('Dimension: ')
         self.dim_cb = QComboBox()
         # dimmension goes here
-        for key in in_si:
-            self.dim_cb.addItem(key)
+        for dims in in_si:
+            self.dim_cb.addItem(dims)
         dim_layout.addRow(dim_label, self.dim_cb)
         self.dim_cb.currentTextChanged.connect(self.dim_changed)
         self.dim_cb.currentTextChanged.connect(self.completeChanged)
@@ -625,10 +626,20 @@ class PerformanceDefineParmPage(QWizardPage):
         layout.addLayout(type_layout)
 
     def tolerance_changed(self):
-        req_wizard_state['req_tolerance_type'] = self.single_cb.currentText()
+        tol_type = self.single_cb.currentText()
+        req_wizard_state['req_tolerance_type'] = tol_type
+        self.req.req_tolerance_type = tol_type
+        orb.save([self.req])
 
     def dim_changed(self):
-        req_wizard_state['dim'] = self.dim_cb.currentText()
+        dim = self.dim_cb.currentText()
+        if dim:
+            req_wizard_state['req_dimensions'] = dim
+            self.req.req_dimensions = dim
+        else:
+            req_wizard_state['req_dimensions'] = None
+            self.req.req_dimensions = None
+        orb.save([self.req])
 
     def set_constraint_type(self):
         """
@@ -636,22 +647,28 @@ class PerformanceDefineParmPage(QWizardPage):
         for the symmetric and asymmetric options with the single value button.
         """
         b = self.constraint_buttons.checkedButton()
-        req_wizard_state['req_constraint_type'] = b.text()
-        self.req.req_constraint_type = b.text()
+        const_type = b.text()
+        if const_type:
+            req_wizard_state['req_constraint_type'] = const_type
+            self.req.req_constraint_type = const_type
+        else:
+            req_wizard_state['req_constraint_type'] = None
+            self.req.req_constraint_type = None
         if b == self.single_button:
             self.single_cb.setDisabled(False)
-            req_wizard_state[
-                    'req_tolerance_type'] = self.single_cb.currentText()
+            rtt = self.single_cb.currentText()
+            req_wizard_state['req_tolerance_type'] = rtt
+            self.req.req_tolerance_type = rtt
         else:
             self.single_cb.setDisabled(True)
+        orb.save([self.req])
 
     def isComplete(self):
         """
         Check if both dimension and type have been specified
         """
-        if not req_wizard_state.get('dim'):
-            return False
-        if not req_wizard_state.get('req_constraint_type'):
+        if (not req_wizard_state.get('req_dimensions')
+            or not req_wizard_state.get('req_constraint_type')):
             return False
         return True
 
@@ -937,13 +954,13 @@ class PerformReqBuildShallPage(QWizardPage):
 
         # units combo box.
         self.units = QComboBox()
-        key = req_wizard_state.get('dim')
-        units_list = alt_units.get(key, None)
+        dims = req_wizard_state.get('req_dimensions')
+        units_list = alt_units.get(dims, None)
         if units_list:
             for unit in units_list:
                 self.units.addItem(unit)
         else:
-            self.units.addItem(in_si[key])
+            self.units.addItem(in_si[dims])
         # labels for the overall groups for organization of the page
         shall_label = QLabel('Shall Statement:')
         add_comp_label = QLabel('Additional Shall Statement'
@@ -1253,30 +1270,28 @@ class PerformReqBuildShallPage(QWizardPage):
         requirement = orb.get(req_wizard_state.get('req_oid'))
         requirement.description = req_wizard_state['description']
         requirement.rationale = req_wizard_state['rationale']
-        # 
-        if (not req_wizard_state.get('req_target_value')
-            and (not req_wizard_state.get('req_maximum_value')
-                 or not req_wizard_state.get('req_minimum_value'))):
-            return False
-        if self.lower_limit:
-            if (not req_wizard_state.get('lower_limit') or
-                not req_wizard_state.get('upper_limit')):
-                return False
-        if self.tol_val_field:
-            if not req_wizard_state.get('tol_val'):
-                return False
-        if self.maximum_value:
-            if not req_wizard_state.get('req_maximum_value'):
-                return False
-        if self.minimum_value:
-            if not req_wizard_state.get('req_minimum_value'):
-                return False
         requirement.req_target_value = req_wizard_state.get(
                                                         'req_target_value')
         requirement.req_maximum_value = req_wizard_state.get(
                                                         'req_maximum_value')
         requirement.req_minimum_value = req_wizard_state.get(
                                                         'req_minimum_value')
+        if requirement.req_constraint_type == 'single value':
+            if not requirement.req_target_value:
+                return False
+            if (requirement.req_tolerance_type == 'Symmetric Tolerance'
+                and requirement.req_tolerance is None):
+                return False
+            elif (requirement.req_tolerance_lower is None
+                  or requirement.req_tolerance_upper is None):
+                # Asymmetric Tolerance requires upper and lower tols
+                return False
+        elif (requirement.req_constraint_type == 'maximum'
+              and requirement.req_maximum_value is None):
+            return False
+        elif (requirement.req_constraint_type == 'minimum'
+              and requirement.req_minimum_value is None):
+            return False
         orb.save([requirement])
         return True
 
