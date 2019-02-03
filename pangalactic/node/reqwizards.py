@@ -509,12 +509,6 @@ class ReqSummaryPage(QWizardPage):
         self.pgxn_obj.toolbar.hide()
         main_layout.addWidget(self.pgxn_obj)
 
-##############################
-# Functional Requirement Pages
-##############################
-
-# Will only be different if they want the allocation different
-
 ###############################
 # Performance Requirement Pages
 ###############################
@@ -550,10 +544,10 @@ class PerformanceDefineParmPage(QWizardPage):
         type_layout = QFormLayout()
 
         # Combo box to select the dimension of the requirement.
-        # TODO: fill the cb with the dimension options
         dim_label = QLabel('Dimension: ')
         self.dim_cb = QComboBox()
         # dimmension goes here
+        # TODO:  use "dimensionless" rather than None or ''
         for dims in in_si:
             self.dim_cb.addItem(dims)
         dim_layout.addRow(dim_label, self.dim_cb)
@@ -845,7 +839,7 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.maximum_value.setMaximumSize(75, 25)
                 maximum_value = req_wizard_state.get('req_maximum_value', '')
                 if maximum_value:
-                    self.maximum_value.setText(maximum_value)
+                    self.maximum_value.setText(str(maximum_value))
                 else:
                     self.maximum_value.setPlaceholderText('maximum')
                 self.maximum_value.textChanged.connect(self.num_entered)
@@ -856,7 +850,7 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.minimum_value.setMaximumSize(75, 25)
                 minimum_value = req_wizard_state.get('req_minimum_value', '')
                 if minimum_value:
-                    self.minimum_value.setText(minimum_value)
+                    self.minimum_value.setText(str(minimum_value))
                 else:
                     self.minimum_value.setPlaceholderText('minimum')
                 self.minimum_value.textChanged.connect(self.num_entered)
@@ -889,7 +883,7 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.minimum_value.setMaximumSize(100, 25)
                 minimum_value = req_wizard_state.get('req_minimum_value', '')
                 if minimum_value:
-                    self.minimum_value.setText(minimum_value)
+                    self.minimum_value.setText(str(minimum_value))
                 else:
                     self.minimum_value.setPlaceholderText('minimum')
                 self.minimum_value.textChanged.connect(self.num_entered)
@@ -902,7 +896,7 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.maximum_value.setMaximumSize(100, 25)
                 maximum_value = req_wizard_state.get('req_maximum_value', '')
                 if maximum_value:
-                    self.maximum_value.setText(maximum_value)
+                    self.maximum_value.setText(str(maximum_value))
                 else:
                     self.maximum_value.setPlaceholderText('maximum')
                 self.maximum_value.textChanged.connect(self.num_entered)
@@ -912,7 +906,7 @@ class PerformReqBuildShallPage(QWizardPage):
             target_value = req_wizard_state.get('req_target_value', '')
             self.target_value.setPlaceholderText('target value')
             if target_value:
-                self.target_value.setText(target_value)
+                self.target_value.setText(str(target_value))
             self.target_value.setMaximumSize(100, 25)
             self.target_value.textChanged.connect(self.num_entered)
         self.minus_label = None
@@ -933,14 +927,14 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.lower_limit.setMaximumSize(120, 25)
                 self.lower_limit.setPlaceholderText('lower tolerance')
                 self.lower_limit.setText(
-                        req_wizard_state.get('req_tolerance_lower', ''))
+                        str(req_wizard_state.get('req_tolerance_lower', '')))
                 self.lower_limit.textChanged.connect(self.num_entered)
                 self.upper_limit = QLineEdit()
                 self.upper_limit.setValidator(double_validator)
                 self.upper_limit.setMaximumSize(120, 25)
                 self.upper_limit.setPlaceholderText('upper tolerance')
                 self.upper_limit.setText(
-                        req_wizard_state.get('req_tolerance_upper', ''))
+                        str(req_wizard_state.get('req_tolerance_upper', '')))
                 self.upper_limit.textChanged.connect(self.num_entered)
             elif tolerance_type == 'Symmetric Tolerance':
                 self.plus_minus_label = QLabel('+/-')
@@ -950,7 +944,7 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.tol_val_field.setMaximumSize(100, 25)
                 self.tol_val_field.setPlaceholderText('tolerance')
                 self.tol_val_field.setText(
-                            req_wizard_state.get('req_tolerance', ''))
+                            str(req_wizard_state.get('req_tolerance', '')))
                 self.tol_val_field.textChanged.connect(self.num_entered)
 
         # units combo box.
