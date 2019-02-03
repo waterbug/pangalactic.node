@@ -10,11 +10,12 @@ from builtins import range
 import os, sys
 from uuid import uuid4
 
-from PyQt5           import QtWidgets
-from PyQt5.QtCore    import (QByteArray, QDataStream, QIODevice, QMimeData,
+from PyQt5.QtWidgets import (QApplication, QStyle, QStyleOptionViewItem,
+                             QStyledItemDelegate)
+from PyQt5.QtCore    import (Qt, QByteArray, QDataStream, QIODevice, QMimeData,
                              QSize, QVariant)
-from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QIcon, QPixmap,
-                             QTextDocument)
+from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QBrush, QColor,
+                             QIcon, QPalette, QPixmap, QTextDocument)
 
 # SqlAlchemy
 from sqlalchemy import ForeignKey
@@ -479,19 +480,19 @@ def make_parm_html(parm_id):
         return parm_id
 
 
-class HTMLDelegate(QtWidgets.QStyledItemDelegate):
+class HTMLDelegate(QStyledItemDelegate):
 
     def paint(self, painter, option, index):
-        options = QtWidgets.QStyleOptionViewItem(option)
+        options = QStyleOptionViewItem(option)
         self.initStyleOption(options,index)
         if options.widget is None:
-            style = QtWidgets.QApplication.style()
+            style = QApplication.style()
         else:
             style = options.widget.style()
         doc = QTextDocument()
         doc.setHtml(options.text)
         options.text = ""
-        style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, options, painter)
+        style.drawControl(QStyle.CE_ItemViewItem, options, painter)
 
         ctx = QAbstractTextDocumentLayout.PaintContext()
         # Highlighting text if item is selected
@@ -499,8 +500,7 @@ class HTMLDelegate(QtWidgets.QStyledItemDelegate):
             # ctx.palette.setColor(QPalette::Text,
             # option.palette.color(QPalette::Active,
             # QPalette::HighlightedText));
-        textRect = style.subElementRect(QtWidgets.QStyle.SE_ItemViewItemText,
-                                        options)
+        textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
         painter.save()
         painter.translate(textRect.topLeft())
         painter.setClipRect(textRect.translated(-textRect.topLeft()))
@@ -508,10 +508,38 @@ class HTMLDelegate(QtWidgets.QStyledItemDelegate):
         painter.restore()
 
     def sizeHint(self, option, index):
-        options = QtWidgets.QStyleOptionViewItem(option)
+        options = QStyleOptionViewItem(option)
         self.initStyleOption(options,index)
         doc = QTextDocument()
         doc.setHtml(options.text)
         doc.setTextWidth(options.rect.width())
         return QSize(doc.idealWidth(), doc.size().height())
+
+
+class ReqAllocDelegate(QStyledItemDelegate):
+
+    # def __init__(self, parent=None):
+        # super(ReqAllocDelegate, self).__init__(parent)
+
+    def paint(self, painter, option, index):
+        if option.state & QStyle.State_Selected:
+            option.backgroundBrush = index.data(Qt.BackgroundRole)
+            option.palette.setBrush(QPalette.Highlight, option.backgroundBrush)
+            painter.fillRect(option.rect, option.palette.highlight())
+            # draw icon
+            icon_rect = option.rect
+            icon_rect.setLeft(icon_rect.left()+3)
+            option.widget.style().drawItemPixmap(painter, icon_rect,
+                Qt.AlignLeft | Qt.AlignVCenter,
+                index.data(Qt.DecorationRole))
+            # draw text
+            text_rect = option.rect
+            text_rect.setLeft(text_rect.left()+22)
+            option.widget.style().drawItemText(painter, text_rect,
+                                               Qt.AlignLeft | Qt.AlignVCenter,
+                                               option.palette, True,
+                                               index.data(Qt.DisplayRole))
+            # QStyledItemDelegate.paint(self, painter, option, index)
+        else:
+            super(ReqAllocDelegate, self).paint(painter, option, index)
 

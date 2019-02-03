@@ -19,7 +19,7 @@ from pangalactic.core             import config, state
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import in_si, alt_units
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.utils       import clone
+from pangalactic.node.utils       import clone, ReqAllocDelegate
 from pangalactic.node.widgets     import PlaceHolder, ValueLabel
 from pangalactic.node.systemtree  import SystemTreeView
 
@@ -392,6 +392,7 @@ class ReqAllocPage(QWizardPage):
         self.project = proj
         self.sys_tree = SystemTreeView(self.project, refdes=True,
                                        show_allocs=True, req=self.req)
+        self.sys_tree.setItemDelegate(ReqAllocDelegate())
         self.sys_tree.expandToDepth(2)
         self.sys_tree.setExpandsOnDoubleClick(False)
         self.sys_tree.doubleClicked.connect(self.on_select_node)

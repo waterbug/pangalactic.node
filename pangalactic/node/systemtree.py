@@ -265,6 +265,8 @@ class SystemTreeModel(QAbstractItemModel):
     GRAY_BRUSH = QBrush(Qt.lightGray)
     CYAN_BRUSH = QBrush(Qt.cyan)
     YELLOW_BRUSH = QBrush(Qt.yellow)
+    TRANSPARENT_BRUSH = QBrush(Qt.transparent)
+    WHITE_BRUSH = QBrush(Qt.white)
 
     def __init__(self, obj, refdes=True, show_allocs=False, req=None,
                  parent=None):
@@ -542,6 +544,8 @@ class SystemTreeModel(QAbstractItemModel):
             srs = getattr(node.link, 'system_requirements', [])
             if self.req in allocs or self.req in srs:
                 return self.YELLOW_BRUSH
+            else:
+                return self.WHITE_BRUSH
         if role == Qt.TextAlignmentRole:
             if index.column() == 0:
                 return Qt.AlignLeft
