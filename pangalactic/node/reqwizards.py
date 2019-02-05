@@ -410,18 +410,18 @@ class ReqAllocPage(QWizardPage):
         content_layout.addLayout(tree_layout)
         content_layout.addLayout(summary_layout)
         self.update_summary()
+        allocation = 'The '
         if getattr(self.req, 'allocated_to_function', None):
-            req_wizard_state[
-              'function'] = self.req.allocated_to_function.reference_designator
+            allocation += self.req.allocated_to_function.reference_designator
         elif getattr(self.req, 'allocated_to_system', None):
-            req_wizard_state[
-              'function'] = self.req.allocated_to_system.system_role
+            allocation += self.req.allocated_to_system.system_role
         else:
-            req_wizard_state['function'] = self.project.id
+            allocation += self.project.id + ' project'
+        req_wizard_state['allocation'] = allocation
 
     def on_select_node(self, index):
         link = None
-        fn_name = 'None'
+        allocated_item = ''
         if len(self.sys_tree.selectedIndexes()) == 1:
             i = self.sys_tree.selectedIndexes()[0]
             mapped_i = self.sys_tree.proxy_model.mapToSource(i)
@@ -440,7 +440,7 @@ class ReqAllocPage(QWizardPage):
                 # if allocating to system, remove any allocation to function
                 if self.req.allocated_to_function:
                     self.req.allocated_to_function = None
-            fn_name = link.system_role
+            allocated_item = link.system_role
         elif hasattr(link, 'component'):
             if self.req in link.allocated_requirements:
                 # if this is an existing allocation, remove it
@@ -450,11 +450,16 @@ class ReqAllocPage(QWizardPage):
                 # if allocating to function, remove any allocation to system
                 if self.req.allocated_to_system:
                     self.req.allocated_to_system = None
-            fn_name = link.reference_designator
+            allocated_item = link.reference_designator
         self.sys_tree.clearSelection()
         # TODO: get the selected name/product so it can be used in the shall
         # statement.
-        req_wizard_state['function'] = fn_name
+        allocation = 'The '
+        if allocated_item:
+            allocation += allocated_item
+        else:
+            allocation += self.project.id + ' project'
+        req_wizard_state['allocation'] = allocation
         orb.save([self.req])
         self.update_summary()
 
@@ -502,8 +507,8 @@ class ReqSummaryPage(QWizardPage):
             self.setTitle('Requirement Summary')
             self.setSubTitle('Confirm all the information is correct...')
         self.req = orb.get(req_wizard_state.get('req_oid'))
-        function = req_wizard_state.get('function', 'No Allocation')
-        self.fields['allocation'].setText(function)
+        allocation = req_wizard_state.get('allocation', 'No Allocation')
+        self.fields['allocation'].setText(allocation)
         for a in ['id', 'name']:
              self.fields[a].setText(getattr(self.req, a, '[Not Specified]'))
         for a in ['description', 'rationale', 'verification_method']:
@@ -591,7 +596,7 @@ class PerformanceDefineParmPage(QWizardPage):
         dim_layout.addRow(dim_label, self.dim_cb)
         self.dim_cb.currentTextChanged.connect(self.dim_changed)
         self.dim_cb.currentTextChanged.connect(self.completeChanged)
-        req_dims = req_wizard_state['req_dimensions']
+        req_dims = req_wizard_state.get('req_dimensions')
         if req_dims in dimslist:
             self.dim_cb.setCurrentIndex(dimslist.index(req_dims))
 
@@ -716,9 +721,9 @@ class PerformReqBuildShallPage(QWizardPage):
         layout = self.layout()
         if self.title():
             # remove from first hbox
-            self.allocate_label.hide()
-            self.shall_hbox_top.removeWidget(self.allocate_label)
-            self.allocate_label.parent = None
+            self.allocation_label.hide()
+            self.shall_hbox_top.removeWidget(self.allocation_label)
+            self.allocation_label.parent = None
             self.subject_field.hide()
             self.shall_hbox_top.removeWidget(self.subject_field)
             self.subject_field.parent = None
@@ -898,11 +903,13 @@ class PerformReqBuildShallPage(QWizardPage):
             self.min_max_cb.setMaximumSize(150,25)
 
         # premade labels text (non-editable labels)
-        allocate = req_wizard_state.get('function')
-        self.allocate_label = QComboBox()
-        self.allocate_label.addItem(allocate)
-        self.allocate_label.addItem("The " + allocate)
-        self.allocate_label.setMaximumSize(175,25)
+        # allocated_item = req_wizard_state.get('allocation')
+        # self.allocation_label = QComboBox()
+        # self.allocation_label.addItem(allocated_item)
+        # self.allocation_label.addItem("The " + allocated_item)
+        # self.allocation_label.setMaximumSize(175,25)
+        self.allocation_label = ValueLabel(req_wizard_state.get(
+                                           'allocation', 'Not Allocated'))
 
         # line edit(s) for number entry
         # TODO: make one numeric entry unless it is range then make two.
@@ -1043,7 +1050,7 @@ class PerformReqBuildShallPage(QWizardPage):
         self.shall_vbox = QVBoxLayout()
 
         # fill grid
-        self.shall_hbox_top.addWidget(self.allocate_label)
+        self.shall_hbox_top.addWidget(self.allocation_label)
         self.shall_hbox_top.addWidget(self.subject_field)
         self.shall_hbox_top.addWidget(self.shall_cb)
         self.shall_hbox_middle.addWidget(self.predicate_field)
@@ -1169,7 +1176,8 @@ class PerformReqBuildShallPage(QWizardPage):
 
     def contextMenu(self, event):
         self.selected_widget = self.sender()
-        if self.selected_widget.isReadOnly():
+        if (hasattr(self.selected_widget, 'isReadOnly')
+            and self.selected_widget.isReadOnly()):
             menu = QMenu(self)
             menu.addAction("insert text", self.enableTextInsert)
             menu.exec_(QtGui.QCursor.pos())
@@ -1214,7 +1222,7 @@ class PerformReqBuildShallPage(QWizardPage):
                              QMessageBox.Ok)
 
     def preview(self):
-        shall_prev = ''
+        shall_prev = self.allocation_label.text()
         items = []
         for i in range(self.shall_hbox_top.count()):
             items.append(self.shall_hbox_top.itemAt(i))
@@ -1229,9 +1237,8 @@ class PerformReqBuildShallPage(QWizardPage):
                     shall_prev += w.currentText()
                 elif w == self.plus_minus_label or w == self.range_label:
                     shall_prev += w.text()
-                elif not w.isReadOnly():
+                elif hasattr(w, 'isReadOnly') and not w.isReadOnly():
                     shall_prev += w.text()
-
                 if (w != self.epilog_field and w != self.units and
                         w != self.minus_label and w != self.plus_label
                         and w != self.plus_minus_label):
@@ -1273,6 +1280,9 @@ class PerformReqBuildShallPage(QWizardPage):
                     description += ' '
                 if hasattr(w, 'currentText'):
                     description += w.currentText()
+                elif hasattr(w, 'text'):
+                    # this applies to allocation_label
+                    description += w.text()
                 elif w in [self.plus_minus_label, self.minus_label,
                            self.plus_label, self.range_label]:
                     description += w.text()
