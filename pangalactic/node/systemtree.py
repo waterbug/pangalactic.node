@@ -26,7 +26,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.core.units       import in_si
-from pangalactic.core.utils.meta  import display_id, get_acu_id, get_acu_name
+from pangalactic.core.utils.meta  import display_name, get_acu_id, get_acu_name
 from pangalactic.node.dialogs     import AssemblyNodeDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 # from pangalactic.node.utils      import HTMLDelegate
@@ -95,38 +95,38 @@ class Node(object):
 
     @property
     def name(self):
-        obj_id = display_id(self.obj)
+        obj_name = display_name(self.obj)
         # if self.refdes:
             # if isinstance(self.link, orb.classes['Acu']):
                 # return (self.link.reference_designator or
                         # self.link.product_type_hint or
-                        # obj_id)
+                        # obj_name)
             # elif isinstance(self.link, orb.classes['ProjectSystemUsage']):
-                # return self.link.system_role or obj_id
+                # return self.link.system_role or obj_name
             # else:
-                # return obj_id
+                # return obj_name
         # else:
         # *not* in ref designator mode -- only return ref des if node is
-        # "empty" (i.e., obj_id is 'TBD')
-        if obj_id == 'TBD':
+        # "empty" (i.e., obj_name is 'TBD')
+        if obj_name == 'TBD':
             if isinstance(self.link, orb.classes['Acu']):
-                if getattr(self.link, 'product_type_hint', None):
-                    return 'TBD [' + self.link.product_type_hint.name + ']'
+                if getattr(self.link, 'reference_designator', None):
+                    return 'TBD [' + self.link.reference_designator + ']'
                 else:
                     return 'TBD'
             elif isinstance(self.link, orb.classes['ProjectSystemUsage']):
-                return self.link.system_role or obj_id
+                return self.link.system_role or obj_name
             else:
-                return obj_id
+                return obj_name
         else:
             if (getattr(self.link, 'component', None) == self.obj
                 and hasattr(self.link, 'quantity')):
                 if self.link.quantity and self.link.quantity > 1:
-                    return '{} [{}]'.format(obj_id, str(self.link.quantity))
+                    return '{} [{}]'.format(obj_name, str(self.link.quantity))
                 else:
-                    return obj_id
+                    return obj_name
             else:
-                return obj_id
+                return obj_name
 
     @property
     def tooltip(self):
@@ -137,10 +137,10 @@ class Node(object):
                 ((getattr(self.link, 'component', None) == self.obj)
                  or (getattr(self.link, 'system', None) == self.obj))):
                 if getattr(self.link, 'reference_designator', None):
-                    return (self.link.reference_designator + ': '
+                    return (self.link.reference_designator + ' : '
                             + getattr(self.obj, 'name', 'TBD'))
                 elif hasattr(self.link, 'system_role'):
-                    return ((self.link.system_role or 'System') + ': '
+                    return ((self.link.system_role or 'System') + ' : '
                             + getattr(self.obj, 'name', 'TBD'))
                 else:
                     return getattr(self.obj, 'name', 'TBD')
@@ -878,12 +878,11 @@ class SystemTreeModel(QAbstractItemModel):
                                          # parent=self.parent)
                         # if dlg.exec_():
                         orb.log.info('      creating ProjectSystemUsage')
-                        psu_id = 'psu-' + product.id + '-' + drop_target.id
-                        psu_name = ('psu: ' + product.name +
-                                    ' (system used on) ' +
-                                    drop_target.name)
                         psu_role = getattr(product.product_type, 'name',
                                            'System')
+                        psu_id = ':'.join([drop_target.id,
+                                           '-'.join([psu_role.split(' ')])])
+                        psu_name = (drop_target.name + ':' + psu_role)
                         new_psu = clone('ProjectSystemUsage',
                                         id=psu_id,
                                         name=psu_name,
@@ -914,13 +913,11 @@ class SystemTreeModel(QAbstractItemModel):
                                 'on project {1}'.format(
                                 dropped_item.name, drop_target.id))
                         else:
-                            psu_id = ('psu-' + dropped_item.id + '-' +
-                                      drop_target.id)
-                            psu_name = ('psu: ' + dropped_item.name +
-                                        ' (system used on) ' +
-                                        drop_target.name)
                             psu_role = getattr(dropped_item.product_type, 'name',
                                                'System')
+                            psu_id = ':'.join([drop_target.id,
+                                               '-'.join([psu_role.split(' ')])])
+                            psu_name = (drop_target.name + ':' + psu_role)
                             new_psu = clone('ProjectSystemUsage',
                                             id=psu_id,
                                             name=psu_name,
