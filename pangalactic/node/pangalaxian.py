@@ -1677,13 +1677,13 @@ class Main(QtWidgets.QMainWindow):
                           # self.import_excel_data_action,
                           self.import_objects_action,
                           self.import_reqts_from_file_action,
+                          # Load Test Objects is currently flaky unless ONLY
+                          # operating in standalone mode ...
                           # self.load_test_objects_action,
                           self.exit_action]
         # Import Excel deactivated until mapping is implemented, and/or support
         # for "data sets" is revised (hdf5 was breaking) ...
         # self.import_excel_data_action.setEnabled(False)
-        # Load Test Objects is currently flaky ...
-        # self.load_test_objects_action.setEnabled(False)
         import_button = MenuButton(QtGui.QIcon(import_icon_path),
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)

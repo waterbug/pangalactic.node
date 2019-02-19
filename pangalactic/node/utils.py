@@ -8,14 +8,15 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import range
 import os, sys
+from copy import deepcopy
 from uuid import uuid4
 
 from PyQt5.QtWidgets import (QApplication, QStyle, QStyleOptionViewItem,
                              QStyledItemDelegate)
 from PyQt5.QtCore    import (Qt, QByteArray, QDataStream, QIODevice, QMimeData,
                              QSize, QVariant)
-from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QBrush, QColor,
-                             QIcon, QPalette, QPixmap, QTextDocument)
+from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QIcon, QPalette,
+                             QPixmap, QTextDocument)
 
 # SqlAlchemy
 from sqlalchemy import ForeignKey
@@ -131,7 +132,7 @@ def clone(what, include_ports=True, include_components=True, **kw):
     if not new and parameterz.get(getattr(obj, 'oid', None)):
         # When cloning an existing object that has parameters, copy its
         # parameters to the clone
-        new_parameters = parameterz[obj.oid].copy()
+        new_parameters = deepcopy(parameterz[obj.oid])
         parameterz[newkw['oid']] = new_parameters
     # operations specific to Hardware Products ...
     if isinstance(new_obj, orb.classes['Product']):
@@ -201,7 +202,7 @@ def create_template_from_product(product):
     # TODO:  assign parameters to template ...
     parms = parameterz.get(product.oid)
     if parms:
-        parameterz[template.oid] = parms.copy()
+        parameterz[template.oid] = deepcopy(parms)
     orb.log.info('  created Template instance with id "%s" ...' % (
                                                         template.id))
     return template
