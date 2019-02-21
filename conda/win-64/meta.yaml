@@ -1,6 +1,6 @@
 package:
   name: pangalactic.node
-  version: "0.1.dev102"
+  version: "0.1.dev103"
 
 source:
   path: # [path to source]
@@ -15,7 +15,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=0.1.dev102
+    - pangalactic.core >=0.1.dev103
     - autobahn
     - binaryornot
     - future
