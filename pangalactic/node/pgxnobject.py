@@ -1095,6 +1095,10 @@ class PgxnObject(QMainWindow):
                 # modified ones
                 for p_id in self.p_widgets:
                     # if p is computed, its widget is a label (no 'get_value')
+                    # DO NOT MODIFY units/values ... but:
+                    # TODO:  set display units for all related parameters (same
+                    #        variable) when user sets it for any one of them.
+                    #        *AND* set it in user prefs for that parameter.
                     if hasattr(self.p_widgets[p_id], 'get_value'):
                         str_val = self.p_widgets[p_id].get_value()
                         # u_cur -> current units setting
@@ -1102,19 +1106,14 @@ class PgxnObject(QMainWindow):
                         u_cur = None
                         if hasattr(self.u_widgets[p_id], 'currentText'):
                             u_cur = self.u_widgets[p_id].currentText()
-                            orb.log.debug('  - current units set to {}'.format(
+                            orb.log.debug('  - units widget set to {}'.format(
                                                                         u_cur))
-                        else:
-                            orb.log.debug('  - no current units set')
-                        u_mod = (u_cur == self.u_widget_values[p_id])
-                        # check if modified
-                        if (str_val != self.p_widget_values[p_id]) or u_mod:
-                            # if either parameter value or units have changed,
-                            # set parameter value and units
-                            orb.log.debug('  - setting {} to {} {}'.format(
-                                          p_id, str_val, u_cur))
-                            set_pval_from_str(orb, self.obj.oid, p_id, str_val,
-                                              units=u_cur)
+                        # set parameter values/units for ALL editable
+                        # parameters (faster/simpler than checking for mods)
+                        orb.log.debug('  - setting {} to {} {}'.format(
+                                      p_id, str_val, u_cur))
+                        set_pval_from_str(orb, self.obj.oid, p_id, str_val,
+                                          units=u_cur)
             if caching_parameters:
                 self.progress_dialog.setValue(2)
             if self.new:
