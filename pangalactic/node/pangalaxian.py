@@ -2084,7 +2084,7 @@ class Main(QtWidgets.QMainWindow):
         if ((cname in orb.classes and
              issubclass(orb.classes[cname], orb.classes['Modelable']))
             or cname == 'Acu'):
-            orb.recompute_parms()
+            orb.recompute_parmz()
             # TODO:  value might not be displayed until dashboard gets focus --
             # may have to explicitly set focus to dashboard to force it
             # self.refresh_tree_and_dashboard()
@@ -3554,7 +3554,7 @@ class Main(QtWidgets.QMainWindow):
         # it is just set to an empty dict
         # orb.data_store.close()
         self.statusbar.showMessage('saving parameters ...')
-        orb._save_parms()
+        orb._save_parmz()
         if orb.db.dirty:
             orb.db.commit()
         # save a serialized version of the db to vault/db.yaml

@@ -148,13 +148,20 @@ class PgxnForm(QWidget):
                                 if pid not in PGXN_PARAMETERS
                                 and not parms[pid].get('computed')]
                 editables = pref_editables + np_editables
-                pref_computeds = [pid for pid in PGXN_PARAMETERS
-                                  if pid in parms
-                                  and parms[pid].get('computed')]
-                np_computeds = [pid for pid in parms
-                                if parms[pid].get('computed')
-                                and pid not in PGXN_PARAMETERS]
-                computeds = pref_computeds + np_computeds
+                ##############################################################
+                ### New Parameter paradigm (SCW 2019-03-25) ##################
+                # 1. by default, only base ("variable") parameters are shown
+                # 2. "computeds" shown only when a relevant "context" is set
+                # (to be implemented)
+                ##############################################################
+                # pref_computeds = [pid for pid in PGXN_PARAMETERS
+                                  # if pid in parms
+                                  # and parms[pid].get('computed')]
+                # np_computeds = [pid for pid in parms
+                                # if parms[pid].get('computed')
+                                # and pid not in PGXN_PARAMETERS]
+                # computeds = pref_computeds + np_computeds
+                computeds = []
                 p_ordering = editables + computeds
                 orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
                                                             str(p_ordering)))

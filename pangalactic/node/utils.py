@@ -163,7 +163,7 @@ def clone(what, include_ports=True, include_components=True, **kw):
                           creator=new_obj.creator, modifier=new_obj.creator,
                           create_datetime=NOW, mod_datetime=NOW)
                 refresh_componentz(orb, new_obj)
-    orb.recompute_parms()
+    orb.recompute_parmz()
     return new_obj
 
 def create_template_from_product(product):
