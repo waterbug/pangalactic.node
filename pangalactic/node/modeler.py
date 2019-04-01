@@ -344,8 +344,6 @@ class ModelWindow(QMainWindow):
                     self.models_by_label['CAD'] = (model, fpath)
                     if hasattr(self, 'view_cad_action'):
                         self.view_cad_action.setVisible(True)
-        if hasattr(self, 'subject_info_panel'):
-            self.subject_info_panel.set_subject_info(self.obj)
         if self.history:
             if hasattr(self, 'back_action'):
                 self.back_action.setEnabled(True)
