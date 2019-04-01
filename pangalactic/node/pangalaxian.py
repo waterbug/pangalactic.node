@@ -205,7 +205,7 @@ class Main(QtWidgets.QMainWindow):
         self.add_splash_msg('... projects identified ...')
         screen_resolution = QtWidgets.QApplication.desktop().screenGeometry()
         default_width = min(screen_resolution.width() - 300, 900)
-        default_height = min(screen_resolution.height() - 200, 500)
+        default_height = min(screen_resolution.height() - 200, 400)
         width = state.get('width') or default_width
         height = state.get('height') or default_height
         self._init_ui(width, height)

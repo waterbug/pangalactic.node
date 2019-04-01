@@ -13,9 +13,8 @@ from urllib.parse    import urlparse
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtWidgets import (QAction, QComboBox, QDockWidget, QHBoxLayout,
-                             QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import (QAction, QComboBox, QHBoxLayout, QLayout,
+                             QMainWindow, QSizePolicy, QVBoxLayout, QWidget)
 from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
@@ -28,8 +27,7 @@ from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
 from pangalactic.node.dialogs     import Viewer3DDialog
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.utils       import (clone, extract_mime_data,
-                                          get_object_title)
+from pangalactic.node.utils       import clone, extract_mime_data
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 
 supported_model_types = {
@@ -148,7 +146,7 @@ class ModelWindow(QMainWindow):
     def sizeHint(self):
         if self.preferred_size:
             return QSize(*self.preferred_size)
-        return QSize(400, 400)
+        return QSize(400, 300)
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
@@ -157,13 +155,6 @@ class ModelWindow(QMainWindow):
         self.init_toolbar()
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
-        self.top_dock_widget = QDockWidget()
-        self.top_dock_widget.setAllowedAreas(Qt.TopDockWidgetArea)
-        self.top_dock_widget.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        self.subject_info_panel = SubjectInfoPanel(parent=self)
-        self.top_dock_widget.setWidget(self.subject_info_panel)
-        self.subject_info_panel.set_subject_info(self.obj)
-        self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock_widget)
         # Initialize a statusbar for the window
         self.statusbar = self.statusBar()
         # self.statusbar.showMessage("Models, woo!")
@@ -539,40 +530,6 @@ class ModelWindow(QMainWindow):
             dlg = PgxnObject(new_model, edit_mode=True, parent=self)
             # dialog.show() -> non-modal dialog
             dlg.show()
-
-
-class SubjectInfoPanel(QWidget):
-
-    def __init__(self, parent=None):
-        super(SubjectInfoPanel, self).__init__(parent)
-        orb.log.info('* SubjectInfoPanel initializing ...')
-        # model info panel
-        subject_info_layout = QVBoxLayout()
-        subject_info_layout.setAlignment(Qt.AlignLeft)
-        self.subject_info_title = NameLabel('<h3>No Models</h3>')
-        self.subject_info_title.setSizePolicy(QSizePolicy.Preferred,
-                                            QSizePolicy.Preferred)
-        subject_info_layout.addWidget(self.subject_info_title)
-        self.setLayout(subject_info_layout)
-        self.setMaximumHeight(120)
-        # self.setSizePolicy(QSizePolicy.MinimumExpanding,
-                           # QSizePolicy.Preferred)
-        self.setSizePolicy(QSizePolicy.Preferred,
-                           QSizePolicy.Preferred)
-
-    def set_subject_info(self, obj):
-        """
-        Set model subject title and model buttons in the subject info panel.
-
-        Args:
-            obj (Modelable):  the current subject (modeled object)
-        """
-        orb.log.info('* SubjectInfoPanel: set_subject_info')
-        if obj:
-            title_text = get_object_title(obj)
-        else:
-            title_text = '<h3>No Models</h3>'
-        self.subject_info_title.setText(title_text)
 
 
 class ProductInfoPanel(QWidget):
