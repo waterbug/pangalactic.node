@@ -3593,7 +3593,10 @@ def cleanup_and_save():
 def run(home='', splash_image=None, test_data=None, use_tls=True,
         adminserv=True, console=False, debug=False, app_version=None):
     app = QtWidgets.QApplication(sys.argv)
-    app.setStyleSheet('QToolTip { border: 2px solid;}')
+    # app.setStyleSheet('QToolTip { border: 2px solid;}')
+    app.setStyleSheet("QToolTip { color: #ffffff; "
+                      "background-color: #2a82da; "
+                      "border: 1px solid white; }")
     screen_resolution = app.desktop().screenGeometry()
     splash_image = splash_image or 'pangalacticon.png'
     # Create and display the splash screen
