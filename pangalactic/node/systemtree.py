@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMessageBox,
 
 # pangalactic
 from pangalactic.core             import prefs, state
-from pangalactic.core.parametrics import get_pval, get_pval_as_str, parameterz
+from pangalactic.core.parametrics import get_pval, get_pval_as_str, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
@@ -305,22 +305,24 @@ class SystemTreeModel(QAbstractItemModel):
         header_labels = []
         cols = self.cols[:]
         for p_id in cols:
-            pd = orb.select('ParameterDefinition', id=p_id)
+            # New paradigm: pd is a dict in parm_defz
+            # pd = orb.select('ParameterDefinition', id=p_id)
+            pd = parm_defz.get(p_id)
             if not pd:
                 # if there is no ParameterDefinition with this p_id,
-                # ignoer it
+                # ignore it
                 self.cols.remove(p_id)
                 continue
             # no preference (i.e., is set to None) -> use base units
-            units = prefs['units'].get(pd.dimensions) or in_si.get(
-                                                            pd.dimensions, '')
+            units = prefs['units'].get(pd['dimensions']) or in_si.get(
+                                                 pd['dimensions'], '')
             if units:
                 units = '(' + units + ')'
             header_labels.append('   \n   '.join(wrap(
-                                 pd.name, width=7,
+                                 pd['name'], width=7,
                                  break_long_words=False) + [units]))
             self.col_defs.append('\n'.join(wrap(
-                                 pd.description, width=30,
+                                 pd['description'], width=30,
                                  break_long_words=False))) 
         self.headers = ['   {}   '.format(n) for n in header_labels]
         fake_root = FakeRoot()
@@ -512,6 +514,9 @@ class SystemTreeModel(QAbstractItemModel):
             # MODIFIED 4/6/17:  make assembly tree display
             # Acu.reference_designator but dashboard display ref designator
             # *plus* product name (since it has more real estate)
+            # MODIFIED 4/3/19:  new parameter paradigm: "descriptive"
+            # parameters apply to components/subsystems; "prescriptive"
+            # parameters apply to assembly points/roles (node.link)
             if self.cols:
                 if node.obj.__class__.__name__ == 'Project':
                     if index.column() == 0:
@@ -523,16 +528,46 @@ class SystemTreeModel(QAbstractItemModel):
                         return node.name
                     else:
                         pid = self.cols[index.column()-1]
-                        parm = parameterz.get(node.obj.oid, {}).get(pid, {})
-                        units = prefs['units'].get(parm.get('dimensions'))
-                        return get_pval_as_str(orb, node.obj.oid, pid,
-                                               units=units)
+                        pd = parm_defz[pid]
+                        units = prefs['units'].get(pd['dimensions'])
+                        # descriptive parameters apply to node objects
+                        # (components or subsystems)
+                        if pd['context_type'] == 'descriptive':
+                            oid = getattr(node.obj, 'oid', None)
+                            if oid and oid != 'pgefobjects:TBD':
+                                return get_pval_as_str(orb, node.obj.oid, pid,
+                                                       units=units)
+                            else:
+                                return '-'
+                        # prescriptive parameters apply to node links (i.e.,
+                        # assembly points -> component/subsystem roles)
+                        elif pd['context_type'] == 'prescriptive':
+                            oid = getattr(node.link, 'oid', None)
+                            if oid:
+                                return get_pval_as_str(orb, oid, pid,
+                                                       units=units)
+                            else:
+                                return '-'
+                        else:
+                            return '-'
             else:
                 return node.name
         if role == Qt.ForegroundRole:
             if self.cols and index.column() > 0:
-                pval = get_pval(orb, node.obj.oid,
-                                self.cols[index.column()-1])
+                pid = self.cols[index.column()-1]
+                pd = parm_defz[pid]
+                if pd['context_type'] == 'descriptive':
+                    pval = get_pval(orb, node.obj.oid,
+                                    self.cols[index.column()-1])
+                elif pd['context_type'] == 'prescriptive':
+                    oid = getattr(node.link, 'oid', None)
+                    if oid:
+                        pval = get_pval(orb, node.link.oid,
+                                        self.cols[index.column()-1])
+                    else:
+                        pval = '-'
+                else:
+                    pval = '-'
                 if isinstance(pval, (int, float)) and pval <= 0:
                     return self.RED_BRUSH
                 else:

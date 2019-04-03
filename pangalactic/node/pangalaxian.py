@@ -3530,7 +3530,7 @@ class Main(QtWidgets.QMainWindow):
         # # TODO:  this is just a mock-up for prototyping -- FIXME!
         # if state.get('test_objects_loaded'):
             # objs = orb.search_exact(id='HOG')
-            # parms = state.get('dashboard', ['m_CBE', 'P_CBE', 'R_CBE'])
+            # parms = state.get('dashboard', ['m[CBE]', 'P[CBE]', 'R_D[CBE]'])
             # widget = MatrixWidget(objs, parms, parent=self)
             # widget.show()
 
