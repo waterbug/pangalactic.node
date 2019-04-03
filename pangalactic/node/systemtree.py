@@ -549,7 +549,9 @@ class SystemTreeModel(QAbstractItemModel):
                             else:
                                 return '-'
                         else:
-                            return '-'
+                            # base parameter (no context)
+                            return get_pval_as_str(orb, node.obj.oid,
+                                                   self.cols[index.column()-1])
             else:
                 return node.name
         if role == Qt.ForegroundRole:
@@ -567,7 +569,9 @@ class SystemTreeModel(QAbstractItemModel):
                     else:
                         pval = '-'
                 else:
-                    pval = '-'
+                    # base parameter (no context)
+                    pval = get_pval(orb, node.obj.oid,
+                                    self.cols[index.column()-1])
                 if isinstance(pval, (int, float)) and pval <= 0:
                     return self.RED_BRUSH
                 else:
