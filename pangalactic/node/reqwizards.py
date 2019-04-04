@@ -112,6 +112,7 @@ class ReqWizard(QWizard):
                             QWizard.CancelButton]
         self.setButtonLayout(included_buttons)
         self.setOptions(QWizard.NoBackButtonOnStartPage)
+        self.setSubTitleFormat(Qt.RichText)
         # clear the req_wizard_state
         for x in req_wizard_state:
             req_wizard_state[x] = None
@@ -385,10 +386,9 @@ class ReqAllocPage(QWizardPage):
         if self.title():
             return;
         self.setTitle("Requirement Allocation")
-        self.setSubTitle("Specify the project system(s) or function(s), "
-                         "if known, which will satisfy the requirement...\n"
-                         "[left-click on one or more a tree node(s) "
-                         "to allocate]")
+        self.setSubTitle("Specify the system or function "
+                         "that will satisfy the requirement "
+                         "(<b>DOUBLE-CLICK</b> on a tree node).")
         project_oid = state.get('project')
         proj = orb.get(project_oid)
         self.project = proj
@@ -538,21 +538,21 @@ class ReqSummaryPage(QWizardPage):
         elif (self.req.req_constraint_type == 'minimum'
               and self.req.req_minimum_value is None):
             return False
-        self.req.req_dimensions = req_wizard_state['req_dimensions']
-        self.req.req_constraint_type = req_wizard_state['req_constraint_type']
-        self.req.req_tolerance_type = req_wizard_state['req_tolerance_type']
-        self.req.verification_method = req_wizard_state['verification_method']
-        self.req.req_target_value = req_wizard_state['req_target_value']
-        self.req.req_maximum_value = req_wizard_state['req_maximum_value']
-        self.req.req_minimum_value = req_wizard_state['req_minimum_value']
-        self.req.req_tolerance = req_wizard_state['req_tolerance']
-        self.req.req_tolerance_lower = req_wizard_state['req_tolerance_lower']
-        self.req.req_tolerance_upper = req_wizard_state['req_tolerance_upper']
-        self.req.req_min_max_phrase = req_wizard_state['req_min_max_phrase']
-        self.req.req_shall_phrase = req_wizard_state['req_shall_phrase']
-        self.req.req_subject = req_wizard_state['req_subject']
-        self.req.req_predicate = req_wizard_state['req_predicate']
-        self.req.req_epilog = req_wizard_state['req_epilog']
+        self.req.req_dimensions = req_wizard_state.get('req_dimensions')
+        self.req.req_constraint_type = req_wizard_state.get('req_constraint_type')
+        self.req.req_tolerance_type = req_wizard_state.get('req_tolerance_type')
+        self.req.verification_method = req_wizard_state.get('verification_method')
+        self.req.req_target_value = req_wizard_state.get('req_target_value')
+        self.req.req_maximum_value = req_wizard_state.get('req_maximum_value')
+        self.req.req_minimum_value = req_wizard_state.get('req_minimum_value')
+        self.req.req_tolerance = req_wizard_state.get('req_tolerance')
+        self.req.req_tolerance_lower = req_wizard_state.get('req_tolerance_lower')
+        self.req.req_tolerance_upper = req_wizard_state.get('req_tolerance_upper')
+        self.req.req_min_max_phrase = req_wizard_state.get('req_min_max_phrase')
+        self.req.req_shall_phrase = req_wizard_state.get('req_shall_phrase')
+        self.req.req_subject = req_wizard_state.get('req_subject')
+        self.req.req_predicate = req_wizard_state.get('req_predicate')
+        self.req.req_epilog = req_wizard_state.get('req_epilog')
         orb.save([self.req])
         dispatcher.send(signal='modified object', obj=self.req)
 
@@ -579,9 +579,8 @@ class PerformanceDefineParmPage(QWizardPage):
         if self.title():
             return
 
-        self.setTitle('Dimension and Type')
-        self.setSubTitle('Seclect the dimension of the performance parameter'
-                         ' and the type value it will be...')
+        self.setTitle('Parameter Selection')
+        self.setSubTitle('Select the performance parameter.')
 
         # The inner layouts
         dim_layout = QFormLayout()
