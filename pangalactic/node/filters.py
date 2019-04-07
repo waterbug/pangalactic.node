@@ -18,7 +18,6 @@ from pangalactic.core.utils.meta  import (get_external_name_plural,
                                           get_attr_ext_name)
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.reqwizards  import ReqWizard
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.utils       import (create_mime_data,
                                           create_template_from_product,
@@ -580,7 +579,7 @@ class FilterPanel(QWidget):
 
     def setup_context_menu(self):
         if self.cname == 'Requirement':
-            # for Requirements, edit using ReqWizard
+            # for Requirements, use ReqWizard to edit ...
             # TODO:  only offer this action if user is authorized to edit
             self.addAction(self.reqwizard_action)
         else:
@@ -612,21 +611,25 @@ class FilterPanel(QWidget):
             if oid:
                 req = orb.get(oid)
                 if req:
-                    wizard = ReqWizard(parent=self, req=req)
-                    if wizard.exec_() == QDialog.Accepted:
-                        orb.log.info('* reqt wizard accepted ...')
-                        if getattr(wizard, 'pgxn_obj', None):
-                            wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                            wizard.pgxn_obj.parent = None
-                            wizard.pgxn_obj.close()
-                            wizard.pgxn_obj = None
-                    else:
-                        orb.log.info('* reqt wizard cancelled ...')
-                        if getattr(wizard, 'pgxn_obj', None):
-                            wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                            wizard.pgxn_obj.parent = None
-                            wizard.pgxn_obj.close()
-                            wizard.pgxn_obj = None
+                    pass
+                    # OOPS -- cannot use ReqWizard directly here:  it creates a
+                    # circular dependency ... need to find some indirect way to
+                    # invoke it ...
+                    # wizard = ReqWizard(parent=self, req=req)
+                    # if wizard.exec_() == QDialog.Accepted:
+                        # orb.log.info('* reqt wizard accepted ...')
+                        # if getattr(wizard, 'pgxn_obj', None):
+                            # wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
+                            # wizard.pgxn_obj.parent = None
+                            # wizard.pgxn_obj.close()
+                            # wizard.pgxn_obj = None
+                    # else:
+                        # orb.log.info('* reqt wizard cancelled ...')
+                        # if getattr(wizard, 'pgxn_obj', None):
+                            # wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
+                            # wizard.pgxn_obj.parent = None
+                            # wizard.pgxn_obj.close()
+                            # wizard.pgxn_obj = None
 
     def create_template(self):
         """

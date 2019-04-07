@@ -18,7 +18,8 @@ from louie import dispatcher
 from pangalactic.core             import config, state
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import get_attr_ext_name
-from pangalactic.core.units       import in_si, alt_units
+from pangalactic.core.units       import alt_units
+from pangalactic.node.libraries   import LibraryListView
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, ReqAllocDelegate
 from pangalactic.node.widgets     import PlaceHolder, NameLabel, ValueLabel
@@ -121,26 +122,27 @@ class ReqWizard(QWizard):
         self.project = proj
         if isinstance(req, orb.classes['Requirement']):
             req_wizard_state['req_oid'] = req.oid
-            for a in ['description',
-                      'rationale',
-                      'req_constraint_type',
-                      'req_dimensions',
-                      'req_epilog',
-                      'req_level',
-                      'req_maximum_value',
-                      'req_minimum_value',
-                      'req_min_max_phrase',
-                      'req_predicate',
-                      'req_shall_phrase',
-                      'req_subject',
-                      'req_target_value',
-                      'req_tolerance',
-                      'req_tolerance_lower',
-                      'req_tolerance_type',
-                      'req_tolerance_upper',
-                      'validated',
-                      'verification_method',
-                      ]:
+            for a in [
+                'computable_form',  # oid of a Relation object
+                'description',
+                'rationale',
+                'req_constraint_type',
+                'req_epilog',
+                'req_level',
+                'req_maximum_value',
+                'req_minimum_value',
+                'req_min_max_phrase',
+                'req_predicate',
+                'req_shall_phrase',
+                'req_subject',
+                'req_target_value',
+                'req_tolerance',
+                'req_tolerance_lower',
+                'req_tolerance_type',
+                'req_tolerance_upper',
+                'validated',
+                'verification_method'
+                ]:
                 req_wizard_state[a] = getattr(req, a)
             # 'performance' flag indicates requirement_type:
             #    - True  -> performance requirement
@@ -538,7 +540,7 @@ class ReqSummaryPage(QWizardPage):
         elif (self.req.req_constraint_type == 'minimum'
               and self.req.req_minimum_value is None):
             return False
-        self.req.req_dimensions = req_wizard_state.get('req_dimensions')
+        self.req.computable_form = orb.get(req_wizard_state.get('computable_form'))
         self.req.req_constraint_type = req_wizard_state.get('req_constraint_type')
         self.req.req_tolerance_type = req_wizard_state.get('req_tolerance_type')
         self.req.verification_method = req_wizard_state.get('verification_method')
@@ -583,24 +585,26 @@ class PerformanceDefineParmPage(QWizardPage):
         self.setSubTitle('Select the performance parameter.')
 
         # The inner layouts
-        dim_layout = QFormLayout()
+        parm_layout = QVBoxLayout()
         type_layout = QFormLayout()
 
-        # Combo box to select the dimension of the requirement.
-        dim_label = QLabel('Dimension: ')
-        self.dim_cb = QComboBox()
-        dimslist = [d for d in in_si if d and d != 'None']
-        for dims in dimslist:
-            self.dim_cb.addItem(dims)
-        dim_layout.addRow(dim_label, self.dim_cb)
-        self.dim_cb.currentTextChanged.connect(self.dim_changed)
-        self.dim_cb.currentTextChanged.connect(self.completeChanged)
-        req_dims = req_wizard_state.get('req_dimensions')
-        if req_dims in dimslist:
-            self.dim_cb.setCurrentIndex(dimslist.index(req_dims))
+        # Parameter list from which to select the performance parameter being
+        # constrained by the requirement.
+        rel = orb.get(req_wizard_state.get('computable_form'))
+        pd = None
+        if rel:
+            parm_rels = rel.correlated_parameters
+            if parm_rels:
+                pd = parm_rels[0].correlates_parameter
+        self.parm_list = LibraryListView('ParameterDefinition',
+                                         include_subtypes=False, obj=pd,
+                                         draggable=False, parent=self)
+        self.parm_list.setSelectionBehavior(LibraryListView.SelectRows)
+        self.parm_list.setSelectionMode(LibraryListView.SingleSelection)
+        parm_layout.addWidget(self.parm_list)
 
-        # vertical line that will be used as a spacer between dimension
-        # selection and the selection of the type.
+        # vertical line that will be used as a spacer between parameter
+        # selection and the selection of the type of constraint.
         line = QHLine()
         line.setFrameShadow(QFrame.Sunken)
 
@@ -655,26 +659,19 @@ class PerformanceDefineParmPage(QWizardPage):
         type_layout.addRow(type_label, radio_button_layout)
 
         # set inner layout spacing
-        dim_layout.setContentsMargins(100, 40, 100, 40)
+        parm_layout.setContentsMargins(100, 40, 100, 40)
         type_layout.setContentsMargins(100,40,0,40)
 
         # set main layout and add the layouts to it.
         layout = self.layout()
         layout.setSpacing(30)
-        layout.addLayout(dim_layout)
+        layout.addLayout(parm_layout)
         layout.addWidget(line)
         layout.addLayout(type_layout)
 
     def tolerance_changed(self):
         tol_type = self.single_cb.currentText()
         req_wizard_state['req_tolerance_type'] = tol_type
-
-    def dim_changed(self):
-        dim = self.dim_cb.currentText()
-        if dim:
-            req_wizard_state['req_dimensions'] = dim
-        else:
-            req_wizard_state['req_dimensions'] = None
 
     def set_constraint_type(self):
         """
@@ -698,7 +695,7 @@ class PerformanceDefineParmPage(QWizardPage):
         """
         Check if both dimension and type have been specified
         """
-        if (not req_wizard_state.get('req_dimensions')
+        if (not req_wizard_state.get('computable_form')
             or not req_wizard_state.get('req_constraint_type')):
             return False
         return True
@@ -989,13 +986,19 @@ class PerformReqBuildShallPage(QWizardPage):
 
         # units combo box.
         self.units = QComboBox()
-        dims = req_wizard_state.get('req_dimensions')
-        units_list = alt_units.get(dims, None)
+        units_list = []
+        rel = orb.get(req_wizard_state.get('computable_form'))
+        if rel:
+            parm_rels = rel.correlates_parameters
+            if parm_rels:
+                pd = parm_rels[0].correlates_parameter
+                if pd:
+                    units_list = alt_units.get(pd.dimensions, None)
         if units_list:
             for unit in units_list:
                 self.units.addItem(unit)
         else:
-            self.units.addItem(in_si[dims])
+            self.units.addItem('No units found.')
         # labels for the overall groups for organization of the page
         shall_label = QLabel('Shall Statement:')
         add_comp_label = QLabel('Additional Shall Statement'
