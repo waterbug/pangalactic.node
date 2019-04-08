@@ -92,6 +92,18 @@ def build_req_id(project, seq, version):
     return '.'.join([project.id, str(seq), version])
 
 
+class QHLine(QFrame):
+    def __init__(self):
+        super(QHLine, self).__init__()
+        self.setFrameShape(QFrame.HLine)
+
+
+class QVLine(QFrame):
+    def __init__(self):
+        super(QVLine, self).__init__()
+        self.setFrameShape(QFrame.VLine)
+
+
 class ReqWizard(QWizard):
     """
     Wizard for project requirements (both functional and performance)
@@ -574,7 +586,7 @@ class PerformanceDefineParmPage(QWizardPage):
 
     def __init__(self, parent=None):
         super(PerformanceDefineParmPage, self).__init__(parent)
-        layout = QVBoxLayout()
+        layout = QHBoxLayout()
         self.setLayout(layout)
 
     def initializePage(self):
@@ -601,11 +613,12 @@ class PerformanceDefineParmPage(QWizardPage):
                                          draggable=False, parent=self)
         self.parm_list.setSelectionBehavior(LibraryListView.SelectRows)
         self.parm_list.setSelectionMode(LibraryListView.SingleSelection)
+        self.parm_list.doubleClicked.connect(self.on_select_parm)
         parm_layout.addWidget(self.parm_list)
 
         # vertical line that will be used as a spacer between parameter
         # selection and the selection of the type of constraint.
-        line = QHLine()
+        line = QVLine()
         line.setFrameShadow(QFrame.Sunken)
 
         # radio buttons for the  type specification including the label and the
@@ -659,8 +672,8 @@ class PerformanceDefineParmPage(QWizardPage):
         type_layout.addRow(type_label, radio_button_layout)
 
         # set inner layout spacing
-        parm_layout.setContentsMargins(100, 40, 100, 40)
-        type_layout.setContentsMargins(100,40,0,40)
+        parm_layout.setContentsMargins(20, 20, 20, 20)
+        type_layout.setContentsMargins(20, 20, 20, 20)
 
         # set main layout and add the layouts to it.
         layout = self.layout()
@@ -668,6 +681,12 @@ class PerformanceDefineParmPage(QWizardPage):
         layout.addLayout(parm_layout)
         layout.addWidget(line)
         layout.addLayout(type_layout)
+
+    def on_select_parm(self, index):
+        if len(self.parm_list.selectedIndexes()) == 1:
+            i = self.parm_list.selectedIndexes()[0].row()
+            pd = self.parm_list.model().objs[i]
+            orb.log.info('* on_select_parm:  {}'.format(pd.id))
 
     def tolerance_changed(self):
         tol_type = self.single_cb.currentText()
@@ -1355,9 +1374,4 @@ class PerformanceMarginCalcPage(QWizardPage):
 
     def isComplete(self):
         return True
-
-class QHLine(QFrame):
-    def __init__(self):
-        super(QHLine, self).__init__()
-        self.setFrameShape(QFrame.HLine)
 
