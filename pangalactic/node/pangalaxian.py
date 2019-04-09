@@ -2974,7 +2974,21 @@ class Main(QtWidgets.QMainWindow):
             if req_oid:
                 req = orb.get(req_oid)
                 if req:
-                    # delete the requirement
+                    # delete the requirement and any related Relation and
+                    # ParameterRelation objects
+                    rel = req.computable_form
+                    if rel:
+                        rel_oid = rel.oid
+                        prs = rel.correlates_parameters
+                        if prs:
+                            pr_oid = prs[0].oid
+                            orb.delete(prs)
+                            dispatcher.send(signal='deleted object',
+                                            oid=pr_oid,
+                                            cname='ParameterRelation')
+                        orb.delete([rel])
+                        dispatcher.send(signal='deleted object',
+                                        oid=rel_oid, cname='Relation')
                     orb.delete([req])
                     dispatcher.send(signal='deleted object', oid=req_oid,
                                     cname='Requirement')

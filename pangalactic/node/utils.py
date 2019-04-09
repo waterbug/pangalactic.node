@@ -71,6 +71,7 @@ def clone(what, include_ports=True, include_components=True, **kw):
     """
     orb.log.info('* clone({})'.format(what))
     new = False
+    recompute_needed = False
     if what in orb.classes:
         # 'what' is a class name -- create a new instance from scratch
         # TODO:  validation: every new object *must* have 'id' value
@@ -134,10 +135,12 @@ def clone(what, include_ports=True, include_components=True, **kw):
         # parameters to the clone
         new_parameters = deepcopy(parameterz[obj.oid])
         parameterz[newkw['oid']] = new_parameters
+        recompute_needed = True
     # operations specific to Hardware Products ...
-    if isinstance(new_obj, orb.classes['Product']):
+    if isinstance(new_obj, orb.classes['HardwareProduct']):
+        recompute_needed = True
         if new:
-            # TODO:  default parameters should depend on ProductType ...
+            # NOTE!  default parameters should depend on ProductType ...
             add_default_parameters(orb, new_obj)
         else:
             # the clone gets the product_type of the original object
@@ -163,7 +166,8 @@ def clone(what, include_ports=True, include_components=True, **kw):
                           creator=new_obj.creator, modifier=new_obj.creator,
                           create_datetime=NOW, mod_datetime=NOW)
                 refresh_componentz(orb, new_obj)
-    orb.recompute_parmz()
+    if recompute_needed:
+        orb.recompute_parmz()
     return new_obj
 
 def create_template_from_product(product):

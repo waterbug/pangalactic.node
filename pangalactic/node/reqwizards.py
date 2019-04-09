@@ -136,6 +136,7 @@ class ReqWizard(QWizard):
             req_wizard_state['req_oid'] = req.oid
             for a in [
                 'computable_form',  # oid of a Relation object
+                'parameter_id',     # id of performance parameter
                 'description',
                 'rationale',
                 'req_constraint_type',
@@ -592,13 +593,16 @@ class PerformanceDefineParmPage(QWizardPage):
     def initializePage(self):
         if self.title():
             return
-
+        self.req = orb.get(req_wizard_state.get('req_oid'))
+        project_oid = state.get('project')
+        proj = orb.get(project_oid)
+        self.project = proj
         self.setTitle('Parameter Selection')
         self.setSubTitle('Select the performance parameter.')
 
         # The inner layouts
-        parm_layout = QVBoxLayout()
-        type_layout = QFormLayout()
+        self.parm_layout = QVBoxLayout()
+        type_form = QFormLayout()
 
         # Parameter list from which to select the performance parameter being
         # constrained by the requirement.
@@ -608,13 +612,15 @@ class PerformanceDefineParmPage(QWizardPage):
             parm_rels = rel.correlated_parameters
             if parm_rels:
                 pd = parm_rels[0].correlates_parameter
+        # TODO: the 'obj' arg does nothing -- if there is a pd, it will have to
+        # be selected from the list of pd objects in the view ...
         self.parm_list = LibraryListView('ParameterDefinition',
                                          include_subtypes=False, obj=pd,
                                          draggable=False, parent=self)
         self.parm_list.setSelectionBehavior(LibraryListView.SelectRows)
         self.parm_list.setSelectionMode(LibraryListView.SingleSelection)
         self.parm_list.doubleClicked.connect(self.on_select_parm)
-        parm_layout.addWidget(self.parm_list)
+        self.parm_layout.addWidget(self.parm_list)
 
         # vertical line that will be used as a spacer between parameter
         # selection and the selection of the type of constraint.
@@ -669,24 +675,67 @@ class PerformanceDefineParmPage(QWizardPage):
         radio_button_layout.addWidget(self.range_button)
 
         # add radio_button_layout to the main type layout.
-        type_layout.addRow(type_label, radio_button_layout)
+        type_form.addRow(type_label, radio_button_layout)
 
         # set inner layout spacing
-        parm_layout.setContentsMargins(20, 20, 20, 20)
-        type_layout.setContentsMargins(20, 20, 20, 20)
+        self.parm_layout.setContentsMargins(20, 20, 20, 20)
+        type_form.setContentsMargins(20, 20, 20, 20)
 
         # set main layout and add the layouts to it.
         layout = self.layout()
         layout.setSpacing(30)
-        layout.addLayout(parm_layout)
+        layout.addLayout(self.parm_layout)
         layout.addWidget(line)
-        layout.addLayout(type_layout)
+        layout.addLayout(type_form)
 
     def on_select_parm(self, index):
+        # if we are already showing a selected ParameterDefinition, remove it:
+        if (hasattr(self, 'parm_pgxnobj') and
+            hasattr(self, 'parm_layout')):
+            self.parm_layout.removeWidget(self.parm_pgxnobj)
+            # NOTE:  WA_DeleteOnClose kills the "ghost pgxnobject" bug
+            self.parm_pgxnobj.setAttribute(Qt.WA_DeleteOnClose)
+            self.parm_pgxnobj.parent = None
+            self.parm_pgxnobj.close()
+            self.parm_pgxnobj = None
         if len(self.parm_list.selectedIndexes()) == 1:
             i = self.parm_list.selectedIndexes()[0].row()
             pd = self.parm_list.model().objs[i]
             orb.log.info('* on_select_parm:  {}'.format(pd.id))
+            # a pd has been selected; create a ParameterRelation instance that
+            # points to a Relation ('referenced_relation') and for which the
+            # 'correlates_parameter' is the pd.  Set the Relation's oid as the
+            # req_wizard_state['computable_form'] -- the Relation will be the
+            # Requirement's 'computable_form' attribute value.
+            # First, check for any existing Relation and ParameterRelation:
+            cf_oid = req_wizard_state.get('computable_form')
+            if cf_oid:
+                # if any are found, destroy them ...
+                cf = orb.get(cf_oid)
+                if cf:
+                    if cf.correlates_parameters:
+                        for pr in cf.correlates_parameters:
+                            orb.delete([pr])
+                    orb.delete([cf])
+            relid = self.req.id + '_relation'
+            relname = self.req.name + ' Relation'
+            rel = clone("Relation", id=relid, name=relname,
+                        owner=self.project, public=True)
+            prid = self.req.id + '_parm_rel'
+            prname = self.req.name + ' Parameter Relation'
+            pr = clone("ParameterRelation", id=prid, name=prname,
+                       correlates_parameter=pd, referenced_relation=rel,
+                       owner=self.project, public=True)
+            req_wizard_state['computable_form'] = rel.oid
+            req_wizard_state['parameter_id'] = pd.id
+            # display the selected ParameterDefinition...
+            main_view = ['id', 'name', 'description']
+            panels = ['main']
+            self.parm_pgxnobj = PgxnObject(pd, embedded=True,
+                                   panels=panels, main_view=main_view,
+                                   edit_mode=False, enable_delete=False)
+            self.parm_pgxnobj.toolbar.hide()
+            self.parm_layout.addWidget(self.parm_pgxnobj)
 
     def tolerance_changed(self):
         tol_type = self.single_cb.currentText()
