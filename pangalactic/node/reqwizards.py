@@ -124,6 +124,8 @@ class ReqWizard(QWizard):
                             QWizard.FinishButton,
                             QWizard.CancelButton]
         self.setButtonLayout(included_buttons)
+        self.button(QWizard.CancelButton).clicked.connect(
+                self.on_cancel)
         self.setOptions(QWizard.NoBackButtonOnStartPage)
         self.setSubTitleFormat(Qt.RichText)
         # clear the req_wizard_state
@@ -136,7 +138,8 @@ class ReqWizard(QWizard):
             req_wizard_state['req_oid'] = req.oid
             for a in [
                 'computable_form',  # oid of a Relation object
-                'parameter_id',     # id of performance parameter
+                'req_parameter',    # id of performance parameter
+                'comment',
                 'description',
                 'rationale',
                 'req_constraint_type',
@@ -153,6 +156,7 @@ class ReqWizard(QWizard):
                 'req_tolerance_lower',
                 'req_tolerance_type',
                 'req_tolerance_upper',
+                'req_units',        # units for performance values
                 'validated',
                 'verification_method'
                 ]:
@@ -182,6 +186,35 @@ class ReqWizard(QWizard):
             self.setGeometry(50, 50, 850, 750);
 
         self.setSizeGripEnabled(True)
+
+    def on_cancel(self):
+        req_oid = req_wizard_state.get('req_oid')
+        req = orb.get(req_oid)
+        # if reqt was saved, delete it and associated objects ...
+        if req:
+            # delete any related Relation and ParameterRelation objects
+            # rel_oid = req_wizard_state.get('computable_form')
+            # rel = orb.get(rel_oid)
+            rel = req.computable_form
+            if rel:
+                # pr_oid = req_wizard_state.get('pr_oid')
+                # pr = orb.get(pr_oid)
+                prs = rel.correlates_parameters
+                if prs:
+                    pr_oid = prs[0].oid
+                    orb.delete(prs)
+                    dispatcher.send(signal='deleted object',
+                                    oid=pr_oid,
+                                    cname='ParameterRelation')
+                rel_oid = rel.oid
+                orb.delete([rel])
+                dispatcher.send(signal='deleted object',
+                                oid=rel_oid, cname='Relation')
+            # delete the Requirement object
+            orb.delete([req])
+            dispatcher.send(signal='deleted object', oid=req_oid,
+                            cname='Requirement')
+        self.reject()
 
 ###########################
 # General Requirement Pages
@@ -283,6 +316,11 @@ class RequirementIDPage(QWizardPage):
         self.req.req_level = self.level_cb.currentText()
 
     def update_levels(self):
+        # NOTE: update_levels is triggered when pgxnobject saves, so update
+        # req_wizard_state to sync with the saved req attributes ...
+        req_wizard_state['description'] = self.req.description
+        req_wizard_state['rationale'] = self.req.rationale
+        req_wizard_state['comment'] = self.req.comment
         self.level_cb.removeItem(1)
         self.level_cb.removeItem(0)
         if self.req.parent_requirements:
@@ -317,6 +355,7 @@ class RequirementIDPage(QWizardPage):
             self.level_cb.setDisabled(False)
             # self.update_levels
             self.req.req_level = self.req.req_level or 0
+            req_wizard_state['req_level'] = self.req.req_level
             if not req_wizard_state.get('performance'):
                 self.req.requirement_type = 'functional'
             else:
@@ -717,17 +756,21 @@ class PerformanceDefineParmPage(QWizardPage):
                         for pr in cf.correlates_parameters:
                             orb.delete([pr])
                     orb.delete([cf])
-            relid = self.req.id + '_relation'
-            relname = self.req.name + ' Relation'
+            relid = self.req.id + '_computable_form'
+            relname = self.req.name + ' Computable Form'
             rel = clone("Relation", id=relid, name=relname,
                         owner=self.project, public=True)
+            # set Relation as requirement's 'computable_form'
+            self.req.computable_form = rel
             prid = self.req.id + '_parm_rel'
             prname = self.req.name + ' Parameter Relation'
             pr = clone("ParameterRelation", id=prid, name=prname,
                        correlates_parameter=pd, referenced_relation=rel,
                        owner=self.project, public=True)
+            # req_wizard_state['pr_oid'] = pr.oid
             req_wizard_state['computable_form'] = rel.oid
-            req_wizard_state['parameter_id'] = pd.id
+            req_wizard_state['req_parameter'] = pd.id
+            orb.save([self.req])  # also commits the rel and pr objects to db
             # display the selected ParameterDefinition...
             main_view = ['id', 'name', 'description']
             panels = ['main']
@@ -1067,6 +1110,7 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.units.addItem(unit)
         else:
             self.units.addItem('No units found.')
+        self.units.currentTextChanged.connect(self.on_set_units)
         # labels for the overall groups for organization of the page
         shall_label = QLabel('Shall Statement:')
         add_comp_label = QLabel('Additional Shall Statement'
@@ -1243,6 +1287,33 @@ class PerformReqBuildShallPage(QWizardPage):
             except:
                 # field was empty or bad value
                 pass
+
+    def on_set_units(self):
+        orb.log.info('* [reqwizard] setting units ...')
+        units_widget = self.sender()
+        new_units = str(units_widget.currentText())
+        orb.log.debug('            new units: "{}"'.format(new_units))
+        req_wizard_state['req_units'] = new_units
+        # parm_id = units_widget.field_name
+        # parm_widget = self.p_widgets.get(parm_id)
+        # if self.edit_mode and hasattr(parm_widget, 'get_value'):
+            # # in edit mode, get value (str) from editable field and convert it
+            # str_val = parm_widget.get_value()
+            # pval = get_pval_from_str(orb, self.obj.oid, parm_id, str_val)
+            # applicable_units = self.previous_units[parm_id]
+            # quant = pval * ureg.parse_expression(applicable_units)
+            # new_quant = quant.to(new_units)
+            # new_str_val = str(new_quant.magnitude)
+        # else:
+            # # view mode or read-only parm -> get cached parameter value and
+            # # convert it to the requested units for display
+            # new_str_val = get_pval_as_str(orb, self.obj.oid, parm_id,
+                                          # units=new_units)
+        # if hasattr(parm_widget, 'set_value'):
+            # parm_widget.set_value(new_str_val)
+        # elif hasattr(parm_widget, 'setText'):
+            # parm_widget.setText(new_str_val)
+        # self.previous_units[parm_id] = new_units
 
     def contextMenu(self, event):
         self.selected_widget = self.sender()

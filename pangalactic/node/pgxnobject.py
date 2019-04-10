@@ -34,7 +34,6 @@ from pangalactic.core.parametrics import (add_parameter, delete_parameter,
                                           get_pval_from_str, parameterz,
                                           set_pval_from_str)
 from pangalactic.core.uberorb     import orb
-# from pangalactic.core.units       import alt_units, in_si, ureg
 from pangalactic.core.units       import alt_units, ureg
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_parameter_definition_oid)

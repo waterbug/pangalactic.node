@@ -2958,7 +2958,7 @@ class Main(QtWidgets.QMainWindow):
     def new_functional_requirement(self):
         wizard = ReqWizard(parent=self, performance=False)
         if wizard.exec_() == QtWidgets.QDialog.Accepted:
-            orb.log.info('* reqt wizard accepted ...')
+            orb.log.info('* reqt wizard completed.')
             req_oid = req_wizard_state.get('req_oid')
             req = orb.get(req_oid)
             if req and getattr(wizard, 'pgxn_obj', None):
@@ -2967,54 +2967,29 @@ class Main(QtWidgets.QMainWindow):
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
-            orb.log.info('* reqt wizard cancelled ...')
-            req_oid = req_wizard_state.get('req_oid')
-            # if wizard was canceled before saving the requirement, oid will be
-            # none and no object was created, so there is nothing to delete
-            if req_oid:
-                req = orb.get(req_oid)
-                if req:
-                    # delete the requirement and any related Relation and
-                    # ParameterRelation objects
-                    rel = req.computable_form
-                    if rel:
-                        rel_oid = rel.oid
-                        prs = rel.correlates_parameters
-                        if prs:
-                            pr_oid = prs[0].oid
-                            orb.delete(prs)
-                            dispatcher.send(signal='deleted object',
-                                            oid=pr_oid,
-                                            cname='ParameterRelation')
-                        orb.delete([rel])
-                        dispatcher.send(signal='deleted object',
-                                        oid=rel_oid, cname='Relation')
-                    orb.delete([req])
-                    dispatcher.send(signal='deleted object', oid=req_oid,
-                                    cname='Requirement')
+            orb.log.info('* reqt wizard cancelled.')
+            if getattr(wizard, 'pgxn_obj', None):
+                wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
+                wizard.pgxn_obj.parent = None
+                wizard.pgxn_obj.close()
+                wizard.pgxn_obj = None
 
     def new_perform_requirement(self):
         wizard = ReqWizard(parent=self, performance=True)
         if wizard.exec_() == QtWidgets.QDialog.Accepted:
-            req_oid = req_wizard_state.get('req_oid')
-            req = orb.get(req_oid)
-            if req and getattr(wizard, 'pgxn_obj', None):
+            orb.log.info('* reqt wizard completed.')
+            if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
             orb.log.info('* reqt wizard cancelled...')
-            req_oid = req_wizard_state.get('req_oid')
-            # if wizard was canceled before saving the requirement, oid will be
-            # none and no object was created, so there is nothing to delete
-            if req_oid:
-                req = orb.get(req_oid)
-                if req:
-                    # delete the requirement
-                    orb.delete([req])
-                    dispatcher.send(signal='deleted object', oid=req_oid,
-                                    cname='Requirement')
+            if getattr(wizard, 'pgxn_obj', None):
+                wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
+                wizard.pgxn_obj.parent = None
+                wizard.pgxn_obj.close()
+                wizard.pgxn_obj = None
 
     def new_test(self):
         # TODO:  Wizard for Test?

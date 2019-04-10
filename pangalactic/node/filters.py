@@ -327,6 +327,9 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
 
 class ProxyView(QTableView):
+    """
+    Presentation table view for a filtered set of objects.
+    """
     def __init__(self, proxy_model, as_library=False, word_wrap=False,
                  parent=None):
         super(ProxyView, self).__init__(parent=parent)
@@ -357,8 +360,11 @@ class ProxyView(QTableView):
         self.verticalHeader().hide()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.sortByColumn(0, Qt.AscendingOrder)
-        # QTimer trick ...
-        QTimer.singleShot(0, self.resizeRowsToContents)
+        if word_wrap:
+            # QTimer trick ...
+            QTimer.singleShot(0, self.resizeRowsToContents)
+        else:
+            QTimer.singleShot(0, self.resizeColumnsToContents)
 
     def mouseMoveEvent(self, event):
         if self.dragEnabled():
