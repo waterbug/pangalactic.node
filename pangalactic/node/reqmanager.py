@@ -30,8 +30,8 @@ class RequirementManager(QDialog):
     def __init__(self, project=None, width=None, height=None, view=None,
                  req=None, parent=None):
         super(RequirementManager, self).__init__(parent=parent)
-        default_view = ['id', 'name', 'requirement_type', 'level',
-                        'description', 'rationale']
+        default_view = ['id', 'name', 'req_type', 'level', 'description',
+                        'rationale']
         view = view or default_view
         self.req = req
         if project:

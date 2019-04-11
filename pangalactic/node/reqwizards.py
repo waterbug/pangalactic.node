@@ -161,10 +161,10 @@ class ReqWizard(QWizard):
                 'verification_method'
                 ]:
                 req_wizard_state[a] = getattr(req, a)
-            # 'performance' flag indicates requirement_type:
+            # 'performance' flag indicates req_type:
             #    - True  -> performance requirement
             #    - False -> functional requirement
-            performance = (req.requirement_type == 'performance')
+            performance = (req.req_type == 'performance')
         if not performance:
             req_wizard_state['performance'] = False
             self.addPage(RequirementIDPage(self))
@@ -357,9 +357,9 @@ class RequirementIDPage(QWizardPage):
             self.req.req_level = self.req.req_level or 0
             req_wizard_state['req_level'] = self.req.req_level
             if not req_wizard_state.get('performance'):
-                self.req.requirement_type = 'functional'
+                self.req.req_type = 'functional'
             else:
-                self.req.requirement_type = 'performance'
+                self.req.req_type = 'performance'
             orb.save([self.req])
             return True
 
