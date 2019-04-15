@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDialogButtonBox,
 from louie import dispatcher
 
 from pangalactic.core             import config, state
+from pangalactic.core.parametrics import parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import get_attr_ext_name
 from pangalactic.core.units       import alt_units
@@ -220,8 +221,7 @@ class ReqWizard(QWizard):
 # General Requirement Pages
 ###########################
 
-# Includes ID page which uses a flag, verification, and summary. May include
-# allocation.
+# Includes ID page which includes identifier, name, and summary.
 
 class RequirementIDPage(QWizardPage):
 
@@ -422,9 +422,9 @@ class ReqVerificationPage(QWizardPage):
 
 class ReqAllocPage(QWizardPage):
     """
-    Page to allocate the requirement to a project, to the role of a system in a
-    project, or to the "function" (identified by reference designator) of a
-    component or subsystem of a system.
+    Page to allocate the requirement to a project, a system role, or a
+    function (identified by reference designator) within a system
+    architecture.
     """
 
     def __init__(self, parent=None):
@@ -1009,14 +1009,26 @@ class PerformReqBuildShallPage(QWizardPage):
                                     self.set_min_max_phrase)
             self.min_max_cb.setMaximumSize(150,25)
 
+        allocated_item = '[unallocated]'
+        acu = self.req.allocated_to_function
+        psu = self.req.allocated_to_system
+        if acu:
+            allocated_item = acu.reference_designator
+        elif psu:
+            allocated_item = psu.system_role
+        parm_name = '[parameter not selected]'
+        pid = req_wizard_state.get('req_parameter')
+        if pid:
+            pd_dict = parm_defz.get(pid)
+            if pd_dict:
+                parm_name = pd_dict['name']
+        alloc_parm = ' '.join([allocated_item, parm_name])
         # premade labels text (non-editable labels)
-        # allocated_item = req_wizard_state.get('allocation')
         # self.allocation_label = QComboBox()
         # self.allocation_label.addItem(allocated_item)
         # self.allocation_label.addItem("The " + allocated_item)
         # self.allocation_label.setMaximumSize(175,25)
-        self.allocation_label = ValueLabel(req_wizard_state.get(
-                                           'allocation', 'Not Allocated'))
+        self.allocation_label = ValueLabel(alloc_parm)
 
         # line edit(s) for number entry
         # TODO: make one numeric entry unless it is range then make two.
