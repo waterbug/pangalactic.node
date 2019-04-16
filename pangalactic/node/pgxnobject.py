@@ -29,10 +29,9 @@ from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
                                    SELECTABLE_VALUES, SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_parameter, delete_parameter,
-                                          # get_pval, get_pval_as_str,
-                                          get_pval_as_str,
+                                          get_parameter_id, get_pval_as_str,
                                           get_pval_from_str, parameterz,
-                                          set_pval_from_str)
+                                          parm_defz, set_pval_from_str)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, ureg
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
@@ -134,18 +133,20 @@ class PgxnForm(QWidget):
             # used for the other panels
             orb.log.info('* [pgxnobj] building "parameters" form ...')
             # Special case for parameters form ...
-            parms = parameterz.get(obj.oid)
-            if parms:
+            idvs = orb.get_idvs(cname='ParameterDefinition')
+            variables = [idv[0] for idv in idvs]
+            contingencies = [get_parameter_id(idv[0], 'Contingency') for idv in idvs]
+            parmz = parameterz.get(obj.oid)
+            pids = [p for p in parmz if p in variables or p in contingencies]
+            if pids:
                 orb.log.info('* [pgxnobj] parameters found: {}'.format(
-                                                            str(list(parms.keys()))))
+                                                            str(pids)))
                 computed_note = False
                 # order parameters -- editable (non-computed) parameters first
                 pref_editables = [pid for pid in PGXN_PARAMETERS
-                                  if pid in parms
-                                  and not parms[pid].get('computed')]
-                np_editables = [pid for pid in parms
-                                if pid not in PGXN_PARAMETERS
-                                and not parms[pid].get('computed')]
+                                  if pid in pids]
+                np_editables = [pid for pid in pids
+                                if pid not in PGXN_PARAMETERS]
                 editables = pref_editables + np_editables
                 ##############################################################
                 ### New Parameter paradigm (SCW 2019-03-25) ##################
@@ -154,10 +155,10 @@ class PgxnForm(QWidget):
                 # (to be implemented)
                 ##############################################################
                 # pref_computeds = [pid for pid in PGXN_PARAMETERS
-                                  # if pid in parms
-                                  # and parms[pid].get('computed')]
-                # np_computeds = [pid for pid in parms
-                                # if parms[pid].get('computed')
+                                  # if pid in parmz
+                                  # and parmz[pid].get('computed')]
+                # np_computeds = [pid for pid in parmz
+                                # if parmz[pid].get('computed')
                                 # and pid not in PGXN_PARAMETERS]
                 # computeds = pref_computeds + np_computeds
                 computeds = []
@@ -165,23 +166,24 @@ class PgxnForm(QWidget):
                 orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
                                                             str(p_ordering)))
                 if seq is None:
-                    orb.log.debug('  seq is None; all parms on one page.')
+                    orb.log.debug('  seq is None; all parameters on one page.')
                     pids_on_panel = p_ordering
                 else:
                     orb.log.debug('  seq is {}'.format(str(seq)))
                     # NOTE:  'seq' is a 1-based sequence
-                    orb.log.debug('  parms found: {}'.format(
-                                                        str(list(parms.keys()))))
+                    orb.log.debug('  parameters found: {}'.format(
+                                                        str(pids)))
                     pids_on_panel = p_ordering[
                                             (seq-1)*PARMS_NBR : seq*PARMS_NBR]
-                    orb.log.debug('  parms on this panel: {}'.format(
+                    orb.log.debug('  parameters on this panel: {}'.format(
                                                           str(pids_on_panel)))
                 for pid in pids_on_panel:
                     field_name = pid
-                    parm = parms[pid] or {}
-                    ext_name = parm.get('name', '') or '[unknown]'
+                    parm = parmz[pid] or {}
+                    pd = parm_defz[pid]
+                    ext_name = pd.get('name', '') or '[unknown]'
                     units = parm.get('units', '')
-                    dimensions = parm.get('dimensions', '')
+                    dimensions = pd.get('dimensions', '')
                     unit_choices = alt_units.get(dimensions)
                     if unit_choices:
                         units_widget = UnitsWidget(field_name, units,
@@ -193,10 +195,10 @@ class PgxnForm(QWidget):
                     # field_type 'parameter' -> StringFieldWidget for edit mode
                     field_type = 'parameter'
                     # parm types are 'float', 'int', 'bool', or 'text'
-                    parm_type = parm.get('range_datatype', 'float')
+                    parm_type = pd.get('range_datatype', 'float')
                     # if 'computed', p is not editable
-                    editable = (edit_mode and not parm.get('computed'))
-                    definition = (parm.get('description', '')
+                    editable = (edit_mode and not pd.get('computed'))
+                    definition = (pd.get('description', '')
                                   or 'unknown definition')
                     # NOTE: get_pval_as_str will convert the stored value from
                     # base units to the units specified (using get_pval)
@@ -224,7 +226,7 @@ class PgxnForm(QWidget):
                         self.p_widget_values[pid] = str(parm.get('value'))
                         widget.setSizePolicy(QSizePolicy.Minimum,
                                              QSizePolicy.Minimum)
-                        if parm.get('computed'):
+                        if pd.get('computed'):
                             text = label.text() + ' *'
                             label.setText(text)
                             label.setStyleSheet(
@@ -355,26 +357,26 @@ class PgxnForm(QWidget):
         units_widget = self.sender()
         new_units = units_widget.get_value()
         orb.log.debug('            new units: "{}"'.format(new_units))
-        parm_id = units_widget.field_name
-        parm_widget = self.p_widgets.get(parm_id)
+        pid = units_widget.field_name
+        parm_widget = self.p_widgets.get(pid)
         if self.edit_mode and hasattr(parm_widget, 'get_value'):
             # in edit mode, get value (str) from editable field and convert it
             str_val = parm_widget.get_value()
-            pval = get_pval_from_str(orb, self.obj.oid, parm_id, str_val)
-            applicable_units = self.previous_units[parm_id]
+            pval = get_pval_from_str(orb, self.obj.oid, pid, str_val)
+            applicable_units = self.previous_units[pid]
             quant = pval * ureg.parse_expression(applicable_units)
             new_quant = quant.to(new_units)
             new_str_val = str(new_quant.magnitude)
         else:
             # view mode or read-only parm -> get cached parameter value and
             # convert it to the requested units for display
-            new_str_val = get_pval_as_str(orb, self.obj.oid, parm_id,
+            new_str_val = get_pval_as_str(orb, self.obj.oid, pid,
                                           units=new_units)
         if hasattr(parm_widget, 'set_value'):
             parm_widget.set_value(new_str_val)
         elif hasattr(parm_widget, 'setText'):
             parm_widget.setText(new_str_val)
-        self.previous_units[parm_id] = new_units
+        self.previous_units[pid] = new_units
 
     def on_select_related(self):
         orb.log.info('* [pgxnobj] select related object ...')
@@ -783,9 +785,14 @@ class PgxnObject(QMainWindow):
             and not cname in PGXN_HIDE_PARMS):
             # All subclasses of Modelable except the ones in PGXN_HIDE_PARMS
             # get a 'parameters' panel
-            obj_parms = parameterz.get(self.obj.oid) or {}
-            if len(list(obj_parms.keys())) > PARMS_NBR:
-                n_of_parms = len(list(obj_parms.keys()))
+            # First find the parameters to be displayed for this object ...
+            idvs = orb.get_idvs(cname='ParameterDefinition')
+            variables = [idv[0] for idv in idvs]
+            contingencies = [get_parameter_id(idv[0], 'Contingency') for idv in idvs]
+            parmz = parameterz.get(self.obj.oid)
+            pids = [p for p in parmz if p in variables or p in contingencies]
+            if len(pids) > PARMS_NBR:
+                n_of_parms = len(pids)
                 # allow 16 parameters to a panel ...
                 n_of_parm_panels = int(math.ceil(
                                        float(n_of_parms)/float(PARMS_NBR)))
