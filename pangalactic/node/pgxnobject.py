@@ -136,7 +136,7 @@ class PgxnForm(QWidget):
             idvs = orb.get_idvs(cname='ParameterDefinition')
             variables = [idv[0] for idv in idvs]
             contingencies = [get_parameter_id(idv[0], 'Contingency') for idv in idvs]
-            parmz = parameterz.get(obj.oid)
+            parmz = parameterz.get(obj.oid, {})
             pids = [p for p in parmz if p in variables or p in contingencies]
             if pids:
                 orb.log.info('* [pgxnobj] parameters found: {}'.format(
@@ -789,7 +789,7 @@ class PgxnObject(QMainWindow):
             idvs = orb.get_idvs(cname='ParameterDefinition')
             variables = [idv[0] for idv in idvs]
             contingencies = [get_parameter_id(idv[0], 'Contingency') for idv in idvs]
-            parmz = parameterz.get(self.obj.oid)
+            parmz = parameterz.get(self.obj.oid, {})
             pids = [p for p in parmz if p in variables or p in contingencies]
             if len(pids) > PARMS_NBR:
                 n_of_parms = len(pids)

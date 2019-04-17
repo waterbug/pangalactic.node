@@ -135,11 +135,16 @@ class ReqWizard(QWizard):
         project_oid = state.get('project')
         proj = orb.get(project_oid)
         self.project = proj
+        req_wizard_state['req_parameter'] = ''
+        self.new_req = True
         if isinstance(req, orb.classes['Requirement']):
+            self.new_req = False
             req_wizard_state['req_oid'] = req.oid
+            # NOTE: the following state variables take the same values as their
+            # counterparts in the attributes of Requirement -- HOWEVER, the
+            # state variables 'req_parameter' and 'computable_form_oid' are
+            # special cases and are handled differently ...
             for a in [
-                'computable_form',  # oid of a Relation object
-                'req_parameter',    # id of performance parameter
                 'comment',
                 'description',
                 'rationale',
@@ -165,6 +170,7 @@ class ReqWizard(QWizard):
             # 'performance' flag indicates req_type:
             #    - True  -> performance requirement
             #    - False -> functional requirement
+            req_wizard_state['computable_form_oid'] = req.computable_form.oid
             performance = (req.req_type == 'performance')
         if not performance:
             req_wizard_state['performance'] = False
@@ -176,6 +182,14 @@ class ReqWizard(QWizard):
             self.setGeometry(50, 50, 850, 900);
         else:
             req_wizard_state['performance'] = True
+            if not self.new_req:
+                # if an existing performance requirement, it has a parameter
+                rel = req.computable_form
+                prs = rel.correlates_parameters
+                if prs:
+                    pr = prs[0]
+                    pd = pr.correlates_parameter
+                    req_wizard_state['req_parameter'] = pd.id
             self.addPage(RequirementIDPage(self))
             self.addPage(ReqAllocPage(self))
             self.addPage(PerformanceDefineParmPage(self))
@@ -185,36 +199,35 @@ class ReqWizard(QWizard):
             self.addPage(ReqSummaryPage(self))
             self.setWindowTitle('Performance Requirement Wizard')
             self.setGeometry(50, 50, 850, 750);
-
         self.setSizeGripEnabled(True)
 
     def on_cancel(self):
-        req_oid = req_wizard_state.get('req_oid')
-        req = orb.get(req_oid)
-        # if reqt was saved, delete it and associated objects ...
-        if req:
-            # delete any related Relation and ParameterRelation objects
-            # rel_oid = req_wizard_state.get('computable_form')
-            # rel = orb.get(rel_oid)
-            rel = req.computable_form
-            if rel:
-                # pr_oid = req_wizard_state.get('pr_oid')
-                # pr = orb.get(pr_oid)
-                prs = rel.correlates_parameters
-                if prs:
-                    pr_oid = prs[0].oid
-                    orb.delete(prs)
+        if self.new_req:
+            # if a new Requirement was being created, delete it and all
+            # associated objects ...
+            req_oid = req_wizard_state.get('req_oid')
+            req = orb.get(req_oid)
+            if req:
+                # delete any related Relation and ParameterRelation objects
+                rel = req.computable_form
+                if rel:
+                    # pr_oid = req_wizard_state.get('pr_oid')
+                    # pr = orb.get(pr_oid)
+                    prs = rel.correlates_parameters
+                    if prs:
+                        pr_oid = prs[0].oid
+                        orb.delete(prs)
+                        dispatcher.send(signal='deleted object',
+                                        oid=pr_oid,
+                                        cname='ParameterRelation')
+                    rel_oid = rel.oid
+                    orb.delete([rel])
                     dispatcher.send(signal='deleted object',
-                                    oid=pr_oid,
-                                    cname='ParameterRelation')
-                rel_oid = rel.oid
-                orb.delete([rel])
-                dispatcher.send(signal='deleted object',
-                                oid=rel_oid, cname='Relation')
-            # delete the Requirement object
-            orb.delete([req])
-            dispatcher.send(signal='deleted object', oid=req_oid,
-                            cname='Requirement')
+                                    oid=rel_oid, cname='Relation')
+                # delete the Requirement object
+                orb.delete([req])
+                dispatcher.send(signal='deleted object', oid=req_oid,
+                                cname='Requirement')
         self.reject()
 
 ###########################
@@ -592,7 +605,8 @@ class ReqSummaryPage(QWizardPage):
         elif (self.req.req_constraint_type == 'minimum'
               and self.req.req_minimum_value is None):
             return False
-        self.req.computable_form = orb.get(req_wizard_state.get('computable_form'))
+        self.req.computable_form = orb.get(
+                                       req_wizard_state.get('computable_form_oid'))
         self.req.req_constraint_type = req_wizard_state.get('req_constraint_type')
         self.req.req_tolerance_type = req_wizard_state.get('req_tolerance_type')
         self.req.verification_method = req_wizard_state.get('verification_method')
@@ -645,16 +659,12 @@ class PerformanceDefineParmPage(QWizardPage):
 
         # Parameter list from which to select the performance parameter being
         # constrained by the requirement.
-        rel = orb.get(req_wizard_state.get('computable_form'))
-        pd = None
-        if rel:
-            parm_rels = rel.correlated_parameters
-            if parm_rels:
-                pd = parm_rels[0].correlates_parameter
-        # TODO: the 'obj' arg does nothing -- if there is a pd, it will have to
-        # be selected from the list of pd objects in the view ...
+        # NOTE: if this page is initialized with an existing requirement that
+        # has an associated parameter, that parameter should be displayed as
+        # having been selected in this list -- that will be done at the end of
+        # this initializePage() function ...
         self.parm_list = LibraryListView('ParameterDefinition',
-                                         include_subtypes=False, obj=pd,
+                                         include_subtypes=False,
                                          draggable=False, parent=self)
         self.parm_list.setSelectionBehavior(LibraryListView.SelectRows)
         self.parm_list.setSelectionMode(LibraryListView.SingleSelection)
@@ -727,6 +737,21 @@ class PerformanceDefineParmPage(QWizardPage):
         layout.addWidget(line)
         layout.addLayout(type_form)
 
+        # check if we received an existing requirement with a parameter ...
+        # if so, select it and call on_select_parm()
+        rel = orb.get(req_wizard_state.get('computable_form_oid'))
+        pd = None
+        if rel:
+            parm_rels = rel.correlates_parameters
+            if parm_rels:
+                pd = parm_rels[0].correlates_parameter
+        if pd and pd in self.parm_list.model().objs:
+            req_wizard_state['req_parameter'] = pd.id
+            row = self.parm_list.model().objs.index(pd)
+            i = self.parm_list.model().index(row, 0)
+            self.parm_list.setCurrentIndex(i)
+            self.on_select_parm(i)
+
     def on_select_parm(self, index):
         # if we are already showing a selected ParameterDefinition, remove it:
         if (hasattr(self, 'parm_pgxnobj') and
@@ -744,10 +769,10 @@ class PerformanceDefineParmPage(QWizardPage):
             # a pd has been selected; create a ParameterRelation instance that
             # points to a Relation ('referenced_relation') and for which the
             # 'correlates_parameter' is the pd.  Set the Relation's oid as the
-            # req_wizard_state['computable_form'] -- the Relation will be the
+            # req_wizard_state['computable_form_oid'] -- the Relation will be the
             # Requirement's 'computable_form' attribute value.
             # First, check for any existing Relation and ParameterRelation:
-            cf_oid = req_wizard_state.get('computable_form')
+            cf_oid = req_wizard_state.get('computable_form_oid')
             if cf_oid:
                 # if any are found, destroy them ...
                 cf = orb.get(cf_oid)
@@ -768,7 +793,7 @@ class PerformanceDefineParmPage(QWizardPage):
                        correlates_parameter=pd, referenced_relation=rel,
                        owner=self.project, public=True)
             # req_wizard_state['pr_oid'] = pr.oid
-            req_wizard_state['computable_form'] = rel.oid
+            req_wizard_state['computable_form_oid'] = rel.oid
             req_wizard_state['req_parameter'] = pd.id
             orb.save([self.req])  # also commits the rel and pr objects to db
             # display the selected ParameterDefinition...
@@ -806,7 +831,7 @@ class PerformanceDefineParmPage(QWizardPage):
         """
         Check if both dimension and type have been specified
         """
-        if (not req_wizard_state.get('computable_form')
+        if (not req_wizard_state.get('computable_form_oid')
             or not req_wizard_state.get('req_constraint_type')):
             return False
         return True
@@ -1110,7 +1135,7 @@ class PerformReqBuildShallPage(QWizardPage):
         # units combo box.
         self.units = QComboBox()
         units_list = []
-        rel = orb.get(req_wizard_state.get('computable_form'))
+        rel = orb.get(req_wizard_state.get('computable_form_oid'))
         if rel:
             parm_rels = rel.correlates_parameters
             if parm_rels:

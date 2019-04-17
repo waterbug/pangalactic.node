@@ -617,25 +617,7 @@ class FilterPanel(QWidget):
             if oid:
                 req = orb.get(oid)
                 if req:
-                    pass
-                    # OOPS -- cannot use ReqWizard directly here:  it creates a
-                    # circular dependency ... need to find some indirect way to
-                    # invoke it ...
-                    # wizard = ReqWizard(parent=self, req=req)
-                    # if wizard.exec_() == QDialog.Accepted:
-                        # orb.log.info('* reqt wizard accepted ...')
-                        # if getattr(wizard, 'pgxn_obj', None):
-                            # wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                            # wizard.pgxn_obj.parent = None
-                            # wizard.pgxn_obj.close()
-                            # wizard.pgxn_obj = None
-                    # else:
-                        # orb.log.info('* reqt wizard cancelled ...')
-                        # if getattr(wizard, 'pgxn_obj', None):
-                            # wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                            # wizard.pgxn_obj.parent = None
-                            # wizard.pgxn_obj.close()
-                            # wizard.pgxn_obj = None
+                    dispatcher.send('edit requirement', obj=req)
 
     def create_template(self):
         """

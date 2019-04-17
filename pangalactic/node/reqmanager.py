@@ -8,8 +8,8 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
 
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.filters     import FilterPanel
-# from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.systemtree  import SystemTreeView
+from pangalactic.node.reqwizards  import ReqWizard
 
 # Louie
 from louie import dispatcher
@@ -23,6 +23,9 @@ all_req_fields=['id', 'name', 'description', 'rationale', 'id_ns', 'version',
 class RequirementManager(QDialog):
     """
     Manager of Requirements. :)
+
+    Note that the actions in the FilterPanel are handled there, sending signals
+    to invoke the ReqWizard for editing a requirement, etc.
 
     Keyword Args:
         project (Project):  sets a project context
@@ -62,6 +65,7 @@ class RequirementManager(QDialog):
         # that opens the "allocation panel" (tree)
         if project:
             self.display_allocation_panel(project)
+        dispatcher.connect(self.on_edit_reqt_signal, 'edit requirement')
         width = width or 600
         height = height or 500
         self.resize(width, height)
@@ -92,6 +96,26 @@ class RequirementManager(QDialog):
         # a checkbox for "enable allocation/deallocation" above the tree;
         # otherwise, filtering behavior (as above) is in effect.
         pass
+
+    def on_edit_reqt_signal(self, obj=None):
+        orb.log.info('* RequirementManager: on_edit_reqt_signal()')
+        if obj:
+            is_perf = (obj.req_type == 'performance')
+            wizard = ReqWizard(parent=self, req=obj, performance=is_perf)
+            if wizard.exec_() == QDialog.Accepted:
+                orb.log.info('* reqt wizard completed.')
+                if getattr(wizard, 'pgxn_obj', None):
+                    wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
+                    wizard.pgxn_obj.parent = None
+                    wizard.pgxn_obj.close()
+                    wizard.pgxn_obj = None
+            else:
+                orb.log.info('* reqt wizard cancelled...')
+                if getattr(wizard, 'pgxn_obj', None):
+                    wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
+                    wizard.pgxn_obj.parent = None
+                    wizard.pgxn_obj.close()
+                    wizard.pgxn_obj = None
 
     def set_reqt(self, r):
         self.sys_tree.req = r
