@@ -117,12 +117,12 @@ class QtViewer3DColor(QtBaseViewer):
         #########################
         # new stuff for XCAF ...
         # create a handle to a document
-        h_doc = Handle_TDocStd_Document()
+        doc = Handle_TDocStd_Document()
         # Create the application
-        app = XCAFApp_Application.GetApplication().GetObject()
-        app.NewDocument(TCollection_ExtendedString("MDTV-CAF"), h_doc)
+        app = XCAFApp_Application.GetApplication()
+        app.NewDocument(TCollection_ExtendedString("MDTV-CAF"), doc)
         # Get root assembly
-        doc = h_doc.GetObject()
+        # doc = h_doc
         self.h_shape_tool = XCAFDoc_DocumentTool_ShapeTool(doc.Main())
         h_color_tool = XCAFDoc_DocumentTool_ColorTool(doc.Main())
         # TODO:  figure out what "layer tool" and "material tool" do ...
@@ -145,15 +145,17 @@ class QtViewer3DColor(QtBaseViewer):
             # step_reader.TransferRoot(1)
             # step_reader.NbShapes()
             # step_shape = step_reader.Shape(1)
-            step_reader.Transfer(doc.GetHandle())
+            step_reader.Transfer(doc)
         else:
             sys.exit(0)
 
         #########################
         # new stuff for XCAF ...
-        self.shape_tool = self.h_shape_tool.GetObject()
+        # self.shape_tool = self.h_shape_tool.GetObject()
+        self.shape_tool = self.h_shape_tool
         self.shape_tool.SetAutoNaming(True)
-        self.color_tool = h_color_tool.GetObject()
+        # self.color_tool = h_color_tool.GetObject()
+        self.color_tool = h_color_tool
         self.lvl = 0
         self.locs = []
         self.count = 0
@@ -173,14 +175,15 @@ class QtViewer3DColor(QtBaseViewer):
         TDF_Tool.Entry(label, entry)
         N = Handle_TDataStd_Name()
         label.FindAttribute(TDataStd_Name_GetID(), N)
-        n = N.GetObject()
-        if n:
-            return n.Get().PrintToString()
+        # n = N.GetObject()
+        if N:
+            return N.Get().PrintToString()
         return "No Name"
 
     def getShapes(self):
         labels = TDF_LabelSequence()
-        self.h_shape_tool.GetObject().GetFreeShapes(labels)
+        # self.h_shape_tool.GetObject().GetFreeShapes(labels)
+        self.h_shape_tool.GetFreeShapes(labels)
         self.count += 1
         # print()
         # print("Number of shapes at root :", labels.Length())
