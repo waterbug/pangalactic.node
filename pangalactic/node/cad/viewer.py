@@ -29,20 +29,18 @@ from OCC.Display import OCCViewer
 # from OCC.STEPControl import STEPControl_Reader
 ######################################
 # new stuff for colorized viewer ...
-from OCC.TDocStd import Handle_TDocStd_Document
-from OCC.XCAFApp import XCAFApp_Application
-from OCC.XCAFDoc import (XCAFDoc_DocumentTool_ShapeTool,
-                         XCAFDoc_DocumentTool_ColorTool)
-                         # XCAFDoc_DocumentTool_LayerTool,
-                         # XCAFDoc_DocumentTool_MaterialTool)
-from OCC.STEPCAFControl import STEPCAFControl_Reader
-from OCC.IFSelect import IFSelect_RetDone
-from OCC.TDF import TDF_LabelSequence, TDF_Label, TDF_Tool
-from OCC.TDataStd import Handle_TDataStd_Name, TDataStd_Name_GetID
-from OCC.TCollection import TCollection_ExtendedString, TCollection_AsciiString
-from OCC.Quantity import Quantity_Color
-from OCC.TopLoc import TopLoc_Location
-from OCC.BRepBuilderAPI import BRepBuilderAPI_Transform
+from OCC.Core.TDocStd import Handle_TDocStd_Document
+from OCC.Core.XCAFApp import XCAFApp_Application
+from OCC.Core.XCAFDoc import (XCAFDoc_DocumentTool_ShapeTool,
+                              XCAFDoc_DocumentTool_ColorTool)
+from OCC.Core.STEPCAFControl import STEPCAFControl_Reader
+from OCC.Core.IFSelect import IFSelect_RetDone
+from OCC.Core.TDF import TDF_LabelSequence, TDF_Label, TDF_Tool
+from OCC.Core.TDataStd import Handle_TDataStd_Name, TDataStd_Name_GetID
+from OCC.Core.TCollection import TCollection_ExtendedString, TCollection_AsciiString
+from OCC.Core.Quantity import Quantity_Color
+from OCC.Core.TopLoc import TopLoc_Location
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 
 from PyQt5 import QtCore, QtOpenGL, QtWidgets
 

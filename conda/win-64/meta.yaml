@@ -17,16 +17,18 @@ requirements:
   run:
     - pangalactic.core >=0.1.dev106
     - autobahn
+    # autobahn pulls in:
+    # - txaio
     - binaryornot
     - future
     - pyqt >=5.6
     - python {{PY_VER}}
-    - pythonocc-core >=0.18.1   # from pythonocc channel
+    - pythonocc-core >=0.18.2   # from cadquery channel
     # -----------------------------------------------------
     # pythonocc pulls in these dependencies from dlr-sc channel:
     # - freeimageplus
     # - gl2ps
-    # - jpeg 9b
+    # - jpeg >=9b
     # - tbb
     # -----------------------------------------------------
     # pinning ruamel_yaml advised for production-level stability
@@ -35,6 +37,8 @@ requirements:
     - twisted
     # twisted pulls in these dependencies:
     # - service_identity
+    # (need service_identity 18.1.0; otherwise twisted complains)
+    - service_identity ==18.1.0
     # - zope
     # - zope.interface
     # -----------------------------------------------------
