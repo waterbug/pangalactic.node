@@ -309,7 +309,7 @@ class SystemTreeModel(QAbstractItemModel):
             # pd = orb.select('ParameterDefinition', id=p_id)
             pd = parm_defz.get(p_id)
             if not pd:
-                # if there is no ParameterDefinition with this p_id,
+                # if this parameter definition is not in parm_defz,
                 # ignore it
                 self.cols.remove(p_id)
                 continue

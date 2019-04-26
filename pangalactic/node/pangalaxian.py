@@ -172,7 +172,7 @@ class Main(QtWidgets.QMainWindow):
         orb.start(home=home, console=console, debug=debug)
         self.add_splash_msg('... database initialized ...')
         # orb loads reference data when it starts up, which includes parameter
-        # definition -- make sure all the parameter definitions have icons
+        # definitions
         setup_dirs_and_state()
         self.get_or_create_local_user()
         self.app_test_data = test_data

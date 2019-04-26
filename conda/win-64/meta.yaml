@@ -1,6 +1,6 @@
 package:
   name: pangalactic.node
-  version: "0.1.dev107"
+  version: "0.1.dev108"
 
 source:
   path: # [path to source]
@@ -15,7 +15,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=0.1.dev107
+    - pangalactic.core >=0.1.dev108
     - autobahn
     # autobahn pulls in:
     # - txaio
