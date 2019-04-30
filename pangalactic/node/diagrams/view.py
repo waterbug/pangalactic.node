@@ -317,6 +317,11 @@ class DiagramScene(QGraphicsScene):
                      if (flow.start_port in all_ports and
                          flow.end_port in all_ports and
                          flow.flow_context == self.subject)]
+        if all_flows:
+            orb.log.info('  - flows found: {}'.format(
+                                    str([f.id for f in all_flows])))
+        else:
+            orb.log.info('  - no flows found')
         for flow in all_flows:
             start_item = port_blocks[flow.start_port.oid]
             end_item = port_blocks[flow.end_port.oid]
@@ -334,12 +339,14 @@ class DiagramScene(QGraphicsScene):
     def save_diagram(self):
         """
         Return a serialization of the current block diagram (in the form of a
-        structured dict).
+        structured dict).  Note that flows are not part of the diagram
+        serialization, since they are saved as objects and then retrieved when
+        the diagram is deserialized (flows are auto-routed, so it is not
+        necessary to save their geometry).
         """
         orb.log.info('* DiagramScene: save_diagram()')
         object_blocks = {}
         subject_block = {}
-        flows = []
         for shape in self.items():
             if isinstance(shape, ObjectBlock):
                 x = shape.x()
@@ -348,27 +355,16 @@ class DiagramScene(QGraphicsScene):
                 orb.log.debug('* ObjectBlock at {}, {}'.format(x, y))
                 object_blocks[shape.obj.oid] = dict(x=x, y=y, right_ports=rp)
             ## Instantiating the ObjectBlock will recreate its PortBlocks
-            ## automatically, and RoutedConnectors will know their start/end
-            ## PortBlocks' associated Port oids.
-            ## TODO: need to specify positions of PortBlocks (positions should
+            ## automatically, and RoutedConnectors (Flows) will know their
+            ## start/end ## PortBlocks' associated Port oids.
+            ## TODO: specify positions of PortBlocks (if positions will
             ## be modifiable by preference or for routing)
-            # elif isinstance(shape, PortBlock):
-                # port_blocks.append(shape)
-            elif isinstance(shape, RoutedConnector):
-                start = shape.start_item.port.oid
-                end = shape.end_item.port.oid
-                context = getattr(shape.context, 'oid', '')
-                flows.append(dict(start=start, end=end, context=context))
-                orb.log.debug('* flow saved:')
-                orb.log.debug('    start port = {}'.format(start))
-                orb.log.debug('    end port = {}'.format(end))
-                orb.log.debug('    context = {}'.format(context))
         # check on routing channel ...
         orb.log.debug('* routing channel: {}'.format(
                                                 self.get_routing_channel()))
         return dict(object_blocks=object_blocks,
                     subject_block=subject_block,
-                    flows=flows, dirty=False)
+                    dirty=False)
 
     def restore_diagram(self, model, objs):
         """
@@ -444,9 +440,18 @@ class DiagramScene(QGraphicsScene):
         # SubjectBlock is always created, whether there are ObjectBlocks or not
         subj_block = self.create_ibd_subject_block(object_blocks)
         port_blocks.update(subj_block.port_blocks)
-        for flow in model['flows']:
-            start_item = port_blocks.get(flow['start'])
-            end_item = port_blocks.get(flow['end'])
+        # NOTE:  flows are only restored from the Flow objects saved in the db
+        # and are auto-routed (diagrams do not provide handles for routing
+        # flows anyway!)
+        known_flows = orb.get_by_type('Flow')
+        all_ports = [pb.port for pb in port_blocks.values()]
+        all_flows = [flow for flow in known_flows
+                     if (flow.start_port in all_ports and
+                         flow.end_port in all_ports and
+                         flow.flow_context == self.subject)]
+        for flow in all_flows:
+            start_item = port_blocks.get(flow.start_port.oid)
+            end_item = port_blocks.get(flow.end_port.oid)
             if start_item and end_item:
                 # TODO:  color will be determined by the type of the Port(s)
                 connector = RoutedConnector(start_item, end_item,
