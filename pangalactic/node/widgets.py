@@ -92,7 +92,40 @@ class LeftPlaceHolder(QLabel):
         self.setText(text)
 
 
+class ColorLabel(QLabel):
+    """
+    Label for general use when colored text is desired.
+    """
+    def __init__(self, name, color=None, element=None, border=None,
+                 margin=None, parent=None, **kw):
+        super(ColorLabel, self).__init__(margin=margin, parent=parent)
+        if border:
+            self.setFrameStyle(QFrame.Box | QFrame.Plain)
+            try:
+                self.setLineWidth(border)
+            except:
+                self.setLineWidth(1)
+        margin = kw.get('margin', 0)
+        try:
+            self.setMargin(margin)
+        except:
+            self.setMargin(0)
+        # TODO: validate element (e.g. element in ['h2', 'h3', ...])
+        element = element or 'b'
+        # TODO: validate color (e.g. color in ['blue', 'red', ...])
+        color = color or 'purple'
+        text = '<{0}><font color="{1}">{2}</font></{0}>'.format(element, color,
+                                                                name)
+        self.setText(text)
+        hint = self.sizeHint()
+        if hint.isValid():
+            self.setMinimumSize(hint)
+
+
 class NameLabel(QLabel):
+    """
+    Label for use in forms as the name in (name, value) pairs.
+    """
     def __init__(self, name, parent=None, **kw):
         super(NameLabel, self).__init__(margin=5, parent=parent)
         self.setText(name)
@@ -102,7 +135,9 @@ class NameLabel(QLabel):
 
 
 class ValueLabel(QLabel):
-
+    """
+    Label for use in forms as the value in (name, value) pairs.
+    """
     def __init__(self, value, w=None, h=None, wrappable=False,
                  parent=None, **kw):
         super(ValueLabel, self).__init__(margin=5, parent=parent)
@@ -124,7 +159,10 @@ class ValueLabel(QLabel):
 
 
 class ModeLabel(QLabel):
-
+    """
+    Label used to display the current "mode" of the pangalaxian client
+    application.
+    """
     def __init__(self, value, w=None, h=None, parent=None):
         super(ModeLabel, self).__init__(value, parent=parent)
         self.setWordWrap(True)

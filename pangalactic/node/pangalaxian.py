@@ -4,26 +4,13 @@
 Pangalaxian (the PanGalactic GUI client) main window
 """
 from __future__ import division
-from __future__ import print_function
 from future import standard_library
 standard_library.install_aliases()
 from builtins import str
 from builtins import range
-import argparse, atexit, os, shutil, six, traceback
+import argparse, atexit, os, shutil, six, sys, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
 from collections import OrderedDict
-
-# special treatment of `sys` module to set default encoding to utf-8
-# NOTE: this is to prevent UnicodeDecodeError: 'ascii' codec can't decode ...
-import sys
-# python 3 has no 'reload()' function
-try:
-    # python 2
-    reload(sys)  # reload is needed to get the `setdefaultencoding` fn.
-    sys.setdefaultencoding('utf8')
-except:
-    # python 3 doesn't need this
-    pass
 
 from binaryornot.check import is_binary
 
@@ -61,6 +48,7 @@ from pangalactic.core.utils.meta      import (asciify,
                                               uncook_datetime)
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_xlsx
+from pangalactic.node.admin           import AdminDialog
 from pangalactic.node.buttons         import ButtonLabel, MenuButton
 from pangalactic.node.dashboards      import SystemDashboard
 from pangalactic.node.dialogs         import (CloakingDialog,
@@ -111,9 +99,9 @@ class Main(QtWidgets.QMainWindow):
     Attributes:
         mode (str):  name of current mode
             (persistent in the `state` module)
-        project (str):  oid of currently selected project
-            (persistent in the `state` module)
-        projects (list of str):  ids of current projects in db
+        project (Project):  currently selected project
+            (its oid is persisted as `project` in the `state` dict)
+        projects (list of Project):  current Projects in db
             (a read-only property linked to the local db)
         dataset (str):  name of currently selected dataset
             (persistent in the `state` module)
@@ -121,7 +109,7 @@ class Main(QtWidgets.QMainWindow):
             (persistent in the `state` module)
         library_widget (LibraryListWidget):  a panel widget containing library
             views for specified classes and a selector (combo box)
-        adminserv (bool):  True if admin service is to be used (default: True)
+        adminserv (bool):  True if admin service is to be used (default: False)
         app_version (str):  version of calling app (if any)
         reactor (qt5reactor):  twisted event loop
         roles (list of dicts):  actually, role assignments -- a list of dicts
@@ -132,7 +120,7 @@ class Main(QtWidgets.QMainWindow):
 
     def __init__(self, home='', test_data=None, width=None, height=None,
                  use_tls=True, console=False, debug=False, reactor=None,
-                 adminserv=True, app_version=None):
+                 adminserv=False, app_version=None):
         """
         Initialize main window.
 
@@ -338,9 +326,9 @@ class Main(QtWidgets.QMainWindow):
     def sync_with_services(self):
         state['synced'] = True
         if self.adminserv:
-            proc = u'omb.state.query'
+            proc = config.get('admin_get_roles_rpc')
             args = []
-            kw = {'selective': True, 'no_filter': True}
+            kw = {'no_filter': True}
         else:
             proc = u'vger.get_role_assignments'
             args = [state['userid']]
@@ -409,9 +397,9 @@ class Main(QtWidgets.QMainWindow):
             if self.adminserv:
                 log_msg = '* data from admin service:  %s' % str(data)
             else:
-                # using repo service to get role assignments
+                # using vger to get role assignments
                 # NOTE:  test objects must be loaded for this to work!
-                log_msg = '* using repository for admin services ...\n'
+                log_msg = '* using vger admin service ...\n'
                 log_msg += '  ... admin data:  %s' % str(data)
             orb.log.debug(log_msg)
             # add any new Roles from admin data
@@ -1134,7 +1122,7 @@ class Main(QtWidgets.QMainWindow):
                                         # obj.system, project_node, link=obj)],
                                     # parent=project_index)
                             # except Exception:
-                                # print(traceback.format_exc())
+                                # orb.log.info(traceback.format_exc())
                             # orb.log.info('  dataChanged.emit()')
                             # sys_tree_model.dataChanged.emit(project_index,
                                                             # project_index)
@@ -1165,7 +1153,7 @@ class Main(QtWidgets.QMainWindow):
                                      comp, assembly_node, link=obj)],
                                     parent=idx)
                             except Exception:
-                                print(traceback.format_exc())
+                                orb.log.info(traceback.format_exc())
                     # resize dashboard columns if necessary
                     self.refresh_dashboard()
             if self.mode == 'db':
@@ -1196,11 +1184,11 @@ class Main(QtWidgets.QMainWindow):
                                     icon='tardis',
                                     tip="Help")
         self.new_project_action = self.create_action(
-                                    "New Project",
+                                    "Create New Project",
                                     slot=self.new_project,
                                     tip="Create a New Project")
         self.delete_project_action = self.create_action(
-                                    "Delete Project",
+                                    "Delete This Project",
                                     slot=self.delete_project,
                                     tip="Delete the current Project")
         # default:  delete_project_action is not visible
@@ -1214,6 +1202,15 @@ class Main(QtWidgets.QMainWindow):
         # default:  enable_collaboration_action is not visible
         self.enable_collaboration_action.setEnabled(False)
         self.enable_collaboration_action.setVisible(False)
+        # Administer roles
+        admin_action_tip = "Administer roles on the current Project"
+        self.admin_action = self.create_action(
+                                    "Administer Roles",
+                                    slot=self.do_admin_stuff,
+                                    tip=admin_action_tip)
+        # default:  admin_action is not visible
+        self.admin_action.setEnabled(False)
+        self.admin_action.setVisible(False)
         self.set_project_action = self.create_action(
                                     "Set Project",
                                     slot=self.set_current_project,
@@ -1646,7 +1643,7 @@ class Main(QtWidgets.QMainWindow):
         if not cnames:
             cnames = ['HardwareProduct', 'Template', 'PortType',
                       'PortTemplate', 'ParameterDefinition']
-        widget = LibraryListWidget(cnames=cnames, obj=None,
+        widget = LibraryListWidget(cnames=cnames,
                                    include_subtypes=include_subtypes,
                                    parent=self)
         return widget
@@ -1715,6 +1712,7 @@ class Main(QtWidgets.QMainWindow):
         system_tools_icon_path = os.path.join(orb.icon_dir,
                                               system_tools_icon_file)
         system_tools_actions = [self.edit_prefs_action,
+                                # self.admin_action,
                                 self.refresh_tree_action,
                                 self.product_lib_action,
                                 self.port_template_lib_action,
@@ -1747,9 +1745,10 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(project_label)
         self.project_selection = ButtonLabel(
                                     self.project.id,
-                                    actions=[self.new_project_action,
+                                    actions=[self.enable_collaboration_action,
+                                             self.admin_action,
                                              self.delete_project_action,
-                                             self.enable_collaboration_action],
+                                             self.new_project_action],
                                     w=120)
         self.delete_project_action.setVisible(False)
         self.delete_project_action.setEnabled(False)
@@ -2120,6 +2119,8 @@ class Main(QtWidgets.QMainWindow):
             self.delete_project_action.setEnabled(False)
             self.enable_collaboration_action.setVisible(False)
             self.enable_collaboration_action.setEnabled(False)
+            self.admin_action.setVisible(False)
+            self.admin_action.setEnabled(False)
         else:
             self.delete_project_action.setEnabled(True)
             self.delete_project_action.setVisible(True)
@@ -2159,11 +2160,14 @@ class Main(QtWidgets.QMainWindow):
             state['project'] = str(p.oid)
             if hasattr(self, 'delete_project_action'):
                 if p.oid == 'pgefobjects:SANDBOX':
-                    # SANDBOX can neither be deleted nor made collaborative
+                    # SANDBOX cannot be deleted, made collaborative, nor have
+                    # roles provisioned (admin)
                     self.enable_collaboration_action.setVisible(False)
                     self.enable_collaboration_action.setEnabled(False)
                     self.delete_project_action.setEnabled(False)
                     self.delete_project_action.setVisible(False)
+                    self.admin_action.setVisible(False)
+                    self.admin_action.setEnabled(False)
                     role_label_txt = 'SANDBOX'
                 else:
                     project_is_local = False
@@ -2191,21 +2195,30 @@ class Main(QtWidgets.QMainWindow):
                         role_label_txt = u': '.join([p.id, '[local]'])
                     if state['connected']:
                         if p_roles:
+                            # project is already collaborative
                             self.enable_collaboration_action.setVisible(False)
                             self.enable_collaboration_action.setEnabled(False)
-                            # NOTE: collaborative projects should only be
-                            # deleted through the admin interface
-                            self.delete_project_action.setEnabled(False)
-                            self.delete_project_action.setVisible(False)
+                            if 'Administrator' in p_roles:
+                                self.delete_project_action.setEnabled(True)
+                                self.delete_project_action.setVisible(True)
+                                self.admin_action.setVisible(True)
+                                self.admin_action.setEnabled(True)
                         else:
-                            self.enable_collaboration_action.setVisible(True)
-                            self.enable_collaboration_action.setEnabled(True)
+                            # if we have no roles on the project but we have
+                            # the project, then it is local, and it can be
+                            # deleted or collaboration can be enabled
                             self.delete_project_action.setEnabled(True)
                             self.delete_project_action.setVisible(True)
+                            self.enable_collaboration_action.setVisible(True)
+                            self.enable_collaboration_action.setEnabled(True)
                     else:
                         # when offline, `enable collaboration` is disabled
                         self.enable_collaboration_action.setVisible(False)
                         self.enable_collaboration_action.setEnabled(False)
+                        # NOTE:  THIS IS ONLY FOR TESTING!!
+                        # when offline, admin action is disabled!!
+                        self.admin_action.setVisible(True)
+                        self.admin_action.setEnabled(True)
                         # when offline, only local projects can be deleted
                         if project_is_local:
                             self.delete_project_action.setEnabled(True)
@@ -2821,17 +2834,11 @@ class Main(QtWidgets.QMainWindow):
         self.object_tableview = tableview
 
     def show_about(self):
-        app = config.get('app_name', 'Pangalaxian')
         # if app version is provided, use it; otherwise use ours
         version = self.app_version or __version__
-        QtWidgets.QMessageBox.about(self, "About %s" % app, """
-            <html>
-            <p><b>%s</b></p>
-            <ul>
-            <li><b>Version:</b> %s</li>
-            </ul>
-            </html>
-        """ % (app, version))
+        app_name = config.get('app_name', 'Pangalaxian')
+        QtWidgets.QMessageBox.about(self, "Some call me...",
+            '<html><p><b>{} {}</b></p></html>'.format(app_name, version))
 
     def show_help(self):
         ug_path = os.path.join(orb.home, 'doc', 'user_guide.html')
@@ -3481,9 +3488,6 @@ class Main(QtWidgets.QMainWindow):
             # TODO: add an "index" column for sorting, or else figure out how
             # to sort on the left header column ...
             state['last_path'] = os.path.dirname(fpath)
-            if sys.version_info[0] < 3:
-                # in python 2, view_cad() is looking for fpath as bytes (str)
-                fpath = fpath.encode('utf-8')
             orb.log.debug('  - calling view_cad({})'.format(fpath))
             orb.log.debug('    fpath type: {}'.format(type(fpath)))
             self.view_cad(fpath)
@@ -3514,6 +3518,12 @@ class Main(QtWidgets.QMainWindow):
             prefs['clear_rows'] = dlg.get_clear_rows()
             prefs['dash_no_row_colors'] = not dlg.get_dash_row_colors()
             orb.log.info('  - edit_prefs dialog completed.')
+
+    def do_admin_stuff(self):
+        orb.log.info('* do_admin_stuff()')
+        dlg = AdminDialog(org=self.project, parent=self)
+        if dlg.exec_():
+            orb.log.info('  - admin dialog completed.')
 
     # def compare_items(self):
         # # TODO:  this is just a mock-up for prototyping -- FIXME!

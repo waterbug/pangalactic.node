@@ -102,7 +102,7 @@ class LibraryListModel(QAbstractListModel):
                 else:
                     tt = id_v + ' [unknown type]'
             else:
-                tt = '\n'.join(wrap(obj.description, width=30,
+                tt = '\n'.join(wrap(obj.description or '', width=30,
                                     break_long_words=False))
             return QVariant(tt)
         elif role == Qt.DecorationRole:
@@ -143,7 +143,7 @@ class LibraryListView(QListView):
     Generic QListView-style View -- designed particularly to support the
     ParameterDefinition library.
     """
-    def __init__(self, cname, include_subtypes=True, obj=None, draggable=True,
+    def __init__(self, cname, include_subtypes=True, draggable=True,
                  icon_size=None, parent=None):
         """
         Initialize the library view.
@@ -152,7 +152,6 @@ class LibraryListView(QListView):
             cname (str):  class name of the library objects
 
         Keyword Args:
-            obj (PGEF object):  the initially selected object, if any
             include_subtypes (bool): flag, if True include subtypes
             draggable (bool):   flag indicating whether library objects should
                 be able to be dragged and dropped -- set to False if the
@@ -317,8 +316,8 @@ class LibraryListWidget(QWidget):
             displayed in a library view (LibraryListView instance) to the index
             of the library view in the QStackedLayout
     """
-    def __init__(self, cnames=None, include_subtypes=True, obj=None,
-                 icon_size=None, word_wrap=False, parent=None):
+    def __init__(self, cnames=None, include_subtypes=True, icon_size=None,
+                 word_wrap=False, title=None, parent=None):
         """
         Initialize the library container widget.
 
@@ -327,16 +326,18 @@ class LibraryListWidget(QWidget):
                 library's default views.  If None, include all Identifiables.
 
         Keyword Args:
-            obj (PGEF object):  the initially selected object, if any
             include_subtypes (bool): flag, if True include subtypes
             icon_size (Qsize):  size of the icons to be used for library items
+            word_wrap (bool):  if True, wrap words in fields
+            title (str):  optional text for widget title; default is 'Libraries'
             parent (QWidget):  the library view's parent widget
         """
         super(LibraryListWidget, self).__init__(parent)
         self.word_wrap = word_wrap
         layout = QVBoxLayout(self)
         # layout.setSizeConstraint(layout.SetMinimumSize)
-        title = QLabel('Libraries')
+        title = title or 'Libraries'
+        title = QLabel(title)
         title.setStyleSheet('font-weight: bold; font-size: 18px')
         layout.addWidget(title)
         self.library_select = QComboBox()
@@ -356,9 +357,9 @@ class LibraryListWidget(QWidget):
                 self.create_lib_widget(cname)
         # self.setMinimumHeight(300)
         # self.setMaximumWidth(450)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         # self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Expanding)
-        # self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
         dispatcher.connect(self.refresh, 'deleted object')
         dispatcher.connect(self.refresh, 'new object')
         dispatcher.connect(self.refresh, 'modified object')
@@ -369,8 +370,7 @@ class LibraryListWidget(QWidget):
     def sizeHint(self):
         return QSize(400, 350)
 
-    def create_lib_widget(self, cname, include_subtypes=True, obj=None,
-                          icon_size=None):
+    def create_lib_widget(self, cname, include_subtypes=True, icon_size=None):
         """
         Creates an instance of 'FilterPanel' or 'LibraryListView' for the
         specified class name (cname), sets it as the self.libraries dict entry
@@ -404,9 +404,17 @@ class LibraryListWidget(QWidget):
                                    'product types selected')
                 dispatcher.connect(self.on_only_mine_toggled,
                                    'only mine toggled')
+        elif cname == 'Person':
+            select_label = 'People'
+            view = ['id', 'first_name', 'last_name', 'org']
+            widget = FilterPanel(None, view=view, as_library=True,
+                                 cname=cname, label=select_label,
+                                 word_wrap=self.word_wrap,
+                                 # external_filters=True,
+                                 parent=self)
         else:
             widget = LibraryListView(cname, include_subtypes=include_subtypes,
-                                     obj=obj, icon_size=icon_size, parent=self)
+                                     icon_size=icon_size, parent=self)
         if cname == 'Template':
             select_label = 'System & Component Templates'
         self.libraries[cname] = widget
@@ -480,7 +488,7 @@ class LibraryDialog(QDialog):
     """
     Dialog containing a table or list of library items.
     """
-    def __init__(self, cname, include_subtypes=False, obj=None, icon_size=None,
+    def __init__(self, cname, include_subtypes=False, icon_size=None,
                  tabular=True, prefilter=None, view=None, width=None,
                  height=None, word_wrap=False, parent=None):
         """
@@ -490,7 +498,6 @@ class LibraryDialog(QDialog):
             cname (str):  class name of the library objects
 
         Keyword Args:
-            obj (PGEF object):  the initially selected object, if any
             include_subtypes (bool): flag, if True include subtypes
             icon_size (Qsize):  size of the icons to be used for library items
             tabular (bool):  if True [default]: table, else: list

@@ -109,14 +109,12 @@ class SystemDashboard(QTreeView):
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat('application/x-pgef-parameter-definition'):
-            # orb.log.debug('* Dashboard:  dragEnterEvent for parameter-definition')
             event.accept()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event):
         if event.mimeData().hasFormat('application/x-pgef-parameter-definition'):
-            # orb.log.debug('* Dashboard:  dragMoveEvent for parameter-definition')
             event.setDropAction(Qt.CopyAction)
             event.accept()
         else:
