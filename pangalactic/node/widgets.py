@@ -39,6 +39,10 @@ class PlaceHolder(QLabel):
     """
     Widget for the main window CentralWidget space when nothing has been
     selected.
+
+    Keyword Args:
+        image (QImage):  image to be displayed
+        min_size (int):  minimum size (side of a square area)
     """
     # TODO:  make this a widget that contains the label
     # TODO:  add optional text ...
@@ -82,6 +86,9 @@ class PlaceHolder(QLabel):
 class LeftPlaceHolder(QLabel):
     """
     Widget for the left dock window space when nothing is available to select.
+
+    Args:
+        text (str):  label text
     """
     # TODO:  make this a widget that contains the label
     # TODO:  add optional text ...
@@ -95,6 +102,16 @@ class LeftPlaceHolder(QLabel):
 class ColorLabel(QLabel):
     """
     Label for general use when colored text is desired.
+
+    Args:
+        name (str):  label text
+
+    Keyword Args:
+        color (str):  color to use for text
+        element (str):  html element to use for label
+        border (int):  thickness of border (default: no border)
+        margin (int):  width of margin surrounding contents
+        parent (QWidget):  parent widget
     """
     def __init__(self, name, color=None, element=None, border=None,
                  margin=None, parent=None, **kw):
