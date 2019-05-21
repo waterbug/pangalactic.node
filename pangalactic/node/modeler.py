@@ -143,10 +143,13 @@ class ModelWindow(QMainWindow):
                            'diagram connector added')
         self.set_subject(obj=obj)
 
-    def sizeHint(self):
-        if self.preferred_size:
-            return QSize(*self.preferred_size)
-        return QSize(400, 300)
+    # def sizeHint(self):
+        # if self.preferred_size:
+            # return QSize(*self.preferred_size)
+        # return QSize(400, 300)
+
+    def resizeEvent(self, event):
+        state['model_window_size'] = (self.width(), self.height())
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')

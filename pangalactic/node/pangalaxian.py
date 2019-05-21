@@ -1446,9 +1446,11 @@ class Main(QtWidgets.QMainWindow):
             elif mode == 'data':
                 self.mode_label.setText('Data Tools')
             self._update_views()
-            saved_state = self.main_states.get(mode)
-            if saved_state:
-                self.restoreState(saved_state, self.modes.index(mode))
+            # NOTE: the saved_state stuff does not seem to be doing anything so
+            # commented out for now ...
+            # saved_state = self.main_states.get(mode)
+            # if saved_state:
+                # self.restoreState(saved_state, self.modes.index(mode))
             self.resize(initial_size)
 
     def del_mode(self):
@@ -2307,6 +2309,7 @@ class Main(QtWidgets.QMainWindow):
         self.right_dock.setObjectName('RightDock')
         self.right_dock.setFeatures(QtWidgets.QDockWidget.DockWidgetFloatable)
         self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
+        self.right_dock.setFixedWidth(500)
         self.library_widget = self.create_lib_list_widget()
         self.right_dock.setWidget(self.library_widget)
         self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)

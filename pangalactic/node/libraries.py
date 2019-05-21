@@ -176,7 +176,8 @@ class LibraryListView(QListView):
         default_icon_size = QSize(16, 16)
         self.icon_size = icon_size or default_icon_size
         self.setIconSize(self.icon_size)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
+        # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.create_actions()
         self.setup_context_menu()
@@ -187,7 +188,7 @@ class LibraryListView(QListView):
         dispatcher.connect(self.refresh, 'remote deleted')
 
     def sizeHint(self):
-        return QSize(400, 350)
+        return QSize(400, 450)
 
     def create_actions(self):
         self.pgxnobj_action = QAction('View this object', self)
@@ -357,7 +358,7 @@ class LibraryListWidget(QWidget):
                 self.create_lib_widget(cname)
         # self.setMinimumHeight(300)
         # self.setMaximumWidth(450)
-        self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        # self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
         # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         # self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Expanding)
         dispatcher.connect(self.refresh, 'deleted object')
@@ -366,9 +367,6 @@ class LibraryListWidget(QWidget):
         dispatcher.connect(self.refresh, 'remote decloaked')
         dispatcher.connect(self.refresh, 'remote modified')
         dispatcher.connect(self.refresh, 'remote deleted')
-
-    def sizeHint(self):
-        return QSize(400, 350)
 
     def create_lib_widget(self, cname, include_subtypes=True, icon_size=None):
         """
