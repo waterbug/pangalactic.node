@@ -176,16 +176,16 @@ class LibraryListView(QListView):
         default_icon_size = QSize(16, 16)
         self.icon_size = icon_size or default_icon_size
         self.setIconSize(self.icon_size)
+        # NOTE: width of library widget within the main window is set by the
+        # right dock container (a QDockWidget)
         self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
-        # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-        # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.create_actions()
         self.setup_context_menu()
         dispatcher.connect(self.refresh, 'deleted object')
         dispatcher.connect(self.refresh, 'new object')
         dispatcher.connect(self.refresh, 'modified object')
-        dispatcher.connect(self.refresh, 'remote modified')
-        dispatcher.connect(self.refresh, 'remote deleted')
+        dispatcher.connect(self.refresh, 'remote: modified')
+        dispatcher.connect(self.refresh, 'remote: deleted')
 
     def sizeHint(self):
         return QSize(400, 450)
@@ -364,9 +364,9 @@ class LibraryListWidget(QWidget):
         dispatcher.connect(self.refresh, 'deleted object')
         dispatcher.connect(self.refresh, 'new object')
         dispatcher.connect(self.refresh, 'modified object')
-        dispatcher.connect(self.refresh, 'remote decloaked')
-        dispatcher.connect(self.refresh, 'remote modified')
-        dispatcher.connect(self.refresh, 'remote deleted')
+        dispatcher.connect(self.refresh, 'remote: decloaked')
+        dispatcher.connect(self.refresh, 'remote: modified')
+        dispatcher.connect(self.refresh, 'remote: deleted')
 
     def create_lib_widget(self, cname, include_subtypes=True, icon_size=None):
         """
@@ -532,9 +532,9 @@ class LibraryDialog(QDialog):
             dispatcher.connect(self.refresh, 'deleted object')
             dispatcher.connect(self.refresh, 'new object')
             dispatcher.connect(self.refresh, 'modified object')
-            dispatcher.connect(self.refresh, 'remote decloaked')
-            dispatcher.connect(self.refresh, 'remote modified')
-            dispatcher.connect(self.refresh, 'remote deleted')
+            dispatcher.connect(self.refresh, 'remote: decloaked')
+            dispatcher.connect(self.refresh, 'remote: modified')
+            dispatcher.connect(self.refresh, 'remote: deleted')
         else:
             lib_view = LibraryListView(cname, parent=parent)
         lib_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

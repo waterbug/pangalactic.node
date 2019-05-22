@@ -53,7 +53,6 @@ class PlaceHolder(QLabel):
             self.setMinimumSize(min_size, min_size)
         self.setAlignment(Qt.AlignLeft)
         self.setAlignment(Qt.AlignTop)
-        self.setContextMenuPolicy(Qt.ActionsContextMenu)
         # TODO:  there is probably a bug in how resize events are handled here
         # -- setMaximumSize is required to keep the placeholder widget from
         # setting itself too big when left and right docks are undocked and

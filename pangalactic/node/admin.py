@@ -4,9 +4,9 @@ Admin interface
 import sys
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
-                             QFormLayout, QHBoxLayout, QLabel, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
+                             QFormLayout, QHBoxLayout, QLabel, QMenu,
+                             QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
@@ -51,7 +51,28 @@ class RADropLabel(ColorLabel):
         self.setAcceptDrops(True)
         self.ra = ra
         self.mime = mime
+        self.setup_context_menu()
         dispatcher.connect(self.adjust_parent_size, 'ra label resized')
+
+    def setup_context_menu(self):
+        delete_role_action = QAction('Delete', self)
+        delete_role_action.triggered.connect(self.delete_role)
+        self.addAction(delete_role_action)
+        # self.setContextMenuPolicy(Qt.ActionsContextMenu)
+        self.menu = QMenu(self)
+        self.menu.setStyleSheet(
+            'QMenu::item {color: purple; background: white;} '
+            'QMenu::item:selected {color: white; background: purple;}')
+        self.menu.addAction(delete_role_action)
+
+    def delete_role(self, event):
+        """
+        Deleta a RoleAssignment.
+        """
+        ra_oid = self.ra.oid
+        orb.delete([self.ra])
+        dispatcher.send(signal='deleted object', oid=ra_oid,
+                        cname='RoleAssignment')
 
     def adjust_parent_size(self):
         self.parent().adjustSize()
@@ -83,6 +104,10 @@ class RADropLabel(ColorLabel):
             event.accept()
         else:
             event.ignore()
+
+    def contextMenuEvent(self, event):
+        if self.menu:
+            action = self.menu.exec_(self.mapToGlobal(event.pos()))
 
     def dropEvent(self, event):
         """
@@ -141,39 +166,25 @@ class AdminDialog(QDialog):
         super(AdminDialog, self).__init__(parent)
         self.setAcceptDrops(True)
         self.org = org
-        title = "Administer {} Roles".format(getattr(org, 'id', ''))
+        title = "Administer {} Roles".format(getattr(self.org, 'id', ''))
         self.setWindowTitle(title)
+        outer_vbox = QVBoxLayout()
         self.left_vbox = QVBoxLayout()
         self.right_vbox = QVBoxLayout()
         hbox = QHBoxLayout()
-        self.setLayout(hbox)
+        self.setLayout(outer_vbox)
+        outer_vbox.addLayout(hbox)
         hbox.addLayout(self.left_vbox)
         hbox.addLayout(self.right_vbox)
         hbox.addStretch(1)
-        self.users_widget = QWidget()
-        self.form_layout = QFormLayout()
-        orgid = getattr(org, 'id', 'No Organization')
-        org_label = ColorLabel(orgid, element='h2', margin=10)
-        # span 2 columns
-        self.form_layout.setWidget(0, QFormLayout.SpanningRole, org_label)
-        if self.org:
-            ras = [ra for ra in orb.get_by_type('RoleAssignment')
-                    if ra.role_assignment_context == self.org]
-            for i, ra in enumerate(ras):
-                r_label, p_label = self.get_labels(ra)
-                self.form_layout.addRow(r_label, p_label)
-        else:
-            none_label = QLabel('None')
-            self.form_layout.addRow(none_label)
-        self.users_widget.setLayout(self.form_layout)
-        self.left_vbox.addWidget(self.users_widget)
-        self.left_vbox.addStretch(1)
+        # build role assignments in left_vbox
+        self.refresh_roles()
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok, Qt.Horizontal,
                                         self)
         self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
-        self.left_vbox.addWidget(self.buttons)
+        outer_vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
-        # populate left side with person and role library widgets
+        # populate Role and Person library widgets
         cnames = ['Role', 'Person']
         lib_widget = LibraryListWidget(cnames=cnames, title='Roles and People',
                                        parent=self)
@@ -181,6 +192,48 @@ class AdminDialog(QDialog):
         self.right_vbox.addStretch(1)
         self.updateGeometry()
         dispatcher.connect(self.adjust_size, 'admin contents resized')
+        dispatcher.connect(self.refresh_roles, 'deleted object')
+        dispatcher.connect(self.refresh_roles, 'remote: deleted')
+
+    def refresh_roles(self):
+        """
+        Build the users_widget, which contains the role assignments for the
+        specified organization.
+        """
+        if hasattr(self, 'users_widget'):
+            # if there is an existing users_widget, destroy it
+            form_layout = self.users_widget.layout()
+            for w in self.form_widgets:
+                form_layout.removeWidget(w)
+                w.setParent(None)
+        else:
+            self.users_widget = QWidget()
+            form_layout = QFormLayout()
+            self.users_widget.setLayout(form_layout)
+            self.left_vbox.addWidget(self.users_widget)
+        self.form_widgets = []
+        orgid = getattr(self.org, 'id', 'No Organization')
+        org_label = ColorLabel(orgid, element='h2', margin=10)
+        # org_label should span 2 columns
+        form_layout.setWidget(0, QFormLayout.SpanningRole, org_label)
+        self.form_widgets.append(org_label)
+        if self.org:
+            ra_dict = {
+                (ra.assigned_role.name, ra.assigned_to.last_name or '') : ra
+                for ra in orb.search_exact(cname='RoleAssignment',
+                                           role_assignment_context=self.org)}
+            ra_tuples = list(ra_dict.keys())
+            ra_tuples.sort()
+            for ra_tuple in ra_tuples:
+                ra = ra_dict[ra_tuple]
+                r_label, p_label = self.get_labels(ra)
+                form_layout.addRow(r_label, p_label)
+                self.form_widgets.append(r_label)
+                self.form_widgets.append(p_label)
+        else:
+            none_label = QLabel('None')
+            form_layout.addRow(none_label)
+            self.form_widgets.append(none_label)
 
     def adjust_size(self):
         self.adjustSize()
@@ -245,29 +298,42 @@ class AdminDialog(QDialog):
                            role_assignment_context=self.org,
                            creator=local_user)
                 orb.save([ra])
-                r_label, p_label = self.get_labels(ra)
-                self.form_layout.addRow(r_label, p_label)
+                # r_label, p_label = self.get_labels(ra)
+                # self.form_layout.addRow(r_label, p_label)
+                # rebuild role assignments
+                self.refresh_roles()
             else:
                 orb.log.info('[Admin] Unknown Person dropped: "{}"'.format(
                                                                    p_name))
+            event.accept()
         elif event.mimeData().hasFormat('application/x-pgef-role'):
             data = extract_mime_data(event, 'application/x-pgef-role')
             icon, r_oid, r_id, r_name, r_cname = data
             role = orb.get(r_oid)
             if role:
-                orb.log.info('[Admin] Role dropped -- adding "{}"'.format(
-                                                               role.name))
+                orb.log.info('[Admin] Role dropped: "{}"'.format(role.name))
                 tbd = orb.get('pgefobjects:Person.TBD')
-                # don't need a timedate stamp -- clone() adds that
-                ra = clone('RoleAssignment', assigned_to=tbd,
-                           assigned_role=role,
-                           role_assignment_context=self.org)
-                orb.save([ra])
-                r_label, p_label = self.get_labels(ra)
-                self.form_layout.addRow(r_label, p_label)
+                # check whether we already have a TBD for that role ...
+                ra_tbd = orb.search_exact(cname='RoleAssignment',
+                                          assigned_role=role,
+                                          assigned_to=tbd)
+                if ra_tbd:
+                    orb.log.info('        already have TBD -- ignoring.')
+                else:
+                    orb.log.info('        adding as TBD ...')
+                    # don't need a timedate stamp -- clone() adds that
+                    ra = clone('RoleAssignment', assigned_to=tbd,
+                               assigned_role=role,
+                               role_assignment_context=self.org)
+                    orb.save([ra])
+                    # r_label, p_label = self.get_labels(ra)
+                    # self.form_layout.addRow(r_label, p_label)
+                    # rebuild role assignments
+                    self.refresh_roles()
             else:
                 orb.log.info('[Admin] Undefined Role dropped: "{}"'.format(
                                                              r_name or ''))
+            event.accept()
         else:
             # ignore anything that's not a Person or a Role
             event.ignore()
