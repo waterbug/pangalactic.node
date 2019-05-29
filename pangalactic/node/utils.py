@@ -108,6 +108,10 @@ def clone(what, include_ports=True, include_components=True, **kw):
     if not newkw.get('oid'):
         newkw['oid'] = str(uuid4())
     orb.new_oids.append(newkw['oid'])
+    if not newkw.get('id'):
+        # this is only needed for objects whose 'id' does not need to be
+        # significant and/or human-intelligible, but should still exist
+        newkw['id'] = '_'.join([cname, newkw['oid']])
     orb.log.info('  new %s oid: %s)' % (cname, newkw['oid']))
     NOW = dtstamp()
     newkw.update(dict([(dts, NOW) for dts in ['create_datetime',

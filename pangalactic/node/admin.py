@@ -10,11 +10,12 @@ from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
 
 from louie import dispatcher
 
-from pangalactic.core           import state
-from pangalactic.core.uberorb   import orb
-from pangalactic.node.libraries import LibraryListWidget
-from pangalactic.node.utils     import clone, extract_mime_data
-from pangalactic.node.widgets   import ColorLabel
+from pangalactic.core            import state
+from pangalactic.core.uberorb    import orb
+from pangalactic.core.utils.meta import get_ra_id, get_ra_name
+from pangalactic.node.libraries  import LibraryListWidget
+from pangalactic.node.utils      import clone, extract_mime_data
+from pangalactic.node.widgets    import ColorLabel
 
 
 def get_styled_text(text):
@@ -107,7 +108,7 @@ class RADropLabel(ColorLabel):
 
     def contextMenuEvent(self, event):
         if self.menu:
-            action = self.menu.exec_(self.mapToGlobal(event.pos()))
+            self.menu.exec_(self.mapToGlobal(event.pos()))
 
     def dropEvent(self, event):
         """
@@ -127,8 +128,9 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                # TODO:  dispatch "object modified" louie event so that it is
-                # saved to the repo
+                # pangalaxian will handle the 'modified object' signal and call
+                # the 'vger.assign_role' rpc (if online)
+                dispatcher.send(signal='modified object', obj=self.ra)
             elif self.mime == 'application/x-pgef-role':
                 data = extract_mime_data(event, 'application/x-pgef-role')
                 icon, r_oid, r_id, r_name, r_cname = data
@@ -140,8 +142,9 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(role.name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                # TODO:  dispatch "object modified" louie event so that it is
-                # saved to the repo
+                # pangalaxian will handle the 'modified object' signal and call
+                # the 'vger.assign_role' rpc (if online)
+                dispatcher.send(signal='modified object', obj=self.ra)
             else:
                 event.ignore()
         else:
@@ -293,15 +296,22 @@ class AdminDialog(QDialog):
                 observer = orb.get('pgefobjects:Role.Observer')
                 # don't need a timedate stamp -- clone() adds that
                 local_user = orb.get(state.get('local_user_oid'))
-                ra = clone('RoleAssignment', assigned_to=person,
+                ra_id = get_ra_id(self.org.id, observer.id, person.fname or '',
+                                  person.mi or '', person.lname or '')
+                ra_name = get_ra_name(self.org.id, observer.id,
+                                      person.fname or '', person.mi or '',
+                                      person.lname or '')
+                ra = clone('RoleAssignment', id=ra_id, name=ra_name,
+                           assigned_to=person,
                            assigned_role=observer,
                            role_assignment_context=self.org,
                            creator=local_user)
                 orb.save([ra])
-                # r_label, p_label = self.get_labels(ra)
-                # self.form_layout.addRow(r_label, p_label)
                 # rebuild role assignments
                 self.refresh_roles()
+                # pangalaxian will handle the 'new object' signal and call the
+                # 'vger.assign_role' rpc (if online)
+                dispatcher.send(signal='new object', obj=ra)
             else:
                 orb.log.info('[Admin] Unknown Person dropped: "{}"'.format(
                                                                    p_name))
@@ -322,14 +332,18 @@ class AdminDialog(QDialog):
                 else:
                     orb.log.info('        adding as TBD ...')
                     # don't need a timedate stamp -- clone() adds that
-                    ra = clone('RoleAssignment', assigned_to=tbd,
+                    ra_id = get_ra_id(self.org.id, role.id, 'TBD', '', '')
+                    ra_name = get_ra_name(self.org.id, role.id, 'TBD', '', '')
+                    ra = clone('RoleAssignment', id=ra_id, name=ra_name,
+                               assigned_to=tbd,
                                assigned_role=role,
                                role_assignment_context=self.org)
                     orb.save([ra])
-                    # r_label, p_label = self.get_labels(ra)
-                    # self.form_layout.addRow(r_label, p_label)
                     # rebuild role assignments
                     self.refresh_roles()
+                    # pangalaxian will handle the 'new object' signal and call
+                    # the 'vger.assign_role' rpc (if online)
+                    dispatcher.send(signal='new object', obj=ra)
             else:
                 orb.log.info('[Admin] Undefined Role dropped: "{}"'.format(
                                                              r_name or ''))

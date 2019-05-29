@@ -109,7 +109,6 @@ class Main(QtWidgets.QMainWindow):
             (persistent in the `state` module)
         library_widget (LibraryListWidget):  a panel widget containing library
             views for specified classes and a selector (combo box)
-        adminserv (bool):  True if admin service is to be used (default: False)
         app_version (str):  version of calling app (if any)
         reactor (qt5reactor):  twisted event loop
         roles (list of dicts):  actually, role assignments -- a list of dicts
@@ -120,7 +119,7 @@ class Main(QtWidgets.QMainWindow):
 
     def __init__(self, home='', test_data=None, width=None, height=None,
                  use_tls=True, console=False, debug=False, reactor=None,
-                 adminserv=False, app_version=None):
+                 app_version=None):
         """
         Initialize main window.
 
@@ -141,7 +140,6 @@ class Main(QtWidgets.QMainWindow):
         self.add_splash_msg('Starting ...')
         self.reactor = reactor
         self.use_tls = use_tls
-        self.adminserv = adminserv
         self.app_version = app_version
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
@@ -325,14 +323,9 @@ class Main(QtWidgets.QMainWindow):
 
     def sync_with_services(self):
         state['synced'] = True
-        if self.adminserv:
-            proc = config.get('admin_get_roles_rpc')
-            args = []
-            kw = {'no_filter': True}
-        else:
-            proc = u'vger.get_role_assignments'
-            args = [state['userid']]
-            kw = {'no_filter': True}
+        proc = u'vger.get_role_assignments'
+        args = [state['userid']]
+        kw = {'no_filter': True}
         orb.log.info('* calling rpc "{}"'.format(proc))
         orb.log.info('  with args: "{}"'.format(str(args)))
         orb.log.info('       kw: "{}"'.format(str(kw)))
@@ -368,9 +361,7 @@ class Main(QtWidgets.QMainWindow):
     def on_get_admin_result(self, data):
         """
         Handle result of the rpc that got our Person object and role
-        assignments.  If the 'adminserv' option is True, the admin service is
-        called using the rpc 'omb.state.query'; if False (for use in
-        testing), the 'vger' service is called using the rpc
+        assignments.  The 'vger' service is called using the rpc
         'vger.get_role_assignments'.  Because the 'no_filter' keyword arg is
         used, the returned data includes the full serialized objects, and has
         the format:
@@ -394,13 +385,10 @@ class Main(QtWidgets.QMainWindow):
         # project state is changed
         channels = []
         if data:
-            if self.adminserv:
-                log_msg = '* data from admin service:  %s' % str(data)
-            else:
-                # using vger to get role assignments
-                # NOTE:  test objects must be loaded for this to work!
-                log_msg = '* using vger admin service ...\n'
-                log_msg += '  ... admin data:  %s' % str(data)
+            # NOTE:  either a real project or test objects must be loaded for
+            # this to work!
+            log_msg = '* results of rpc "vger.get_role_assignments" ...\n'
+            log_msg += '  - admin data:  %s' % str(data)
             orb.log.debug(log_msg)
             # add any new Roles from admin data
             deserialize(orb, data[u'roles'])
@@ -1875,7 +1863,7 @@ class Main(QtWidgets.QMainWindow):
         # will be implemented in a separate action ("collaborate") which will
         # set up a previously local-only project on the server so that other
         # users can be given collaborative roles on it ...
-        # if obj and state['connected'] and self.adminserv:
+        # if obj and state['connected']:
             # orb.log.info('  - calling rpc omb.organization.add')
             # orb.log.debug('    with arguments:')
             # orb.log.debug('      oid={}'.format(obj.oid))
@@ -2041,16 +2029,18 @@ class Main(QtWidgets.QMainWindow):
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
             if state['connected']:
-                if (msg == 'new' and
-                    isinstance(obj, orb.classes['HardwareProduct'])):
-                        # serialized_objs = serialize(orb, [obj],
-                                                    # include_components=True)
-                        serialized_objs = serialize(orb, [obj])
+                serialized_objs = serialize(orb, [obj])
+                if isinstance(obj, orb.classes['RoleAssignment']):
+                    orb.log.info('  calling rpc vger.assign_role() ...')
+                    orb.log.info('  - role assignment: {}'.format(obj.id))
+                    rpc = message_bus.session.call(u'vger.assign_role',
+                                                   serialized_objs)
                 else:
-                    serialized_objs = serialize(orb, [obj])
-                orb.log.info('  calling rpc vger.save() on obj id: {}'.format(
-                                                                     obj.id))
-                rpc = message_bus.session.call(u'vger.save', serialized_objs)
+                    orb.log.info('  calling rpc vger.save() ...')
+                    orb.log.info('  - saved obj id: {} | oid: {}'.format(
+                                                          obj.id, obj.oid))
+                    rpc = message_bus.session.call(u'vger.save',
+                                                   serialized_objs)
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
         else:
@@ -3593,7 +3583,7 @@ def cleanup_and_save():
     write_trash(os.path.join(orb.home, 'trash'))
 
 def run(home='', splash_image=None, test_data=None, use_tls=True,
-        adminserv=True, console=False, debug=False, app_version=None):
+        console=False, debug=False, app_version=None):
     app = QtWidgets.QApplication(sys.argv)
     # app.setStyleSheet('QToolTip { border: 2px solid;}')
     app.setStyleSheet("QToolTip { color: #ffffff; "
@@ -3624,12 +3614,12 @@ def run(home='', splash_image=None, test_data=None, use_tls=True,
         # TODO:  updates to showMessage() using thread/slot+signal
         main = Main(home=home, test_data=test_data, use_tls=use_tls,
                     console=console, debug=debug, reactor=reactor,
-                    adminserv=adminserv, app_version=app_version)
+                    app_version=app_version)
         splash.finish(main)
     else:
         main = Main(home=home, test_data=test_data, use_tls=use_tls,
                     console=console, debug=debug, reactor=reactor,
-                    adminserv=adminserv, app_version=app_version)
+                    app_version=app_version)
     main.show()
     atexit.register(cleanup_and_save)
     # run the reactor after creating the main window but before starting the
@@ -3656,13 +3646,10 @@ if __name__ == "__main__":
                         help='test mode (send log output to console)')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='debug mode (verbose logging)')
-    parser.add_argument('-n', '--noadmin', action='store_true',
-                        help='no admin service available (use repo service)')
     parser.add_argument('-u', '--unencrypted', action='store_true',
                         help='use unencrypted transport (no tls)')
     options = parser.parse_args()
     tls = not options.unencrypted
     admin = not options.noadmin
-    run(console=options.test, debug=options.debug, use_tls=tls,
-        adminserv=admin)
+    run(console=options.test, debug=options.debug, use_tls=tls)
 

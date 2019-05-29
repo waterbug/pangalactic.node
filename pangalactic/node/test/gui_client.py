@@ -35,7 +35,8 @@ from pangalactic.node.widgets         import AutosizingListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus
 
 message_bus = PgxnMessageBus()
-cert_fname = './.crossbar_for_test_vger/server_cert.pem'
+# cert_fname = './.crossbar_for_test_vger/server_cert.pem'
+cert_fname = 'server_cert.pem'
 cert = crypto.load_certificate(
         crypto.FILETYPE_PEM,
         six.u(open(cert_fname, 'r').read()))
@@ -124,11 +125,10 @@ class LogWidget(QTextBrowser):
 class MainWindow(QMainWindow):
     MOD_COUNT = 0
 
-    def __init__(self, host, port, reactor=None, noadmin=False, parent=None):
+    def __init__(self, host, port, reactor=None, parent=None):
         super(MainWindow, self).__init__(parent)
         self.host = host
         self.port = port
-        self.noadmin = noadmin
         self.reactor = reactor
         self.create_main_frame()
         self.setGeometry(100, 100, 1000, 800)
@@ -205,7 +205,6 @@ class MainWindow(QMainWindow):
         self.cloaked_list.itemClicked.connect(self.on_cloaked_selected)
         decloaked_list_label = QLabel('Decloaked Objects:', self)
         self.decloaked_list = AutosizingListWidget(height=50, parent=self)
-        self.decloaked_list.itemClicked.connect(self.on_decloaked_selected)
         vbox = QVBoxLayout()
         vbox.addWidget(self.role_label, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
@@ -262,14 +261,9 @@ class MainWindow(QMainWindow):
         self.gcs_button.setVisible(True)
         self.get_object_button.setVisible(True)
         self.sync_project_button.setVisible(True)
-        if self.noadmin:
-            self.log('  - no admin service -- getting roles from repo ...')
-            rpc = message_bus.session.call(u'vger.get_role_assignments',
-                                           self.userid)
-        else:
-            self.log('  - calling admin service for assigned roles ...')
-            rpc = message_bus.session.call(u'omb.state.query',
-                                           selective=True, no_filter=True)
+        self.log('  - getting roles from repo ...')
+        rpc = message_bus.session.call(u'vger.get_role_assignments',
+                                       self.userid)
         rpc.addCallback(self.on_get_admin_result)
         rpc.addCallback(self.sync_user)
         rpc.addErrback(self.on_failure)
@@ -277,9 +271,7 @@ class MainWindow(QMainWindow):
     def on_get_admin_result(self, data):
         """
         Handle result of the rpc that got our role assignments, which comes in
-        one of two forms.  If the 'noadmin' option is set, the rpc calls to the
-        repo service; otherwise an admin service is called. The data has the
-        format:
+        one of two forms.  The data has the format:
 
             {u'organizations': [{oid, id, name, description,
                                  parent_organization}, ...],
@@ -293,10 +285,7 @@ class MainWindow(QMainWindow):
         """
         ra_txt = ''
         if data:
-            if self.noadmin:
-                self.log('* test role data from repo ...')
-            else:
-                self.log('* data from admin service ...')
+            self.log('* test role data from repo ...')
             self.log('  Organizations:')
             orgs = data[u'organizations']
             for i, org in enumerate(orgs):
@@ -342,15 +331,12 @@ class MainWindow(QMainWindow):
         print("* subscribed successfully: {}".format(str(result)))
 
     def on_failure(self, f):
-        print("* subscription failure: {}".format(f.get_traceback()))
+        print("* subscription failure: {}".format(f.getTraceback()))
 
     def subscribe_to_channels(self, channels=None):
         channels = channels or []
         if not channels:
             channels = [u'vger.channel.public', u'vger.channel.H2G2']
-        if not self.noadmin:
-            channels.append(u'omb.roleassignment')
-            channels.append(u'omb.organizationlist')
         for channel in channels:
             sub = message_bus.session.subscribe(self.on_signal, channel)
             sub.addCallback(self.on_success)
@@ -366,12 +352,7 @@ class MainWindow(QMainWindow):
         """
         # get Person object corresponding to login userid
         self.log('* calling rpc get_user_object ...')
-        if self.noadmin:
-            rpc = message_bus.session.call(u'vger.get_user_object',
-                                           self.userid)
-        else:
-            # TODO:  admin service rpc ...
-            pass
+        rpc = message_bus.session.call(u'vger.get_user_object', self.userid)
         rpc.addCallback(self.reset_user)
         rpc.addErrback(self.on_failure)
 
@@ -420,22 +401,6 @@ class MainWindow(QMainWindow):
         else:
             self.log('* decloak was unsuccessful:')
             self.log('  status: {}'.format(msg))
-
-    def on_decloaked_selected(self, item):
-        self.log('* on_decloaked_selected()')
-        self.log('  randomly modifying object ...')
-        obj_oid = self.decloaked[self.decloaked_list.currentRow()]
-        # randomly modify the object to test 'vger.modify' ...
-        self.MOD_COUNT += 1
-        new_desc = 'modification ' + str(self.MOD_COUNT)
-        rpc = message_bus.session.call(u'vger.modify', obj_oid,
-                                       description=new_desc)
-        rpc.addCallback(self.on_modify)
-        rpc.addErrback(self.on_failure)
-
-    def on_modify(self, result):
-        self.log('* on_modify')
-        self.log('  result received : {}'.format(str(result)))
 
     def get_cloaking_status(self, obj=None):
         """
@@ -617,9 +582,6 @@ class MainWindow(QMainWindow):
         for so in stuff:
             if str(so['_cname']) == 'HardwareProduct':
                 self.log('  - HardwareProduct "{}"'.format(so['oid']))
-            elif str(so['_cname']) == 'Parameter':
-                self.log('  - Parameter "{}" [value: "{}"], of "{}"'.format(
-                         so['id'], so.get('value', ''), so['parametrizes']))
 
     def logout(self):
         self.log('* logging out ...')
@@ -675,8 +637,6 @@ if __name__ == "__main__":
     parser.add_argument('--port', dest='port', type=six.text_type,
                         default='8080',
                         help='the port to connect to [default: 8080]')
-    parser.add_argument('-n', '--noadmin', action='store_true',
-                        help='no admin service available (use repo service')
     options = parser.parse_args()
     app = QApplication(sys.argv)
     print('app created')
@@ -687,12 +647,10 @@ if __name__ == "__main__":
         from twisted.internet import qt5reactor
     qt5reactor.install()
     from twisted.internet import reactor
-    mainwindow = MainWindow(options.host, options.port, reactor=reactor,
-                            noadmin=options.noadmin)
+    mainwindow = MainWindow(options.host, options.port, reactor=reactor)
     print('MainWindow instantiated ...')
-    print('  connecting to "{}"'.format(options.host))
+    print('  configured to connect to "{}"'.format(options.host))
     print('  on port {}'.format(options.port))
-    print('  noadmin: {}'.format(str(options.noadmin)))
     mainwindow.show()
     reactor.runReturn()
     sys.exit(app.exec_())
