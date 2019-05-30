@@ -55,7 +55,7 @@ from pangalactic.node.dialogs         import (CloakingDialog,
                                               # CondaDialog, ## deprecated
                                               LoginDialog,
                                               # CircleWidget,
-                                              # NotificationDialog,
+                                              NotificationDialog,
                                               ObjectSelectionDialog,
                                               # OptionNotification,
                                               PrefsDialog, Viewer3DDialog)
@@ -206,6 +206,9 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.get_cloaking_status, 'cloaking')
         dispatcher.connect(self.decloak, 'decloaking')
+        # NOTE: 'remote: decloaked' is the normal way for the repository
+        # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
+        # THE TYPE OF OBJECT ANNOUNCED!  (E.g., RoleAssignment instances)
         dispatcher.connect(self.on_remote_decloaked_signal,
                                                     'remote: decloaked')
         dispatcher.connect(self.on_remote_modified_signal,
@@ -333,6 +336,8 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_get_admin_result)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.subscribe_to_mbus_channels)
+        rpc.addErrback(self.on_failure)
+        rpc.addCallback(self.get_org_ra_data)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.sync_parameter_definitions)
         rpc.addErrback(self.on_failure)
@@ -507,9 +512,9 @@ class Main(QtWidgets.QMainWindow):
                                                 str(state['assigned_roles'])))
                 except:
                     orb.log.debug('    - no assigned roles found.')
-                channels = [u'vger.channel.'+orgs[chan_oid]
-                            for chan_oid in state['assigned_roles']
-                            if chan_oid != 'global']
+                channels = [u'vger.channel.'+orgs[channel_id]
+                            for channel_id in state['assigned_roles']
+                            if channel_id != 'global']
                 orb.log.debug('    channels we will subscribe to: {}'.format(
                                                                str(channels)))
                 if state['assigned_roles'] or state['admin_of']:
@@ -545,8 +550,6 @@ class Main(QtWidgets.QMainWindow):
         else:
             self.role_label.setText('online [no roles assigned]')
         channels.append(u'vger.channel.public')
-        channels.append(u'omb.roleassignment')
-        channels.append(u'omb.organizationlist')
         return channels
 
     def subscribe_to_mbus_channels(self, channels):
@@ -568,6 +571,50 @@ class Main(QtWidgets.QMainWindow):
 
     def on_pubsub_failure(self, f):
         orb.log.info("  - subscription failure: {}".format(f.getTraceback()))
+
+    def get_org_ra_data(self, data):
+        """
+        Get all RoleAssignment objects for all Organizations on which the local
+        user has Administrator role (these are needed when administering role
+        assignments for projects and other organizations).
+
+        Args:
+            data:  parameter required for callback (ignored)
+
+        Return:
+            deferred: result of `vger.` rpc
+        """
+        orb.log.info('[pgxn] get_org_ra_data()')
+        # admin_orgs = [org_oid for org_oid in state.get('admin_of', [])
+                      # if org_oid != 'global']
+        # admin_orgs = state.get('admin_of', [])
+        admin = orb.get('pgefobjects:Role.Administrator')
+        admin_ras = orb.search_exact(cname='RoleAssignment', assigned_role=admin,
+                                     assigned_to=self.local_user)
+        admin_orgs = [getattr(ra.role_assignment_context, 'oid', 'global')
+                      for ra in admin_ras]
+        orb.log.info('       - we have Admin roles: {}'.format(
+                                                            str(admin_orgs)))
+        searches = []
+        if admin_orgs:
+            for org_oid in admin_orgs:
+                orb.log.info('  -> getting ras for "{}" ...'.format(org_oid))
+                search = message_bus.session.call(u'vger.get_ras_for_org',
+                                                  org_oid)
+                search.addCallback(self.on_ra_search_success)
+                search.addErrback(self.on_ra_search_failure)
+                searches.append(search)
+            self.statusbar.showMessage('getting org role assignments ...')
+        else:
+            orb.log.info('       - No organization administrator roles found.')
+        return DeferredList(searches, consumeErrors=True)
+
+    def on_ra_search_success(self, result):
+        orb.log.info("  - ra search succeeded: {}".format(str(result)))
+        deserialize(orb, result)
+
+    def on_ra_search_failure(self, f):
+        orb.log.info("  - ra search failed: {}".format(f.getTraceback()))
 
     def sync_parameter_definitions(self, data):
         """
@@ -882,6 +929,8 @@ class Main(QtWidgets.QMainWindow):
             # text = ('subject: {}<br>'.format(subject))
             obj_id = '[unknown]'
             if subject == u'decloaked':
+                # actor_oid is the oid of the Actor to which the object has
+                # been decloaked (usually an Organization or Project)
                 obj_oid, obj_id, actor_oid, actor_id = content
             elif subject == u'modified':
                 obj_oid, obj_id, obj_mod_datetime = content
@@ -894,18 +943,6 @@ class Main(QtWidgets.QMainWindow):
                 obj_oid = content['oid']
                 obj_id = content['id']
             self.statusbar.showMessage("remote {}: {}".format(subject, obj_id))
-            # NOTE:  NotificationDialog BECOMES ANNOYING -- ACTIVATE ONLY FOR
-            # DEBUGGING ... USE SELF.STATUSBAR FOR NORMAL OPERATIONS
-            # text += '<table><tr>'
-            # text += '<td><b><font color="green">object oid:</font></td>'
-            # text += '<td>{}</td>'.format(obj_oid)
-            # if obj_id:
-                # text += '</tr><tr>'
-                # text += '<td><b><font color="green">object id:</font></td>'
-                # text += '<td>{}</td>'.format(obj_id)
-            # text += '</tr></table>'
-            # self.w = NotificationDialog(text, parent=self)
-            # self.w.show()
             if subject == u'decloaked':
                 dispatcher.send(signal="remote: decloaked", content=content)
             elif subject == u'modified':
@@ -1052,6 +1089,13 @@ class Main(QtWidgets.QMainWindow):
             rpc.addErrback(self.on_failure)
 
     def on_rpc_get_object(self, serialized_objects):
+        """
+        Handle the result of the rpc 'vger.get_object', which returns a list of
+        serialized objects.
+
+        Args:
+            serialized_objects (list): a list of serialized objects
+        """
         orb.log.info("* on_rpc_get_object")
         orb.log.info("  got: {} serialized objects".format(
                                                     len(serialized_objects)))
@@ -1144,6 +1188,16 @@ class Main(QtWidgets.QMainWindow):
                                 orb.log.info(traceback.format_exc())
                     # resize dashboard columns if necessary
                     self.refresh_dashboard()
+            elif (isinstance(obj, orb.classes['RoleAssignment'])
+                  and getattr(obj, 'assigned_to', None) is self.local_user):
+                html = '<h3>You have been assigned the role:</h3>'
+                html += '<p><b><font color="green">{}</font></b>'.format(
+                                                        obj.assigned_role.id)
+                html += ' in <b><font color="green">{}</font></b></p>'.format(
+                                    getattr(obj.role_assignment_context, 'id',
+                                            'global context'))
+                self.w = NotificationDialog(html, parent=self)
+                self.w.show()
             if self.mode == 'db':
                 orb.log.info('  updating db views with: "{}"'.format(obj.id))
                 self.refresh_cname_list()
