@@ -147,12 +147,8 @@ class Main(QtWidgets.QMainWindow):
         # window state when switching between modes
         self.main_states = {}
         state['connected'] = False
-        if not state.get('admin_of'):
-            state['admin_of'] = []
-        if not state.get('assigned_roles'):
-            state['assigned_roles'] = {}
-        if not state.get('disabled'):
-            state['disabled'] = False
+        # if not state.get('assigned_roles'):
+            # state['assigned_roles'] = {}
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)
         orb.start(home=home, console=console, debug=debug)
@@ -326,19 +322,21 @@ class Main(QtWidgets.QMainWindow):
 
     def sync_with_services(self):
         state['synced'] = True
-        proc = u'vger.get_role_assignments'
-        args = [state['userid']]
-        kw = {'no_filter': True}
-        orb.log.info('* calling rpc "{}"'.format(proc))
-        orb.log.info('  with args: "{}"'.format(str(args)))
-        orb.log.info('       kw: "{}"'.format(str(kw)))
-        rpc = message_bus.session.call(proc, *args, **kw)
-        rpc.addCallback(self.on_get_admin_result)
+        # orb.log.info('* calling rpc "vger.get_role_assignments"')
+        orb.log.info('* calling rpc "vger.get_user_roles"')
+        userid = state['userid']
+        orb.log.info('  with arg: "{}"'.format(userid))
+        # rpc.addCallback(self.on_get_admin_result)
+        rpc = message_bus.session.call(u'vger.get_user_roles', userid)
+        rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.subscribe_to_mbus_channels)
         rpc.addErrback(self.on_failure)
-        rpc.addCallback(self.get_org_ra_data)
-        rpc.addErrback(self.on_failure)
+        # NOTE: get_org_role_data works but is commented because org role
+        # assignments data will be refreshed when state is "connected" and a
+        # project is selected (better because the data will be fresher)
+        # rpc.addCallback(self.get_org_role_data)
+        # rpc.addErrback(self.on_failure)
         rpc.addCallback(self.sync_parameter_definitions)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_sync_result)
@@ -363,192 +361,251 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
 
-    def on_get_admin_result(self, data):
+    # def on_get_admin_result(self, data):
+        # """
+        # Handle result of the rpc that got our Person object and role
+        # assignments.  The 'vger' service is called using the rpc
+        # 'vger.get_role_assignments'.  Because the 'no_filter' keyword arg is
+        # used, the returned data includes the full serialized objects, and has
+        # the format:
+
+            # {u'organizations': [serialized Org objects],
+             # u'users': [serialized Person objects],
+             # u'roles': [serialized Role objects],
+             # u'roleAssignments': [serialized RoleAssignment objects]}
+
+        # If the 'no_filter' keyword arg is NOT used, these abbreviated
+        # dictionary formats will be returned:
+
+            # {u'organizations': [{oid, id, name, description,
+                                 # parent_organization}, ...],
+             # u'users': [{oid, id, name}, ...],
+             # u'roles': [{oid, name}, ...],
+             # u'roleAssignments': [{assigned_role, assigned_to,
+                                   # role_assignment_context}, ...]}
+        # """
+        # # TODO: cache all role assignments; update current role when local
+        # # project state is changed
+        # channels = []
+        # if data:
+            # # NOTE:  either a real project or test objects must be loaded for
+            # # this to work!
+            # log_msg = '* results of rpc "vger.get_role_assignments" ...\n'
+            # log_msg += '  - admin data:  %s' % str(data)
+            # orb.log.debug(log_msg)
+            # # add any new Roles from admin data
+            # deserialize(orb, data[u'roles'])
+            # # add any new Organizations from admin data
+            # deserialize(orb, data[u'organizations'])
+            # # find Person object returned in admin data 'users'
+            # users = deserialize(orb, data[u'users'])
+            # # delete any local RoleAssignments not in admin data
+            # local_ras_to_del = [ra for ra in orb.get_by_type('RoleAssignment')
+                                # if ra.oid not in
+                                # [new_ra['oid'] for new_ra in
+                                 # data[u'roleAssignments']]]
+            # if local_ras_to_del:
+                # oids = [ra.oid for ra in local_ras_to_del]
+                # orb.delete(local_ras_to_del)
+                # for oid in oids:
+                    # dispatcher.send('remote: deleted', content=oid)
+            # # add any new RoleAssignments from admin data
+            # deserialize(orb, data[u'roleAssignments'])
+            # persons_by_id = {u.id: u for u in users
+                             # if isinstance(u, orb.classes['Person'])}
+            # if persons_by_id:
+                # user_with_my_userid = persons_by_id.get(state['userid'])
+                # if user_with_my_userid:
+                    # self.local_user = user_with_my_userid
+                    # orb.log.info('* local user found in admin data: {}'.format(
+                                                          # self.local_user.oid))
+                # else:
+                    # orb.log.info('* person object for local user "{}" not '
+                                 # 'found in data.'.format(state['userid']))
+            # else:
+                # orb.log.info('* no person objects found in admin data.')
+            # if str(state.get('local_user_oid')) == 'me':
+                # # current local user is 'me' -- replace ...
+                # orb.log.info('  setting new local user to {}'.format(
+                                                        # self.local_user.oid))
+                # state['local_user_oid'] = str(self.local_user.oid)
+                # me = orb.get('me')
+                # if me and me.created_objects:
+                    # orb.log.info('    updating {} local objects ...'.format(
+                                  # str(len(me.created_objects))))
+                    # for obj in me.created_objects:
+                        # obj.creator = self.local_user
+                        # obj.modifier = self.local_user
+                        # orb.save([obj])
+                        # dispatcher.send('modified object', obj=obj)
+            # else:
+                # orb.log.info('    login user matches local user.')
+
+            # # `state` keys for org/role/assignment data:
+            # #   * 'role_oids':
+            # #       a name-to-oid mapping for Role instances
+            # #   * 'admin_of':
+            # #       a list of org oids for which the user has the Administrator
+            # #       role
+            # #   * 'assigned_roles':
+            # #       maps org.oid to a list of role.name for the roles assigned
+            # #       to the user in that org
+
+            # # `ras_admin_serv` is role assignment data obtained from admin service
+            # # [note that all RA objects received from the admin service are
+            # # deserialized into the local repo ]
+            # ras_admin_serv = data[u'roleAssignments']
+            # if ras_admin_serv:
+                # orb.log.debug('    finding orgs in which we have a role ...')
+                # ra_org_oids = [ra.get(u'role_assignment_context')
+                               # for ra in ras_admin_serv
+                               # if ra.get(u'role_assignment_context')]
+                # roles = {str(r[u'oid']) : str(r[u'name'])
+                         # for r in data[u'roles']}
+                # state['role_oids'] = {str(r[u'name']) : str(r[u'oid'])
+                                      # for r in data[u'roles']}
+                # orgs = {str(o[u'oid']) : str(o[u'id'])
+                        # for o in data[u'organizations']
+                        # if o[u'oid'] in ra_org_oids}
+                # orb.log.debug('    finding assigned Admin roles ...')
+                # try:
+                    # state['admin_of'] = [str(ra.get(u'role_assignment_context',
+                                                    # 'global'))
+                                         # for ra in ras_admin_serv
+                                         # if (ra[u'assigned_role'] ==
+                                           # u'pgefobjects:Role.Administrator')]
+                # except:
+                    # state['admin_of'] = []
+                # orb.log.debug('    finding other assigned roles ...')
+                # # NOTE: 'assigned_roles' is re-initialized here in case some
+                # # previously assigned roles have been removed
+                # state['assigned_roles'] = {}
+                # try:
+                    # for ra in ras_admin_serv:
+                        # if (str(ra[u'assigned_role'])
+                            # != 'pgefobjects:Role.Administrator'):
+                            # org_oid = str(ra.get(u'role_assignment_context',
+                                                 # 'global'))
+                            # if org_oid in state['assigned_roles']:
+                                # if (str(roles[ra[u'assigned_role']])
+                                    # not in state['assigned_roles'][org_oid]):
+                                    # state['assigned_roles'][org_oid].append(
+                                            # str(roles[ra[u'assigned_role']]))
+                            # else:
+                                # state['assigned_roles'][
+                                      # org_oid] = [str(roles[
+                                                        # ra[u'assigned_role']])]
+                    # orb.log.debug('    - assigned roles found: {}'.format(
+                                                # str(state['assigned_roles'])))
+                # except:
+                    # orb.log.debug('    - no assigned roles found.')
+                # channels = [u'vger.channel.'+orgs[channel_id]
+                            # for channel_id in state['assigned_roles']
+                            # if channel_id != 'global']
+                # orb.log.debug('    channels we will subscribe to: {}'.format(
+                                                               # str(channels)))
+                # if state['assigned_roles'] or state['admin_of']:
+                    # orb.log.info('  - role assignments found:')
+                # if state['assigned_roles']:
+                    # for ar_org_oid in state['assigned_roles']:
+                        # # don't die if there are 'global' roles, which may
+                        # # either have the `role_assignment_context` key omitted
+                        # # or if present, it may have a None value ...
+                        # orb.log.info('    {}: {}'.format(
+                                 # orgs.get(ar_org_oid, 'global') or 'global',
+                                 # str(state['assigned_roles'][ar_org_oid])))
+                # if state['admin_of']:
+                    # for adm_org_oid in state['admin_of']:
+                        # if adm_org_oid == 'global':
+                            # orb.log.info('    Global Administrator')
+                        # else:
+                            # orb.log.info('    {}: Administrator'.format(
+                                          # orgs[adm_org_oid]))
+            # else:
+                # orb.log.info('  - no role assignments found.')
+            # if self.project:
+                # if self.project.oid in state['assigned_roles']:
+                    # txt = u': '.join([self.project.id,
+                              # state['assigned_roles'][self.project.oid][0]])
+                # elif str(self.project.oid) == 'pgefobjects:SANDBOX':
+                    # txt = u'SANDBOX'
+                # else:
+                    # txt = u': '.join([self.project.id, '[local]'])
+                # self.role_label.setText(txt)
+            # else:
+                # self.role_label.setText('online [no project selected]')
+        # else:
+            # self.role_label.setText('online [no roles assigned]')
+        # channels.append(u'vger.channel.public')
+        # return channels
+
+    def on_get_user_roles_result(self, data):
         """
-        Handle result of the rpc that got our Person object and role
-        assignments.  The 'vger' service is called using the rpc
-        'vger.get_role_assignments'.  Because the 'no_filter' keyword arg is
-        used, the returned data includes the full serialized objects, and has
-        the format:
+        Handle result of the rpc 'vger.get_user_roles'.  The returned data has
+        the structure:
 
-            {u'organizations': [serialized Org objects],
-             u'users': [serialized Person objects],
-             u'roles': [serialized Role objects],
-             u'roleAssignments': [serialized RoleAssignment objects]}
-
-        If the 'no_filter' keyword arg is NOT used, these abbreviated
-        dictionary formats will be returned:
-
-            {u'organizations': [{oid, id, name, description,
-                                 parent_organization}, ...],
-             u'users': [{oid, id, name}, ...],
-             u'roles': [{oid, name}, ...],
-             u'roleAssignments': [{assigned_role, assigned_to,
-                                   role_assignment_context}, ...]}
+            [serialized user (Person) object,
+             serialized RoleAssignment objects]
         """
-        # TODO: cache all role assignments; update current role when local
-        # project state is changed
+        log_msg = '* results of rpc "vger.get_user_roles" ...\n'
+        log_msg += '  - data:  %s' % str(data)
+        orb.log.debug(log_msg)
+        # data should be a list with 2 elements:
+        serialized_user, serialized_role_assignments = data
         channels = []
-        if data:
-            # NOTE:  either a real project or test objects must be loaded for
-            # this to work!
-            log_msg = '* results of rpc "vger.get_role_assignments" ...\n'
-            log_msg += '  - admin data:  %s' % str(data)
-            orb.log.debug(log_msg)
-            # add any new Roles from admin data
-            deserialize(orb, data[u'roles'])
-            # add any new Organizations from admin data
-            deserialize(orb, data[u'organizations'])
-            # find Person object returned in admin data 'users'
-            users = deserialize(orb, data[u'users'])
-            # delete any local RoleAssignments not in admin data
-            local_ras_to_del = [ra for ra in orb.get_by_type('RoleAssignment')
-                                if ra.oid not in
-                                [new_ra['oid'] for new_ra in
-                                 data[u'roleAssignments']]]
-            if local_ras_to_del:
-                oids = [ra.oid for ra in local_ras_to_del]
-                orb.delete(local_ras_to_del)
-                for oid in oids:
-                    dispatcher.send('remote: deleted', content=oid)
-            # add any new RoleAssignments from admin data
-            deserialize(orb, data[u'roleAssignments'])
-            persons_by_id = {u.id: u for u in users
-                             if isinstance(u, orb.classes['Person'])}
-            if persons_by_id:
-                user_with_my_userid = persons_by_id.get(state['userid'])
-                if user_with_my_userid:
-                    self.local_user = user_with_my_userid
-                    orb.log.info('* local user found in admin data: {}'.format(
-                                                          self.local_user.oid))
-                else:
-                    orb.log.info('* person object for local user "{}" not '
-                                 'found in data.'.format(state['userid']))
-            else:
-                orb.log.info('* no person objects found in admin data.')
+        if serialized_user:
+            objs = deserialize(orb, serialized_user)
+            self.local_user = objs[0]
+            orb.log.info('* local user returned: {}'.format(
+                                                  self.local_user.oid))
+            state['local_user_oid'] = str(self.local_user.oid)
             if str(state.get('local_user_oid')) == 'me':
                 # current local user is 'me' -- replace ...
-                orb.log.info('  setting new local user to {}'.format(
-                                                        self.local_user.oid))
+                orb.log.info('  local user was "me", replacing ...')
                 state['local_user_oid'] = str(self.local_user.oid)
                 me = orb.get('me')
                 if me and me.created_objects:
-                    orb.log.info('    updating {} local objects ...'.format(
-                                  str(len(me.created_objects))))
+                    orb.log.info('  updating {} local objects ...'.format(
+                                            str(len(me.created_objects))))
                     for obj in me.created_objects:
                         obj.creator = self.local_user
                         obj.modifier = self.local_user
                         orb.save([obj])
                         dispatcher.send('modified object', obj=obj)
             else:
-                orb.log.info('    login user matches local user.')
-
-            # `state` keys for org/role/assignment data:
-            #   * 'role_oids':
-            #       a name-to-oid mapping for Role instances
-            #   * 'admin_of':
-            #       a list of org oids for which the user has the Administrator
-            #       role
-            #   * 'assigned_roles':
-            #       maps org.oid to a list of role.name for the roles assigned
-            #       to the user in that org
-
-            # `ras_admin_serv` is role assignment data obtained from admin service
-            # [note that all RA objects received from the admin service are
-            # deserialized into the local repo ]
-            ras_admin_serv = data[u'roleAssignments']
-            if ras_admin_serv:
-                orb.log.debug('    finding orgs in which we have a role ...')
-                ra_org_oids = [ra.get(u'role_assignment_context')
-                               for ra in ras_admin_serv
-                               if ra.get(u'role_assignment_context')]
-                orb.log.debug('    finding disabled_by_org ...')
-                try:
-                    disabled_by_org = [ra.get(u'role_assignment_context', 'global')
-                                       for ra in ras_admin_serv
-                                       if (ra[u'assigned_role'] ==
-                                           u'pgefobjects.Role.Disabled')]
-                except:
-                    disabled_by_org = []
-                orb.log.debug('    checking if we are globally disabled ...')
-                if 'global' in disabled_by_org:
-                    self.disabled = True
-                roles = {str(r[u'oid']) : str(r[u'name'])
-                         for r in data[u'roles']}
-                state['role_oids'] = {str(r[u'name']) : str(r[u'oid'])
-                                      for r in data[u'roles']}
-                orgs = {str(o[u'oid']) : str(o[u'id'])
-                        for o in data[u'organizations']
-                        if o[u'oid'] in ra_org_oids}
-                orb.log.debug('    finding assigned Admin roles ...')
-                try:
-                    state['admin_of'] = [str(ra.get(u'role_assignment_context',
-                                                    'global'))
-                                         for ra in ras_admin_serv
-                                         if (ra[u'assigned_role'] ==
-                                           u'pgefobjects:Role.Administrator')]
-                except:
-                    state['admin_of'] = []
-                orb.log.debug('    finding other assigned roles ...')
-                # NOTE: 'assigned_roles' is re-initialized here in case some
-                # previously assigned roles have been removed
-                state['assigned_roles'] = {}
-                try:
-                    for ra in ras_admin_serv:
-                        if (str(ra[u'assigned_role'])
-                            != 'pgefobjects:Role.Administrator'):
-                            org_oid = str(ra.get(u'role_assignment_context',
-                                                 'global'))
-                            if org_oid in state['assigned_roles']:
-                                if (str(roles[ra[u'assigned_role']])
-                                    not in state['assigned_roles'][org_oid]):
-                                    state['assigned_roles'][org_oid].append(
-                                            str(roles[ra[u'assigned_role']]))
-                            else:
-                                state['assigned_roles'][
-                                      org_oid] = [str(roles[
-                                                        ra[u'assigned_role']])]
-                    orb.log.debug('    - assigned roles found: {}'.format(
-                                                str(state['assigned_roles'])))
-                except:
-                    orb.log.debug('    - no assigned roles found.')
-                channels = [u'vger.channel.'+orgs[channel_id]
-                            for channel_id in state['assigned_roles']
-                            if channel_id != 'global']
-                orb.log.debug('    channels we will subscribe to: {}'.format(
-                                                               str(channels)))
-                if state['assigned_roles'] or state['admin_of']:
-                    orb.log.info('  - role assignments found:')
-                if state['assigned_roles']:
-                    for ar_org_oid in state['assigned_roles']:
-                        # don't die if there are 'global' roles, which may
-                        # either have the `role_assignment_context` key omitted
-                        # or if present, it may have a None value ...
-                        orb.log.info('    {}: {}'.format(
-                                 orgs.get(ar_org_oid, 'global') or 'global',
-                                 str(state['assigned_roles'][ar_org_oid])))
-                if state['admin_of']:
-                    for adm_org_oid in state['admin_of']:
-                        if adm_org_oid == 'global':
-                            orb.log.info('    Global Administrator')
-                        else:
-                            orb.log.info('    {}: Administrator'.format(
-                                          orgs[adm_org_oid]))
-            else:
-                orb.log.info('  - no role assignments found.')
-            if self.project:
-                if self.project.oid in state['assigned_roles']:
-                    txt = u': '.join([self.project.id,
-                              state['assigned_roles'][self.project.oid][0]])
-                elif str(self.project.oid) == 'pgefobjects:SANDBOX':
-                    txt = u'SANDBOX'
-                else:
-                    txt = u': '.join([self.project.id, '[local]'])
-                self.role_label.setText(txt)
-            else:
-                self.role_label.setText('online [no project selected]')
+                orb.log.info('  - login user matches current local user.')
         else:
-            self.role_label.setText('online [no roles assigned]')
+            orb.log.info('  - user object for local user not returned!')
+        orb.log.info('  - deserializing role assignments ...')
+        # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE:
+        # all local role assignment data should be deleted before deserializing
+        # what is received from the server
+        ras_local = orb.get_by_type('RoleAssignment')
+        orb.delete(ras_local)
+        # NOTE: serialized RoleAssignment objects include all related
+        # objects -- 'assigned_role' (Role), 'assigned_to' (Person), and
+        # 'role_assignment_context' (Organization or Project)
+        deserialize(orb, serialized_role_assignments)
+        org_ids = [getattr(ra.role_assignment_context, 'id', '')
+                   for ra in orb.get_by_type('RoleAssignment')]
+        channels = [u'vger.channel.' + org_id
+                    for org_id in org_ids if org_id and org_id != 'global']
+        orb.log.debug('    channels we will subscribe to: {}'.format(
+                                                       str(channels)))
+        if self.project:
+            ras = orb.search_exact(cname='RoleAssignment',
+                                   assigned_to=self.local_user,
+                                   role_assignment_context=self.project)
+            my_roles = [ra.assigned_role.name for ra in ras]
+            if my_roles:
+                txt = u': '.join([self.project.id, my_roles[0]])
+            elif str(self.project.oid) == 'pgefobjects:SANDBOX':
+                txt = u'SANDBOX'
+            else:
+                txt = u': '.join([self.project.id, '[local]'])
+            self.role_label.setText(txt)
+        else:
+            self.role_label.setText('online [no project selected]')
         channels.append(u'vger.channel.public')
         return channels
 
@@ -572,7 +629,7 @@ class Main(QtWidgets.QMainWindow):
     def on_pubsub_failure(self, f):
         orb.log.info("  - subscription failure: {}".format(f.getTraceback()))
 
-    def get_org_ra_data(self, data):
+    def get_org_role_data(self, data):
         """
         Get all RoleAssignment objects for all Organizations on which the local
         user has Administrator role (these are needed when administering role
@@ -584,10 +641,7 @@ class Main(QtWidgets.QMainWindow):
         Return:
             deferred: result of `vger.` rpc
         """
-        orb.log.info('[pgxn] get_org_ra_data()')
-        # admin_orgs = [org_oid for org_oid in state.get('admin_of', [])
-                      # if org_oid != 'global']
-        # admin_orgs = state.get('admin_of', [])
+        orb.log.info('[pgxn] get_org_role_data()')
         admin = orb.get('pgefobjects:Role.Administrator')
         admin_ras = orb.search_exact(cname='RoleAssignment', assigned_role=admin,
                                      assigned_to=self.local_user)
@@ -598,13 +652,14 @@ class Main(QtWidgets.QMainWindow):
         searches = []
         if admin_orgs:
             for org_oid in admin_orgs:
-                orb.log.info('  -> getting ras for "{}" ...'.format(org_oid))
-                search = message_bus.session.call(u'vger.get_ras_for_org',
+                orb.log.info('  -> getting roles in org "{}" ...'.format(
+                                                                org_oid))
+                search = message_bus.session.call(u'vger.get_roles_in_org',
                                                   org_oid)
                 search.addCallback(self.on_ra_search_success)
                 search.addErrback(self.on_ra_search_failure)
                 searches.append(search)
-            self.statusbar.showMessage('getting org role assignments ...')
+            self.statusbar.showMessage('getting role assignments ...')
         else:
             orb.log.info('       - No organization administrator roles found.')
         return DeferredList(searches, consumeErrors=True)
@@ -1229,6 +1284,8 @@ class Main(QtWidgets.QMainWindow):
                                     "Create New Project",
                                     slot=self.new_project,
                                     tip="Create a New Project")
+        # NOTE: to delete a collaborative project, collaboration must first be
+        # disabled ...
         self.delete_project_action = self.create_action(
                                     "Delete This Project",
                                     slot=self.delete_project,
@@ -1237,13 +1294,21 @@ class Main(QtWidgets.QMainWindow):
         self.delete_project_action.setEnabled(False)
         self.delete_project_action.setVisible(False)
         enable_collab_tip = "Enable Collaboration on the current Project"
-        self.enable_collaboration_action = self.create_action(
+        self.enable_collab_action = self.create_action(
                                     "Enable Collaboration",
                                     slot=self.enable_collaboration,
                                     tip=enable_collab_tip)
-        # default:  enable_collaboration_action is not visible
-        self.enable_collaboration_action.setEnabled(False)
-        self.enable_collaboration_action.setVisible(False)
+        # default:  enable_collab_action is not visible
+        self.enable_collab_action.setEnabled(False)
+        self.enable_collab_action.setVisible(False)
+        disable_collab_tip = "Disable Collaboration on the current Project"
+        self.disable_collab_action = self.create_action(
+                                    "Disable Collaboration",
+                                    slot=self.disable_collaboration,
+                                    tip=disable_collab_tip)
+        # default:  disable_collab_action is not visible
+        self.disable_collab_action.setEnabled(False)
+        self.disable_collab_action.setVisible(False)
         # Administer roles
         admin_action_tip = "Administer roles on the current Project"
         self.admin_action = self.create_action(
@@ -1251,8 +1316,8 @@ class Main(QtWidgets.QMainWindow):
                                     slot=self.do_admin_stuff,
                                     tip=admin_action_tip)
         # default:  admin_action is not visible
-        self.admin_action.setEnabled(False)
-        self.admin_action.setVisible(False)
+        # self.admin_action.setEnabled(False)
+        # self.admin_action.setVisible(False)
         self.set_project_action = self.create_action(
                                     "Set Project",
                                     slot=self.set_current_project,
@@ -1756,7 +1821,6 @@ class Main(QtWidgets.QMainWindow):
         system_tools_icon_path = os.path.join(orb.icon_dir,
                                               system_tools_icon_file)
         system_tools_actions = [self.edit_prefs_action,
-                                # self.admin_action,
                                 self.refresh_tree_action,
                                 self.product_lib_action,
                                 self.port_template_lib_action,
@@ -1789,15 +1853,15 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(project_label)
         self.project_selection = ButtonLabel(
                                     self.project.id,
-                                    actions=[self.enable_collaboration_action,
+                                    actions=[self.enable_collab_action,
                                              self.admin_action,
                                              self.delete_project_action,
                                              self.new_project_action],
                                     w=120)
         self.delete_project_action.setVisible(False)
         self.delete_project_action.setEnabled(False)
-        self.enable_collaboration_action.setVisible(False)
-        self.enable_collaboration_action.setEnabled(False)
+        self.enable_collab_action.setVisible(False)
+        self.enable_collab_action.setEnabled(False)
         self.project_selection.clicked.connect(self.set_current_project)
         self.toolbar.addWidget(self.project_selection)
         # project_selection and its label will only be visible in 'data',
@@ -2156,20 +2220,15 @@ class Main(QtWidgets.QMainWindow):
         if online.
         """
         project_oid = state.get('project')
-        project = orb.get(project_oid)
         # disable 'delete' and 'enable_collaboration' context menu opts if
         # project not created by local user or project is SANDBOX
-        if (project_oid == 'pgefobjects:SANDBOX' or
-            project.creator != self.local_user):
+        if project_oid == 'pgefobjects:SANDBOX':
             self.delete_project_action.setVisible(False)
             self.delete_project_action.setEnabled(False)
-            self.enable_collaboration_action.setVisible(False)
-            self.enable_collaboration_action.setEnabled(False)
+            self.enable_collab_action.setVisible(False)
+            self.enable_collab_action.setEnabled(False)
             self.admin_action.setVisible(False)
             self.admin_action.setEnabled(False)
-        else:
-            self.delete_project_action.setEnabled(True)
-            self.delete_project_action.setVisible(True)
         if (project_oid and project_oid != 'pgefobjects:SANDBOX'
             and state.get('connected')):
             rpc = self.sync_current_project(None)
@@ -2204,74 +2263,81 @@ class Main(QtWidgets.QMainWindow):
             self.project_selection.setText(self.project.id)
             orb.log.info('* set_project({})'.format(p.id))
             state['project'] = str(p.oid)
-            if hasattr(self, 'delete_project_action'):
-                if p.oid == 'pgefobjects:SANDBOX':
-                    # SANDBOX cannot be deleted, made collaborative, nor have
-                    # roles provisioned (admin)
-                    self.enable_collaboration_action.setVisible(False)
-                    self.enable_collaboration_action.setEnabled(False)
-                    self.delete_project_action.setEnabled(False)
-                    self.delete_project_action.setVisible(False)
+            # if hasattr(self, 'delete_project_action'):
+            if p.oid == 'pgefobjects:SANDBOX':
+                # SANDBOX cannot be deleted, made collaborative, nor have
+                # roles provisioned (admin)
+                self.enable_collab_action.setVisible(False)
+                self.enable_collab_action.setEnabled(False)
+                self.delete_project_action.setEnabled(False)
+                self.delete_project_action.setVisible(False)
+                self.admin_action.setVisible(False)
+                self.admin_action.setEnabled(False)
+                role_label_txt = 'SANDBOX'
+            else:
+                project_is_local = False
+                # if state.get('assigned_roles'):
+                    # if state['assigned_roles'].get(p.oid):
+                        # p_roles += state['assigned_roles'][p.oid]
+                # # if user has Administrator role, append it
+                # admin_of = state.get('admin_of') or []
+                # if p.oid in admin_of and 'Administrator' not in p_roles:
+                    # p_roles.append('Administrator')
+                # get my role assignments on the project ...
+                ras = orb.search_exact(cname='RoleAssignment',
+                                       assigned_to=self.local_user,
+                                       role_assignment_context=p)
+                p_roles = [ra.assigned_role.name for ra in ras]
+                if p_roles:
+                    if len(p_roles) > 1:
+                        # add asterisk to indicate multiple roles
+                        role_label_txt = u': '.join([p.id, p_roles[0],
+                                                    ' *'])
+                        tt_txt = u'<ul>\n'
+                        for p_role in p_roles:
+                            tt_txt += u'<li>' + str(p.id) + u': '
+                            tt_txt += str(p_role) + u'</li>\n'
+                        tt_txt += u'</ul>'
+                    else:
+                        role_label_txt = u': '.join([p.id, p_roles[0]])
+                else:
+                    project_is_local = True
+                    role_label_txt = u': '.join([p.id, '[local]'])
+                if state['connected']:
+                    if p_roles:
+                        # project is already collaborative
+                        self.enable_collab_action.setVisible(False)
+                        self.enable_collab_action.setEnabled(False)
+                        if 'Administrator' in p_roles:
+                            # role assignments for the project ...
+                            self.admin_action.setVisible(True)
+                            self.admin_action.setEnabled(True)
+                            # to delete a collaborative project,
+                            # collaboration must first be disabled ...
+                            # self.disable_collab_action.setVisible(True)
+                            # self.disable_collab_action.setEnabled(True)
+                    else:
+                        # if we have no roles on the project but we have
+                        # the project, then it is local, and it can be
+                        # deleted or collaboration can be enabled
+                        self.delete_project_action.setEnabled(True)
+                        self.delete_project_action.setVisible(True)
+                        self.enable_collab_action.setVisible(True)
+                        self.enable_collab_action.setEnabled(True)
+                else:
+                    # when offline, `enable collaboration` is disabled
+                    self.enable_collab_action.setVisible(False)
+                    self.enable_collab_action.setEnabled(False)
+                    # when offline, admin action is disabled
                     self.admin_action.setVisible(False)
                     self.admin_action.setEnabled(False)
-                    role_label_txt = 'SANDBOX'
-                else:
-                    project_is_local = False
-                    if state.get('assigned_roles'):
-                        if state['assigned_roles'].get(p.oid):
-                            p_roles += state['assigned_roles'][p.oid]
-                    # if user has Administrator role, append it
-                    admin_of = state.get('admin_of') or []
-                    if p.oid in admin_of and 'Administrator' not in p_roles:
-                        p_roles.append('Administrator')
-                    if p_roles:
-                        if len(p_roles) > 1:
-                            # add asterisk to indicate multiple roles
-                            role_label_txt = u': '.join([p.id, p_roles[0],
-                                                        ' *'])
-                            tt_txt = u'<ul>\n'
-                            for p_role in p_roles:
-                                tt_txt += u'<li>' + str(p.id) + u': '
-                                tt_txt += str(p_role) + u'</li>\n'
-                            tt_txt += u'</ul>'
-                        else:
-                            role_label_txt = u': '.join([p.id, p_roles[0]])
+                    # when offline, only local projects can be deleted
+                    if project_is_local:
+                        self.delete_project_action.setEnabled(True)
+                        self.delete_project_action.setVisible(True)
                     else:
-                        project_is_local = True
-                        role_label_txt = u': '.join([p.id, '[local]'])
-                    if state['connected']:
-                        if p_roles:
-                            # project is already collaborative
-                            self.enable_collaboration_action.setVisible(False)
-                            self.enable_collaboration_action.setEnabled(False)
-                            if 'Administrator' in p_roles:
-                                self.delete_project_action.setEnabled(True)
-                                self.delete_project_action.setVisible(True)
-                                self.admin_action.setVisible(True)
-                                self.admin_action.setEnabled(True)
-                        else:
-                            # if we have no roles on the project but we have
-                            # the project, then it is local, and it can be
-                            # deleted or collaboration can be enabled
-                            self.delete_project_action.setEnabled(True)
-                            self.delete_project_action.setVisible(True)
-                            self.enable_collaboration_action.setVisible(True)
-                            self.enable_collaboration_action.setEnabled(True)
-                    else:
-                        # when offline, `enable collaboration` is disabled
-                        self.enable_collaboration_action.setVisible(False)
-                        self.enable_collaboration_action.setEnabled(False)
-                        # NOTE:  THIS IS ONLY FOR TESTING!!
-                        # when offline, admin action is disabled!!
-                        self.admin_action.setVisible(True)
-                        self.admin_action.setEnabled(True)
-                        # when offline, only local projects can be deleted
-                        if project_is_local:
-                            self.delete_project_action.setEnabled(True)
-                            self.delete_project_action.setVisible(True)
-                        else:
-                            self.delete_project_action.setEnabled(False)
-                            self.delete_project_action.setVisible(False)
+                        self.delete_project_action.setEnabled(False)
+                        self.delete_project_action.setVisible(False)
         else:
             self.project_selection.setText('None')
             orb.log.info('* set_project(None)')
@@ -2299,9 +2365,18 @@ class Main(QtWidgets.QMainWindow):
         elif self.mode == 'component':
             orb.log.debug('* mode: component')
             self.set_product_modeler_interface()
+            self.update_project_roles()
         elif self.mode == 'system':
             orb.log.debug('* mode: system')
             self.set_system_modeler_interface()
+            self.update_project_roles()
+
+    def update_project_roles(self):
+        if state.get('connected') and message_bus.session:
+            rpc = message_bus.session.call(u'vger.get_roles_in_org',
+                                           self.project.oid)
+            rpc.addCallback(self.on_ra_search_success)
+            rpc.addErrback(self.on_ra_search_failure)
 
     def _setup_top_dock_widgets(self):
         orb.log.debug('  - no top dock widget -- building one now...')
@@ -2957,8 +3032,16 @@ class Main(QtWidgets.QMainWindow):
 
     def enable_collaboration(self):
         """
-        Enable collaboration on a locally-defined Project, by adding it to the
-        admin service.
+        Enable collaboration on a locally-defined project.
+        """
+        # TODO: implement this!
+        pass
+
+    def disable_collaboration(self):
+        """
+        Disable collaboration on a collaborative project (making it
+        local-only).  In order to delete a collaborative project, collaboration
+        must first be disabled.
         """
         # TODO: implement this!
         pass

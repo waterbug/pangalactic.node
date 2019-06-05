@@ -165,10 +165,14 @@ class MainWindow(QMainWindow):
         self.circle_widget = CircleWidget()
         self.login_button = QPushButton('Log in')
         self.login_button.clicked.connect(self.login)
-
+        # check version -- just displays result
         self.check_version_button = QPushButton('Check Version')
         self.check_version_button.setVisible(False)
         self.check_version_button.clicked.connect(self.on_check_version)
+        # check output of 'get_user_roles' -- just displays result
+        # self.get_user_roles_button = QPushButton('Test Get User Roles')
+        # self.get_user_roles_button.setVisible(False)
+        # self.get_user_roles_button.clicked.connect(self.get_user_roles)
         self.save_object_button = QPushButton('Save Object')
         self.save_object_button.setVisible(False)
         self.save_object_button.clicked.connect(self.on_save_object)
@@ -209,6 +213,7 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.role_label, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
+        # vbox.addWidget(self.get_user_roles_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_project_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.save_object_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_psu_button, alignment=Qt.AlignVCenter)
@@ -253,6 +258,7 @@ class MainWindow(QMainWindow):
         self.login_button.setVisible(False)
         self.logout_button.setVisible(True)
         self.check_version_button.setVisible(True)
+        # self.get_user_roles_button.setVisible(True)
         self.add_project_button.setVisible(True)
         self.save_object_button.setVisible(True)
         self.add_psu_button.setVisible(False)
@@ -262,9 +268,12 @@ class MainWindow(QMainWindow):
         self.get_object_button.setVisible(True)
         self.sync_project_button.setVisible(True)
         self.log('  - getting roles from repo ...')
-        rpc = message_bus.session.call(u'vger.get_role_assignments',
+        # rpc = message_bus.session.call(u'vger.get_role_assignments',
+                                       # self.userid)
+        # rpc.addCallback(self.on_get_admin_result)
+        rpc = message_bus.session.call(u'vger.get_user_roles',
                                        self.userid)
-        rpc.addCallback(self.on_get_admin_result)
+        rpc.addCallback(self.on_get_user_roles_result)
         rpc.addCallback(self.sync_user)
         rpc.addErrback(self.on_failure)
 
@@ -327,12 +336,6 @@ class MainWindow(QMainWindow):
             self.log('* no role assignments found.')
         self.subscribe_to_channels()
 
-    def on_success(self, result):
-        print("* subscribed successfully: {}".format(str(result)))
-
-    def on_failure(self, f):
-        print("* subscription failure: {}".format(f.getTraceback()))
-
     def subscribe_to_channels(self, channels=None):
         channels = channels or []
         if not channels:
@@ -342,6 +345,12 @@ class MainWindow(QMainWindow):
             sub.addCallback(self.on_success)
             sub.addErrback(self.on_failure)
         return channels
+
+    def on_success(self, result):
+        print("* subscribed successfully: {}".format(str(result)))
+
+    def on_failure(self, f):
+        print("* subscription failure: {}".format(f.getTraceback()))
 
     def sync_user(self, data):
         """
@@ -366,6 +375,41 @@ class MainWindow(QMainWindow):
         # TODO:  replace all 'me' objects with user's Person instance
         # -- use 'created_objects' to find them ...
         self.log('* return from get_user_object:  {}'.format(data))
+
+    def get_user_roles(self):
+        rpc = message_bus.session.call(u'vger.get_user_roles', self.userid)
+        # first, let's see what we get ...
+        # rpc.addCallback(self.on_result)
+        rpc.addCallback(self.on_get_user_roles_result)
+        rpc.addErrback(self.on_failure)
+
+    def on_get_user_roles_result(self, data):
+        """
+        Handle result of the rpc 'vger.get_user_roles'.  The data has the
+        format:
+
+            [serialized user, serialized role assignments]
+
+        ... in which both items are lists of serialized objects.
+        """
+        if data:
+            user_data, ras_data = data
+            szd_user = user_data[0]
+            self.log('---- USER ROLE DATA ---------------')
+            self.log('* userid: {}'.format(szd_user['id']))
+            self.log('* serialized role-related objects:')
+            for so in ras_data:
+                self.log('  - class: {}'.format(so['_cname']))
+                self.log('    + id: "{}", oid: "{}"'.format(so['id'],
+                                                            so['oid']))
+                if so['_cname'] == 'RoleAssignment':
+                    self.log('    + assigned role: {}'.format(
+                                                     so['assigned_role']))
+                    self.log('    + assigned to: {}'.format(
+                                                     so['assigned_to']))
+                    self.log('    + assignment context: {}'.format(
+                                    so.get('role_assignment_context', 'None')))
+            self.log('---- END USER ROLE DATA -----------')
 
     def on_check_version(self):
         self.log('* calling rpc "vger.get_version()" ...')
@@ -475,18 +519,15 @@ class MainWindow(QMainWindow):
         suffix = new_oid[0:5]
         new_id = 'TEST_PROJECT_' + suffix
         new_name = str('Test Project ') + str(suffix)
-        self.log('* calling rpc "omb.organization.add()" ...')
-        self.log('  with arguments:')
-        self.log('    oid = {}'.format(new_oid))
-        self.log('    id = {}'.format(new_id))
-        self.log('    name = {}'.format(new_name))
-        self.log('    org_type = "Project"')
-        self.log('    parent = None')
+        self.log('* calling rpc vger.save() with project "{}"'.format(new_id))
         rpc = message_bus.session.call(u'omb.organization.add',
                 oid=new_oid, id=new_id, name=new_name, org_type='Project',
                 parent=None)
-        # rpc.addCallback(self.on_null_result)
+        rpc.addCallback(self.on_save_project_result)
         rpc.addErrback(self.on_failure)
+
+    def on_save_project_result(self, stuff):
+        self.log('* result received from rpc "vger.save":  %s' % str(stuff))
 
     def on_add_psu(self):
         if self.last_saved_obj:
@@ -593,6 +634,7 @@ class MainWindow(QMainWindow):
         self.login_button.setVisible(True)
         self.logout_button.setVisible(False)
         self.check_version_button.setVisible(False)
+        # self.get_user_roles_button.setVisible(False)
         self.add_project_button.setVisible(False)
         self.save_object_button.setVisible(False)
         self.add_psu_button.setVisible(False)

@@ -659,16 +659,16 @@ class ProductTypePage(QtWidgets.QWizardPage):
         # if there is a current project, find user's role(s) and the related
         # discipline(s)
         proj_oid = state.get('project')
-        role_map = state.get('role_oids')
         project = orb.get(proj_oid)
-        assigned_roles = state.get('assigned_roles')
         orb.log.debug('[comp wiz] checking for project/roles/disciplines ...')
         disciplines = set()
-        if assigned_roles and project and role_map:
-            role_names = assigned_roles.get(proj_oid)
-            if role_names:
-                roles = [orb.get(role_map.get(n)) for n in role_names
-                         if n in role_map]
+        if project:
+            # get my role assignments on the project:
+            me = orb.get(state['local_user_oid'])
+            ras = orb.search_exact(cname='RoleAssignment', assigned_to=me,
+                                   role_assignment_context=project)
+            if ras:
+                roles = [ra.assigned_role for ra in ras]
                 drs = reduce(lambda x,y: x.union(y),
                              [set(orb.search_exact(cname='DisciplineRole',
                                                    related_role=r))

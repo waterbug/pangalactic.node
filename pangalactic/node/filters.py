@@ -42,16 +42,17 @@ class ProductFilterDialog(QDialog):
         # user_disciplines are found, this will be overridden below ...
         self.show_all_disciplines = True
         proj_oid = state.get('project')
-        role_map = state.get('role_oids')
         project = orb.get(proj_oid)
-        assigned_roles = state.get('assigned_roles')
+        # assigned_roles = state.get('assigned_roles')
         orb.log.debug('[ProductFilterDialog] checking for project/roles ...')
         user_disciplines = set()
-        if assigned_roles and project and role_map:
-            role_names = assigned_roles.get(proj_oid)
-            if role_names:
-                roles = [orb.get(role_map.get(n)) for n in role_names
-                         if n in role_map]
+        if project:
+            # first, get my role assignments on this project
+            me = orb.get(state['local_user_oid'])
+            ras = orb.search_exact(cname='RoleAssignment', assigned_to=me,
+                                   role_assignment_context=project)
+            roles = [ra.assigned_role for ra in ras]
+            if roles:
                 drs = reduce(lambda x,y: x.union(y),
                              [set(orb.search_exact(cname='DisciplineRole',
                                                    related_role=r))
@@ -63,7 +64,7 @@ class ProductFilterDialog(QDialog):
                               'found on project "{}".'.format(project.id))
         else:
             orb.log.debug('[ProductFilterDialog] - either no project found '
-                          'or no assigned roles found or no role map.')
+                          'or no assigned roles found.')
         if user_disciplines:
             orb.log.debug('[ProductFilterDialog] - user disciplines found:')
             for d in user_disciplines:

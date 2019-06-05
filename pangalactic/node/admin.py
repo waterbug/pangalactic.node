@@ -10,12 +10,13 @@ from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
 
 from louie import dispatcher
 
-from pangalactic.core            import state
-from pangalactic.core.uberorb    import orb
-from pangalactic.core.utils.meta import get_ra_id, get_ra_name
-from pangalactic.node.libraries  import LibraryListWidget
-from pangalactic.node.utils      import clone, extract_mime_data
-from pangalactic.node.widgets    import ColorLabel
+from pangalactic.core                 import state
+from pangalactic.core.uberorb         import orb
+from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.utils.meta      import get_ra_id, get_ra_name
+from pangalactic.node.libraries       import LibraryListWidget
+from pangalactic.node.utils           import clone, extract_mime_data
+from pangalactic.node.widgets         import ColorLabel
 
 
 def get_styled_text(text):
@@ -112,7 +113,8 @@ class RADropLabel(ColorLabel):
 
     def dropEvent(self, event):
         """
-        Handle drop events.
+        Handle drop events (change 'assigned_role' if a Role is dropped or
+        'assigned_to' if a Person is dropped).
         """
         if event.mimeData().hasFormat(self.mime):
             if self.mime == 'application/x-pgef-person':
@@ -124,6 +126,7 @@ class RADropLabel(ColorLabel):
                 orb.log.info('[RADropLabel] Person dropped, {}: "{}"'.format(
                                                                 p.oid, name))
                 self.ra.assigned_to = p
+                self.ra.mod_datetime = dtstamp()
                 orb.save([self.ra])
                 self.setText(get_styled_text(name))
                 self.adjustSize()
@@ -138,6 +141,7 @@ class RADropLabel(ColorLabel):
                 orb.log.info('[RADropLabel] Role dropped: "{}"'.format(
                                                                role.name))
                 self.ra.assigned_role = role
+                self.ra.mod_datetime = dtstamp()
                 orb.save([self.ra])
                 self.setText(get_styled_text(role.name))
                 self.adjustSize()
@@ -282,7 +286,9 @@ class AdminDialog(QDialog):
 
     def dropEvent(self, event):
         """
-        Handle drop events.
+        Handle drop events:  add a new RoleAssignment; if a Person is dropped,
+        assign the "Observer" Role; if a Role is dropped, assign it to the
+        "TBD" Person.
         """
         if event.mimeData().hasFormat('application/x-pgef-person'):
             data = extract_mime_data(event, 'application/x-pgef-person')
@@ -294,7 +300,6 @@ class AdminDialog(QDialog):
                 orb.log.info('[Admin] Person dropped: {} ("{}")'.format(
                                                        person.oid, name))
                 observer = orb.get('pgefobjects:Role.Observer')
-                # don't need a timedate stamp -- clone() adds that
                 local_user = orb.get(state.get('local_user_oid'))
                 ra_id = get_ra_id(self.org.id, observer.id, person.fname or '',
                                   person.mi or '', person.lname or '')
@@ -306,6 +311,7 @@ class AdminDialog(QDialog):
                            assigned_role=observer,
                            role_assignment_context=self.org,
                            creator=local_user)
+                # NOTE:  clone() adds a dtstamp()
                 orb.save([ra])
                 # rebuild role assignments
                 self.refresh_roles()
@@ -331,13 +337,13 @@ class AdminDialog(QDialog):
                     orb.log.info('        already have TBD -- ignoring.')
                 else:
                     orb.log.info('        adding as TBD ...')
-                    # don't need a timedate stamp -- clone() adds that
                     ra_id = get_ra_id(self.org.id, role.id, 'TBD', '', '')
                     ra_name = get_ra_name(self.org.id, role.id, 'TBD', '', '')
                     ra = clone('RoleAssignment', id=ra_id, name=ra_name,
                                assigned_to=tbd,
                                assigned_role=role,
                                role_assignment_context=self.org)
+                    # NOTE:  clone() adds a dtstamp()
                     orb.save([ra])
                     # rebuild role assignments
                     self.refresh_roles()
