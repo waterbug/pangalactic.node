@@ -528,7 +528,12 @@ class ModelWindow(QMainWindow):
             orb.log.info('* ModelWindow: creating new Model for '
                          'Product with id "%s"' % self.obj.id)
             owner = orb.get(state.get('project'))
-            new_model = clone('Model', owner=owner, of_thing=self.obj)
+            model_id = get_block_model_id(self.obj)
+            model_name = get_block_model_name(self.obj)
+            block_model_type = orb.get(BLOCK_OID)
+            new_model = clone('Model', id=model_id, name=model_name,
+                              type_of_model=block_model_type,
+                              owner=owner, of_thing=self.obj)
             dlg = PgxnObject(new_model, edit_mode=True, parent=self)
             # dialog.show() -> non-modal dialog
             dlg.show()

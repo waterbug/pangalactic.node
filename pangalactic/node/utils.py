@@ -31,7 +31,8 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 
 
-def clone(what, include_ports=True, include_components=True, **kw):
+def clone(what, include_ports=True, include_components=True,
+          generate_id=False, **kw):
     """
     Create a new object either (1) from keywords or (2) by copying an
     existing object.  NOTE:  clone() does not save/commit the object, so
@@ -67,6 +68,7 @@ def clone(what, include_ports=True, include_components=True, **kw):
             clone the same ports
         include_components (bool): if an object with components is being
             cloned, give the clone the same components
+        generate_id (bool): if True, an opaque id will be auto-generated
         kw (dict):  attributes for the clone
     """
     orb.log.info('* clone({})'.format(what))
@@ -108,7 +110,7 @@ def clone(what, include_ports=True, include_components=True, **kw):
     if not newkw.get('oid'):
         newkw['oid'] = str(uuid4())
     orb.new_oids.append(newkw['oid'])
-    if not newkw.get('id'):
+    if generate_id and not newkw.get('id'):
         # this is only needed for objects whose 'id' does not need to be
         # significant and/or human-intelligible, but should still exist
         newkw['id'] = '_'.join([cname, newkw['oid']])
