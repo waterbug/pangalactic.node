@@ -13,8 +13,9 @@ from urllib.parse    import urlparse
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QAction, QComboBox, QHBoxLayout, QLayout,
-                             QMainWindow, QSizePolicy, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
+                             QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
+                             QWidget)
 from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
@@ -37,8 +38,7 @@ supported_model_types = {
     'pgefobjects:Block' : 'Block',
     'pgefobjects:ConOps' : 'Con Ops'}
 
-# a named tuple used in managing the "history" of the ModelWindow so that it
-# can be navigated
+# a named tuple used in managing the "history" so that it can be navigated
 ModelerState = namedtuple('ModelerState', 'obj idx')
 # oid of "block" model type
 BLOCK_OID = 'pgefobjects:Block'
@@ -92,7 +92,7 @@ def get_model_path(model):
         return ''
 
 
-class ModelWindow(QMainWindow):
+class ConOpsModeler(QMainWindow):
     """
     Main window for displaying models and their metadata.
 
@@ -119,8 +119,8 @@ class ModelWindow(QMainWindow):
             external (bool):  initialize as an external window
             preferred_size (tuple):  size to set -- (width, height)
         """
-        super(ModelWindow, self).__init__(parent=parent)
-        orb.log.info('* ModelWindow initializing with:')
+        super(ConOpsModeler, self).__init__(parent=parent)
+        orb.log.info('* ConOpsModeler initializing with:')
         orb.log.info('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         self.logo = logo
         self.external = external
@@ -213,7 +213,7 @@ class ModelWindow(QMainWindow):
                       checkable=False):
         action = QAction(text, self)
         if icon is not None:
-            icon_file = icon + state['icon_type']
+            icon_file = icon + state.get('icon_type', '.png')
             icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             icon_path = os.path.join(icon_dir, icon_file)
             action.setIcon(QIcon(icon_path))
@@ -242,10 +242,10 @@ class ModelWindow(QMainWindow):
         self.placeholder = new_placeholder
 
     def display_external_window(self):
-        orb.log.info('* ModelWindow.display_external_window() ...')
-        mw = ModelWindow(obj=self.obj, scene=self.diagram_view.scene(),
-                         logo=self.logo, external=True,
-                         preferred_size=(700, 800), parent=self.parent())
+        orb.log.info('* ConOpsModeler.display_external_window() ...')
+        mw = ConOpsModeler(obj=self.obj, scene=self.diagram_view.scene(),
+                           logo=self.logo, external=True,
+                           preferred_size=(700, 800), parent=self.parent())
         mw.show()
 
     def set_new_diagram_view(self):
@@ -305,7 +305,7 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        orb.log.info('* ModelWindow.set_subject()')
+        orb.log.info('* ConOpsModeler.set_subject()')
         orb.log.info('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         # reset model_files
         self.model_files = {}
@@ -318,7 +318,7 @@ class ModelWindow(QMainWindow):
         self.obj = obj
         if self.obj:
             if isinstance(self.obj, orb.classes['Modelable']):
-                orb.log.info('* ModelWindow: checking for models ...')
+                orb.log.info('* ConOpsModeler: checking for models ...')
                 # model_types = set()
                 if self.obj.has_models:
                     for m in self.obj.has_models:
@@ -330,7 +330,7 @@ class ModelWindow(QMainWindow):
                         # model_types.add(m.type_of_model.oid)
                 self.display_block_diagram()
             else:
-                orb.log.info('* ModelWindow: obj is not Modelable, ignoring')
+                orb.log.info('* ConOpsModeler: obj is not Modelable, ignoring')
                 self.obj = None
                 orb.log.info('  ... setting placeholder widget.')
                 self.set_placeholder()
@@ -362,8 +362,8 @@ class ModelWindow(QMainWindow):
         try:
             model, fpath = self.models_by_label.get('CAD')
             if fpath:
-                orb.log.info('* ModelWindow.display_cad_model({})'.format(
-                                                                    fpath))
+                orb.log.info('* ConOpsModeler.display_cad_model({})'.format(
+                                                                     fpath))
                 viewer = Viewer3DDialog(self)
                 viewer.show()
                 viewer.view_cad(fpath)
@@ -525,7 +525,7 @@ class ModelWindow(QMainWindow):
     def create_new_model(self, event):
         if isinstance(self.obj, orb.classes['Identifiable']):
             # TODO:  check for parameters; if found, add them
-            orb.log.info('* ModelWindow: creating new Model for '
+            orb.log.info('* ConOpsModeler: creating new Model for '
                          'Product with id "%s"' % self.obj.id)
             owner = orb.get(state.get('project'))
             new_model = clone('Model', owner=owner, of_thing=self.obj)
@@ -646,7 +646,17 @@ class ProductInfoPanel(QWidget):
             self.product_version_value_label.setEnabled(False)
 
 if __name__ == '__main__':
+    import sys
+    from pangalactic.core.test.utils import (create_test_users,
+                                             create_test_project)
+    from pangalactic.core.serializers import deserialize
+    orb.start(home='junk_home', debug=True)
+    serialized_test_objects = create_test_users()
+    serialized_test_objects += create_test_project()
+    deserialize(orb, serialized_test_objects)
     obj = orb.get('test:twanger')
-    mw = ModelWindow(obj=obj, external=True, preferred_size=(700, 800))
+    app = QApplication(sys.argv)
+    mw = ConOpsModeler(obj=obj, external=True, preferred_size=(700, 800))
     mw.show()
+    sys.exit(app.exec_())
 

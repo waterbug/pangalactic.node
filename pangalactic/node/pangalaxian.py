@@ -1502,7 +1502,8 @@ class Main(QtWidgets.QMainWindow):
         action = QtWidgets.QAction(text, self)
         if icon is not None:
             icon_file = icon + state['icon_type']
-            icon_path = os.path.join(orb.icon_dir, icon_file)
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
             action.setIcon(QtGui.QIcon(icon_path))
         if tip is not None:
             action.setToolTip(tip)
@@ -1778,7 +1779,8 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         import_icon_file = 'open' + state['icon_type']
-        import_icon_path = os.path.join(orb.icon_dir, import_icon_file)
+        icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+        import_icon_path = os.path.join(icon_dir, import_icon_file)
         import_actions = [
                           # self.import_excel_data_action,
                           self.import_objects_action,
@@ -1795,7 +1797,7 @@ class Main(QtWidgets.QMainWindow):
                                    actions=import_actions, parent=self)
         self.toolbar.addWidget(import_button)
         export_icon_file = 'save' + state['icon_type']
-        export_icon_path = os.path.join(orb.icon_dir, export_icon_file)
+        export_icon_path = os.path.join(icon_dir, export_icon_file)
         export_actions = [self.export_project_to_file_action,
                           self.export_reqts_to_file_action,
                           self.output_mel_action,
@@ -1805,7 +1807,7 @@ class Main(QtWidgets.QMainWindow):
                                    actions=export_actions, parent=self)
         self.toolbar.addWidget(export_button)
         new_object_icon_file = 'new_box' + state['icon_type']
-        new_object_icon_path = os.path.join(orb.icon_dir, new_object_icon_file)
+        new_object_icon_path = os.path.join(icon_dir, new_object_icon_file)
         new_object_actions = [self.new_parameter_action,
                               self.new_product_action,
                               self.new_product_type_action,
@@ -1818,7 +1820,7 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(new_object_button)
 
         system_tools_icon_file = 'tools' + state['icon_type']
-        system_tools_icon_path = os.path.join(orb.icon_dir,
+        system_tools_icon_path = os.path.join(icon_dir,
                                               system_tools_icon_file)
         system_tools_actions = [self.edit_prefs_action,
                                 self.refresh_tree_action,
@@ -1838,7 +1840,7 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addAction(self.view_cad_action)
 
         help_icon_file = 'tardis' + state['icon_type']
-        help_icon_path = os.path.join(orb.icon_dir, help_icon_file)
+        help_icon_path = os.path.join(icon_dir, help_icon_file)
         help_actions = [self.help_action,
                         self.about_action]
         help_button = MenuButton(QtGui.QIcon(help_icon_path),
@@ -1912,10 +1914,11 @@ class Main(QtWidgets.QMainWindow):
         # Initialize a statusbar for the window
         self.net_status = QtWidgets.QLabel()
         offline_icon_file = 'offline' + state['icon_type']
-        offline_icon_path = os.path.join(orb.icon_dir, offline_icon_file)
+        icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+        offline_icon_path = os.path.join(icon_dir, offline_icon_file)
         self.offline_icon = QtGui.QPixmap(offline_icon_path)
         online_icon_file = 'online' + state['icon_type']
-        online_icon_path = os.path.join(orb.icon_dir, online_icon_file)
+        online_icon_path = os.path.join(icon_dir, online_icon_file)
         self.online_icon = QtGui.QPixmap(online_icon_path)
         self.net_status.setPixmap(self.offline_icon)
         self.net_status.setToolTip('offline')

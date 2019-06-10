@@ -706,7 +706,8 @@ class PgxnObject(QMainWindow):
         action = QAction(text, self)
         if icon is not None:
             icon_file = icon + state['icon_type']
-            icon_path = os.path.join(orb.icon_dir, icon_file)
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
             action.setIcon(QIcon(icon_path))
         if tip is not None:
             action.setToolTip(tip)

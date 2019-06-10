@@ -64,7 +64,7 @@ class PlaceHolder(QLabel):
             self.image = image
         else:
             # generic 'pangalaxian' icon/image
-            self.image = 'icons/icon32' + state['icon_type']
+            self.image = 'icons/icon32' + state.get('icon_type', '.png')
         pixmap.load(self.image)
         pixmap_resized = pixmap.scaled(width, height, Qt.KeepAspectRatio)
         self.setPixmap(pixmap_resized)

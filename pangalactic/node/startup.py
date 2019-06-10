@@ -93,13 +93,13 @@ def setup_dirs_and_state():
     else:
         orb.log.info('  - all images already installed.')
     # [2] copy pangalactic icon files from 'icons' module to icon_dir
-    orb.icon_dir = os.path.join(orb.home, 'icons')
+    state['icon_dir'] = os.path.join(orb.home, 'icons')
     icon_files = set()
     orb.log.debug('* checking for icons in [orb.home]/icons ...')
-    if not os.path.exists(orb.icon_dir):
-        os.makedirs(orb.icon_dir)
+    if not os.path.exists(state['icon_dir']):
+        os.makedirs(state['icon_dir'])
     else:
-        icon_files = set(os.listdir(orb.icon_dir))
+        icon_files = set(os.listdir(state['icon_dir']))
     orb.log.debug('  - found %i icons' % len(icon_files))
     icons_mod_path = icons.__path__[0]
     icon_res_files = set([s for s in os.listdir(icons_mod_path)
@@ -112,7 +112,7 @@ def setup_dirs_and_state():
         orb.log.debug('  - copying icons into icons dir ...')
         icons_cpd = []
         for p in icons_to_copy:
-            shutil.copy(os.path.join(icons_mod_path, p), orb.icon_dir)
+            shutil.copy(os.path.join(icons_mod_path, p), state['icon_dir'])
             icons_cpd.append(p)
         orb.log.info('  - new icons installed: {}'.format(str(icons_cpd)))
     else:

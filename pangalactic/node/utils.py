@@ -295,20 +295,19 @@ def get_icon_path(obj):
         path (str):  path for an icon image file.
     """
     # first, check whether object is cloaked
+    icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
     if (obj.oid in state.get('cloaked', []) and
         not getattr(obj, 'public', True)):
         # if so, use the 'cloaked' icon
-        return os.path.join(orb.icon_dir, 'cloaked' + state['icon_type'])
+        return os.path.join(icon_dir, 'cloaked' + state['icon_type'])
     # check for a special icon for this specific object
     if getattr(obj, 'id', None):
-        special_icon_path = os.path.join(orb.icon_dir,
-                                         obj.id+state['icon_type'])
+        special_icon_path = os.path.join(icon_dir, obj.id + state['icon_type'])
         if os.path.exists(special_icon_path):
             return special_icon_path
     cname = obj.__class__.__name__
     # check for a special icon for this class
-    class_icon_path = os.path.join(orb.icon_dir,
-                                   cname + state['icon_type'])
+    class_icon_path = os.path.join(icon_dir, cname + state['icon_type'])
     if os.path.exists(class_icon_path):
         return class_icon_path
     # check for a special icon in the icon vault (runtime-generated icons)
@@ -331,12 +330,12 @@ def get_pixmap(obj):
         # if no generated icon is found, fall back to default icons
         icon_path = get_icon_path(obj)
         if not os.path.exists(icon_path):
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             if obj.__class__.__name__ == 'Project':
-                icon_path = os.path.join(orb.icon_dir,
-                                         'favicon'+state['icon_type'])
+                icon_path = os.path.join(icon_dir,
+                                         'favicon' + state['icon_type'])
             else:
-                icon_path = os.path.join(orb.icon_dir,
-                                         'box'+state['icon_type'])
+                icon_path = os.path.join(icon_dir, 'box' + state['icon_type'])
         return QPixmap(icon_path)
     else:
         return QVariant()
