@@ -12,11 +12,15 @@ from urllib.parse    import urlparse
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QRectF,QPointF, QSizeF, QObject, pyqtSignal, qrand, QLineF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
                              QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
-                             QWidget)
-from PyQt5.QtGui import QIcon, QTransform
+                             QWidget,QAction, QApplication, QButtonGroup, QComboBox,
+        QFontComboBox, QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem,
+        QGraphicsScene, QGraphicsTextItem, QGraphicsView, QGridLayout,
+        QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QSizePolicy,
+        QToolBox, QToolButton, QWidget, QPushButton)
+from PyQt5.QtGui import QIcon, QTransform, QBrush, QColor, QDrag, QImage, QPainter, QPen, QPixmap
 
 # pangalactic
 from pangalactic.core             import diagramz, state
@@ -92,6 +96,94 @@ def get_model_path(model):
         return ''
 
 
+
+class EventBlock(QGraphicsItem):
+    def __init__(self, position, scene, obj=None, style=None,
+                 editable=False, port_spacing=0):
+        super(EventBlock, self).__init__()
+        """
+        Initialize Block.
+
+        Args:
+            position (QPointF):  where to put upper left corner of block
+            scene (QGraphicsScene):  scene in which to create block
+
+        Keyword Args:
+            obj (Product):  object (Product instance) the block represents
+            style (Qt.PenStyle):  style of block border
+            editable (bool):  flag indicating whether block properties can be
+                edited in place
+        """
+        self.color = QColor(qrand() % 256, qrand() % 256, qrand() % 256)
+        self.setFlags(QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsMovable |
+                      QGraphicsItem.ItemIsFocusable)
+        self.rect = QRectF(0, 0, 100,
+                                  200)
+        self.style = style or Qt.SolidLine
+        self.obj = obj
+        x, y = position[0], position[1]
+        self.setPos(QPointF(x,y))
+
+        self.setSelected(True)
+        self.setFocus()
+        self.scene = scene
+        self.setAcceptedMouseButtons(Qt.LeftButton)
+    def boundingRect(self):
+        return QRectF(10, 10, 20, 20)
+
+    def paint(self, painter, option, widget):
+        painter.setPen(QPen(Qt.black, 1))
+        painter.setBrush(QBrush(self.color))
+        painter.drawRect(10,10, 20,20)
+
+    def mousePressEvent(self, event):
+        print("item pressed")
+
+    def mouseMovesEvent(self, event):
+        drag = QDrag(event.widget())
+        if QLineF(QPointF(event.screenPos()), QPointF(event.buttonDownScreenPos(Qt.LeftButton))).length() < QApplication.startDragDistance():
+            return
+
+        pixmap = QPixmap(34, 34)
+        pixmap.fill(Qt.white)
+
+        painter = QPainter(pixmap)
+        painter.translate(15, 15)
+        painter.setRenderHint(QPainter.Antialiasing)
+        self.paint(painter, None, None)
+        painter.end()
+        pixmap.setMask(pixmap.createHeuristicMask())
+        drag.setPixmap(pixmap)
+        drag.setHotSpot(QPoint(15, 20))
+        drag.exec_()
+
+
+
+class DiagramScene(QGraphicsScene):
+    shapeSelected = 1
+
+    shapeInserted = pyqtSignal(EventBlock)
+
+
+    def __init__(self, parent=None):
+        super(DiagramScene, self).__init__(parent)
+        self.mode = 0
+    def setMode(self, mode):
+        self.mode = mode
+    '''def mousePressEvent(self, mouseEvent):
+        #if (mouseEvent.button() != Qt.LeftButton):
+            #return
+        if self.mode == self.shapeSelected:
+            print("scene was pressed")
+        else:
+            print("not pressed?")'''
+    def getMode(self):
+        return self.mode
+
+
+
+
 class ConOpsModeler(QMainWindow):
     """
     Main window for displaying models and their metadata.
@@ -103,8 +195,8 @@ class ConOpsModeler(QMainWindow):
             corresponding to the object being modeled
         history (list):  list of previous ModelerState instances
     """
-    def __init__(self, obj=None, scene=None, logo=None, idx=None,
-                 external=False, preferred_size=None, parent=None):
+    def __init__(self, preferred_size, scene=None, logo=None, idx=None,
+                 external=False, parent=None):
         """
         Main window for displaying models and their metadata.
 
@@ -128,25 +220,61 @@ class ConOpsModeler(QMainWindow):
         self.preferred_size = preferred_size
         self.model_files = {}
         self.history = []
-        # NOTE: this set_subject() call serves only to create the diagram_view,
-        # which is needed by _init_ui(); the final set_subject() actually sets
-        # the subject to the currently selected object
-        self.set_subject(obj=obj)
+        #self.set_subject(obj=obj)
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-        dispatcher.connect(self.set_subject_from_node, 'sys node selected')
-        dispatcher.connect(self.set_subject_from_node, 'dash node selected')
-        dispatcher.connect(self.set_subject_from_diagram_drill_down,
-                           'diagram object drill down')
-        dispatcher.connect(self.save_diagram_connector,
-                           'diagram connector added')
-        self.set_subject(obj=obj)
 
-    # def sizeHint(self):
-        # if self.preferred_size:
-            # return QSize(*self.preferred_size)
-        # return QSize(400, 300)
+
+        self.createLibrary()
+        self.scene = DiagramScene()
+        #self.scene.addItem(obj)
+        self.scene.setSceneRect(0,0, 600, 600)
+        self.scene.addWidget(self.library)
+        self.view = QGraphicsView(self.scene)
+        self.view.setAcceptDrops(True)
+        self.view.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
+        self.view.show()
+        layout = QHBoxLayout()
+        layout.addWidget(self.view)
+        #layout.addWidget(self.library)
+        self.widget = QWidget()
+        self.widget.setLayout(layout)
+        self.setCentralWidget(self.widget)
+        #self.scene.addItem(myEvent)
+
+
+    def createLibrary(self):
+        self.buttonGroup = QButtonGroup()
+        self.buttonGroup.setExclusive(True)
+        self.buttonGroup.buttonPressed[int].connect(self.buttonGroupPressed)
+        layout = QGridLayout()
+        b1 = QPushButton("A")
+        #b1.acceptDrag
+
+        b2 = QPushButton("B")
+
+        layout.addWidget(b1)
+        layout.addWidget(b2)
+        itemWidget = QWidget()
+        itemWidget.setLayout(layout)
+        self.library = QToolBox()
+        self.library.addItem(itemWidget, "Shapes")
+        self.buttonGroup.addButton(b1, 1)
+        self.buttonGroup.addButton(b2, 2)
+
+
+    def buttonGroupPressed(self, id):
+        if id == 1:
+            self.scene.setMode(DiagramScene.shapeSelected)
+            print("scene mode is set to", self.scene.getMode())
+            item = EventBlock((10,10), self.scene)
+            self.scene.addItem(item)
+            print(self.scene.items())
+
+        else:
+            print("button B was clicked")
+
 
     def resizeEvent(self, event):
         state['model_window_size'] = (self.width(), self.height())
@@ -154,7 +282,7 @@ class ConOpsModeler(QMainWindow):
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
         # set a placeholder for the central widget
-        self.set_placeholder()
+        #self.set_placeholder()
         self.init_toolbar()
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
@@ -203,11 +331,11 @@ class ConOpsModeler(QMainWindow):
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
         # self.toolbar.addAction(self.diagram_view.scene().print_action)
-        self.print_action = self.create_action("print",
+        '''self.print_action = self.create_action("print",
                                                slot=self.print_preview,
                                                icon="printer",
-                                               tip="Save as Image / Print")
-        self.toolbar.addAction(self.print_action)
+                                               tip="Save as Image / Print")'''
+        #self.toolbar.addAction(self.print_action)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -226,12 +354,12 @@ class ConOpsModeler(QMainWindow):
             action.setCheckable(True)
         return action
 
-    def print_preview(self):
+    '''def print_preview(self):
         form = DocForm(scene=self.diagram_view.scene(), edit_mode=False,
                        parent=self)
-        form.show()
+        form.show()'''
 
-    def set_placeholder(self):
+    '''def set_placeholder(self):
         new_placeholder = PlaceHolder(image=self.logo, min_size=200,
                                       parent=self)
         new_placeholder.setSizePolicy(QSizePolicy.Preferred,
@@ -239,17 +367,17 @@ class ConOpsModeler(QMainWindow):
         self.setCentralWidget(new_placeholder)
         if getattr(self, 'placeholder', None):
             self.placeholder.close()
-        self.placeholder = new_placeholder
+        self.placeholder = new_placeholder'''
 
     def display_external_window(self):
         orb.log.info('* ConOpsModeler.display_external_window() ...')
-        mw = ConOpsModeler(obj=self.obj, scene=self.diagram_view.scene(),
+        mw = ConOpsModeler(scene=self.diagram_view.scene(),
                            logo=self.logo, external=True,
                            preferred_size=(700, 800), parent=self.parent())
         mw.show()
 
-    def set_new_diagram_view(self):
-        new_diagram_view = DiagramView(self.obj, embedded=True)
+    '''def set_new_diagram_view(self):
+        new_diagram_view = DiagramView(embedded=True)
         new_diagram_view.setSizePolicy(QSizePolicy.Preferred,
                                        QSizePolicy.Preferred)
         layout = QVBoxLayout()
@@ -266,7 +394,7 @@ class ConOpsModeler(QMainWindow):
                 # hmm, my C++ object was already deleted
                 pass
         self.diagram_view = new_diagram_view
-        self.sceneScaleChanged("50%")
+        self.sceneScaleChanged("50%")'''
 
     def set_subject_from_diagram_drill_down(self, obj=None):
         """
@@ -297,7 +425,9 @@ class ConOpsModeler(QMainWindow):
         self.set_subject(obj=obj)
 
     def set_subject(self, obj=None):
-        """
+
+
+        '''"""
         Set an object for the current modeler context.  If the object does not
         have a Block model one is created from its components (or an empty
         Block Model if there are no components).
@@ -356,7 +486,7 @@ class ConOpsModeler(QMainWindow):
                 self.back_action.setEnabled(False)
         self.cache_block_model()
         self.diagram_view.verticalScrollBar().setValue(0)
-        self.diagram_view.horizontalScrollBar().setValue(0)
+        self.diagram_view.horizontalScrollBar().setValue(0)'''
 
     def display_cad_model(self):
         try:
@@ -437,9 +567,6 @@ class ConOpsModeler(QMainWindow):
         if not getattr(self, 'obj'):
             orb.log.info('  ... no object, returning.')
             return
-        # NOTE:  do not write to a file -- orb._save_diagramz() does that
-        # TODO: also send the serialized "model" to vger to be saved there ...
-        # TODO: need to define a Model, Representation, and RepresentationFile
         try:
             scene = self.diagram_view.scene()
             m = scene.save_diagram()
@@ -534,116 +661,7 @@ class ConOpsModeler(QMainWindow):
             dlg.show()
 
 
-class ProductInfoPanel(QWidget):
 
-    def __init__(self, parent=None):
-        super(ProductInfoPanel, self).__init__(parent)
-        orb.log.info('* ProductInfoPanel initializing ...')
-        self.setAcceptDrops(True)
-        # product frame
-        product_frame_vbox = QVBoxLayout()
-        product_frame_vbox.setAlignment(Qt.AlignLeft|Qt.AlignTop)
-        product_frame_vbox.setSizeConstraint(QLayout.SetMinimumSize)
-        title = NameLabel('Product')
-        title.setStyleSheet('font-weight: bold; font-size: 18px')
-        product_frame_vbox.addWidget(title)
-        # product_info_layout = QGridLayout()
-        product_info_layout = QHBoxLayout()
-        product_info_layout.setAlignment(Qt.AlignLeft|Qt.AlignTop)
-        product_id_label = NameLabel('id:')
-        product_id_label.setStyleSheet('font-weight: bold')
-        # product_info_layout.addWidget(product_id_label, 0, 0)
-        product_info_layout.addWidget(product_id_label)
-        self.product_id_value_label = ValueLabel('No Product Selected', w=200)
-        # product_info_layout.addWidget(self.product_id_value_label, 0, 1)
-        product_info_layout.addWidget(self.product_id_value_label)
-        product_name_label = NameLabel('name:')
-        product_name_label.setStyleSheet('font-weight: bold')
-        # product_info_layout.addWidget(product_name_label, 0, 2)
-        product_info_layout.addWidget(product_name_label)
-        self.product_name_value_label = ValueLabel(
-                                'Drag/Drop a Product from Library ...', w=320)
-        # product_info_layout.addWidget(self.product_name_value_label, 0, 3)
-        product_info_layout.addWidget(self.product_name_value_label)
-        product_version_label = NameLabel('version:')
-        product_version_label.setStyleSheet('font-weight: bold')
-        # product_info_layout.addWidget(product_version_label, 0, 4)
-        product_info_layout.addWidget(product_version_label)
-        self.product_version_value_label = ValueLabel('', w=150)
-        # product_info_layout.addWidget(self.product_version_value_label, 0, 5)
-        product_info_layout.addWidget(self.product_version_value_label)
-        self.setLayout(product_frame_vbox)
-        product_frame_vbox.addLayout(product_info_layout)
-        self.setMinimumWidth(600)
-        self.setMaximumHeight(150)
-        # subscribe to the 'set current product' signal, which is sent by
-        # pangalaxian.Main.set_product()
-        self.set_product(product=orb.get(state.get('product')))
-        dispatcher.connect(self.on_update, 'update product modeler')
-
-    def on_update(self, obj=None):
-        if obj:
-            self.set_product(obj)
-
-    def supportedDropActions(self):
-        return Qt.CopyAction
-
-    def mimeTypes(self):
-        # TODO:  should return mime types for Product and *ALL* subclasses
-        return ['application/x-pgef-hardware-product']
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasFormat(
-                                "application/x-pgef-hardware-product"):
-            event.accept()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event):
-        if event.mimeData().hasFormat(
-                                "application/x-pgef-hardware-product"):
-            # if the dropped object is not a HardwareProduct, the
-            # drop event is ignored
-            data = extract_mime_data(event,
-                                     "application/x-pgef-hardware-product")
-            icon, p_oid, p_id, p_name, p_cname = data
-            product = orb.get(p_oid)
-            if product:
-                dispatcher.send("drop on product info", p=product)
-            else:
-                event.ignore()
-                orb.log.info("* product drop event: ignoring oid '%s' -- "
-                             "not found in db." % p_oid)
-        else:
-            event.ignore()
-
-    def set_product(self, product=None):
-        """
-        Set a product in the modeler context.
-        """
-        orb.log.info('* ProductInfoPanel: set_product')
-        # product_oid = state.get('product')
-        # product = orb.get(product_oid)
-        if product:
-            # if not a HardwareProduct, product is ignored
-            if product.__class__.__name__ != 'HardwareProduct':
-                orb.log.info('  - not a HardwareProduct -- ignored.')
-                return
-            orb.log.info('  - oid: %s' % product.oid)
-            self.product_id_value_label.setText(product.id)
-            self.product_name_value_label.setText(product.name)
-            if hasattr(product, 'version'):
-                self.product_version_value_label.setText(getattr(product,
-                                                              'version'))
-            self.product_id_value_label.setEnabled(True)
-            self.product_name_value_label.setEnabled(True)
-            self.product_version_value_label.setEnabled(True)
-        else:
-            orb.log.info('  - None')
-            # set widgets to disabled state
-            self.product_id_value_label.setEnabled(False)
-            self.product_name_value_label.setEnabled(False)
-            self.product_version_value_label.setEnabled(False)
 
 if __name__ == '__main__':
     import sys
@@ -651,12 +669,14 @@ if __name__ == '__main__':
                                              create_test_project)
     from pangalactic.core.serializers import deserialize
     orb.start(home='junk_home', debug=True)
+
+
+
     serialized_test_objects = create_test_users()
     serialized_test_objects += create_test_project()
     deserialize(orb, serialized_test_objects)
     obj = orb.get('test:twanger')
     app = QApplication(sys.argv)
-    mw = ConOpsModeler(obj=obj, external=True, preferred_size=(700, 800))
+    mw = ConOpsModeler(external=True, preferred_size=(700, 800))
     mw.show()
     sys.exit(app.exec_())
-
