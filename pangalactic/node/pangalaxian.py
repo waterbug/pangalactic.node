@@ -2076,6 +2076,20 @@ class Main(QtWidgets.QMainWindow):
                     self.sys_tree.source_model.removeRow(pos, row_parent)
                 # resize dashboard columns if necessary
                 self.refresh_dashboard()
+            elif cname == 'RoleAssignment':
+                if obj.assigned_to is self.local_user:
+                    html = '<h3>Your role:</h3>'
+                    html += '<p><b><font color="green">{}</font></b>'.format(
+                                                        obj.assigned_role.id)
+                    html += ' in <b><font color="green">{}</font>'.format(
+                                    getattr(obj.role_assignment_context, 'id',
+                                            'global context'))
+                    html += '<br> has been removed.</b></p>'
+                    self.w = NotificationDialog(html, parent=self)
+                    self.w.show()
+                orb.delete([obj])
+                dispatcher.send('deleted object', oid=obj_oid, cname=cname,
+                                remote=True)
             else:
                 orb.delete([obj])
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
@@ -2090,7 +2104,18 @@ class Main(QtWidgets.QMainWindow):
             # same as for local 'modified object' but without the remote
             # calls ...
             cname = obj.__class__.__name__
-            if hasattr(self, 'library_widget'):
+            if cname == 'RoleAssignment':
+                if obj.assigned_to is self.local_user:
+                    html = '<h3>You have been assigned the role:</h3>'
+                    html += '<p><b><font color="green">{}</font></b>'.format(
+                                                        obj.assigned_role.id)
+                    html += ' in <b><font color="green">{}</font>'.format(
+                                    getattr(obj.role_assignment_context, 'id',
+                                            'global context'))
+                    html += '</b></p>'
+                    self.w = NotificationDialog(html, parent=self)
+                    self.w.show()
+            elif hasattr(self, 'library_widget'):
                 self.library_widget.refresh(cname=cname)
             if hasattr(self, 'sys_tree'):
                 self.update_object_in_trees(obj)
@@ -2209,11 +2234,12 @@ class Main(QtWidgets.QMainWindow):
         elif self.mode == 'component':
             self.set_product_modeler_interface()
         if not remote and state.get('connected'):
-            orb.log.info('  - publishing "deleted" msg to public channel')
+            orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
             # to a remote user, they have the object
-            message_bus.session.publish(u'vger.channel.public',
-                                        {u'deleted': oid})
+            rpc = message_bus.session.call(u'vger.delete', [oid])
+            rpc.addCallback(self.on_result)
+            rpc.addErrback(self.on_failure)
             if oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(oid)
 
