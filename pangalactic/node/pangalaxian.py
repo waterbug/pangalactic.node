@@ -361,184 +361,6 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
 
-    # def on_get_admin_result(self, data):
-        # """
-        # Handle result of the rpc that got our Person object and role
-        # assignments.  The 'vger' service is called using the rpc
-        # 'vger.get_role_assignments'.  Because the 'no_filter' keyword arg is
-        # used, the returned data includes the full serialized objects, and has
-        # the format:
-
-            # {u'organizations': [serialized Org objects],
-             # u'users': [serialized Person objects],
-             # u'roles': [serialized Role objects],
-             # u'roleAssignments': [serialized RoleAssignment objects]}
-
-        # If the 'no_filter' keyword arg is NOT used, these abbreviated
-        # dictionary formats will be returned:
-
-            # {u'organizations': [{oid, id, name, description,
-                                 # parent_organization}, ...],
-             # u'users': [{oid, id, name}, ...],
-             # u'roles': [{oid, name}, ...],
-             # u'roleAssignments': [{assigned_role, assigned_to,
-                                   # role_assignment_context}, ...]}
-        # """
-        # # TODO: cache all role assignments; update current role when local
-        # # project state is changed
-        # channels = []
-        # if data:
-            # # NOTE:  either a real project or test objects must be loaded for
-            # # this to work!
-            # log_msg = '* results of rpc "vger.get_role_assignments" ...\n'
-            # log_msg += '  - admin data:  %s' % str(data)
-            # orb.log.debug(log_msg)
-            # # add any new Roles from admin data
-            # deserialize(orb, data[u'roles'])
-            # # add any new Organizations from admin data
-            # deserialize(orb, data[u'organizations'])
-            # # find Person object returned in admin data 'users'
-            # users = deserialize(orb, data[u'users'])
-            # # delete any local RoleAssignments not in admin data
-            # local_ras_to_del = [ra for ra in orb.get_by_type('RoleAssignment')
-                                # if ra.oid not in
-                                # [new_ra['oid'] for new_ra in
-                                 # data[u'roleAssignments']]]
-            # if local_ras_to_del:
-                # oids = [ra.oid for ra in local_ras_to_del]
-                # orb.delete(local_ras_to_del)
-                # for oid in oids:
-                    # dispatcher.send('remote: deleted', content=oid)
-            # # add any new RoleAssignments from admin data
-            # deserialize(orb, data[u'roleAssignments'])
-            # persons_by_id = {u.id: u for u in users
-                             # if isinstance(u, orb.classes['Person'])}
-            # if persons_by_id:
-                # user_with_my_userid = persons_by_id.get(state['userid'])
-                # if user_with_my_userid:
-                    # self.local_user = user_with_my_userid
-                    # orb.log.info('* local user found in admin data: {}'.format(
-                                                          # self.local_user.oid))
-                # else:
-                    # orb.log.info('* person object for local user "{}" not '
-                                 # 'found in data.'.format(state['userid']))
-            # else:
-                # orb.log.info('* no person objects found in admin data.')
-            # if str(state.get('local_user_oid')) == 'me':
-                # # current local user is 'me' -- replace ...
-                # orb.log.info('  setting new local user to {}'.format(
-                                                        # self.local_user.oid))
-                # state['local_user_oid'] = str(self.local_user.oid)
-                # me = orb.get('me')
-                # if me and me.created_objects:
-                    # orb.log.info('    updating {} local objects ...'.format(
-                                  # str(len(me.created_objects))))
-                    # for obj in me.created_objects:
-                        # obj.creator = self.local_user
-                        # obj.modifier = self.local_user
-                        # orb.save([obj])
-                        # dispatcher.send('modified object', obj=obj)
-            # else:
-                # orb.log.info('    login user matches local user.')
-
-            # # `state` keys for org/role/assignment data:
-            # #   * 'role_oids':
-            # #       a name-to-oid mapping for Role instances
-            # #   * 'admin_of':
-            # #       a list of org oids for which the user has the Administrator
-            # #       role
-            # #   * 'assigned_roles':
-            # #       maps org.oid to a list of role.name for the roles assigned
-            # #       to the user in that org
-
-            # # `ras_admin_serv` is role assignment data obtained from admin service
-            # # [note that all RA objects received from the admin service are
-            # # deserialized into the local repo ]
-            # ras_admin_serv = data[u'roleAssignments']
-            # if ras_admin_serv:
-                # orb.log.debug('    finding orgs in which we have a role ...')
-                # ra_org_oids = [ra.get(u'role_assignment_context')
-                               # for ra in ras_admin_serv
-                               # if ra.get(u'role_assignment_context')]
-                # roles = {str(r[u'oid']) : str(r[u'name'])
-                         # for r in data[u'roles']}
-                # state['role_oids'] = {str(r[u'name']) : str(r[u'oid'])
-                                      # for r in data[u'roles']}
-                # orgs = {str(o[u'oid']) : str(o[u'id'])
-                        # for o in data[u'organizations']
-                        # if o[u'oid'] in ra_org_oids}
-                # orb.log.debug('    finding assigned Admin roles ...')
-                # try:
-                    # state['admin_of'] = [str(ra.get(u'role_assignment_context',
-                                                    # 'global'))
-                                         # for ra in ras_admin_serv
-                                         # if (ra[u'assigned_role'] ==
-                                           # u'pgefobjects:Role.Administrator')]
-                # except:
-                    # state['admin_of'] = []
-                # orb.log.debug('    finding other assigned roles ...')
-                # # NOTE: 'assigned_roles' is re-initialized here in case some
-                # # previously assigned roles have been removed
-                # state['assigned_roles'] = {}
-                # try:
-                    # for ra in ras_admin_serv:
-                        # if (str(ra[u'assigned_role'])
-                            # != 'pgefobjects:Role.Administrator'):
-                            # org_oid = str(ra.get(u'role_assignment_context',
-                                                 # 'global'))
-                            # if org_oid in state['assigned_roles']:
-                                # if (str(roles[ra[u'assigned_role']])
-                                    # not in state['assigned_roles'][org_oid]):
-                                    # state['assigned_roles'][org_oid].append(
-                                            # str(roles[ra[u'assigned_role']]))
-                            # else:
-                                # state['assigned_roles'][
-                                      # org_oid] = [str(roles[
-                                                        # ra[u'assigned_role']])]
-                    # orb.log.debug('    - assigned roles found: {}'.format(
-                                                # str(state['assigned_roles'])))
-                # except:
-                    # orb.log.debug('    - no assigned roles found.')
-                # channels = [u'vger.channel.'+orgs[channel_id]
-                            # for channel_id in state['assigned_roles']
-                            # if channel_id != 'global']
-                # orb.log.debug('    channels we will subscribe to: {}'.format(
-                                                               # str(channels)))
-                # if state['assigned_roles'] or state['admin_of']:
-                    # orb.log.info('  - role assignments found:')
-                # if state['assigned_roles']:
-                    # for ar_org_oid in state['assigned_roles']:
-                        # # don't die if there are 'global' roles, which may
-                        # # either have the `role_assignment_context` key omitted
-                        # # or if present, it may have a None value ...
-                        # orb.log.info('    {}: {}'.format(
-                                 # orgs.get(ar_org_oid, 'global') or 'global',
-                                 # str(state['assigned_roles'][ar_org_oid])))
-                # if state['admin_of']:
-                    # for adm_org_oid in state['admin_of']:
-                        # if adm_org_oid == 'global':
-                            # orb.log.info('    Global Administrator')
-                        # else:
-                            # orb.log.info('    {}: Administrator'.format(
-                                          # orgs[adm_org_oid]))
-            # else:
-                # orb.log.info('  - no role assignments found.')
-            # if self.project:
-                # if self.project.oid in state['assigned_roles']:
-                    # txt = u': '.join([self.project.id,
-                              # state['assigned_roles'][self.project.oid][0]])
-                # elif str(self.project.oid) == 'pgefobjects:SANDBOX':
-                    # txt = u'SANDBOX'
-                # else:
-                    # txt = u': '.join([self.project.id, '[local]'])
-                # self.role_label.setText(txt)
-            # else:
-                # self.role_label.setText('online [no project selected]')
-        # else:
-            # self.role_label.setText('online [no roles assigned]')
-        # channels.append(u'vger.channel.public')
-        # return channels
-
     def on_get_user_roles_result(self, data):
         """
         Handle result of the rpc 'vger.get_user_roles'.  The returned data has
@@ -1257,6 +1079,7 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.info('  updating db views with: "{}"'.format(obj.id))
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
+            self.update_project_role_labels()
         return True
 
     def on_mbus_leave(self):
@@ -2078,6 +1901,8 @@ class Main(QtWidgets.QMainWindow):
                 self.refresh_dashboard()
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
+                    # TODO: if removed role assignment was the last one for
+                    # this user on the project, switch to SANDBOX project
                     html = '<h3>Your role:</h3>'
                     html += '<p><b><font color="green">{}</font></b>'.format(
                                                         obj.assigned_role.id)
@@ -2090,6 +1915,7 @@ class Main(QtWidgets.QMainWindow):
                 orb.delete([obj])
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
                                 remote=True)
+                self.update_project_role_labels()
             else:
                 orb.delete([obj])
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
@@ -2122,6 +1948,7 @@ class Main(QtWidgets.QMainWindow):
             elif self.mode == 'db':
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
+            self.update_project_role_labels()
 
     def on_new_object_signal(self, obj=None, cname=''):
         """
@@ -2270,20 +2097,11 @@ class Main(QtWidgets.QMainWindow):
             self.dashboard_rebuilt = False
             self._update_views()
 
-    def _update_views(self, obj=None):
+    def update_project_role_labels(self):
         """
-        Call functions to update all widgets when mode has changed due to some
-        action.
-
-        Keyword Args:
-            obj (Identifiable):  object whose change triggered the update
+        Refresh the 'role_label' widget (bottom right corner of gui) with the
+        user's latest role assignment(s) for the current project.
         """
-        orb.log.info('* [pgxn] _update_views()')
-        orb.log.info('         triggered by object: {}'.format(
-                                            getattr(obj, 'id', '[no object]')))
-        if hasattr(self, 'system_model_window'):
-            self.system_model_window.cache_block_model()
-        # [gui refactor] creation of top dock moved to _init_ui()
         p = self.project
         role_label_txt = u''
         tt_txt = u''
@@ -2381,6 +2199,22 @@ class Main(QtWidgets.QMainWindow):
             self.role_label.setToolTip(tt_txt)
         else:
             self.role_label.setToolTip(role_label_txt)
+
+    def _update_views(self, obj=None):
+        """
+        Call functions to update all widgets when mode has changed due to some
+        action.
+
+        Keyword Args:
+            obj (Identifiable):  object whose change triggered the update
+        """
+        orb.log.info('* [pgxn] _update_views()')
+        orb.log.info('         triggered by object: {}'.format(
+                                            getattr(obj, 'id', '[no object]')))
+        if hasattr(self, 'system_model_window'):
+            self.system_model_window.cache_block_model()
+        # [gui refactor] creation of top dock moved to _init_ui()
+        self.update_project_role_labels()
         if hasattr(self, 'library_widget'):
             self.library_widget.refresh()
         # connect mode-dependent signals to selection model
@@ -3683,6 +3517,7 @@ class Main(QtWidgets.QMainWindow):
         dlg = AdminDialog(org=self.project, parent=self)
         if dlg.exec_():
             orb.log.info('  - admin dialog completed.')
+            self.update_project_role_labels()
 
     # def compare_items(self):
         # # TODO:  this is just a mock-up for prototyping -- FIXME!
