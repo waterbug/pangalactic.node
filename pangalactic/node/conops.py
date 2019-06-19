@@ -12,15 +12,16 @@ from urllib.parse    import urlparse
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QRectF,QPointF, QSizeF, QObject, pyqtSignal, qrand, QLineF, QPoint
+from PyQt5.QtCore import Qt, QRectF,QPointF, QSizeF, QObject, pyqtSignal, qrand, QLineF, QPoint, QMimeData
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
                              QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
                              QWidget,QAction, QApplication, QButtonGroup, QComboBox,
         QFontComboBox, QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem,
         QGraphicsScene, QGraphicsTextItem, QGraphicsView, QGridLayout,
         QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QSizePolicy,
-        QToolBox, QToolButton, QWidget, QPushButton)
-from PyQt5.QtGui import QIcon, QTransform, QBrush, QColor, QDrag, QImage, QPainter, QPen, QPixmap
+        QToolBox, QToolButton, QWidget, QPushButton, QAbstractItemView)
+from PyQt5.QtGui import (QIcon, QTransform, QBrush, QColor, QDrag, QImage, QPainter, QPen, QPixmap, QCursor, QPainterPath,
+                        QPolygon)
 
 # pangalactic
 from pangalactic.core             import diagramz, state
@@ -30,7 +31,7 @@ from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
                                              get_block_model_name,
                                              get_block_model_file_name)
 from pangalactic.node.dialogs     import Viewer3DDialog
-from pangalactic.node.diagrams    import DiagramView, DocForm
+from pangalactic.node.diagrams    import DocForm
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, extract_mime_data
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
@@ -97,8 +98,8 @@ def get_model_path(model):
 
 
 
-class EventBlock(QGraphicsItem):
-    def __init__(self, position, scene, obj=None, style=None,
+class EventBlock(QGraphicsPolygonItem):
+    def __init__(self, position, scene, shape, obj=None, style=None,
                  editable=False, port_spacing=0):
         super(EventBlock, self).__init__()
         """
@@ -114,75 +115,143 @@ class EventBlock(QGraphicsItem):
             editable (bool):  flag indicating whether block properties can be
                 edited in place
         """
-        self.color = QColor(qrand() % 256, qrand() % 256, qrand() % 256)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
-        self.rect = QRectF(0, 0, 100,
-                                  200)
         self.style = style or Qt.SolidLine
         self.obj = obj
-        x, y = position[0], position[1]
-        self.setPos(QPointF(x,y))
-
-        self.setSelected(True)
+        self.setPos(position)
         self.setFocus()
         self.scene = scene
-        self.setAcceptedMouseButtons(Qt.LeftButton)
-    def boundingRect(self):
-        return QRectF(10, 10, 20, 20)
-
+        self.shape = shape
+        self.position = position
+        self.pen =  QPen()
+        self.pen.setColor(Qt.black)
+        self.pen.setWidth(5)
+        self.create_actions()
+    # def boundingRect(self):
+    #     if self.shape == "Box":
+    #         return QRectF(self.position.x(), self.position.y(), 200, 100)
+    #     elif self.shape == "Triangle":
+    #         return QRectF(self.position.x()-50, self.position.y(), 100, 100)
+    #     elif self.shape == "Circle":
+    #         return QRectF(self.position.x(), self.position.y(), 100, 100)
+    def setPen(self, color):
+        self.pen.setColor(color)
+        self.update()
     def paint(self, painter, option, widget):
-        painter.setPen(QPen(Qt.black, 1))
-        painter.setBrush(QBrush(self.color))
-        painter.drawRect(10,10, 20,20)
+        painter.setPen(self.pen)
+        if self.shape == "Box":
+            painter.drawRect(QRectF(self.position.x(), self.position.y(), 200, 100))
+        if self.shape == "Triangle":
+            painter.drawPolyline(QPointF(self.position.x(), self.position.y()),
+                                QPointF(self.position.x()+50, self.position.y()+100),
+                                QPointF(self.position.x()-50, self.position.y()+100),
+                                QPointF(self.position.x(), self.position.y()))
+        if self.shape == "Circle":
+            painter.drawEllipse(self.position.x(), self.position.y(), 100, 100)
 
-    def mousePressEvent(self, event):
-        print("item pressed")
+    def contextMenuEvent(self, event):
+        self.menu = QMenu()
+        self.menu.addAction(self.delete_action)
+        self.menu.exec(event.screenPos())
 
-    def mouseMovesEvent(self, event):
-        drag = QDrag(event.widget())
-        if QLineF(QPointF(event.screenPos()), QPointF(event.buttonDownScreenPos(Qt.LeftButton))).length() < QApplication.startDragDistance():
-            return
+    def create_actions(self):
+        self.delete_action = QAction("Delete", self.scene, statusTip="Delete Item", triggered= self.deleteItem)
 
-        pixmap = QPixmap(34, 34)
-        pixmap.fill(Qt.white)
+    def deleteItem(self):
+        self.scene.removeItem(self)
+        self.scene.update()
 
-        painter = QPainter(pixmap)
-        painter.translate(15, 15)
-        painter.setRenderHint(QPainter.Antialiasing)
-        self.paint(painter, None, None)
-        painter.end()
-        pixmap.setMask(pixmap.createHeuristicMask())
-        drag.setPixmap(pixmap)
-        drag.setHotSpot(QPoint(15, 20))
-        drag.exec_()
+class DiagramView(QGraphicsView):
+    def __init__(self, parent=None):
+        super(DiagramView, self).__init__(parent)
+
+    def dragEnterEvent(self, event):
+        event.accept()
+
+    def dropEvent(self, event):
+        print(event.mimeData().text())
+        cursorPosition = QCursor().pos()
+        item = EventBlock(event.pos(), self.scene(), event.mimeData().text())
+        self.scene().addItem(item)
+        self.update()
+        self.scene().update()
+    def dragMoveEvent(self, event):
+        event.accept()
+
+    def dragLeaveEvent(self, event):
+        event.accept()
+
+class Template(QGraphicsItem):
+    def __init__(self, shape, parent=None):
+        super(Template, self).__inite__(parent)
+    def boundingRect(self):
+        return QRectF(0, 0 , 10, 1000)
+    def paint(self, painter, option, widget):
+        painter.drawLine()
+
 
 
 
 class DiagramScene(QGraphicsScene):
-    shapeSelected = 1
-
-    shapeInserted = pyqtSignal(EventBlock)
-
-
     def __init__(self, parent=None):
         super(DiagramScene, self).__init__(parent)
         self.mode = 0
     def setMode(self, mode):
         self.mode = mode
-    '''def mousePressEvent(self, mouseEvent):
-        #if (mouseEvent.button() != Qt.LeftButton):
-            #return
-        if self.mode == self.shapeSelected:
-            print("scene was pressed")
-        else:
-            print("not pressed?")'''
+
     def getMode(self):
         return self.mode
 
+    def mousePressEvent(self, mouseEvent):
+        if (mouseEvent.button() == Qt.LeftButton):
+            super(DiagramScene, self).mousePressEvent(mouseEvent)
+            for item in self.items():
+                if item in self.selectedItems():
+                    item.setPen(Qt.red)
+                else:
+                    item.setPen(Qt.black)
+            self.update()
 
+class ToolButton(QPushButton):
+    def __init__(self, text, parent=None):
+        super(ToolButton, self).__init__(text, parent)
 
+    def boundingRect(self):
+        return QRectF(-5 , -5, 20, 20)
+
+    def paint(self, painter, option, widget):
+        painter.setPen(QPen(Qt.black, 1))
+        painter.setBrush(QBrush(Qt.white))
+        painter.drawRect(-5, -5, 20,20)
+
+    def mouseMoveEvent(self, event):
+        event.accept()
+        drag = QDrag(self)
+        mime = QMimeData()
+        drag.setMimeData(mime)
+        mime.setText(self.mime)
+        pixmap = QPixmap(34, 34)
+        pixmap.fill(Qt.white)
+        painter = QPainter(pixmap)
+        painter.translate(15, 15)
+        painter.setRenderHint(QPainter.Antialiasing)
+        self.paint(painter, None, None)
+        painter.end()
+        dragCursor = QCursor()
+        dragCursor.setShape(Qt.ClosedHandCursor)
+        drag.setDragCursor(pixmap, Qt.IgnoreAction)
+        self.setCursor(Qt.OpenHandCursor)
+        drag.setPixmap(pixmap)
+        drag.setHotSpot(QPoint(15, 20))
+        drag.exec_()
+
+    def setData(self, mimeData):
+        self.mime = mimeData
+
+    def dragMoveEvent(self, event):
+        event.setAccepted(True)
 
 class ConOpsModeler(QMainWindow):
     """
@@ -220,40 +289,36 @@ class ConOpsModeler(QMainWindow):
         self.preferred_size = preferred_size
         self.model_files = {}
         self.history = []
-        #self.set_subject(obj=obj)
-        self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-
-
         self.createLibrary()
         self.scene = DiagramScene()
-        #self.scene.addItem(obj)
-        self.scene.setSceneRect(0,0, 600, 600)
-        self.scene.addWidget(self.library)
-        self.view = QGraphicsView(self.scene)
+        self.scene.setSceneRect(0,0, 1000, 1000)
+        # self.view = DiagramView(self.scene)
+        self.scene.addItem(EventBlock(QPointF(50, 50), self.scene, "Circle"))
+        self.set_new_view(self.scene)
         self.view.setAcceptDrops(True)
         self.view.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
+        self._init_ui()
         self.view.show()
         layout = QHBoxLayout()
         layout.addWidget(self.view)
-        #layout.addWidget(self.library)
+        layout.addWidget(self.library)
         self.widget = QWidget()
         self.widget.setLayout(layout)
         self.setCentralWidget(self.widget)
-        #self.scene.addItem(myEvent)
+        self.widget.setAcceptDrops(True)
+
 
 
     def createLibrary(self):
         self.buttonGroup = QButtonGroup()
         self.buttonGroup.setExclusive(True)
-        self.buttonGroup.buttonPressed[int].connect(self.buttonGroupPressed)
         layout = QGridLayout()
-        b1 = QPushButton("A")
-        #b1.acceptDrag
-
-        b2 = QPushButton("B")
-
+        b1 = ToolButton("Rectangle")
+        b1.setData("Box")
+        b2 = ToolButton("Triangle")
+        b2.setData("Triangle")
         layout.addWidget(b1)
         layout.addWidget(b2)
         itemWidget = QWidget()
@@ -262,18 +327,6 @@ class ConOpsModeler(QMainWindow):
         self.library.addItem(itemWidget, "Shapes")
         self.buttonGroup.addButton(b1, 1)
         self.buttonGroup.addButton(b2, 2)
-
-
-    def buttonGroupPressed(self, id):
-        if id == 1:
-            self.scene.setMode(DiagramScene.shapeSelected)
-            print("scene mode is set to", self.scene.getMode())
-            item = EventBlock((10,10), self.scene)
-            self.scene.addItem(item)
-            print(self.scene.items())
-
-        else:
-            print("button B was clicked")
 
 
     def resizeEvent(self, event):
@@ -292,7 +345,7 @@ class ConOpsModeler(QMainWindow):
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
-        self.diagram_view.setTransform(QTransform().scale(newscale, newscale))
+        self.view.setTransform(QTransform().scale(newscale, newscale))
 
     def init_toolbar(self):
         self.toolbar = self.addToolBar("Actions")
@@ -330,11 +383,11 @@ class ConOpsModeler(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
-        # self.toolbar.addAction(self.diagram_view.scene().print_action)
-        '''self.print_action = self.create_action("print",
-                                               slot=self.print_preview,
-                                               icon="printer",
-                                               tip="Save as Image / Print")'''
+        #self.toolbar.addAction(self.scene.print_action)
+        #self.print_action = self.create_action("print",
+        #                                       slot=self.print_preview,
+        #                                       icon="printer",
+        #                                       tip="Save as Image / Print")
         #self.toolbar.addAction(self.print_action)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -354,10 +407,10 @@ class ConOpsModeler(QMainWindow):
             action.setCheckable(True)
         return action
 
-    '''def print_preview(self):
-        form = DocForm(scene=self.diagram_view.scene(), edit_mode=False,
+    def print_preview(self):
+        form = DocForm(scene=self.scene, edit_mode=False,
                        parent=self)
-        form.show()'''
+        form.show()
 
     '''def set_placeholder(self):
         new_placeholder = PlaceHolder(image=self.logo, min_size=200,
@@ -371,30 +424,30 @@ class ConOpsModeler(QMainWindow):
 
     def display_external_window(self):
         orb.log.info('* ConOpsModeler.display_external_window() ...')
-        mw = ConOpsModeler(scene=self.diagram_view.scene(),
+        mw = ConOpsModeler(scene=self.scene,
                            logo=self.logo, external=True,
                            preferred_size=(700, 800), parent=self.parent())
         mw.show()
 
-    '''def set_new_diagram_view(self):
-        new_diagram_view = DiagramView(embedded=True)
-        new_diagram_view.setSizePolicy(QSizePolicy.Preferred,
+    def set_new_view(self, scene):
+        new_view = DiagramView(scene)
+        new_view.setSizePolicy(QSizePolicy.Preferred,
                                        QSizePolicy.Preferred)
         layout = QVBoxLayout()
-        layout.addWidget(new_diagram_view)
+        layout.addWidget(new_view)
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
-        if getattr(self, 'diagram_view', None):
+        if getattr(self, 'view', None):
             try:
-                self.diagram_view.setAttribute(Qt.DeleteOnClose)
-                self.diagram_view.parent = None
-                self.diagram_view.close()
+                self.view.setAttribute(Qt.DeleteOnClose)
+                self.view.parent = None
+                self.view.close()
             except:
                 # hmm, my C++ object was already deleted
                 pass
-        self.diagram_view = new_diagram_view
-        self.sceneScaleChanged("50%")'''
+        self.view = new_view
+        self.sceneScaleChanged("50%")
 
     def set_subject_from_diagram_drill_down(self, obj=None):
         """
@@ -427,7 +480,7 @@ class ConOpsModeler(QMainWindow):
     def set_subject(self, obj=None):
 
 
-        '''"""
+        """
         Set an object for the current modeler context.  If the object does not
         have a Block model one is created from its components (or an empty
         Block Model if there are no components).
@@ -485,8 +538,8 @@ class ConOpsModeler(QMainWindow):
             if hasattr(self, 'back_action'):
                 self.back_action.setEnabled(False)
         self.cache_block_model()
-        self.diagram_view.verticalScrollBar().setValue(0)
-        self.diagram_view.horizontalScrollBar().setValue(0)'''
+        self.view.verticalScrollBar().setValue(0)
+        self.view.horizontalScrollBar().setValue(0)
 
     def display_cad_model(self):
         try:
@@ -500,48 +553,48 @@ class ConOpsModeler(QMainWindow):
         except:
             orb.log.info('  CAD model not found.')
 
-    def display_block_diagram(self):
-        """
-        Display a block diagram for the current object.
-        """
-        orb.log.info('* Modeler:  display_block_diagram()')
-        if not getattr(self, 'obj', None):
-            orb.log.info('  no object selected.')
-            return
-        self.set_new_diagram_view()
-        scene = self.diagram_view.scene()
-        model = diagramz.get(self.obj.oid)
-        objs = []
-        if hasattr(self.obj, 'components') and componentz.get(self.obj.oid):
-            # self.obj is a Product -- use componentz cache (more efficient
-            # than using obj.components ...
-            oids = [c[0] for c in componentz[self.obj.oid]]
-            objs = orb.get(oids=oids)
-        elif hasattr(self.obj, 'systems') and len(self.obj.systems):
-            # self.obj is a Project
-            objs = [psu.system for psu in self.obj.systems]
-        if model and not model.get('dirty'):
-            orb.log.info('  - restoring saved block diagram ...')
-            scene.restore_diagram(model, objs)
-        else:
-            if model and model.get('dirty'):
-                orb.log.info('  - block diagram found needed redrawing,')
-            elif not model:
-                orb.log.info('  - no block diagram found in cache or files ')
-            orb.log.info('    generating new block diagram ...')
-            # orb.log.info('  - generating diagram (cache disabled for testing)')
-            scene.create_ibd(objs)
-            # create a block Model object if self.obj doesn't have one
-            block_model_type = orb.get(BLOCK_OID)
-            if self.obj.has_models:
-                block_models = [m for m in self.obj.has_models
-                    if getattr(m, 'type_of_model', None) == block_model_type]
-                if not block_models:
-                    model_id = get_block_model_id(self.obj)
-                    model_name = get_block_model_name(self.obj)
-                    self.model = clone('Model', id=model_id, name=model_name,
-                                       type_of_model=block_model_type,
-                                       of_thing=self.obj)
+    # def display_block_diagram(self):
+    #     """
+    #     Display a block diagram for the current object.
+    #     """
+    #     orb.log.info('* Modeler:  display_block_diagram()')
+    #     if not getattr(self, 'obj', None):
+    #         orb.log.info('  no object selected.')
+    #         return
+    #     self.set_new_view()
+    #     scene = self.view.scene()
+    #     model = diagramz.get(self.obj.oid)
+    #     objs = []
+    #     if hasattr(self.obj, 'components') and componentz.get(self.obj.oid):
+    #         # self.obj is a Product -- use componentz cache (more efficient
+    #         # than using obj.components ...
+    #         oids = [c[0] for c in componentz[self.obj.oid]]
+    #         objs = orb.get(oids=oids)
+    #     elif hasattr(self.obj, 'systems') and len(self.obj.systems):
+    #         # self.obj is a Project
+    #         objs = [psu.system for psu in self.obj.systems]
+    #     if model and not model.get('dirty'):
+    #         orb.log.info('  - restoring saved block diagram ...')
+    #         scene.restore_diagram(model, objs)
+    #     else:
+    #         if model and model.get('dirty'):
+    #             orb.log.info('  - block diagram found needed redrawing,')
+    #         elif not model:
+    #             orb.log.info('  - no block diagram found in cache or files ')
+    #         orb.log.info('    generating new block diagram ...')
+    #         # orb.log.info('  - generating diagram (cache disabled for testing)')
+    #         scene.create_ibd(objs)
+    #         # create a block Model object if self.obj doesn't have one
+    #         block_model_type = orb.get(BLOCK_OID)
+    #         if self.obj.has_models:
+    #             block_models = [m for m in self.obj.has_models
+    #                 if getattr(m, 'type_of_model', None) == block_model_type]
+    #             if not block_models:
+    #                 model_id = get_block_model_id(self.obj)
+    #                 model_name = get_block_model_name(self.obj)
+    #                 self.model = clone('Model', id=model_id, name=model_name,
+    #                                    type_of_model=block_model_type,
+    #                                    of_thing=self.obj)
 
     def save_diagram_connector(self, start_item=None, end_item=None):
         pass
@@ -568,7 +621,7 @@ class ConOpsModeler(QMainWindow):
             orb.log.info('  ... no object, returning.')
             return
         try:
-            scene = self.diagram_view.scene()
+            scene = self.scene
             m = scene.save_diagram()
             # cache the saved diagram
             diagramz[self.obj.oid] = m
