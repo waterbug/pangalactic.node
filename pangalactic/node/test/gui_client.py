@@ -426,6 +426,9 @@ class MainWindow(QMainWindow):
     def on_ldap_search(self):
         self.log('* calling rpc "vger.search_ldap(test=True)" ...')
         rpc = message_bus.session.call(u'vger.search_ldap', test=True,
+                                       id='swaterbury',
+                                       oid='123456789',
+                                       first_name='Stephen',
                                        last_name='Waterbury')
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
