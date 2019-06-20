@@ -14,6 +14,7 @@ from pangalactic.core                 import state
 from pangalactic.core.uberorb         import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import get_ra_id, get_ra_name
+from pangalactic.node.buttons         import SizedButton
 from pangalactic.node.libraries       import LibraryListWidget
 from pangalactic.node.utils           import clone, extract_mime_data
 from pangalactic.node.widgets         import ColorLabel
@@ -155,6 +156,31 @@ class RADropLabel(ColorLabel):
             event.ignore()
 
 
+class LdapSearchDialog(QDialog):
+    """
+    Dialog for LDAP searches.
+    """
+    def __init__(self, parent=None):
+        """
+        Initialize.
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        orb.log.info('* LdapSearchDialog()')
+        super(LdapSearchDialog, self).__init__(parent)
+        self.setWindowTitle("LDAP Search")
+        outer_vbox = QVBoxLayout()
+        self.setLayout(outer_vbox)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok, Qt.Horizontal,
+                                        self)
+        self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
+        outer_vbox.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.criteria_panel = QWidget()
+        self.results_panel = QWidget()
+
+
 class AdminDialog(QDialog):
     """
     Dialog for admin operations: basically, role provisioning for an
@@ -191,6 +217,9 @@ class AdminDialog(QDialog):
         self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
         outer_vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
+        self.ldap_search_button = SizedButton('LDAP Search for a Person')
+        self.ldap_search_button.clicked.connect(self.do_ldap_search)
+        self.right_vbox.addWidget(self.ldap_search_button)
         # populate Role and Person library widgets
         cnames = ['Role', 'Person']
         lib_widget = LibraryListWidget(cnames=cnames, title='Roles and People',
@@ -201,6 +230,10 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.adjust_size, 'admin contents resized')
         dispatcher.connect(self.refresh_roles, 'deleted object')
         dispatcher.connect(self.refresh_roles, 'remote: deleted')
+
+    def do_ldap_search(self):
+        dlg = LdapSearchDialog(parent=self)
+        dlg.show()
 
     def refresh_roles(self):
         """
