@@ -19,9 +19,9 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
         QFontComboBox, QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem,
         QGraphicsScene, QGraphicsTextItem, QGraphicsView, QGridLayout,
         QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QSizePolicy,
-        QToolBox, QToolButton, QWidget, QPushButton, QAbstractItemView)
+        QToolBox, QToolButton, QWidget, QPushButton, QAbstractItemView, QGraphicsPathItem)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QColor, QDrag, QImage, QPainter, QPen, QPixmap, QCursor, QPainterPath,
-                        QPolygon)
+                        QPolygon, QPolygonF, QFont)
 
 # pangalactic
 from pangalactic.core             import diagramz, state
@@ -61,7 +61,6 @@ def get_model_path(model):
 
     Args:
         model (Model):  the Model for which model files are sought
-
     Returns:
         a file path in the orb's "vault"
     """
@@ -99,7 +98,7 @@ def get_model_path(model):
 
 
 class EventBlock(QGraphicsPolygonItem):
-    def __init__(self, position, scene, shape, obj=None, style=None,
+    def __init__(self, scene, shape, obj=None, style=None,
                  editable=False, port_spacing=0):
         super(EventBlock, self).__init__()
         """
@@ -117,51 +116,69 @@ class EventBlock(QGraphicsPolygonItem):
         """
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
-                      QGraphicsItem.ItemIsFocusable)
+                      QGraphicsItem.ItemIsFocusable|
+                      QGraphicsItem.ItemSendsGeometryChanges)
         self.style = style or Qt.SolidLine
-        self.obj = obj
-        self.setPos(position)
         self.setFocus()
         self.scene = scene
         self.shape = shape
-        self.position = position
-        self.pen =  QPen()
-        self.pen.setColor(Qt.black)
-        self.pen.setWidth(5)
+        self.previous = None
+        self.next = None
+        self.setBrush(Qt.white)
         self.create_actions()
-    # def boundingRect(self):
-    #     if self.shape == "Box":
-    #         return QRectF(self.position.x(), self.position.y(), 200, 100)
-    #     elif self.shape == "Triangle":
-    #         return QRectF(self.position.x()-50, self.position.y(), 100, 100)
-    #     elif self.shape == "Circle":
-    #         return QRectF(self.position.x(), self.position.y(), 100, 100)
-    def setPen(self, color):
-        self.pen.setColor(color)
-        self.update()
-    def paint(self, painter, option, widget):
-        painter.setPen(self.pen)
+        path = QPainterPath()
+
         if self.shape == "Box":
-            painter.drawRect(QRectF(self.position.x(), self.position.y(), 200, 100))
+            self.myPolygon = QPolygonF([
+                    QPointF(0, 0), QPointF(0, 100),
+                    QPointF(100, 100), QPointF(100, 0)
+            ])
         if self.shape == "Triangle":
-            painter.drawPolyline(QPointF(self.position.x(), self.position.y()),
-                                QPointF(self.position.x()+50, self.position.y()+100),
-                                QPointF(self.position.x()-50, self.position.y()+100),
-                                QPointF(self.position.x(), self.position.y()))
+             self.myPolygon = QPolygonF([
+                     QPointF(0, 0), QPointF(-80, 80),
+                     QPointF(80, 80)
+             ])
         if self.shape == "Circle":
-            painter.drawEllipse(self.position.x(), self.position.y(), 100, 100)
+            self.setFlags(QGraphicsItem.ItemSendsGeometryChanges)
+            path.addEllipse(0, 0, 100, 100)
+            self.myPolygon = path.toFillPolygon()
+        self.setPolygon(self.myPolygon)
 
     def contextMenuEvent(self, event):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
-        self.menu.exec(event.screenPos())
-
+        # self.menu.exec(QPoint(event.scenePos().x(), event.scenePos().y()))
+        self.menu.exec(QCursor.pos())
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene, statusTip="Delete Item", triggered= self.deleteItem)
 
     def deleteItem(self):
         self.scene.removeItem(self)
         self.scene.update()
+
+    def itemChange(self, change, value):
+        self.update_position()
+        return value
+
+    def update_position(self):
+        self.left_point = self.mapToScene(self.boundingRect().left(), self.boundingRect().center().y())
+        self.right_point = self.mapToScene(QPointF(self.boundingRect().right(), self.boundingRect().center().y()))
+        if getattr(self, "previous", None) != None:
+            self.previous.update_position()
+        if getattr(self, "next", None) != None:
+            self.next.update_position()
+
+    def set_previous(self, item):
+        self.previous = item
+    def set_next(self, item):
+        self.next = item
+    def mouseReleaseEvent(self, event):
+        super(EventBlock, self).mouseReleaseEvent(event)
+        if (event.button() == Qt.LeftButton):
+            if self.shape == "Triangle":
+                self.setPos(event.scenePos().x(), 150)
+            else:
+                self.setPos(event.scenePos().x(), 100)
 
 class DiagramView(QGraphicsView):
     def __init__(self, parent=None):
@@ -171,48 +188,68 @@ class DiagramView(QGraphicsView):
         event.accept()
 
     def dropEvent(self, event):
-        print(event.mimeData().text())
-        cursorPosition = QCursor().pos()
-        item = EventBlock(event.pos(), self.scene(), event.mimeData().text())
+        #print(event.mimeData().text())
+        item = EventBlock(self.scene(), event.mimeData().text())
         self.scene().addItem(item)
+        item.setPos(self.mapToScene(event.pos()))
+        if item.shape == "Triangle":
+            item.setPos(QPointF(self.mapToScene(event.pos()).x(), 150))
+        else:
+            item.setPos(QPointF(self.mapToScene(event.pos()).x(), 100))
         self.update()
-        self.scene().update()
+
     def dragMoveEvent(self, event):
         event.accept()
 
     def dragLeaveEvent(self, event):
         event.accept()
 
-class Template(QGraphicsItem):
-    def __init__(self, shape, parent=None):
-        super(Template, self).__inite__(parent)
-    def boundingRect(self):
-        return QRectF(0, 0 , 10, 1000)
-    def paint(self, painter, option, widget):
-        painter.drawLine()
+class Timeline(QGraphicsPathItem):
+    def __init__(self, item_1, item_2, parent=None):
+        super(Timeline, self).__init__(parent)
+        self.setFlags(QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsMovable |
+                      QGraphicsItem.ItemIsFocusable)
+        self.event_list = []
+        self.item_1 = item_1
+        self.item_2 = item_2
+        self.previous = item_1
+        self.next = item_2
+        self.item_1.next = self
+        self.item_2.previous = self
 
+        self.p1 = self.previous.right_point
+        self.p2 = self.next.left_point
+        self.path =  QPainterPath(self.p1)
+        self.path.lineTo(self.p2)
+        self.setPath(self.path)
 
-
+    def update_position(self):
+        self.p1 = self.previous.right_point
+        self.p2 = self.next.left_point
+        self.path =  QPainterPath(self.p1)
+        self.path.lineTo(self.p2)
+        self.setPath(self.path)
 
 class DiagramScene(QGraphicsScene):
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(DiagramScene, self).__init__(parent)
-        self.mode = 0
-    def setMode(self, mode):
-        self.mode = mode
+        self.start = EventBlock(self, "Circle")
+        self.end = EventBlock(self, "Circle")
+        self.start.setPos(50, 100)
+        self.end.setPos(1500, 100)
+        # self.start.update_position()
+        # self.end.update_position()
+        self.addItem(self.start)
+        self.addItem(self.end)
+        # self.timeline = Timeline(self.start.scenePos().x(), self.end.scenePos().x(), self.end.scenePos().y())
+        self.timeline = Timeline(self.start, self.end)
+        #print(self.start.right_point.x(), self.end.left_point.x())
+        self.addItem(self.timeline)
 
-    def getMode(self):
-        return self.mode
 
     def mousePressEvent(self, mouseEvent):
-        if (mouseEvent.button() == Qt.LeftButton):
-            super(DiagramScene, self).mousePressEvent(mouseEvent)
-            for item in self.items():
-                if item in self.selectedItems():
-                    item.setPen(Qt.red)
-                else:
-                    item.setPen(Qt.black)
-            self.update()
+        super(DiagramScene, self).mousePressEvent(mouseEvent)
 
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
@@ -292,11 +329,23 @@ class ConOpsModeler(QMainWindow):
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         self.createLibrary()
-        self.scene = DiagramScene()
-        self.scene.setSceneRect(0,0, 1000, 1000)
-        # self.view = DiagramView(self.scene)
-        self.scene.addItem(EventBlock(QPointF(50, 50), self.scene, "Circle"))
+        self.scene = DiagramScene(self)
+        self.scene.setSceneRect(0,0, 2000, 1000)
+        # start = EventBlock(self.scene, "Circle")
+        # end = EventBlock(self.scene, "Circle")
+        # start.setPos(50, 100)
+        # end.setPos(1500, 100)
+        # # self.timeline = Timeline(start.scene_right_center.x(), end.scene_left_center.x(), start.scene_center.y())
+        #
+        # self.scene.addItem(start)
+        # self.scene.addItem(end)
         self.set_new_view(self.scene)
+        # self.timeline = Timeline(start.scene_center.x(), end.scene_center.x(), start.scene_center.y())
+        # self.timeline.setPos(0, 0)
+        # # self.timeline_pen = QPen()
+        # # self.timeline_pen.setWidth(5)
+        # # self.timeline.setPen(self.timeline_pen)
+        # self.scene.addItem(self.timeline)
         self.view.setAcceptDrops(True)
         self.view.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
         self._init_ui()
@@ -426,7 +475,7 @@ class ConOpsModeler(QMainWindow):
         orb.log.info('* ConOpsModeler.display_external_window() ...')
         mw = ConOpsModeler(scene=self.scene,
                            logo=self.logo, external=True,
-                           preferred_size=(700, 800), parent=self.parent())
+                           preferred_size=(2000, 1000), parent=self.parent())
         mw.show()
 
     def set_new_view(self, scene):
@@ -730,6 +779,6 @@ if __name__ == '__main__':
     deserialize(orb, serialized_test_objects)
     obj = orb.get('test:twanger')
     app = QApplication(sys.argv)
-    mw = ConOpsModeler(external=True, preferred_size=(700, 800))
+    mw = ConOpsModeler(external=True, preferred_size=(2000, 1000))
     mw.show()
     sys.exit(app.exec_())
