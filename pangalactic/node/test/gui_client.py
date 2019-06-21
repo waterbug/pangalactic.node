@@ -169,6 +169,10 @@ class MainWindow(QMainWindow):
         self.check_version_button = QPushButton('Check Version')
         self.check_version_button.setVisible(False)
         self.check_version_button.clicked.connect(self.on_check_version)
+        # ldap search -- displays result of an ldap "test search"
+        self.ldap_search_button = QPushButton('LDAP Search')
+        self.ldap_search_button.setVisible(False)
+        self.ldap_search_button.clicked.connect(self.on_ldap_search)
         # check output of 'get_user_roles' -- just displays result
         # self.get_user_roles_button = QPushButton('Test Get User Roles')
         # self.get_user_roles_button.setVisible(False)
@@ -213,6 +217,7 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.role_label, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
         # vbox.addWidget(self.get_user_roles_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_project_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.save_object_button, alignment=Qt.AlignVCenter)
@@ -258,6 +263,7 @@ class MainWindow(QMainWindow):
         self.login_button.setVisible(False)
         self.logout_button.setVisible(True)
         self.check_version_button.setVisible(True)
+        self.ldap_search_button.setVisible(True)
         # self.get_user_roles_button.setVisible(True)
         self.add_project_button.setVisible(True)
         self.save_object_button.setVisible(True)
@@ -414,6 +420,16 @@ class MainWindow(QMainWindow):
     def on_check_version(self):
         self.log('* calling rpc "vger.get_version()" ...')
         rpc = message_bus.session.call(u'vger.get_version')
+        rpc.addCallback(self.on_result)
+        rpc.addErrback(self.on_failure)
+
+    def on_ldap_search(self):
+        self.log('* calling rpc "vger.search_ldap(test=True)" ...')
+        rpc = message_bus.session.call(u'vger.search_ldap', test=True,
+                                       id='swaterbury',
+                                       oid='123456789',
+                                       first_name='Stephen',
+                                       last_name='Waterbury')
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
 
@@ -634,6 +650,7 @@ class MainWindow(QMainWindow):
         self.login_button.setVisible(True)
         self.logout_button.setVisible(False)
         self.check_version_button.setVisible(False)
+        self.ldap_search_button.setVisible(False)
         # self.get_user_roles_button.setVisible(False)
         self.add_project_button.setVisible(False)
         self.save_object_button.setVisible(False)
@@ -646,7 +663,7 @@ class MainWindow(QMainWindow):
         message_bus.session = None
 
     def log(self, msg):
-        timestamp = '[%010.3f]' % time.clock()
+        timestamp = '[%010.3f]' % time.process_time()
         self.log_widget.append(timestamp + ' ' + str(msg))
 
     def closeEvent(self, event):

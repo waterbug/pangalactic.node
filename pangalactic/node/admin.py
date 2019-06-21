@@ -6,17 +6,19 @@ import sys
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFormLayout, QHBoxLayout, QLabel, QMenu,
-                             QVBoxLayout, QWidget)
+                             QMessageBox, QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
-from pangalactic.core                 import state
+from pangalactic.core                 import config, state
 from pangalactic.core.uberorb         import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import get_ra_id, get_ra_name
+from pangalactic.node.buttons         import SizedButton
 from pangalactic.node.libraries       import LibraryListWidget
 from pangalactic.node.utils           import clone, extract_mime_data
-from pangalactic.node.widgets         import ColorLabel
+from pangalactic.node.widgets         import (ColorLabel, NameLabel,
+                                              StringFieldWidget)
 
 
 def get_styled_text(text):
@@ -155,6 +157,66 @@ class RADropLabel(ColorLabel):
             event.ignore()
 
 
+class LdapSearchDialog(QDialog):
+    """
+    Dialog for LDAP searches.
+    """
+    def __init__(self, parent=None):
+        """
+        Initialize.
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        orb.log.info('* LdapSearchDialog()')
+        super(LdapSearchDialog, self).__init__(parent)
+        self.setWindowTitle("LDAP Search")
+        outer_vbox = QVBoxLayout()
+        self.setLayout(outer_vbox)
+        self.criteria_panel = QWidget()
+        form_layout = QFormLayout()
+        self.criteria_panel.setLayout(form_layout)
+        form_label = ColorLabel('Search Criteria', element='h2', margin=10)
+        form_layout.setWidget(0, QFormLayout.SpanningRole, form_label)
+        self.schema = config['ldap_schema']
+        self.form_widgets = {}
+        for name in self.schema:
+            self.form_widgets[name] = StringFieldWidget()
+            form_layout.addRow(NameLabel(name), self.form_widgets[name])
+        self.criteria_panel.setLayout(form_layout)
+        outer_vbox.addWidget(self.criteria_panel)
+        search_button = SizedButton('Search')
+        search_button.clicked.connect(self.do_search)
+        outer_vbox.addWidget(search_button)
+        self.results_panel = QWidget()
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok, Qt.Horizontal,
+                                        self)
+        self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
+        outer_vbox.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        dispatcher.connect(self.on_result, 'ldap result')
+
+    def do_search(self):
+        orb.log.info('* LdapSearchDialog: do_search()')
+        q = {}
+        for name, w in self.form_widgets.items():
+            val = w.get_value()
+            if val:
+                q[self.schema[name]] = val
+        if q.get('id') or q.get('oid') or q.get('last_name'):
+            orb.log.info('  query: {}'.format(str(q)))
+            dispatcher.send('ldap search', query=q)
+        else:
+            orb.log.info('  bad query: must have Last Name, AUID, or UUPIC')
+            message = "Query must include Last Name, AUID, or UUPIC"
+            popup = QMessageBox(QMessageBox.Warning, 'Invalid Query',
+                                message, QMessageBox.Ok, self)
+            popup.show()
+
+    def on_result(self):
+        pass
+
+
 class AdminDialog(QDialog):
     """
     Dialog for admin operations: basically, role provisioning for an
@@ -191,6 +253,11 @@ class AdminDialog(QDialog):
         self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
         outer_vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
+        # if we have an ldap_schema, add an LDAP search button
+        if config.get('ldap_schema'):
+            self.ldap_search_button = SizedButton('LDAP Search for a Person')
+            self.ldap_search_button.clicked.connect(self.do_ldap_search)
+            self.right_vbox.addWidget(self.ldap_search_button)
         # populate Role and Person library widgets
         cnames = ['Role', 'Person']
         lib_widget = LibraryListWidget(cnames=cnames, title='Roles and People',
@@ -201,6 +268,10 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.adjust_size, 'admin contents resized')
         dispatcher.connect(self.refresh_roles, 'deleted object')
         dispatcher.connect(self.refresh_roles, 'remote: deleted')
+
+    def do_ldap_search(self):
+        dlg = LdapSearchDialog(parent=self)
+        dlg.show()
 
     def refresh_roles(self):
         """
