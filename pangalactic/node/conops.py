@@ -105,7 +105,7 @@ class EventBlock(QGraphicsPolygonItem):
         Initialize Block.
 
         Args:
-            position (QPointF):  where to put upper left corner of block
+            # position (QPointF):  where to put upper left corner of block
             scene (QGraphicsScene):  scene in which to create block
 
         Keyword Args:
@@ -120,7 +120,7 @@ class EventBlock(QGraphicsPolygonItem):
                       QGraphicsItem.ItemSendsGeometryChanges)
         self.style = style or Qt.SolidLine
         self.setFocus()
-        self.scene = scene
+        # self.scene = scene
         self.shape = shape
         self.previous = None
         self.next = None
@@ -130,13 +130,13 @@ class EventBlock(QGraphicsPolygonItem):
 
         if self.shape == "Box":
             self.myPolygon = QPolygonF([
-                    QPointF(0, 0), QPointF(0, 100),
-                    QPointF(100, 100), QPointF(100, 0)
+                    QPointF(-50, 50), QPointF(50, 50),
+                    QPointF(50, -50), QPointF(-50, -50)
             ])
         if self.shape == "Triangle":
              self.myPolygon = QPolygonF([
-                     QPointF(0, 0), QPointF(-80, 80),
-                     QPointF(80, 80)
+                     QPointF(0, 0), QPointF(-50, 80),
+                     QPointF(50, 80)
              ])
         if self.shape == "Circle":
             self.setFlags(QGraphicsItem.ItemSendsGeometryChanges)
@@ -144,20 +144,26 @@ class EventBlock(QGraphicsPolygonItem):
             self.myPolygon = path.toFillPolygon()
         self.setPolygon(self.myPolygon)
 
+    def mouseDoubleClickEvent(self, event):
+        dispatcher.send("double clicked", obj=self)
+
     def contextMenuEvent(self, event):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
         # self.menu.exec(QPoint(event.scenePos().x(), event.scenePos().y()))
         self.menu.exec(QCursor.pos())
+
     def create_actions(self):
-        self.delete_action = QAction("Delete", self.scene, statusTip="Delete Item", triggered= self.deleteItem)
+        self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item", triggered= self.deleteItem)
 
     def deleteItem(self):
-        self.scene.removeItem(self)
-        self.scene.update()
+        self.scene().removeItem(self)
+        self.scene().update()
+        self.scene().timeline.remove_item(self)
 
     def itemChange(self, change, value):
         self.update_position()
+        # if change == QGraphicsItem.ItemPositionHasChanged:
         return value
 
     def update_position(self):
@@ -170,15 +176,21 @@ class EventBlock(QGraphicsPolygonItem):
 
     def set_previous(self, item):
         self.previous = item
+
     def set_next(self, item):
         self.next = item
+
     def mouseReleaseEvent(self, event):
         super(EventBlock, self).mouseReleaseEvent(event)
         if (event.button() == Qt.LeftButton):
             if self.shape == "Triangle":
                 self.setPos(event.scenePos().x(), 150)
             else:
-                self.setPos(event.scenePos().x(), 100)
+                self.setPos(event.scenePos().x(), 150)
+            self.scene().timeline.rearrange_by_x()
+
+    def collides_with_timeline(self):
+        self.on_timeline = False
 
 class DiagramView(QGraphicsView):
     def __init__(self, parent=None):
@@ -186,17 +198,6 @@ class DiagramView(QGraphicsView):
 
     def dragEnterEvent(self, event):
         event.accept()
-
-    def dropEvent(self, event):
-        #print(event.mimeData().text())
-        item = EventBlock(self.scene(), event.mimeData().text())
-        self.scene().addItem(item)
-        item.setPos(self.mapToScene(event.pos()))
-        if item.shape == "Triangle":
-            item.setPos(QPointF(self.mapToScene(event.pos()).x(), 150))
-        else:
-            item.setPos(QPointF(self.mapToScene(event.pos()).x(), 100))
-        self.update()
 
     def dragMoveEvent(self, event):
         event.accept()
@@ -210,7 +211,7 @@ class Timeline(QGraphicsPathItem):
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
-        self.event_list = []
+        self.item_list = []
         self.item_1 = item_1
         self.item_2 = item_2
         self.previous = item_1
@@ -223,6 +224,18 @@ class Timeline(QGraphicsPathItem):
         self.path =  QPainterPath(self.p1)
         self.path.lineTo(self.p2)
         self.setPath(self.path)
+        self.length = self.p2.x()-self.p1.x()
+        self.num_of_item = len(self.item_list)
+        self.make_point_list()
+        self.current_positions = []
+
+    def item_relocated_handler(self):
+        print("")
+
+    def make_point_list(self):
+        factor = self.length/(self.num_of_item+1)
+        self.list_of_pos = [(n+1)*factor+self.p1.x() for n in range(0, self.num_of_item)]
+        # print(self.list_of_pos)
 
     def update_position(self):
         self.p1 = self.previous.right_point
@@ -231,6 +244,34 @@ class Timeline(QGraphicsPathItem):
         self.path.lineTo(self.p2)
         self.setPath(self.path)
 
+    def add_item(self, item):
+        self.item_list.append(item)
+        self.update_timeline()
+
+    def remove_item(self, item):
+        if item in self.item_list:
+            self.item_list.remove(item)
+        self.update_timeline()
+
+    def update_timeline(self):
+        self.num_of_item = len(self.item_list)
+        self.make_point_list()
+        # print(len(self.item_list))
+        self.reposition()
+
+    def reposition(self):
+        for i in range(0, len(self.item_list)):
+            # print("update timeline")
+            if self.item_list[i].shape == "Triangle":
+                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
+            else:
+                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
+
+    def rearrange_by_x(self):
+        self.item_list.sort(key=lambda x: x.pos().x())
+        self.reposition()
+
+
 class DiagramScene(QGraphicsScene):
     def __init__(self, parent):
         super(DiagramScene, self).__init__(parent)
@@ -238,18 +279,20 @@ class DiagramScene(QGraphicsScene):
         self.end = EventBlock(self, "Circle")
         self.start.setPos(50, 100)
         self.end.setPos(1500, 100)
-        # self.start.update_position()
-        # self.end.update_position()
         self.addItem(self.start)
         self.addItem(self.end)
-        # self.timeline = Timeline(self.start.scenePos().x(), self.end.scenePos().x(), self.end.scenePos().y())
         self.timeline = Timeline(self.start, self.end)
-        #print(self.start.right_point.x(), self.end.left_point.x())
         self.addItem(self.timeline)
-
 
     def mousePressEvent(self, mouseEvent):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
+
+    def dropEvent(self, event):
+        item = EventBlock(self, event.mimeData().text())
+        self.timeline.add_item(item)
+
+        self.addItem(item)
+        self.update()
 
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
@@ -289,6 +332,7 @@ class ToolButton(QPushButton):
 
     def dragMoveEvent(self, event):
         event.setAccepted(True)
+
 
 class ConOpsModeler(QMainWindow):
     """
@@ -357,9 +401,12 @@ class ConOpsModeler(QMainWindow):
         self.widget.setLayout(layout)
         self.setCentralWidget(self.widget)
         self.widget.setAcceptDrops(True)
+        dispatcher.connect(self.double_clicked_handler, "double clicked")
 
-
-
+    def double_clicked_handler(self, obj):
+        # print("main window")
+        new_scene = DiagramScene(self.view)
+        self.view.setScene(new_scene)
     def createLibrary(self):
         self.buttonGroup = QButtonGroup()
         self.buttonGroup.setExclusive(True)
