@@ -202,6 +202,8 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.get_cloaking_status, 'cloaking')
         dispatcher.connect(self.decloak, 'decloaking')
+        dispatcher.connect(self.on_ldap_search, 'ldap search')
+        dispatcher.connect(self.on_add_person, 'add person')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., RoleAssignment instances)
@@ -960,10 +962,34 @@ class Main(QtWidgets.QMainWindow):
         else:
             # get object from repository ...
             orb.log.info('  - decloaked object unknown -- get from repo...')
-            rpc = message_bus.session.call(u'vger.get_object', obj_oid,
+            rpc = message_bus.session.call('vger.get_object', obj_oid,
                                            include_components=True)
             rpc.addCallback(self.on_rpc_get_object)
             rpc.addErrback(self.on_failure)
+
+    def on_ldap_search(self, query=None):
+        """
+        Send 'vger.search_ldap' rpc when 'ldap search' signal is received.
+        """
+        q = query or {}
+        rpc = message_bus.session.call('vger.search_ldap', **q)
+        rpc.addCallback(self.on_rpc_ldap_result)
+        rpc.addErrback(self.on_failure)
+
+    def on_rpc_ldap_result(self, res):
+        dispatcher.send('ldap result', res=res)
+
+    def on_add_person(self, data=None):
+        """
+        Send 'vger.add_person' rpc when 'add person' signal is received.
+        """
+        rpc = message_bus.session.call('vger.add_person', data)
+        rpc.addCallback(self.on_rpc_add_person_result)
+        rpc.addErrback(self.on_failure)
+
+    def on_rpc_add_person_result(self, res):
+        if res:
+            dispatcher.send('person added', res=res)
 
     def on_rpc_get_object(self, serialized_objects):
         """

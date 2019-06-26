@@ -2,11 +2,13 @@
 Admin interface
 """
 import sys
+from collections import OrderedDict
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFormLayout, QHBoxLayout, QLabel, QMenu,
-                             QMessageBox, QVBoxLayout, QWidget)
+                             QMessageBox, QSizePolicy, QTableView, QVBoxLayout,
+                             QWidget)
 
 from louie import dispatcher
 
@@ -16,6 +18,7 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import get_ra_id, get_ra_name
 from pangalactic.node.buttons         import SizedButton
 from pangalactic.node.libraries       import LibraryListWidget
+from pangalactic.node.tablemodels     import ODTableModel
 from pangalactic.node.utils           import clone, extract_mime_data
 from pangalactic.node.widgets         import (ColorLabel, NameLabel,
                                               StringFieldWidget)
@@ -173,6 +176,8 @@ class LdapSearchDialog(QDialog):
         self.setWindowTitle("LDAP Search")
         outer_vbox = QVBoxLayout()
         self.setLayout(outer_vbox)
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
         self.criteria_panel = QWidget()
         form_layout = QFormLayout()
         self.criteria_panel.setLayout(form_layout)
@@ -194,11 +199,13 @@ class LdapSearchDialog(QDialog):
         self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
         outer_vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
-        dispatcher.connect(self.on_result, 'ldap result')
+        dispatcher.connect(self.on_search_result, 'ldap result')
 
     def do_search(self):
         orb.log.info('* LdapSearchDialog: do_search()')
-        q = {}
+        # q = {}
+        # for testing:
+        q = {'test': 'result'}
         for name, w in self.form_widgets.items():
             val = w.get_value()
             if val:
@@ -213,8 +220,78 @@ class LdapSearchDialog(QDialog):
                                 message, QMessageBox.Ok, self)
             popup.show()
 
-    def on_result(self):
-        pass
+    def on_search_result(self, res=None):
+        """
+        Display result of LDAP search and enable selection of person for
+        addition to repository for role assignments.
+        """
+        orb.log.info('* LdapSearchDialog: on_search_result()')
+        orb.log.info('  result: {}'.format(res))
+        self.ldap_schema = config['ldap_schema']
+        res_cols = list(self.ldap_schema.values())
+        res_headers = {self.ldap_schema[a]:a for a in self.ldap_schema}
+        self.ldap_data = []
+        for res_item in res:
+            ldap_rec = OrderedDict()
+            for col in res_cols:
+                ldap_rec[res_headers[col]] = res_item.get(col, '[none]')
+            self.ldap_data.append(ldap_rec)
+        ldap_model = ODTableModel(self.ldap_data)
+        self.ldap_table = QTableView()
+        # self.ldap_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
+        self.ldap_table.setModel(ldap_model)
+        self.ldap_table.setAlternatingRowColors(True)
+        self.ldap_table.setShowGrid(False)
+        self.ldap_table.setSelectionBehavior(1)
+        self.ldap_table.setStyleSheet('font-size: 12px')
+        self.ldap_table.verticalHeader().hide()
+        self.ldap_table.clicked.connect(self.person_selected)
+        col_header = self.ldap_table.horizontalHeader()
+        col_header.setSectionResizeMode(col_header.Stretch)
+        col_header.setStyleSheet('font-weight: bold')
+        # self.ldap_table.setSizePolicy(QSizePolicy.Expanding,
+                                     # QSizePolicy.Expanding)
+        self.ldap_table.resizeColumnsToContents()
+        self.layout().addWidget(self.ldap_table)
+        self.add_person_panel = QWidget()
+        hbox = QHBoxLayout()
+        self.add_person_panel.setLayout(hbox)
+        self.add_person_button = SizedButton('Add Person')
+        self.add_person_button.clicked.connect(self.on_add_person)
+        hbox.addWidget(self.add_person_button)
+        self.person_label = ColorLabel('tbd')
+        hbox.addWidget(self.person_label)
+        self.layout().addWidget(self.add_person_panel)
+        self.add_person_panel.setVisible(False)
+        self.resize(700, 600)
+        # self.adjustSize()
+
+    def person_selected(self, clicked_index):
+        orb.log.debug('* person_selected()')
+        clicked_row = clicked_index.row()
+        orb.log.debug('  clicked row is "{}"'.format(clicked_row))
+        person_data = self.ldap_data[clicked_row]
+        orb.log.debug('  person selected is:'.format(person_data))
+        # TODO: make "ldap_person_format" a config item ...
+        person_display_name = '{}, {} {} ({})'.format(
+                                             person_data['Last Name'],
+                                             person_data['First Name'],
+                                             person_data['MI or Name'],
+                                             person_data['Code']
+                                             )
+        orb.log.debug('  {}'.format(person_display_name))
+        orb.log.debug('  ... ldap record: {}'.format(person_data))
+        if person_data:
+            self.person_data = person_data
+            self.person_label.set_content(person_display_name)
+            self.add_person_panel.setVisible(True)
+
+    def on_add_person(self):
+        orb.log.debug('* on_add_person()')
+        data = {self.ldap_schema[a]: self.person_data[a]
+                for a in self.person_data}
+        # send signal to call rpc "vger.add_person"
+        dispatcher.send('add person', data=data)
 
 
 class AdminDialog(QDialog):

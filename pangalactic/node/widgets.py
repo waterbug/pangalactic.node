@@ -106,22 +106,26 @@ class ColorLabel(QLabel):
         name (str):  label text
 
     Keyword Args:
-        color (str):  color to use for text
+        color (str):  color to use for text (default: purple)
         element (str):  html element to use for label
         border (int):  thickness of border (default: no border)
         margin (int):  width of margin surrounding contents
         parent (QWidget):  parent widget
     """
     def __init__(self, name, color=None, element=None, border=None,
-                 margin=None, parent=None, **kw):
+                 margin=0, parent=None):
         super(ColorLabel, self).__init__(margin=margin, parent=parent)
+        self.set_content(name, color=color, element=element, border=border,
+                         margin=margin)
+
+    def set_content(self, name, color=None, element=None, border=None,
+                    margin=None):
         if border:
             self.setFrameStyle(QFrame.Box | QFrame.Plain)
             try:
                 self.setLineWidth(border)
             except:
                 self.setLineWidth(1)
-        margin = kw.get('margin', 0)
         try:
             self.setMargin(margin)
         except:

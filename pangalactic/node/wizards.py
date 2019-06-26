@@ -13,6 +13,7 @@ from PyQt5 import QtGui, QtWidgets, QtCore
 from PyQt5.QtCore import Qt
 
 # import pandas as pd
+
 from louie import dispatcher
 
 # pangalactic
