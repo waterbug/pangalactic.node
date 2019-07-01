@@ -148,9 +148,6 @@ class ModelWindow(QMainWindow):
             # return QSize(*self.preferred_size)
         # return QSize(400, 300)
 
-    def resizeEvent(self, event):
-        state['model_window_size'] = (self.width(), self.height())
-
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
         # set a placeholder for the central widget

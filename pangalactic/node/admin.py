@@ -287,6 +287,11 @@ class LdapSearchDialog(QDialog):
             self.add_person_panel.setVisible(True)
 
     def on_add_person(self):
+        """
+        Handler for the add_person_button click: dispatch the "add person"
+        signal, which will trigger pangalaxian to send the 'vger.add_person'
+        rpc.
+        """
         orb.log.debug('* on_add_person()')
         data = {self.ldap_schema[a]: self.person_data[a]
                 for a in self.person_data}
@@ -337,9 +342,10 @@ class AdminDialog(QDialog):
             self.right_vbox.addWidget(self.ldap_search_button)
         # populate Role and Person library widgets
         cnames = ['Role', 'Person']
-        lib_widget = LibraryListWidget(cnames=cnames, title='Roles and People',
-                                       parent=self)
-        self.right_vbox.addWidget(lib_widget)
+        self.lib_widget = LibraryListWidget(cnames=cnames,
+                                            title='Roles and People',
+                                            parent=self)
+        self.right_vbox.addWidget(self.lib_widget)
         self.right_vbox.addStretch(1)
         self.updateGeometry()
         dispatcher.connect(self.adjust_size, 'admin contents resized')
@@ -349,6 +355,14 @@ class AdminDialog(QDialog):
     def do_ldap_search(self):
         dlg = LdapSearchDialog(parent=self)
         dlg.show()
+
+    def on_person_added(self, obj=None):
+        """
+        Handler for the "person added" dispatcher signal: update the Person
+        library table.
+        """
+        orb.log.debug('* on_person_added()')
+        self.lib_widget.refresh(cname='Person')
 
     def refresh_roles(self):
         """

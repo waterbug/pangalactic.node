@@ -410,17 +410,25 @@ class Main(QtWidgets.QMainWindow):
         # objects -- 'assigned_role' (Role), 'assigned_to' (Person), and
         # 'role_assignment_context' (Organization or Project)
         deserialize(orb, serialized_role_assignments)
+        ras = orb.get_by_type('RoleAssignment')
         org_ids = [getattr(ra.role_assignment_context, 'id', '')
-                   for ra in orb.get_by_type('RoleAssignment')]
-        channels = [u'vger.channel.' + org_id
+                   for ra in ras]
+        channels = ['vger.channel.' + org_id
                     for org_id in org_ids if org_id and org_id != 'global']
+        admins = [ra for ra in ras
+                  if ra.assigned_role.oid == 'pgefobjects:Role.Administrator']
+        if admins:
+            # if we have *any* Administrator role assignments, subscribe to the
+            # admin channel, so we will be notified when new Persons are added
+            # to the repository
+            channels.append('vger.channel.admin')
         orb.log.debug('    channels we will subscribe to: {}'.format(
                                                        str(channels)))
         if self.project:
-            ras = orb.search_exact(cname='RoleAssignment',
-                                   assigned_to=self.local_user,
-                                   role_assignment_context=self.project)
-            my_roles = [ra.assigned_role.name for ra in ras]
+            proj_ras = orb.search_exact(cname='RoleAssignment',
+                                        assigned_to=self.local_user,
+                                        role_assignment_context=self.project)
+            my_roles = [ra.assigned_role.name for ra in proj_ras]
             if my_roles:
                 txt = u': '.join([self.project.id, my_roles[0]])
             elif str(self.project.oid) == 'pgefobjects:SANDBOX':
@@ -430,13 +438,13 @@ class Main(QtWidgets.QMainWindow):
             self.role_label.setText(txt)
         else:
             self.role_label.setText('online [no project selected]')
-        channels.append(u'vger.channel.public')
+        channels.append('vger.channel.public')
         return channels
 
     def subscribe_to_mbus_channels(self, channels):
         # TODO: subscribe to channels for all our projects (as determined from
         # our role assignments)
-        channels = channels or [u'vger.channel.public']
+        channels = channels or ['vger.channel.public']
         orb.log.info('* attempting to subscribe to channels:  %s' % str(
                                                                     channels))
         subs = []
@@ -799,6 +807,12 @@ class Main(QtWidgets.QMainWindow):
         return message_bus.session.call(u'vger.save', sobjs_to_save)
 
     def on_pubsub_msg(self, msg):
+        """
+        Handle pubsub messages.
+
+        Args:
+            msg (tuple): the message, a tuple of (subject, content)
+        """
         for item in msg.items():
             subject, content = item
             orb.log.info("[pgxn] on_pubsub_msg")
@@ -807,18 +821,21 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info("       pop-up notification ...")
             # text = ('subject: {}<br>'.format(subject))
             obj_id = '[unknown]'
-            if subject == u'decloaked':
+            if subject == 'decloaked':
                 # actor_oid is the oid of the Actor to which the object has
                 # been decloaked (usually an Organization or Project)
                 obj_oid, obj_id, actor_oid, actor_id = content
-            elif subject == u'modified':
+            elif subject == 'modified':
                 obj_oid, obj_id, obj_mod_datetime = content
-            elif subject == u'deleted':
+            elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
                 if obj:
                     obj_id = obj.id
-            elif subject == u'organization':
+            elif subject == 'organization':
+                obj_oid = content['oid']
+                obj_id = content['id']
+            elif subject == 'person added':
                 obj_oid = content['oid']
                 obj_id = content['id']
             self.statusbar.showMessage("remote {}: {}".format(subject, obj_id))
@@ -988,8 +1005,35 @@ class Main(QtWidgets.QMainWindow):
         rpc.addErrback(self.on_failure)
 
     def on_rpc_add_person_result(self, res):
+        """
+        Handle the result of 'vger.add_person' rpc.
+
+        Arg:
+            res (list): if the rpc was successful, a list of serialized
+                objects; otherwise, an empty list
+        """
         if res:
-            dispatcher.send('person added', res=res)
+            try:
+                objs = deserialize(orb, res)
+                if objs:
+                    for obj in objs:
+                        if isinstance(obj, orb.classes['Person']):
+                            display_name = '{}, {} {} ({})'.format(
+                                                            obj.last_name,
+                                                            obj.first_name,
+                                                            obj.mi_or_name,
+                                                            obj.org.name)
+                            orb.log.info('  - person "{}" saved.'.format(
+                                                                display_name))
+                            dispatcher.send('person added', obj=obj)
+                        elif isinstance(obj, orb.classes['Organization']):
+                            orb.log.info('  - org "{}" saved.'.format(
+                                                                obj.name))
+            except:
+                d = str(res)
+                orb.log.info('- cannot deserialize received data: '.format(d))
+        else:
+            orb.log.info('- rpc failed: no data received!')
 
     def on_rpc_get_object(self, serialized_objects):
         """

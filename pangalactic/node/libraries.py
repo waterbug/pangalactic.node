@@ -408,7 +408,6 @@ class LibraryListWidget(QWidget):
             widget = FilterPanel(None, view=view, as_library=True,
                                  cname=cname, label=select_label,
                                  word_wrap=self.word_wrap,
-                                 # external_filters=True,
                                  parent=self)
         else:
             widget = LibraryListView(cname, include_subtypes=include_subtypes,
@@ -423,7 +422,6 @@ class LibraryListWidget(QWidget):
         """
         Set the library view.
         """
-        # NOTE:  WORKING HERE ...
         self.stack.setCurrentIndex(index)
 
     def refresh(self, cname=None, **kw):

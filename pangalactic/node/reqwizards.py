@@ -170,7 +170,8 @@ class ReqWizard(QWizard):
             # 'performance' flag indicates req_type:
             #    - True  -> performance requirement
             #    - False -> functional requirement
-            req_wizard_state['computable_form_oid'] = req.computable_form.oid
+            req_wizard_state['computable_form_oid'] = getattr(
+                                                req.computable_form, 'oid', '')
             performance = (req.req_type == 'performance')
         if not performance:
             req_wizard_state['performance'] = False
