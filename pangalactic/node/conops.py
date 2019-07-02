@@ -7,6 +7,7 @@ standard_library.install_aliases()
 # NOTE: fixed div's so old_div is not needed.
 # from past.utils import old_div
 import os
+import copy
 from collections import namedtuple
 from urllib.parse    import urlparse
 
@@ -98,7 +99,7 @@ def get_model_path(model):
 
 
 class EventBlock(QGraphicsPolygonItem):
-    def __init__(self, scene, shape, obj=None, style=None,
+    def __init__(self, shape, activity=None, parent_activity=None, style=None,
                  editable=False, port_spacing=0):
         super(EventBlock, self).__init__()
         """
@@ -119,15 +120,13 @@ class EventBlock(QGraphicsPolygonItem):
                       QGraphicsItem.ItemIsFocusable|
                       QGraphicsItem.ItemSendsGeometryChanges)
         self.style = style or Qt.SolidLine
-        self.setFocus()
-        # self.scene = scene
         self.shape = shape
-        self.previous = None
-        self.next = None
         self.setBrush(Qt.white)
         self.create_actions()
         path = QPainterPath()
+        self.activity = activity or clone("Activity")
 
+    #---draw blocks depending on the 'shape' string passed in
         if self.shape == "Box":
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
@@ -139,46 +138,31 @@ class EventBlock(QGraphicsPolygonItem):
                      QPointF(50, 80)
              ])
         if self.shape == "Circle":
-            self.setFlags(QGraphicsItem.ItemSendsGeometryChanges)
-            path.addEllipse(0, 0, 100, 100)
+            path.addEllipse(-50, -50, 100, 100)
             self.myPolygon = path.toFillPolygon()
+            self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
         self.setPolygon(self.myPolygon)
 
     def mouseDoubleClickEvent(self, event):
-        dispatcher.send("double clicked", obj=self)
+        dispatcher.send("double clicked", obj=self.activity)
 
     def contextMenuEvent(self, event):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
-        # self.menu.exec(QPoint(event.scenePos().x(), event.scenePos().y()))
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item", triggered= self.deleteItem)
 
     def deleteItem(self):
-        self.scene().removeItem(self)
-        self.scene().update()
         self.scene().timeline.remove_item(self)
+        self.scene().removeItem(self)
 
     def itemChange(self, change, value):
-        self.update_position()
-        # if change == QGraphicsItem.ItemPositionHasChanged:
+        # super(EventBlock, self).itemChange(change, value)
+        # self.update_position()
         return value
 
-    def update_position(self):
-        self.left_point = self.mapToScene(self.boundingRect().left(), self.boundingRect().center().y())
-        self.right_point = self.mapToScene(QPointF(self.boundingRect().right(), self.boundingRect().center().y()))
-        if getattr(self, "previous", None) != None:
-            self.previous.update_position()
-        if getattr(self, "next", None) != None:
-            self.next.update_position()
-
-    def set_previous(self, item):
-        self.previous = item
-
-    def set_next(self, item):
-        self.next = item
 
     def mouseReleaseEvent(self, event):
         super(EventBlock, self).mouseReleaseEvent(event)
@@ -187,7 +171,7 @@ class EventBlock(QGraphicsPolygonItem):
                 self.setPos(event.scenePos().x(), 150)
             else:
                 self.setPos(event.scenePos().x(), 150)
-            self.scene().timeline.rearrange_by_x()
+            self.scene().timeline.reposition()
 
     def collides_with_timeline(self):
         self.on_timeline = False
@@ -214,13 +198,8 @@ class Timeline(QGraphicsPathItem):
         self.item_list = []
         self.item_1 = item_1
         self.item_2 = item_2
-        self.previous = item_1
-        self.next = item_2
-        self.item_1.next = self
-        self.item_2.previous = self
-
-        self.p1 = self.previous.right_point
-        self.p2 = self.next.left_point
+        self.p1 = item_1.scenePos()
+        self.p2 = item_2.scenePos()
         self.path =  QPainterPath(self.p1)
         self.path.lineTo(self.p2)
         self.setPath(self.path)
@@ -232,53 +211,44 @@ class Timeline(QGraphicsPathItem):
     def item_relocated_handler(self):
         print("")
 
+    def add_item(self, item):
+        self.item_list.append(item)
+        self.num_of_item = len(self.item_list)
+        self.update_timeline()
+
+    def update_timeline(self):
+        self.make_point_list()
+        self.reposition()
+
     def make_point_list(self):
         factor = self.length/(self.num_of_item+1)
         self.list_of_pos = [(n+1)*factor+self.p1.x() for n in range(0, self.num_of_item)]
-        # print(self.list_of_pos)
 
-    def update_position(self):
-        self.p1 = self.previous.right_point
-        self.p2 = self.next.left_point
-        self.path =  QPainterPath(self.p1)
-        self.path.lineTo(self.p2)
-        self.setPath(self.path)
+    def reposition(self):
+        self.item_list.sort(key=lambda x: x.scenePos().x())
+        for i in range(0, len(self.item_list)):
+            if self.item_list[i].shape == "Triangle":
+                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
+                self.item_list[i].activity.components.reference_designator = u"{}".format(i)
+            else:
+                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
+                self.item_list[i].activity.components.reference_designator = u"{}".format(i)
 
-    def add_item(self, item):
-        self.item_list.append(item)
-        self.update_timeline()
 
     def remove_item(self, item):
         if item in self.item_list:
             self.item_list.remove(item)
         self.update_timeline()
 
-    def update_timeline(self):
-        self.num_of_item = len(self.item_list)
-        self.make_point_list()
-        # print(len(self.item_list))
-        self.reposition()
-
-    def reposition(self):
-        for i in range(0, len(self.item_list)):
-            # print("update timeline")
-            if self.item_list[i].shape == "Triangle":
-                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
-            else:
-                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
-
-    def rearrange_by_x(self):
-        self.item_list.sort(key=lambda x: x.pos().x())
-        self.reposition()
-
-
 class DiagramScene(QGraphicsScene):
-    def __init__(self, parent):
+    def __init__(self, parent, parent_activity=None):
         super(DiagramScene, self).__init__(parent)
-        self.start = EventBlock(self, "Circle")
-        self.end = EventBlock(self, "Circle")
-        self.start.setPos(50, 100)
-        self.end.setPos(1500, 100)
+        self.parent_activity = parent_activity
+        self.val = 10
+        self.start = EventBlock("Circle")
+        self.end = EventBlock("Circle")
+        self.start.setPos(100, 150)
+        self.end.setPos(1500, 150)
         self.addItem(self.start)
         self.addItem(self.end)
         self.timeline = Timeline(self.start, self.end)
@@ -288,9 +258,12 @@ class DiagramScene(QGraphicsScene):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
 
     def dropEvent(self, event):
-        item = EventBlock(self, event.mimeData().text())
+        activity = clone("Activity")
+        acu = clone("Acu", assembly=self.parent_activity, component=activity)
+        item = EventBlock(event.mimeData().text(), activity=activity, parent_activity=self.parent_activity)
+        item.setPos(event.scenePos())
+        print(len(self.items()))
         self.timeline.add_item(item)
-
         self.addItem(item)
         self.update()
 
@@ -370,26 +343,13 @@ class ConOpsModeler(QMainWindow):
         self.preferred_size = preferred_size
         self.model_files = {}
         self.history = []
+        self.temp_activity = clone("Activity")
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
+#-----------------------------------------------------------#
         self.createLibrary()
-        self.scene = DiagramScene(self)
-        self.scene.setSceneRect(0,0, 2000, 1000)
-        # start = EventBlock(self.scene, "Circle")
-        # end = EventBlock(self.scene, "Circle")
-        # start.setPos(50, 100)
-        # end.setPos(1500, 100)
-        # # self.timeline = Timeline(start.scene_right_center.x(), end.scene_left_center.x(), start.scene_center.y())
-        #
-        # self.scene.addItem(start)
-        # self.scene.addItem(end)
-        self.set_new_view(self.scene)
-        # self.timeline = Timeline(start.scene_center.x(), end.scene_center.x(), start.scene_center.y())
-        # self.timeline.setPos(0, 0)
-        # # self.timeline_pen = QPen()
-        # # self.timeline_pen.setWidth(5)
-        # # self.timeline.setPen(self.timeline_pen)
-        # self.scene.addItem(self.timeline)
+        self.scene = DiagramScene(self, self.temp_activity)
+        self.set_new_view(self.scene, parent_activity=self.temp_activity)
         self.view.setAcceptDrops(True)
         self.view.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
         self._init_ui()
@@ -401,13 +361,12 @@ class ConOpsModeler(QMainWindow):
         self.widget.setLayout(layout)
         self.setCentralWidget(self.widget)
         self.widget.setAcceptDrops(True)
+        #------------lisening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
 
-    def double_clicked_handler(self, obj):
-        # print("main window")
-        new_scene = DiagramScene(self.view)
-        self.view.setScene(new_scene)
+
     def createLibrary(self):
+        '''create the shape library'''
         self.buttonGroup = QButtonGroup()
         self.buttonGroup.setExclusive(True)
         layout = QGridLayout()
@@ -452,19 +411,7 @@ class ConOpsModeler(QMainWindow):
                                     icon="left_arrow",
                                     tip="Back to Previous Model")
         self.toolbar.addAction(self.back_action)
-        # TODO:  create a dialog for saving a diagram to a SysML file ...
-        # self.save_action = self.create_action(
-                                    # "Save Model...",
-                                    # slot=self.write_block_model,
-                                    # icon="save",
-                                    # tip="Save Model to a File")
-        # self.toolbar.addAction(self.save_action)
-        self.view_cad_action = self.create_action(
-                                    "View CAD Model...",
-                                    slot=self.display_cad_model,
-                                    icon="view_16",
-                                    tip="View CAD Model (from STEP File)")
-        self.toolbar.addAction(self.view_cad_action)
+
         self.external_window_action = self.create_action(
                                     "Display external diagram window ...",
                                     slot=self.display_external_window,
@@ -472,6 +419,7 @@ class ConOpsModeler(QMainWindow):
                                     tip="Display External Diagram Window")
         if not self.external:
             self.toolbar.addAction(self.external_window_action)
+        #create and add scene scale menu
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
                                           "100%"])
@@ -479,12 +427,7 @@ class ConOpsModeler(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
-        #self.toolbar.addAction(self.scene.print_action)
-        #self.print_action = self.create_action("print",
-        #                                       slot=self.print_preview,
-        #                                       icon="printer",
-        #                                       tip="Save as Image / Print")
-        #self.toolbar.addAction(self.print_action)
+
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -525,12 +468,23 @@ class ConOpsModeler(QMainWindow):
                            preferred_size=(2000, 1000), parent=self.parent())
         mw.show()
 
-    def set_new_view(self, scene):
+    def double_clicked_handler(self, obj):
+        '''handler for double clicking an eventblock. create and
+        display new view'''
+        new_scene = DiagramScene(self, parent_activity=obj)
+        self.set_new_view(new_scene, parent_activity=obj)
+
+    def set_new_view(self, scene=None, parent_activity=None):
+        parent_activity = parent_activity or self.temp_activity
+        print("set_new_view/scene")
         new_view = DiagramView(scene)
+        self.scene = scene
+        self.scene.setSceneRect(0,0, 2000, 1000)
         new_view.setSizePolicy(QSizePolicy.Preferred,
                                        QSizePolicy.Preferred)
-        layout = QVBoxLayout()
+        layout = QHBoxLayout()
         layout.addWidget(new_view)
+        layout.addWidget(self.library)
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
@@ -540,11 +494,32 @@ class ConOpsModeler(QMainWindow):
                 self.view.parent = None
                 self.view.close()
             except:
-                # hmm, my C++ object was already deleted
                 pass
         self.view = new_view
         self.sceneScaleChanged("50%")
+        if parent_activity != None:
+            print("parent_act != None")
+            print(len(parent_activity.components))
+            for acu in parent_activity.components:
+                activity = acu.component
+                item = EventBlock("Box", activity=activity, parent_activity=parent_activity)
+                self.scene.timeline.add_item(item)
+                self.scene.addItem(item)
+                self.scene.update()
+        self.view.setScene(self.scene)
 
+    def go_back(self):
+        new_scene = DiagramScene(self)
+        self.set_new_view(new_scene, parent_activity=self.scene.parent_activity)
+        # if self.history:
+        #     hist = self.history.pop()
+        #     obj, self.idx = hist.obj, hist.idx
+        #     self.set_subject(obj=obj)
+        #     if not self.history:
+        #         self.back_action.setEnabled(False)
+        #     dispatcher.send('diagram go back', index=self.idx)
+        # else:
+        #     self.back_action.setEnabled(False)
     def set_subject_from_diagram_drill_down(self, obj=None):
         """
         Respond to a double-clicked diagram block by setting the corresponding
@@ -695,16 +670,6 @@ class ConOpsModeler(QMainWindow):
     def save_diagram_connector(self, start_item=None, end_item=None):
         pass
 
-    def go_back(self):
-        if self.history:
-            hist = self.history.pop()
-            obj, self.idx = hist.obj, hist.idx
-            self.set_subject(obj=obj)
-            if not self.history:
-                self.back_action.setEnabled(False)
-            dispatcher.send('diagram go back', index=self.idx)
-        else:
-            self.back_action.setEnabled(False)
 
     def cache_block_model(self):
         """
@@ -778,36 +743,36 @@ class ConOpsModeler(QMainWindow):
         # return m
 
     # NOTE: 'set_canvas' is not currently used but should be
-    def set_canvas(self, widget=None, name=None):
-        if hasattr(self, 'canvas_widget') and self.canvas_widget is not None:
-            self.canvas_box.removeWidget(self.canvas_widget)
-            self.canvas_widget.deleteLater()
-        if not hasattr(self, 'canvas_label'):
-            self.canvas_label = NameLabel()
-            self.canvas_label.setStyleSheet(
-                            'font-weight: bold; font-size: 18px')
-        self.canvas_label.setText(name or 'Model Canvas')
-        self.canvas_box.addWidget(self.canvas_label)
-        self.canvas_label.setAlignment(Qt.AlignLeft|Qt.AlignTop)
-        if widget:
-            self.canvas_widget = widget
-        else:
-            self.canvas_widget = PlaceHolder(image=self.logo, parent=self)
-        self.canvas_box.addWidget(self.canvas_widget)
-        self.canvas_box.setStretch(0, 0)
-        self.canvas_box.setStretch(1, 1)
-        self.canvas_box.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+    # def set_canvas(self, widget=None, name=None):
+    #     if hasattr(self, 'canvas_widget') and self.canvas_widget is not None:
+    #         self.canvas_box.removeWidget(self.canvas_widget)
+    #         self.canvas_widget.deleteLater()
+    #     if not hasattr(self, 'canvas_label'):
+    #         self.canvas_label = NameLabel()
+    #         self.canvas_label.setStyleSheet(
+    #                         'font-weight: bold; font-size: 18px')
+    #     self.canvas_label.setText(name or 'Model Canvas')
+    #     self.canvas_box.addWidget(self.canvas_label)
+    #     self.canvas_label.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+    #     if widget:
+    #         self.canvas_widget = widget
+    #     else:
+    #         self.canvas_widget = PlaceHolder(image=self.logo, parent=self)
+    #     self.canvas_box.addWidget(self.canvas_widget)
+    #     self.canvas_box.setStretch(0, 0)
+    #     self.canvas_box.setStretch(1, 1)
+    #     self.canvas_box.setAlignment(Qt.AlignLeft|Qt.AlignTop)
 
-    def create_new_model(self, event):
-        if isinstance(self.obj, orb.classes['Identifiable']):
-            # TODO:  check for parameters; if found, add them
-            orb.log.info('* ConOpsModeler: creating new Model for '
-                         'Product with id "%s"' % self.obj.id)
-            owner = orb.get(state.get('project'))
-            new_model = clone('Model', owner=owner, of_thing=self.obj)
-            dlg = PgxnObject(new_model, edit_mode=True, parent=self)
-            # dialog.show() -> non-modal dialog
-            dlg.show()
+    # def create_new_model(self, event):
+    #     if isinstance(self.obj, orb.classes['Identifiable']):
+    #         # TODO:  check for parameters; if found, add them
+    #         orb.log.info('* ConOpsModeler: creating new Model for '
+    #                      'Product with id "%s"' % self.obj.id)
+    #         owner = orb.get(state.get('project'))
+    #         new_model = clone('Model', owner=owner, of_thing=self.obj)
+    #         dlg = PgxnObject(new_model, edit_mode=True, parent=self)
+    #         # dialog.show() -> non-modal dialog
+    #         dlg.show()
 
 
 
