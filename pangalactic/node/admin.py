@@ -463,11 +463,14 @@ class AdminDialog(QDialog):
                                                        person.oid, name))
                 observer = orb.get('pgefobjects:Role.Observer')
                 local_user = orb.get(state.get('local_user_oid'))
-                ra_id = get_ra_id(self.org.id, observer.id, person.fname or '',
-                                  person.mi or '', person.lname or '')
+                ra_id = get_ra_id(self.org.id, observer.id,
+                                  person.first_name or '',
+                                  person.mi_or_name or '',
+                                  person.last_name or '')
                 ra_name = get_ra_name(self.org.id, observer.id,
-                                      person.fname or '', person.mi or '',
-                                      person.lname or '')
+                                  person.first_name or '',
+                                  person.mi_or_name or '',
+                                  person.last_name or '')
                 ra = clone('RoleAssignment', id=ra_id, name=ra_name,
                            assigned_to=person,
                            assigned_role=observer,
