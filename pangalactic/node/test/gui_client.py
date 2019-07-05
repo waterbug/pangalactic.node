@@ -135,6 +135,7 @@ class MainWindow(QMainWindow):
         self.create_timer()
         dispatcher.connect(self.on_joined, 'onjoined')
         dispatcher.connect(self.on_leave, 'onleave')
+        dispatcher.connect(self.on_activity, 'new activity')
         self.new_index = 0
         self.test_oid = ''
         self.cloaked = []
@@ -393,6 +394,9 @@ class MainWindow(QMainWindow):
         # rpc.addCallback(self.on_result)
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
+
+    def on_activity(self, obj=None):
+        self.log('I just got an activity: {}'.format(obj))
 
     def on_get_user_roles_result(self, data):
         """

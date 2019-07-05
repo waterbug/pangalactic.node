@@ -254,12 +254,14 @@ class DiagramScene(QGraphicsScene):
     def dropEvent(self, event):
         activity = clone("Activity")
         acu = clone("Acu", assembly=self.parent_activity, component=activity)
-        orb.save([acu])
+        orb.save([activity, acu])
+        dispatcher.send('new activity', obj=activity)
         item = EventBlock(event.mimeData().text(), activity=activity,
                           parent_activity=self.parent_activity)
         item.setPos(event.scenePos())
         print(len(self.items()))
         self.timeline.add_item(item)
+        print('timeline items: {}'.format(len(self.timeline.item_list)))
         self.addItem(item)
         self.update()
 
@@ -314,8 +316,8 @@ class ConOpsModeler(QMainWindow):
             corresponding to the object being modeled
         history (list):  list of previous ModelerState instances
     """
-    def __init__(self, preferred_size, scene=None, logo=None, idx=None,
-                 external=False, parent=None):
+    def __init__(self, preferred_size, scene=None, activity=None, logo=None,
+                 idx=None, external=False, parent=None):
         """
         Main window for displaying models and their metadata.
 
