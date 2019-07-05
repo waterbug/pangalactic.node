@@ -254,6 +254,7 @@ class DiagramScene(QGraphicsScene):
     def dropEvent(self, event):
         activity = clone("Activity")
         acu = clone("Acu", assembly=self.parent_activity, component=activity)
+        activity.id = str(len(self.parent_activity.components))
         orb.save([activity, acu])
         dispatcher.send('new activity', obj=activity)
         item = EventBlock(event.mimeData().text(), activity=activity,
@@ -378,10 +379,6 @@ class ConOpsModeler(QMainWindow):
         self.library.addItem(itemWidget, "Shapes")
         self.buttonGroup.addButton(b1, 1)
         self.buttonGroup.addButton(b2, 2)
-
-
-    def resizeEvent(self, event):
-        state['model_window_size'] = (self.width(), self.height())
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
