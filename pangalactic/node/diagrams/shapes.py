@@ -256,7 +256,7 @@ class ObjectBlock(Block):
                             getattr(obj.product_type, 'name', 'Product'))
         # self.connectors = []
         self.setPos(position)
-        self.name_label = NameLabel(name, self)
+        self.name_label = BlockLabel(name, self)
         self.description_label = TextLabel(description, self,
                                            color='darkMagenta')
         self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
@@ -398,7 +398,7 @@ class SubjectBlock(Block):
         self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
         name_x = 20
         name_y = self.description_label.boundingRect().height() + 5
-        self.name_label = NameLabel(name, self, x=name_x, y=name_y)
+        self.name_label = BlockLabel(name, self, x=name_x, y=name_y)
         self.rebuild_port_blocks()
         # make sure the SubjectBlock has the lowest z-value
         z_value = 0.0
@@ -698,7 +698,7 @@ class EntityBlock(Block):
         description = getattr(obj, 'name', '[text]')
         self.connectors = []
         self.setPos(position)
-        self.name_label = NameLabel(name, self, editable=editable)
+        self.name_label = BlockLabel(name, self, editable=editable)
         self.title_separator = QtWidgets.QGraphicsLineItem(
                                         0.0, 2.0 * POINT_SIZE,
                                         20.0 * POINT_SIZE, 2.0 * POINT_SIZE,
@@ -1235,9 +1235,9 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
         # self.update()
 
 
-class NameLabel(QtWidgets.QGraphicsTextItem):
+class BlockLabel(QtWidgets.QGraphicsTextItem):
     """
-    Label for a "name", which may contain spaces (and therefore may be
+    Label for a block "name", which may contain spaces (and therefore may be
     wrapped).  It is not editable through the UI but can be programmatically
     changed (using setHtml()).
 
@@ -1255,7 +1255,7 @@ class NameLabel(QtWidgets.QGraphicsTextItem):
     def __init__(self, text, parent,
                  font=QtGui.QFont("Arial", POINT_SIZE, weight=75),
                  x=None, y=None, color=None):
-        super(NameLabel, self).__init__(parent=parent)
+        super(BlockLabel, self).__init__(parent=parent)
         text_option = QtGui.QTextOption()
         text_option.setWrapMode(QtGui.QTextOption.WordWrap)
         self.document().setDefaultTextOption(text_option)
