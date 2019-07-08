@@ -139,7 +139,7 @@ class EventBlock(QGraphicsPolygonItem):
              ])
         if self.shape == "Circle":
             path.addEllipse(-50, -50, 100, 100)
-            self.myPolygon = path.toFillPolygon()
+            self.myPolygon = path.toFillPolygon(QTransform())
             self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
         self.setPolygon(self.myPolygon)
 
