@@ -324,7 +324,6 @@ class ConOpsModeler(QMainWindow):
         Main window for displaying models and their metadata.
 
         Keyword Args:
-            obj (Identifiable):  object being modeled
             scene (QGraphicsScene):  existing scene to be used (if None, a new
                 one will be created)
             logo (str):  relative path to an image file to be used as the
@@ -335,8 +334,7 @@ class ConOpsModeler(QMainWindow):
             preferred_size (tuple):  size to set -- (width, height)
         """
         super(ConOpsModeler, self).__init__(parent=parent)
-        orb.log.info('* ConOpsModeler initializing with:')
-        orb.log.info('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        orb.log.info('* ConOpsModeler initializing')
         self.logo = logo
         self.external = external
         self.idx = idx
@@ -626,17 +624,7 @@ class ConOpsModeler(QMainWindow):
 
 if __name__ == '__main__':
     import sys
-    from pangalactic.core.test.utils import (create_test_users,
-                                             create_test_project)
-    from pangalactic.core.serializers import deserialize
     orb.start(home='junk_home', debug=True)
-
-
-
-    serialized_test_objects = create_test_users()
-    serialized_test_objects += create_test_project()
-    deserialize(orb, serialized_test_objects)
-    obj = orb.get('test:twanger')
     app = QApplication(sys.argv)
     mw = ConOpsModeler(external=True, preferred_size=(2000, 1000))
     mw.show()
