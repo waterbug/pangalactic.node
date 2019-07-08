@@ -29,6 +29,8 @@ from OpenSSL import crypto
 from pangalactic.core.refdata         import core
 from pangalactic.core.test.utils      import gen_test_pvals, test_parms
 from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.uberorb         import orb
+from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dialogs         import LoginDialog
 from pangalactic.node.widgets         import ModeLabel
 from pangalactic.node.widgets         import AutosizingListWidget
@@ -135,6 +137,7 @@ class MainWindow(QMainWindow):
         self.create_timer()
         dispatcher.connect(self.on_joined, 'onjoined')
         dispatcher.connect(self.on_leave, 'onleave')
+        dispatcher.connect(self.on_activity, 'new activity')
         self.new_index = 0
         self.test_oid = ''
         self.cloaked = []
@@ -165,6 +168,10 @@ class MainWindow(QMainWindow):
         self.circle_widget = CircleWidget()
         self.login_button = QPushButton('Log in')
         self.login_button.clicked.connect(self.login)
+        # start up conops --> opens a conops window
+        self.conops_button = QPushButton('Con Ops Modeler')
+        self.conops_button.clicked.connect(self.start_conops)
+        self.conops_button.setVisible(True)
         # check version -- just displays result
         self.check_version_button = QPushButton('Check Version')
         self.check_version_button.setVisible(False)
@@ -219,6 +226,7 @@ class MainWindow(QMainWindow):
         vbox = QVBoxLayout()
         vbox.addWidget(self.role_label, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.conops_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_result_button, alignment=Qt.AlignVCenter)
@@ -287,6 +295,11 @@ class MainWindow(QMainWindow):
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addCallback(self.sync_user)
         rpc.addErrback(self.on_failure)
+
+    def start_conops(self):
+        mw = ConOpsModeler(external=True, preferred_size=(2000, 1000),
+                           parent=self)
+        mw.show()
 
     def on_get_admin_result(self, data):
         """
@@ -393,6 +406,9 @@ class MainWindow(QMainWindow):
         # rpc.addCallback(self.on_result)
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
+
+    def on_activity(self, obj=None):
+        self.log('I just got activity {}'.format(obj.id))
 
     def on_get_user_roles_result(self, data):
         """
@@ -710,6 +726,7 @@ if __name__ == "__main__":
                         help='the port to connect to [default: 8080]')
     options = parser.parse_args()
     app = QApplication(sys.argv)
+    orb.start('junk_home', debug=True)
     print('app created')
     try:
         import qt5reactor

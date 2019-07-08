@@ -1,41 +1,32 @@
 #!/usr/bin/env python
-from __future__  import print_function
-from __future__  import unicode_literals
-from __future__ import division
-from future import standard_library
-standard_library.install_aliases()
-# NOTE: fixed div's so old_div is not needed.
-# from past.utils import old_div
 import os
-import copy
-from collections import namedtuple
-from urllib.parse    import urlparse
+from collections  import namedtuple
+from urllib.parse import urlparse
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QRectF,QPointF, QSizeF, QObject, pyqtSignal, qrand, QLineF, QPoint, QMimeData
-from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
-                             QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
-                             QWidget,QAction, QApplication, QButtonGroup, QComboBox,
-        QFontComboBox, QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem,
-        QGraphicsScene, QGraphicsTextItem, QGraphicsView, QGridLayout,
-        QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QSizePolicy,
-        QToolBox, QToolButton, QWidget, QPushButton, QAbstractItemView, QGraphicsPathItem)
-from PyQt5.QtGui import (QIcon, QTransform, QBrush, QColor, QDrag, QImage, QPainter, QPen, QPixmap, QCursor, QPainterPath,
-                        QPolygon, QPolygonF, QFont)
+from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
+from PyQt5.QtWidgets import (
+        QAction, QApplication, QButtonGroup, QComboBox, QGraphicsItem,
+        QGraphicsPathItem, QGraphicsPolygonItem, QGraphicsScene, QGraphicsView,
+        QGridLayout, QHBoxLayout, QMainWindow, QMenu, QPushButton, QSizePolicy,
+        QToolBox, QWidget)
+from PyQt5.QtGui import (
+        QBrush, QCursor, QDrag, QIcon, QPainter, QPainterPath, QPen, QPixmap,
+        QPolygonF, QTransform)
 
 # pangalactic
 from pangalactic.core             import diagramz, state
-from pangalactic.core.parametrics import componentz
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
-                                             get_block_model_name,
-                                             get_block_model_file_name)
-from pangalactic.node.dialogs     import Viewer3DDialog
+from pangalactic.core.utils.meta  import asciify, get_block_model_file_name
 from pangalactic.node.diagrams    import DocForm
-from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.utils       import clone, extract_mime_data
-from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
+# TODO: uncomment this later when we need PgxnObject
+# from pangalactic.node.pgxnobject  import PgxnObject
+from pangalactic.node.utils       import clone
+# TODO: uncomment this later when we need extract_mime_data
+# from pangalactic.node.utils       import extract_mime_data
+# TODO: uncomment these later as needed for labels etc.
+# from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
@@ -123,7 +114,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.shape = shape
         self.setBrush(Qt.white)
         self.create_actions()
-        path = QPainterPath()
+        painter_path = QPainterPath()
         self.activity = activity or clone("Activity")
         self.activity.activity_type = self.shape
     #---draw blocks depending on the 'shape' string passed in
@@ -144,7 +135,7 @@ class EventBlock(QGraphicsPolygonItem):
             path.addEllipse(-50, -50, 100, 100)
             self.myPolygon = path.toFillPolygon()
             self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
-        self.setPolygon(self.myPolygon)
+        self.setPolygon(polygon)
 
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self.activity)
@@ -155,7 +146,9 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
-        self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item", triggered= self.deleteItem)
+        self.delete_action = QAction("Delete", self.scene(),
+                                     statusTip="Delete Item",
+                                     triggered=self.deleteItem)
 
     def deleteItem(self):
         self.scene().timeline.remove_item(self)
@@ -225,18 +218,19 @@ class Timeline(QGraphicsPathItem):
 
     def make_point_list(self):
         factor = self.length/(self.num_of_item+1)
-        self.list_of_pos = [(n+1)*factor+self.p1.x() for n in range(0, self.num_of_item)]
+        self.list_of_pos = [(n+1)*factor+self.p1.x()
+                            for n in range(0, self.num_of_item)]
 
     def reposition(self):
         self.item_list.sort(key=lambda x: x.scenePos().x())
         for i in range(0, len(self.item_list)):
-            if self.item_list[i].shape == "Triangle":
-                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
-                self.item_list[i].activity.components.reference_designator = u"{}".format(i)
+            item = self.item_list[i]
+            if item.shape == "Triangle":
+                item.setPos(QPoint(self.list_of_pos[i], 150))
+                item.activity.components.reference_designator = str(i)
             else:
-                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
-                self.item_list[i].activity.components.reference_designator = u"{}".format(i)
-
+                item.setPos(QPoint(self.list_of_pos[i], 150))
+                item.activity.components.reference_designator = str(i)
 
     def remove_item(self, item):
         if item in self.item_list:
@@ -262,11 +256,15 @@ class DiagramScene(QGraphicsScene):
 
     def dropEvent(self, event):
         activity = clone("Activity")
-        acu = clone("Acu", assembly=self.current_activity, component=activity)
-        print("minedata", event.mimeData())
-        item = EventBlock(shape=event.mimeData(), activity=activity)
+        acu = clone("Acu", assembly=self.parent_activity, component=activity)
+        activity.id = str(len(self.parent_activity.components))
+        orb.save([activity, acu])
+        dispatcher.send('new activity', obj=activity)
+        item = EventBlock(event.mimeData().text(), activity=activity,
+                          parent_activity=self.parent_activity)
         item.setPos(event.scenePos())
         self.timeline.add_item(item)
+        print('timeline items: {}'.format(len(self.timeline.item_list)))
         self.addItem(item)
         print("reference_des:", item.activity.components.reference_designator)
         self.update()
@@ -321,8 +319,8 @@ class ConOpsModeler(QMainWindow):
             corresponding to the object being modeled
         history (list):  list of previous ModelerState instances
     """
-    def __init__(self, preferred_size, scene=None, logo=None, idx=None,
-                 external=False, parent=None):
+    def __init__(self, preferred_size, scene=None, activity=None, logo=None,
+                 idx=None, external=False, parent=None):
         """
         Main window for displaying models and their metadata.
 
@@ -338,25 +336,31 @@ class ConOpsModeler(QMainWindow):
             preferred_size (tuple):  size to set -- (width, height)
         """
         super(ConOpsModeler, self).__init__(parent=parent)
-        orb.log.info('* ConOpsModeler initializing with:')
-        orb.log.info('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        orb.log.info('* ConOpsModeler initializing')
         self.logo = logo
         self.external = external
         self.idx = idx
         self.preferred_size = preferred_size
         self.model_files = {}
         self.temp_activity = clone("Activity")
-#-----------------------------------------------------------#
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
+        #-----------------------------------------------------------#
         self.createLibrary()
         self.scene = DiagramScene(self, self.temp_activity)
         self.set_new_view(self.scene, current_activity=self.temp_activity)
 
         self._init_ui()
-        #------------lisening for signals------------#
+        self.view.show()
+        layout = QHBoxLayout()
+        layout.addWidget(self.view)
+        layout.addWidget(self.library)
+        self.widget = QWidget()
+        self.widget.setLayout(layout)
+        self.setCentralWidget(self.widget)
+        self.widget.setAcceptDrops(True)
+        #------------ listening for signals ------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
-        self.history = []
-        self.history.append(self.temp_activity)
-        self.current_viewing_activity = self.temp_activity
 
     def createLibrary(self):
         '''create the shape library'''
@@ -380,10 +384,6 @@ class ConOpsModeler(QMainWindow):
         self.library.addItem(itemWidget, "Shapes")
         self.buttonGroup.addButton(b1, 1)
         self.buttonGroup.addButton(b2, 2)
-
-
-    def resizeEvent(self, event):
-        state['model_window_size'] = (self.width(), self.height())
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
@@ -425,7 +425,6 @@ class ConOpsModeler(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
-
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -532,8 +531,6 @@ class ConOpsModeler(QMainWindow):
         self.set_subject(obj=obj)
 
     def set_subject(self, obj=None):
-
-
         """
         Set an object for the current modeler context.  If the object does not
         have a Block model one is created from its components (or an empty
@@ -595,21 +592,10 @@ class ConOpsModeler(QMainWindow):
         self.view.verticalScrollBar().setValue(0)
         self.view.horizontalScrollBar().setValue(0)
 
-    def display_cad_model(self):
-        try:
-            model, fpath = self.models_by_label.get('CAD')
-            if fpath:
-                orb.log.info('* ConOpsModeler.display_cad_model({})'.format(
-                                                                     fpath))
-                viewer = Viewer3DDialog(self)
-                viewer.show()
-                viewer.view_cad(fpath)
-        except:
-            orb.log.info('  CAD model not found.')
-
-    def save_diagram_connector(self, start_item=None, end_item=None):
+    def display_block_diagram(self):
+        # TODO:  this is just a placeholder until we remove the "set_subject()"
+        # stuff ...
         pass
-
 
     def cache_block_model(self):
         """
@@ -631,20 +617,9 @@ class ConOpsModeler(QMainWindow):
             orb.log.info('  ... could not cache model (C++ obj deleted?)')
 
 
-
 if __name__ == '__main__':
     import sys
-    from pangalactic.core.test.utils import (create_test_users,
-                                             create_test_project)
-    from pangalactic.core.serializers import deserialize
     orb.start(home='junk_home', debug=True)
-
-
-
-    serialized_test_objects = create_test_users()
-    serialized_test_objects += create_test_project()
-    deserialize(orb, serialized_test_objects)
-    obj = orb.get('test:twanger')
     app = QApplication(sys.argv)
     mw = ConOpsModeler(external=True, preferred_size=(2000, 1000))
     mw.show()

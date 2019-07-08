@@ -1134,6 +1134,8 @@ class SystemTreeView(QTreeView):
             state['sys_trees'] = {}
         if not state['sys_trees'].get(self.project.id):
             state['sys_trees'][self.project.id] = {}
+        if not state['sys_trees'][self.project.id].get('expanded'):
+            state['sys_trees'][self.project.id]['expanded'] = []
 
     @property
     def req(self):
@@ -1148,9 +1150,13 @@ class SystemTreeView(QTreeView):
         return QSize(300, 300)
 
     def sys_node_expanded(self, index):
+        if index not in state['sys_trees'][self.project.id]['expanded']:
+            state['sys_trees'][self.project.id]['expanded'].append(index)
         dispatcher.send(signal='sys node expanded', index=index)
 
     def sys_node_collapsed(self, index):
+        if index in state['sys_trees'][self.project.id]['expanded']:
+            state['sys_trees'][self.project.id]['expanded'].remove(index)
         dispatcher.send(signal='sys node collapsed', index=index)
 
     def sys_node_selected(self, index):

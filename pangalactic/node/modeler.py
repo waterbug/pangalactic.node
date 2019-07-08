@@ -1,11 +1,4 @@
 #!/usr/bin/env python
-from __future__  import print_function
-from __future__  import unicode_literals
-from __future__ import division
-from future import standard_library
-standard_library.install_aliases()
-# NOTE: fixed div's so old_div is not needed.
-# from past.utils import old_div
 import os
 from collections import namedtuple
 from urllib.parse    import urlparse
