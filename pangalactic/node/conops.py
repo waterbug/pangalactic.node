@@ -33,6 +33,8 @@ from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
                                              get_block_model_file_name)
 from pangalactic.node.dialogs     import Viewer3DDialog
 from pangalactic.node.diagrams    import DocForm
+from pangalactic.node.diagrams.shapes    import BlockLabel
+
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, extract_mime_data
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
@@ -144,7 +146,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.setPolygon(self.myPolygon)
 
     def mouseDoubleClickEvent(self, event):
-        dispatcher.send("double clicked", obj=self.activity)
+        dispatcher.send("double clicked", obj=self)
 
     def contextMenuEvent(self, event):
         self.menu = QMenu()
@@ -161,9 +163,12 @@ class EventBlock(QGraphicsPolygonItem):
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
         # self.update_position()
+
         if change ==  QGraphicsItem.ItemSelectedHasChanged:
             if value == True:
-                print("reference designator for this item:",self.activity.components.reference_designator)
+                acu = orb.select("Acu", assembly=self.scene().current_activity, component=self.activity)
+                ref_des = acu.reference_designator
+                print("reference designator for this item:", ref_des)
 
         return value
 
@@ -194,7 +199,7 @@ class DiagramView(QGraphicsView):
         event.accept()
 
 class Timeline(QGraphicsPathItem):
-    def __init__(self, item_1, item_2, parent=None):
+    def __init__(self, item_1, item_2,scene, parent=None):
         super(Timeline, self).__init__(parent)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
@@ -208,7 +213,7 @@ class Timeline(QGraphicsPathItem):
         self.path.lineTo(QPointF(self.p2.x()-50, self.p2.y()))
         self.setPath(self.path)
         self.length = self.p2.x()-self.p1.x()
-        self.num_of_item = len(self.item_list)
+        self.num_of_item = len(scene.current_activity.components)
         self.make_point_list()
         self.current_positions = []
 
@@ -228,15 +233,22 @@ class Timeline(QGraphicsPathItem):
         factor = self.length/(self.num_of_item+1)
         self.list_of_pos = [(n+1)*factor+self.p1.x() for n in range(0, self.num_of_item)]
 
+    def populate(self, item_list):
+        self.item_list = item_list
+        self.make_point_list()
+        for i in range(0, len(self.item_list)):
+            item = self.item_list[i]
+            item.setPos(QPoint(self.list_of_pos[i], 150))
+
+
     def reposition(self):
+        parent_act = self.scene().current_activity
         self.item_list.sort(key=lambda x: x.scenePos().x())
         for i in range(0, len(self.item_list)):
-            if self.item_list[i].shape == "Triangle":
-                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
-                self.item_list[i].activity.components.reference_designator = u"{}".format(i)
-            else:
-                self.item_list[i].setPos(QPoint(self.list_of_pos[i], 150))
-                self.item_list[i].activity.components.reference_designator = u"{}".format(i)
+            item = self.item_list[i]
+            item.setPos(QPoint(self.list_of_pos[i], 150))
+            acu = orb.select("Acu", assembly=parent_act, component=item.activity)
+            acu.reference_designator = str(i)
 
 
     def remove_item(self, item):
@@ -255,7 +267,7 @@ class DiagramScene(QGraphicsScene):
         self.end.setPos(1500, 150)
         self.addItem(self.start)
         self.addItem(self.end)
-        self.timeline = Timeline(self.start, self.end)
+        self.timeline = Timeline(self.start, self.end, self)
         self.addItem(self.timeline)
         self.next_idx = 0
     def mousePressEvent(self, mouseEvent):
@@ -264,14 +276,15 @@ class DiagramScene(QGraphicsScene):
     def dropEvent(self, event):
         next_id = ascii_uppercase[self.next_idx]
         self.next_idx += 1
-        activity = clone("Activity")
+        activity = clone("Activity", id = next_id)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
+        orb.save([acu, activity])
         item = EventBlock(event.mimeData().text(), activity=activity, current_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.timeline.add_item(item)
         self.addItem(item)
-        print(acu.assembly for acu in item.activity.where_used)
-        print("reference_des:", item.activity.components.reference_designator)
+
+
         self.update()
 
 class ToolButton(QPushButton):
@@ -455,11 +468,12 @@ class ConOpsModeler(QMainWindow):
     def double_clicked_handler(self, obj):
         '''handler for double clicking an eventblock. create and
         display new view'''
-        new_scene = DiagramScene(self, current_activity=obj)
-        self.set_new_view(new_scene, current_activity=obj)
-        self.current_viewing_activity = obj
+        new_scene = DiagramScene(self, current_activity=obj.activity)
+        self.set_new_view(new_scene, current_activity=obj.activity)
+        self.current_viewing_activity = obj.activity
         # print("before append", len(self.history))
-        previous = obj.where_used[0].assembly
+        previous = obj.scene().current_activity
+        print("type of previous:", type(previous))
         self.history.append(previous)
         # print("after append", len(self.history))
 
@@ -481,36 +495,38 @@ class ConOpsModeler(QMainWindow):
         self.setCentralWidget(widget)
         self.sceneScaleChanged("50%")
 
-        if current_activity != None:
+        if current_activity != None and len(current_activity.components) > 0:
             # current_activity.components.sort(key=lambda acu:acu.reference_designator)
-            acu_list = list(current_activity.components)
-            try:
-                acu_list.sort(key=lambda acu:acu.reference_designator)
-            except:
-                pass
-            # try:
-                # acu_list = sorted(acu_list, key=lambda acu: acu.reference_designator)
-            # except TypeError:
-                # print("type error: acu_list is type", type(acu_list))
-
-            for acu in acu_list:
+            # acu_list = list(current_activity.components)
+            # temp = {}
+            all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
+            all_acus.sort()
+            print(all_acus)
+            # for acu in acu_list:
+            #     activity = acu.component
+            #     ref_des = acu.reference_designator
+            #     temp[int(ref_des)] = activity
+            item_list=[]
+            for acu_tuple in all_acus:
+                acu = acu_tuple[1]
                 activity = acu.component
                 item = EventBlock("Box", activity=activity, current_activity=current_activity)
-                self.scene.timeline.add_item(item)
+                item_list.append(item)
                 self.scene.addItem(item)
                 self.scene.update()
+            self.scene.timeline.populate(item_list)
         self.view.show()
 
     def go_back(self):
         # print("go back clicked")
-        try:
-            # print("before pop", len(self.history))
-            previous_activity = self.history.pop()
-            # print("after pop", len(self.history))
-            new_scene = DiagramScene(self, previous_activity)
-            self.set_new_view(new_scene, current_activity=previous_activity)
-        except IndexError:
-            print("IndexError, length of self.history:", len(self.history))
+
+        print("before pop", len(self.history))
+        previous_activity = self.history.pop()
+        print("after pop", len(self.history))
+        new_scene = DiagramScene(self, previous_activity)
+        self.set_new_view(new_scene, current_activity=previous_activity)
+        # except IndexError:
+        #     print("IndexError, length of self.history:", len(self.history))
 
     def set_subject_from_diagram_drill_down(self, obj=None):
         """
