@@ -10,7 +10,7 @@ import os
 import copy
 from collections import namedtuple
 from urllib.parse    import urlparse
-
+from string import ascii_uppercase
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QRectF,QPointF, QSizeF, QObject, pyqtSignal, qrand, QLineF, QPoint, QMimeData
@@ -125,7 +125,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.create_actions()
         path = QPainterPath()
         self.activity = activity or clone("Activity")
-
+        self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
     #---draw blocks depending on the 'shape' string passed in
         if self.shape == "Box":
             self.myPolygon = QPolygonF([
@@ -161,6 +161,10 @@ class EventBlock(QGraphicsPolygonItem):
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
         # self.update_position()
+        if change ==  QGraphicsItem.ItemSelectedHasChanged:
+            if value == True:
+                print("reference designator for this item:",self.activity.components.reference_designator)
+
         return value
 
 
@@ -253,17 +257,20 @@ class DiagramScene(QGraphicsScene):
         self.addItem(self.end)
         self.timeline = Timeline(self.start, self.end)
         self.addItem(self.timeline)
-
+        self.next_idx = 0
     def mousePressEvent(self, mouseEvent):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
 
     def dropEvent(self, event):
+        next_id = ascii_uppercase[self.next_idx]
+        self.next_idx += 1
         activity = clone("Activity")
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         item = EventBlock(event.mimeData().text(), activity=activity, current_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.timeline.add_item(item)
         self.addItem(item)
+        print(acu.assembly for acu in item.activity.where_used)
         print("reference_des:", item.activity.components.reference_designator)
         self.update()
 
@@ -358,10 +365,13 @@ class ConOpsModeler(QMainWindow):
         self.buttonGroup = QButtonGroup()
         self.buttonGroup.setExclusive(True)
         layout = QGridLayout()
-        b1 = ToolButton("Rectangle")
+        ## To Do: clone activity_type to each button
+        #b1_data = clone()
+        b1 = ToolButton("Operation")
         b1.setData("Box")
-        b2 = ToolButton("Triangle")
+        b2 = ToolButton("Event")
         b2.setData("Triangle")
+
         layout.addWidget(b1)
         layout.addWidget(b2)
         itemWidget = QWidget()
@@ -472,9 +482,18 @@ class ConOpsModeler(QMainWindow):
         self.sceneScaleChanged("50%")
 
         if current_activity != None:
-            print(len(current_activity.components))
-        #    current_activity.components.sort(key=lambda acu:acu.reference_designator)
-            for acu in current_activity.components:
+            # current_activity.components.sort(key=lambda acu:acu.reference_designator)
+            acu_list = list(current_activity.components)
+            try:
+                acu_list.sort(key=lambda acu:acu.reference_designator)
+            except:
+                pass
+            # try:
+                # acu_list = sorted(acu_list, key=lambda acu: acu.reference_designator)
+            # except TypeError:
+                # print("type error: acu_list is type", type(acu_list))
+
+            for acu in acu_list:
                 activity = acu.component
                 item = EventBlock("Box", activity=activity, current_activity=current_activity)
                 self.scene.timeline.add_item(item)
