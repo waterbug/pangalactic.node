@@ -101,7 +101,7 @@ def get_model_path(model):
 
 
 class EventBlock(QGraphicsPolygonItem):
-    def __init__(self, shape, activity=None, current_activity=None, style=None,
+    def __init__(self, act_type, activity=None, current_activity=None, style=None,
                  editable=False, port_spacing=0):
         super(EventBlock, self).__init__()
         """
@@ -122,24 +122,28 @@ class EventBlock(QGraphicsPolygonItem):
                       QGraphicsItem.ItemIsFocusable|
                       QGraphicsItem.ItemSendsGeometryChanges)
         self.style = style or Qt.SolidLine
-        self.shape = shape
         self.setBrush(Qt.white)
         self.create_actions()
         path = QPainterPath()
         self.activity = activity or clone("Activity")
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
+        self.act_type = act_type
     #---draw blocks depending on the 'shape' string passed in
-        if self.shape == "Box":
+        op_type = orb.select("ActivityType", name="Operation")
+        ev_type = orb.select("ActivityType", name="Event")
+
+        if self.activity.activity_type is op_type:
+            print("box")
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
                     QPointF(50, -50), QPointF(-50, -50)
             ])
-        if self.shape == "Triangle":
+        elif self.activity.activity_type is ev_type:
              self.myPolygon = QPolygonF([
                      QPointF(0, 0), QPointF(-50, 80),
                      QPointF(50, 80)
              ])
-        if self.shape == "Circle":
+        else:
             path.addEllipse(-50, -50, 100, 100)
             self.myPolygon = path.toFillPolygon(QTransform())
             self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
@@ -274,12 +278,18 @@ class DiagramScene(QGraphicsScene):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
 
     def dropEvent(self, event):
+        if event.mimeData().text() == "Operation":
+            print("mimeData text:", event.mimeData().text())
+            activity_type = orb.select("ActivityType", name="Operation")
+        else:
+            activity_type = orb.select("ActivityType", name="Event")
+
         next_id = ascii_uppercase[self.next_idx]
         self.next_idx += 1
-        activity = clone("Activity", id = next_id)
+        activity = clone("Activity", activity_type = activity_type,id = next_id)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu, activity])
-        item = EventBlock(event.mimeData().text(), activity=activity, current_activity=self.current_activity)
+        item = EventBlock(activity_type, activity=activity, current_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.timeline.add_item(item)
         self.addItem(item)
@@ -380,10 +390,12 @@ class ConOpsModeler(QMainWindow):
         layout = QGridLayout()
         ## To Do: clone activity_type to each button
         #b1_data = clone()
+
+
         b1 = ToolButton("Operation")
-        b1.setData("Box")
+        b1.setData("Operation")
         b2 = ToolButton("Event")
-        b2.setData("Triangle")
+        b2.setData("Event")
 
         layout.addWidget(b1)
         layout.addWidget(b2)
