@@ -214,28 +214,25 @@ class Template(QGraphicsPathItem):
         # self.setPos(position)
         # print(self.scenePos())
 class Timeline(QGraphicsPathItem):
-    max_num_item = 3
+
     def __init__(self, scene, parent=None):
         super(Timeline, self).__init__(parent)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
         self.item_list = []
-        # self.item_1 = item_1
-        # self.item_2 = item_2
-        # self.p1 = item_1.scenePos()
-        # self.p2 = item_2.scenePos()
-        self.path =  QPainterPath(QPointF(100,250))
-        self.path.arcTo(QRectF(0, 200 ,100,100), 0, 360)
-        self.circle_length = self.path.length()
         self.end_location = 1500
-        self.path.arcTo(QRectF(self.end_location, 200, 100,100), 180, 360)
-        self.setPath(self.path)
+        self.make_path()
         self.length = self.path.length()-2*self.circle_length
         self.num_of_item = len(scene.current_activity.components)
         self.make_point_list()
         self.current_positions = []
-
+    def make_path(self):
+        self.path =  QPainterPath(QPointF(100,250))
+        self.path.arcTo(QRectF(0, 200 ,100,100), 0, 360)
+        self.circle_length = self.path.length()
+        self.path.arcTo(QRectF(self.end_location, 200, 100,100), 180, 360)
+        self.setPath(self.path)
     def item_relocated_handler(self):
         print("")
 
@@ -249,8 +246,9 @@ class Timeline(QGraphicsPathItem):
         self.reposition()
 
     def make_point_list(self):
+        self.length = self.path.length()-2*self.circle_length
         factor = self.length/(self.num_of_item+1)
-        self.list_of_pos = [(n+1)*factor for n in range(0, self.num_of_item)]
+        self.list_of_pos = [(n+1)*factor+100 for n in range(0, self.num_of_item)]
 
     def populate(self, item_list):
         self.item_list = item_list
@@ -261,7 +259,7 @@ class Timeline(QGraphicsPathItem):
 
 
     def reposition(self):
-        if len(self.item_list) > 3 :
+        if len(self.item_list) > 5 :
             print("Extend timeline")
             self.extend_timeline()
         parent_act = self.scene().current_activity
@@ -273,10 +271,11 @@ class Timeline(QGraphicsPathItem):
             acu.reference_designator = str(i)
 
     def extend_timeline(self):
-        self.end_location = self.end_location+100
-        self.setPath(self.path)
+        self.end_location = self.end_location+self.length/(len(self.item_list)+1)
+        # self.setPath(self.path)
+        self.make_path()
         self.update()
-
+        self.scene().update()
     def remove_item(self, item):
         if item in self.item_list:
             self.item_list.remove(item)
@@ -575,13 +574,15 @@ class ConOpsModeler(QMainWindow):
         # print("go back clicked")
 
         # print("before pop", len(self.history))
-        previous_activity = self.history.pop()
-        # print("after pop", len(self.history))
-        new_scene = DiagramScene(self, previous_activity)
-        self.set_new_view(new_scene, current_activity=previous_activity)
-        # except IndexError:
-        #     print("IndexError, length of self.history:", len(self.history))
-
+        try:
+            previous_activity = self.history.pop()
+            # print("after pop", len(self.history))
+            new_scene = DiagramScene(self, previous_activity)
+            self.set_new_view(new_scene, current_activity=previous_activity)
+            # except IndexError:
+            #     print("IndexError, length of self.history:", len(self.history))
+        except:
+            pass
     def set_subject_from_diagram_drill_down(self, obj=None):
         """
         Respond to a double-clicked diagram block by setting the corresponding
