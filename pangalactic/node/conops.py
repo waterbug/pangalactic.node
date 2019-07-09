@@ -163,7 +163,7 @@ class EventBlock(QGraphicsPolygonItem):
     def deleteItem(self):
         self.scene().timeline.remove_item(self)
         self.scene().removeItem(self)
-        dispatcher.send("removed activity", self)
+        dispatcher.send("removed activity", act=self.activity)
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
         # self.update_position()
