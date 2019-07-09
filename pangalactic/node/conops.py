@@ -259,6 +259,7 @@ class Timeline(QGraphicsPathItem):
 
 
     def reposition(self):
+        dispatcher.send("order changed")
         if len(self.item_list) > 5 :
             print("Extend timeline")
             self.extend_timeline()
