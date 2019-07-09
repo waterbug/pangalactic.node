@@ -214,7 +214,7 @@ class Template(QGraphicsPathItem):
         # self.setPos(position)
         # print(self.scenePos())
 class Timeline(QGraphicsPathItem):
-    max_num_item = 5
+    max_num_item = 3
     def __init__(self, scene, parent=None):
         super(Timeline, self).__init__(parent)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
@@ -261,7 +261,7 @@ class Timeline(QGraphicsPathItem):
 
 
     def reposition(self):
-        if len(self.item_list) >6 :
+        if len(self.item_list) > 3 :
             print("Extend timeline")
             self.extend_timeline()
         parent_act = self.scene().current_activity
@@ -275,6 +275,7 @@ class Timeline(QGraphicsPathItem):
     def extend_timeline(self):
         self.end_location = self.end_location+100
         self.setPath(self.path)
+        self.update()
 
     def remove_item(self, item):
         if item in self.item_list:
@@ -409,7 +410,8 @@ class ConOpsModeler(QMainWindow):
         self.idx = idx
         self.preferred_size = preferred_size
         self.model_files = {}
-        self.temp_activity = clone("Activity")
+        self.temp_activity = orb.get("test:Mission.H2G2") or clone("Activity", id="temp", name="temp")
+
 #-----------------------------------------------------------#
         self.createLibrary()
         self.scene = DiagramScene(self, self.temp_activity)
