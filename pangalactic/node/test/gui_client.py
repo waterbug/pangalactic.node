@@ -1,4 +1,4 @@
-""" 
+"""
 GUI client for autobahn/crossbar.
 
 Based on:
@@ -110,7 +110,7 @@ class CircleWidget(QWidget):
             if alpha > 0:
                 painter.setPen(QPen(QColor(0, diameter/2, 127, alpha), 3))
                 painter.drawEllipse(QRectF(
-                    -diameter/2.0, -diameter/2.0, 
+                    -diameter/2.0, -diameter/2.0,
                     diameter, diameter))
 
 
@@ -138,12 +138,12 @@ class MainWindow(QMainWindow):
         self.create_timer()
         dispatcher.connect(self.on_joined, 'onjoined')
         dispatcher.connect(self.on_leave, 'onleave')
-        dispatcher.connect(self.on_activity, 'new activity')
+        dispatcher.connect(self.activity_added_handler, 'new activity')
         self.new_index = 0
         self.test_oid = ''
         self.cloaked = []
         self.decloaked = []
-        self.last_saved_obj = None 
+        self.last_saved_obj = None
         self.system_level_obj = None
         self.latest_acu = None
 
@@ -429,7 +429,7 @@ class MainWindow(QMainWindow):
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
 
-    def on_activity(self, act=None, acu=None):
+    def activity_added_handler(self, act=None, acu=None):
         self.log('I just got activity {}'.format(
                  getattr(act, 'id', '[unnamed activity]')))
 
@@ -782,4 +782,3 @@ if __name__ == "__main__":
     mainwindow.show()
     reactor.runReturn()
     sys.exit(app.exec_())
-
