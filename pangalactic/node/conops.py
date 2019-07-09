@@ -163,7 +163,7 @@ class EventBlock(QGraphicsPolygonItem):
     def deleteItem(self):
         self.scene().timeline.remove_item(self)
         self.scene().removeItem(self)
-
+        dispatcher.send("removed activity", self)
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
         # self.update_position()
@@ -181,9 +181,9 @@ class EventBlock(QGraphicsPolygonItem):
         super(EventBlock, self).mouseReleaseEvent(event)
         if (event.button() == Qt.LeftButton):
             if self.shape == "Triangle":
-                self.setPos(event.scenePos().x(), 150)
+                self.setPos(event.scenePos().x(), 250)
             else:
-                self.setPos(event.scenePos().x(), 150)
+                self.setPos(event.scenePos().x(), 250)
             self.scene().timeline.reposition()
 
     def collides_with_timeline(self):
@@ -255,13 +255,14 @@ class Timeline(QGraphicsPathItem):
         self.make_point_list()
         for i in range(0, len(self.item_list)):
             item = self.item_list[i]
-            item.setPos(QPoint(self.list_of_pos[i], 150))
+            item.setPos(QPoint(self.list_of_pos[i], 250))
 
 
     def reposition(self):
         if len(self.item_list) > 5 :
             print("Extend timeline")
             self.extend_timeline()
+            self.make_point_list()
         parent_act = self.scene().current_activity
         self.item_list.sort(key=lambda x: x.scenePos().x())
         for i in range(0, len(self.item_list)):
@@ -297,13 +298,6 @@ class DiagramScene(QGraphicsScene):
         super(DiagramScene, self).__init__(parent)
         self.current_activity = current_activity
         self.val = 10
-        # self.start = QGraphicsEllipseItem(-50,-50, 100, 100)
-        # self.start=QGraphicsEllipseItem(0,0,0,0)
-        # self.end = QGraphicsEllipseItem(-50,-50, 100, 100)
-        # self.start.setPos(100, 150)
-        # self.end.setPos(1500, 150)
-        # self.addItem(self.start)
-        # self.addItem(self.end)
         self.timeline = Timeline(self)
         self.addItem(self.timeline)
         self.next_idx = 0
@@ -522,6 +516,7 @@ class ConOpsModeler(QMainWindow):
     def double_clicked_handler(self, obj):
         '''handler for double clicking an eventblock. create and
         display new view'''
+        dispatcher.send("drill down", obj=obj.activity)
         new_scene = DiagramScene(self, current_activity=obj.activity)
         self.set_new_view(new_scene, current_activity=obj.activity)
         self.current_viewing_activity = obj.activity
@@ -535,10 +530,10 @@ class ConOpsModeler(QMainWindow):
         # print("set_new_view")
         current_activity = current_activity or self.temp_activity
         self.scene = scene
-        self.scene.setSceneRect(0,0, 2000, 1000)
         self.view = DiagramView(self.scene)
-        self.view.setSizePolicy(QSizePolicy.Preferred,
-                                QSizePolicy.Preferred)
+        self.setMinimumSize(1000,500)
+        self.view.setSizePolicy(QSizePolicy.MinimumExpanding,
+                                QSizePolicy.MinimumExpanding)
         self.view.setScene(self.scene)
 
         layout = QHBoxLayout()
