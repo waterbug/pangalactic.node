@@ -45,29 +45,36 @@ class ActivityTables(QMainWindow):
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
-        self.set_table()
+        self.set_central_widget()
         self.init_toolbar()
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
         self.statusbar = self.statusBar()
 
-    def set_table(self):
-        main_widget = QWidget()
-        main_layout = QVBoxLayout()
-        main_widget.setLayout(main_layout)
-        title = NameLabel(getattr(self.subject, 'name', 'No Parent Activity'))
-        title.setStyleSheet(
+    def set_central_widget(self):
+        self.main_widget = QWidget()
+        self.main_layout = QVBoxLayout()
+        self.main_widget.setLayout(self.main_layout)
+        self.title = NameLabel(getattr(self.subject, 'name', 'No Parent Activity'))
+        self.title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
-        main_layout.addWidget(title)
+        self.main_layout.addWidget(self.title)
         initial_activities = [acu.component for acu in
                               getattr(self.subject, 'components', [])]
-        new_table = ObjectTableView(initial_activities)
+        self.set_table(initial_activities)
+
+    def set_title(self, title_text):
+        self.title.setText(title_text)
+
+    def set_table(self, objs):
+        new_table = ObjectTableView(objs)
         new_table.setSizePolicy(QSizePolicy.Preferred,
                                 QSizePolicy.Preferred)
-        main_layout.addWidget(new_table, stretch=1)
-        self.setCentralWidget(main_widget)
         if getattr(self, 'table', None):
+            self.main_layout.removeWidget(self.table)
             self.table.close()
+        self.main_layout.addWidget(new_table, stretch=1)
+        self.setCentralWidget(self.main_widget)
         self.table = new_table
 
     def init_toolbar(self):
@@ -106,9 +113,12 @@ class ActivityTables(QMainWindow):
         if acu:
             assembly_activity_name = getattr(acu.assembly, 'name',
                                              'Other Unnamed Activity')
+            self.set_title(assembly_activity_name)
         self.statusbar.showMessage('New Activity "{}" added in "{}"'.format(
                                    getattr(act, 'id', '[unnamed activity]'),
                                    assembly_activity_name))
+        activities = [acu.component for acu in acu.assembly.components]
+        self.set_table(activities)
 
     def write_report(self):
         pass
