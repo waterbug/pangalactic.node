@@ -7,11 +7,6 @@ Based on:
     https://github.com/estan/gauges
   * crossbar examples "advanced" (CRA) auth example
 """
-from __future__ import division
-from __future__ import print_function
-from builtins import str
-from builtins import range
-from past.utils import old_div
 import argparse, random, six, sys, time
 from copy import deepcopy
 from uuid import uuid4
@@ -19,8 +14,8 @@ from PyQt5.QtCore import QRectF, QSize, QTimer, Qt
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
                              QFormLayout, QHBoxLayout, QLabel, QMainWindow,
-                             QPushButton, QSizePolicy, QTextBrowser,
-                             QVBoxLayout, QWidget)
+                             QMessageBox, QPushButton, QSizePolicy,
+                             QTextBrowser, QVBoxLayout, QWidget)
 from louie import dispatcher
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
@@ -44,11 +39,14 @@ from pangalactic.node.message_bus     import PgxnMessageBus
 message_bus = PgxnMessageBus()
 # cert_fname = './.crossbar_for_test_vger/server_cert.pem'
 cert_fname = 'server_cert.pem'
-cert = crypto.load_certificate(
-        crypto.FILETYPE_PEM,
-        six.u(open(cert_fname, 'r').read()))
-tls_options = CertificateOptions(
-    trustRoot=OpenSSLCertificateAuthorities([cert]))
+try:
+    cert = crypto.load_certificate(
+            crypto.FILETYPE_PEM,
+            six.u(open(cert_fname, 'r').read()))
+    tls_options = CertificateOptions(
+        trustRoot=OpenSSLCertificateAuthorities([cert]))
+except:
+    cert = None
 
 @message_bus.signal('onjoined')
 def onjoined():
@@ -103,19 +101,17 @@ class CircleWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.translate(old_div(self.width(), 2), old_div(self.height(), 2))
+        painter.translate(self.width()/2, self.height()/2)
 
         #range of diameter must start at a number greater than 0
         for diameter in range(1, 50, 9):
-            delta = abs((self.nframe % 64) - old_div(diameter, 2))
-            alpha = 255 - old_div((delta * delta), 4) - diameter
+            delta = abs((self.nframe % 64) - diameter/2)
+            alpha = 255 - (delta * delta)/4 - diameter
             if alpha > 0:
-                painter.setPen(QPen(QColor(0, old_div(diameter, 2), 127, alpha), 3))
+                painter.setPen(QPen(QColor(0, diameter/2, 127, alpha), 3))
                 painter.drawEllipse(QRectF(
-                    old_div(-diameter, 2.0),
-                    old_div(-diameter, 2.0), 
-                    diameter, 
-                    diameter))
+                    -diameter/2.0, -diameter/2.0, 
+                    diameter, diameter))
 
 
 class LogWidget(QTextBrowser):
@@ -234,7 +230,15 @@ class MainWindow(QMainWindow):
         self.decloaked_list = AutosizingListWidget(height=50, parent=self)
         vbox = QVBoxLayout()
         vbox.addWidget(self.role_label, alignment=Qt.AlignVCenter)
-        vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
+        if cert:
+            vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
+        else:
+            message = 'Certificate not found or not readable ...\n'
+            message += 'operating in local-only mode.'
+            popup = QMessageBox(QMessageBox.Warning,
+                                "No certificate", message,
+                                QMessageBox.Ok, self)
+            popup.show()
         vbox.addWidget(self.conops_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.acttabs_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
@@ -425,9 +429,9 @@ class MainWindow(QMainWindow):
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
 
-    def on_activity(self, obj=None):
+    def on_activity(self, act=None, acu=None):
         self.log('I just got activity {}'.format(
-                 getattr(obj, 'id', '[unnamed activity]')))
+                 getattr(act, 'id', '[unnamed activity]')))
 
     def on_get_user_roles_result(self, data):
         """
@@ -693,7 +697,8 @@ class MainWindow(QMainWindow):
     def on_leave(self):
         self.log('  + session left.')
         message_bus.session.disconnect()
-        self.login_button.setVisible(True)
+        if cert:
+            self.login_button.setVisible(True)
         self.logout_button.setVisible(False)
         self.check_version_button.setVisible(False)
         self.ldap_search_button.setVisible(False)
