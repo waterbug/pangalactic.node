@@ -26,10 +26,15 @@ from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
+from pangalactic.core                 import state
 from pangalactic.core.refdata         import core
-from pangalactic.core.test.utils      import gen_test_pvals, test_parms
+from pangalactic.core.serializers     import deserialize
+from pangalactic.core.test.utils      import (create_test_project,
+                                              create_test_users,
+                                              gen_test_pvals, test_parms)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.uberorb         import orb
+from pangalactic.node.activities      import ActivityTables
 from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dialogs         import LoginDialog
 from pangalactic.node.widgets         import ModeLabel
@@ -168,10 +173,14 @@ class MainWindow(QMainWindow):
         self.circle_widget = CircleWidget()
         self.login_button = QPushButton('Log in')
         self.login_button.clicked.connect(self.login)
-        # start up conops --> opens a conops window
+        # Con Ops Modeler --> opens a ConOpsModeler window
         self.conops_button = QPushButton('Con Ops Modeler')
         self.conops_button.clicked.connect(self.start_conops)
         self.conops_button.setVisible(True)
+        # start up Activity Tables --> opens an ActivityTables window
+        self.acttabs_button = QPushButton('Activity Tables')
+        self.acttabs_button.clicked.connect(self.start_act_tabs)
+        self.acttabs_button.setVisible(True)
         # check version -- just displays result
         self.check_version_button = QPushButton('Check Version')
         self.check_version_button.setVisible(False)
@@ -227,6 +236,7 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.role_label, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.conops_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.acttabs_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_result_button, alignment=Qt.AlignVCenter)
@@ -300,6 +310,14 @@ class MainWindow(QMainWindow):
         mw = ConOpsModeler(external=True, preferred_size=(2000, 1000),
                            parent=self)
         mw.show()
+
+    def start_act_tabs(self):
+        win = ActivityTables(parent=self)
+        win.show()
+
+    def start_activities(self):
+        win = ActivityTables(parent=self)
+        win.show()
 
     def on_get_admin_result(self, data):
         """
@@ -408,7 +426,8 @@ class MainWindow(QMainWindow):
         rpc.addErrback(self.on_failure)
 
     def on_activity(self, obj=None):
-        self.log('I just got activity {}'.format(obj.id))
+        self.log('I just got activity {}'.format(
+                 getattr(obj, 'id', '[unnamed activity]')))
 
     def on_get_user_roles_result(self, data):
         """
@@ -727,6 +746,22 @@ if __name__ == "__main__":
     options = parser.parse_args()
     app = QApplication(sys.argv)
     orb.start('junk_home', debug=True)
+    mission = orb.get('test:Mission.H2G2')
+    if not mission:
+        if not state.get('test_users_loaded'):
+            print('* loading test users ...')
+            deserialize(orb, create_test_users())
+            state['test_users_loaded'] = True
+        print('* loading test project H2G2 ...')
+        deserialize(orb, create_test_project())
+        mission = orb.get('test:Mission.H2G2')
+    # if not mission.components:
+        # launch = clone('Activity', id='launch', name='Launch')
+        # ref_des = '1'
+        # acu = clone('Acu', id=get_acu_id(mission.id, ref_des),
+                    # name=get_acu_name(mission.name, ref_des),
+                    # assembly=mission, component=launch)
+        # orb.save([launch, acu])
     print('app created')
     try:
         import qt5reactor

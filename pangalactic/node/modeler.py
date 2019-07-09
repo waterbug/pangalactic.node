@@ -5,9 +5,10 @@ from urllib.parse    import urlparse
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QAction, QComboBox, QHBoxLayout, QLayout,
-                             QMainWindow, QSizePolicy, QVBoxLayout, QWidget)
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
+                             QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
+                             QWidget)
 from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
@@ -136,10 +137,10 @@ class ModelWindow(QMainWindow):
                            'diagram connector added')
         self.set_subject(obj=obj)
 
-    # def sizeHint(self):
-        # if self.preferred_size:
-            # return QSize(*self.preferred_size)
-        # return QSize(400, 300)
+    def sizeHint(self):
+        if self.preferred_size:
+            return QSize(*self.preferred_size)
+        return QSize(900, 800)
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
@@ -203,7 +204,7 @@ class ModelWindow(QMainWindow):
                       checkable=False):
         action = QAction(text, self)
         if icon is not None:
-            icon_file = icon + state['icon_type']
+            icon_file = icon + state.get('icon_type', '.png')
             icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             icon_path = os.path.join(icon_dir, icon_file)
             action.setIcon(QIcon(icon_path))
@@ -235,7 +236,7 @@ class ModelWindow(QMainWindow):
         orb.log.info('* ModelWindow.display_external_window() ...')
         mw = ModelWindow(obj=self.obj, scene=self.diagram_view.scene(),
                          logo=self.logo, external=True,
-                         preferred_size=(700, 800), parent=self.parent())
+                         parent=self.parent())
         mw.show()
 
     def set_new_diagram_view(self):
@@ -345,8 +346,9 @@ class ModelWindow(QMainWindow):
             if hasattr(self, 'back_action'):
                 self.back_action.setEnabled(False)
         self.cache_block_model()
-        self.diagram_view.verticalScrollBar().setValue(0)
-        self.diagram_view.horizontalScrollBar().setValue(0)
+        if hasattr(self, 'diagram_view'):
+            self.diagram_view.verticalScrollBar().setValue(0)
+            self.diagram_view.horizontalScrollBar().setValue(0)
 
     def display_cad_model(self):
         try:
@@ -641,7 +643,24 @@ class ProductInfoPanel(QWidget):
             self.product_version_value_label.setEnabled(False)
 
 if __name__ == '__main__':
-    obj = orb.get('test:twanger')
-    mw = ModelWindow(obj=obj, external=True, preferred_size=(700, 800))
+    import sys
+    from pangalactic.core.serializers import deserialize
+    from pangalactic.core.test.utils import (create_test_project,
+                                             create_test_users)
+    orb.start(home='junk_home', debug=True)
+    obj = orb.get('test:spacecraft0')
+    if not obj:
+        if not state.get('test_users_loaded'):
+            print('* loading test users ...')
+            deserialize(orb, create_test_users())
+            state['test_users_loaded'] = True
+        print('* loading test project H2G2 ...')
+        deserialize(orb, create_test_project())
+        hw = orb.search_exact(cname='HardwareProduct', id_ns='test')
+        orb.assign_test_parameters(hw)
+        obj = orb.get('test:spacecraft0')
+    app = QApplication(sys.argv)
+    mw = ModelWindow(obj=obj, external=True)
     mw.show()
+    sys.exit(app.exec_())
 

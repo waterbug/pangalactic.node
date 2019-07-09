@@ -91,7 +91,7 @@ class ODTableModel(QAbstractTableModel):
         self.ods = ods or [{0:'no data'}]
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         self.default_icon = QIcon(QPixmap(os.path.join(icon_dir,
-                                          'box'+state['icon_type'])))
+                                  'box'+state.get('icon_type', '.png'))))
 
     def columns(self):
         return list(self.ods[0].keys())
