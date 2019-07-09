@@ -14,13 +14,14 @@ from string import ascii_uppercase
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QRectF,QPointF, QSizeF, QObject, pyqtSignal, qrand, QLineF, QPoint, QMimeData
+
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
                              QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
                              QWidget,QAction, QApplication, QButtonGroup, QComboBox,
         QFontComboBox, QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem,
         QGraphicsScene, QGraphicsTextItem, QGraphicsView, QGridLayout,
         QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QSizePolicy,
-        QToolBox, QToolButton, QWidget, QPushButton, QAbstractItemView, QGraphicsPathItem)
+        QToolBox, QToolButton, QWidget, QPushButton, QAbstractItemView, QGraphicsPathItem,QGraphicsEllipseItem)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QColor, QDrag, QImage, QPainter, QPen, QPixmap, QCursor, QPainterPath,
                         QPolygon, QPolygonF, QFont)
 
@@ -133,7 +134,6 @@ class EventBlock(QGraphicsPolygonItem):
         ev_type = orb.select("ActivityType", name="Event")
 
         if self.activity.activity_type is op_type:
-            print("box")
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
                     QPointF(50, -50), QPointF(-50, -50)
@@ -144,7 +144,7 @@ class EventBlock(QGraphicsPolygonItem):
                      QPointF(50, 80)
              ])
         else:
-            path.addEllipse(-50, -50, 100, 100)
+            path.addEllipse(-50, -50, 400, 400)
             self.myPolygon = path.toFillPolygon(QTransform())
             self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
         self.setPolygon(self.myPolygon)
@@ -202,21 +202,36 @@ class DiagramView(QGraphicsView):
     def dragLeaveEvent(self, event):
         event.accept()
 
+class Template(QGraphicsPathItem):
+    def __init__(self, parent=None):
+        super(Template, self).__init__(parent)
+        self.setFlags(QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsMovable |
+                      QGraphicsItem.ItemIsFocusable)
+        self.path = QPainterPath(QPoint(0, -200))
+        self.path.arcTo(QRectF(-200,-200,400,400), 90, -360)
+        self.setPath(self.path)
+        # self.setPos(position)
+        # print(self.scenePos())
 class Timeline(QGraphicsPathItem):
-    def __init__(self, item_1, item_2,scene, parent=None):
+    max_num_item = 5
+    def __init__(self, scene, parent=None):
         super(Timeline, self).__init__(parent)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
         self.item_list = []
-        self.item_1 = item_1
-        self.item_2 = item_2
-        self.p1 = item_1.scenePos()
-        self.p2 = item_2.scenePos()
-        self.path =  QPainterPath(QPointF(self.p1.x()+50, self.p1.y()))
-        self.path.lineTo(QPointF(self.p2.x()-50, self.p2.y()))
+        # self.item_1 = item_1
+        # self.item_2 = item_2
+        # self.p1 = item_1.scenePos()
+        # self.p2 = item_2.scenePos()
+        self.path =  QPainterPath(QPointF(100,250))
+        self.path.arcTo(QRectF(0, 200 ,100,100), 0, 360)
+        self.circle_length = self.path.length()
+        self.end_location = 1500
+        self.path.arcTo(QRectF(self.end_location, 200, 100,100), 180, 360)
         self.setPath(self.path)
-        self.length = self.p2.x()-self.p1.x()
+        self.length = self.path.length()-2*self.circle_length
         self.num_of_item = len(scene.current_activity.components)
         self.make_point_list()
         self.current_positions = []
@@ -235,7 +250,7 @@ class Timeline(QGraphicsPathItem):
 
     def make_point_list(self):
         factor = self.length/(self.num_of_item+1)
-        self.list_of_pos = [(n+1)*factor+self.p1.x() for n in range(0, self.num_of_item)]
+        self.list_of_pos = [(n+1)*factor for n in range(0, self.num_of_item)]
 
     def populate(self, item_list):
         self.item_list = item_list
@@ -246,41 +261,65 @@ class Timeline(QGraphicsPathItem):
 
 
     def reposition(self):
+        if len(self.item_list) >6 :
+            print("Extend timeline")
+            self.extend_timeline()
         parent_act = self.scene().current_activity
         self.item_list.sort(key=lambda x: x.scenePos().x())
         for i in range(0, len(self.item_list)):
             item = self.item_list[i]
-            item.setPos(QPoint(self.list_of_pos[i], 150))
+            item.setPos(QPoint(self.list_of_pos[i], 250))
             acu = orb.select("Acu", assembly=parent_act, component=item.activity)
             acu.reference_designator = str(i)
 
+    def extend_timeline(self):
+        self.end_location = self.end_location+100
+        self.setPath(self.path)
 
     def remove_item(self, item):
         if item in self.item_list:
             self.item_list.remove(item)
         self.update_timeline()
+    def connectPath(self, added_path):
+        self.path.connectPath(added_path)
+        self.update()
+
+    def insertPath(self, new_path, point):
+        # new_path.setPath(new_path.path)
+        new_path.setPos(point)
+        self.path.connectPath(new_path.path)
+        self.setPath(self.path)
+        print("insertPath position", new_path.pos())
+
 
 class DiagramScene(QGraphicsScene):
     def __init__(self, parent, current_activity=None):
         super(DiagramScene, self).__init__(parent)
         self.current_activity = current_activity
         self.val = 10
-        self.start = EventBlock("Circle")
-        self.end = EventBlock("Circle")
-        self.start.setPos(100, 150)
-        self.end.setPos(1500, 150)
-        self.addItem(self.start)
-        self.addItem(self.end)
-        self.timeline = Timeline(self.start, self.end, self)
+        # self.start = QGraphicsEllipseItem(-50,-50, 100, 100)
+        # self.start=QGraphicsEllipseItem(0,0,0,0)
+        # self.end = QGraphicsEllipseItem(-50,-50, 100, 100)
+        # self.start.setPos(100, 150)
+        # self.end.setPos(1500, 150)
+        # self.addItem(self.start)
+        # self.addItem(self.end)
+        self.timeline = Timeline(self)
         self.addItem(self.timeline)
         self.next_idx = 0
     def mousePressEvent(self, mouseEvent):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
 
     def dropEvent(self, event):
-        if event.mimeData().text() == "Operation":
-            print("mimeData text:", event.mimeData().text())
+        if event.mimeData().text() == "Cycle":
+            # cycle = Template()
+            # cycle.setPos(event.scenePos())
+            # self.addItem(cycle)
+            activity_type = orb.select("ActivityType", name="Cycle")
+
+        elif event.mimeData().text() == "Operation":
             activity_type = orb.select("ActivityType", name="Operation")
+
         else:
             activity_type = orb.select("ActivityType", name="Event")
 
@@ -294,7 +333,7 @@ class DiagramScene(QGraphicsScene):
         self.timeline.add_item(item)
         self.addItem(item)
 
-
+        dispatcher.send("new activity", act=activity, acu=acu)
         self.update()
 
 class ToolButton(QPushButton):
@@ -385,13 +424,7 @@ class ConOpsModeler(QMainWindow):
 
     def createLibrary(self):
         '''create the shape library'''
-        self.buttonGroup = QButtonGroup()
-        self.buttonGroup.setExclusive(True)
         layout = QGridLayout()
-        ## To Do: clone activity_type to each button
-        #b1_data = clone()
-
-
         b1 = ToolButton("Operation")
         b1.setData("Operation")
         b2 = ToolButton("Event")
@@ -401,10 +434,18 @@ class ConOpsModeler(QMainWindow):
         layout.addWidget(b2)
         itemWidget = QWidget()
         itemWidget.setLayout(layout)
+
+        layout1 = QGridLayout()
+        temp_button = ToolButton("Cycle")
+        temp_button.setData("Cycle")
+
+        layout1.addWidget(temp_button)
+        itemWidget1 = QWidget()
+        itemWidget1.setLayout(layout1)
+
         self.library = QToolBox()
         self.library.addItem(itemWidget, "Shapes")
-        self.buttonGroup.addButton(b1, 1)
-        self.buttonGroup.addButton(b2, 2)
+        self.library.addItem(itemWidget1, "Template")
 
 
     def resizeEvent(self, event):
@@ -485,7 +526,7 @@ class ConOpsModeler(QMainWindow):
         self.current_viewing_activity = obj.activity
         # print("before append", len(self.history))
         previous = obj.scene().current_activity
-        print("type of previous:", type(previous))
+        # print("type of previous:", type(previous))
         self.history.append(previous)
         # print("after append", len(self.history))
 
@@ -513,7 +554,6 @@ class ConOpsModeler(QMainWindow):
             # temp = {}
             all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
             all_acus.sort()
-            print(all_acus)
             # for acu in acu_list:
             #     activity = acu.component
             #     ref_des = acu.reference_designator
@@ -532,9 +572,9 @@ class ConOpsModeler(QMainWindow):
     def go_back(self):
         # print("go back clicked")
 
-        print("before pop", len(self.history))
+        # print("before pop", len(self.history))
         previous_activity = self.history.pop()
-        print("after pop", len(self.history))
+        # print("after pop", len(self.history))
         new_scene = DiagramScene(self, previous_activity)
         self.set_new_view(new_scene, current_activity=previous_activity)
         # except IndexError:
