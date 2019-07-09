@@ -138,7 +138,8 @@ class MainWindow(QMainWindow):
         self.create_timer()
         dispatcher.connect(self.on_joined, 'onjoined')
         dispatcher.connect(self.on_leave, 'onleave')
-        dispatcher.connect(self.activity_added_handler, 'new activity')
+        dispatcher.connect(self.on_activity, 'new activity')
+        dispatcher.connect(self.remove_activity, 'removed activity')
         self.new_index = 0
         self.test_oid = ''
         self.cloaked = []
@@ -429,7 +430,7 @@ class MainWindow(QMainWindow):
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
 
-    def activity_added_handler(self, act=None, acu=None):
+    def on_activity(self, act=None, acu=None):
         self.log('I just got activity {}'.format(
                  getattr(act, 'id', '[unnamed activity]')))
 
