@@ -560,7 +560,11 @@ class ConOpsModeler(QMainWindow):
             try:
                 all_acus.sort()
             except:
+                pass
+                print('*** acu sort failed ***')
                 print(all_acus)
+            print('* acu sort succeeded *')
+            print(all_acus)
             # for acu in acu_list:
             #     activity = acu.component
             #     ref_des = acu.reference_designator
