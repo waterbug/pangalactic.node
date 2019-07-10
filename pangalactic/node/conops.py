@@ -144,7 +144,7 @@ class EventBlock(QGraphicsPolygonItem):
                      QPointF(50, 80)
              ])
         else:
-            path.addEllipse(-50, -50, 400, 400)
+            path.addEllipse(-100, 0, 200, 200)
             self.myPolygon = path.toFillPolygon(QTransform())
             self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
         self.setPolygon(self.myPolygon)
@@ -242,8 +242,11 @@ class Timeline(QGraphicsPathItem):
         self.update_timeline()
 
     def update_timeline(self):
+        if len(self.item_list) > 5 :
+            self.extend_timeline()
         self.make_point_list()
         self.reposition()
+
 
     def make_point_list(self):
         self.length = self.path.length()-2*self.circle_length
@@ -260,10 +263,6 @@ class Timeline(QGraphicsPathItem):
 
     def reposition(self):
         dispatcher.send("order changed")
-        if len(self.item_list) > 5 :
-            print("Extend timeline")
-            self.extend_timeline()
-            self.make_point_list()
         parent_act = self.scene().current_activity
         self.item_list.sort(key=lambda x: x.scenePos().x())
         for i in range(0, len(self.item_list)):
@@ -274,13 +273,22 @@ class Timeline(QGraphicsPathItem):
 
     def extend_timeline(self):
         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
-        # self.setPath(self.path)
+        self.make_path()
+        self.update()
+        self.scene().update()
+    def shorten_timeline(self):
+        self.end_location = self.end_location-self.length/(len(self.item_list)+1)
         self.make_path()
         self.update()
         self.scene().update()
     def remove_item(self, item):
         if item in self.item_list:
             self.item_list.remove(item)
+        if len(self.item_list) <= 5 and self.end_location > 1500:
+            self.end_location = 1500
+            self.make_path()
+            self.update()
+            self.scene().update()
         self.update_timeline()
     def connectPath(self, added_path):
         self.path.connectPath(added_path)
