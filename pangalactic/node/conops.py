@@ -1,44 +1,31 @@
 #!/usr/bin/env python
-from __future__  import print_function
-from __future__  import unicode_literals
-from __future__ import division
-from future import standard_library
-standard_library.install_aliases()
 # NOTE: fixed div's so old_div is not needed.
 # from past.utils import old_div
 import os
-import copy
 from collections import namedtuple
 from urllib.parse    import urlparse
 from string import ascii_uppercase
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QRectF,QPointF, QSizeF, QObject, pyqtSignal, qrand, QLineF, QPoint, QMimeData
+from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
 
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
-                             QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
-                             QWidget,QAction, QApplication, QButtonGroup, QComboBox,
-        QFontComboBox, QGraphicsItem, QGraphicsLineItem, QGraphicsPolygonItem,
-        QGraphicsScene, QGraphicsTextItem, QGraphicsView, QGridLayout,
-        QHBoxLayout, QLabel, QMainWindow, QMenu, QMessageBox, QSizePolicy,
-        QToolBox, QToolButton, QWidget, QPushButton, QAbstractItemView, QGraphicsPathItem,QGraphicsEllipseItem)
-from PyQt5.QtGui import (QIcon, QTransform, QBrush, QColor, QDrag, QImage, QPainter, QPen, QPixmap, QCursor, QPainterPath,
-                        QPolygon, QPolygonF, QFont)
+                             QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
+                             QGraphicsPolygonItem, QGraphicsScene,
+                             QGraphicsView, QGridLayout, QMenu, QToolBox,
+                             QPushButton, QGraphicsPathItem)
+from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
+                         QPixmap, QCursor, QPainterPath, QPolygonF)
 
 # pangalactic
 from pangalactic.core             import diagramz, state
-from pangalactic.core.parametrics import componentz
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
-                                             get_block_model_name,
-                                             get_block_model_file_name)
+from pangalactic.core.utils.meta  import asciify, get_block_model_file_name
 from pangalactic.node.dialogs     import Viewer3DDialog
-from pangalactic.node.diagrams    import DocForm
-from pangalactic.node.diagrams.shapes    import BlockLabel
+from pangalactic.node.diagrams.shapes import BlockLabel
 
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, extract_mime_data
-from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
@@ -129,7 +116,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.activity = activity or clone("Activity")
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
         self.act_type = act_type
-    #---draw blocks depending on the 'shape' string passed in
+        #---draw blocks depending on the 'shape' string passed in
         op_type = orb.select("ActivityType", name="Operation")
         ev_type = orb.select("ActivityType", name="Event")
 
@@ -158,12 +145,17 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
-        self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item", triggered= self.deleteItem)
+        self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item",
+                                     triggered=self.delete_item)
 
-    def deleteItem(self):
+    def delete_item(self):
         self.scene().timeline.remove_item(self)
         self.scene().removeItem(self)
-        dispatcher.send("removed activity", act=self.activity)
+        oid = self.activity.oid
+        acu = self.activity.where_used[0]
+        orb.delete([self.activity, acu])
+        dispatcher.send("removed activity", act_oid=oid)
+
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
         # self.update_position()
