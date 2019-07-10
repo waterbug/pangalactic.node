@@ -115,6 +115,7 @@ class EventBlock(QGraphicsPolygonItem):
         path = QPainterPath()
         self.activity = activity or clone("Activity")
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
+        print("block_label")
         self.act_type = act_type
         #---draw blocks depending on the 'shape' string passed in
         op_type = orb.select("ActivityType", name="Operation")
@@ -317,11 +318,8 @@ class DiagramScene(QGraphicsScene):
         self.next_idx += 1
         activity = clone("Activity", activity_type = activity_type,id = next_id)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
-        view = ['id', 'name', 'description']
-        panels = ['main']
-        pxo = PgxnObject(activity, edit_mode=True, new=True, view=view,
-                         panels=panels, modal_mode=True, parent=self.parent())
-        pxo.show()
+
+        self.edit_parameters(activity)
         orb.save([acu, activity])
         item = EventBlock(activity_type, activity=activity, parent_activity=self.current_activity)
         item.setPos(event.scenePos())
@@ -330,7 +328,13 @@ class DiagramScene(QGraphicsScene):
 
         dispatcher.send("new activity", parent_act=self.current_activity)
         self.update()
+    def edit_parameters(self, activity):
+        view = ['id', 'name', 'description']
+        panels = ['main']
 
+        pxo = PgxnObject(activity, edit_mode=True, new=True, view=view,
+                         panels=panels, modal_mode=True, parent=self.parent())
+        pxo.show()
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
         super(ToolButton, self).__init__(text, parent)
@@ -567,7 +571,7 @@ class ConOpsModeler(QMainWindow):
             for acu_tuple in all_acus:
                 acu = acu_tuple[1]
                 activity = acu.component
-                item = EventBlock("Box", activity=activity, current_activity=current_activity)
+                item = EventBlock("Box", activity=activity, parent_activity=current_activity)
                 item_list.append(item)
                 self.scene.addItem(item)
                 self.scene.update()
