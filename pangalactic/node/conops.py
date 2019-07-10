@@ -155,7 +155,7 @@ class EventBlock(QGraphicsPolygonItem):
         acu = self.activity.where_used[0]
         parent_act = acu.assembly
         orb.delete([self.activity, acu])
-        dispatcher.send("removed activity", act_oid=oid, parent_act=parent_act)
+        dispatcher.send("removed activity", parent_act=self.scene().current_activity)
 
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
@@ -254,7 +254,7 @@ class Timeline(QGraphicsPathItem):
 
 
     def reposition(self):
-        dispatcher.send("order changed")
+        dispatcher.send("order changed", parent_act=self.scene().current_activity)
         parent_act = self.scene().current_activity
         self.item_list.sort(key=lambda x: x.scenePos().x())
         for i,item in enumerate(self.item_list):
@@ -334,7 +334,7 @@ class DiagramScene(QGraphicsScene):
         self.timeline.add_item(item)
         self.addItem(item)
 
-        dispatcher.send("new activity", act=activity, acu=acu)
+        dispatcher.send("new activity", parent_act=self.current_activity)
         self.update()
 
 class ToolButton(QPushButton):
