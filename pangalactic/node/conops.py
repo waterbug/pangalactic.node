@@ -113,14 +113,16 @@ class EventBlock(QGraphicsPolygonItem):
         self.setBrush(Qt.white)
         self.create_actions()
         path = QPainterPath()
-        self.activity = activity or clone("Activity")
+        self.activity = activity
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
-        print("block_label")
+        print(self.activity.id)
         self.act_type = act_type
         #---draw blocks depending on the 'shape' string passed in
         op_type = orb.select("ActivityType", name="Operation")
         ev_type = orb.select("ActivityType", name="Event")
         self.parent_activity = parent_activity
+        dispatcher.connect(self.id_changed_handler, "activity modified")
+
         if self.activity.activity_type is op_type:
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
@@ -136,6 +138,10 @@ class EventBlock(QGraphicsPolygonItem):
             self.myPolygon = path.toFillPolygon(QTransform())
             self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
         self.setPolygon(self.myPolygon)
+
+    def id_changed_handler(self, activity=None):
+        if activity is self.activity:
+            self.blocklabel.setText(self.activity.id)
 
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self)
@@ -255,7 +261,6 @@ class Timeline(QGraphicsPathItem):
 
 
     def reposition(self):
-        dispatcher.send("order changed", parent_act=self.scene().current_activity)
         parent_act = self.scene().current_activity
         self.item_list.sort(key=lambda x: x.scenePos().x())
         for i,item in enumerate(self.item_list):
@@ -263,6 +268,7 @@ class Timeline(QGraphicsPathItem):
             acu = orb.select("Acu", assembly=parent_act, component=item.activity)
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
+        dispatcher.send("order changed", parent_act=self.scene().current_activity)
     def extend_timeline(self):
         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
         self.make_path()
@@ -316,25 +322,32 @@ class DiagramScene(QGraphicsScene):
 
         next_id = ascii_uppercase[self.next_idx]
         self.next_idx += 1
-        activity = clone("Activity", activity_type = activity_type,id = next_id)
-        acu = clone("Acu", assembly=self.current_activity, component=activity)
+        self.create_activity(activity_type)
 
-        self.edit_parameters(activity)
-        orb.save([acu, activity])
-        item = EventBlock(activity_type, activity=activity, parent_activity=self.current_activity)
-        item.setPos(event.scenePos())
+    def create_block(self, activity):
+        print(activity.id)
+        acu = clone("Acu", assembly=self.current_activity, component=activity)
+        orb.save([acu])
+        item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.current_activity)
+        # item.setPos(event.scenePos())
         self.timeline.add_item(item)
         self.addItem(item)
 
         dispatcher.send("new activity", parent_act=self.current_activity)
         self.update()
-    def edit_parameters(self, activity):
+
+    def create_activity(self, activity_type):
+        activity = clone("Activity", activity_type = activity_type)
         view = ['id', 'name', 'description']
         panels = ['main']
-
-        pxo = PgxnObject(activity, edit_mode=True, new=True, view=view,
+        pxo = PgxnObject(activity, edit_mode=True, view=view,
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
+        # if pxo.exec_():
+        #     # orb.db.commit()
+        self.create_block(activity)
+        dispatcher.send("activity modified")
+
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
         super(ToolButton, self).__init__(text, parent)
@@ -559,10 +572,10 @@ class ConOpsModeler(QMainWindow):
                 all_acus.sort()
             except:
                 pass
-                print('*** acu sort failed ***')
-                print(all_acus)
-            print('* acu sort succeeded *')
-            print(all_acus)
+            #     print('*** acu sort failed ***')
+            #     print(all_acus)
+            # print('* acu sort succeeded *')
+            # print(all_acus)
             # for acu in acu_list:
             #     activity = acu.component
             #     ref_des = acu.reference_designator
