@@ -121,7 +121,7 @@ class EventBlock(QGraphicsPolygonItem):
         op_type = orb.select("ActivityType", name="Operation")
         ev_type = orb.select("ActivityType", name="Event")
         self.parent_activity = parent_activity
-        dispatcher.connect(self.id_changed_handler, "activity modified")
+        dispatcher.connect(self.id_changed_handler, "modified activity")
 
         if self.activity.activity_type is op_type:
             self.myPolygon = QPolygonF([
@@ -141,7 +141,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def id_changed_handler(self, activity=None):
         if activity is self.activity:
-            self.blocklabel.setText(self.activity.id)
+            self.block_label.setPlainText(self.activity.id)
 
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self)
@@ -343,10 +343,8 @@ class DiagramScene(QGraphicsScene):
         pxo = PgxnObject(activity, edit_mode=True, view=view,
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
-        # if pxo.exec_():
-        #     # orb.db.commit()
         self.create_block(activity)
-        dispatcher.send("activity modified")
+
 
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
