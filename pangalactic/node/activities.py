@@ -42,6 +42,9 @@ class ActivityTables(QMainWindow):
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         dispatcher.connect(self.on_activity_added, 'new activity')
+        dispatcher.connect(self.on_activity_removed, 'removed activity')
+        #dispatcher.connect(self.on_order_changed, 'order changed')
+        #dispatcher.connect(self.on_drill_down, 'drilled down')
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
@@ -109,16 +112,30 @@ class ActivityTables(QMainWindow):
         return QSize(900, 800)
 
     def on_activity_added(self, act=None, acu=None):
-        # TODO:  add a row for the new activity ...
         if acu:
             assembly_activity_name = getattr(acu.assembly, 'name',
                                              'Other Unnamed Activity')
             self.set_title(assembly_activity_name)
-        self.statusbar.showMessage('New Activity "{}" added in "{}"'.format(
+        self.statusbar.showMessage('Activity Added: "{}" added in "{}"'.format(
                                    getattr(act, 'id', '[unnamed activity]'),
                                    assembly_activity_name))
         activities = [acu.component for acu in acu.assembly.components]
         self.set_table(activities)
+
+    def on_activity_removed(self, act=None):
+        if acu:
+            assembly_activity_name = getattr(acu.assembly, 'name',
+                                             'Other Unnamed Activity')
+            self.set_title(assembly_activity_name)
+        self.statusbar.showMessage('Activity Removed: "{}" removed in "{}"'.format(
+                                   getattr(act, 'id', '[unnamed activity]'),
+                                   assembly_activity_name))
+        activities = [acu.component for acu in acu.assembly.components]
+        self.set_table(activities)
+
+    #def order_changed_handler(self, act=None, acu=None):
+
+    #def drill_down_handler(self, act=None, acu=None):
 
     def write_report(self):
         pass
@@ -149,4 +166,3 @@ if __name__ == '__main__':
     w = ActivityTables(subject=mission)
     w.show()
     sys.exit(app.exec_())
-

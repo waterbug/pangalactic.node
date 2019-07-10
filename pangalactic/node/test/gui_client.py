@@ -139,7 +139,7 @@ class MainWindow(QMainWindow):
         dispatcher.connect(self.on_joined, 'onjoined')
         dispatcher.connect(self.on_leave, 'onleave')
         dispatcher.connect(self.on_activity, 'new activity')
-        dispatcher.connect(self.remove_activity, 'removed activity')
+        #dispatcher.connect(self.remove_activity, 'removed activity')
         self.new_index = 0
         self.test_oid = ''
         self.cloaked = []
