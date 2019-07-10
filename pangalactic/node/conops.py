@@ -270,7 +270,7 @@ class Timeline(QGraphicsPathItem):
             item.setPos(QPoint(self.list_of_pos[i], 250))
             acu = orb.select("Acu", assembly=parent_act, component=item.activity)
             acu.reference_designator = str(i)
-
+            orb.save([acu])
     def extend_timeline(self):
         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
         self.make_path()

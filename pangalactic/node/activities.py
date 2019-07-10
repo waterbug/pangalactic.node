@@ -123,15 +123,17 @@ class ActivityTables(QMainWindow):
         self.set_table(activities)
 
     def on_activity_removed(self, act=None):
-        if acu:
-            assembly_activity_name = getattr(acu.assembly, 'name',
-                                             'Other Unnamed Activity')
-            self.set_title(assembly_activity_name)
-        self.statusbar.showMessage('Activity Removed: "{}" removed in "{}"'.format(
-                                   getattr(act, 'id', '[unnamed activity]'),
-                                   assembly_activity_name))
-        activities = [acu.component for acu in acu.assembly.components]
-        self.set_table(activities)
+        print("on_activity_removed")
+        # if acu:
+        #     assembly_activity_name = getattr(acu.assembly, 'name',
+        #                                      'Other Unnamed Activity')
+        #     self.set_title(assembly_activity_name)
+        # self.statusbar.showMessage('Activity Removed: "{}" removed in "{}"'.format(
+        #                            getattr(act, 'id', '[unnamed activity]'),
+        #                            assembly_activity_name))
+        activities = act.where_used
+        print(activities)
+        # self.set_table(activities)
 
     #def order_changed_handler(self, act=None, acu=None):
 
