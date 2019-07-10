@@ -2,11 +2,7 @@
 """
 PgxnObject (a domain object viewer/editor)
 """
-from __future__  import print_function
-from __future__ import division
 # from collections import OrderedDict
-from builtins import str
-from builtins import range
 import math, os
 from functools import partial
 
@@ -1162,6 +1158,9 @@ class PgxnObject(QMainWindow):
                 orb.log.debug('  [pgxnobj] send "modified object" signal')
                 dispatcher.send(signal="modified object", obj=self.obj,
                                 cname=cname)
+                if isinstance(self.obj, orb.classes['Activity']):
+                    dispatcher.send(signal="modified activity",
+                                    activity=self.obj)
             if caching_parameters:
                 QApplication.processEvents()
                 self.progress_dialog.setValue(progress_max)
