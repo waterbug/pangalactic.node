@@ -89,7 +89,7 @@ def get_model_path(model):
 
 
 class EventBlock(QGraphicsPolygonItem):
-    def __init__(self, act_type, activity=None, current_activity=None, style=None,
+    def __init__(self, act_type, activity=None, parent_activity=None, style=None,
                  editable=False, port_spacing=0):
         super(EventBlock, self).__init__()
         """
@@ -119,7 +119,7 @@ class EventBlock(QGraphicsPolygonItem):
         #---draw blocks depending on the 'shape' string passed in
         op_type = orb.select("ActivityType", name="Operation")
         ev_type = orb.select("ActivityType", name="Event")
-
+        self.parent_activity = parent_activity
         if self.activity.activity_type is op_type:
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
@@ -155,7 +155,7 @@ class EventBlock(QGraphicsPolygonItem):
         acu = self.activity.where_used[0]
         parent_act = acu.assembly
         orb.delete([self.activity, acu])
-        dispatcher.send("removed activity", parent_act=self.scene().current_activity)
+        dispatcher.send("removed activity", parent_act=self.parent_activity)
 
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
@@ -306,14 +306,10 @@ class DiagramScene(QGraphicsScene):
 
     def dropEvent(self, event):
         if event.mimeData().text() == "Cycle":
-            # cycle = Template()
-            # cycle.setPos(event.scenePos())
-            # self.addItem(cycle)
             activity_type = orb.select("ActivityType", name="Cycle")
 
         elif event.mimeData().text() == "Operation":
             activity_type = orb.select("ActivityType", name="Operation")
-
         else:
             activity_type = orb.select("ActivityType", name="Event")
 
@@ -321,15 +317,13 @@ class DiagramScene(QGraphicsScene):
         self.next_idx += 1
         activity = clone("Activity", activity_type = activity_type,id = next_id)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
-
         view = ['id', 'name', 'description']
         panels = ['main']
         pxo = PgxnObject(activity, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
-
         orb.save([acu, activity])
-        item = EventBlock(activity_type, activity=activity, current_activity=self.current_activity)
+        item = EventBlock(activity_type, activity=activity, parent_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.timeline.add_item(item)
         self.addItem(item)
