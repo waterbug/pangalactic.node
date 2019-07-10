@@ -123,11 +123,12 @@ class ActivityTables(QMainWindow):
         self.set_table(activities)
 
     def on_activity_removed(self, act=None):
+        print("hello")
         self.statusbar.showMessage('Activity Removed: "{}" removed'.format(
                                    getattr(act, 'id', '[unnamed activity]')))
 
         acu = act.where_used
-        print(acu)
+        print(acu[0])
         #activities = [act.components for act in act.components.where_used]
         #self.set_table(activities)
 

@@ -256,8 +256,7 @@ class Timeline(QGraphicsPathItem):
     def populate(self, item_list):
         self.item_list = item_list
         self.make_point_list()
-        for i in range(0, len(self.item_list)):
-            item = self.item_list[i]
+        for i,item in enumerate(item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
 
 
@@ -265,11 +264,10 @@ class Timeline(QGraphicsPathItem):
         dispatcher.send("order changed")
         parent_act = self.scene().current_activity
         self.item_list.sort(key=lambda x: x.scenePos().x())
-        for i in range(0, len(self.item_list)):
-            item = self.item_list[i]
+        for i,item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
             acu = orb.select("Acu", assembly=parent_act, component=item.activity)
-            acu.reference_designator = str(i)
+            acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
     def extend_timeline(self):
         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
@@ -558,7 +556,11 @@ class ConOpsModeler(QMainWindow):
             # acu_list = list(current_activity.components)
             # temp = {}
             all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
-            all_acus.sort()
+
+            try:
+                all_acus.sort()
+            except:
+                print(all_acus)
             # for acu in acu_list:
             #     activity = acu.component
             #     ref_des = acu.reference_designator
