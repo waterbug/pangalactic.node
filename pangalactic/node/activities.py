@@ -43,8 +43,8 @@ class ActivityTables(QMainWindow):
                            QSizePolicy.Expanding)
         dispatcher.connect(self.on_activity_added, 'new activity')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
-        #dispatcher.connect(self.on_order_changed, 'order changed')
-        #dispatcher.connect(self.on_drill_down, 'drilled down')
+        dispatcher.connect(self.on_order_changed, 'order changed')
+        dispatcher.connect(self.on_drill_down, 'drill down')
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
@@ -111,31 +111,47 @@ class ActivityTables(QMainWindow):
             return QSize(*self.preferred_size)
         return QSize(900, 800)
 
-    def on_activity_added(self, act=None, acu=None):
-        if acu:
-            assembly_activity_name = getattr(acu.assembly, 'name',
-                                             'Other Unnamed Activity')
-            self.set_title(assembly_activity_name)
-        self.statusbar.showMessage('Activity Added: "{}" added in "{}"'.format(
-                                   getattr(act, 'id', '[unnamed activity]'),
-                                   assembly_activity_name))
-        activities = [acu.component for acu in acu.assembly.components]
-        self.set_table(activities)
-
-    def on_activity_removed(self, act_oid=None, parent_act=None):
-        print("hello")
-        msg = 'Activity with oid "{}" '.format(act_oid)
-        msg += 'removed from "{}"'.format(getattr(parent_act, 'id',
-                                          '[parent id unknown]'))
-        self.statusbar.showMessage(msg)
-        # acu = act.where_used
-        # print(acu[0])
+    def on_activity_added(self, parent_act=None):
+        # if acu:
+        #     assembly_activity_name = getattr(acu.assembly, 'name',
+        #                                      'Other Unnamed Activity')
+        #     self.set_title(assembly_activity_name)
+        self.statusbar.showMessage('Activity Added!')
+        # : "{}" added in "{}"'.format(
+        #                            getattr(act, 'id', '[unnamed activity]'),
+        #                            assembly_activity_name))
+        #activities = [acu.component for acu in acu.assembly.components]
         activities = [act.component for act in parent_act.components]
         self.set_table(activities)
 
-    #def order_changed_handler(self, act=None, acu=None):
+    def on_activity_removed(self, parent_act=None):
+        #msg = 'Activity with oid "{}" '.format(act_oid)
+        #msg += 'removed from "{}"'.format(getattr(parent_act, 'id',
+                                         # '[parent id unknown]'))
+        self.statusbar.showMessage('Activity Removed!')
 
-    #def drill_down_handler(self, act=None, acu=None):
+        activities = [act.component for act in parent_act.components]
+        self.set_table(activities)
+
+    def on_order_changed(self, parent_act=None):
+        self.statusbar.showMessage('Order Updated!')
+
+        all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
+
+        try:
+            all_acus.sort()
+        except:
+            print(all_acus)
+        activities = [acu_tuple[1].component for acu_tuple in all_acus]
+
+        self.set_table(activities)
+
+    def on_drill_down(self, parent_act=None):
+        #have heidi send parent activity
+        self.statusbar.showMessage("Drilled Down!")
+
+        # activities = [act.component for act in parent_act.components]
+        # self.set_table(activities)
 
     def write_report(self):
         pass
