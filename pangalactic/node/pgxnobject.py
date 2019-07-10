@@ -705,7 +705,7 @@ class PgxnObject(QMainWindow):
                       checkable=False, modes=None):
         action = QAction(text, self)
         if icon is not None:
-            icon_file = icon + state['icon_type']
+            icon_file = icon + state.get('icon_type', '.png')
             icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             icon_path = os.path.join(icon_dir, icon_file)
             action.setIcon(QIcon(icon_path))

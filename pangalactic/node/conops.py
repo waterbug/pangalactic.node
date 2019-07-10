@@ -321,6 +321,13 @@ class DiagramScene(QGraphicsScene):
         self.next_idx += 1
         activity = clone("Activity", activity_type = activity_type,id = next_id)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
+
+        view = ['id', 'name', 'description']
+        panels = ['main']
+        pxo = PgxnObject(activity, edit_mode=True, new=True, view=view,
+                         panels=panels, modal_mode=True, parent=self.parent())
+        pxo.show()
+
         orb.save([acu, activity])
         item = EventBlock(activity_type, activity=activity, current_activity=self.current_activity)
         item.setPos(event.scenePos())
