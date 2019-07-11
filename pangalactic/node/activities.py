@@ -41,11 +41,13 @@ class ActivityTables(QMainWindow):
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
+        dispatcher.connect(self.on_new_view, "new view")
         dispatcher.connect(self.on_activity_added, 'new activity')
         dispatcher.connect(self.on_activity_modified, 'modified activity')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
+        dispatcher.connect(self.on_drill_up, 'drill up')
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
@@ -121,6 +123,10 @@ class ActivityTables(QMainWindow):
             return QSize(*self.preferred_size)
         return QSize(900, 800)
 
+    def on_new_view(self, parent_act=None, drill=False):
+        self.statusbar.showMessage("Welcome!")
+        self.sort_and_set_table(parent_act=parent_act)
+
     def on_activity_modified(self, activity=None):
         if activity:
             parent_act = getattr(activity.where_used[0], 'assembly', None)
@@ -135,23 +141,37 @@ class ActivityTables(QMainWindow):
         # : "{}" added in "{}"'.format(
         #                            getattr(act, 'id', '[unnamed activity]'),
         #                            assembly_activity_name))
-        #activities = [acu.component for acu in acu.assembly.components]
-        activities = [act.component for act in parent_act.components]
-        self.set_table(activities)
-        self.set_title(parent_act)
+        # activities = [act.component for act in parent_act.components]
+        # self.set_table(activities)
+        # self.set_title(parent_act)
+        self.sort_and_set_table(parent_act=parent_act)
 
     def on_activity_removed(self, parent_act=None):
         #msg = 'Activity with oid "{}" '.format(act_oid)
         #msg += 'removed from "{}"'.format(getattr(parent_act, 'id',
                                          # '[parent id unknown]'))
         self.statusbar.showMessage('Activity Removed!')
-        activities = [act.component for act in parent_act.components]
-        self.set_table(activities)
-        self.set_title(parent_act)
+        self.sort_and_set_table(parent_act=parent_act)
+        # activities = [act.component for act in parent_act.components]
+        # self.set_table(activities)
+        # self.set_title(parent_act)
 
     def on_order_changed(self, parent_act=None):
         self.statusbar.showMessage('Order Updated!')
+        self.sort_and_set_table(parent_act=parent_act)
 
+    def on_drill_down(self, obj=None):
+        #self.on_new_view(self, parent_act=obj, drill=True)
+        self.statusbar.showMessage("Drilled Down!")
+        self.sort_and_set_table(parent_act=obj)
+        # activities = [act.component for act in obj.components]
+        # self.set_table(activities)
+
+    def on_drill_up(self, obj=None):
+        self.statusbar.showMessage("Drilled Up!")
+        self.sort_and_set_table(parent_act=obj)
+
+    def sort_and_set_table(self, parent_act=None):
         all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
 
         try:
@@ -161,13 +181,7 @@ class ActivityTables(QMainWindow):
         activities = [acu_tuple[1].component for acu_tuple in all_acus]
 
         self.set_table(activities)
-
-    def on_drill_down(self, parent_act=None):
-        #have heidi send parent activity
-        self.statusbar.showMessage("Drilled Down!")
-
-        # activities = [act.component for act in parent_act.components]
-        # self.set_table(activities)
+        self.set_title(parent_act)
 
     def write_report(self):
         pass
