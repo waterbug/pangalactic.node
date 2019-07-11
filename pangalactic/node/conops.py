@@ -140,7 +140,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def id_changed_handler(self, activity=None):
         if activity is self.activity:
-            self.block_label.setPlainText(self.activity.id)
+            self.block_label.setHtml(self.activity.id)
 
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self)
@@ -173,7 +173,6 @@ class EventBlock(QGraphicsPolygonItem):
             if value == True:
                 acu = orb.select("Acu", assembly=self.scene().current_activity, component=self.activity)
                 ref_des = acu.reference_designator
-                print("reference designator for this item:", ref_des)
 
         return value
 
@@ -226,6 +225,7 @@ class Timeline(QGraphicsPathItem):
         self.num_of_item = len(scene.current_activity.components)
         self.make_point_list()
         self.current_positions = []
+
     def make_path(self):
         self.path =  QPainterPath(QPointF(100,250))
         self.path.arcTo(QRectF(0, 200 ,100,100), 0, 360)
@@ -235,14 +235,22 @@ class Timeline(QGraphicsPathItem):
     def item_relocated_handler(self):
         print("")
 
+    def remove_item(self, item):
+        if item in self.item_list:
+            self.item_list.remove(item)
+            self.num_of_item = len(self.item_list)
+        if len(self.item_list) >= 5 and self.end_location >= 1500:
+            self.shorten_timeline()
+        self.update_timeline()
+
     def add_item(self, item):
         self.item_list.append(item)
         self.num_of_item = len(self.item_list)
+        if len(self.item_list) > 5 :
+            self.extend_timeline()
         self.update_timeline()
 
     def update_timeline(self):
-        if len(self.item_list) > 5 :
-            self.extend_timeline()
         self.make_point_list()
         self.reposition()
 
@@ -268,25 +276,20 @@ class Timeline(QGraphicsPathItem):
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
         dispatcher.send("order changed", parent_act=self.scene().current_activity)
+
     def extend_timeline(self):
         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
         self.make_path()
         self.update()
         self.scene().update()
+
     def shorten_timeline(self):
-        self.end_location = self.end_location-self.length/(len(self.item_list)+1)
+        self.end_location = self.end_location-self.length/(len(self.item_list))
         self.make_path()
         self.update()
         self.scene().update()
-    def remove_item(self, item):
-        if item in self.item_list:
-            self.item_list.remove(item)
-        if len(self.item_list) <= 5 and self.end_location > 1500:
-            self.end_location = 1500
-            self.make_path()
-            self.update()
-            self.scene().update()
-        self.update_timeline()
+
+
     def connectPath(self, added_path):
         self.path.connectPath(added_path)
         self.update()
@@ -319,8 +322,6 @@ class DiagramScene(QGraphicsScene):
         else:
             activity_type = orb.select("ActivityType", name="Event")
 
-        next_id = ascii_uppercase[self.next_idx]
-        self.next_idx += 1
         activity = clone("Activity", activity_type = activity_type)
         # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
