@@ -25,7 +25,7 @@ from pangalactic.node.dialogs     import Viewer3DDialog
 from pangalactic.node.diagrams.shapes import BlockLabel
 
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.utils       import clone, extract_mime_data
+from pangalactic.node.utils       import clone
 
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
@@ -156,13 +156,12 @@ class EventBlock(QGraphicsPolygonItem):
                                      triggered=self.delete_item)
 
     def delete_item(self):
-        self.scene().timeline.remove_item(self)
-        self.scene().removeItem(self)
-        oid = self.activity.oid
         acu = self.activity.where_used[0]
         parent_act = acu.assembly
-        orb.delete([self.activity, acu])
-        dispatcher.send("removed activity", parent_act=self.parent_activity)
+        orb.delete([self.activity])
+        self.scene().timeline.remove_item(self)
+        self.scene().removeItem(self)
+        dispatcher.send("removed activity", parent_act=parent_act)
 
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)

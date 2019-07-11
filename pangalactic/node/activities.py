@@ -42,6 +42,7 @@ class ActivityTables(QMainWindow):
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         dispatcher.connect(self.on_activity_added, 'new activity')
+        dispatcher.connect(self.on_activity_modified, 'modified activity')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
@@ -58,6 +59,7 @@ class ActivityTables(QMainWindow):
         self.main_widget = QWidget()
         self.main_layout = QVBoxLayout()
         self.main_widget.setLayout(self.main_layout)
+        self.setCentralWidget(self.main_widget)
         self.title = NameLabel(getattr(self.subject, 'name', 'No Parent Activity'))
         self.title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
@@ -66,8 +68,14 @@ class ActivityTables(QMainWindow):
                               getattr(self.subject, 'components', [])]
         self.set_table(initial_activities)
 
-    def set_title(self, title_text):
-        self.title.setText(title_text)
+    def set_title(self, activity):
+        if getattr(activity, 'activity_type', None):
+            a_type = activity.activity_type.name
+            txt = 'Components of {} "{}"'.format(a_type, activity.id)
+        else:
+            txt = 'Components of "{}"'.format(getattr(activity, 'id',
+                                                      'unidentified activity'))
+        self.title.setText(txt)
 
     def set_table(self, objs):
         new_table = ObjectTableView(objs)
@@ -75,9 +83,11 @@ class ActivityTables(QMainWindow):
                                 QSizePolicy.Preferred)
         if getattr(self, 'table', None):
             self.main_layout.removeWidget(self.table)
+            self.table.setAttribute(Qt.WA_DeleteOnClose)
+            self.table.parent = None
             self.table.close()
+            self.table = None
         self.main_layout.addWidget(new_table, stretch=1)
-        self.setCentralWidget(self.main_widget)
         self.table = new_table
 
     def init_toolbar(self):
@@ -111,27 +121,33 @@ class ActivityTables(QMainWindow):
             return QSize(*self.preferred_size)
         return QSize(900, 800)
 
-    def on_activity_added(self, parent_act=None):
-        # if acu:
-        #     assembly_activity_name = getattr(acu.assembly, 'name',
-        #                                      'Other Unnamed Activity')
-        #     self.set_title(assembly_activity_name)
-        self.statusbar.showMessage('Activity Added!')
+    def on_activity_modified(self, activity=None):
+        if activity:
+            parent_act = getattr(activity.where_used[0], 'assembly', None)
+            if parent_act:
+                self.on_activity_added(parent_act=parent_act, modified=True)
+
+    def on_activity_added(self, parent_act=None, modified=False):
+        if modified:
+            self.statusbar.showMessage('Activity Modified!')
+        else:
+            self.statusbar.showMessage('Activity Added!')
         # : "{}" added in "{}"'.format(
         #                            getattr(act, 'id', '[unnamed activity]'),
         #                            assembly_activity_name))
         #activities = [acu.component for acu in acu.assembly.components]
         activities = [act.component for act in parent_act.components]
         self.set_table(activities)
+        self.set_title(parent_act)
 
     def on_activity_removed(self, parent_act=None):
         #msg = 'Activity with oid "{}" '.format(act_oid)
         #msg += 'removed from "{}"'.format(getattr(parent_act, 'id',
                                          # '[parent id unknown]'))
         self.statusbar.showMessage('Activity Removed!')
-
         activities = [act.component for act in parent_act.components]
         self.set_table(activities)
+        self.set_title(parent_act)
 
     def on_order_changed(self, parent_act=None):
         self.statusbar.showMessage('Order Updated!')
