@@ -89,8 +89,8 @@ def get_model_path(model):
 
 class EventBlock(QGraphicsPolygonItem):
     def __init__(self, act_type, activity=None, parent_activity=None, style=None,
-                 editable=False, port_spacing=0):
-        super(EventBlock, self).__init__()
+                 editable=False, port_spacing=0,parent=None):
+        super(EventBlock, self).__init__(parent)
         """
         Initialize Block.
 
@@ -173,17 +173,26 @@ class EventBlock(QGraphicsPolygonItem):
         #         acu = orb.select("Acu", assembly=self.scene().current_activity, component=self.activity)
         #         ref_des = acu.reference_designator
         #         print("reference designator for this item:", ref_des)
-
         return value
+        # print(change)
+    # def dragMoveEvent(self, event):
+    #     print("dragMoveEvent")
+    #     # if change == QGraphicsItem.ItemPositionHasChanged:
+    #     self.setPos(event.pos().x(), 250)
+    #     # if self.scene() != None:
+    #     self.scene().timeline.reposition()
+    #     # if change ==  QGraphicsItem.ItemPositionChange:
+    #     #     super(EventBlock, self).itemChange(change, value)
+    #     super(EventBlock, self).dragMoveEvent(event)
+    #     self.scene().update()
 
-
+    # def mouseMoveEvent(self, event):
+    #     super(EventBlock, self).mouseMoveEvent(event)
+    #     print("mousemove")
     def mouseReleaseEvent(self, event):
         super(EventBlock, self).mouseReleaseEvent(event)
         if (event.button() == Qt.LeftButton):
-            if self.shape == "Triangle":
-                self.setPos(event.scenePos().x(), 250)
-            else:
-                self.setPos(event.scenePos().x(), 250)
+            self.setPos(event.scenePos().x(), 250)
             self.scene().timeline.reposition()
 
     def collides_with_timeline(self):
@@ -268,14 +277,22 @@ class Timeline(QGraphicsPathItem):
 
     def reposition(self):
         parent_act = self.scene().current_activity
+        item_list_copy = self.item_list[:]
         self.item_list.sort(key=lambda x: x.scenePos().x())
+        same = True
+        for item in self.item_list:
+            if self.item_list.index(item) != item_list_copy.index(item):
+                same = False
+
         for i,item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
             acu = orb.select("Acu", assembly=parent_act, component=item.activity)
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
-        dispatcher.send("order changed", parent_act=self.scene().current_activity)
-
+        if not same:
+            # print("sending signal")
+            dispatcher.send("order changed", parent_act=self.scene().current_activity)
+        self.update()
     def extend_timeline(self):
         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
         self.make_path()
@@ -313,8 +330,8 @@ class DiagramScene(QGraphicsScene):
         orb.save([acu])
         item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.current_activity)
         item.setPos(event.scenePos())
-        self.timeline.add_item(item)
         self.addItem(item)
+        self.timeline.add_item(item)
         dispatcher.send("new activity", parent_act=self.current_activity)
         self.update()
 
@@ -567,6 +584,7 @@ class ConOpsModeler(QMainWindow):
             new_scene = DiagramScene(self, previous_activity)
             self.set_new_view(new_scene, current_activity=previous_activity)
             self.show_history()
+            dispatcher.send("go back", obj=previous_activity)
         except:
             pass
     def set_subject_from_diagram_drill_down(self, obj=None):

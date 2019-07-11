@@ -47,7 +47,7 @@ class ActivityTables(QMainWindow):
         dispatcher.connect(self.on_activity_removed, 'removed activity')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
-        dispatcher.connect(self.on_drill_up, 'drill up')
+        dispatcher.connect(self.on_drill_up, 'go back')
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
