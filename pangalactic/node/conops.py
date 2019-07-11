@@ -4,7 +4,6 @@
 import os
 from collections import namedtuple
 from urllib.parse    import urlparse
-from string import ascii_uppercase
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
@@ -140,7 +139,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def id_changed_handler(self, activity=None):
         if activity is self.activity:
-            self.block_label.setHtml(self.activity.id)
+            self.block_label.set_text(self.activity.id)
 
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self)
@@ -168,11 +167,12 @@ class EventBlock(QGraphicsPolygonItem):
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
         # self.update_position()
-
-        if change ==  QGraphicsItem.ItemSelectedHasChanged:
-            if value == True:
-                acu = orb.select("Acu", assembly=self.scene().current_activity, component=self.activity)
-                ref_des = acu.reference_designator
+        #
+        # if change ==  QGraphicsItem.ItemSelectedHasChanged:
+        #     if value == True:
+        #         acu = orb.select("Acu", assembly=self.scene().current_activity, component=self.activity)
+        #         ref_des = acu.reference_designator
+        #         print("reference designator for this item:", ref_des)
 
         return value
 
@@ -211,6 +211,7 @@ class Template(QGraphicsPathItem):
         self.path = QPainterPath(QPoint(0, -200))
         self.path.arcTo(QRectF(-200,-200,400,400), 90, -360)
         self.setPath(self.path)
+
 class Timeline(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
@@ -232,8 +233,6 @@ class Timeline(QGraphicsPathItem):
         self.circle_length = self.path.length()
         self.path.arcTo(QRectF(self.end_location, 200, 100,100), 180, 360)
         self.setPath(self.path)
-    def item_relocated_handler(self):
-        print("")
 
     def remove_item(self, item):
         if item in self.item_list:
@@ -289,27 +288,13 @@ class Timeline(QGraphicsPathItem):
         self.update()
         self.scene().update()
 
-
-    def connectPath(self, added_path):
-        self.path.connectPath(added_path)
-        self.update()
-
-    def insertPath(self, new_path, point):
-        # new_path.setPath(new_path.path)
-        new_path.setPos(point)
-        self.path.connectPath(new_path.path)
-        self.setPath(self.path)
-        print("insertPath position", new_path.pos())
-
-
 class DiagramScene(QGraphicsScene):
     def __init__(self, parent, current_activity=None):
         super(DiagramScene, self).__init__(parent)
         self.current_activity = current_activity
-        self.val = 10
         self.timeline = Timeline(self)
         self.addItem(self.timeline)
-        self.next_idx = 0
+
     def mousePressEvent(self, mouseEvent):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
 
@@ -418,14 +403,13 @@ class ConOpsModeler(QMainWindow):
 #-----------------------------------------------------------#
         self.createLibrary()
         self.scene = DiagramScene(self, self.temp_activity)
+        self.history = []
+        self.current_viewing_activity = self.temp_activity
         self.set_new_view(self.scene, current_activity=self.temp_activity)
 
         self._init_ui()
         #------------lisening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
-        self.history = []
-        self.history.append(self.temp_activity)
-        self.current_viewing_activity = self.temp_activity
 
     def createLibrary(self):
         '''create the shape library'''
@@ -488,6 +472,7 @@ class ConOpsModeler(QMainWindow):
                                     tip="Display External Diagram Window")
         if not self.external:
             self.toolbar.addAction(self.external_window_action)
+
         #create and add scene scale menu
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
@@ -508,7 +493,7 @@ class ConOpsModeler(QMainWindow):
             action.setIcon(QIcon(icon_path))
         if tip is not None:
             action.setToolTip(tip)
-            action.setStatusTip(tip)
+            # action.setStatusTip(tip)
         if slot is not None:
             action.triggered.connect(slot)
         if checkable:
@@ -530,14 +515,12 @@ class ConOpsModeler(QMainWindow):
         new_scene = DiagramScene(self, current_activity=obj.activity)
         self.set_new_view(new_scene, current_activity=obj.activity)
         self.current_viewing_activity = obj.activity
-        # print("before append", len(self.history))
-        previous = obj.scene().current_activity
-        # print("type of previous:", type(previous))
-        self.history.append(previous)
-        # print("after append", len(self.history))
 
+        previous = obj.scene().current_activity
+        self.history.append(previous)
+        self.show_history()
     def set_new_view(self, scene=None, current_activity=None):
-        # print("set_new_view")
+
         current_activity = current_activity or self.temp_activity
         self.scene = scene
         self.view = DiagramView(self.scene)
@@ -555,23 +538,11 @@ class ConOpsModeler(QMainWindow):
         self.sceneScaleChanged("50%")
 
         if current_activity != None and len(current_activity.components) > 0:
-            # current_activity.components.sort(key=lambda acu:acu.reference_designator)
-            # acu_list = list(current_activity.components)
-            # temp = {}
             all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
-
             try:
                 all_acus.sort()
             except:
                 pass
-            #     print('*** acu sort failed ***')
-            #     print(all_acus)
-            # print('* acu sort succeeded *')
-            # print(all_acus)
-            # for acu in acu_list:
-            #     activity = acu.component
-            #     ref_des = acu.reference_designator
-            #     temp[int(ref_des)] = activity
             item_list=[]
             for acu_tuple in all_acus:
                 acu = acu_tuple[1]
@@ -583,17 +554,19 @@ class ConOpsModeler(QMainWindow):
             self.scene.timeline.populate(item_list)
         self.view.show()
 
-    def go_back(self):
-        # print("go back clicked")
+    def show_history(self):
+        history_string = ""
+        for activity in self.history:
+            id = activity.id or "NA"
+            history_string += id + ">"
+            self.statusbar.showMessage(history_string)
 
-        # print("before pop", len(self.history))
+    def go_back(self):
         try:
             previous_activity = self.history.pop()
-            # print("after pop", len(self.history))
             new_scene = DiagramScene(self, previous_activity)
             self.set_new_view(new_scene, current_activity=previous_activity)
-            # except IndexError:
-            #     print("IndexError, length of self.history:", len(self.history))
+            self.show_history()
         except:
             pass
     def set_subject_from_diagram_drill_down(self, obj=None):
