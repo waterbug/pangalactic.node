@@ -1252,26 +1252,41 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         color (str):  color of font (see QTCOLORS)
         editable (bool):  whether the text should be editable
     """
-    def __init__(self, text, parent,
-                 font=QtGui.QFont("Arial", POINT_SIZE, weight=75),
-                 x=None, y=None, color=None):
+    def __init__(self, text, parent, font_name=None, point_size=None,
+                 weight=None, color=None, x=None, y=None):
         super(BlockLabel, self).__init__(parent=parent)
+        self.parent = parent
         text_option = QtGui.QTextOption()
         text_option.setWrapMode(QtGui.QTextOption.WordWrap)
         self.document().setDefaultTextOption(text_option)
+        self.x = x
+        self.y = y
+        self.set_text(text, color=color, font_name=font_name,
+                      point_size=point_size, weight=weight)
+
+    def set_text(self, text, font_name=None, point_size=None,
+                 weight=None, color=None):
         self.setHtml('<h2>{}</h2>'.format(text))
         if color in QTCOLORS:
             self.setDefaultTextColor(getattr(Qt, color))
-        self.setTextWidth(parent.boundingRect().width() - 50)
-        # self.adjustSize()
-        if x is None:
-            w = self.boundingRect().width()
-            x = parent.boundingRect().center().x() - w/2
-        if y is None:
-            h = self.boundingRect().height()
-            y = parent.boundingRect().center().y() - h/2
-        self.setPos(x, y)
+        self.font_name = font_name or getattr(self, 'font_name', "Arial")
+        self.point_size = point_size or getattr(self, 'point_size', POINT_SIZE)
+        self.weight = weight or getattr(self, 'weight', 75)
+        font = QtGui.QFont(self.font_name, self.point_size, weight=self.weight)
         self.setFont(font)
+        self.adjustSize()
+        self.setTextWidth(self.parent.boundingRect().width() - 50)
+        if self.x is None:
+            w = self.boundingRect().width()
+            x = self.parent.boundingRect().center().x() - w/2
+        else:
+            x = self.x
+        if self.y is None:
+            h = self.boundingRect().height()
+            y = self.parent.boundingRect().center().y() - h/2
+        else:
+            y = self.y
+        self.setPos(x, y)
 
 
 class TextLabel(QtWidgets.QGraphicsTextItem):
