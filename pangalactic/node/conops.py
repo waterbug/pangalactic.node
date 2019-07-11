@@ -115,7 +115,6 @@ class EventBlock(QGraphicsPolygonItem):
         path = QPainterPath()
         self.activity = activity
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
-        print(self.activity.id)
         self.act_type = act_type
         #---draw blocks depending on the 'shape' string passed in
         op_type = orb.select("ActivityType", name="Operation")
@@ -141,7 +140,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def id_changed_handler(self, activity=None):
         if activity is self.activity:
-            self.block_label.setPlainText(self.activity.id)
+            self.block_label.setHtml(self.activity.id)
 
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self)
@@ -149,12 +148,15 @@ class EventBlock(QGraphicsPolygonItem):
     def contextMenuEvent(self, event):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
+        self.menu.addAction(self.edit_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item",
                                      triggered=self.delete_item)
-
+        self.edit_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
+    def edit_activity(self):
+        self.scene().edit_parameters(self.activity)
     def delete_item(self):
         acu = self.activity.where_used[0]
         parent_act = acu.assembly
@@ -171,7 +173,6 @@ class EventBlock(QGraphicsPolygonItem):
             if value == True:
                 acu = orb.select("Acu", assembly=self.scene().current_activity, component=self.activity)
                 ref_des = acu.reference_designator
-                print("reference designator for this item:", ref_des)
 
         return value
 
@@ -210,8 +211,6 @@ class Template(QGraphicsPathItem):
         self.path = QPainterPath(QPoint(0, -200))
         self.path.arcTo(QRectF(-200,-200,400,400), 90, -360)
         self.setPath(self.path)
-        # self.setPos(position)
-        # print(self.scenePos())
 class Timeline(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
@@ -226,6 +225,7 @@ class Timeline(QGraphicsPathItem):
         self.num_of_item = len(scene.current_activity.components)
         self.make_point_list()
         self.current_positions = []
+
     def make_path(self):
         self.path =  QPainterPath(QPointF(100,250))
         self.path.arcTo(QRectF(0, 200 ,100,100), 0, 360)
@@ -235,14 +235,22 @@ class Timeline(QGraphicsPathItem):
     def item_relocated_handler(self):
         print("")
 
+    def remove_item(self, item):
+        if item in self.item_list:
+            self.item_list.remove(item)
+            self.num_of_item = len(self.item_list)
+        if len(self.item_list) >= 5 and self.end_location >= 1500:
+            self.shorten_timeline()
+        self.update_timeline()
+
     def add_item(self, item):
         self.item_list.append(item)
         self.num_of_item = len(self.item_list)
+        if len(self.item_list) > 5 :
+            self.extend_timeline()
         self.update_timeline()
 
     def update_timeline(self):
-        if len(self.item_list) > 5 :
-            self.extend_timeline()
         self.make_point_list()
         self.reposition()
 
@@ -268,25 +276,20 @@ class Timeline(QGraphicsPathItem):
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
         dispatcher.send("order changed", parent_act=self.scene().current_activity)
+
     def extend_timeline(self):
         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
         self.make_path()
         self.update()
         self.scene().update()
+
     def shorten_timeline(self):
-        self.end_location = self.end_location-self.length/(len(self.item_list)+1)
+        self.end_location = self.end_location-self.length/(len(self.item_list))
         self.make_path()
         self.update()
         self.scene().update()
-    def remove_item(self, item):
-        if item in self.item_list:
-            self.item_list.remove(item)
-        if len(self.item_list) <= 5 and self.end_location > 1500:
-            self.end_location = 1500
-            self.make_path()
-            self.update()
-            self.scene().update()
-        self.update_timeline()
+
+
     def connectPath(self, added_path):
         self.path.connectPath(added_path)
         self.update()
@@ -319,31 +322,23 @@ class DiagramScene(QGraphicsScene):
         else:
             activity_type = orb.select("ActivityType", name="Event")
 
-        next_id = ascii_uppercase[self.next_idx]
-        self.next_idx += 1
-        self.create_activity(activity_type)
-
-    def create_block(self, activity):
-        print(activity.id)
+        activity = clone("Activity", activity_type = activity_type)
+        # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu])
         item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.current_activity)
-        # item.setPos(event.scenePos())
+        item.setPos(event.scenePos())
         self.timeline.add_item(item)
         self.addItem(item)
-
         dispatcher.send("new activity", parent_act=self.current_activity)
         self.update()
 
-    def create_activity(self, activity_type):
-        activity = clone("Activity", activity_type = activity_type)
+    def edit_parameters(self, activity):
         view = ['id', 'name', 'description']
         panels = ['main']
         pxo = PgxnObject(activity, edit_mode=True, view=view,
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
-        self.create_block(activity)
-
 
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
