@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
                              QGraphicsView, QGridLayout, QMenu, QToolBox,
-                             QPushButton, QGraphicsPathItem)
+                             QPushButton, QGraphicsPathItem, QVBoxLayout)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -24,6 +24,7 @@ from pangalactic.node.activities  import ActivityTables
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
+from pangalactic.node.widgets    import NameLabel
 
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
@@ -228,8 +229,7 @@ class Timeline(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
         super(Timeline, self).__init__(parent)
-        self.setFlags(QGraphicsItem.ItemIsSelectable |
-                      QGraphicsItem.ItemIsMovable |
+        self.setFlags(QGraphicsItem.ItemIsSelectable|
                       QGraphicsItem.ItemIsFocusable)
         self.item_list = []
         self.end_location = 1500
@@ -326,9 +326,9 @@ class DiagramScene(QGraphicsScene):
             activity_type = orb.select("ActivityType", name="Operation")
         else:
             activity_type = orb.select("ActivityType", name="Event")
-
-        activity = clone("Activity", activity_type = activity_type)
-        # self.edit_parameters(activity)
+        project = orb.get(state.get("project"))
+        activity = clone("Activity", activity_type = activity_type, owner=project)
+        self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu])
         item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.current_activity)
@@ -438,11 +438,12 @@ class ConOpsModeler(QMainWindow):
             self.subject_activity = mission
         else:
             self.subject_activity = clone("Activity", id="temp", name="temp")
+        self.project = project
+
         #-----------------------------------------------------------#
         self.createLibrary()
         self.scene = DiagramScene(self, self.subject_activity)
         self.history = []
-        self.current_viewing_activity = self.subject_activity
         self._init_ui()
         self.set_new_view(self.scene, current_activity=self.subject_activity)
         #------------listening for signals------------#
@@ -475,7 +476,7 @@ class ConOpsModeler(QMainWindow):
         itemWidget1.setLayout(layout1)
 
         self.library = QToolBox()
-        self.library.addItem(itemWidget, "Shapes")
+        self.library.addItem(itemWidget, "Activities")
         self.library.addItem(itemWidget1, "Template")
 
     def resizeEvent(self, event):
@@ -488,6 +489,7 @@ class ConOpsModeler(QMainWindow):
         self.init_toolbar()
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
+
         # Initialize a statusbar for the window
         self.statusbar = self.statusBar()
         # self.statusbar.showMessage("Models, woo!")
@@ -558,7 +560,7 @@ class ConOpsModeler(QMainWindow):
         dispatcher.send("drill down", obj=obj.activity)
         new_scene = DiagramScene(self, current_activity=obj.activity)
         self.set_new_view(new_scene, current_activity=obj.activity)
-        self.current_viewing_activity = obj.activity
+        self.subject_activity = obj.activity
         previous = obj.scene().current_activity
         self.history.append(previous)
         self.show_history()
@@ -570,20 +572,26 @@ class ConOpsModeler(QMainWindow):
         and go_back() (navigating back thru history).
         """
         self.show_history()
-        current_activity = current_activity or self.subject_activity
-        self.current_viewing_activity = current_activity
+        self.subject_activity = current_activity
         self.scene = scene
         self.view = DiagramView(self.scene)
         self.setMinimumSize(1000,500)
         self.view.setSizePolicy(QSizePolicy.MinimumExpanding,
                                 QSizePolicy.MinimumExpanding)
         self.view.setScene(self.scene)
-
+        outer_layout = QVBoxLayout()
         layout = QHBoxLayout()
+        self.title = NameLabel(getattr(self.subject_activity, 'id', 'NA'))
+        self.title.setStyleSheet(
+                            'font-weight: bold; font-size: 18px; color: purple')
+        outer_layout.addWidget(self.title)
+
         layout.addWidget(self.view)
         layout.addWidget(self.library)
+        outer_layout.addLayout(layout)
+
         widget = QWidget()
-        widget.setLayout(layout)
+        widget.setLayout(outer_layout)
         self.setCentralWidget(widget)
         self.sceneScaleChanged("50%")
 
@@ -608,9 +616,9 @@ class ConOpsModeler(QMainWindow):
         history_string = ""
         for activity in self.history:
             id = activity.id or "NA"
-            history_string += id + ">"
-        history_string += self.current_viewing_activity.id or "NA"
-        history_string+= ">"
+            history_string += id + " >"
+        history_string += self.subject_activity.id or "NA"
+        history_string+= " >"
         self.statusbar.showMessage(history_string)
 
     def go_back(self):
