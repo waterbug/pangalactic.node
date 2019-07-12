@@ -421,22 +421,20 @@ class ConOpsModeler(QMainWindow):
         self.model_files = {}
         project = orb.get(state.get('project'))
         if project:
-            project_mission = orb.select('ProjectSystemUsage', project=project,
-                                         system_role='Mission')
-            if project_mission:
-                mission = project_mission.system
-            else:
+            mission = orb.select('Mission', owner=project)
+
+            if not mission:
                 mission_id = '_'.join([project.id, 'mission'])
                 mission_name = ' '.join([project.name, 'Mission'])
                 mission = clone('Mission', owner=project, id=mission_id,
                                 name=mission_name)
-                psu_id = '_'.join([mission.id, '_of_', project.id])
-                psu_name = '_'.join([mission.name, ' of ', project.id,
-                                     ' Project'])
-                project_mission = clone('ProjectSystemUsage', id=psu_id,
-                                        name=psu_name, project=project,
-                                        system=mission, system_role='Mission')
-                orb.save([mission, project_mission])
+                # psu_id = '_'.join([mission.id, '_of_', project.id])
+                # psu_name = '_'.join([mission.name, ' of ', project.id,
+                #                      ' Project'])
+                # project_mission = clone('ProjectSystemUsage', id=psu_id,
+                #                         name=psu_name, project=project,
+                #                         system=mission, system_role='Mission')
+                orb.save([mission])
             self.subject_activity = mission
         else:
             self.subject_activity = clone("Activity", id="temp", name="temp")
@@ -445,8 +443,8 @@ class ConOpsModeler(QMainWindow):
         self.scene = DiagramScene(self, self.subject_activity)
         self.history = []
         self.current_viewing_activity = self.subject_activity
-        self.set_new_view(self.scene, current_activity=self.subject_activity)
         self._init_ui()
+        self.set_new_view(self.scene, current_activity=self.subject_activity)
         #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
         # display activity tables
@@ -571,7 +569,9 @@ class ConOpsModeler(QMainWindow):
         double_clicked_handler() (expanding an activity, aka "drilling down"),
         and go_back() (navigating back thru history).
         """
+        self.show_history()
         current_activity = current_activity or self.subject_activity
+        self.current_viewing_activity = current_activity
         self.scene = scene
         self.view = DiagramView(self.scene)
         self.setMinimumSize(1000,500)
@@ -609,7 +609,9 @@ class ConOpsModeler(QMainWindow):
         for activity in self.history:
             id = activity.id or "NA"
             history_string += id + ">"
-            self.statusbar.showMessage(history_string)
+        history_string += self.current_viewing_activity.id or "NA"
+        history_string+= ">"
+        self.statusbar.showMessage(history_string)
 
     def go_back(self):
         try:
@@ -692,4 +694,3 @@ if __name__ == '__main__':
     mw = ConOpsModeler(external=True)
     mw.show()
     sys.exit(app.exec_())
-
