@@ -457,27 +457,21 @@ class ConOpsModeler(QMainWindow):
         Create the library of operation/event block types.
         """
         layout = QGridLayout()
-        b1 = ToolButton("Operation")
-        b1.setData("Operation")
-        b2 = ToolButton("Event")
-        b2.setData("Event")
+        op_button = ToolButton("Operation")
+        op_button.setData("Operation")
+        ev_button = ToolButton("Event")
+        ev_button.setData("Event")
+        cyc_button = ToolButton("Cycle")
+        cyc_button.setData("Cycle")
 
-        layout.addWidget(b1)
-        layout.addWidget(b2)
+        layout.addWidget(op_button)
+        layout.addWidget(ev_button)
+        layout.addWidget(cyc_button)
         itemWidget = QWidget()
         itemWidget.setLayout(layout)
 
-        layout1 = QGridLayout()
-        temp_button = ToolButton("Cycle")
-        temp_button.setData("Cycle")
-
-        layout1.addWidget(temp_button)
-        itemWidget1 = QWidget()
-        itemWidget1.setLayout(layout1)
-
         self.library = QToolBox()
         self.library.addItem(itemWidget, "Activities")
-        self.library.addItem(itemWidget1, "Template")
 
     def resizeEvent(self, event):
         state['model_window_size'] = (self.width(), self.height())
@@ -505,14 +499,23 @@ class ConOpsModeler(QMainWindow):
                                     "Go Back",
                                     slot=self.go_back,
                                     icon="left_arrow",
-                                    tip="Back to Previous Model")
+                                    tip="Back to Previous Page")
         self.toolbar.addAction(self.back_action)
         self.clear_activities_action = self.create_action(
                                     "clear activities",
                                     slot=self.clear_activities,
                                     icon="left_arrow",
-                                    tip="clear activities")
+                                    tip="delete activities on this page")
         self.toolbar.addAction(self.clear_activities_action)
+        # self.start_over_action = self.create_action(
+        #                             "start over",
+        #                             slot=self.start_over,
+        #                             icon="left_arrow",
+        #                             tip="Clear All Activities in This Project")
+        # self.toolbar.addAction(self.start_over)
+
+
+
         # self.external_window_action = self.create_action(
         #                             "Display external diagram window ...",
         #                             slot=self.display_external_window,
