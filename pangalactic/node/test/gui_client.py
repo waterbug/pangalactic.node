@@ -312,7 +312,7 @@ class MainWindow(QMainWindow):
         rpc.addErrback(self.on_failure)
 
     def start_conops(self):
-        mw = ConOpsModeler(preferred_size=(2000, 1000), parent=self)
+        mw = ConOpsModeler(parent=self)
         mw.show()
 
     def start_act_tabs(self):

@@ -50,6 +50,7 @@ from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_xlsx
 from pangalactic.node.admin           import AdminDialog
 from pangalactic.node.buttons         import ButtonLabel, MenuButton
+from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dashboards      import SystemDashboard
 from pangalactic.node.dialogs         import (CloakingDialog,
                                               # CondaDialog, ## deprecated
@@ -1231,6 +1232,13 @@ class Main(QtWidgets.QMainWindow):
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
+        conops_tip_text = "Model Concept of Operations for the Current Mission"
+        self.conops_modeler_action = self.create_action(
+                                "ConOps Modeler",
+                                slot=self.display_conops_modeler,
+                                icon='tools',
+                                tip=conops_tip_text,
+                                modes=['system'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         self.product_lib_action = self.create_action(
                                     hw_lib_title,
@@ -1722,7 +1730,8 @@ class Main(QtWidgets.QMainWindow):
                                 self.parameter_lib_action,
                                 # self.display_disciplines_action,
                                 self.display_product_types_action,
-                                self.reqts_manager_action
+                                self.reqts_manager_action,
+                                self.conops_modeler_action
                                 # self.compare_items_action
                                 ]
         system_tools_button = MenuButton(QtGui.QIcon(system_tools_icon_path),
@@ -3115,6 +3124,10 @@ class Main(QtWidgets.QMainWindow):
         h = self.geometry().height()
         dlg = RequirementManager(project=proj, width=w, height=h, parent=self)
         dlg.show()
+
+    def display_conops_modeler(self):
+        win = ConOpsModeler(parent=self)
+        win.show()
 
     # def display_disciplines(self):
         # cname = 'Discipline'
