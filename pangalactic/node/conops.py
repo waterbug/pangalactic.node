@@ -328,7 +328,7 @@ class DiagramScene(QGraphicsScene):
             activity_type = orb.select("ActivityType", name="Event")
         project = orb.get(state.get("project"))
         activity = clone("Activity", activity_type = activity_type, owner=project)
-        self.edit_parameters(activity)
+        # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu])
         item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.current_activity)
@@ -507,14 +507,19 @@ class ConOpsModeler(QMainWindow):
                                     icon="left_arrow",
                                     tip="Back to Previous Model")
         self.toolbar.addAction(self.back_action)
-
-        self.external_window_action = self.create_action(
-                                    "Display external diagram window ...",
-                                    slot=self.display_external_window,
-                                    icon="system",
-                                    tip="Display External Diagram Window")
-        if not self.external:
-            self.toolbar.addAction(self.external_window_action)
+        self.clear_activities_action = self.create_action(
+                                    "clear activities",
+                                    slot=self.clear_activities,
+                                    icon="left_arrow",
+                                    tip="clear activities")
+        self.toolbar.addAction(self.clear_activities_action)
+        # self.external_window_action = self.create_action(
+        #                             "Display external diagram window ...",
+        #                             slot=self.display_external_window,
+        #                             icon="system",
+        #                             tip="Display External Diagram Window")
+        # if not self.external:
+        #     self.toolbar.addAction(self.external_window_action)
 
         #create and add scene scale menu
         self.scene_scale_select = QComboBox()
@@ -524,6 +529,14 @@ class ConOpsModeler(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
+
+    def clear_activities(self):
+        print("clear")
+        children = [acu.component for acu in self.subject_activity.components]
+        orb.delete(children)
+        new_scene = DiagramScene(self, current_activity=self.subject_activity)
+        self.set_new_view(new_scene, current_activity=self.subject_activity)
+        dispatcher.send("removed activity", parent_act=self.subject_activity)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
