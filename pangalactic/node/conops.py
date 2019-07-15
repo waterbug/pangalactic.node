@@ -110,17 +110,17 @@ class EventBlock(QGraphicsPolygonItem):
                       QGraphicsItem.ItemIsFocusable|
                       QGraphicsItem.ItemSendsGeometryChanges)
         self.style = style or Qt.SolidLine
-        self.setBrush(Qt.white)
-        self.create_actions()
-        path = QPainterPath()
         self.activity = activity
+        self.setBrush(Qt.white)
+        path = QPainterPath()
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
         self.act_type = act_type
         #---draw blocks depending on the 'shape' string passed in
         op_type = orb.select("ActivityType", name="Operation")
         ev_type = orb.select("ActivityType", name="Event")
-        self.parent_activity = parent_activity
+        self.parent_activity = self.activity.where_used[0].assembly
         dispatcher.connect(self.id_changed_handler, "modified activity")
+        self.create_actions()
 
         if self.activity.activity_type is op_type:
             self.myPolygon = QPolygonF([
@@ -160,19 +160,10 @@ class EventBlock(QGraphicsPolygonItem):
         self.scene().edit_parameters(self.activity)
 
     def delete_item(self):
-        # acu = self.activity.where_used[0]
-        # parent_act = acu.assembly
-        # orb.delete([self.activity])
-        # self.scene().timeline.remove_item(self)
-        # self.scene().removeItem(self)
-        # dispatcher.send("removed activity", parent_act=parent_act)
-        act = self.activity
-        if len(act.components) > 0:
-            for acu in act.components:
-                acu.component.delete_item()
-        else:
-            orb.delete(act)
-            print("deleted", act.id)
+        self.scene().timeline.remove_item(self)
+        self.scene().removeItem(self)
+        dispatcher.send("removed activity", parent_act=self.parent_activity, act=self.activity )
+
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
         # self.update_position()
@@ -335,7 +326,7 @@ class DiagramScene(QGraphicsScene):
             activity_type = orb.select("ActivityType", name="Event")
         project = orb.get(state.get("project"))
         activity = clone("Activity", activity_type = activity_type, owner=project)
-        # self.edit_parameters(activity)
+        self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu])
         item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.current_activity)
@@ -450,6 +441,7 @@ class ConOpsModeler(QMainWindow):
                           init=True)
         #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
+        dispatcher.connect(self.delete_activity, "removed activity")
         # add left dock
         self.left_dock = QDockWidget()
         self.left_dock.setObjectName('LeftDock')
@@ -549,8 +541,17 @@ class ConOpsModeler(QMainWindow):
         orb.delete(children)
         new_scene = DiagramScene(self, current_activity=self.subject_activity)
         self.set_new_view(new_scene, current_activity=self.subject_activity)
-        dispatcher.send("removed activity", parent_act=self.subject_activity)
+        # dispatcher.send("removed activity", parent_act=self.subject_activity)
 
+    def delete_activity(self,act=None):
+        if len(act.components) <= 0:
+            orb.delete([act])
+            print("deleted", act.id)
+        elif len(act.components) > 0:
+            for acu in act.components:
+                self.delete_activity(act=acu.component)
+            print("deleted", act.id)
+            orb.delete([act])
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QAction(text, self)
