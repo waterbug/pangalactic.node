@@ -62,9 +62,10 @@ class ActivityTables(QMainWindow):
         self.main_layout = QVBoxLayout()
         self.main_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.main_widget)
-        self.title = NameLabel(getattr(self.subject, 'name', 'No Parent Activity'))
+        self.title = NameLabel('temp')
         self.title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
+        self.set_title(self.subject)
         self.main_layout.addWidget(self.title)
         initial_activities = [acu.component for acu in
                               getattr(self.subject, 'components', [])]
@@ -73,10 +74,10 @@ class ActivityTables(QMainWindow):
     def set_title(self, activity):
         if getattr(activity, 'activity_type', None):
             a_type = activity.activity_type.name
-            txt = 'Components of {} "{}"'.format(a_type, activity.id)
+            txt = 'Components of {} {}'.format(a_type, activity.id)
         else:
-            txt = 'Components of "{}"'.format(getattr(activity, 'id',
-                                                      'unidentified activity'))
+            txt = 'Components of {}'.format(getattr(activity, 'id',
+                                                    '[unidentified activity]'))
         self.title.setText(txt)
 
     def set_table(self, objs):

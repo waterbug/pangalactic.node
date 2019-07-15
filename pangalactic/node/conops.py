@@ -8,11 +8,12 @@ from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
 
-from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
-                             QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
-                             QGraphicsPolygonItem, QGraphicsScene,
-                             QGraphicsView, QGridLayout, QMenu, QToolBox,
-                             QPushButton, QGraphicsPathItem, QVBoxLayout)
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
+                             QHBoxLayout, QMainWindow, QSizePolicy, QWidget,
+                             QGraphicsItem, QGraphicsPolygonItem,
+                             QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
+                             QToolBox, QPushButton, QGraphicsPathItem,
+                             QVBoxLayout)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -434,12 +435,6 @@ class ConOpsModeler(QMainWindow):
                 mission_name = ' '.join([project.name, 'Mission'])
                 mission = clone('Mission', owner=project, id=mission_id,
                                 name=mission_name)
-                # psu_id = '_'.join([mission.id, '_of_', project.id])
-                # psu_name = '_'.join([mission.name, ' of ', project.id,
-                #                      ' Project'])
-                # project_mission = clone('ProjectSystemUsage', id=psu_id,
-                #                         name=psu_name, project=project,
-                #                         system=mission, system_role='Mission')
                 orb.save([mission])
             self.subject_activity = mission
         else:
@@ -447,18 +442,28 @@ class ConOpsModeler(QMainWindow):
         self.project = project
 
         #-----------------------------------------------------------#
-        self.createLibrary()
+        self.create_library()
         self.scene = DiagramScene(self, self.subject_activity)
         self.history = []
         self._init_ui()
-        self.set_new_view(self.scene, current_activity=self.subject_activity)
+        self.set_new_view(self.scene, current_activity=self.subject_activity,
+                          init=True)
         #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
+        # add left dock
+        self.left_dock = QDockWidget()
+        self.left_dock.setObjectName('LeftDock')
+        self.left_dock.setFeatures(QDockWidget.DockWidgetFloatable)
+        self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
         # display activity tables
         act = ActivityTables(subject=self.subject_activity, parent=self)
-        act.show()
+        # act.show()
+        self.left_dock.setWidget(act)
+        self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
+        self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
 
-    def createLibrary(self):
+    def create_library(self):
         """
         Create the library of operation/event block types.
         """
@@ -478,6 +483,8 @@ class ConOpsModeler(QMainWindow):
 
         self.library = QToolBox()
         self.library.addItem(itemWidget, "Activities")
+        self.library.setSizePolicy(QSizePolicy.Fixed,
+                                   QSizePolicy.Fixed)
 
     def resizeEvent(self, event):
         state['model_window_size'] = (self.width(), self.height())
@@ -487,9 +494,6 @@ class ConOpsModeler(QMainWindow):
         # set a placeholder for the central widget
         #self.set_placeholder()
         self.init_toolbar()
-        self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
-        self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
-
         # Initialize a statusbar for the window
         self.statusbar = self.statusBar()
         # self.statusbar.showMessage("Models, woo!")
@@ -587,7 +591,7 @@ class ConOpsModeler(QMainWindow):
         self.history.append(previous)
         self.show_history()
 
-    def set_new_view(self, scene=None, current_activity=None):
+    def set_new_view(self, scene=None, current_activity=None, init=False):
         """
         Set a new view and create or recreate a scene.  Used in __init__(),
         double_clicked_handler() (expanding an activity, aka "drilling down"),
@@ -597,7 +601,7 @@ class ConOpsModeler(QMainWindow):
         self.subject_activity = current_activity
         self.scene = scene
         self.view = DiagramView(self.scene)
-        self.setMinimumSize(1000,500)
+        self.setMinimumSize(1000, 500)
         self.view.setSizePolicy(QSizePolicy.MinimumExpanding,
                                 QSizePolicy.MinimumExpanding)
         self.view.setScene(self.scene)
@@ -609,13 +613,21 @@ class ConOpsModeler(QMainWindow):
         outer_layout.addWidget(self.title)
 
         layout.addWidget(self.view)
-        layout.addWidget(self.library)
+        # layout.addWidget(self.library)
         outer_layout.addLayout(layout)
 
         widget = QWidget()
         widget.setLayout(outer_layout)
         self.setCentralWidget(widget)
         self.sceneScaleChanged("50%")
+        if init:
+            # add right dock
+            self.right_dock = QDockWidget()
+            self.right_dock.setObjectName('RightDock')
+            self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
+            self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
+            self.right_dock.setWidget(self.library)
 
         if current_activity != None and len(current_activity.components) > 0:
             all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
