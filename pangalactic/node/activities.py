@@ -4,17 +4,23 @@
 import os
 from louie import dispatcher
 
+from collections import OrderedDict
+
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QMainWindow, QSizePolicy,
-                             QVBoxLayout, QWidget)
+                             QVBoxLayout, QWidget, QTableView)
 from PyQt5.QtGui import QIcon
 
-from pangalactic.core            import state
-from pangalactic.core.utils.meta import get_acu_id, get_acu_name
-from pangalactic.core.uberorb    import orb
-from pangalactic.node.tableviews import ObjectTableView
-from pangalactic.node.utils      import clone
-from pangalactic.node.widgets    import NameLabel
+from pangalactic.core             import state
+from pangalactic.core.parametrics import parameterz
+from pangalactic.core.parametrics import get_pval_as_str
+from pangalactic.core.utils.meta  import get_acu_id, get_acu_name
+from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.meta  import pname_to_header_label
+from pangalactic.node.tableviews  import ObjectTableView
+from pangalactic.node.tablemodels import ODTableModel, ObjectTableModel
+from pangalactic.node.utils       import clone
+from pangalactic.node.widgets     import NameLabel
 
 
 class ActivityTables(QMainWindow):
@@ -62,28 +68,82 @@ class ActivityTables(QMainWindow):
         self.main_layout = QVBoxLayout()
         self.main_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.main_widget)
-        self.title = NameLabel('temp')
+        self.title = NameLabel(getattr(self.subject, 'name', 'No Parent Activity'))
         self.title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
-        self.set_title(self.subject)
         self.main_layout.addWidget(self.title)
-        initial_activities = [acu.component for acu in
-                              getattr(self.subject, 'components', [])]
-        self.set_table(initial_activities)
+        #initial_activities = [acu.component for acu in
+                              # getattr(self.subject, 'components', [])]
+        all_acus = [(acu.reference_designator, acu) for acu in  getattr(self.subject, 'components', [])]
+
+        try:
+            all_acus.sort()
+        except:
+            print(all_acus)
+        activities = [acu_tuple[1].component for acu_tuple in all_acus]
+        self.set_table(activities)
+        #self.sort_and_set_table(activities)
 
     def set_title(self, activity):
         if getattr(activity, 'activity_type', None):
             a_type = activity.activity_type.name
-            txt = 'Components of {} {}'.format(a_type, activity.id)
+            txt = 'Components of {} "{}"'.format(a_type, activity.id)
         else:
-            txt = 'Components of {}'.format(getattr(activity, 'id',
-                                                    '[unidentified activity]'))
+            txt = 'Components of "{}"'.format(getattr(activity, 'id',
+                                                      'unidentified activity'))
         self.title.setText(txt)
 
     def set_table(self, objs):
-        new_table = ObjectTableView(objs)
+        # new_table = ObjectTableView(objs)
+        # table_col = ['id','name','description','designator']
+        # table_headers = dict(id='ID', name='Name',
+        #                    description='Description',
+        #                    designator='Reference\nDesignator',)
+        # self.obj_data = []
+        # for obj_item in objs:
+        #     obj_temp= OrderedDict()
+        #     for col in table_col:
+        #         obj_temp[table_headers[col]] = obj_item[col]
+        #     self.obj_data.append(obj_con)
+
+        obj_od_list = []
+        if objs:
+            for obj in objs:
+                obj_dict = OrderedDict()
+                if obj.oid in parameterz:
+                    obj_params = parameterz[obj.oid]
+                    pids = list(obj_params.keys())
+                    for pid in pids:
+                        val = get_pval_as_str(orb, obj.oid, pid)
+                        obj_dict[obj.oid] = val
+                    obj_od_list.append(obj_dict)
+                else:
+                    print("no parameters found")
+
+        #     self.ods = []
+        #     for pid in self.parameters:
+        #         row_dict = OrderedDict()
+        #         pd = orb.select('ParameterDefinition', id=pid)
+        #         row_dict['Parameter'] = pd.name
+        #         for o in self.objs:
+        #             val = get_pval_as_str(orb, o.oid, pid)
+        #             row_dict[o.oid] = val
+        #         self.ods.append(row_dict)
+
+            self.column_labels = [o.name for o in objs]
+            # [pname_to_header_label(o.name) for o in objs]
+            self.column_labels.insert(0, 'Parameter')
+
+            # self.column_labels = list(obj_od_list[0].keys())
+        # else:
+        #     self.ods = [{0:'no data'}]
+        # new_model = ODTableModel(obj_od_list)
+        # new_table = QTableView()
+        new_table = ObjectTableView(objs) #comment out this row to test parameter table
+        # new_table.setModel(new_model)
         new_table.setSizePolicy(QSizePolicy.Preferred,
                                 QSizePolicy.Preferred)
+        new_table.setAlternatingRowColors(True)
         if getattr(self, 'table', None):
             self.main_layout.removeWidget(self.table)
             self.table.setAttribute(Qt.WA_DeleteOnClose)
