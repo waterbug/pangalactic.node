@@ -94,22 +94,15 @@ class ActivityTables(QMainWindow):
         self.title.setText(txt)
 
     def set_table(self, objs):
-        # new_table = ObjectTableView(objs)
-        # table_col = ['id','name','description','designator']
-        # table_headers = dict(id='ID', name='Name',
-        #                    description='Description',
-        #                    designator='Reference\nDesignator',)
-        # self.obj_data = []
-        # for obj_item in objs:
-        #     obj_temp= OrderedDict()
-        #     for col in table_col:
-        #         obj_temp[table_headers[col]] = obj_item[col]
-        #     self.obj_data.append(obj_con)
-
         obj_od_list = []
         if objs:
             for obj in objs:
                 obj_dict = OrderedDict()
+
+                obj_id = getattr(obj.id, 'id', '')
+                obj_name = getattr(obj.name, 'name', '')
+                obj_description = getattr(obj.description, 'description', '')
+
                 if obj.oid in parameterz:
                     obj_params = parameterz[obj.oid]
                     pids = list(obj_params.keys())
@@ -120,30 +113,14 @@ class ActivityTables(QMainWindow):
                 else:
                     print("no parameters found")
 
-        #     self.ods = []
-        #     for pid in self.parameters:
-        #         row_dict = OrderedDict()
-        #         pd = orb.select('ParameterDefinition', id=pid)
-        #         row_dict['Parameter'] = pd.name
-        #         for o in self.objs:
-        #             val = get_pval_as_str(orb, o.oid, pid)
-        #             row_dict[o.oid] = val
-        #         self.ods.append(row_dict)
-
-            self.column_labels = [o.name for o in objs]
-            # [pname_to_header_label(o.name) for o in objs]
-            self.column_labels.insert(0, 'Parameter')
-
-            # self.column_labels = list(obj_od_list[0].keys())
-        # else:
-        #     self.ods = [{0:'no data'}]
-        # new_model = ODTableModel(obj_od_list)
-        # new_table = QTableView()
-        new_table = ObjectTableView(objs) #comment out this row to test parameter table
-        # new_table.setModel(new_model)
+        new_model = ODTableModel(obj_od_list)
+        new_table = QTableView()
+        new_table.setModel(new_model)
+        # new_table = ObjectTableView(objs) #comment out this row to test parameter table
         new_table.setSizePolicy(QSizePolicy.Preferred,
                                 QSizePolicy.Preferred)
         new_table.setAlternatingRowColors(True)
+        # new_table.column_labels = ['id','name','description']
         if getattr(self, 'table', None):
             self.main_layout.removeWidget(self.table)
             self.table.setAttribute(Qt.WA_DeleteOnClose)
