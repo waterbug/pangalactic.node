@@ -116,18 +116,16 @@ class EventBlock(QGraphicsPolygonItem):
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
         self.act_type = act_type
         #---draw blocks depending on the 'shape' string passed in
-        op_type = orb.select("ActivityType", name="Operation")
-        ev_type = orb.select("ActivityType", name="Event")
         self.parent_activity = self.activity.where_used[0].assembly
         dispatcher.connect(self.id_changed_handler, "modified activity")
         self.create_actions()
-
-        if self.activity.activity_type is op_type:
+        self.setAcceptHoverEvents(True)
+        if self.activity.activity_type.name == "Operation":
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
                     QPointF(50, -50), QPointF(-50, -50)
             ])
-        elif self.activity.activity_type is ev_type:
+        elif self.activity.activity_type.name == "Event":
              self.myPolygon = QPolygonF([
                      QPointF(0, 0), QPointF(-50, 80),
                      QPointF(50, 80)
@@ -142,6 +140,10 @@ class EventBlock(QGraphicsPolygonItem):
         if activity is self.activity:
             self.block_label.set_text(self.activity.id)
 
+    def hoverEnterEvent(self, event):
+        if self.activity.activity_type.name == "Cycle":
+            print("hover enter")
+        # pix = self.scene().views()[0].grab(self.scene().sceneRect().toRect())
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self)
 
@@ -326,7 +328,7 @@ class DiagramScene(QGraphicsScene):
             activity_type = orb.select("ActivityType", name="Event")
         project = orb.get(state.get("project"))
         activity = clone("Activity", activity_type = activity_type, owner=project)
-        self.edit_parameters(activity)
+        # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu])
         item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.current_activity)
@@ -338,7 +340,7 @@ class DiagramScene(QGraphicsScene):
 
     def edit_parameters(self, activity):
         view = ['id', 'name', 'description']
-        panels = ['main']
+        panels = ['main', 'parameters']
         pxo = PgxnObject(activity, edit_mode=True, view=view,
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
