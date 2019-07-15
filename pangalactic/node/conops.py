@@ -159,13 +159,19 @@ class EventBlock(QGraphicsPolygonItem):
         self.scene().edit_parameters(self.activity)
 
     def delete_item(self):
-        acu = self.activity.where_used[0]
-        parent_act = acu.assembly
-        orb.delete([self.activity])
-        self.scene().timeline.remove_item(self)
-        self.scene().removeItem(self)
-        dispatcher.send("removed activity", parent_act=parent_act)
-
+        # acu = self.activity.where_used[0]
+        # parent_act = acu.assembly
+        # orb.delete([self.activity])
+        # self.scene().timeline.remove_item(self)
+        # self.scene().removeItem(self)
+        # dispatcher.send("removed activity", parent_act=parent_act)
+        act = self.activity
+        if len(act.components) > 0:
+            for acu in act.components:
+                acu.component.delete_item()
+        else:
+            orb.delete(act)
+            print("deleted", act.id)
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
         # self.update_position()
