@@ -328,7 +328,7 @@ class ObjectBlock(Block):
     def dropEvent(self, event):
         orb.log.debug("* ObjectBlock: something dropped on me ...")
         if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
-            data = extract_mime_data(event, 
+            data = extract_mime_data(event,
                                      "application/x-pgef-hardware-product")
             icon, oid, _id, name, cname = data
             orb.log.info("  - it is a {} ...".format(cname))
@@ -452,7 +452,7 @@ class SubjectBlock(Block):
     def dropEvent(self, event):
         orb.log.debug("* SubjectBlock: something dropped on me ...")
         if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
-            data = extract_mime_data(event, 
+            data = extract_mime_data(event,
                                      "application/x-pgef-hardware-product")
             icon, oid, _id, name, cname = data
             orb.log.info("  - it is a {} ...".format(cname))
@@ -1458,5 +1458,3 @@ class TextItemDlg(QtWidgets.QDialog):
         global Dirty
         Dirty = True
         QtWidgets.QDialog.accept(self)
-
-

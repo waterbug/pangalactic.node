@@ -5,20 +5,20 @@ import os
 from louie import dispatcher
 
 from collections import OrderedDict
+from textwrap import wrap
 
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QMainWindow, QSizePolicy,
-                             QVBoxLayout, QWidget, QTableView)
-from PyQt5.QtGui import QIcon
+                             QVBoxLayout, QWidget, QTableView, QHeaderView)
+from PyQt5.QtGui import QIcon, QTextOption
 
 from pangalactic.core             import state
-from pangalactic.core.parametrics import parameterz
-from pangalactic.core.parametrics import get_pval_as_str
+from pangalactic.core.parametrics import parameterz, get_pval_as_str
 from pangalactic.core.utils.meta  import get_acu_id, get_acu_name
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import pname_to_header_label
 from pangalactic.node.tableviews  import ObjectTableView
-from pangalactic.node.tablemodels import ODTableModel, ObjectTableModel
+from pangalactic.node.tablemodels import ODTableModel
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 
@@ -47,7 +47,6 @@ class ActivityTables(QMainWindow):
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-        dispatcher.connect(self.on_new_view, "new view")
         dispatcher.connect(self.on_activity_added, 'new activity')
         dispatcher.connect(self.on_activity_modified, 'modified activity')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
@@ -94,18 +93,27 @@ class ActivityTables(QMainWindow):
         self.title.setText(txt)
 
     def set_table(self, objs):
-        table_cols = ['id', 'name', 'start_time', 'duration', 'description']
-        table_headers = dict(id='ID', name='Name',
+        table_cols = ['reference_designator', 'id', 'name', 'start_time', 'duration', 'description']
+        table_headers = dict(reference_designator='Reference\nDesignator',
+                           id='ID', name='Name',
                            start_time='Start\nTime',
                            duration='Duration',
                            description='Description')
         od_list = []
+        # text_option = QTextOption()
+        # text_option.setWrapMode(QTextOption.WordWrap)
         for obj in objs:
             obj_dict = OrderedDict()
 
             for col in table_cols:
                 if col in orb.schemas['Activity']['field_names']:
-                    obj_dict[table_headers[col]] = getattr(obj, col)
+                    attr_str = getattr(obj, col)
+                    if attr_str:
+                        if len(attr_str) > 15:
+                            attr_str = wrap(attr_str)
+                    obj_dict[table_headers[col]] = attr_str
+                elif col is 'reference_designator':
+                    obj_dict[table_headers[col]] = obj.where_used[0].reference_designator
                 else:
                     val = get_pval_as_str(orb, obj.oid, col)
                     obj_dict[table_headers[col]] = val
@@ -115,13 +123,19 @@ class ActivityTables(QMainWindow):
         new_table = QTableView()
         new_table.setModel(new_model)
         # new_table = ObjectTableView(objs) #comment out this row to test parameter table
-        new_table.column_header = ['id', 'name', 'description']
         new_table.setSizePolicy(QSizePolicy.Preferred,
                                 QSizePolicy.Preferred)
         new_table.setAlternatingRowColors(True)
 
+        header = new_table.horizontalHeader()
+        for col in table_cols:
+            header.setSectionResizeMode(table_cols.index(col), QHeaderView.ResizeToContents)
+
+        # text_option = QTextOption()
+        # text_option.setWrapMode(QTextOption.WordWrap)
+        # new_table.setTextWidth(parent.boundingRect().width() - 50)
+
         if getattr(self, 'table', None):
-            self.column_labels = ['id','name','description']
             self.main_layout.removeWidget(self.table)
             self.table.setAttribute(Qt.WA_DeleteOnClose)
             self.table.parent = None
@@ -160,10 +174,6 @@ class ActivityTables(QMainWindow):
         if self.preferred_size:
             return QSize(*self.preferred_size)
         return QSize(900, 800)
-
-    def on_new_view(self, parent_act=None, drill=False):
-        self.statusbar.showMessage("Welcome!")
-        self.sort_and_set_table(parent_act=parent_act)
 
     def on_activity_modified(self, activity=None):
         if activity:
