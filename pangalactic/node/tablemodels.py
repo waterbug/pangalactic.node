@@ -529,4 +529,3 @@ class SpecialSortModel(QSortFilterProxyModel):
         # print "*** you must provide a home directory path ***"
         # sys.exit()
     # main(sys.argv[1])
-

@@ -94,34 +94,34 @@ class ActivityTables(QMainWindow):
         self.title.setText(txt)
 
     def set_table(self, objs):
-        obj_od_list = []
-        if objs:
-            for obj in objs:
-                obj_dict = OrderedDict()
+        table_cols = ['id', 'name', 'start_time', 'duration', 'description']
+        table_headers = dict(id='ID', name='Name',
+                           start_time='Start\nTime',
+                           duration='Duration',
+                           description='Description')
+        od_list = []
+        for obj in objs:
+            obj_dict = OrderedDict()
 
-                obj_id = getattr(obj.id, 'id', '')
-                obj_name = getattr(obj.name, 'name', '')
-                obj_description = getattr(obj.description, 'description', '')
-
-                if obj.oid in parameterz:
-                    obj_params = parameterz[obj.oid]
-                    pids = list(obj_params.keys())
-                    for pid in pids:
-                        val = get_pval_as_str(orb, obj.oid, pid)
-                        obj_dict[obj.oid] = val
-                    obj_od_list.append(obj_dict)
+            for col in table_cols:
+                if col in orb.schemas['Activity']['field_names']:
+                    obj_dict[table_headers[col]] = getattr(obj, col)
                 else:
-                    print("no parameters found")
+                    val = get_pval_as_str(orb, obj.oid, col)
+                    obj_dict[table_headers[col]] = val
+            od_list.append(obj_dict)
 
-        new_model = ODTableModel(obj_od_list)
+        new_model = ODTableModel(od_list)
         new_table = QTableView()
         new_table.setModel(new_model)
         # new_table = ObjectTableView(objs) #comment out this row to test parameter table
+        new_table.column_header = ['id', 'name', 'description']
         new_table.setSizePolicy(QSizePolicy.Preferred,
                                 QSizePolicy.Preferred)
         new_table.setAlternatingRowColors(True)
-        # new_table.column_labels = ['id','name','description']
+
         if getattr(self, 'table', None):
+            self.column_labels = ['id','name','description']
             self.main_layout.removeWidget(self.table)
             self.table.setAttribute(Qt.WA_DeleteOnClose)
             self.table.parent = None
