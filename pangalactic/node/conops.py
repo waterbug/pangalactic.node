@@ -26,6 +26,7 @@ from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets    import NameLabel
+from pangalactic.core.serializers      import serialize, deserialize
 
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
@@ -143,7 +144,6 @@ class EventBlock(QGraphicsPolygonItem):
     def hoverEnterEvent(self, event):
         if self.activity.activity_type.name == "Cycle":
             print("hover enter")
-        # pix = self.scene().views()[0].grab(self.scene().sceneRect().toRect())
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self)
 
@@ -430,8 +430,10 @@ class ConOpsModeler(QMainWindow):
                                 name=mission_name)
                 orb.save([mission])
             self.subject_activity = mission
+            self.mission = mission
         else:
             self.subject_activity = clone("Activity", id="temp", name="temp")
+            self.mission = self.subject_activity
         self.project = project
 
         #-----------------------------------------------------------#
@@ -456,7 +458,8 @@ class ConOpsModeler(QMainWindow):
         self.left_dock.setWidget(act)
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
-
+        self.deleted_acts = []
+        self.temp_serialized = []
     def create_library(self):
         """
         Create the library of operation/event block types.
@@ -511,12 +514,18 @@ class ConOpsModeler(QMainWindow):
                                     icon="left_arrow",
                                     tip="delete activities on this page")
         self.toolbar.addAction(self.clear_activities_action)
-        # self.start_over_action = self.create_action(
-        #                             "start over",
-        #                             slot=self.start_over,
-        #                             icon="left_arrow",
-        #                             tip="Clear All Activities in This Project")
-        # self.toolbar.addAction(self.start_over)
+        self.back_to_mission_action = self.create_action(
+                                    "back to mission",
+                                    slot=self.view_mission,
+                                    icon="system",
+                                    tip="go back to mission")
+        self.toolbar.addAction(self.back_to_mission_action)
+        self.undo_action = self.create_action(
+                                    "undo",
+                                    slot=self.undo,
+                                    icon="left_arrow",
+                                    tip="undo")
+        self.toolbar.addAction(self.undo_action)
 
 
 
@@ -536,6 +545,12 @@ class ConOpsModeler(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
+    def view_mission(self):
+        new_scene = DiagramScene(self, current_activity=self.mission)
+        self.set_new_view(new_scene, current_activity=self.mission)
+        self.subject_activity = self.mission
+        self.history.clear()
+        self.show_history()
 
     def clear_activities(self):
         print("clear")
@@ -543,17 +558,50 @@ class ConOpsModeler(QMainWindow):
         orb.delete(children)
         new_scene = DiagramScene(self, current_activity=self.subject_activity)
         self.set_new_view(new_scene, current_activity=self.subject_activity)
-        # dispatcher.send("removed activity", parent_act=self.subject_activity)
 
-    def delete_activity(self,act=None):
+    def delete_activity(self, act=None):
+        self.serialized_deleted(act=act)
+        self.delete_children(act=act)
+        self.deleted_acts.append(self.temp_serialized)
+        self.temp_serialized = []
+
+    def serialized_deleted(self, act=None):
         if len(act.components) <= 0:
-            orb.delete([act])
-            print("deleted", act.id)
+            serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
+            self.temp_serialized.extend(serialized_act)
         elif len(act.components) > 0:
             for acu in act.components:
-                self.delete_activity(act=acu.component)
-            print("deleted", act.id)
+                self.serialized_deleted(act=acu.component)
+            serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
+            self.temp_serialized.extend(serialized_act)
+
+    def delete_children(self, act=None):
+        if len(act.components) <= 0:
+            print(act.id, "deleted")
             orb.delete([act])
+        elif len(act.components) > 0:
+            for acu in act.components:
+                self.delete_children(act=acu.component)
+            print(act.id, "deleted")
+            orb.delete([act])
+
+    def undo(self):
+        objs = self.deleted_acts.pop()
+        print("length of objs", len(objs))
+        ds = set(deserialize(orb, objs))
+        acus = []
+        activities = []
+        for o in ds:
+            if type(o).__name__ =="Acu":
+                acus.append(o)
+            elif type(o).__name__ == "Activity":
+                activities.append(o)
+        for acu in acus:
+            if acu.assembly is self.subject_activity:
+                item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.subject_activity)
+                item.setPos(event.scenePos())
+                self.addItem(item)
+                self.timeline.add_item(item)
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QAction(text, self)
