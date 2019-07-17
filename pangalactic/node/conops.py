@@ -164,7 +164,7 @@ class EventBlock(QGraphicsPolygonItem):
     def delete_item(self):
         self.scene().timeline.remove_item(self)
         self.scene().removeItem(self)
-        dispatcher.send("removed activity", parent_act=self.parent_activity, act=self.activity )
+        dispatcher.send("remove activity", parent_act=self.parent_activity, act=self.activity )
 
     def itemChange(self, change, value):
         # super(EventBlock, self).itemChange(change, value)
@@ -449,7 +449,7 @@ class ConOpsModeler(QMainWindow):
                           init=True)
         #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
-        dispatcher.connect(self.delete_activity, "removed activity")
+        dispatcher.connect(self.delete_activity, "remove activity")
         # add left dock
         self.left_dock = QDockWidget()
         self.left_dock.setObjectName('LeftDock')
@@ -557,17 +557,18 @@ class ConOpsModeler(QMainWindow):
         self.show_history()
 
     def clear_activities(self):
-        print("clear")
         children = [acu.component for acu in self.subject_activity.components]
         orb.delete(children)
         new_scene = DiagramScene(self, current_activity=self.subject_activity)
         self.set_new_view(new_scene, current_activity=self.subject_activity)
+        dispatcher.send("removed activity", parent_act=self.subject_activity)
 
     def delete_activity(self, act=None):
         self.serialized_deleted(act=act)
         self.delete_children(act=act)
         self.deleted_acts.append(self.temp_serialized)
         self.temp_serialized = []
+        dispatcher.send("removed activity", parent_act=self.subject_activity)
 
     def serialized_deleted(self, act=None):
         if len(act.components) <= 0:
