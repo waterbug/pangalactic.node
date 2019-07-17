@@ -5,19 +5,17 @@ import os
 from louie import dispatcher
 
 from collections import OrderedDict
-from textwrap import wrap
+from textwrap import wrap, fill
 
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QMainWindow, QSizePolicy,
-                             QVBoxLayout, QWidget, QTableView, QHeaderView)
-from PyQt5.QtGui import QIcon, QTextOption
+                             QVBoxLayout, QWidget, QTableView)
+from PyQt5.QtGui import QIcon
 
 from pangalactic.core             import state
-from pangalactic.core.parametrics import parameterz, get_pval_as_str
+from pangalactic.core.parametrics import get_pval_as_str #parameterz
 from pangalactic.core.utils.meta  import get_acu_id, get_acu_name
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.meta  import pname_to_header_label
-from pangalactic.node.tableviews  import ObjectTableView
 from pangalactic.node.tablemodels import ODTableModel
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
@@ -71,16 +69,17 @@ class ActivityTables(QMainWindow):
         self.title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
         self.main_layout.addWidget(self.title)
+        self.sort_and_set_table(self.subject)
         #initial_activities = [acu.component for acu in
                               # getattr(self.subject, 'components', [])]
-        all_acus = [(acu.reference_designator, acu) for acu in  getattr(self.subject, 'components', [])]
-
-        try:
-            all_acus.sort()
-        except:
-            print(all_acus)
-        activities = [acu_tuple[1].component for acu_tuple in all_acus]
-        self.set_table(activities)
+        # all_acus = [(acu.reference_designator, acu) for acu in  getattr(self.subject, 'components', [])]
+        #
+        # try:
+        #     all_acus.sort()
+        # except:
+        #     print(all_acus)
+        # activities = [acu_tuple[1].component for acu_tuple in all_acus]
+        # self.set_table(activities)
         #self.sort_and_set_table(activities)
 
     def set_title(self, activity):
@@ -100,19 +99,16 @@ class ActivityTables(QMainWindow):
                            duration='Duration',
                            description='Description')
         od_list = []
-        # text_option = QTextOption()
-        # text_option.setWrapMode(QTextOption.WordWrap)
         for obj in objs:
             obj_dict = OrderedDict()
-
             for col in table_cols:
                 if col in orb.schemas['Activity']['field_names']:
                     attr_str = getattr(obj, col)
-                    if attr_str:
-                        if len(attr_str) > 15:
-                            attr_str = wrap(attr_str)
+                    if attr_str and len(attr_str) > 15:
+                        wrap(attr_str, width=15)
+                        attr_str = fill(attr_str, width=15)
                     obj_dict[table_headers[col]] = attr_str
-                elif col is 'reference_designator':
+                elif col == 'reference_designator':
                     obj_dict[table_headers[col]] = obj.where_used[0].reference_designator
                 else:
                     val = get_pval_as_str(orb, obj.oid, col)
@@ -122,18 +118,11 @@ class ActivityTables(QMainWindow):
         new_model = ODTableModel(od_list)
         new_table = QTableView()
         new_table.setModel(new_model)
-        # new_table = ObjectTableView(objs) #comment out this row to test parameter table
+
         new_table.setSizePolicy(QSizePolicy.Preferred,
                                 QSizePolicy.Preferred)
         new_table.setAlternatingRowColors(True)
-
-        header = new_table.horizontalHeader()
-        for col in table_cols:
-            header.setSectionResizeMode(table_cols.index(col), QHeaderView.ResizeToContents)
-
-        # text_option = QTextOption()
-        # text_option.setWrapMode(QTextOption.WordWrap)
-        # new_table.setTextWidth(parent.boundingRect().width() - 50)
+        new_table.resizeColumnsToContents()
 
         if getattr(self, 'table', None):
             self.main_layout.removeWidget(self.table)
@@ -186,34 +175,19 @@ class ActivityTables(QMainWindow):
             self.statusbar.showMessage('Activity Modified!')
         else:
             self.statusbar.showMessage('Activity Added!')
-        # : "{}" added in "{}"'.format(
-        #                            getattr(act, 'id', '[unnamed activity]'),
-        #                            assembly_activity_name))
-        # activities = [act.component for act in parent_act.components]
-        # self.set_table(activities)
-        # self.set_title(parent_act)
         self.sort_and_set_table(parent_act=parent_act)
 
     def on_activity_removed(self, parent_act=None):
-        #msg = 'Activity with oid "{}" '.format(act_oid)
-        #msg += 'removed from "{}"'.format(getattr(parent_act, 'id',
-                                         # '[parent id unknown]'))
         self.statusbar.showMessage('Activity Removed!')
         self.sort_and_set_table(parent_act=parent_act)
-        # activities = [act.component for act in parent_act.components]
-        # self.set_table(activities)
-        # self.set_title(parent_act)
 
     def on_order_changed(self, parent_act=None):
         self.statusbar.showMessage('Order Updated!')
         self.sort_and_set_table(parent_act=parent_act)
 
     def on_drill_down(self, obj=None):
-        #self.on_new_view(self, parent_act=obj, drill=True)
         self.statusbar.showMessage("Drilled Down!")
         self.sort_and_set_table(parent_act=obj)
-        # activities = [act.component for act in obj.components]
-        # self.set_table(activities)
 
     def on_drill_up(self, obj=None):
         self.statusbar.showMessage("Drilled Up!")
