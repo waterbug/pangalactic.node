@@ -525,7 +525,7 @@ class ConOpsModeler(QMainWindow):
                                     slot=self.undo,
                                     icon="left_arrow",
                                     tip="undo")
-        self.toolbar.addAction(self.undo_action)
+        # self.toolbar.addAction(self.undo_action)
 
 
 
@@ -598,10 +598,11 @@ class ConOpsModeler(QMainWindow):
                 activities.append(o)
         for acu in acus:
             if acu.assembly is self.subject_activity:
-                item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.subject_activity)
-                item.setPos(event.scenePos())
-                self.addItem(item)
-                self.timeline.add_item(item)
+                new_ref_des = len(self.subject_activity.components)
+                acu.reference_designator = new_ref_des
+        new_scene = DiagramScene(self, current_activity=self.subject_activity)
+        self.set_new_view(new_scene, current_activity=self.subject_activity)
+
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QAction(text, self)
