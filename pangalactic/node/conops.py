@@ -117,7 +117,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
         self.act_type = act_type
         #---draw blocks depending on the 'shape' string passed in
-        self.parent_activity = self.activity.where_used[0].assembly
+        self.parent_activity = parent_activity or self.activity.where_used[0].assembly
         dispatcher.connect(self.id_changed_handler, "modified activity")
         self.create_actions()
         self.setAcceptHoverEvents(True)
@@ -143,7 +143,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def hoverEnterEvent(self, event):
         if self.activity.activity_type.name == "Cycle":
-            print("hover enter")
+            pass
     def mouseDoubleClickEvent(self, event):
         dispatcher.send("double clicked", obj=self)
 
@@ -259,11 +259,11 @@ class Timeline(QGraphicsPathItem):
         self.num_of_item = len(self.item_list)
         if len(self.item_list) > 5 :
             self.extend_timeline()
-        self.update_timeline()
+        self.update_timeline(initial=True)
 
-    def update_timeline(self):
+    def update_timeline(self, initial=False):
         self.make_point_list()
-        self.reposition()
+        self.reposition(initial=initial)
 
 
     def make_point_list(self):
@@ -278,7 +278,7 @@ class Timeline(QGraphicsPathItem):
             item.setPos(QPoint(self.list_of_pos[i], 250))
 
 
-    def reposition(self):
+    def reposition(self, initial=False):
         parent_act = self.scene().current_activity
         item_list_copy = self.item_list[:]
         self.item_list.sort(key=lambda x: x.scenePos().x())
@@ -292,6 +292,10 @@ class Timeline(QGraphicsPathItem):
             acu = orb.select("Acu", assembly=parent_act, component=item.activity)
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
+            if initial:
+                acu.component.id = acu.reference_designator# for testing purposes
+                orb.save([acu.component])
+                dispatcher.send("modified activity", activity=acu.component)
         if not same:
             # print("sending signal")
             dispatcher.send("order changed", parent_act=self.scene().current_activity)
