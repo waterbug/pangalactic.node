@@ -199,7 +199,7 @@ class ActivityTables(QMainWindow):
         try:
             all_acus.sort()
         except:
-            print(all_acus)
+            print("sort_and_set_table fail:", all_acus)
         activities = [acu_tuple[1].component for acu_tuple in all_acus]
 
         self.set_table(activities)
