@@ -529,7 +529,7 @@ class ConOpsModeler(QMainWindow):
                                     slot=self.undo,
                                     icon="left_arrow",
                                     tip="undo")
-        # self.toolbar.addAction(self.undo_action)
+        self.toolbar.addAction(self.undo_action)
 
 
 
@@ -592,21 +592,32 @@ class ConOpsModeler(QMainWindow):
 
     def undo(self):
         objs = self.deleted_acts.pop()
-        print("length of objs", len(objs))
-        ds = set(deserialize(orb, objs))
+        for ob in objs:
+            if ob
+        ds = deserialize(orb, objs)
+        print(objs)
+        lst = list(ds)
+        for i in lst:
+            orb.save([i])
         acus = []
         activities = []
-        for o in ds:
+        for o in lst:
             if type(o).__name__ =="Acu":
                 acus.append(o)
+                try:
+                    print(len(o.component))
+                except:
+                    print("fail")
             elif type(o).__name__ == "Activity":
+                print("oid:", o.oid)
                 activities.append(o)
+        print(self.subject_activity.components[0].component)
         for acu in acus:
             if acu.assembly is self.subject_activity:
                 new_ref_des = len(self.subject_activity.components)
                 acu.reference_designator = new_ref_des
-        new_scene = DiagramScene(self, current_activity=self.subject_activity)
-        self.set_new_view(new_scene, current_activity=self.subject_activity)
+        # new_scene = DiagramScene(self, current_activity=self.subject_activity)
+        # self.set_new_view(new_scene, current_activity=self.subject_activity)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -693,9 +704,11 @@ class ConOpsModeler(QMainWindow):
             except:
                 pass
             item_list=[]
+            print(len(all_acus), "num of all acus")
             for acu_tuple in all_acus:
                 acu = acu_tuple[1]
                 activity = acu.component
+                print(activity.id)
                 item = EventBlock("Box", activity=activity, parent_activity=current_activity)
                 item_list.append(item)
                 self.scene.addItem(item)
