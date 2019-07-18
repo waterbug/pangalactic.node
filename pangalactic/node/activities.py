@@ -9,7 +9,7 @@ from textwrap import wrap, fill
 
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QMainWindow, QSizePolicy,
-                             QVBoxLayout, QWidget, QTableView)
+                             QVBoxLayout, QWidget, QTableView, QComboBox)
 from PyQt5.QtGui import QIcon
 
 from pangalactic.core             import state
@@ -28,7 +28,7 @@ class ActivityTables(QMainWindow):
     Attrs:
         subject (Activity):  the Activity whose component Activities are shown
     """
-    def __init__(self, subject=None, preferred_size=None, parent=None):
+    def __init__(self, subject=None, preferred_size=None, parent=None, location=None):
         """
         Main window for displaying activity tables and related data.
 
@@ -45,6 +45,16 @@ class ActivityTables(QMainWindow):
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
+
+        # self.num_fmt_select = QComboBox()
+        # self.num_fmt_select.activated.connect(self.set_num_fmt)
+        # param_menu_label = QLabel('Parameters', self)
+        # self.param_menu = QComboBox()
+        # self.param_menu.addItem('Power')
+        # self.param_menu.addItem('Data Rates')
+        # form.addRow(num_fmt_label, self.num_fmt_select)
+
+
         dispatcher.connect(self.on_activity_added, 'new activity')
         dispatcher.connect(self.on_activity_modified, 'modified activity')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
@@ -70,17 +80,6 @@ class ActivityTables(QMainWindow):
             'font-weight: bold; font-size: 18px; color: purple')
         self.main_layout.addWidget(self.title)
         self.sort_and_set_table(self.subject)
-        #initial_activities = [acu.component for acu in
-                              # getattr(self.subject, 'components', [])]
-        # all_acus = [(acu.reference_designator, acu) for acu in  getattr(self.subject, 'components', [])]
-        #
-        # try:
-        #     all_acus.sort()
-        # except:
-        #     print(all_acus)
-        # activities = [acu_tuple[1].component for acu_tuple in all_acus]
-        # self.set_table(activities)
-        #self.sort_and_set_table(activities)
 
     def set_title(self, activity):
         if getattr(activity, 'activity_type', None):
@@ -91,7 +90,7 @@ class ActivityTables(QMainWindow):
                                                       'unidentified activity'))
         self.title.setText(txt)
 
-    def set_table(self, objs):
+    def set_table_1(self, objs):
         table_cols = ['reference_designator', 'id', 'name', 'start_time', 'duration', 'description']
         table_headers = dict(reference_designator='Reference\nDesignator',
                            id='ID', name='Name',
@@ -104,9 +103,9 @@ class ActivityTables(QMainWindow):
             for col in table_cols:
                 if col in orb.schemas['Activity']['field_names']:
                     attr_str = getattr(obj, col)
-                    if attr_str and len(attr_str) > 15:
-                        wrap(attr_str, width=15)
-                        attr_str = fill(attr_str, width=15)
+                    if attr_str and len(attr_str) > 20:
+                        wrap(attr_str, width=20)
+                        attr_str = fill(attr_str, width=20)
                     obj_dict[table_headers[col]] = attr_str
                 elif col == 'reference_designator':
                     obj_dict[table_headers[col]] = obj.where_used[0].reference_designator
@@ -133,6 +132,25 @@ class ActivityTables(QMainWindow):
         self.main_layout.addWidget(new_table, stretch=1)
         self.table = new_table
 
+    def set_table_2(self, objs, parameters):
+        new_model = MatrixTableModel(objs, parameters)
+        new_table = QTableView()
+        new_table.setModel(new_model)
+
+        new_table.setSizePolicy(QSizePolicy.Preferred,
+                                QSizePolicy.Preferred)
+        new_table.setAlternatingRowColors(True)
+        new_table.resizeColumnsToContents()
+
+        if getattr(self, 'table', None):
+            self.main_layout.removeWidget(self.table)
+            self.table.setAttribute(Qt.WA_DeleteOnClose)
+            self.table.parent = None
+            self.table.close()
+            self.table = None
+        self.main_layout.addWidget(new_table, stretch=1)
+        self.table = new_table
+
     def init_toolbar(self):
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
@@ -141,6 +159,15 @@ class ActivityTables(QMainWindow):
                                                 icon="document",
                                                 tip="Save to file")
         self.toolbar.addAction(self.report_action)
+
+        self.param_menu = QComboBox()
+        self.param_menu.addItems(["Power", "Data Rates"])
+        self.param_menu.setCurrentIndex(0)
+        self.param_menu.currentIndexChanged[str].connect(self.param_changed)
+        self.toolbar.addWidget(self.param_menu)
+
+    def param_changed(self, param):
+        print("woot", param)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -202,7 +229,7 @@ class ActivityTables(QMainWindow):
             print("sort_and_set_table fail:", all_acus)
         activities = [acu_tuple[1].component for acu_tuple in all_acus]
 
-        self.set_table(activities)
+        self.set_table_1(activities)
         self.set_title(parent_act)
 
     def write_report(self):
