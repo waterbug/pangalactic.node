@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
                              QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
                              QToolBox, QPushButton, QGraphicsPathItem,
-                             QVBoxLayout)
+                             QVBoxLayout, QToolBar)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -120,6 +120,7 @@ class EventBlock(QGraphicsPolygonItem):
         dispatcher.connect(self.id_changed_handler, "modified activity")
         self.create_actions()
         self.setAcceptHoverEvents(True)
+
         if self.activity.activity_type.name == "Operation":
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
@@ -150,13 +151,16 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
         self.menu.addAction(self.edit_action)
+        self.menu.addAction(self.divide_to_diciplines)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item",
                                      triggered=self.delete_item)
         self.edit_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
-
+        self.edit_action = QAction("Divide into Diciplines", self.scene(), statusTip="Divide into Diciplines", triggered=self.diciplines)
+    def diciplines(self):
+        pass
     def edit_activity(self):
         self.scene().edit_parameters(self.activity)
 
@@ -501,6 +505,7 @@ class ConOpsModeler(QMainWindow):
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
         self.view.setTransform(QTransform().scale(newscale, newscale))
+        self.dicipline_view.setTransform(QTransform().scale(newscale, newscale))
 
     def init_toolbar(self):
         self.toolbar = self.addToolBar("Actions")
@@ -529,7 +534,12 @@ class ConOpsModeler(QMainWindow):
                                     icon="left_arrow",
                                     tip="undo")
         self.toolbar.addAction(self.undo_action)
-
+        # self.edit_mode_action = self.create_action(
+        #                             "Edit",
+        #                             slot=self.undo,
+        #                             icon="left_arrow",
+        #                             tip="undo")
+        # self.toolbar.addAction(self.undo_action)
 
 
         # self.external_window_action = self.create_action(
@@ -548,6 +558,7 @@ class ConOpsModeler(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
+
     def view_mission(self):
         new_scene = DiagramScene(self, current_activity=self.mission)
         self.set_new_view(new_scene, current_activity=self.mission)
@@ -646,20 +657,28 @@ class ConOpsModeler(QMainWindow):
         self.subject_activity = current_activity
         self.scene = scene
         self.view = DiagramView(self.scene)
+        self.d_scene = scene
+        self.dicipline_view = DiagramView(self.d_scene)
         self.setMinimumSize(1000, 500)
         self.view.setSizePolicy(QSizePolicy.MinimumExpanding,
                                 QSizePolicy.MinimumExpanding)
         self.view.setScene(self.scene)
+        self.dicipline_view.setScene(self.d_scene)
+
         outer_layout = QVBoxLayout()
         layout = QHBoxLayout()
         self.title = NameLabel(getattr(self.subject_activity, 'id', 'NA'))
         self.title.setStyleSheet(
                             'font-weight: bold; font-size: 18px; color: purple')
         outer_layout.addWidget(self.title)
-
-        layout.addWidget(self.view)
+        view_toolbar = QToolBar()
+        outer_layout.addWidget(view_toolbar)
+        outer_layout.addWidget(self.view)
+        d_view_toolbar = QToolBar()
+        outer_layout.addWidget(d_view_toolbar)
+        outer_layout.addWidget(self.dicipline_view)
         # layout.addWidget(self.library)
-        outer_layout.addLayout(layout)
+        # outer_layout.addLayout(layout)
 
         widget = QWidget()
         widget.setLayout(outer_layout)
