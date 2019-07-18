@@ -671,7 +671,7 @@ class ConOpsModeler(QMainWindow):
         self.view = DiagramView(self.scene)
         self.d_scene = scene
         self.dicipline_view = DiagramView(self.d_scene)
-        self.setMinimumSize(1000, 500)
+        # self.setMinimumSize(1000, 00)
         self.view.setSizePolicy(QSizePolicy.MinimumExpanding,
                                 QSizePolicy.MinimumExpanding)
         self.view.setScene(self.scene)
@@ -693,6 +693,7 @@ class ConOpsModeler(QMainWindow):
         # outer_layout.addLayout(layout)
 
         widget = QWidget()
+        widget.setMinimumSize(900, 600)
         widget.setLayout(outer_layout)
         self.setCentralWidget(widget)
         self.sceneScaleChanged("50%")
