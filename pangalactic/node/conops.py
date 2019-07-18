@@ -456,9 +456,21 @@ class ConOpsModeler(QMainWindow):
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
         # display activity tables
-        act = ActivityTables(subject=self.subject_activity, parent=self)
+        left_table = ActivityTables(subject=self.subject_activity, parent=self, location='left')
         # act.show()
-        self.left_dock.setWidget(act)
+        self.left_dock.setWidget(left_table)
+
+        # add bottom dock
+        self.bottom_dock = QDockWidget()
+        self.bottom_dock.setObjectName('BottomDock')
+        self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
+        self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
+        # display activity tables
+        bottom_table = ActivityTables(subject=self.subject_activity, parent=self, location='bottom')
+        # act.show()
+        self.bottom_dock.setWidget(bottom_table)
+
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
         self.deleted_acts = []
