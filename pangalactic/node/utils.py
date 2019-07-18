@@ -142,8 +142,8 @@ def clone(what, include_ports=True, include_components=True,
         new_parameters = deepcopy(parameterz[obj.oid])
         parameterz[newkw['oid']] = new_parameters
         recompute_needed = True
-    # operations specific to Hardware Products ...
-    if isinstance(new_obj, orb.classes['HardwareProduct']):
+    # operations specific to Products ...
+    if isinstance(new_obj, orb.classes['Product']):
         recompute_needed = True
         if new:
             # NOTE:  this will add both class-specific and ProductType-specific
