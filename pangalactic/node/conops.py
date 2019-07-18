@@ -593,6 +593,7 @@ class ConOpsModeler(QMainWindow):
             ds = deserialize(orb, objs)
             new_scene = DiagramScene(self, current_activity=self.subject_activity)
             self.set_new_view(new_scene, current_activity=self.subject_activity)
+            dispatcher.send("new activity", parent_act=self.subject_activity)
         except:
             pass
     def create_action(self, text, slot=None, icon=None, tip=None,
