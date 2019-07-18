@@ -89,7 +89,7 @@ def get_model_path(model):
 
 
 class EventBlock(QGraphicsPolygonItem):
-    def __init__(self, act_type, activity=None, parent_activity=None, style=None,
+    def __init__(self, activity=None, parent_activity=None, style=None,
                  editable=False, port_spacing=0,parent=None):
         super(EventBlock, self).__init__(parent)
         """
@@ -115,7 +115,6 @@ class EventBlock(QGraphicsPolygonItem):
         self.setBrush(Qt.white)
         path = QPainterPath()
         self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
-        self.act_type = act_type
         #---draw blocks depending on the 'shape' string passed in
         self.parent_activity = parent_activity or self.activity.where_used[0].assembly
         dispatcher.connect(self.id_changed_handler, "modified activity")
@@ -335,7 +334,7 @@ class DiagramScene(QGraphicsScene):
         # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu])
-        item = EventBlock(activity.activity_type, activity=activity, parent_activity=self.current_activity)
+        item = EventBlock(activity=activity, parent_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.addItem(item)
         self.timeline.add_item(item)
@@ -582,43 +581,20 @@ class ConOpsModeler(QMainWindow):
 
     def delete_children(self, act=None):
         if len(act.components) <= 0:
-            print(act.id, "deleted")
             orb.delete([act])
         elif len(act.components) > 0:
             for acu in act.components:
                 self.delete_children(act=acu.component)
-            print(act.id, "deleted")
             orb.delete([act])
 
     def undo(self):
-        objs = self.deleted_acts.pop()
-        for ob in objs:
-            if ob
-        ds = deserialize(orb, objs)
-        print(objs)
-        lst = list(ds)
-        for i in lst:
-            orb.save([i])
-        acus = []
-        activities = []
-        for o in lst:
-            if type(o).__name__ =="Acu":
-                acus.append(o)
-                try:
-                    print(len(o.component))
-                except:
-                    print("fail")
-            elif type(o).__name__ == "Activity":
-                print("oid:", o.oid)
-                activities.append(o)
-        print(self.subject_activity.components[0].component)
-        for acu in acus:
-            if acu.assembly is self.subject_activity:
-                new_ref_des = len(self.subject_activity.components)
-                acu.reference_designator = new_ref_des
-        # new_scene = DiagramScene(self, current_activity=self.subject_activity)
-        # self.set_new_view(new_scene, current_activity=self.subject_activity)
-
+        try:
+            objs = self.deleted_acts.pop()
+            ds = deserialize(orb, objs)
+            new_scene = DiagramScene(self, current_activity=self.subject_activity)
+            self.set_new_view(new_scene, current_activity=self.subject_activity)
+        except:
+            pass
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QAction(text, self)
@@ -704,12 +680,10 @@ class ConOpsModeler(QMainWindow):
             except:
                 pass
             item_list=[]
-            print(len(all_acus), "num of all acus")
             for acu_tuple in all_acus:
                 acu = acu_tuple[1]
                 activity = acu.component
-                print(activity.id)
-                item = EventBlock("Box", activity=activity, parent_activity=current_activity)
+                item = EventBlock(activity=activity, parent_activity=current_activity)
                 item_list.append(item)
                 self.scene.addItem(item)
                 self.scene.update()
