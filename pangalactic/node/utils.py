@@ -146,7 +146,9 @@ def clone(what, include_ports=True, include_components=True,
     if isinstance(new_obj, orb.classes['HardwareProduct']):
         recompute_needed = True
         if new:
-            # NOTE!  default parameters should depend on ProductType ...
+            # NOTE:  this will add both class-specific and ProductType-specific
+            # default parameters, as well as any custom parameters specified in
+            # "config" and "prefs" for HardwareProduct instances ...
             add_default_parameters(orb, new_obj)
         else:
             # the clone gets the product_type of the original object
