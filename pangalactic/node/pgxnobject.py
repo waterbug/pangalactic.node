@@ -402,6 +402,7 @@ class PgxnForm(QWidget):
                 objs.remove(self.obj)
             required_fields = PGXN_REQD.get(cname) or []
             with_none = not (field_name in required_fields)
+            objs.sort(key=lambda x: getattr(x, 'id', '') or '')
             dlg = ObjectSelectionDialog(objs, with_none=with_none, parent=self)
             if dlg.exec_():
                 new_oid = dlg.get_oid()

@@ -920,7 +920,7 @@ class SystemTreeModel(QAbstractItemModel):
                         psu_role = getattr(product.product_type, 'name',
                                            'System')
                         psu_id = ':'.join([drop_target.id,
-                                           '-'.join([psu_role.split(' ')])])
+                                           '-'.join(psu_role.split(' '))])
                         psu_name = (drop_target.name + ':' + psu_role)
                         new_psu = clone('ProjectSystemUsage',
                                         id=psu_id,
@@ -955,7 +955,7 @@ class SystemTreeModel(QAbstractItemModel):
                             psu_role = getattr(dropped_item.product_type, 'name',
                                                'System')
                             psu_id = ':'.join([drop_target.id,
-                                               '-'.join([psu_role.split(' ')])])
+                                               '-'.join(psu_role.split(' '))])
                             psu_name = (drop_target.name + ':' + psu_role)
                             new_psu = clone('ProjectSystemUsage',
                                             id=psu_id,
