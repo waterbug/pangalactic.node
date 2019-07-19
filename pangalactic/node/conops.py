@@ -151,16 +151,16 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
         self.menu.addAction(self.edit_action)
-        self.menu.addAction(self.divide_to_diciplines_action)
+        self.menu.addAction(self.divide_to_disciplines_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item",
                                      triggered=self.delete_item)
         self.edit_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
-        self.divide_to_diciplines_action = QAction("Divide into Diciplines", self.scene(), statusTip="Divide into Diciplines", triggered=self.diciplines)
+        self.divide_to_disciplines_action = QAction("Divide into disciplines", self.scene(), statusTip="Divide into disciplines", triggered=self.disciplines)
 
-    def diciplines(self):
+    def disciplines(self):
         pass
 
     def edit_activity(self):
