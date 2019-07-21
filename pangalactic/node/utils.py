@@ -194,12 +194,13 @@ def create_template_from_product(product):
     project_id = getattr(orb.get(project_oid), 'id', '')
     tmpl_product_type = product.product_type
     pt_id = getattr(tmpl_product_type, 'id', 'Generic')
+    pt_name = getattr(tmpl_product_type, 'name', 'Generic')
     if project_id:
         template_id = '_'.join([project_id, pt_id.lower(), 'template'])
-        template_name = ' '.join([project_id, pt_id, 'Template'])
+        template_name = ' '.join([project_id, pt_name, 'Template'])
     else:
         template_id = '_'.join([pt_id.lower(), 'template'])
-        template_name = ' '.join([pt_id, 'Template'])
+        template_name = ' '.join([pt_name, 'Template'])
     orb.log.info('* create_template_from_product')
     template = clone('Template', id=template_id, name=template_name,
                      product_type=tmpl_product_type)
