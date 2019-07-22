@@ -151,16 +151,18 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
         self.menu.addAction(self.edit_action)
-        self.menu.addAction(self.divide_to_diciplines)
+        self.menu.addAction(self.divide_to_disciplines_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item",
                                      triggered=self.delete_item)
         self.edit_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
-        self.edit_action = QAction("Divide into Diciplines", self.scene(), statusTip="Divide into Diciplines", triggered=self.diciplines)
-    def diciplines(self):
+        self.divide_to_disciplines_action = QAction("Divide into disciplines", self.scene(), statusTip="Divide into disciplines", triggered=self.disciplines)
+
+    def disciplines(self):
         pass
+
     def edit_activity(self):
         self.scene().edit_parameters(self.activity)
 
@@ -179,31 +181,12 @@ class EventBlock(QGraphicsPolygonItem):
         #         ref_des = acu.reference_designator
         #         print("reference designator for this item:", ref_des)
         return value
-        # print(change)
-
-    # def dragMoveEvent(self, event):
-    #     print("dragMoveEvent")
-    #     # if change == QGraphicsItem.ItemPositionHasChanged:
-    #     self.setPos(event.pos().x(), 250)
-    #     # if self.scene() != None:
-    #     self.scene().timeline.reposition()
-    #     # if change ==  QGraphicsItem.ItemPositionChange:
-    #     #     super(EventBlock, self).itemChange(change, value)
-    #     super(EventBlock, self).dragMoveEvent(event)
-    #     self.scene().update()
-
-    # def mouseMoveEvent(self, event):
-    #     super(EventBlock, self).mouseMoveEvent(event)
-    #     print("mousemove")
 
     def mouseReleaseEvent(self, event):
         super(EventBlock, self).mouseReleaseEvent(event)
         if (event.button() == Qt.LeftButton):
             self.setPos(event.scenePos().x(), 250)
             self.scene().timeline.reposition()
-
-    # def collides_with_timeline(self):
-        # self.on_timeline = False
 
 class DiagramView(QGraphicsView):
     def __init__(self, parent=None):
@@ -669,13 +652,13 @@ class ConOpsModeler(QMainWindow):
         self.subject_activity = current_activity
         self.scene = scene
         self.view = DiagramView(self.scene)
-        self.d_scene = scene
-        self.dicipline_view = DiagramView(self.d_scene)
+        self.dicipline_scene = scene
+        self.dicipline_view = DiagramView(self.dicipline_scene)
         # self.setMinimumSize(1000, 00)
         self.view.setSizePolicy(QSizePolicy.MinimumExpanding,
                                 QSizePolicy.MinimumExpanding)
         self.view.setScene(self.scene)
-        self.dicipline_view.setScene(self.d_scene)
+        self.dicipline_view.setScene(self.dicipline_scene)
 
         outer_layout = QVBoxLayout()
         layout = QHBoxLayout()
