@@ -4,11 +4,11 @@ Admin interface
 import sys
 from collections import OrderedDict
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
-                             QFormLayout, QHBoxLayout, QLabel, QMenu,
-                             QMessageBox, QSizePolicy, QTableView, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtCore import Qt, QVariant
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
+                             QDialogButtonBox, QFormLayout, QHBoxLayout,
+                             QLabel, QMenu, QMessageBox, QSizePolicy,
+                             QTableView, QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
@@ -317,7 +317,20 @@ class AdminDialog(QDialog):
         super(AdminDialog, self).__init__(parent)
         self.setAcceptDrops(True)
         self.org = org
-        title = "Administer {} Roles".format(getattr(self.org, 'id', ''))
+        local_user = orb.get(state.get('local_user_oid', 'me'))
+        admin_role = orb.get('pgefobjects:Role.Administrator')
+        global_admin = orb.select('RoleAssignment',
+                                  assigned_role=admin_role,
+                                  assigned_to=local_user,
+                                  role_assignment_context=None)
+        if global_admin:
+            title = "Administer Roles"
+            # project_widget = QComboBox()
+            # project_widget.setStyleSheet('font-weight: bold; font-size: 14px')
+            # projects = orb.get_by_type('Project')
+            # project_widget.addItem(proj.id, QVariant)
+        else:
+            title = "Administer {} Roles".format(getattr(self.org, 'id', ''))
         self.setWindowTitle(title)
         outer_vbox = QVBoxLayout()
         self.left_vbox = QVBoxLayout()

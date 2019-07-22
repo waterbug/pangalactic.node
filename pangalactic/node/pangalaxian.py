@@ -37,10 +37,10 @@ from pangalactic.core                 import prefs, write_prefs
 from pangalactic.core                 import state, write_state
 from pangalactic.core                 import trash, write_trash
 from pangalactic.core.log             import get_loggers
-from pangalactic.core.meta            import DESERIALIZATION_ORDER
 from pangalactic.core.parametrics     import node_count
 from pangalactic.core.refdata         import ref_pd_oids
-from pangalactic.core.serializers     import deserialize, serialize
+from pangalactic.core.serializers     import (DESERIALIZATION_ORDER,
+                                              deserialize, serialize)
 from pangalactic.core.test.utils      import (create_test_project,
                                               create_test_users)
 from pangalactic.core.uberorb         import orb
@@ -285,12 +285,12 @@ class Main(QtWidgets.QMainWindow):
                                 six.u(open(self.cert_path, 'r').read()))
                         tls_options = CertificateOptions(
                             trustRoot=OpenSSLCertificateAuthorities([cert]))
-                        url = u'wss://{}:{}/ws'.format(host, port)
+                        url = 'wss://{}:{}/ws'.format(host, port)
                     else:
                         orb.log.info('  - no server cert; cannot use tls.')
                         return
                 else:
-                    url = u'ws://{}:{}/ws'.format(host, port)
+                    url = 'ws://{}:{}/ws'.format(host, port)
                 orb.log.info('  logging in with userid "{}"'.format(
                                                             login_dlg.userid))
                 orb.log.info('  to url "{}"'.format(url))
@@ -330,7 +330,7 @@ class Main(QtWidgets.QMainWindow):
         userid = state['userid']
         orb.log.info('  with arg: "{}"'.format(userid))
         # rpc.addCallback(self.on_get_admin_result)
-        rpc = message_bus.session.call(u'vger.get_user_roles', userid)
+        rpc = message_bus.session.call('vger.get_user_roles', userid)
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.subscribe_to_mbus_channels)
@@ -376,10 +376,12 @@ class Main(QtWidgets.QMainWindow):
         log_msg += '  - data:  %s' % str(data)
         orb.log.debug(log_msg)
         # data should be a list with 2 elements:
-        serialized_user, serialized_role_assignments = data
+        szd_user, szd_role_assignments, szd_projects = data
+        if szd_projects:
+            deserialize(orb, szd_projects)
         channels = []
-        if serialized_user:
-            objs = deserialize(orb, serialized_user)
+        if szd_user:
+            objs = deserialize(orb, szd_user)
             self.local_user = objs[0]
             orb.log.info('* local user returned: {}'.format(
                                                   self.local_user.oid))
@@ -410,7 +412,7 @@ class Main(QtWidgets.QMainWindow):
         # NOTE: serialized RoleAssignment objects include all related
         # objects -- 'assigned_role' (Role), 'assigned_to' (Person), and
         # 'role_assignment_context' (Organization or Project)
-        deserialize(orb, serialized_role_assignments)
+        deserialize(orb, szd_role_assignments)
         ras = orb.get_by_type('RoleAssignment')
         org_ids = [getattr(ra.role_assignment_context, 'id', '')
                    for ra in ras]
@@ -431,11 +433,11 @@ class Main(QtWidgets.QMainWindow):
                                         role_assignment_context=self.project)
             my_roles = [ra.assigned_role.name for ra in proj_ras]
             if my_roles:
-                txt = u': '.join([self.project.id, my_roles[0]])
+                txt = ': '.join([self.project.id, my_roles[0]])
             elif str(self.project.oid) == 'pgefobjects:SANDBOX':
-                txt = u'SANDBOX'
+                txt = 'SANDBOX'
             else:
-                txt = u': '.join([self.project.id, '[local]'])
+                txt = ': '.join([self.project.id, '[local]'])
             self.role_label.setText(txt)
         else:
             self.role_label.setText('online [no project selected]')
@@ -487,7 +489,7 @@ class Main(QtWidgets.QMainWindow):
             for org_oid in admin_orgs:
                 orb.log.info('  -> getting roles in org "{}" ...'.format(
                                                                 org_oid))
-                search = message_bus.session.call(u'vger.get_roles_in_org',
+                search = message_bus.session.call('vger.get_roles_in_org',
                                                   org_oid)
                 search.addCallback(self.on_ra_search_success)
                 search.addErrback(self.on_ra_search_failure)
@@ -529,7 +531,7 @@ class Main(QtWidgets.QMainWindow):
         data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
         orb.log.info('       -> rpc: vger.sync_parameter_definitions()')
-        return message_bus.session.call(u'vger.sync_parameter_definitions',
+        return message_bus.session.call('vger.sync_parameter_definitions',
                                         data)
 
     def sync_user_created_objs_to_repo(self, data):
@@ -551,7 +553,7 @@ class Main(QtWidgets.QMainWindow):
         oids = [o.oid for o in self.local_user.created_objects]
         data = orb.get_mod_dts(oids=oids)
         orb.log.info('       -> rpc: vger.sync_objects()')
-        return message_bus.session.call(u'vger.sync_objects', data)
+        return message_bus.session.call('vger.sync_objects', data)
 
     def sync_library_objs(self, data):
         """
@@ -570,7 +572,7 @@ class Main(QtWidgets.QMainWindow):
         # come back in the set of oids to be ignored
         data = orb.get_mod_dts(cname='HardwareProduct')
         data.update(orb.get_mod_dts(cname='Template'))
-        return message_bus.session.call(u'vger.sync_library_objects', data)
+        return message_bus.session.call('vger.sync_library_objects', data)
 
     def sync_projects_with_roles(self, data):
         """
@@ -584,7 +586,7 @@ class Main(QtWidgets.QMainWindow):
         for org_oid in set(state['assigned_roles']).union(
                        set(state['admin_of'])):
             if org_oid and not orb.get(org_oid):
-                rpc = message_bus.session.call(u'vger.get_object', org_oid)
+                rpc = message_bus.session.call('vger.get_object', org_oid)
                 rpc.addCallback(self.on_rpc_get_object)
                 rpc.addErrback(self.on_failure)
         return True
@@ -622,7 +624,7 @@ class Main(QtWidgets.QMainWindow):
                     data[obj.oid] = dts
         else:
             self.statusbar.showMessage('synced.')
-        return message_bus.session.call(u'vger.sync_project', proj_oid, data)
+        return message_bus.session.call('vger.sync_project', proj_oid, data)
 
     def on_user_objs_sync_result(self, data):
         self.on_sync_result(data, user_objs_sync=True)
@@ -731,7 +733,7 @@ class Main(QtWidgets.QMainWindow):
             self.statusbar.showMessage('saving local objs to repo ...')
         else:
             self.statusbar.showMessage('synced.')
-        return message_bus.session.call(u'vger.save', sobjs_to_save)
+        return message_bus.session.call('vger.save', sobjs_to_save)
 
     def on_sync_library_result(self, data, project_sync=False):
         """
@@ -805,7 +807,7 @@ class Main(QtWidgets.QMainWindow):
         # if library objects have been added or deleted, call _update_views()
         if update_needed:
             self._update_views()
-        return message_bus.session.call(u'vger.save', sobjs_to_save)
+        return message_bus.session.call('vger.save', sobjs_to_save)
 
     def on_pubsub_msg(self, msg):
         """
@@ -840,11 +842,11 @@ class Main(QtWidgets.QMainWindow):
                 obj_oid = content['oid']
                 obj_id = content['id']
             self.statusbar.showMessage("remote {}: {}".format(subject, obj_id))
-            if subject == u'decloaked':
+            if subject == 'decloaked':
                 dispatcher.send(signal="remote: decloaked", content=content)
-            elif subject == u'modified':
+            elif subject == 'modified':
                 dispatcher.send(signal="remote: modified", content=content)
-            elif subject == u'deleted':
+            elif subject == 'deleted':
                 dispatcher.send(signal="remote: deleted", content=content)
 
     def get_cloaking_status(self, oid=''):
@@ -859,7 +861,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('       (local "cloaking" signal received ...)')
         # TODO:  if not connected, show a warning to that effect ...
         if oid:
-            rpc = message_bus.session.call(u'vger.get_cloaking_status', oid)
+            rpc = message_bus.session.call('vger.get_cloaking_status', oid)
             rpc.addCallback(self.on_get_cloaking_status)
             rpc.addErrback(self.on_failure)
 
@@ -889,7 +891,7 @@ class Main(QtWidgets.QMainWindow):
         if oid and actor_oid:
             orb.log.info('       sending vger.decloak("{}", "{}")'.format(oid,
                                                                     actor_oid))
-            rpc = message_bus.session.call(u'vger.decloak', oid, actor_oid)
+            rpc = message_bus.session.call('vger.decloak', oid, actor_oid)
             rpc.addCallback(self.on_get_cloaking_status)
             rpc.addErrback(self.on_failure)
 
@@ -1875,7 +1877,7 @@ class Main(QtWidgets.QMainWindow):
             if state['connected']:
                 orb.log.info('  calling vger.save() for project id: {}'.format(
                                                                        obj.id))
-                rpc = message_bus.session.call(u'vger.save',
+                rpc = message_bus.session.call('vger.save',
                                                serialize(orb, [obj]))
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
@@ -1895,7 +1897,7 @@ class Main(QtWidgets.QMainWindow):
             # orb.log.debug('      org_type={}'.format('Project'))
             # parent_org = getattr(obj.parent_organization, 'oid', None)
             # orb.log.debug('      parent={}'.format(parent_org))
-            # rpc = message_bus.session.call(u'omb.organization.add',
+            # rpc = message_bus.session.call('omb.organization.add',
                         # oid=obj.oid, id=obj.id, name=obj.name,
                         # org_type='Project', parent=parent_org)
             # rpc.addCallback(self.on_null_result)
@@ -1927,7 +1929,7 @@ class Main(QtWidgets.QMainWindow):
             elif dts > obj.mod_datetime:
                 # get the remote object
                 orb.log.info('  remote object is newer, getting...')
-                rpc = message_bus.session.call(u'vger.get_object', obj.oid,
+                rpc = message_bus.session.call('vger.get_object', obj.oid,
                                                include_components=True)
                 rpc.addCallback(self.on_remote_get_mod_object)
                 rpc.addErrback(self.on_failure)
@@ -1936,7 +1938,7 @@ class Main(QtWidgets.QMainWindow):
         else:
             orb.log.info('  ')
             orb.log.info('  object not found in local db, getting ...')
-            rpc = message_bus.session.call(u'vger.get_object', obj.oid,
+            rpc = message_bus.session.call('vger.get_object', obj.oid,
                                            include_components=True)
             rpc.addCallback(self.on_remote_get_mod_object)
             rpc.addErrback(self.on_failure)
@@ -2085,13 +2087,13 @@ class Main(QtWidgets.QMainWindow):
                 if isinstance(obj, orb.classes['RoleAssignment']):
                     orb.log.info('  calling rpc vger.assign_role() ...')
                     orb.log.info('  - role assignment: {}'.format(obj.id))
-                    rpc = message_bus.session.call(u'vger.assign_role',
+                    rpc = message_bus.session.call('vger.assign_role',
                                                    serialized_objs)
                 else:
                     orb.log.info('  calling rpc vger.save() ...')
                     orb.log.info('  - saved obj id: {} | oid: {}'.format(
                                                           obj.id, obj.oid))
-                    rpc = message_bus.session.call(u'vger.save',
+                    rpc = message_bus.session.call('vger.save',
                                                    serialized_objs)
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
@@ -2143,7 +2145,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
             # to a remote user, they have the object
-            rpc = message_bus.session.call(u'vger.delete', [oid])
+            rpc = message_bus.session.call('vger.delete', [oid])
             rpc.addCallback(self.on_result)
             rpc.addErrback(self.on_failure)
             if oid in state.get('synced_oids', []):
@@ -2162,8 +2164,8 @@ class Main(QtWidgets.QMainWindow):
             self.delete_project_action.setEnabled(False)
             self.enable_collab_action.setVisible(False)
             self.enable_collab_action.setEnabled(False)
-            self.admin_action.setVisible(False)
-            self.admin_action.setEnabled(False)
+            # self.admin_action.setVisible(True)
+            # self.admin_action.setEnabled(True)
         if (project_oid and project_oid != 'pgefobjects:SANDBOX'
             and state.get('connected')):
             rpc = self.sync_current_project(None)
@@ -2182,8 +2184,8 @@ class Main(QtWidgets.QMainWindow):
         user's latest role assignment(s) for the current project.
         """
         p = self.project
-        role_label_txt = u''
-        tt_txt = u''
+        role_label_txt = ''
+        tt_txt = ''
         p_roles = []
         if p:
             self.project_selection.setText(self.project.id)
@@ -2197,44 +2199,44 @@ class Main(QtWidgets.QMainWindow):
                 self.enable_collab_action.setEnabled(False)
                 self.delete_project_action.setEnabled(False)
                 self.delete_project_action.setVisible(False)
-                self.admin_action.setVisible(False)
-                self.admin_action.setEnabled(False)
+                # self.admin_action.setVisible(False)
+                # self.admin_action.setEnabled(False)
                 role_label_txt = 'SANDBOX'
             else:
                 project_is_local = False
-                # if state.get('assigned_roles'):
-                    # if state['assigned_roles'].get(p.oid):
-                        # p_roles += state['assigned_roles'][p.oid]
-                # # if user has Administrator role, append it
-                # admin_of = state.get('admin_of') or []
-                # if p.oid in admin_of and 'Administrator' not in p_roles:
-                    # p_roles.append('Administrator')
-                # get my role assignments on the project ...
-                ras = orb.search_exact(cname='RoleAssignment',
-                                       assigned_to=self.local_user,
-                                       role_assignment_context=p)
-                p_roles = [ra.assigned_role.name for ra in ras]
+                p_ras = orb.search_exact(cname='RoleAssignment',
+                                         assigned_to=self.local_user,
+                                         role_assignment_context=p)
+                p_roles = [ra.assigned_role.name for ra in p_ras]
+                admin_role = orb.get('pgefobjects:Role.Administrator')
+                global_admin = orb.select('RoleAssignment',
+                                          assigned_role=admin_role,
+                                          assigned_to=self.local_user,
+                                          role_assignment_context=None)
+                if global_admin:
+                    p_roles.append('Global Administrator')
                 if p_roles:
                     if len(p_roles) > 1:
                         # add asterisk to indicate multiple roles
-                        role_label_txt = u': '.join([p.id, p_roles[0],
+                        role_label_txt = ': '.join([p.id, p_roles[0],
                                                     ' *'])
-                        tt_txt = u'<ul>\n'
+                        tt_txt = '<ul>\n'
                         for p_role in p_roles:
-                            tt_txt += u'<li>' + str(p.id) + u': '
-                            tt_txt += str(p_role) + u'</li>\n'
-                        tt_txt += u'</ul>'
+                            tt_txt += '<li>' + str(p.id) + ': '
+                            tt_txt += str(p_role) + '</li>\n'
+                        tt_txt += '</ul>'
                     else:
-                        role_label_txt = u': '.join([p.id, p_roles[0]])
+                        role_label_txt = ': '.join([p.id, p_roles[0]])
                 else:
                     project_is_local = True
-                    role_label_txt = u': '.join([p.id, '[local]'])
+                    role_label_txt = ': '.join([p.id, '[local]'])
                 if state['connected']:
                     if p_roles:
                         # project is already collaborative
                         self.enable_collab_action.setVisible(False)
                         self.enable_collab_action.setEnabled(False)
-                        if 'Administrator' in p_roles:
+                        if ('Administrator' in p_roles or
+                            'Global Administrator' in p_roles):
                             # role assignments for the project ...
                             self.admin_action.setVisible(True)
                             self.admin_action.setEnabled(True)
@@ -2269,7 +2271,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info('* set_project(None)')
             orb.log.info('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
-            role_label_txt = u'SANDBOX'
+            role_label_txt = 'SANDBOX'
             if hasattr(self, 'delete_project_action'):
                 self.delete_project_action.setEnabled(False)
                 self.delete_project_action.setVisible(False)
@@ -2315,7 +2317,7 @@ class Main(QtWidgets.QMainWindow):
 
     def update_project_roles(self):
         if state.get('connected') and message_bus.session:
-            rpc = message_bus.session.call(u'vger.get_roles_in_org',
+            rpc = message_bus.session.call('vger.get_roles_in_org',
                                            self.project.oid)
             rpc.addCallback(self.on_ra_search_success)
             rpc.addErrback(self.on_ra_search_failure)
