@@ -405,7 +405,12 @@ class LibraryListWidget(QWidget):
         elif cname == 'Person':
             select_label = 'People'
             view = ['id', 'first_name', 'last_name', 'org']
-            widget = FilterPanel(None, view=view, as_library=True,
+            # exclude "me", "TBD", and "admin"
+            oids_non_grata = orb.get(oids=['me', 'pgefobjects:Person.TBD',
+                                           'pgefobjects:admin'])
+            people = [p for p in orb.get_by_type('Person')
+                      if p.oid not in oids_non_grata]
+            widget = FilterPanel(people, view=view, as_library=True,
                                  cname=cname, label=select_label,
                                  word_wrap=self.word_wrap,
                                  parent=self)
