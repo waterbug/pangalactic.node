@@ -370,7 +370,8 @@ class Main(QtWidgets.QMainWindow):
         the structure:
 
             [serialized user (Person) object,
-             serialized RoleAssignment objects]
+             serialized RoleAssignment objects,
+             serialized Project objects]
         """
         log_msg = '* results of rpc "vger.get_user_roles" ...\n'
         log_msg += '  - data:  %s' % str(data)
@@ -378,6 +379,7 @@ class Main(QtWidgets.QMainWindow):
         # data should be a list with 2 elements:
         szd_user, szd_role_assignments, szd_projects = data
         if szd_projects:
+            # if projects are returned, it means we are a global admin
             deserialize(orb, szd_projects)
         channels = []
         if szd_user:

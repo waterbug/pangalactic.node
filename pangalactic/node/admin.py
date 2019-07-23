@@ -317,20 +317,7 @@ class AdminDialog(QDialog):
         super(AdminDialog, self).__init__(parent)
         self.setAcceptDrops(True)
         self.org = org
-        local_user = orb.get(state.get('local_user_oid', 'me'))
-        admin_role = orb.get('pgefobjects:Role.Administrator')
-        global_admin = orb.select('RoleAssignment',
-                                  assigned_role=admin_role,
-                                  assigned_to=local_user,
-                                  role_assignment_context=None)
-        if global_admin:
-            title = "Administer Roles"
-            # project_widget = QComboBox()
-            # project_widget.setStyleSheet('font-weight: bold; font-size: 14px')
-            # projects = orb.get_by_type('Project')
-            # project_widget.addItem(proj.id, QVariant)
-        else:
-            title = "Administer {} Roles".format(getattr(self.org, 'id', ''))
+        title = "Administer {} Roles".format(getattr(self.org, 'id', ''))
         self.setWindowTitle(title)
         outer_vbox = QVBoxLayout()
         self.left_vbox = QVBoxLayout()
