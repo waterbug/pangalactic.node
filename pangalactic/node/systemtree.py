@@ -23,7 +23,6 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMessageBox,
 from pangalactic.core             import prefs, state
 from pangalactic.core.parametrics import get_pval, get_pval_as_str, parm_defz
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.core.units       import in_si
 from pangalactic.core.utils.meta  import display_name, get_acu_id, get_acu_name
@@ -85,11 +84,11 @@ class Node(object):
                 self.link.component = value
             elif self.link.__class__.__name__ == 'ProjectSystemUsage':
                 self.link.system = value
-            # this saves the existing link with new 'system' or 'component'
-            self.link.mod_datetime = dtstamp()
+            # this saves the link with new 'system' or 'component'
             orb.save([self.link])
-            # "modified object" signal is only sent when object is set by a
-            # local action (e.g. a drop) -- otherwise, it was remotely modified
+            # "modified object" signal is sent by the drop event when object is
+            # created or modified by a local action (a drop) -- otherwise, it
+            # was remotely created or modified
         else:
             orb.log.debug('  - ERROR: node has no link.')
 
@@ -610,8 +609,8 @@ class SystemTreeModel(QAbstractItemModel):
             if role == Qt.EditRole:
                 node = index.internalPointer()
                 # orb.save([node.link]) is called by Node obj setter
-                # ** DO NOT dispatch "modified object" because this action may
-                # have been initiated by a remote event
+                # ** NOTE: DO NOT dispatch "modified object" because this
+                # action may have been initiated by a remote event
                 node.obj = value
                 # signal the views that data has changed
                 self.dataChanged.emit(index, index)
@@ -852,6 +851,8 @@ class SystemTreeModel(QAbstractItemModel):
                         # generate a new reference_designator
                         ref_des = orb.get_next_ref_des(drop_target,
                                                        product)
+                        # NOTE: clone assigns local user as creator & modifier,
+                        # uses dtstamp() for create_|mod_datetime ...
                         new_acu = clone('Acu',
                                 id=get_acu_id(drop_target.id, ref_des),
                                 name=get_acu_name(drop_target.name, ref_des),
