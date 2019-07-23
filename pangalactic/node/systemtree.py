@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMessageBox,
 
 # pangalactic
 from pangalactic.core             import prefs, state
+from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import get_pval, get_pval_as_str, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
@@ -727,6 +728,14 @@ class SystemTreeModel(QAbstractItemModel):
                 elif drop_target.oid == 'pgefobjects:TBD':
                     # case 1: drop target is "TBD" product -> replace it
                     node = self.get_node(parent)
+                    if not 'modify' in get_perms(node.link):
+                        popup = QMessageBox(
+                                  QMessageBox.Critical,
+                                  "Unauthorized Operation",
+                                  "User's roles do not permit this operation",
+                                  QMessageBox.Ok, self.parent)
+                        popup.show()
+                        return False
                     if data.hasFormat("application/x-pgef-template"):
                         # case 1.1:  drop item is Template -> create a new
                         # product from it
@@ -837,6 +846,14 @@ class SystemTreeModel(QAbstractItemModel):
                             return True
                 else:
                     # case 2: drop target is a normal product -> add new Acu
+                    if not 'modify' in get_perms(drop_target):
+                        popup = QMessageBox(
+                                  QMessageBox.Critical,
+                                  "Unauthorized Operation",
+                                  "User's roles do not permit this operation",
+                                  QMessageBox.Ok, self.parent)
+                        popup.show()
+                        return False
                     if data.hasFormat("application/x-pgef-template"):
                         # case 2.1:  drop item is a Template -> use it to
                         # create a new product that will be a dropped_item

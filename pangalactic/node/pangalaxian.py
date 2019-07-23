@@ -466,6 +466,8 @@ class Main(QtWidgets.QMainWindow):
     def on_pubsub_failure(self, f):
         orb.log.info("  - subscription failure: {}".format(f.getTraceback()))
 
+    # DEPRECATED in favor of 'get_project_roles', which is called when
+    # current project is set or mode is changed to "system" or "component"
     def get_org_role_data(self, data):
         """
         Get all RoleAssignment objects for all Organizations on which the local
@@ -493,20 +495,22 @@ class Main(QtWidgets.QMainWindow):
                                                                 org_oid))
                 search = message_bus.session.call('vger.get_roles_in_org',
                                                   org_oid)
-                search.addCallback(self.on_ra_search_success)
-                search.addErrback(self.on_ra_search_failure)
+                search.addCallback(self.on_get_roles_success)
+                search.addErrback(self.on_get_roles_failure)
                 searches.append(search)
             self.statusbar.showMessage('getting role assignments ...')
         else:
             orb.log.info('       - No organization administrator roles found.')
         return DeferredList(searches, consumeErrors=True)
 
-    def on_ra_search_success(self, result):
-        orb.log.info("  - ra search succeeded: {}".format(str(result)))
+    def on_get_roles_success(self, result):
+        orb.log.info("  - vger.get_roles_in_org succeeded: {}".format(
+                                                            str(result)))
         deserialize(orb, result)
 
-    def on_ra_search_failure(self, f):
-        orb.log.info("  - ra search failed: {}".format(f.getTraceback()))
+    def on_get_roles_failure(self, f):
+        orb.log.info("  - vger.get_roles_in_org failed: {}".format(
+                                                            f.getTraceback()))
 
     def sync_parameter_definitions(self, data):
         """
@@ -2311,18 +2315,18 @@ class Main(QtWidgets.QMainWindow):
         elif self.mode == 'component':
             orb.log.debug('* mode: component')
             self.set_product_modeler_interface()
-            self.update_project_roles()
+            self.get_project_roles()
         elif self.mode == 'system':
             orb.log.debug('* mode: system')
             self.set_system_modeler_interface()
-            self.update_project_roles()
+            self.get_project_roles()
 
-    def update_project_roles(self):
+    def get_project_roles(self):
         if state.get('connected') and message_bus.session:
             rpc = message_bus.session.call('vger.get_roles_in_org',
                                            self.project.oid)
-            rpc.addCallback(self.on_ra_search_success)
-            rpc.addErrback(self.on_ra_search_failure)
+            rpc.addCallback(self.on_get_roles_success)
+            rpc.addErrback(self.on_get_roles_failure)
 
     def _setup_top_dock_widgets(self):
         orb.log.debug('  - no top dock widget -- building one now...')
