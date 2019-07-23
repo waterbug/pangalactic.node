@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMessageBox,
 from pangalactic.core             import prefs, state
 from pangalactic.core.parametrics import get_pval, get_pval_as_str, parm_defz
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.core.units       import in_si
 from pangalactic.core.utils.meta  import display_name, get_acu_id, get_acu_name
@@ -84,11 +85,12 @@ class Node(object):
                 self.link.component = value
             elif self.link.__class__.__name__ == 'ProjectSystemUsage':
                 self.link.system = value
-            # this saves the link with new 'system' or 'component'
+            # this modifies the existing link with new 'system' or 'component'
+            self.link.mod_datetime = dtstamp()
+            self.link.modifier = orb.get(state.get('local_user_oid'))
             orb.save([self.link])
             # "modified object" signal is sent by the drop event when object is
-            # created or modified by a local action (a drop) -- otherwise, it
-            # was remotely created or modified
+            # created or modified by a local action (a drop)
         else:
             orb.log.debug('  - ERROR: node has no link.')
 
@@ -777,11 +779,13 @@ class SystemTreeModel(QAbstractItemModel):
                                              # new=True, modal_mode=True,
                                              # parent=self.parent)
                             # dlg.show()
-                            node.obj = product
                             if not getattr(node.link, 'product_type_hint',
                                            None):
                                 pt = product.product_type
                                 node.link.product_type_hint = pt
+                            # NOTE: orb.save([node.link]) is called by Node obj
+                            # setter
+                            node.obj = product
                             self.dataChanged.emit(parent, parent)
                             self.successful_drop.emit()
                             orb.log.info(
@@ -818,13 +822,13 @@ class SystemTreeModel(QAbstractItemModel):
                             # elif ret == QMessageBox.No:
                                 # return False
                         else:
-                            # orb.save([node.link]) is called by Node obj
-                            # setter
-                            node.obj = dropped_item
                             if not getattr(node.link, 'product_type_hint',
                                            None):
                                 pt = dropped_item.product_type
                                 node.link.product_type_hint = pt
+                            # NOTE: orb.save([node.link]) is called by Node obj
+                            # setter
+                            node.obj = dropped_item
                             self.dataChanged.emit(parent, parent)
                             self.successful_drop.emit()
                             orb.log.info('   node link modified: {}'.format(

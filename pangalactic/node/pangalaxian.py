@@ -2035,7 +2035,7 @@ class Main(QtWidgets.QMainWindow):
 
     def on_new_object_signal(self, obj=None, cname=''):
         """
-        Handle louie signal for (local) "new object".
+        Handle (local) dispatcher signal for "new object".
         """
         # for now, use on_mod_object_signal (may change in the future)
         self.on_mod_object_signal(obj=obj, cname=cname, msg='new')
