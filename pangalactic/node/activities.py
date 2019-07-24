@@ -7,13 +7,13 @@ from louie import dispatcher
 from collections import OrderedDict
 from textwrap import wrap, fill
 
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import QSize, Qt, QAbstractTableModel, QVariant
 from PyQt5.QtWidgets import (QAction, QApplication, QMainWindow, QSizePolicy,
                              QVBoxLayout, QWidget, QTableView, QComboBox)
 from PyQt5.QtGui import QIcon
 
 from pangalactic.core             import state
-from pangalactic.core.parametrics import get_pval_as_str #parameterz
+from pangalactic.core.parametrics import get_pval_as_str, set_pval_from_str
 from pangalactic.core.utils.meta  import get_acu_id, get_acu_name
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.tablemodels import ODTableModel
@@ -37,23 +37,16 @@ class ActivityTables(QMainWindow):
                 shown in the tables
             preferred_size (tuple):  default size -- (width, height)
             parent (QWidget):  parent widget
+            location (str): specifies which table is initialized
         """
         super(ActivityTables, self).__init__(parent=parent)
         orb.log.info('* ActivityTables initializing...')
         self.subject = subject
         self.preferred_size = preferred_size
+        self.location = location
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-
-        # self.num_fmt_select = QComboBox()
-        # self.num_fmt_select.activated.connect(self.set_num_fmt)
-        # param_menu_label = QLabel('Parameters', self)
-        # self.param_menu = QComboBox()
-        # self.param_menu.addItem('Power')
-        # self.param_menu.addItem('Data Rates')
-        # form.addRow(num_fmt_label, self.num_fmt_select)
-
 
         dispatcher.connect(self.on_activity_added, 'new activity')
         dispatcher.connect(self.on_activity_modified, 'modified activity')
@@ -64,8 +57,8 @@ class ActivityTables(QMainWindow):
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
-        self.set_central_widget()
         self.init_toolbar()
+        self.set_central_widget()
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
         self.statusbar = self.statusBar()
@@ -79,22 +72,22 @@ class ActivityTables(QMainWindow):
         self.title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
         self.main_layout.addWidget(self.title)
+
         self.sort_and_set_table(self.subject)
 
-    def set_title(self, activity):
+    def set_left_title(self, activity):
         if getattr(activity, 'activity_type', None):
             a_type = activity.activity_type.name
-            txt = 'Components of {} "{}"'.format(a_type, activity.id)
+            txt = 'Summary of {} "{}"'.format(a_type, activity.id)
         else:
-            txt = 'Components of "{}"'.format(getattr(activity, 'id',
+            txt = 'Summary of "{}"'.format(getattr(activity, 'id',
                                                       'unidentified activity'))
         self.title.setText(txt)
 
-    def set_table_1(self, objs):
-        table_cols = ['reference_designator', 'id', 'name', 'start_time', 'duration', 'description']
-        table_headers = dict(reference_designator='Reference\nDesignator',
-                           id='ID', name='Name',
-                           start_time='Start\nTime',
+    def set_left_table(self, objs):
+        table_cols = ['id', 'name', 't_start', 'duration', 'description']
+        table_headers = dict(id='ID', name='Name',
+                           t_start='Start\nTime',
                            duration='Duration',
                            description='Description')
         od_list = []
@@ -132,8 +125,25 @@ class ActivityTables(QMainWindow):
         self.main_layout.addWidget(new_table, stretch=1)
         self.table = new_table
 
-    def set_table_2(self, objs, parameters):
-        new_model = MatrixTableModel(objs, parameters)
+    def set_bottom_title(self):
+        self.title.setText("Title goes here")
+
+    def set_bottom_table(self, objs):
+        param = self.current_param
+        print("INSIDE SET TABLE",param)
+
+        obj_list = []
+        for obj in objs:
+            obj_list.append(obj)
+
+        od_list = []
+        obj_dict = OrderedDict()
+        for obj_name in obj_list:
+            val = get_pval_as_str(orb, obj.oid, param)
+            obj_dict[obj_name] = val
+        od_list.append(obj_dict)
+
+        new_model = EditableTableModel(od_list, param)
         new_table = QTableView()
         new_table.setModel(new_model)
 
@@ -160,14 +170,22 @@ class ActivityTables(QMainWindow):
                                                 tip="Save to file")
         self.toolbar.addAction(self.report_action)
 
-        self.param_menu = QComboBox()
-        self.param_menu.addItems(["Power", "Data Rates"])
-        self.param_menu.setCurrentIndex(0)
-        self.param_menu.currentIndexChanged[str].connect(self.param_changed)
-        self.toolbar.addWidget(self.param_menu)
+        if self.location == 'bottom':
+            self.param_menu = QComboBox()
+            self.param_menu.addItems(["Power", "Data Rate"])
+            self.param_menu.setCurrentIndex(0)
+            self.current_param = 'P'
+            self.param_menu.currentIndexChanged[str].connect(self.param_changed)
+            self.toolbar.addWidget(self.param_menu)
 
-    def param_changed(self, param):
-        print("woot", param)
+    def param_changed(self, param=None):
+        dispatcher.send("parameter changed",param=param)
+        print("S PARAM CHANGED",param)
+        if param == 'Power':
+            self.current_param = 'P'
+        elif param == "Data Rate":
+            self.current_param = 'R_D'
+        print("E PARAM CHANGED",self.current_param)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -202,7 +220,7 @@ class ActivityTables(QMainWindow):
             self.statusbar.showMessage('Activity Modified!')
         else:
             self.statusbar.showMessage('Activity Added!')
-        self.sort_and_set_table(parent_act=parent_act)
+            self.sort_and_set_table(parent_act=parent_act)
 
     def on_activity_removed(self, parent_act=None):
         self.statusbar.showMessage('Activity Removed!')
@@ -226,14 +244,84 @@ class ActivityTables(QMainWindow):
         try:
             all_acus.sort()
         except:
-            print("sort_and_set_table fail:", all_acus)
+            print('SORTING FAIL', all_acus, self.statusbar.showMessage("AHHH?"))
+
         activities = [acu_tuple[1].component for acu_tuple in all_acus]
 
-        self.set_table_1(activities)
-        self.set_title(parent_act)
+        # self.set_left_table(activities)
+        # self.set_left_title(parent_act)
+
+        if self.location == 'bottom':
+            self.set_bottom_table(activities)
+            self.set_bottom_title()
+        else:
+            self.set_left_table(activities)
+            self.set_left_title(parent_act)
 
     def write_report(self):
         pass
+
+class EditableTableModel(QAbstractTableModel):
+    def __init__(self, obj_list, param, parent=None):
+        super(EditableTableModel, self).__init__(parent=parent)
+        self.obj = obj_list
+        self.param = param
+
+        orb.log.info('* EditableActivityTable initializing...')
+
+    def rowCount(self, parent):
+        return len(self.obj)
+
+    def columnCount(self, parent):
+        return len(self.obj[0])
+
+    def data(self, index, role):
+        if not index.isValid():
+            return QVariant()
+        elif role != Qt.DisplayRole:
+            return QVariant()
+
+        cur_obj = list(self.obj[0])[index.column()]
+        oid = cur_obj.oid
+        return(get_pval_as_str(orb, oid, self.param))
+        # print(self.obj[index.row()].get(self.columns()[index.column()], ''))
+        # return self.obj[index.row()].get(self.columns()[index.column()], '')
+
+    def flags(self, index):
+        if not index.isValid():
+            return 0
+        # return Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled
+        return Qt.ItemIsEditable | super(EditableTableModel, self).flags(index)
+
+    def setData(self, index, value, role):
+        self.obj[index.row()][index.column()] = value
+        cur_obj = list(self.obj[0])[index.column()]
+        # self.param = 'duration'
+        oid = cur_obj.oid
+        # print("VALUE", value)
+        print("parameter in table",self.param)
+        set_pval_from_str(orb, oid, self.param, value)
+        # print("HEYYYY",get_pval_as_str(orb, oid, self.param))
+        return True
+
+    def obj_cols(self):
+        obj_id_list = []
+        try:
+            for obj in list(self.obj[0]):
+                txt = '{} [{}]'.format(self.param, obj.id)
+                obj_id_list.append(txt)
+        except:
+            pass
+        return obj_id_list
+
+    def columns(self):
+        return list(self.obj[0].keys())
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            return self.obj_cols()[section]
+        return QAbstractTableModel.headerData(self, section, orientation, role)
+
 
 if __name__ == '__main__':
     import sys
