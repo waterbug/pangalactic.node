@@ -1,0 +1,68 @@
+PyQt5 plugins bug work-around
+-----------------------------
+
+* the runtime hook for twisted is bad (installs default reactor)
+
+  comment out the contents of the file "pyi_rth_twisted.py" in directory:
+
+    ...\Lib\site-packages\PyInstaller\loader\rthooks
+
+* for python 3.6, pyinstaller 3.4, pyqt 5.6.0, the error:
+  "pyinstaller cannot find existing pyqt5 plugin directories"
+  can be fixed by modifying the file:
+
+    ...\Lib\site-packages\PyInstaller\utils\hooks\qt.py
+
+  as follows:
+-------------------------------------------------------------------
+    json_str = exec_statement("""
+        import sys
+
+        # exec_statement only captures stdout. If there are
+        # errors, capture them to stdout so they can be displayed to the
+        # user. Do this early, in case PyQt5 imports produce stderr
+        # output.
+        sys.stderr = sys.stdout
+
+        import json
+        from %s.QtCore import QLibraryInfo, QCoreApplication
+
+        # QLibraryInfo isn't always valid until a QCoreApplication is
+        # instantiated.
+        app = QCoreApplication([])
+        paths = [x for x in dir(QLibraryInfo) if x.endswith('Path')]
+        location = {x: QLibraryInfo.location(getattr(QLibraryInfo, x))
+                    for x in paths}
+        try:
+            version = QLibraryInfo.version().segments()
+        except AttributeError:
+            version = None
+        print(str(json.dumps({
+            'isDebugBuild': QLibraryInfo.isDebugBuild(),
+            'version': version,
+            'location': location,
+        })))
+    """ % self.namespace)  
+-------------------------------------------------------------------
+  (per https://stackoverflow.com/questions/52376313/converting-py-file-to-exe-cannot-find-existing-pyqt5-plugin-directories/52376965
+-------------------------------------------------------------------
+
+* PyInstaller will put the PyQt5 plugins into:
+
+[exe dir]/PyQt5/Qt/plugins
+
+The subdirectory 'platforms' contains a critical dll, 'qwindows.dll'.  Move all
+the subdirectories directly under the [exe dir], and the executable will find
+them.
+
+-------------------------------------------------------------------
+
+* on Windows, pythonocc needs "CASROOT" defined as an env var pointing to
+Library/share/oce ... which contains a "src" directory with data files (which
+is part of the conda installation).
+
+  - copy Library/share/oce directory to pangalaxian_home/casroot and set that as
+    "CASROOT" env variable.
+
+-------------------------------------------------------------------
+
