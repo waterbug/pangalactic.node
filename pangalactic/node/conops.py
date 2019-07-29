@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#disciplines#!/usr/bin/env python
 # NOTE: fixed div's so old_div is not needed.
 # from past.utils import old_div
 import os
@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
                              QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
                              QToolBox, QPushButton, QGraphicsPathItem,
-                             QVBoxLayout, QToolBar)
+                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -27,7 +27,8 @@ from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets    import NameLabel
 from pangalactic.core.serializers      import serialize, deserialize
-
+from pangalactic.core               import config
+# ds = config.get('mdl_disciplines_subsystems')
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
     'step:203' : None,
@@ -89,6 +90,7 @@ def get_model_path(model):
 
 
 class EventBlock(QGraphicsPolygonItem):
+
     def __init__(self, activity=None, parent_activity=None, style=None,
                  editable=False, port_spacing=0,parent=None):
         super(EventBlock, self).__init__(parent)
@@ -120,6 +122,7 @@ class EventBlock(QGraphicsPolygonItem):
         dispatcher.connect(self.id_changed_handler, "modified activity")
         self.create_actions()
         self.setAcceptHoverEvents(True)
+        self.subsystem = False
 
         if self.activity.activity_type.name == "Operation":
             self.myPolygon = QPolygonF([
@@ -145,23 +148,31 @@ class EventBlock(QGraphicsPolygonItem):
         if self.activity.activity_type.name == "Cycle":
             pass
     def mouseDoubleClickEvent(self, event):
-        dispatcher.send("double clicked", obj=self)
+        print("irhfp9w8ehrg888888888888888888888888888888888888888888888888888888888888888")
+        dispatcher.send("double clicked", act=self.activity)
 
     def contextMenuEvent(self, event):
+
+
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
         self.menu.addAction(self.edit_action)
-        self.menu.addAction(self.divide_to_disciplines_action)
+        self.menu.addAction(self.divide_to_subsystems_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item",
                                      triggered=self.delete_item)
         self.edit_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
-        self.divide_to_disciplines_action = QAction("Divide into disciplines", self.scene(), statusTip="Divide into disciplines", triggered=self.disciplines)
+        self.divide_to_subsystems_action = QAction("View subsystems", self.scene(), statusTip="Divide into subsystems", triggered=self.subsystems)
+        # self.view_subsystem_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
 
-    def disciplines(self):
+    def subsystem_selected(self):
         pass
+        # dispatcher.send("subsystem selected", system=system)
+
+    def subsystems(self):
+        dispatcher.send("view subsystem", obj=self.activity)
 
     def edit_activity(self):
         self.scene().edit_parameters(self.activity)
@@ -193,7 +204,11 @@ class DiagramView(QGraphicsView):
         super(DiagramView, self).__init__(parent)
 
     def dragEnterEvent(self, event):
-        event.accept()
+        try:
+            has_act_of = self.scene().act_of
+            event.accept()
+        except:
+            pass
 
     def dragMoveEvent(self, event):
         event.accept()
@@ -254,8 +269,8 @@ class Timeline(QGraphicsPathItem):
 
     def make_point_list(self):
         self.length = self.path.length()-2*self.circle_length
-        factor = self.length/(self.num_of_item+1)
-        self.list_of_pos = [(n+1)*factor+100 for n in range(0, self.num_of_item)]
+        factor = self.length/(len(self.item_list)+1)
+        self.list_of_pos = [(n+1)*factor+100 for n in range(0, len(self.item_list))]
 
     def populate(self, item_list):
         self.item_list = item_list
@@ -299,11 +314,24 @@ class Timeline(QGraphicsPathItem):
         self.scene().update()
 
 class DiagramScene(QGraphicsScene):
-    def __init__(self, parent, current_activity=None):
+    def __init__(self, parent, current_activity=None, act_of=None):
         super(DiagramScene, self).__init__(parent)
         self.current_activity = current_activity
         self.timeline = Timeline(self)
         self.addItem(self.timeline)
+        self.focusItemChanged.connect(self.focus_changed_handler)
+        self.current_focus = None
+        self.act_of = act_of
+
+    def focus_changed_handler(self, new_item, old_item):
+        if new_item is not None:
+
+            if new_item != self.current_focus:
+                self.current_focus = new_item
+                print("true^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^0^^^^^6")
+                dispatcher.send("activity focused", obj=self.focusItem().activity)
+                print("signal sent, new act:", new_item.activity.id)
+
 
     def mousePressEvent(self, mouseEvent):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
@@ -317,10 +345,12 @@ class DiagramScene(QGraphicsScene):
         else:
             activity_type = orb.select("ActivityType", name="Event")
         project = orb.get(state.get("project"))
-        activity = clone("Activity", activity_type = activity_type, owner=project)
+        print(self.act_of.product_type.id, "#################################################")
+        activity = clone("Activity", activity_type = activity_type, owner=project, activity_of=self.act_of)
+        print(activity.activity_of.product_type.id, "after#################################################")
         # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
-        orb.save([acu])
+        orb.save([acu, activity])
         item = EventBlock(activity=activity, parent_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.addItem(item)
@@ -334,6 +364,8 @@ class DiagramScene(QGraphicsScene):
         pxo = PgxnObject(activity, edit_mode=True, view=view,
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
+    def mouseDoubleClickEvent(self, event):
+        super(DiagramScene, self).mouseDoubleClickEvent(event)
 
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
@@ -374,6 +406,263 @@ class ToolButton(QPushButton):
     def dragMoveEvent(self, event):
         event.setAccepted(True)
 
+class ToolbarAction(QWidgetAction):
+    def __init__(self, scene, view, toolbar, visible, parent=None):
+        super(ToolbarAction, self).__init__(parent=parent)
+
+
+class TimelineWidget(QWidget):
+    def __init__(self,spacecraft, subject_activity=None, act_of=None,parent=None):
+        super(TimelineWidget, self).__init__(parent=parent)
+        self.possible_systems = list(config.get('mdl_discipline_subsystems').values())
+        self.spacecraft = spacecraft
+        self.init_toolbar()
+        self.subject_activity = subject_activity
+        self.act_of = act_of
+        #### To do : make different title for subsystem timeline######################
+        self.title = NameLabel(getattr(self.subject_activity, 'id', ' '))
+        self.title.setStyleSheet(
+                            'font-weight: bold; font-size: 18px; color: purple')
+
+        # self.setVisible(visible)
+        # self.set_title()
+        self.scene = self.set_new_scene()
+        self.view = DiagramView(self)
+        self.update_view()
+        # self.statusbar = QStatusBar()
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.title)
+        self.layout.addWidget(self.toolbar)
+        self.layout.addWidget(self.view)
+        # self.layout.addWidget(self.statusbar)
+        self.setLayout(self.layout)
+        self.history = []
+        # self.show_history()
+        self.sceneScaleChanged("50%")
+        self.current_subsystem_index = 0
+        # dispatcher.connect(self.double_clicked_handler, "double clicked")
+
+    def set_title(self):
+        try:
+            title = self.subject_activity.id + ": " + self.act_of.id
+            self.title.setText(title)
+            self.update()
+        except:
+            pass
+
+    def widget_drill_down(self, obj):
+        """
+        Handle a double-click event on an eventblock, creating and
+        displaying a new view.
+
+        Args:
+            obj (EventBlock):  the block that received the double-click
+        """
+        if obj.subsystem == False:
+            dispatcher.send("drill down", obj=obj.activity)
+            self.set_new_scene(current_activity=obj.activity)
+            self.subject_activity = obj.activity
+
+            previous = obj.scene().current_activity
+            self.history.append(previous)
+            # self.show_history()
+
+    def set_new_scene(self):
+        if self.act_of is not None:
+            print('---------------------------------------------',self.subject_activity.id)
+            print("set new scene act of", self.act_of.id)
+            scene = DiagramScene(self, self.subject_activity, act_of=self.act_of)
+            if self.subject_activity != None and len(self.subject_activity.components) > 0:
+                # subsystem_comps = [acu for acu in current_activity.components if acu.component.activity_of is self.act_of]
+                all_acus = [(acu.reference_designator, acu) for acu in self.subject_activity.components]
+                try:
+                    all_acus.sort()
+                except:
+                    pass
+                item_list=[]
+                for acu_tuple in all_acus:
+                    acu = acu_tuple[1]
+                    activity = acu.component
+                    print(" activities", activity)
+                    if activity.activity_of == self.act_of:
+                        item = EventBlock(activity=activity, parent_activity=self.subject_activity)
+                        item_list.append(item)
+                        scene.addItem(item)
+                    scene.update()
+                scene.timeline.populate(item_list)
+            # self.view.show()
+            # self.show_history()
+            self.set_title()
+            print("first")
+            return scene
+        else:
+            self.show_empty_scene()
+
+    def show_empty_scene(self):
+        self.set_title()
+        scene = QGraphicsScene()
+        return scene
+
+    def update_view(self):
+        self.view.setScene(self.scene)
+        self.view.show()
+
+    def init_toolbar(self):
+        self.toolbar = QToolBar(parent=self)
+        try:
+            self.toolbar.setObjectName('ActionsToolBar')
+            self.back_action = self.create_action(
+                                        "Go Back",
+                                        slot=self.go_back,
+                                        icon="left_arrow",
+                                        tip="Back to Previous Page")
+            self.toolbar.addAction(self.back_action)
+            print("created")
+        except:
+            print("except")
+        # self.clear_activities_action = self.create_action(
+        #                             "clear activities",
+        #                             slot=self.clear_activities,
+        #                             icon="left_arrow",
+        #                             tip="delete activities on this page")
+        # self.toolbar.addAction(self.clear_activities_action)
+        # self.back_to_mission_action = self.create_action(
+        #                             "back to mission",
+        #                             slot=self.view_mission,
+        #                             icon="system",
+        #                             tip="go back to mission")
+        # self.toolbar.addAction(self.back_to_mission_action)
+        # self.undo_action = self.create_action(
+        #                             "undo",
+        #                             slot=self.undo,
+        #                             icon="left_arrow",
+        #                             tip="undo")
+        # self.toolbar.addAction(self.undo_action)
+        #create and add scene scale menu
+        self.scene_scale_select = QComboBox()
+        self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
+                                          "100%"])
+        self.scene_scale_select.setCurrentIndex(3)
+        self.scene_scale_select.currentIndexChanged[str].connect(
+                                                    self.sceneScaleChanged)
+        self.toolbar.addWidget(self.scene_scale_select)
+
+    def sceneScaleChanged(self, percentscale):
+        newscale = float(percentscale[:-1]) / 100.0
+        self.view.setTransform(QTransform().scale(newscale, newscale))
+
+    def go_back(self):
+        try:
+            previous_activity = self.history.pop()
+            self.set_new_scene(current_activity=previous_activity)
+            # self.show_history()
+            # dispatcher.send("go back", obj=previous_activity)
+        except:
+            pass
+    def create_action(self, text, slot=None, icon=None, tip=None,
+                      checkable=False):
+        action = QWidgetAction(self)
+        if icon is not None:
+            icon_file = icon + state.get('icon_type', '.png')
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
+            action.setIcon(QIcon(icon_path))
+        if tip is not None:
+            action.setToolTip(tip)
+            # action.setStatusTip(tip)
+        if slot is not None:
+            action.triggered.connect(slot)
+        if checkable:
+            action.setCheckable(True)
+        return action
+    def return_scene(self):
+        return self.scene
+    def return_view(self):
+        return self.view
+    # def toolbar(self):
+    #     return self.toolbar
+    # def show_history(self):
+    #     try:
+    #         history_string = ""
+    #         for activity in self.history:
+    #             id = activity.id or "NA"
+    #             history_string += id + " >"
+    #         history_string += self.subject_activity.id or "NA"
+    #         history_string+= " >"
+    #         self.statusbar.showMessage(history_string)
+    #     except:
+    #         pass
+
+
+    def make_combo_box(self, activity):
+        self.subject_activity = activity
+        box = QComboBox(self)
+        box.addItems(self.possible_systems)
+        self.combo_box = box
+        self.combo_box.currentIndexChanged[str].connect(self.change_subsystem)
+        self.toolbar.addWidget(self.combo_box)
+
+
+
+    def update_combo_box(self):
+        self.scene = self.set_new_scene()
+        self.update_view()
+
+    def change_subsystem(self, system_name=None):
+        #target_system: string
+        if self.subject_activity.activity_type.id == 'cycle':
+            pass
+        else:
+            existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
+            system_exists = False
+            print("looking for", system_name)
+            for sys in existing_subsystems:
+                print(sys.product_type.id)
+            for subsystem in existing_subsystems:
+                if subsystem.product_type.id == system_name:
+                    system_exists = True
+                    self.act_of = subsystem
+                else:
+                    print('"{}" not the same as "{}"'.format(subsystem.product_type.id, system_name))
+            if not system_exists:
+                self.make_new_system(system_name)
+
+            self.scene = self.set_new_scene()
+            self.update_view()
+            # except Exception as e:
+            #     print(e)
+            #     print('============================================')
+    def make_new_system(self, system_name):
+        pro_type = orb.select("ProductType", id=system_name)
+        new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner, product_type=pro_type, id=pro_type.id, name=pro_type.id)
+        acu = clone("Acu", assembly=self.spacecraft, component=new_subsystem)
+        self.act_of = new_subsystem
+        orb.save([new_subsystem, acu])
+            # orb.select("HardwareProduct", product_type)
+        #
+        # target_system = target_system or self.possible_systems[self.combo_box.currentIndex()]
+        # self.current_subsystem_index = target_system
+        # ex_subsys_names = [sys.product_type for sys in existing_subsystems]
+        # if target_system in ex_subsys_names:
+        #     print("dne--------------------------------------------------")
+        # sys_exist = False
+        # for system in existing_subsystems:
+        #     if system.product_type.id == target_system:
+        #         sys_exist = True
+        #         self.current_subsystem_index = existing_subsystems.index(system)
+        #         self.act_of = system
+        #         self.scene = self.set_new_scene()
+        #         self.update_view()
+        # if sys_exist == False:
+        #     pro_type = orb.select("ProductType", id=target_system)
+        #     new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner,product_type=pro_type)
+        #     acu = clone("Acu", assembly=self.spacecraft, component=new_subsystem)
+        #     self.current_subsystem_index = self.possible_systems.index(pro_type.id)
+        #     self.act_of = pro_type
+        #     self.scene = self.set_new_scene()
+        #     self.update_view()
+        #
+        # self.update()
 
 class ConOpsModeler(QMainWindow):
     """
@@ -410,6 +699,7 @@ class ConOpsModeler(QMainWindow):
         self.preferred_size = preferred_size
         self.model_files = {}
         project = orb.get(state.get('project'))
+        sc_type = orb.select("ProductType", id='spacecraft')
         if project:
             mission = orb.select('Mission', owner=project)
 
@@ -421,21 +711,36 @@ class ConOpsModeler(QMainWindow):
                 orb.save([mission])
             self.subject_activity = mission
             self.mission = mission
+
         else:
             self.subject_activity = clone("Activity", id="temp", name="temp")
             self.mission = self.subject_activity
+
         self.project = project
 
+        spacecraft = orb.select('HardwareProduct', owner=project, product_type=sc_type)
+        print("already have sc", spacecraft.name)
+        if not spacecraft:
+            spacecraft = clone("HardwareProduct", owner=project, product_type=sc_type)
+            psu = clone("ProjectSystemUsage", project=project, system=spacecraft)
+            orb.save([psu, spacecraft])
+
+
+        self.spacecraft = spacecraft
+        print("my sc name ------------------", self.spacecraft.name)
         #-----------------------------------------------------------#
         self.create_library()
-        self.scene = DiagramScene(self, self.subject_activity)
+        # self.scene = DiagramScene(self, self.subject_activity)
+        self.subsys_act = None
         self.history = []
         self._init_ui()
-        self.set_new_view(self.scene, current_activity=self.subject_activity,
-                          init=True)
+        # self.set_new_view(self.scene, current_activity=self.subject_activity, init=True)
+        self.set_widgets(current_activity=self.subject_activity, init=True)
         #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
         dispatcher.connect(self.delete_activity, "remove activity")
+        dispatcher.connect(self.view_subsystem, "activity focused")
+        dispatcher.connect(self.view_subsystem, "view subsystem")
         # add left dock
         self.left_dock = QDockWidget()
         self.left_dock.setObjectName('LeftDock')
@@ -492,81 +797,65 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug('  - _init_ui() ...')
         # set a placeholder for the central widget
         #self.set_placeholder()
-        self.init_toolbar()
+        # self.init_toolbar()
         # Initialize a statusbar for the window
         self.statusbar = self.statusBar()
         # self.statusbar.showMessage("Models, woo!")
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
-        self.view.setTransform(QTransform().scale(newscale, newscale))
-        self.dicipline_view.setTransform(QTransform().scale(newscale, newscale))
+        # self.view.setTransform(QTransform().scale(newscale, newscale))
+        # self.sub_view.setTransform(QTransform().scale(newscale, newscale))
 
-    def init_toolbar(self):
-        self.toolbar = self.addToolBar("Actions")
-        self.toolbar.setObjectName('ActionsToolBar')
-        self.back_action = self.create_action(
-                                    "Go Back",
-                                    slot=self.go_back,
-                                    icon="left_arrow",
-                                    tip="Back to Previous Page")
-        self.toolbar.addAction(self.back_action)
-        self.clear_activities_action = self.create_action(
-                                    "clear activities",
-                                    slot=self.clear_activities,
-                                    icon="left_arrow",
-                                    tip="delete activities on this page")
-        self.toolbar.addAction(self.clear_activities_action)
-        self.back_to_mission_action = self.create_action(
-                                    "back to mission",
-                                    slot=self.view_mission,
-                                    icon="system",
-                                    tip="go back to mission")
-        self.toolbar.addAction(self.back_to_mission_action)
-        self.undo_action = self.create_action(
-                                    "undo",
-                                    slot=self.undo,
-                                    icon="left_arrow",
-                                    tip="undo")
-        self.toolbar.addAction(self.undo_action)
-        # self.edit_mode_action = self.create_action(
-        #                             "Edit",
-        #                             slot=self.undo,
-        #                             icon="left_arrow",
-        #                             tip="undo")
-        # self.toolbar.addAction(self.undo_action)
+    # def init_toolbar(self):
+    #     self.toolbar = self.addToolBar("Actions")
+    #     self.toolbar.setObjectName('ActionsToolBar')
+    #     self.back_action = self.create_action(
+    #                                 "Go Back",
+    #                                 slot=self.go_back,
+    #                                 icon="left_arrow",
+    #                                 tip="Back to Previous Page")
+    #     self.toolbar.addAction(self.back_action)
+    #     self.clear_activities_action = self.create_action(
+    #                                 "clear activities",
+    #                                 slot=self.clear_activities,
+    #                                 icon="left_arrow",
+    #                                 tip="delete activities on this page")
+    #     self.toolbar.addAction(self.clear_activities_action)
+    #     self.back_to_mission_action = self.create_action(
+    #                                 "back to mission",
+    #                                 slot=self.view_mission,
+    #                                 icon="system",
+    #                                 tip="go back to mission")
+    #     self.toolbar.addAction(self.back_to_mission_action)
+    #     self.undo_action = self.create_action(
+    #                                 "undo",
+    #                                 slot=self.undo,
+    #                                 icon="left_arrow",
+    #                                 tip="undo")
+    #     self.toolbar.addAction(self.undo_action)
+    #     #create and add scene scale menu
+    #     self.scene_scale_select = QComboBox()
+    #     self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
+    #                                       "100%"])
+    #     self.scene_scale_select.setCurrentIndex(3)
+    #     self.scene_scale_select.currentIndexChanged[str].connect(
+    #                                                 self.sceneScaleChanged)
+    #     self.toolbar.addWidget(self.scene_scale_select)
 
-
-        # self.external_window_action = self.create_action(
-        #                             "Display external diagram window ...",
-        #                             slot=self.display_external_window,
-        #                             icon="system",
-        #                             tip="Display External Diagram Window")
-        # if not self.external:
-        #     self.toolbar.addAction(self.external_window_action)
-
-        #create and add scene scale menu
-        self.scene_scale_select = QComboBox()
-        self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
-                                          "100%"])
-        self.scene_scale_select.setCurrentIndex(3)
-        self.scene_scale_select.currentIndexChanged[str].connect(
-                                                    self.sceneScaleChanged)
-        self.toolbar.addWidget(self.scene_scale_select)
-
-    def view_mission(self):
-        new_scene = DiagramScene(self, current_activity=self.mission)
-        self.set_new_view(new_scene, current_activity=self.mission)
-        self.subject_activity = self.mission
-        self.history.clear()
-        self.show_history()
-
-    def clear_activities(self):
-        children = [acu.component for acu in self.subject_activity.components]
-        orb.delete(children)
-        new_scene = DiagramScene(self, current_activity=self.subject_activity)
-        self.set_new_view(new_scene, current_activity=self.subject_activity)
-        dispatcher.send("removed activity", parent_act=self.subject_activity)
+    # def view_mission(self):
+    #     new_scene = DiagramScene(self, current_activity=self.mission)
+    #     self.set_new_view(new_scene, current_activity=self.mission)
+    #     self.subject_activity = self.mission
+    #     self.history.clear()
+    #     self.show_history()
+    #
+    # def clear_activities(self):
+    #     children = [acu.component for acu in self.subject_activity.components]
+    #     orb.delete(children)
+    #     new_scene = DiagramScene(self, current_activity=self.subject_activity)
+    #     self.set_new_view(new_scene, current_activity=self.subject_activity)
+    #     dispatcher.send("removed activity", parent_act=self.subject_activity)
 
     def delete_activity(self, act=None):
         self.serialized_deleted(act=act)
@@ -592,93 +881,102 @@ class ConOpsModeler(QMainWindow):
             for acu in act.components:
                 self.delete_children(act=acu.component)
             orb.delete([act])
+    #
+    # def undo(self):
+    #     try:
+    #         objs = self.deleted_acts.pop()
+    #         ds = deserialize(orb, objs)
+    #         new_scene = DiagramScene(self, current_activity=self.subject_activity)
+    #         self.set_new_view(new_scene, current_activity=self.subject_activity)
+    #         dispatcher.send("new activity", parent_act=self.subject_activity)
+    #     except:
+    #         pass
+    # def create_action(self, text, slot=None, icon=None, tip=None,
+    #                   checkable=False):
+    #     action = QAction(text, self)
+    #     if icon is not None:
+    #         icon_file = icon + state.get('icon_type', '.png')
+    #         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+    #         icon_path = os.path.join(icon_dir, icon_file)
+    #         action.setIcon(QIcon(icon_path))
+    #     if tip is not None:
+    #         action.setToolTip(tip)
+    #         # action.setStatusTip(tip)
+    #     if slot is not None:
+    #         action.triggered.connect(slot)
+    #     if checkable:
+    #         action.setCheckable(True)
+    #     return action
+    #
+    # def display_external_window(self):
+    #     orb.log.info('* ConOpsModeler.display_external_window() ...')
+    #     mw = ConOpsModeler(scene=self.scene,
+    #                        logo=self.logo, external=True,
+    #                        preferred_size=(2000, 1000), parent=self.parent())
+    #     mw.show()
 
-    def undo(self):
+    def double_clicked_handler(self, act):
+
+        print("=============================kdnfianeignojsepojfpfjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj")
+        if act.activity_type.id == 'cycle':
+            pass
+
+
+
+        # to do:
+        # 1. find the activity_of of the activity:
+        #   I. if belongs to spacecraft:
+        #       a. send obj to subsystem timeline
+        #   II. if belongs to subsystem:
+        #       a. pass
+
+
+
+
+    # def update_widgets(self, obj):
+    #     self.sub_widget.set_new_scene(obj.activity)
+
+
+    # def display_subsystem(self, act):
+    #     # self.subsys_act = act
+    #     # self.set_new_view(self.scene, current_activity=self.subject_activity)
+    #     # pass
+    def view_subsystem(self, obj=None):
+        ### change obj to activity
+        if obj.activity_of is self.spacecraft:
+            self.sub_widget.subject_activity = obj
+            if obj.activity_type.id == 'cycle':
+                self.sub_widget.scene = self.sub_widget.show_empty_scene()
+                self.sub_widget.update_view()
+                try:
+                    # self.sub_widget.combo_box.hide()
+                    self.sub_widget.init_toolbar()
+                    self.sub_widget.update()
+                except Exception as e:
+                    print("Exception raised in view_subsystem", e)
+            else:
+                if hasattr(self.sub_widget, 'combo_box'):
+                    self.sub_widget.update_combo_box()
+                else:
+                    self.sub_widget.make_combo_box(obj)
+
+
+    def set_widgets(self, scene=None, current_activity=None, init=False):
+        self.subject_activity = current_activity
+        self.system_widget = TimelineWidget( self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft)
+
+        self.sub_widget = TimelineWidget(self.spacecraft)
+        self.outer_layout = QVBoxLayout()
+        self.outer_layout.addWidget(self.system_widget)
         try:
-            objs = self.deleted_acts.pop()
-            ds = deserialize(orb, objs)
-            new_scene = DiagramScene(self, current_activity=self.subject_activity)
-            self.set_new_view(new_scene, current_activity=self.subject_activity)
-            dispatcher.send("new activity", parent_act=self.subject_activity)
+            self.outer_layout.addWidget(self.sub_widget)
         except:
             pass
-    def create_action(self, text, slot=None, icon=None, tip=None,
-                      checkable=False):
-        action = QAction(text, self)
-        if icon is not None:
-            icon_file = icon + state.get('icon_type', '.png')
-            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-            icon_path = os.path.join(icon_dir, icon_file)
-            action.setIcon(QIcon(icon_path))
-        if tip is not None:
-            action.setToolTip(tip)
-            # action.setStatusTip(tip)
-        if slot is not None:
-            action.triggered.connect(slot)
-        if checkable:
-            action.setCheckable(True)
-        return action
-
-    def display_external_window(self):
-        orb.log.info('* ConOpsModeler.display_external_window() ...')
-        mw = ConOpsModeler(scene=self.scene,
-                           logo=self.logo, external=True,
-                           preferred_size=(2000, 1000), parent=self.parent())
-        mw.show()
-
-    def double_clicked_handler(self, obj):
-        """
-        Handle a double-click event on an eventblock, creating and
-        displaying a new view.
-
-        Args:
-            obj (EventBlock):  the block that received the double-click
-        """
-        dispatcher.send("drill down", obj=obj.activity)
-        new_scene = DiagramScene(self, current_activity=obj.activity)
-        self.set_new_view(new_scene, current_activity=obj.activity)
-        self.subject_activity = obj.activity
-        previous = obj.scene().current_activity
-        self.history.append(previous)
-        self.show_history()
-
-    def set_new_view(self, scene=None, current_activity=None, init=False):
-        """
-        Set a new view and create or recreate a scene.  Used in __init__(),
-        double_clicked_handler() (expanding an activity, aka "drilling down"),
-        and go_back() (navigating back thru history).
-        """
-        self.show_history()
-        self.subject_activity = current_activity
-        self.scene = scene
-        self.view = DiagramView(self.scene)
-        self.dicipline_scene = scene
-        self.dicipline_view = DiagramView(self.dicipline_scene)
-        # self.setMinimumSize(1000, 00)
-        self.view.setSizePolicy(QSizePolicy.MinimumExpanding,
-                                QSizePolicy.MinimumExpanding)
-        self.view.setScene(self.scene)
-        self.dicipline_view.setScene(self.dicipline_scene)
-
-        outer_layout = QVBoxLayout()
-        layout = QHBoxLayout()
-        self.title = NameLabel(getattr(self.subject_activity, 'id', 'NA'))
-        self.title.setStyleSheet(
-                            'font-weight: bold; font-size: 18px; color: purple')
-        outer_layout.addWidget(self.title)
-        view_toolbar = QToolBar()
-        outer_layout.addWidget(view_toolbar)
-        outer_layout.addWidget(self.view)
-        d_view_toolbar = QToolBar()
-        outer_layout.addWidget(d_view_toolbar)
-        outer_layout.addWidget(self.dicipline_view)
-        # layout.addWidget(self.library)
-        # outer_layout.addLayout(layout)
-
-        widget = QWidget()
-        widget.setMinimumSize(900, 600)
-        widget.setLayout(outer_layout)
-        self.setCentralWidget(widget)
+        self.widget = QWidget()
+        self.widget.setMinimumSize(900, 600)
+        self.widget.setLayout(self.outer_layout)
+        # widget.setLayout(sub_layout)
+        self.setCentralWidget(self.widget)
         self.sceneScaleChanged("50%")
         if init:
             # add right dock
@@ -689,31 +987,148 @@ class ConOpsModeler(QMainWindow):
             self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
             self.right_dock.setWidget(self.library)
 
-        if current_activity != None and len(current_activity.components) > 0:
-            all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
-            try:
-                all_acus.sort()
-            except:
-                pass
-            item_list=[]
-            for acu_tuple in all_acus:
-                acu = acu_tuple[1]
-                activity = acu.component
-                item = EventBlock(activity=activity, parent_activity=current_activity)
-                item_list.append(item)
-                self.scene.addItem(item)
-                self.scene.update()
-            self.scene.timeline.populate(item_list)
-        self.view.show()
+        # if current_activity != None and len(current_activity.components) > 0:
+        #     all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
+        #     try:
+        #         all_acus.sort()
+        #     except:
+        #         pass
+        #     item_list=[]
+        #     for acu_tuple in all_acus:
+        #         acu = acu_tuple[1]
+        #         activity = acu.component
+        #         item = EventBlock(activity=activity, parent_activity=current_activity)
+        #         item_list.append(item)
+        #         self.scene.addItem(item)
+        #         self.scene.update()
+        #     self.scene.timeline.populate(item_list)
+        # self.view.show()
 
-    def show_history(self):
-        history_string = ""
-        for activity in self.history:
-            id = activity.id or "NA"
-            history_string += id + " >"
-        history_string += self.subject_activity.id or "NA"
-        history_string+= " >"
-        self.statusbar.showMessage(history_string)
+
+    #
+    # def set_new_view(self, scene=None, current_activity=None, init=False):
+    #     """
+    #     Set a new view and create or recreate a scene.  Used in __init__(),
+    #     double_clicked_handler() (expanding an activity, aka "drilling down"),
+    #     and go_back() (navigating back thru history).
+    #     """
+    #     self.show_history()
+    #     self.subject_activity = current_activity
+    #     self.scene = scene
+    #     self.view = DiagramView(self.scene)
+    #     # self.setMinimumSize(1000, 00)
+    #     self.view.setSizePolicy(QSizePolicy.MinimumExpanding,
+    #                             QSizePolicy.MinimumExpanding)
+    #     self.view.setScene(self.scene)
+    #
+    #
+    #     outer_layout = QVBoxLayout()
+    #     layout = QHBoxLayout()
+    #     self.title = NameLabel(getattr(self.subject_activity, 'id', 'NA'))
+    #     self.title.setStyleSheet(
+    #                         'font-weight: bold; font-size: 18px; color: purple')
+    #     # view_toolbar = self.make_toolbar("first", parent=system_widget)
+    #     # outer_layout.addWidget(view_toolbar)
+    #     # outer_layout.addWidget(self.view)
+    #     # outer_layout.addWidget(self.view)
+    #     # system_widget.setLayout(outer_layout)
+    #     # d_view_toolbar = self.make_toolbar("second",parent=self.d_scene)
+    #     # outer_layout.addWidget(d_view_toolbar)
+    #     # outer_layout.addWidget(self.sub_view)
+    #     sys_toolbar = QToolBar()
+    #     system_widget = TimelineWidget(self.scene, self.view, sys_toolbar, visible=True)
+    #     system_layout = QVBoxLayout()
+    #     system_layout.addWidget(sys_toolbar)
+    #     system_layout.addWidget(self.view)
+    #     system_widget.setLayout(system_layout)
+    #
+    #     if self.subsys_act == None:
+    #         self.sub_scene = QGraphicsScene()
+    #     else:
+    #         self.sub_scene = self.set_new_scene(current_activity=self.subsys_act)
+    #     self.sub_view = DiagramView(self.sub_scene)
+    #     self.sub_view.setScene(self.sub_scene)
+    #     sub_toolbar = QToolBar()
+    #     sub_widget = TimelineWidget(self.sub_scene, self.sub_view, sub_toolbar, visible=False)
+    #     # # sub_widget.setVisible(False)
+    #     sub_layout = QVBoxLayout()
+    #     sub_layout.addWidget(sub_toolbar)
+    #     # system_layout.addWidget(sub_toolbar)
+    #     sub_layout.addWidget(self.sub_view)
+    #     sub_widget.setLayout(sub_layout)
+    #         # system_layout.addWidget(self.sub_view)
+    #
+    #
+    #     outer_layout = QVBoxLayout()
+    #     outer_layout.addWidget(system_widget)
+    #     try:
+    #         outer_layout.addWidget(sub_widget)
+    #     except:
+    #         pass
+    #     widget = QWidget()
+    #     widget.setMinimumSize(900, 600)
+    #     widget.setLayout(outer_layout)
+    #     # widget.setLayout(sub_layout)
+    #     self.setCentralWidget(widget)
+    #     self.sceneScaleChanged("50%")
+    #     if init:
+    #         # add right dock
+    #         self.right_dock = QDockWidget()
+    #         self.right_dock.setObjectName('RightDock')
+    #         self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+    #         self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
+    #         self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
+    #         self.right_dock.setWidget(self.library)
+    #
+    #     # if current_activity != None and len(current_activity.components) > 0:
+    #     #     all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
+    #     #     try:
+    #     #         all_acus.sort()
+    #     #     except:
+    #     #         pass
+    #     #     item_list=[]
+    #     #     for acu_tuple in all_acus:
+    #     #         acu = acu_tuple[1]
+    #     #         activity = acu.component
+    #     #         item = EventBlock(activity=activity, parent_activity=current_activity)
+    #     #         item_list.append(item)
+    #     #         self.scene.addItem(item)
+    #     #         self.scene.update()
+    #     #     self.scene.timeline.populate(item_list)
+    #     self.view.show()
+
+    # def set_new_scene(self, current_activity=None):
+    #     scene = DiagramScene(self, current_activity)
+    #     if current_activity != None and len(current_activity.components) > 0:
+    #         if self.combo_box:
+    #             current_system = self.possible_systems[self.combo_box.currentIndex()]
+    #         all_acus = [(acu.reference_designator, acu) for acu in current_activity.components]
+    #         try:
+    #             all_acus.sort()
+    #         except:
+    #             pass
+    #         item_list=[]
+    #         for acu_tuple in all_acus:
+    #             acu = acu_tuple[1]
+    #             activity = acu.component
+    #             if activity.activity_of.id == current_system:
+    #                 item = EventBlock(activity=activity, parent_activity=current_activity)
+    #                 item_list.append(item)
+    #                 scene.addItem(item)
+    #                 scene.update()
+    #         scene.timeline.populate(item_list)
+    #     # self.view.show()
+    #     return scene
+    #
+
+    # def show_history(self):
+    #     history_string = ""
+    #     for activity in self.history:
+    #         id = activity.id or "NA"
+    #         history_string += id + " >"
+    #     history_string += self.subject_activity.id or "NA"
+    #     history_string+= " >"
+    #     self.statusbar.showMessage(history_string)
 
     def go_back(self):
         try:
