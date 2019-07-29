@@ -1,4 +1,4 @@
-#disciplines#!/usr/bin/env python
+#!/usr/bin/env python
 # NOTE: fixed div's so old_div is not needed.
 # from past.utils import old_div
 import os
@@ -28,7 +28,6 @@ from pangalactic.node.utils       import clone
 from pangalactic.node.widgets    import NameLabel
 from pangalactic.core.serializers      import serialize, deserialize
 from pangalactic.core               import config
-# ds = config.get('mdl_disciplines_subsystems')
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
     'step:203' : None,
@@ -414,15 +413,19 @@ class ToolbarAction(QWidgetAction):
 class TimelineWidget(QWidget):
     def __init__(self,spacecraft, subject_activity=None, act_of=None,parent=None):
         super(TimelineWidget, self).__init__(parent=parent)
-        self.possible_systems = list(config.get('mdl_discipline_subsystems').values())
+        self.possible_systems = []
+        ds = config.get('discipline_subsystems')
+        if ds:
+            self.possible_systems = list(config.get(
+                                         'discipline_subsystems').values())
         self.spacecraft = spacecraft
         self.init_toolbar()
         self.subject_activity = subject_activity
         self.act_of = act_of
-        #### To do : make different title for subsystem timeline######################
+        #### To do : make different title for subsystem timeline###############
         self.title = NameLabel(getattr(self.subject_activity, 'id', ' '))
         self.title.setStyleSheet(
-                            'font-weight: bold; font-size: 18px; color: purple')
+                        'font-weight: bold; font-size: 18px; color: purple')
 
         # self.setVisible(visible)
         # self.set_title()
