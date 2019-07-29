@@ -148,7 +148,7 @@ class EventBlock(QGraphicsPolygonItem):
         if self.activity.activity_type.name == "Cycle":
             pass
     def mouseDoubleClickEvent(self, event):
-        print("irhfp9w8ehrg888888888888888888888888888888888888888888888888888888888888888")
+        # print("irhfp9w8ehrg888888888888888888888888888888888888888888888888888888888888888")
         dispatcher.send("double clicked", act=self.activity)
 
     def contextMenuEvent(self, event):
@@ -328,9 +328,9 @@ class DiagramScene(QGraphicsScene):
 
             if new_item != self.current_focus:
                 self.current_focus = new_item
-                print("true^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^0^^^^^6")
+                # print("true^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^0^^^^^6")
                 dispatcher.send("activity focused", obj=self.focusItem().activity)
-                print("signal sent, new act:", new_item.activity.id)
+                # print("signal sent, new act:", new_item.activity.id)
 
 
     def mousePressEvent(self, mouseEvent):
@@ -345,9 +345,9 @@ class DiagramScene(QGraphicsScene):
         else:
             activity_type = orb.select("ActivityType", name="Event")
         project = orb.get(state.get("project"))
-        print(self.act_of.product_type.id, "#################################################")
+        # print(self.act_of.product_type.id, "#################################################")
         activity = clone("Activity", activity_type = activity_type, owner=project, activity_of=self.act_of)
-        print(activity.activity_of.product_type.id, "after#################################################")
+        # print(activity.activity_of.product_type.id, "after#################################################")
         # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu, activity])
@@ -469,8 +469,8 @@ class TimelineWidget(QWidget):
 
     def set_new_scene(self):
         if self.act_of is not None:
-            print('---------------------------------------------',self.subject_activity.id)
-            print("set new scene act of", self.act_of.id)
+            # print('---------------------------------------------',self.subject_activity.id)
+            # print("set new scene act of", self.act_of.id)
             scene = DiagramScene(self, self.subject_activity, act_of=self.act_of)
             if self.subject_activity != None and len(self.subject_activity.components) > 0:
                 # subsystem_comps = [acu for acu in current_activity.components if acu.component.activity_of is self.act_of]
@@ -483,7 +483,7 @@ class TimelineWidget(QWidget):
                 for acu_tuple in all_acus:
                     acu = acu_tuple[1]
                     activity = acu.component
-                    print(" activities", activity)
+                    # print(" activities", activity)
                     if activity.activity_of == self.act_of:
                         item = EventBlock(activity=activity, parent_activity=self.subject_activity)
                         item_list.append(item)
@@ -493,7 +493,6 @@ class TimelineWidget(QWidget):
             # self.view.show()
             # self.show_history()
             self.set_title()
-            print("first")
             return scene
         else:
             self.show_empty_scene()
@@ -517,9 +516,10 @@ class TimelineWidget(QWidget):
                                         icon="left_arrow",
                                         tip="Back to Previous Page")
             self.toolbar.addAction(self.back_action)
-            print("created")
+            # print("created")
         except:
-            print("except")
+            # print("excespt")
+            pass
         # self.clear_activities_action = self.create_action(
         #                             "clear activities",
         #                             slot=self.clear_activities,
@@ -615,15 +615,16 @@ class TimelineWidget(QWidget):
         else:
             existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
             system_exists = False
-            print("looking for", system_name)
-            for sys in existing_subsystems:
-                print(sys.product_type.id)
+            # print("looking for", system_name)
+            # for sys in existing_subsystems:
+            #     print(sys.product_type.id)
             for subsystem in existing_subsystems:
                 if subsystem.product_type.id == system_name:
                     system_exists = True
                     self.act_of = subsystem
                 else:
-                    print('"{}" not the same as "{}"'.format(subsystem.product_type.id, system_name))
+                    # print('"{}" not the same as "{}"'.format(subsystem.product_type.id, system_name))
+                    pass
             if not system_exists:
                 self.make_new_system(system_name)
 
@@ -719,7 +720,7 @@ class ConOpsModeler(QMainWindow):
         self.project = project
 
         spacecraft = orb.select('HardwareProduct', owner=project, product_type=sc_type)
-        print("already have sc", spacecraft.name)
+        # print("already have sc", spacecraft.name)
         if not spacecraft:
             spacecraft = clone("HardwareProduct", owner=project, product_type=sc_type)
             psu = clone("ProjectSystemUsage", project=project, system=spacecraft)
@@ -727,7 +728,7 @@ class ConOpsModeler(QMainWindow):
 
 
         self.spacecraft = spacecraft
-        print("my sc name ------------------", self.spacecraft.name)
+        # print("my sc name ------------------", self.spacecraft.name)
         #-----------------------------------------------------------#
         self.create_library()
         # self.scene = DiagramScene(self, self.subject_activity)
@@ -917,7 +918,7 @@ class ConOpsModeler(QMainWindow):
 
     def double_clicked_handler(self, act):
 
-        print("=============================kdnfianeignojsepojfpfjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj")
+        # print("=============================kdnfianeignojsepojfpfjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj")
         if act.activity_type.id == 'cycle':
             pass
 
@@ -953,7 +954,8 @@ class ConOpsModeler(QMainWindow):
                     self.sub_widget.init_toolbar()
                     self.sub_widget.update()
                 except Exception as e:
-                    print("Exception raised in view_subsystem", e)
+                    # print("Exception raised in view_subsystem", e)
+                    pass
             else:
                 if hasattr(self.sub_widget, 'combo_box'):
                     self.sub_widget.update_combo_box()
