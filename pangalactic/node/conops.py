@@ -363,8 +363,8 @@ class DiagramScene(QGraphicsScene):
         pxo = PgxnObject(activity, edit_mode=True, view=view,
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
-    def mouseDoubleClickEvent(self, event):
-        super(DiagramScene, self).mouseDoubleClickEvent(event)
+    # def mouseDoubleClickEvent(self, event):
+    #     super(DiagramScene, self).mouseDoubleClickEvent(event)
 
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
@@ -453,7 +453,7 @@ class TimelineWidget(QWidget):
         except:
             pass
 
-    def widget_drill_down(self, obj):
+    def widget_drill_down(self, act):
         """
         Handle a double-click event on an eventblock, creating and
         displaying a new view.
@@ -462,10 +462,10 @@ class TimelineWidget(QWidget):
             obj (EventBlock):  the block that received the double-click
         """
 
-        dispatcher.send("drill down", obj=activity)
+        dispatcher.send("drill down", obj=act)
         self.subject_activity = act
-        self.set_new_scene()
-
+        self.scene = self.set_new_scene()
+        self.update_view()
         previous = act.where_used[0].assembly
         self.history.append(previous)
 
@@ -507,7 +507,7 @@ class TimelineWidget(QWidget):
     def update_view(self):
         self.view.setScene(self.scene)
         self.view.show()
-
+        self.update()
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
         try:
@@ -596,13 +596,14 @@ class TimelineWidget(QWidget):
 
 
     def make_combo_box(self, activity):
+        print("make_combo_box called0003u39ru99999999999999999999")
         self.subject_activity = activity
         box = QComboBox(self)
         box.addItems(self.possible_systems)
         self.combo_box = box
         self.combo_box.currentIndexChanged[str].connect(self.change_subsystem)
         self.toolbar.addWidget(self.combo_box)
-
+        self.update()
 
 
     def update_combo_box(self):
@@ -742,7 +743,7 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.double_clicked_handler, "double clicked")
         dispatcher.connect(self.delete_activity, "remove activity")
         dispatcher.connect(self.view_subsystem, "activity focused")
-        dispatcher.connect(self.view_subsystem, "view subsystem")
+        # dispatcher.connect(self.view_subsystem, "view subsystem")
         # add left dock
         self.left_dock = QDockWidget()
         self.left_dock.setObjectName('LeftDock')
@@ -921,7 +922,7 @@ class ConOpsModeler(QMainWindow):
 
         # print("=============================kdnfianeignojsepojfpfjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj")
         if act.activity_type.id == 'cycle':
-            self.sub_widget.widget_drill_down(act)
+            self.system_widget.widget_drill_down(act)
 
 
 
@@ -950,15 +951,9 @@ class ConOpsModeler(QMainWindow):
             if obj.activity_type.id == 'cycle':
                 self.sub_widget.scene = self.sub_widget.show_empty_scene()
                 self.sub_widget.update_view()
-                try:
-                    # self.sub_widget.combo_box.hide()
-                    self.sub_widget.init_toolbar()
-                    self.sub_widget.update()
-                except Exception as e:
-                    # print("Exception raised in view_subsystem", e)
-                    pass
             else:
                 if hasattr(self.sub_widget, 'combo_box'):
+                    print("update combo box",obj.id)
                     self.sub_widget.update_combo_box()
                 else:
                     self.sub_widget.make_combo_box(obj)
