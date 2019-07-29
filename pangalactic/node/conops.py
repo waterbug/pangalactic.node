@@ -443,7 +443,7 @@ class TimelineWidget(QWidget):
         # self.show_history()
         self.sceneScaleChanged("50%")
         self.current_subsystem_index = 0
-        # dispatcher.connect(self.double_clicked_handler, "double clicked")
+        dispatcher.connect(self.change_subsystem, "make combo box")
 
     def set_title(self):
         try:
@@ -596,23 +596,25 @@ class TimelineWidget(QWidget):
 
 
     def make_combo_box(self, activity):
-        print("make_combo_box called0003u39ru99999999999999999999")
-        self.subject_activity = activity
-        box = QComboBox(self)
-        box.addItems(self.possible_systems)
-        self.combo_box = box
-        self.combo_box.currentIndexChanged[str].connect(self.change_subsystem)
-        self.toolbar.addWidget(self.combo_box)
-        self.update()
 
+        # self.subject_activity = activity
+        self.combo_box = QComboBox(self)
+        self.combo_box.addItems(self.possible_systems)
+        # self.combo_box = box
+        self.combo_box.currentIndexChanged.connect(self.change_subsystem)
+        self.toolbar.addWidget(self.combo_box)
+        self.combo_box.setCurrentIndex(0)
+        print(self.subject_activity.id, "right before dispatcher")
+        dispatcher.send("make combo box", index=0)
 
     def update_combo_box(self):
         self.scene = self.set_new_scene()
         self.update_view()
 
-    def change_subsystem(self, system_name=None):
+    def change_subsystem(self, index=None):
         #target_system: string
-        if self.subject_activity.activity_type.id == 'cycle':
+        system_name = self.possible_systems[index]
+        if self.subject_activity.activity_type == None or self.subject_activity.activity_type.id == 'cycle':
             pass
         else:
             existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
@@ -953,9 +955,9 @@ class ConOpsModeler(QMainWindow):
                 self.sub_widget.update_view()
             else:
                 if hasattr(self.sub_widget, 'combo_box'):
-                    print("update combo box",obj.id)
                     self.sub_widget.update_combo_box()
                 else:
+                    print(self.sub_widget.subject_activity.activity_type.id, "view subsystem------------------")
                     self.sub_widget.make_combo_box(obj)
 
 
