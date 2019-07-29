@@ -147,7 +147,7 @@ class EventBlock(QGraphicsPolygonItem):
         if self.activity.activity_type.name == "Cycle":
             pass
     def mouseDoubleClickEvent(self, event):
-        # print("irhfp9w8ehrg888888888888888888888888888888888888888888888888888888888888888")
+        super(EventBlock, self).mouseDoubleClickEvent(event)
         dispatcher.send("double clicked", act=self.activity)
 
     def contextMenuEvent(self, event):
@@ -461,14 +461,13 @@ class TimelineWidget(QWidget):
         Args:
             obj (EventBlock):  the block that received the double-click
         """
-        if obj.subsystem == False:
-            dispatcher.send("drill down", obj=obj.activity)
-            self.set_new_scene(current_activity=obj.activity)
-            self.subject_activity = obj.activity
 
-            previous = obj.scene().current_activity
-            self.history.append(previous)
-            # self.show_history()
+        dispatcher.send("drill down", obj=activity)
+        self.subject_activity = act
+        self.set_new_scene()
+
+        previous = act.where_used[0].assembly
+        self.history.append(previous)
 
     def set_new_scene(self):
         if self.act_of is not None:
@@ -556,10 +555,9 @@ class TimelineWidget(QWidget):
 
     def go_back(self):
         try:
-            previous_activity = self.history.pop()
-            self.set_new_scene(current_activity=previous_activity)
-            # self.show_history()
-            # dispatcher.send("go back", obj=previous_activity)
+            self.subject_activity = self.history.pop()
+            self.scene = self.set_new_scene()
+            self.update_view()
         except:
             pass
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -923,7 +921,7 @@ class ConOpsModeler(QMainWindow):
 
         # print("=============================kdnfianeignojsepojfpfjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj")
         if act.activity_type.id == 'cycle':
-            pass
+            self.sub_widget.widget_drill_down(act)
 
 
 
