@@ -249,15 +249,11 @@ class Timeline(QGraphicsPathItem):
         if item in self.item_list:
             self.item_list.remove(item)
             self.num_of_item = len(self.item_list)
-        # if len(self.item_list) >= 5 and self.end_location > 1500:
-        #     self.shorten_timeline()
         self.update_timeline()
 
     def add_item(self, item):
         self.item_list.append(item)
         self.num_of_item = len(self.item_list)
-        # if len(self.item_list) > 5 :
-        #     self.extend_timeline()
         self.update_timeline(initial=True)
 
     def update_timeline(self, initial=False):
@@ -267,7 +263,10 @@ class Timeline(QGraphicsPathItem):
         self.reposition(initial=initial)
 
     def calc_length(self):
-        self.path_length = 1500 + (len(self.item_list)-5)*300
+        if len(self.item_list) <= 5:
+            self.path_length = 1500
+        else:
+            self.path_length = 1500 + (len(self.item_list)-5)*300
 
     def make_point_list(self):
         self.length = self.path.length()-2*self.circle_length
