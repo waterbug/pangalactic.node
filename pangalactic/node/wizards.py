@@ -44,6 +44,13 @@ from functools import reduce
 wizard_state = {}
 
 
+class PrintLogger:
+    def info(self, txt):
+        print(txt)
+    def debug(self, txt):
+        print(txt)
+
+
 class DataImportWizard(QtWidgets.QWizard):
     """
     Wizard to assist with importing data from a file.
@@ -51,6 +58,8 @@ class DataImportWizard(QtWidgets.QWizard):
 
     def __init__(self, file_path='', parent=None): 
         super(DataImportWizard, self).__init__(parent=parent)
+        if not hasattr(orb, 'log'):
+            orb.log = PrintLogger()
         orb.log.info('* [data import wizard]')
         self.setWizardStyle(QtWidgets.QWizard.ClassicStyle)
         # the included buttons must be specified using setButtonLayout in order
@@ -64,10 +73,10 @@ class DataImportWizard(QtWidgets.QWizard):
         self.setButtonLayout(included_buttons)
         self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
         wizard_state['file_path'] = file_path
-        intro_label = QtWidgets.QLabel(
-                "<p/>You have selected the file <b>&lt;%s&gt;</b>.".format(
-                wizard_state['file_path']))
-        intro_label += "<br>This wizard will assist in importing data ..."
+        txt = "<p/>You have selected the file <b>&lt;%s&gt;</b>.".format(
+                wizard_state['file_path'])
+        txt += "<br>This wizard will assist in importing data ..."
+        intro_label = QtWidgets.QLabel(txt)
         intro_label.setWordWrap(True)
         self.addPage(IntroPage(intro_label, parent=self))
         self.addPage(DataSetPage(parent=self))
@@ -947,14 +956,12 @@ class NewProductWizardConclusionPage(QtWidgets.QWizardPage):
 class ConceptConclusionPage(object):
     pass
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
 
-    # import sys
+    import sys
 
-    # app = QtWidgets.QApplication(sys.argv)
-    # wizard = DataImportWizard(
-    # # file_path='/home/waterbug/sandbox/pangalactic/node/data/LQMS_dump.xlsx')
-    # file_path='/home/waterbug/sandbox/pangalactic/node/data/Code 560 Lab Cost 5-5-15.xlsx')
-    # wizard.show()
-    # sys.exit(app.exec_())
+    app = QtWidgets.QApplication(sys.argv)
+    wizard = DataImportWizard(file_path='')
+    wizard.show()
+    sys.exit(app.exec_())
 
