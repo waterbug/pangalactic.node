@@ -309,26 +309,29 @@ class DiagramScene(QGraphicsScene):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
 
     def dropEvent(self, event):
-        if event.mimeData().text() == "Cycle":
-            activity_type = orb.select("ActivityType", name="Cycle")
-
-        elif event.mimeData().text() == "Operation":
-            activity_type = orb.select("ActivityType", name="Operation")
+        if (event.mimeData().text() == "Cycle") and (self.act_of.product_type.id != 'spacecraft'):
+            pass
         else:
-            activity_type = orb.select("ActivityType", name="Event")
-        project = orb.get(state.get("project"))
-        # print(self.act_of.product_type.id, "#################################################")
-        activity = clone("Activity", activity_type = activity_type, owner=project, activity_of=self.act_of)
-        # print(activity.activity_of.product_type.id, "after#################################################")
-        # self.edit_parameters(activity)
-        acu = clone("Acu", assembly=self.current_activity, component=activity)
-        orb.save([acu, activity])
-        item = EventBlock(activity=activity, parent_activity=self.current_activity)
-        item.setPos(event.scenePos())
-        self.addItem(item)
-        self.timeline.add_item(item)
-        dispatcher.send("new activity", parent_act=self.current_activity, act_of=self.act_of)
-        self.update()
+            if event.mimeData().text() == "Cycle":
+                activity_type = orb.select("ActivityType", name="Cycle")
+
+            elif event.mimeData().text() == "Operation":
+                activity_type = orb.select("ActivityType", name="Operation")
+            else:
+                activity_type = orb.select("ActivityType", name="Event")
+            project = orb.get(state.get("project"))
+            # print(self.act_of.product_type.id, "#################################################")
+            activity = clone("Activity", activity_type = activity_type, owner=project, activity_of=self.act_of)
+            # print(activity.activity_of.product_type.id, "after#################################################")
+            # self.edit_parameters(activity)
+            acu = clone("Acu", assembly=self.current_activity, component=activity)
+            orb.save([acu, activity])
+            item = EventBlock(activity=activity, parent_activity=self.current_activity)
+            item.setPos(event.scenePos())
+            self.addItem(item)
+            self.timeline.add_item(item)
+            dispatcher.send("new activity", parent_act=self.current_activity, act_of=self.act_of)
+            self.update()
 
     def edit_parameters(self, activity):
         view = ['id', 'name', 'description']
@@ -452,7 +455,7 @@ class TimelineWidget(QWidget):
             obj (EventBlock):  the block that received the double-click
         """
 
-        dispatcher.send("drill down", obj=act)
+        dispatcher.send("drill down", obj=act, act_of=self.act_of)
         self.subject_activity = act
         self.scene = self.set_new_scene()
         self.update_view()
