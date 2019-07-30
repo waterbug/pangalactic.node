@@ -644,7 +644,7 @@ class TimelineWidget(QWidget):
         self.update_view()
 
     def change_subsystem(self, index=None):
-        try:
+        if self.act_of !=self.spacecraft:
             #target_system: string
             system_name = self.possible_systems[index]
             if self.subject_activity.activity_type.id == 'cycle':
@@ -671,8 +671,8 @@ class TimelineWidget(QWidget):
                 #     print(e)
                 #     print('============================================')
             dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of)
-        except Exception as e:
-            print(e, "exception=========================================")
+        # except Exception as e:
+        #     print(e, "exception=========================================")
     def make_new_system(self, system_name):
         pro_type = orb.select("ProductType", id=system_name)
         new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner, product_type=pro_type, id=pro_type.id, name=pro_type.id)
