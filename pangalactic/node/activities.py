@@ -244,7 +244,7 @@ class ActivityTables(QMainWindow):
         try:
             all_acus.sort()
         except:
-            print('SORTING FAIL', all_acus, self.statusbar.showMessage("AHHH?"))
+            print('SORTING FAIL', all_acus)
 
         activities = [acu_tuple[1].component for acu_tuple in all_acus]
 
