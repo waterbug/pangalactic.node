@@ -115,7 +115,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.activity = activity
         self.setBrush(Qt.white)
         path = QPainterPath()
-        self.block_label = BlockLabel(getattr(self.activity, 'id', '') or '', self)
+        self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '', self, point_size=8)
         #---draw blocks depending on the 'shape' string passed in
         self.parent_activity = parent_activity or self.activity.where_used[0].assembly
         dispatcher.connect(self.id_changed_handler, "modified activity")
@@ -141,7 +141,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def id_changed_handler(self, activity=None):
         if activity is self.activity:
-            self.block_label.set_text(self.activity.id)
+            self.block_label.set_text(self.activity.name)
 
     def hoverEnterEvent(self, event):
         if self.activity.activity_type.name == "Cycle":
@@ -278,6 +278,7 @@ class Timeline(QGraphicsPathItem):
             orb.save([acu])
             if initial:
                 acu.component.id = acu.component.id or acu.reference_designator# for testing purposes
+                acu.component.name = "{} {}".format(parent_act.name,str(i))
                 orb.save([acu.component])
                 dispatcher.send("modified activity", activity=acu.component)
         if not same:
@@ -322,7 +323,6 @@ class DiagramScene(QGraphicsScene):
         # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu, activity])
-        print("parent = ", acu.assembly.id, "child = ", acu.component)
         item = EventBlock(activity=activity, parent_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.addItem(item)
@@ -421,8 +421,11 @@ class TimelineWidget(QWidget):
         dispatcher.connect(self.change_subsystem, "make combo box")
         dispatcher.connect(self.delete_activity, "remove activity")
         dispatcher.connect(self.disable_widget, "cleared activities")
+        dispatcher.connect(self.enable_clear, "new activity")
         self.setUpdatesEnabled(True)
-
+    def enable_clear(self, act_of=None):
+        if self.act_of == act_of:
+            self.clear_activities_action.setDisabled(False)
     def disable_widget(self, parent_act=None):
         try:
             if (self.act_of != self.spacecraft) and (self.subject_activity != parent_act):
@@ -476,13 +479,12 @@ class TimelineWidget(QWidget):
                     activity = acu.component
                     # print(" activities", activity)
                     if activity.activity_of == self.act_of:
+                        self.clear_activities_action.setDisabled(False)
                         item = EventBlock(activity=activity, parent_activity=self.subject_activity)
                         item_list.append(item)
                         scene.addItem(item)
                     scene.update()
                 scene.timeline.populate(item_list)
-            # self.view.show()
-            # self.show_history()
             self.set_title()
             return scene
         else:
@@ -514,6 +516,7 @@ class TimelineWidget(QWidget):
                                     icon="brush",
                                     tip="delete activities on this page")
         self.toolbar.addAction(self.clear_activities_action)
+        self.clear_activities_action.setDisabled(True)
         self.undo_action = self.create_action(
                                     "undo",
                                     slot=self.undo,
@@ -535,6 +538,8 @@ class TimelineWidget(QWidget):
         oid = getattr(act, "oid", None)
         subj_oid = self.subject_activity.oid
         current_comps = [acu.component for acu in self.subject_activity.components]
+        if len(current_comps) == 1:
+            self.clear_activities_action.setDisabled(True)
         if act in current_comps:
             self.undo_action.setDisabled(False)
             self.serialized_deleted(act=act)
@@ -576,6 +581,7 @@ class TimelineWidget(QWidget):
         self.temp_serialized = []
         self.scene = self.set_new_scene()
         self.update_view()
+        self.clear_activities_action.setDisabled(True)
         dispatcher.send("cleared activities", parent_act=self.subject_activity)
 
     def sceneScaleChanged(self, percentscale):
