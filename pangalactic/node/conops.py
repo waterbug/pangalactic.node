@@ -425,11 +425,10 @@ class TimelineWidget(QWidget):
 
     def disable_widget(self, parent_act=None):
         try:
-            oid = getattr(self.subject_activity, 'id', None)
-            print("oid:::::::::::::::::::::::::::::::::::::", oid)
-            if oid == None:
-                if self.act_of != self.spacecraft:
-                    self.setEnabled(False)
+            if (self.act_of != self.spacecraft) and (self.subject_activity != parent_act):
+                self.scene = self.set_new_scene()
+                self.update_view()
+                self.setEnabled(False)
         except Exception as e:
             print("disable exception", e)
 
