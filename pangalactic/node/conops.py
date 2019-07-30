@@ -282,12 +282,13 @@ class Timeline(QGraphicsPathItem):
                 orb.save([acu.component])
                 dispatcher.send("modified activity", activity=acu.component)
         if not same:
-            dispatcher.send("order changed", parent_act=self.scene().current_activity)
+            dispatcher.send("order changed", parent_act=self.scene().current_activity, position=self.scene().position)
         self.update()
 
 class DiagramScene(QGraphicsScene):
-    def __init__(self, parent, current_activity=None, act_of=None):
+    def __init__(self, parent, current_activity=None, act_of=None,position=None):
         super(DiagramScene, self).__init__(parent)
+        self.position = position
         self.current_activity = current_activity
         self.timeline = Timeline(self)
         self.addItem(self.timeline)
@@ -330,7 +331,7 @@ class DiagramScene(QGraphicsScene):
             item.setPos(event.scenePos())
             self.addItem(item)
             self.timeline.add_item(item)
-            dispatcher.send("new activity", parent_act=self.current_activity, act_of=self.act_of)
+            dispatcher.send("new activity", parent_act=self.current_activity, act_of=self.act_of, position=self.position)
             self.update()
 
     def edit_parameters(self, activity):
@@ -387,9 +388,10 @@ class ToolbarAction(QWidgetAction):
 
 
 class TimelineWidget(QWidget):
-    def __init__(self, spacecraft, subject_activity=None, act_of=None,parent=None):
+    def __init__(self, spacecraft, subject_activity=None, act_of=None,parent=None, position=None):
         super(TimelineWidget, self).__init__(parent=parent)
         self.possible_systems = []
+        self.position = position
         ds = config.get('discipline_subsystems')
         if ds:
             self.possible_systems = list(config.get(
@@ -455,7 +457,7 @@ class TimelineWidget(QWidget):
             obj (EventBlock):  the block that received the double-click
         """
 
-        dispatcher.send("drill down", obj=act, act_of=self.act_of)
+        dispatcher.send("drill down", obj=act, act_of=self.act_of, position=self.position)
         self.subject_activity = act
         self.scene = self.set_new_scene()
         self.update_view()
@@ -468,7 +470,7 @@ class TimelineWidget(QWidget):
         if self.act_of is not None:
             # print('---------------------------------------------',self.subject_activity.id)
             # print("set new scene act of", self.act_of.id)
-            scene = DiagramScene(self, self.subject_activity, act_of=self.act_of)
+            scene = DiagramScene(self, self.subject_activity, act_of=self.act_of, position=self.position)
             if self.subject_activity != None and len(self.subject_activity.components) > 0:
                 # subsystem_comps = [acu for acu in current_activity.components if acu.component.activity_of is self.act_of]
                 all_acus = [(acu.reference_designator, acu) for acu in self.subject_activity.components]
@@ -549,7 +551,7 @@ class TimelineWidget(QWidget):
             self.delete_children(act=act)
             self.deleted_acts.append(self.temp_serialized)
             self.temp_serialized = []
-            dispatcher.send("removed activity", parent_act=self.subject_activity, act_of=self.act_of)
+            dispatcher.send("removed activity", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
         self.scene = self.set_new_scene()
         self.update_view()
         # self.update()
@@ -585,7 +587,7 @@ class TimelineWidget(QWidget):
         self.scene = self.set_new_scene()
         self.update_view()
         self.clear_activities_action.setDisabled(True)
-        dispatcher.send("cleared activities", parent_act=self.subject_activity, act_of=self.act_of)
+        dispatcher.send("cleared activities", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -608,7 +610,7 @@ class TimelineWidget(QWidget):
             ds = deserialize(orb, objs)
             self.scene = self.set_new_scene()
             self.update_view()
-            dispatcher.send("new activity", parent_act=self.subject_activity)
+            dispatcher.send("new activity", parent_act=self.subject_activity, position=self.position)
         except:
             pass
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -670,7 +672,7 @@ class TimelineWidget(QWidget):
                 # except Exception as e:
                 #     print(e)
                 #     print('============================================')
-            dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of)
+            dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
         # except Exception as e:
         #     print(e, "exception=========================================")
     def make_new_system(self, system_name):
@@ -1001,9 +1003,9 @@ class ConOpsModeler(QMainWindow):
 
     def set_widgets(self, scene=None, current_activity=None, init=False):
         self.subject_activity = current_activity
-        self.system_widget = TimelineWidget( self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft)
+        self.system_widget = TimelineWidget( self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft, position='top')
         self.system_widget.setMinimumSize(900, 300)
-        self.sub_widget = TimelineWidget(self.spacecraft)
+        self.sub_widget = TimelineWidget(self.spacecraft, position='bottem')
         self.sub_widget.setEnabled(False)
         self.sub_widget.setMinimumSize(900, 300)
         self.outer_layout = QGridLayout()
@@ -1185,7 +1187,7 @@ class ConOpsModeler(QMainWindow):
             new_scene = DiagramScene(self, previous_activity)
             self.set_new_view(new_scene, current_activity=previous_activity)
             self.show_history()
-            dispatcher.send("go back", obj=previous_activity)
+            dispatcher.send("go back", obj=previous_activity, position=self.position)
         except:
             pass
 
