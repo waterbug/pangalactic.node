@@ -229,8 +229,7 @@ class Timeline(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
         super(Timeline, self).__init__(parent)
-        self.setFlags(QGraphicsItem.ItemIsSelectable|
-                      QGraphicsItem.ItemIsFocusable)
+
         self.item_list = []
         self.end_location = 1500
         self.make_path()
@@ -1044,7 +1043,7 @@ class ConOpsModeler(QMainWindow):
         # self.widget.setMinimumSize(900, 600)
         # self.widget.setLayout(self.outer_layout)
         self.widget = QWidget()
-        self.widget.setMinimumSize(1500, 600)
+        self.widget.setMinimumSize(1450, 600)
         self.widget.setLayout(self.outer_layout)
         # widget.setLayout(sub_layout)
         self.setCentralWidget(self.widget)
