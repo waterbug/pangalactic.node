@@ -126,7 +126,7 @@ class ActivityTables(QMainWindow):
         self.table = new_table
 
     def set_bottom_title(self):
-        self.title.setText("Title goes here")
+        self.title.setText("Power")
 
     def set_bottom_table(self, objs):
         param = self.current_param
