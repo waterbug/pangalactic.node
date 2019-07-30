@@ -585,7 +585,7 @@ class TimelineWidget(QWidget):
         self.scene = self.set_new_scene()
         self.update_view()
         self.clear_activities_action.setDisabled(True)
-        dispatcher.send("cleared activities", parent_act=self.subject_activity)
+        dispatcher.send("cleared activities", parent_act=self.subject_activity, act_of=self.act_of)
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
