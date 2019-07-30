@@ -458,37 +458,35 @@ class TimelineWidget(QWidget):
         self.history.append(previous)
 
     def set_new_scene(self):
-        try:
-            if self.act_of is not None:
-                # print('---------------------------------------------',self.subject_activity.id)
-                # print("set new scene act of", self.act_of.id)
-                scene = DiagramScene(self, self.subject_activity, act_of=self.act_of)
-                if self.subject_activity != None and len(self.subject_activity.components) > 0:
-                    # subsystem_comps = [acu for acu in current_activity.components if acu.component.activity_of is self.act_of]
-                    all_acus = [(acu.reference_designator, acu) for acu in self.subject_activity.components]
-                    try:
-                        all_acus.sort()
-                    except:
-                        pass
-                    item_list=[]
-                    for acu_tuple in all_acus:
-                        acu = acu_tuple[1]
-                        activity = acu.component
-                        # print(" activities", activity)
-                        if activity.activity_of == self.act_of:
-                            item = EventBlock(activity=activity, parent_activity=self.subject_activity)
-                            item_list.append(item)
-                            scene.addItem(item)
-                        scene.update()
-                    scene.timeline.populate(item_list)
-                # self.view.show()
-                # self.show_history()
-                self.set_title()
-                return scene
-            else:
-                self.show_empty_scene()
-        except:
-            pass
+
+        if self.act_of is not None:
+            # print('---------------------------------------------',self.subject_activity.id)
+            # print("set new scene act of", self.act_of.id)
+            scene = DiagramScene(self, self.subject_activity, act_of=self.act_of)
+            if self.subject_activity != None and len(self.subject_activity.components) > 0:
+                # subsystem_comps = [acu for acu in current_activity.components if acu.component.activity_of is self.act_of]
+                all_acus = [(acu.reference_designator, acu) for acu in self.subject_activity.components]
+                try:
+                    all_acus.sort()
+                except:
+                    pass
+                item_list=[]
+                for acu_tuple in all_acus:
+                    acu = acu_tuple[1]
+                    activity = acu.component
+                    # print(" activities", activity)
+                    if activity.activity_of == self.act_of:
+                        item = EventBlock(activity=activity, parent_activity=self.subject_activity)
+                        item_list.append(item)
+                        scene.addItem(item)
+                    scene.update()
+                scene.timeline.populate(item_list)
+            # self.view.show()
+            # self.show_history()
+            self.set_title()
+            return scene
+        else:
+            self.show_empty_scene()
 
     def show_empty_scene(self):
         self.set_title()
@@ -630,35 +628,35 @@ class TimelineWidget(QWidget):
         self.update_view()
 
     def change_subsystem(self, index=None):
-        # try:
+        try:
             #target_system: string
-        system_name = self.possible_systems[index]
-        if self.subject_activity.activity_type.id == 'cycle':
-            pass
-        else:
-            existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
-            system_exists = False
-            # print("looking for", system_name)
-            # for sys in existing_subsystems:
-            #     print(sys.product_type.id)
-            for subsystem in existing_subsystems:
-                if subsystem.product_type.id == system_name:
-                    system_exists = True
-                    self.act_of = subsystem
-                else:
-                    # print('"{}" not the same as "{}"'.format(subsystem.product_type.id, system_name))
-                    pass
-            if not system_exists:
-                self.make_new_system(system_name)
+            system_name = self.possible_systems[index]
+            if self.subject_activity.activity_type.id == 'cycle':
+                pass
+            else:
+                existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
+                system_exists = False
+                # print("looking for", system_name)
+                # for sys in existing_subsystems:
+                #     print(sys.product_type.id)
+                for subsystem in existing_subsystems:
+                    if subsystem.product_type.id == system_name:
+                        system_exists = True
+                        self.act_of = subsystem
+                    else:
+                        # print('"{}" not the same as "{}"'.format(subsystem.product_type.id, system_name))
+                        pass
+                if not system_exists:
+                    self.make_new_system(system_name)
 
-            self.scene = self.set_new_scene()
-            self.update_view()
-            # except Exception as e:
-            #     print(e)
-            #     print('============================================')
-        dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of)
-        # except Exception as e:
-        #     print(e, "exception=========================================")
+                self.scene = self.set_new_scene()
+                self.update_view()
+                # except Exception as e:
+                #     print(e)
+                #     print('============================================')
+            dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of)
+        except Exception as e:
+            print(e, "exception=========================================")
     def make_new_system(self, system_name):
         pro_type = orb.select("ProductType", id=system_name)
         new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner, product_type=pro_type, id=pro_type.id, name=pro_type.id)
