@@ -292,7 +292,7 @@ class Timeline(QGraphicsPathItem):
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
             if initial:
-                acu.component.id = acu.reference_designator# for testing purposes
+                acu.component.id = acu.component.id or acu.reference_designator# for testing purposes
                 orb.save([acu.component])
                 dispatcher.send("modified activity", activity=acu.component)
         if not same:
@@ -423,7 +423,7 @@ class TimelineWidget(QWidget):
         self.subject_activity = subject_activity
         self.act_of = act_of
         #### To do : make different title for subsystem timeline###############
-        self.title = NameLabel(getattr(self.subject_activity, 'id', ' '))
+        self.title = NameLabel(getattr(self.subject_activity, '', ' '))
         self.title.setStyleSheet(
                         'font-weight: bold; font-size: 18px; color: purple')
 
