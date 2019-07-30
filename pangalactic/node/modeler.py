@@ -163,7 +163,9 @@ class ModelWindow(QMainWindow):
         self.back_action = self.create_action(
                                     "Go Back",
                                     slot=self.go_back,
-                                    icon="left_arrow",
+                                    # icon="left_arrow",
+                                    # icon="back_arrow",
+                                    icon="back",
                                     tip="Back to Previous Model")
         self.toolbar.addAction(self.back_action)
         # TODO:  create a dialog for saving a diagram to a SysML file ...
