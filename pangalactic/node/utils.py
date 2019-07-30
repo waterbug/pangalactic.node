@@ -229,7 +229,6 @@ def create_product_from_template(template):
     """
     # TODO:  this needs to use the New Product Wizard ...
     #        [1] 'id' needs to be unique
-    #        [2] product needs to be assigned a real product_type
     if not isinstance(template, orb.classes['Template']):
         # FIXME: need to raise an error here and display a warning to the
         # user
@@ -240,9 +239,9 @@ def create_product_from_template(template):
     else:
         project_id = 'X'
     pt_id = getattr(template.product_type, 'id', 'product')
-    pt_name = getattr(template.product_type, 'name', 'product description')
+    pt_name = getattr(template.product_type, 'name', 'Product')
     product_id = '-'.join([project_id, pt_id])
-    product_name = ' '.join([project_id, pt_id])
+    product_name = ' '.join([project_id, pt_name])
     product_desc = ' '.join([project_id, pt_name])
     orb.log.info('* create_product_from_template')
     product = clone('HardwareProduct', id=product_id,

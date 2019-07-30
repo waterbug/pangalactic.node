@@ -732,13 +732,13 @@ class SystemTreeModel(QAbstractItemModel):
                     # case 1: drop target is "TBD" product -> replace it
                     node = self.get_node(parent)
                     if not 'modify' in get_perms(node.link):
-                        popup = QMessageBox(
-                                  QMessageBox.Critical,
+                        ret = QMessageBox.critical(
+                                  self.parent,
                                   "Unauthorized Operation",
                                   "User's roles do not permit this operation",
-                                  QMessageBox.Ok, self.parent)
-                        popup.show()
-                        return False
+                                  QMessageBox.Ok)
+                        if ret == QMessageBox.Ok:
+                            return False
                     if data.hasFormat("application/x-pgef-template"):
                         # case 1.1:  drop item is Template -> create a new
                         # product from it
@@ -1349,11 +1349,29 @@ class SystemTreeView(QTreeView):
             # collapse the node before removing it
             # self.collapse(mapped_i)
             if node.link.__class__.__name__ == 'Acu':
+                # permissions are determined from the assembly and user's roles
+                if not 'delete' in get_perms(node.link):
+                    ret = QMessageBox.critical(
+                              self,
+                              "Unauthorized Operation",
+                              "User's roles do not permit this operation",
+                              QMessageBox.Ok)
+                    if ret == QMessageBox.Ok:
+                        return False
                 ref_des = getattr(node.link, 'reference_designator',
                                   '(No reference designator)')
                 orb.log.info('  deleting position and component "%s"'
                              % ref_des)
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
+                # permissions are determined from the object and user's roles
+                if not 'delete' in get_perms(node.obj):
+                    ret = QMessageBox.critical(
+                              self,
+                              "Unauthorized Operation",
+                              "User's roles do not permit this operation",
+                              QMessageBox.Ok)
+                    if ret == QMessageBox.Ok:
+                        return False
                 orb.log.info('  deleting system usage "%s" ...' % node.obj.id)
             pos = mapped_i.row()
             row_parent = mapped_i.parent()

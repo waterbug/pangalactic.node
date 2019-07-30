@@ -398,7 +398,8 @@ class SubjectBlock(Block):
         self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
         name_x = 20
         name_y = self.description_label.boundingRect().height() + 5
-        self.name_label = BlockLabel(name, self, x=name_x, y=name_y)
+        self.name_label = BlockLabel(name, self, centered=False, x=name_x,
+                                     y=name_y)
         self.rebuild_port_blocks()
         # make sure the SubjectBlock has the lowest z-value
         z_value = 0.0
@@ -1253,14 +1254,15 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         editable (bool):  whether the text should be editable
     """
     def __init__(self, text, parent, font_name=None, point_size=None,
-                 weight=None, color=None, x=None, y=None):
+                 weight=None, color=None, centered=True, x=None, y=None):
         super(BlockLabel, self).__init__(parent=parent)
         self.parent = parent
-        text_option = QtGui.QTextOption()
-        text_option.setWrapMode(QtGui.QTextOption.WordWrap)
-        self.document().setDefaultTextOption(text_option)
-        self.x = x
-        self.y = y
+        self.centered = centered
+        self.text_option = QtGui.QTextOption()
+        self.text_option.setWrapMode(QtGui.QTextOption.WordWrap)
+        self.document().setDefaultTextOption(self.text_option)
+        self.x = x or 0
+        self.y = y or 0
         self.set_text(text, color=color, font_name=font_name,
                       point_size=point_size, weight=weight)
 
@@ -1274,17 +1276,16 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         self.weight = weight or getattr(self, 'weight', 75)
         font = QtGui.QFont(self.font_name, self.point_size, weight=self.weight)
         self.setFont(font)
-        self.adjustSize()
+        self.document().setDefaultTextOption(self.text_option)
         self.setTextWidth(self.parent.boundingRect().width() - 50)
-        if self.x is None:
+        self.adjustSize()
+        if self.centered:
             w = self.boundingRect().width()
             x = self.parent.boundingRect().center().x() - w/2
-        else:
-            x = self.x
-        if self.y is None:
             h = self.boundingRect().height()
             y = self.parent.boundingRect().center().y() - h/2
         else:
+            x = self.x
             y = self.y
         self.setPos(x, y)
 

@@ -407,7 +407,7 @@ class LibraryListWidget(QWidget):
                                    'only mine toggled')
         elif cname == 'Person':
             select_label = 'People'
-            view = ['id', 'first_name', 'last_name', 'org']
+            view = ['id', 'last_name', 'first_name', 'org']
             # exclude "me", "TBD", and "admin"
             oids_non_grata = orb.get(oids=['me', 'pgefobjects:Person.TBD',
                                            'pgefobjects:admin'])
