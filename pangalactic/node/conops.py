@@ -177,7 +177,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.scene().edit_parameters(self.activity)
 
     def delete_item(self):
-        self.scene().timeline.remove_item(self)
+        # self.scene().timeline.remove_item(self)
         self.scene().removeItem(self)
         dispatcher.send("remove activity", parent_act=self.parent_activity, act=self.activity )
 
@@ -231,7 +231,7 @@ class Timeline(QGraphicsPathItem):
         super(Timeline, self).__init__(parent)
 
         self.item_list = []
-        self.end_location = 1500
+        self.path_length = 1500
         self.make_path()
         self.length = self.path.length()-2*self.circle_length
         self.num_of_item = len(scene.current_activity.components)
@@ -242,28 +242,32 @@ class Timeline(QGraphicsPathItem):
         self.path =  QPainterPath(QPointF(100,250))
         self.path.arcTo(QRectF(0, 200 ,100,100), 0, 360)
         self.circle_length = self.path.length()
-        self.path.arcTo(QRectF(self.end_location, 200, 100,100), 180, 360)
+        self.path.arcTo(QRectF(self.path_length, 200, 100,100), 180, 360)
         self.setPath(self.path)
 
     def remove_item(self, item):
         if item in self.item_list:
             self.item_list.remove(item)
             self.num_of_item = len(self.item_list)
-        if len(self.item_list) >= 5 and self.end_location >= 1500:
-            self.shorten_timeline()
+        # if len(self.item_list) >= 5 and self.end_location > 1500:
+        #     self.shorten_timeline()
         self.update_timeline()
 
     def add_item(self, item):
         self.item_list.append(item)
         self.num_of_item = len(self.item_list)
-        if len(self.item_list) > 5 :
-            self.extend_timeline()
+        # if len(self.item_list) > 5 :
+        #     self.extend_timeline()
         self.update_timeline(initial=True)
 
     def update_timeline(self, initial=False):
+        self.calc_length()
+        self.make_path()
         self.make_point_list()
         self.reposition(initial=initial)
 
+    def calc_length(self):
+        self.path_length = 1500 + (len(self.item_list)-5)*300
 
     def make_point_list(self):
         self.length = self.path.length()-2*self.circle_length
@@ -272,11 +276,11 @@ class Timeline(QGraphicsPathItem):
 
     def populate(self, item_list):
         self.item_list = item_list
-        self.make_point_list()
-        for i,item in enumerate(item_list):
-            item.setPos(QPoint(self.list_of_pos[i], 250))
-
-
+        # if len(self.item_list) > 5 :
+        #     self.extend_timeline()
+        # self.make_point_list()
+        # self.reposition()
+        self.update_timeline()
     def reposition(self, initial=False):
         parent_act = self.scene().current_activity
         item_list_copy = self.item_list[:]
@@ -296,21 +300,20 @@ class Timeline(QGraphicsPathItem):
                 orb.save([acu.component])
                 dispatcher.send("modified activity", activity=acu.component)
         if not same:
-            # print("sending signal")
             dispatcher.send("order changed", parent_act=self.scene().current_activity)
         self.update()
-    def extend_timeline(self):
-        self.end_location = self.end_location+self.length/(len(self.item_list)+1)
-        self.make_path()
-        self.update()
-        self.scene().update()
-
-    def shorten_timeline(self):
-        self.end_location = self.end_location-self.length/(len(self.item_list))
-        self.make_path()
-        self.update()
-        self.scene().update()
-
+#     def extend_timeline(self):
+#         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
+#         self.make_path()
+#         self.update()
+#         self.scene().update()
+#
+#     def shorten_timeline(self):
+#         self.end_location = self.end_location-self.length/(len(self.item_list))
+#         self.make_path()
+#         self.update()
+#         self.scene().update()
+#
 class DiagramScene(QGraphicsScene):
     def __init__(self, parent, current_activity=None, act_of=None):
         super(DiagramScene, self).__init__(parent)
