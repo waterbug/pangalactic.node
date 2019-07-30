@@ -412,7 +412,7 @@ class ToolbarAction(QWidgetAction):
 
 
 class TimelineWidget(QWidget):
-    def __init__(self,spacecraft, subject_activity=None, act_of=None,parent=None):
+    def __init__(self, spacecraft, subject_activity=None, act_of=None,parent=None):
         super(TimelineWidget, self).__init__(parent=parent)
         self.possible_systems = []
         ds = config.get('discipline_subsystems')
@@ -448,7 +448,14 @@ class TimelineWidget(QWidget):
         self.deleted_acts = []
         dispatcher.connect(self.change_subsystem, "make combo box")
         dispatcher.connect(self.delete_activity, "remove activity")
+        dispatcher.connect(self.disable_widget, "cleared activities")
         self.setUpdatesEnabled(True)
+    def disable_widget(self):
+        try:
+            if self.act_of != self.spacecraft:
+                self.setEnabled(False)
+        except Exception as e:
+            print("disable exception", e)
     def set_title(self):
         try:
             title = self.subject_activity.id + ": " + self.act_of.id
@@ -552,6 +559,8 @@ class TimelineWidget(QWidget):
 
 
     def delete_activity(self, act=None):
+        oid = getattr(act, "oid", None)
+        subj_oid = self.subject_activity.oid
         current_comps = [acu.component for acu in self.subject_activity.components]
         if act in current_comps:
             self.serialized_deleted(act=act)
@@ -561,6 +570,9 @@ class TimelineWidget(QWidget):
             dispatcher.send("removed activity", parent_act=self.subject_activity)
         self.scene = self.set_new_scene()
         self.update_view()
+        self.update()
+        if oid == subj_oid:
+            self.setEnabled(False)
 
     def serialized_deleted(self, act=None):
         if len(act.components) <= 0:
@@ -606,7 +618,7 @@ class TimelineWidget(QWidget):
         # orb.delete(children)
         self.scene = self.set_new_scene()
         self.update_view()
-        dispatcher.send("removed activity", parent_act=self.subject_activity)
+        dispatcher.send("cleared activities", parent_act=self.subject_activity)
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -620,7 +632,14 @@ class TimelineWidget(QWidget):
         except:
             pass
     def undo(self):
-        pass
+        try:
+            objs = self.deleted_acts.pop()
+            ds = deserialize(orb, objs)
+            self.scene = self.set_new_scene()
+            self.update_view()
+            dispatcher.send("new activity", parent_act=self.subject_activity)
+        except:
+            pass
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
