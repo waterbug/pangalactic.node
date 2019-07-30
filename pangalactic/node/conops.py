@@ -436,7 +436,7 @@ class TimelineWidget(QWidget):
         try:
             title = self.subject_activity.id + ": " + self.act_of.id
             self.title.setText(title)
-            self.update()
+            # self.update()
         except:
             pass
 
@@ -455,6 +455,7 @@ class TimelineWidget(QWidget):
         self.update_view()
         previous = act.where_used[0].assembly
         self.history.append(previous)
+        self.go_back_action.setDisabled(False)
 
     def set_new_scene(self):
 
@@ -495,18 +496,18 @@ class TimelineWidget(QWidget):
     def update_view(self):
         self.view.setScene(self.scene)
         self.view.show()
-        self.update()
+        # self.update()
 
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
         self.toolbar.setObjectName('ActionsToolBar')
-        self.back_action = self.create_action(
+        self.go_back_action = self.create_action(
                                     "Go Back",
                                     slot=self.go_back,
                                     icon="back",
                                     tip="Back to Previous Page")
-        self.toolbar.addAction(self.back_action)
-
+        self.toolbar.addAction(self.go_back_action)
+        self.go_back_action.setDisabled(True)
         self.clear_activities_action = self.create_action(
                                     "clear activities",
                                     slot=self.clear_activities,
@@ -519,6 +520,7 @@ class TimelineWidget(QWidget):
                                     icon="undo",
                                     tip="undo")
         self.toolbar.addAction(self.undo_action)
+        self.undo_action.setDisabled(True)
         #create and add scene scale menu
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
@@ -534,6 +536,7 @@ class TimelineWidget(QWidget):
         subj_oid = self.subject_activity.oid
         current_comps = [acu.component for acu in self.subject_activity.components]
         if act in current_comps:
+            self.undo_action.setDisabled(False)
             self.serialized_deleted(act=act)
             self.delete_children(act=act)
             self.deleted_acts.append(self.temp_serialized)
@@ -541,7 +544,7 @@ class TimelineWidget(QWidget):
             dispatcher.send("removed activity", parent_act=self.subject_activity, act_of=self.act_of)
         self.scene = self.set_new_scene()
         self.update_view()
-        self.update()
+        # self.update()
         if oid == subj_oid:
             self.setEnabled(False)
 
@@ -566,6 +569,7 @@ class TimelineWidget(QWidget):
     def clear_activities(self):
         children = [acu.component for acu in self.subject_activity.components]
         for child in children:
+            self.undo_action.setDisabled(False)
             self.serialized_deleted(act=child)
             self.delete_children(act=child)
         self.deleted_acts.append(self.temp_serialized)
@@ -581,6 +585,8 @@ class TimelineWidget(QWidget):
     def go_back(self):
         try:
             self.subject_activity = self.history.pop()
+            if len(self.history) == 0:
+                self.go_back_action.setDisabled(True)
             self.scene = self.set_new_scene()
             self.update_view()
         except:
@@ -588,6 +594,8 @@ class TimelineWidget(QWidget):
     def undo(self):
         try:
             objs = self.deleted_acts.pop()
+            if len(self.deleted_acts) == 0:
+                self.undo_action.setDisabled(True)
             ds = deserialize(orb, objs)
             self.scene = self.set_new_scene()
             self.update_view()
