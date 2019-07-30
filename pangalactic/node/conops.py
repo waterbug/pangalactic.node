@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
                              QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
                              QToolBox, QPushButton, QGraphicsPathItem,
-                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar)
+                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar, QGridLayout)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -536,12 +536,6 @@ class TimelineWidget(QWidget):
                                     icon="brush",
                                     tip="delete activities on this page")
         self.toolbar.addAction(self.clear_activities_action)
-        # self.back_to_mission_action = self.create_action(
-        #                             "back to mission",
-        #                             slot=self.view_mission,
-        #                             icon="system",
-        #                             tip="go back to mission")
-        # self.toolbar.addAction(self.back_to_mission_action)
         self.undo_action = self.create_action(
                                     "undo",
                                     slot=self.undo,
@@ -811,15 +805,15 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.view_subsystem, "activity focused")
         # dispatcher.connect(self.view_subsystem, "view subsystem")
         # add left dock
-        self.left_dock = QDockWidget()
-        self.left_dock.setObjectName('LeftDock')
-        self.left_dock.setFeatures(QDockWidget.DockWidgetFloatable)
-        self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
+        # self.left_dock = QDockWidget()
+        # self.left_dock.setObjectName('LeftDock')
+        # self.left_dock.setFeatures(QDockWidget.DockWidgetFloatable)
+        # self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        # self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
         # display activity tables
-        left_table = ActivityTables(subject=self.subject_activity, parent=self, location='left')
+        # left_table = ActivityTables(subject=self.subject_activity, parent=self, location='left')
         # act.show()
-        self.left_dock.setWidget(left_table)
+        # self.left_dock.setWidget(left_table)
 
         # add bottom dock
         self.bottom_dock = QDockWidget()
@@ -1030,17 +1024,27 @@ class ConOpsModeler(QMainWindow):
     def set_widgets(self, scene=None, current_activity=None, init=False):
         self.subject_activity = current_activity
         self.system_widget = TimelineWidget( self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft)
-
+        self.system_widget.setMinimumSize(900, 300)
         self.sub_widget = TimelineWidget(self.spacecraft)
         self.sub_widget.setEnabled(False)
-        self.outer_layout = QVBoxLayout()
-        self.outer_layout.addWidget(self.system_widget)
-        try:
-            self.outer_layout.addWidget(self.sub_widget)
-        except:
-            pass
+        self.sub_widget.setMinimumSize(900, 300)
+        self.outer_layout = QGridLayout()
+        left_table = ActivityTables(subject=self.subject_activity, parent=self, location='left')
+        left_table.setMinimumSize(500, 300)
+        left_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.outer_layout.addWidget(self.system_widget, 0, 1)
+        self.outer_layout.addWidget(left_table, 0, 0)
+        right_table = ActivityTables(subject=self.subject_activity, parent=self, location='left')
+        right_table.setMinimumSize(500, 300)
+        right_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.outer_layout.addWidget(right_table, 1, 0)
+        self.outer_layout.addWidget(self.sub_widget, 1, 1)
+        #
+        # self.widget = QWidget()
+        # self.widget.setMinimumSize(900, 600)
+        # self.widget.setLayout(self.outer_layout)
         self.widget = QWidget()
-        self.widget.setMinimumSize(900, 600)
+        self.widget.setMinimumSize(1500, 600)
         self.widget.setLayout(self.outer_layout)
         # widget.setLayout(sub_layout)
         self.setCentralWidget(self.widget)
