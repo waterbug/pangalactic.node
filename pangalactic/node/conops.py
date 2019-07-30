@@ -350,6 +350,7 @@ class DiagramScene(QGraphicsScene):
         # self.edit_parameters(activity)
         acu = clone("Acu", assembly=self.current_activity, component=activity)
         orb.save([acu, activity])
+        print("parent = ", acu.assembly.id, "child = ", acu.component)
         item = EventBlock(activity=activity, parent_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.addItem(item)
@@ -443,8 +444,11 @@ class TimelineWidget(QWidget):
         # self.show_history()
         self.sceneScaleChanged("50%")
         self.current_subsystem_index = 0
+        self.temp_serialized = []
+        self.deleted_acts = []
         dispatcher.connect(self.change_subsystem, "make combo box")
-
+        dispatcher.connect(self.delete_activity, "remove activity")
+        self.setUpdatesEnabled(True)
     def set_title(self):
         try:
             title = self.subject_activity.id + ": " + self.act_of.id
@@ -508,38 +512,35 @@ class TimelineWidget(QWidget):
         self.view.setScene(self.scene)
         self.view.show()
         self.update()
+
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
-        try:
-            self.toolbar.setObjectName('ActionsToolBar')
-            self.back_action = self.create_action(
-                                        "Go Back",
-                                        slot=self.go_back,
-                                        icon="left_arrow",
-                                        tip="Back to Previous Page")
-            self.toolbar.addAction(self.back_action)
-            # print("created")
-        except:
-            # print("excespt")
-            pass
-        # self.clear_activities_action = self.create_action(
-        #                             "clear activities",
-        #                             slot=self.clear_activities,
-        #                             icon="left_arrow",
-        #                             tip="delete activities on this page")
-        # self.toolbar.addAction(self.clear_activities_action)
+        self.toolbar.setObjectName('ActionsToolBar')
+        self.back_action = self.create_action(
+                                    "Go Back",
+                                    slot=self.go_back,
+                                    icon="back",
+                                    tip="Back to Previous Page")
+        self.toolbar.addAction(self.back_action)
+
+        self.clear_activities_action = self.create_action(
+                                    "clear activities",
+                                    slot=self.clear_activities,
+                                    icon="brush",
+                                    tip="delete activities on this page")
+        self.toolbar.addAction(self.clear_activities_action)
         # self.back_to_mission_action = self.create_action(
         #                             "back to mission",
         #                             slot=self.view_mission,
         #                             icon="system",
         #                             tip="go back to mission")
         # self.toolbar.addAction(self.back_to_mission_action)
-        # self.undo_action = self.create_action(
-        #                             "undo",
-        #                             slot=self.undo,
-        #                             icon="left_arrow",
-        #                             tip="undo")
-        # self.toolbar.addAction(self.undo_action)
+        self.undo_action = self.create_action(
+                                    "undo",
+                                    slot=self.undo,
+                                    icon="undo",
+                                    tip="undo")
+        self.toolbar.addAction(self.undo_action)
         #create and add scene scale menu
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
@@ -548,6 +549,64 @@ class TimelineWidget(QWidget):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
+
+
+    def delete_activity(self, act=None):
+        current_comps = [acu.component for acu in self.subject_activity.components]
+        if act in current_comps:
+            self.serialized_deleted(act=act)
+            self.delete_children(act=act)
+            self.deleted_acts.append(self.temp_serialized)
+            self.temp_serialized = []
+            dispatcher.send("removed activity", parent_act=self.subject_activity)
+        self.scene = self.set_new_scene()
+        self.update_view()
+
+    def serialized_deleted(self, act=None):
+        if len(act.components) <= 0:
+            serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
+            self.temp_serialized.extend(serialized_act)
+        elif len(act.components) > 0:
+            for acu in act.components:
+                self.serialized_deleted(act=acu.component)
+            serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
+            self.temp_serialized.extend(serialized_act)
+
+    def delete_children(self, act=None):
+        if len(act.components) <= 0:
+            orb.delete([act])
+        elif len(act.components) > 0:
+            for acu in act.components:
+                self.delete_children(act=acu.component)
+            orb.delete([act])
+
+    def clear_activities(self):
+        # current_comps = [acu.component for acu in self.subject_activity.components]
+        # if act in current_comps:
+        #     self.serialized_deleted(act=act)
+        #     self.delete_children(act=act)
+        #     self.deleted_acts.append(self.temp_serialized)
+        #     self.temp_serialized = []
+        #     dispatcher.send("removed activity", parent_act=self.subject_activity)
+        # self.scene = self.set_new_scene()
+        # self.update_view()
+        #
+
+
+
+        children = [acu.component for acu in self.subject_activity.components]
+        for child in children:
+            self.serialized_deleted(act=child)
+            self.delete_children(act=child)
+        self.deleted_acts.append(self.temp_serialized)
+        self.temp_serialized = []
+
+
+        #
+        # orb.delete(children)
+        self.scene = self.set_new_scene()
+        self.update_view()
+        dispatcher.send("removed activity", parent_act=self.subject_activity)
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -560,6 +619,8 @@ class TimelineWidget(QWidget):
             self.update_view()
         except:
             pass
+    def undo(self):
+        pass
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
@@ -576,24 +637,6 @@ class TimelineWidget(QWidget):
         if checkable:
             action.setCheckable(True)
         return action
-    def return_scene(self):
-        return self.scene
-    def return_view(self):
-        return self.view
-    # def toolbar(self):
-    #     return self.toolbar
-    # def show_history(self):
-    #     try:
-    #         history_string = ""
-    #         for activity in self.history:
-    #             id = activity.id or "NA"
-    #             history_string += id + " >"
-    #         history_string += self.subject_activity.id or "NA"
-    #         history_string+= " >"
-    #         self.statusbar.showMessage(history_string)
-    #     except:
-    #         pass
-
 
     def make_combo_box(self, activity):
 
@@ -604,7 +647,6 @@ class TimelineWidget(QWidget):
         self.combo_box.currentIndexChanged.connect(self.change_subsystem)
         self.toolbar.addWidget(self.combo_box)
         self.combo_box.setCurrentIndex(0)
-        print(self.subject_activity.id, "right before dispatcher")
         dispatcher.send("make combo box", index=0)
 
     def update_combo_box(self):
@@ -612,31 +654,34 @@ class TimelineWidget(QWidget):
         self.update_view()
 
     def change_subsystem(self, index=None):
-        #target_system: string
-        system_name = self.possible_systems[index]
-        if self.subject_activity.activity_type == None or self.subject_activity.activity_type.id == 'cycle':
-            pass
-        else:
-            existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
-            system_exists = False
-            # print("looking for", system_name)
-            # for sys in existing_subsystems:
-            #     print(sys.product_type.id)
-            for subsystem in existing_subsystems:
-                if subsystem.product_type.id == system_name:
-                    system_exists = True
-                    self.act_of = subsystem
-                else:
-                    # print('"{}" not the same as "{}"'.format(subsystem.product_type.id, system_name))
-                    pass
-            if not system_exists:
-                self.make_new_system(system_name)
+        try:
+            #target_system: string
+            system_name = self.possible_systems[index]
+            if self.subject_activity.activity_type.id == 'cycle':
+                pass
+            else:
+                existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
+                system_exists = False
+                # print("looking for", system_name)
+                # for sys in existing_subsystems:
+                #     print(sys.product_type.id)
+                for subsystem in existing_subsystems:
+                    if subsystem.product_type.id == system_name:
+                        system_exists = True
+                        self.act_of = subsystem
+                    else:
+                        # print('"{}" not the same as "{}"'.format(subsystem.product_type.id, system_name))
+                        pass
+                if not system_exists:
+                    self.make_new_system(system_name)
 
-            self.scene = self.set_new_scene()
-            self.update_view()
-            # except Exception as e:
-            #     print(e)
-            #     print('============================================')
+                self.scene = self.set_new_scene()
+                self.update_view()
+                # except Exception as e:
+                #     print(e)
+                #     print('============================================')
+        except Exception as e:
+            print(e, "exception=========================================")
     def make_new_system(self, system_name):
         pro_type = orb.select("ProductType", id=system_name)
         new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner, product_type=pro_type, id=pro_type.id, name=pro_type.id)
@@ -743,7 +788,7 @@ class ConOpsModeler(QMainWindow):
         self.set_widgets(current_activity=self.subject_activity, init=True)
         #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
-        dispatcher.connect(self.delete_activity, "remove activity")
+        # dispatcher.connect(self.delete_activity, "remove activity")
         dispatcher.connect(self.view_subsystem, "activity focused")
         # dispatcher.connect(self.view_subsystem, "view subsystem")
         # add left dock
@@ -861,31 +906,31 @@ class ConOpsModeler(QMainWindow):
     #     new_scene = DiagramScene(self, current_activity=self.subject_activity)
     #     self.set_new_view(new_scene, current_activity=self.subject_activity)
     #     dispatcher.send("removed activity", parent_act=self.subject_activity)
-
-    def delete_activity(self, act=None):
-        self.serialized_deleted(act=act)
-        self.delete_children(act=act)
-        self.deleted_acts.append(self.temp_serialized)
-        self.temp_serialized = []
-        dispatcher.send("removed activity", parent_act=self.subject_activity)
-
-    def serialized_deleted(self, act=None):
-        if len(act.components) <= 0:
-            serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
-            self.temp_serialized.extend(serialized_act)
-        elif len(act.components) > 0:
-            for acu in act.components:
-                self.serialized_deleted(act=acu.component)
-            serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
-            self.temp_serialized.extend(serialized_act)
-
-    def delete_children(self, act=None):
-        if len(act.components) <= 0:
-            orb.delete([act])
-        elif len(act.components) > 0:
-            for acu in act.components:
-                self.delete_children(act=acu.component)
-            orb.delete([act])
+    #
+    # def delete_activity(self, act=None):
+    #     self.serialized_deleted(act=act)
+    #     self.delete_children(act=act)
+    #     self.deleted_acts.append(self.temp_serialized)
+    #     self.temp_serialized = []
+    #     dispatcher.send("removed activity", parent_act=self.subject_activity)
+    #
+    # def serialized_deleted(self, act=None):
+    #     if len(act.components) <= 0:
+    #         serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
+    #         self.temp_serialized.extend(serialized_act)
+    #     elif len(act.components) > 0:
+    #         for acu in act.components:
+    #             self.serialized_deleted(act=acu.component)
+    #         serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
+    #         self.temp_serialized.extend(serialized_act)
+    #
+    # def delete_children(self, act=None):
+    #     if len(act.components) <= 0:
+    #         orb.delete([act])
+    #     elif len(act.components) > 0:
+    #         for acu in act.components:
+    #             self.delete_children(act=acu.component)
+    #         orb.delete([act])
     #
     # def undo(self):
     #     try:
@@ -953,7 +998,9 @@ class ConOpsModeler(QMainWindow):
             if obj.activity_type.id == 'cycle':
                 self.sub_widget.scene = self.sub_widget.show_empty_scene()
                 self.sub_widget.update_view()
+                self.sub_widget.setEnabled(False)
             else:
+                self.sub_widget.setEnabled(True)
                 if hasattr(self.sub_widget, 'combo_box'):
                     self.sub_widget.update_combo_box()
                 else:
@@ -966,6 +1013,7 @@ class ConOpsModeler(QMainWindow):
         self.system_widget = TimelineWidget( self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft)
 
         self.sub_widget = TimelineWidget(self.spacecraft)
+        self.sub_widget.setEnabled(False)
         self.outer_layout = QVBoxLayout()
         self.outer_layout.addWidget(self.system_widget)
         try:
