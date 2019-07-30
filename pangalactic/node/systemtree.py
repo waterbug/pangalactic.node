@@ -112,10 +112,13 @@ class Node(object):
         # "empty" (i.e., obj_name is 'TBD')
         if obj_name == 'TBD':
             if isinstance(self.link, orb.classes['Acu']):
-                if getattr(self.link, 'reference_designator', None):
+                if (getattr(self.link, 'product_type_hint', None)
+                    and getattr(self.link.product_type_hint, 'name')):
+                    return 'TBD [' + self.link.product_type_hint.name + ']'
+                elif getattr(self.link, 'reference_designator', None):
                     return 'TBD [' + self.link.reference_designator + ']'
                 else:
-                    return 'TBD'
+                    return 'TBD [unknown type]'
             elif isinstance(self.link, orb.classes['ProjectSystemUsage']):
                 return self.link.system_role or obj_name
             else:

@@ -57,6 +57,9 @@ class LibraryListModel(QAbstractListModel):
         else:
             objs = orb.get_by_type(self.cname)
         self.objs = []
+        # sort by name
+        objs.sort(
+            key=lambda o: getattr(o, 'name', '') or  getattr(o, 'id', ''))
         for obj in objs:
             self.add_object(obj)
         orb.log.info("  - objs: {}".format(', '.join(
@@ -410,6 +413,7 @@ class LibraryListWidget(QWidget):
                                            'pgefobjects:admin'])
             people = [p for p in orb.get_by_type('Person')
                       if p.oid not in oids_non_grata]
+            people.sort(key=lambda o: getattr(o, 'last_name', ''))
             widget = FilterPanel(people, view=view, as_library=True,
                                  cname=cname, label=select_label,
                                  word_wrap=self.word_wrap,
