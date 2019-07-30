@@ -156,29 +156,20 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
         self.menu.addAction(self.edit_action)
-        self.menu.addAction(self.divide_to_subsystems_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item",
                                      triggered=self.delete_item)
         self.edit_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
-        self.divide_to_subsystems_action = QAction("View subsystems", self.scene(), statusTip="Divide into subsystems", triggered=self.subsystems)
-        # self.view_subsystem_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
 
-    def subsystem_selected(self):
-        pass
-        # dispatcher.send("subsystem selected", system=system)
-
-    def subsystems(self):
-        dispatcher.send("view subsystem", obj=self.activity)
 
     def edit_activity(self):
         self.scene().edit_parameters(self.activity)
 
     def delete_item(self):
-        # self.scene().timeline.remove_item(self)
-        self.scene().removeItem(self)
+        # # self.scene().timeline.remove_item(self)
+        # self.scene().removeItem(self)
         dispatcher.send("remove activity", parent_act=self.parent_activity, act=self.activity )
 
     def itemChange(self, change, value):
@@ -215,15 +206,6 @@ class DiagramView(QGraphicsView):
     def dragLeaveEvent(self, event):
         event.accept()
 
-class Template(QGraphicsPathItem):
-    def __init__(self, parent=None):
-        super(Template, self).__init__(parent)
-        self.setFlags(QGraphicsItem.ItemIsSelectable |
-                      QGraphicsItem.ItemIsMovable |
-                      QGraphicsItem.ItemIsFocusable)
-        self.path = QPainterPath(QPoint(0, -200))
-        self.path.arcTo(QRectF(-200,-200,400,400), 90, -360)
-        self.setPath(self.path)
 
 class Timeline(QGraphicsPathItem):
 
@@ -301,18 +283,7 @@ class Timeline(QGraphicsPathItem):
         if not same:
             dispatcher.send("order changed", parent_act=self.scene().current_activity)
         self.update()
-#     def extend_timeline(self):
-#         self.end_location = self.end_location+self.length/(len(self.item_list)+1)
-#         self.make_path()
-#         self.update()
-#         self.scene().update()
-#
-#     def shorten_timeline(self):
-#         self.end_location = self.end_location-self.length/(len(self.item_list))
-#         self.make_path()
-#         self.update()
-#         self.scene().update()
-#
+
 class DiagramScene(QGraphicsScene):
     def __init__(self, parent, current_activity=None, act_of=None):
         super(DiagramScene, self).__init__(parent)
@@ -356,7 +327,7 @@ class DiagramScene(QGraphicsScene):
         item.setPos(event.scenePos())
         self.addItem(item)
         self.timeline.add_item(item)
-        dispatcher.send("new activity", parent_act=self.current_activity)
+        dispatcher.send("new activity", parent_act=self.current_activity, act_of=self.act_of)
         self.update()
 
     def edit_parameters(self, activity):
@@ -562,7 +533,7 @@ class TimelineWidget(QWidget):
             self.delete_children(act=act)
             self.deleted_acts.append(self.temp_serialized)
             self.temp_serialized = []
-            dispatcher.send("removed activity", parent_act=self.subject_activity)
+            dispatcher.send("removed activity", parent_act=self.subject_activity, act_of=self.act_of)
         self.scene = self.set_new_scene()
         self.update_view()
         self.update()
