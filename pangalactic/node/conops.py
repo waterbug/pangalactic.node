@@ -422,12 +422,17 @@ class TimelineWidget(QWidget):
         dispatcher.connect(self.delete_activity, "remove activity")
         dispatcher.connect(self.disable_widget, "cleared activities")
         self.setUpdatesEnabled(True)
-    def disable_widget(self):
+
+    def disable_widget(self, parent_act=None):
         try:
-            if self.act_of != self.spacecraft:
-                self.setEnabled(False)
+            oid = getattr(self.subject_activity, 'id', None)
+            print("oid:::::::::::::::::::::::::::::::::::::", oid)
+            if oid == None:
+                if self.act_of != self.spacecraft:
+                    self.setEnabled(False)
         except Exception as e:
             print("disable exception", e)
+
     def set_title(self):
         try:
             title = self.subject_activity.id + ": " + self.act_of.id
@@ -559,29 +564,12 @@ class TimelineWidget(QWidget):
             orb.delete([act])
 
     def clear_activities(self):
-        # current_comps = [acu.component for acu in self.subject_activity.components]
-        # if act in current_comps:
-        #     self.serialized_deleted(act=act)
-        #     self.delete_children(act=act)
-        #     self.deleted_acts.append(self.temp_serialized)
-        #     self.temp_serialized = []
-        #     dispatcher.send("removed activity", parent_act=self.subject_activity)
-        # self.scene = self.set_new_scene()
-        # self.update_view()
-        #
-
-
-
         children = [acu.component for acu in self.subject_activity.components]
         for child in children:
             self.serialized_deleted(act=child)
             self.delete_children(act=child)
         self.deleted_acts.append(self.temp_serialized)
         self.temp_serialized = []
-
-
-        #
-        # orb.delete(children)
         self.scene = self.set_new_scene()
         self.update_view()
         dispatcher.send("cleared activities", parent_act=self.subject_activity)
@@ -665,6 +653,7 @@ class TimelineWidget(QWidget):
                 # except Exception as e:
                 #     print(e)
                 #     print('============================================')
+            dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of)
         except Exception as e:
             print(e, "exception=========================================")
     def make_new_system(self, system_name):
