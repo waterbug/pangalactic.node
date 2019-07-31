@@ -278,7 +278,7 @@ class Timeline(QGraphicsPathItem):
             orb.save([acu])
             if initial:
                 acu.component.id = acu.component.id or acu.reference_designator# for testing purposes
-                acu.component.name = "{} {}".format(parent_act.name,str(i))
+                acu.component.name = acu.component.name or "{} {}".format(parent_act.name,str(i))
                 orb.save([acu.component])
                 dispatcher.send("modified activity", activity=acu.component)
         if not same:
