@@ -1005,7 +1005,7 @@ class ConOpsModeler(QMainWindow):
         self.subject_activity = current_activity
         self.system_widget = TimelineWidget( self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft, position='top')
         self.system_widget.setMinimumSize(900, 300)
-        self.sub_widget = TimelineWidget(self.spacecraft, position='bottem')
+        self.sub_widget = TimelineWidget(self.spacecraft, position='middle')
         self.sub_widget.setEnabled(False)
         self.sub_widget.setMinimumSize(900, 300)
         self.outer_layout = QGridLayout()
