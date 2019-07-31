@@ -63,7 +63,7 @@ class ActivityTables(QMainWindow):
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
-        if self.position != 'middle':
+        if self.position == 'bottom':
             self.init_toolbar()
         self.set_central_widget()
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
@@ -189,13 +189,13 @@ class ActivityTables(QMainWindow):
                                                 tip="Save to file")
         self.toolbar.addAction(self.report_action)
 
-        if self.position == 'bottom':
-            self.param_menu = QComboBox()
-            self.param_menu.addItems(["Power", "Data Rate"])
-            self.param_menu.setCurrentIndex(0)
-            self.current_param = 'P'
-            self.param_menu.currentIndexChanged[str].connect(self.param_changed)
-            self.toolbar.addWidget(self.param_menu)
+        # if self.position == 'bottom':
+        self.param_menu = QComboBox()
+        self.param_menu.addItems(["Power", "Data Rate"])
+        self.param_menu.setCurrentIndex(0)
+        self.current_param = 'P'
+        self.param_menu.currentIndexChanged[str].connect(self.param_changed)
+        self.toolbar.addWidget(self.param_menu)
 
     def param_changed(self, param=None):
         dispatcher.send("parameter changed",param=param)
@@ -261,9 +261,9 @@ class ActivityTables(QMainWindow):
             self.sort_and_set_table(parent_act=obj, position=position)
 
     def on_activities_cleared(self, parent_act=None, position=None):
-        if self.position == position or self.position == 'bottom':
-            self.statusbar.showMessage("Activities Cleared!")
-            self.sort_and_set_table(parent_act=parent_act, position=position)
+        # if self.position == position or self.position == 'bottom':
+        self.statusbar.showMessage("Activities Cleared!")
+        self.sort_and_set_table(parent_act=parent_act, position=position)
 
     def on_subsystem_changed(self, parent_act=None, act_of=None):
         if self.position == 'middle':
@@ -313,7 +313,7 @@ class ActivityTables(QMainWindow):
                 self.set_system_table(activities)
                 self.set_subsystem_title(parent_act, cur_pt_id)
 
-            elif position == 'top' and 'spacecraft' in cur_pt_id:
+            elif position == 'top':# and 'spacecraft' in cur_pt_id:
                 all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
                 try:
                     all_acus.sort()
