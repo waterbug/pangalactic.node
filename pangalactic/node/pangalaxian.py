@@ -148,8 +148,6 @@ class Main(QtWidgets.QMainWindow):
         # window state when switching between modes
         self.main_states = {}
         state['connected'] = False
-        # if not state.get('assigned_roles'):
-            # state['assigned_roles'] = {}
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)
         orb.start(home=home, console=console, debug=debug)

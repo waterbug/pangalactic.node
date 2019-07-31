@@ -302,7 +302,7 @@ class ActivityTables(QMainWindow):
             cur_pt_id = getattr(self.act_of.product_type,'id','None')
             if position == 'middle' and cur_pt_id != 'spacecraft':
                 for act in parent_act.components:
-                    if cur_pt_id in act.component.activity_of.id:
+                    if cur_pt_id == act.component.activity_of.product_type.id:
                         system_acts.append(act)
                 all_acus = [(acu.reference_designator, acu) for acu in system_acts]
                 try:
@@ -329,7 +329,7 @@ class ActivityTables(QMainWindow):
             else:
                 cur_pt_id = getattr(self.act_of,'id','None')
                 for act in parent_act.components:
-                    if cur_pt_id in act.component.activity_of.id:
+                    if cur_pt_id == act.component.activity_of.product_type.id:
                         system_acts.append(act)
                 all_acus = [(acu.reference_designator, acu) for acu in system_acts]
             try:
