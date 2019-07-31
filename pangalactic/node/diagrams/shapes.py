@@ -1268,7 +1268,6 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
 
     def set_text(self, text, font_name=None, point_size=None,
                  weight=None, color=None):
-        orb.log.info(' ***** BlockLabel.set_text() ... ***')
         self.setHtml('<h2>{}</h2>'.format(text))
         if color in QTCOLORS:
             self.setDefaultTextColor(getattr(Qt, color))
@@ -1282,7 +1281,6 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         self.setTextWidth(self.parent.boundingRect().width() - 70)
         self.adjustSize()
         if self.centered:
-            orb.log.info(' ***** parent is: {} ***'.format(self.parent))
             w = self.boundingRect().width()
             x = self.parent.boundingRect().center().x() - w/2
             h = self.boundingRect().height()
@@ -1290,12 +1288,7 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         else:
             x = self.x
             y = self.y
-        orb.log.info(' ***** positioning at: ({}, {}) ***'.format(x, y))
         self.setPos(x, y)
-        scene_x = self.scenePos().x()
-        scene_y = self.scenePos().y()
-        orb.log.info(' ***** scene coords: ({}, {}) ***'.format(scene_x,
-                                                                scene_y))
 
 
 class TextLabel(QtWidgets.QGraphicsTextItem):
