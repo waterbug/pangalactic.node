@@ -57,10 +57,13 @@ class ActivityTables(QMainWindow):
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
+        dispatcher.connect(self.on_focused_changed, 'activity focused')
+        dispatcher.connect(self.on_disable,'disable widget')
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
-        self.init_toolbar()
+        if self.position != 'middle':
+            self.init_toolbar()
         self.set_central_widget()
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
@@ -75,8 +78,7 @@ class ActivityTables(QMainWindow):
         self.title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
         self.main_layout.addWidget(self.title)
-
-        self.sort_and_set_table(self.subject,self.act_of)
+        self.sort_and_set_table(self.subject, self.act_of, position=self.position)
 
     def set_system_title(self, activity):
         if getattr(activity, 'activity_type', None):
@@ -99,9 +101,9 @@ class ActivityTables(QMainWindow):
             for col in table_cols:
                 if col in orb.schemas['Activity']['field_names']:
                     attr_str = getattr(obj, col)
-                    if attr_str and len(attr_str) > 20:
-                        wrap(attr_str, width=20)
-                        attr_str = fill(attr_str, width=20)
+                    if attr_str and len(attr_str) > 28:
+                        wrap(attr_str, width=28)
+                        attr_str = fill(attr_str, width=28)
                     obj_dict[table_headers[col]] = attr_str
                 else:
                     val = get_pval_as_str(orb, obj.oid, col)
@@ -129,14 +131,21 @@ class ActivityTables(QMainWindow):
     def set_subsystem_title(self, activity, subsystem=None):
         if getattr(activity, 'activity_type', None) and subsystem:
             a_type = activity.activity_type.name
-            txt = 'Summary of {} "{}": {}'.format(a_type, activity.id,subsystem)
+            txt = '{} "{}": {}'.format(a_type, activity.id,subsystem)
         else:
             txt = 'Summary of "{}"'.format(getattr(activity, 'id',
                                                       'unidentified activity'))
         self.title.setText(txt)
 
-    def set_bottom_title(self):
-        self.title.setText("Power")
+    def set_bottom_title(self, parent_act,position=None):
+        try:
+            if position == 'top':
+                txt = '{} for {} in {}'.format(self.param_menu.currentText(), 'spacecraft', parent_act.id)
+            else:
+                txt = '{} for {} in {}'.format(self.param_menu.currentText(), self.act_of.product_type.id, parent_act.id)
+        except:
+            txt = '{}'.format(self.param_menu.currentText())
+        self.title.setText(txt)
 
     def set_bottom_table(self, objs):
         param = self.current_param
@@ -217,13 +226,13 @@ class ActivityTables(QMainWindow):
         return QSize(900, 800)
 
     def on_activity_modified(self, activity=None):
-        if activity:
+        if activity and activity.where_used:
             parent_act = getattr(activity.where_used[0], 'assembly', None)
             if parent_act:
                 self.on_activity_added(parent_act=parent_act, modified=True)
 
     def on_activity_added(self, parent_act=None, modified=False, act_of=None, position=None):
-        if self.position == position:
+        if self.position == position or self.position =='bottom':
             if modified:
                 self.statusbar.showMessage('Activity Modified!')
             else:
@@ -231,12 +240,12 @@ class ActivityTables(QMainWindow):
                 self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
 
     def on_activity_removed(self, parent_act=None, act_of=None, position=None):
-        if self.position == position:
+        if self.position == position or self.position == 'bottom':
             self.statusbar.showMessage('Activity Removed!')
             self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
 
     def on_order_changed(self, parent_act=None, act_of=None, position=None):
-        if self.position == position:
+        if self.position == position or self.position == 'bottom':
             self.statusbar.showMessage('Order Updated!')
             self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
 
@@ -251,6 +260,8 @@ class ActivityTables(QMainWindow):
     def on_subsystem_changed(self, parent_act=None, act_of=None):
         if self.position == 'middle':
             self.statusbar.showMessage("Subsystem Changed!")
+        if self.position == 'middle' or self.position == 'bottom':
+            self.setDisabled(False)
             if self.act_of is None:
                 self.act_of = act_of
             else:
@@ -259,25 +270,31 @@ class ActivityTables(QMainWindow):
                     print("ITS THE SPACECRAFT!")
                 else:
                     self.act_of = act_of
+                    self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=self.position)
 
-            self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position='middle')
+    def on_focused_changed(self, obj=None):
+        if obj.activity_of.product_type.id != 'spacecraft':
+            pass
+        elif self.position == 'top':
+            self.statusbar.showMessage("New Activity Selected!")
+        elif self.position == 'middle':
+            self.statusbar.showMessage("Table Refreshed!")
+            self.sort_and_set_table(parent_act=obj, position=self.position)
+
+    def on_disable(self):
+        if self.position == 'middle':
+            self.setDisabled(True)
 
     def sort_and_set_table(self, parent_act=None, act_of=None, position=None):
         system_acts = []
 
-        if act_of is None or self.act_of is None:
+        if self.act_of is None:
             pass
         else:
-            pt_id = getattr(act_of.product_type,'id','None')
             cur_pt_id = getattr(self.act_of.product_type,'id','None')
-
-            if parent_act is None or pt_id is None or cur_pt_id is None:
-                pass
-            # elif pt_id == cur_pt_id and ('spacecraft' != pt_id):
-            elif position == 'middle' and cur_pt_id != 'spacecraft':
-                print('SUBSYSTEM CODE!!!!', pt_id)
+            if position == 'middle' and cur_pt_id != 'spacecraft':
                 for act in parent_act.components:
-                    if pt_id in act.component.activity_of.id:
+                    if cur_pt_id in act.component.activity_of.id:
                         system_acts.append(act)
                 all_acus = [(acu.reference_designator, acu) for acu in system_acts]
                 try:
@@ -286,9 +303,9 @@ class ActivityTables(QMainWindow):
                     print('SORTING FAIL', all_acus)
                 activities = [acu_tuple[1].component for acu_tuple in all_acus]
                 self.set_system_table(activities)
-                self.set_subsystem_title(parent_act, pt_id)
+                self.set_subsystem_title(parent_act, cur_pt_id)
+
             elif position == 'top' and 'spacecraft' == cur_pt_id:
-                print('SPACECRAFT CODE!!!!', self.act_of)
                 all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
                 try:
                     all_acus.sort()
@@ -299,14 +316,21 @@ class ActivityTables(QMainWindow):
                 self.set_system_title(parent_act)
 
         if self.position == 'bottom':
-            all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
+            if position == 'top':
+                all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
+            else:
+                cur_pt_id = getattr(self.act_of,'id','None')
+                for act in parent_act.components:
+                    if cur_pt_id in act.component.activity_of.id:
+                        system_acts.append(act)
+                all_acus = [(acu.reference_designator, acu) for acu in system_acts]
             try:
                 all_acus.sort()
             except:
                 print('SORTING FAIL', all_acus)
             activities = [acu_tuple[1].component for acu_tuple in all_acus]
             self.set_bottom_table(activities)
-            self.set_bottom_title()
+            self.set_bottom_title(parent_act)
 
     def write_report(self):
         pass

@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
                              QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
                              QToolBox, QPushButton, QGraphicsPathItem,
-                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar, QGridLayout)
+                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -115,7 +115,6 @@ class EventBlock(QGraphicsPolygonItem):
         self.activity = activity
         self.setBrush(Qt.white)
         path = QPainterPath()
-        self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '', self, point_size=8)
         #---draw blocks depending on the 'shape' string passed in
         self.parent_activity = parent_activity or self.activity.where_used[0].assembly
         dispatcher.connect(self.id_changed_handler, "modified activity")
@@ -138,6 +137,7 @@ class EventBlock(QGraphicsPolygonItem):
             self.myPolygon = path.toFillPolygon(QTransform())
             self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
         self.setPolygon(self.myPolygon)
+        self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '', self, point_size=8)
 
     def id_changed_handler(self, activity=None):
         if activity is self.activity:
@@ -1015,6 +1015,7 @@ class ConOpsModeler(QMainWindow):
         self.outer_layout.addWidget(self.system_widget, 0, 1)
         self.outer_layout.addWidget(system_table, 0, 0)
         subsystem_table = ActivityTables(subject=self.subject_activity, parent=self, position='middle')
+        subsystem_table.setDisabled(True)
         subsystem_table.setMinimumSize(500, 300)
         subsystem_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.outer_layout.addWidget(subsystem_table, 1, 0)
