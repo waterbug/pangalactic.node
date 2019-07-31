@@ -600,6 +600,7 @@ class TimelineWidget(QWidget):
                 self.go_back_action.setDisabled(True)
             self.scene = self.set_new_scene()
             self.update_view()
+            dispatcher.send("go back", obj=self.subject_activity, position=self.position)
         except:
             pass
     def undo(self):
@@ -1187,10 +1188,11 @@ class ConOpsModeler(QMainWindow):
             previous_activity = self.history.pop()
             new_scene = DiagramScene(self, previous_activity)
             self.set_new_view(new_scene, current_activity=previous_activity)
-            self.show_history()
-            dispatcher.send("go back", obj=previous_activity, position=self.position)
-        except:
-            pass
+            # self.show_history()
+            # dispatcher.send("go back", obj=previous_activity, position=self.position)
+            print("DRILLLLLL")
+        except Exception as e:
+            print(e, "HELLLLLPPP")
 
     def set_subject(self, activity=None):
         """

@@ -249,13 +249,13 @@ class ActivityTables(QMainWindow):
             self.statusbar.showMessage('Order Updated!')
             self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
 
-    def on_drill_down(self, obj=None):
+    def on_drill_down(self, obj=None, position=None):
         self.statusbar.showMessage("Drilled Down!")
-        self.sort_and_set_table(parent_act=obj)
+        self.sort_and_set_table(parent_act=obj, position=position)
 
-    def on_drill_up(self, obj=None):
+    def on_drill_up(self, obj=None, position=None):
         self.statusbar.showMessage("Drilled Up!")
-        self.sort_and_set_table(parent_act=obj)
+        self.sort_and_set_table(parent_act=obj, position=position)
 
     def on_subsystem_changed(self, parent_act=None, act_of=None):
         if self.position == 'middle':
@@ -305,7 +305,7 @@ class ActivityTables(QMainWindow):
                 self.set_system_table(activities)
                 self.set_subsystem_title(parent_act, cur_pt_id)
 
-            elif position == 'top' and 'spacecraft' == cur_pt_id:
+            elif position == 'top' and 'spacecraft' in cur_pt_id:
                 all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
                 try:
                     all_acus.sort()
