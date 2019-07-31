@@ -59,6 +59,7 @@ class ActivityTables(QMainWindow):
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
         dispatcher.connect(self.on_focused_changed, 'activity focused')
         dispatcher.connect(self.on_disable,'disable widget')
+        dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
@@ -250,12 +251,19 @@ class ActivityTables(QMainWindow):
             self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
 
     def on_drill_down(self, obj=None, position=None):
-        self.statusbar.showMessage("Drilled Down!")
-        self.sort_and_set_table(parent_act=obj, position=position)
+        if self.position != 'middle':
+            self.statusbar.showMessage("Drilled Down!")
+            self.sort_and_set_table(parent_act=obj, position=position)
 
     def on_drill_up(self, obj=None, position=None):
-        self.statusbar.showMessage("Drilled Up!")
-        self.sort_and_set_table(parent_act=obj, position=position)
+        if self.position != 'middle':
+            self.statusbar.showMessage("Drilled Up!")
+            self.sort_and_set_table(parent_act=obj, position=position)
+
+    def on_activities_cleared(self, parent_act=None, position=None):
+        if self.position == position or self.position == 'bottom':
+            self.statusbar.showMessage("Activities Cleared!")
+            self.sort_and_set_table(parent_act=parent_act, position=position)
 
     def on_subsystem_changed(self, parent_act=None, act_of=None):
         if self.position == 'middle':
