@@ -1278,8 +1278,8 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         self.setFont(font)
         self.document().setDefaultTextOption(self.text_option)
         self.setParentItem(self.parent)
-        self.setTextWidth(self.parent.boundingRect().width() - 70)
         self.adjustSize()
+        self.setTextWidth(self.parent.boundingRect().width() - 50)
         if self.centered:
             w = self.boundingRect().width()
             x = self.parent.boundingRect().center().x() - w/2
