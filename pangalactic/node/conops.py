@@ -140,6 +140,7 @@ class EventBlock(QGraphicsPolygonItem):
     def id_changed_handler(self, activity=None):
         if activity is self.activity:
             self.block_label.set_text(self.activity.name)
+        dispatcher.send("activity modified", activity=activity, position=self.scene().position)
 
     def mouseDoubleClickEvent(self, event):
         super(EventBlock, self).mouseDoubleClickEvent(event)

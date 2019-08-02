@@ -51,7 +51,7 @@ class ActivityTables(QMainWindow):
                            QSizePolicy.Expanding)
 
         dispatcher.connect(self.on_activity_added, 'new activity')
-        dispatcher.connect(self.on_activity_modified, 'modified activity')
+        dispatcher.connect(self.on_activity_modified, 'activity modified')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
@@ -91,8 +91,8 @@ class ActivityTables(QMainWindow):
         self.title.setText(txt)
 
     def set_system_table(self, objs):
-        table_cols = ['id', 'name', 't_start', 'duration', 'description']
-        table_headers = dict(id='ID', name='Name',
+        table_cols = ['name', 't_start', 'duration', 'description']
+        table_headers = dict(name='Activity',
                            t_start='Start\nTime',
                            duration='Duration',
                            description='Description')
@@ -226,11 +226,11 @@ class ActivityTables(QMainWindow):
             return QSize(*self.preferred_size)
         return QSize(900, 800)
 
-    def on_activity_modified(self, activity=None):
+    def on_activity_modified(self, activity=None, position=None):
         if activity and activity.where_used:
             parent_act = getattr(activity.where_used[0], 'assembly', None)
             if parent_act:
-                self.on_activity_added(parent_act=parent_act, modified=True)
+                self.on_activity_added(parent_act=parent_act, modified=True, position=position)
 
     def on_activity_added(self, parent_act=None, modified=False, act_of=None, position=None):
         if self.position == position or self.position =='bottom':
@@ -238,7 +238,7 @@ class ActivityTables(QMainWindow):
                 self.statusbar.showMessage('Activity Modified!')
             else:
                 self.statusbar.showMessage('Activity Added!')
-                self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
+            self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
 
     def on_activity_removed(self, parent_act=None, act_of=None, position=None):
         if self.position == position or self.position == 'bottom':
@@ -274,8 +274,8 @@ class ActivityTables(QMainWindow):
                 self.act_of = act_of
             else:
                 pt_id = getattr(self.act_of.product_type,'id','None')
-                if pt_id  == 'spacecraft': # or self.act_of.product_type.id == 'spacecraft':
-                    print("ITS THE SPACECRAFT!")
+                if pt_id  == 'spacecraft':
+                    pass
                 else:
                     self.act_of = act_of
                     self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=self.position)
@@ -297,12 +297,11 @@ class ActivityTables(QMainWindow):
         system_acts = []
 
         if self.act_of is None:
-            pass
+            print("No Activity_of found")
         else:
-            cur_pt_id = getattr(self.act_of.product_type,'id','None')
-            if position == 'middle' and cur_pt_id != 'spacecraft':
+            if position == 'middle':
                 for act in parent_act.components:
-                    if cur_pt_id == act.component.activity_of.product_type.id:
+                    if self.act_of is act_of:
                         system_acts.append(act)
                 all_acus = [(acu.reference_designator, acu) for acu in system_acts]
                 try:
@@ -311,9 +310,9 @@ class ActivityTables(QMainWindow):
                     print('SORTING FAIL', all_acus)
                 activities = [acu_tuple[1].component for acu_tuple in all_acus]
                 self.set_system_table(activities)
-                self.set_subsystem_title(parent_act, cur_pt_id)
+                self.set_subsystem_title(parent_act, self.act_of.product_type.id)
 
-            elif position == 'top':# and 'spacecraft' in cur_pt_id:
+            elif position == 'top':
                 all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
                 try:
                     all_acus.sort()
@@ -378,12 +377,10 @@ class EditableTableModel(QAbstractTableModel):
     def setData(self, index, value, role):
         self.obj[index.row()][index.column()] = value
         cur_obj = list(self.obj[0])[index.column()]
-        # self.param = 'duration'
+
         oid = cur_obj.oid
-        # print("VALUE", value)
-        print("parameter in table",self.param)
+
         set_pval_from_str(orb, oid, self.param, value)
-        # print("HEYYYY",get_pval_as_str(orb, oid, self.param))
         return True
 
     def obj_cols(self):
