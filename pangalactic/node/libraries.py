@@ -412,11 +412,13 @@ class LibraryListWidget(QWidget):
             oids_non_grata = orb.get(oids=['me', 'pgefobjects:Person.TBD',
                                            'pgefobjects:admin'])
             people = [p for p in orb.get_by_type('Person')
-                      if p.oid not in oids_non_grata]
-            people.sort(key=lambda o: getattr(o, 'last_name', ''))
+                      if p not in oids_non_grata]
+            orb.log.info('- oids non grata: {}'.format([p.oid
+                                                for p in oids_non_grata]))
+            orb.log.info('- people: {}'.format([p.oid for p in people]))
+            people.sort(key=lambda o: getattr(o, 'last_name', '') or '')
             widget = FilterPanel(people, view=view, as_library=True,
-                                 cname=cname, label=select_label,
-                                 word_wrap=self.word_wrap,
+                                 label=select_label, word_wrap=self.word_wrap,
                                  parent=self)
         else:
             widget = LibraryListView(cname, include_subtypes=include_subtypes,

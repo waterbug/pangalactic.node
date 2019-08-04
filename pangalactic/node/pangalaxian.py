@@ -352,9 +352,10 @@ class Main(QtWidgets.QMainWindow):
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_sync_library_result)
         rpc.addErrback(self.on_failure)
+        # NOTE: sync_projects_with_roles() not needed in new admin paradigm
         # sync_projects_with_roles() does not require callback on_sync_result()
-        rpc.addCallback(self.sync_projects_with_roles)
-        rpc.addErrback(self.on_failure)
+        # rpc.addCallback(self.sync_projects_with_roles)
+        # rpc.addErrback(self.on_failure)
         # sync_current_project() requires callback on_project_sync_result()
         rpc.addCallback(self.sync_current_project)
         rpc.addErrback(self.on_failure)
@@ -578,22 +579,22 @@ class Main(QtWidgets.QMainWindow):
         data.update(orb.get_mod_dts(cname='Template'))
         return message_bus.session.call('vger.sync_library_objects', data)
 
-    def sync_projects_with_roles(self, data):
-        """
-        Get the project/org objects corresponding to the current roles assigned
-        to the local user and add them to the local db.
+    # def sync_projects_with_roles(self, data):
+        # """
+        # Get the project/org objects corresponding to the current roles assigned
+        # to the local user and add them to the local db.
 
-        Args:
-            data:  parameter required for callback (ignored)
-        """
-        orb.log.info('[pgxn] sync_projects_with_roles()')
-        for org_oid in set(state['assigned_roles']).union(
-                       set(state['admin_of'])):
-            if org_oid and not orb.get(org_oid):
-                rpc = message_bus.session.call('vger.get_object', org_oid)
-                rpc.addCallback(self.on_rpc_get_object)
-                rpc.addErrback(self.on_failure)
-        return True
+        # Args:
+            # data:  parameter required for callback (ignored)
+        # """
+        # orb.log.info('[pgxn] sync_projects_with_roles()')
+        # for org_oid in set(state['assigned_roles']).union(
+                       # set(state['admin_of'])):
+            # if org_oid and not orb.get(org_oid):
+                # rpc = message_bus.session.call('vger.get_object', org_oid)
+                # rpc.addCallback(self.on_rpc_get_object)
+                # rpc.addErrback(self.on_failure)
+        # return True
 
     def sync_current_project(self, data):
         """
@@ -1216,8 +1217,8 @@ class Main(QtWidgets.QMainWindow):
                                     slot=self.do_admin_stuff,
                                     tip=admin_action_tip)
         # default:  admin_action is not visible
-        # self.admin_action.setEnabled(False)
-        # self.admin_action.setVisible(False)
+        self.admin_action.setEnabled(False)
+        self.admin_action.setVisible(False)
         self.set_project_action = self.create_action(
                                     "Set Project",
                                     slot=self.set_current_project,
@@ -2168,8 +2169,8 @@ class Main(QtWidgets.QMainWindow):
             self.delete_project_action.setEnabled(False)
             self.enable_collab_action.setVisible(False)
             self.enable_collab_action.setEnabled(False)
-            # self.admin_action.setVisible(True)
-            # self.admin_action.setEnabled(True)
+            self.admin_action.setVisible(False)
+            self.admin_action.setEnabled(False)
         if (project_oid and project_oid != 'pgefobjects:SANDBOX'
             and state.get('connected')):
             rpc = self.sync_current_project(None)
@@ -2203,8 +2204,8 @@ class Main(QtWidgets.QMainWindow):
                 self.enable_collab_action.setEnabled(False)
                 self.delete_project_action.setEnabled(False)
                 self.delete_project_action.setVisible(False)
-                # self.admin_action.setVisible(False)
-                # self.admin_action.setEnabled(False)
+                self.admin_action.setVisible(False)
+                self.admin_action.setEnabled(False)
                 role_label_txt = 'SANDBOX'
             else:
                 project_is_local = False
