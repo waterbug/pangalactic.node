@@ -643,13 +643,14 @@ class TimelineWidget(QWidget):
         if self.act_of !=self.spacecraft:
             #target_system: string
             system_name = self.possible_systems[index]
+            system_type = orb.select('ProductType', id=system_name)
             if self.subject_activity.activity_type.id == 'cycle':
                 pass
             else:
                 existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
                 system_exists = False
                 for subsystem in existing_subsystems:
-                    if subsystem.product_type.id == system_name:
+                    if subsystem.product_type is system_type:
                         system_exists = True
                         self.act_of = subsystem
                     else:
