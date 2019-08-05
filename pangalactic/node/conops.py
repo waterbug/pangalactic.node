@@ -140,8 +140,10 @@ class EventBlock(QGraphicsPolygonItem):
     def id_changed_handler(self, activity=None):
         if activity is self.activity:
             self.block_label.set_text(self.activity.name)
-        dispatcher.send("activity modified", activity=activity, position=self.scene().position)
-
+        try:
+            dispatcher.send("activity modified", activity=activity, position=self.scene().position)
+        except:
+            pass
     def mouseDoubleClickEvent(self, event):
         super(EventBlock, self).mouseDoubleClickEvent(event)
         dispatcher.send("double clicked", act=self.activity)
@@ -431,7 +433,9 @@ class TimelineWidget(QWidget):
             if (self.act_of != self.spacecraft) and (self.subject_activity != parent_act):
                 self.scene = self.set_new_scene()
                 self.update_view()
-                self.setEnabled(False)
+                self.setDisabled(True)
+                dispatcher.send("disable widget")
+
         except:
             pass
 
@@ -634,6 +638,7 @@ class TimelineWidget(QWidget):
                 system_id = system.id
                 options.append(system_id)
             except Exception as e:
+                pass
                 # print(e)
                 # print("==================================================================")
         return options
@@ -733,11 +738,13 @@ class ConOpsModeler(QMainWindow):
         self.project = project
         self.spacecraft = None
         psus = orb.search_exact(cname='ProjectSystemUsage', project=project)
+        self.sc_lst = []
         if psus:
             for p in psus:
 
                 if p.system.product_type is sc_type:
-                    self.spacecraft = p.system
+                    self.sc_lst.append(p.system)
+            self.spacecraft = self.sc_lst[0]
         else:
             message = "You don't have a spacecraft!"
             popup = QMessageBox(
@@ -756,22 +763,25 @@ class ConOpsModeler(QMainWindow):
         self.subsys_act = None
         self.history = []
         self._init_ui()
-        self.set_widgets(current_activity=self.subject_activity, init=True)
-        #------------listening for signals------------#
-        dispatcher.connect(self.double_clicked_handler, "double clicked")
-        dispatcher.connect(self.view_subsystem, "activity focused")
+        self.init_toolbar()
         self.bottom_dock = QDockWidget()
         self.bottom_dock.setObjectName('BottomDock')
         self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
-        bottom_table = ActivityTables(subject=self.subject_activity, parent=self, position='bottom')
-        self.bottom_dock.setWidget(bottom_table)
+        self.set_widgets(current_activity=self.subject_activity, init=True)
+        #------------listening for signals------------#
+        dispatcher.connect(self.double_clicked_handler, "double clicked")
+        dispatcher.connect(self.view_subsystem, "activity focused")
+        self.deleted_acts = []
+        self.temp_serialized = []
+
+    def set_bottom_table(self):
+        # bottom_table = ActivityTables(subject=self.subject_activity, parent=self, position='bottom')
+        self.bottom_dock.setWidget(self.bottom_table)
 
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
-        self.deleted_acts = []
-        self.temp_serialized = []
     def create_library(self):
         """
         Create the library of operation/event block types.
@@ -794,6 +804,18 @@ class ConOpsModeler(QMainWindow):
         self.library.addItem(itemWidget, "Activities")
         self.library.setSizePolicy(QSizePolicy.Fixed,
                                    QSizePolicy.Fixed)
+    def init_toolbar(self):
+        self.toolbar = self.addToolBar("Actions")
+        self.toolbar.setObjectName('ActionsToolBar')
+        self.sc_combo_box = QComboBox()
+        self.sc_lst_ids = [sc.id for sc in self.sc_lst]
+        self.sc_combo_box.addItems(self.sc_lst_ids)
+        self.sc_combo_box.currentIndexChanged.connect(self.change_spacecraft)
+        self.toolbar.addWidget(self.sc_combo_box)
+
+    def change_spacecraft(self, index):
+        self.spacecraft = self.sc_lst[index]
+        self.set_widgets(current_activity=self.subject_activity)
 
     def resizeEvent(self, event):
         state['model_window_size'] = (self.width(), self.height())
@@ -819,8 +841,11 @@ class ConOpsModeler(QMainWindow):
                 self.sub_widget.scene = self.sub_widget.show_empty_scene()
                 self.sub_widget.update_view()
                 self.sub_widget.setEnabled(False)
+                dispatcher.send("disable widget")
             else:
                 self.sub_widget.setEnabled(True)
+                dispatcher.send("enable widget")
+
                 if hasattr(self.sub_widget, 'combo_box'):
                     self.sub_widget.update_combo_box()
                 else:
@@ -829,7 +854,7 @@ class ConOpsModeler(QMainWindow):
 
     def set_widgets(self, scene=None, current_activity=None, init=False):
         self.subject_activity = current_activity
-        self.system_widget = TimelineWidget( self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft, position='top')
+        self.system_widget = TimelineWidget(self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft, position='top')
         self.system_widget.setMinimumSize(900, 300)
         self.sub_widget = TimelineWidget(self.spacecraft, position='middle')
         self.sub_widget.setEnabled(False)
@@ -851,6 +876,8 @@ class ConOpsModeler(QMainWindow):
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         self.sceneScaleChanged("50%")
+        self.bottom_table = ActivityTables(subject=self.subject_activity, parent=self, position='bottom')
+        self.set_bottom_table()
         if init:
             self.right_dock = QDockWidget()
             self.right_dock.setObjectName('RightDock')

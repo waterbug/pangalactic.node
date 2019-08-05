@@ -51,7 +51,7 @@ class ActivityTables(QMainWindow):
                            QSizePolicy.Expanding)
 
         dispatcher.connect(self.on_activity_added, 'new activity')
-        dispatcher.connect(self.on_activity_modified, 'activity modified')
+        dispatcher.connect(self.on_activity_modified, 'modified activity')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
@@ -59,6 +59,7 @@ class ActivityTables(QMainWindow):
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
         dispatcher.connect(self.on_focused_changed, 'activity focused')
         dispatcher.connect(self.on_disable,'disable widget')
+        dispatcher.connect(self.on_enable, 'enable widget')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
     def _init_ui(self):
@@ -91,8 +92,8 @@ class ActivityTables(QMainWindow):
         self.title.setText(txt)
 
     def set_system_table(self, objs):
-        table_cols = ['name', 't_start', 'duration', 'description']
-        table_headers = dict(name='Activity',
+        table_cols = ['id', 'name', 't_start', 'duration', 'description']
+        table_headers = dict(id='ID', name='Name',
                            t_start='Start\nTime',
                            duration='Duration',
                            description='Description')
@@ -226,11 +227,11 @@ class ActivityTables(QMainWindow):
             return QSize(*self.preferred_size)
         return QSize(900, 800)
 
-    def on_activity_modified(self, activity=None, position=None):
+    def on_activity_modified(self, activity=None):
         if activity and activity.where_used:
             parent_act = getattr(activity.where_used[0], 'assembly', None)
             if parent_act:
-                self.on_activity_added(parent_act=parent_act, modified=True, position=position)
+                self.on_activity_added(parent_act=parent_act, modified=True)
 
     def on_activity_added(self, parent_act=None, modified=False, act_of=None, position=None):
         if self.position == position or self.position =='bottom':
@@ -238,7 +239,7 @@ class ActivityTables(QMainWindow):
                 self.statusbar.showMessage('Activity Modified!')
             else:
                 self.statusbar.showMessage('Activity Added!')
-            self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
+                self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=position)
 
     def on_activity_removed(self, parent_act=None, act_of=None, position=None):
         if self.position == position or self.position == 'bottom':
@@ -274,8 +275,8 @@ class ActivityTables(QMainWindow):
                 self.act_of = act_of
             else:
                 pt_id = getattr(self.act_of.product_type,'id','None')
-                if pt_id  == 'spacecraft':
-                    pass
+                if pt_id  == 'spacecraft': # or self.act_of.product_type.id == 'spacecraft':
+                    print("ITS THE SPACECRAFT!")
                 else:
                     self.act_of = act_of
                     self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=self.position)
@@ -285,23 +286,26 @@ class ActivityTables(QMainWindow):
             pass
         elif self.position == 'top':
             self.statusbar.showMessage("New Activity Selected!")
-        elif self.position == 'middle':
+        else:
             self.statusbar.showMessage("Table Refreshed!")
             self.sort_and_set_table(parent_act=obj, position=self.position)
 
     def on_disable(self):
         if self.position == 'middle':
             self.setDisabled(True)
-
+    def on_enable(self):
+        if self.position == 'middle':
+            self.setDisabled(False)
     def sort_and_set_table(self, parent_act=None, act_of=None, position=None):
         system_acts = []
 
         if self.act_of is None:
-            print("No Activity_of found")
+            pass
         else:
-            if position == 'middle':
+            # cur_pt_id = getattr(self.act_of.product_type,'id','None')
+            if position == 'middle' and self.act_of != 'spacecraft':
                 for act in parent_act.components:
-                    if self.act_of is act_of:
+                    if self.act_of == act.component.activity_of:
                         system_acts.append(act)
                 all_acus = [(acu.reference_designator, acu) for acu in system_acts]
                 try:
@@ -312,8 +316,13 @@ class ActivityTables(QMainWindow):
                 self.set_system_table(activities)
                 self.set_subsystem_title(parent_act, self.act_of.product_type.id)
 
-            elif position == 'top':
-                all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
+            elif position == 'top':# and 'spacecraft' in cur_pt_id:
+                for act in parent_act.components:
+                    if self.act_of == act.component.activity_of:
+                        system_acts.append(act)
+                all_acus = [(acu.reference_designator, acu) for acu in system_acts]
+
+                # all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
                 try:
                     all_acus.sort()
                 except:
@@ -326,9 +335,8 @@ class ActivityTables(QMainWindow):
             if position == 'top':
                 all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
             else:
-                cur_pt_id = getattr(self.act_of,'id','None')
                 for act in parent_act.components:
-                    if cur_pt_id == act.component.activity_of.product_type.id:
+                    if self.act_of == act.component.activity_of:
                         system_acts.append(act)
                 all_acus = [(acu.reference_designator, acu) for acu in system_acts]
             try:
@@ -377,10 +385,12 @@ class EditableTableModel(QAbstractTableModel):
     def setData(self, index, value, role):
         self.obj[index.row()][index.column()] = value
         cur_obj = list(self.obj[0])[index.column()]
-
+        # self.param = 'duration'
         oid = cur_obj.oid
-
+        # print("VALUE", value)
+        print("parameter in table",self.param)
         set_pval_from_str(orb, oid, self.param, value)
+        # print("HEYYYY",get_pval_as_str(orb, oid, self.param))
         return True
 
     def obj_cols(self):
