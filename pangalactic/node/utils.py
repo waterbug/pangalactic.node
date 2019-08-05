@@ -300,10 +300,9 @@ def get_icon_path(obj):
     """
     # first, check whether object is cloaked
     icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-    if (obj.oid in state.get('cloaked', []) and
-        not getattr(obj, 'public', True)):
-        # if so, use the 'cloaked' icon
-        return os.path.join(icon_dir, 'cloaked' + state['icon_type'])
+    if hasattr(obj, 'public') and not obj.public:
+        # if obj is not public, use the 'cloakedable' icon
+        return os.path.join(icon_dir, 'cloakable' + state['icon_type'])
     # check for a special icon for this specific object
     if getattr(obj, 'id', None):
         special_icon_path = os.path.join(icon_dir, obj.id + state['icon_type'])

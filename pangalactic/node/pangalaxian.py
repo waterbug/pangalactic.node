@@ -2051,9 +2051,10 @@ class Main(QtWidgets.QMainWindow):
         if msg == 'new':
             orb.log.info('* received local "new object" signal')
             # currently, only HardwareProduct and its subclasses are cloaked
-            if ((obj and isinstance(obj, orb.classes['HardwareProduct'])) or
-                (cname and issubclass(orb.classes.get(cname),
-                                      orb.classes['HardwareProduct']))):
+            if (not getattr(obj, 'public', True) and
+                ((obj and isinstance(obj, orb.classes['HardwareProduct'])) or
+                 (cname and issubclass(orb.classes.get(cname),
+                                      orb.classes['HardwareProduct'])))):
                 if state.get('cloaked'):
                     state['cloaked'].append(obj.oid)
                 else:
