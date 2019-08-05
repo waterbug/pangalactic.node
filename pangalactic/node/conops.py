@@ -626,16 +626,16 @@ class TimelineWidget(QWidget):
 
     def create_option_list(self):
         lst = [acu.component for acu in self.spacecraft.components]
-        print(lst,"0000000000000000000000000000000000000000000000000000000000000000")
+        # print(lst,"0000000000000000000000000000000000000000000000000000000000000000")
         options = []
         for system in lst:
             try:
-                print(system.id, "[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]")
+                # print(system.id, "[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]")
                 system_id = system.id
                 options.append(system_id)
             except Exception as e:
-                print(e)
-                print("==================================================================")
+                # print(e)
+                # print("==================================================================")
         return options
 
     def make_combo_box(self, activity):
