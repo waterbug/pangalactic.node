@@ -67,7 +67,7 @@ PORT_TYPE_COLORS = OrderedDict([
     ('analog_data',        Qt.cyan),
     ('digital_data',       Qt.green),
     ('comm',               Qt.blue),
-    ('thermal',            Qt.yellow),
+    ('thermal',            Qt.lightGray),
     ('gas',                Qt.black),
     ('unknown',            Qt.gray)
     ])
