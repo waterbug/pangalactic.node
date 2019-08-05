@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
                              QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
                              QToolBox, QPushButton, QGraphicsPathItem,
-                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar)
+                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar, QMessageBox)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -624,12 +624,25 @@ class TimelineWidget(QWidget):
             action.setCheckable(True)
         return action
 
-    def make_combo_box(self, activity):
+    def create_option_list(self):
+        lst = [acu.component for acu in self.spacecraft.components]
+        print(lst,"0000000000000000000000000000000000000000000000000000000000000000")
+        options = []
+        for system in lst:
+            try:
+                print(system.id, "[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]")
+                system_id = system.id
+                options.append(system_id)
+            except Exception as e:
+                print(e)
+                print("==================================================================")
+        return options
 
-        # self.subject_activity = activity
+    def make_combo_box(self, activity):
         self.combo_box = QComboBox(self)
-        self.combo_box.addItems(self.possible_systems)
-        # self.combo_box = box
+        # self.combo_box.updatesEnabled(True)
+        options = self.create_option_list()
+        self.combo_box.addItems(options)
         self.combo_box.currentIndexChanged.connect(self.change_subsystem)
         self.toolbar.addWidget(self.combo_box)
         self.combo_box.setCurrentIndex(0)
@@ -640,8 +653,7 @@ class TimelineWidget(QWidget):
         self.update_view()
 
     def change_subsystem(self, index=None):
-        if self.act_of !=self.spacecraft:
-            #target_system: string
+        if self.act_of != self.spacecraft:
             system_name = self.possible_systems[index]
             if self.subject_activity.activity_type.id == 'cycle':
                 pass
@@ -652,8 +664,8 @@ class TimelineWidget(QWidget):
                     if getattr(subsystem.product_type, 'id', '') == system_name:
                         system_exists = True
                         self.act_of = subsystem
-                if not system_exists:
-                    self.make_new_system(system_name)
+                # if not system_exists:
+                #     self.make_new_system(system_name)
 
                 self.scene = self.set_new_scene()
                 self.update_view()
@@ -719,15 +731,27 @@ class ConOpsModeler(QMainWindow):
             self.mission = self.subject_activity
 
         self.project = project
+        self.spacecraft = None
+        psus = orb.search_exact(cname='ProjectSystemUsage', project=project)
+        if psus:
+            for p in psus:
 
-        spacecraft = orb.select('HardwareProduct', owner=project, product_type=sc_type)
-        if not spacecraft:
-            spacecraft = clone("HardwareProduct", owner=project, product_type=sc_type)
-            psu = clone("ProjectSystemUsage", project=project, system=spacecraft)
-            orb.save([psu, spacecraft])
+                if p.system.product_type is sc_type:
+                    self.spacecraft = p.system
+        else:
+            message = "You don't have a spacecraft!"
+            popup = QMessageBox(
+                        QMessageBox.Warning,
+                        "No spacecraft", message,
+                        QMessageBox.Ok, self)
+            popup.show()
+        # if not spacecraft:
+        #     spacecraft = clone("HardwareProduct", owner=project, product_type=sc_type)
+        #     psu = clone("ProjectSystemUsage", project=project, system=spacecraft)
+        #     orb.save([psu, spacecraft])
 
 
-        self.spacecraft = spacecraft
+        # self.spacecraft = spacecrafts
         self.create_library()
         self.subsys_act = None
         self.history = []
