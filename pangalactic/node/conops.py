@@ -634,13 +634,12 @@ class TimelineWidget(QWidget):
         options = []
         for system in lst:
             try:
-                # print(system.id, "[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]")
+                #check if the id is TBD
                 system_id = system.id
-                options.append(system_id)
+                if system_id != "TBD":
+                    options.append(system_id)
             except Exception as e:
                 pass
-                # print(e)
-                # print("==================================================================")
         return options
 
     def make_combo_box(self, activity):
