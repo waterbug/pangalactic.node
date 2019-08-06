@@ -89,10 +89,10 @@ class LibraryListModel(QAbstractListModel):
         return Qt.CopyAction
 
     def data(self, index, role):
-        obj = self.objs[index.row()]
         if (not index.isValid() or
             not (0 <= index.row() < len(self.objs))):
             return QVariant()
+        obj = self.objs[index.row()]
         if role == Qt.DisplayRole:
             # how objects are displayed in the library widget
             return QVariant(obj.name)
@@ -232,8 +232,9 @@ class LibraryListView(QListView):
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
             template = create_template_from_product(obj)
-            orb.save([template])
-            dispatcher.send('new object', obj=template)
+            dlg = PgxnObject(template, edit_mode=True, modal_mode=True,
+                             parent=self)
+            dlg.show()
 
     def refresh(self, **kw):
         """

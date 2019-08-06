@@ -632,8 +632,9 @@ class FilterPanel(QWidget):
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             obj = orb.get(oid)
             template = create_template_from_product(obj)
-            orb.save([template])
-            dispatcher.send('new object', obj=template)
+            dlg = PgxnObject(template, edit_mode=True, modal_mode=True,
+                             parent=self)
+            dlg.show()
 
     def add_object(self, obj):
         """
