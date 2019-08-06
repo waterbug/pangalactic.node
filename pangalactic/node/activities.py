@@ -289,7 +289,7 @@ class ActivityTables(QMainWindow):
 
         if self.position == 'top':
             self.statusbar.showMessage("New Activity Selected!")
-        elif (self.position == 'middle') and (obj.activity_of.product_type.id != 'spacecraft'):
+        elif (self.position == 'middle') and (obj.activity_of.product_type.id == 'spacecraft'):
             self.statusbar.showMessage("Table Refreshed!")
             self.sort_and_set_table(parent_act=obj, position=self.position)
 
