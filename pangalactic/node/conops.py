@@ -138,9 +138,9 @@ class EventBlock(QGraphicsPolygonItem):
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '', self, point_size=8)
 
     def id_changed_handler(self, activity=None):
-        if activity is self.activity:
-            self.block_label.set_text(self.activity.name)
         try:
+            if activity is self.activity:
+                self.block_label.set_text(self.activity.name)
             dispatcher.send("activity modified", activity=activity, position=self.scene().position)
         except:
             pass
@@ -642,14 +642,14 @@ class TimelineWidget(QWidget):
                 pass
         return options
 
-    def make_combo_box(self, activity):
+    def make_combo_box(self):
         self.combo_box = QComboBox(self)
-        # self.combo_box.updatesEnabled(True)
-        options = self.create_option_list()
-        self.combo_box.addItems(options)
-        self.combo_box.currentIndexChanged.connect(self.change_subsystem)
+        self.options = self.create_option_list()
+        self.combo_box.addItems(self.options)
         self.toolbar.addWidget(self.combo_box)
-        self.combo_box.setCurrentIndex(0)
+        self.combo_box.currentIndexChanged.connect(self.change_subsystem)
+        # self.combo_box.setCurrentIndex(0)
+        print("make combo box!!!!!!!!!!!!!!!!!!!!!")
         dispatcher.send("make combo box", index=0)
 
     def update_combo_box(self):
@@ -658,19 +658,20 @@ class TimelineWidget(QWidget):
 
     def change_subsystem(self, index=None):
         if self.act_of != self.spacecraft:
-            system_name = self.possible_systems[index]
+            system_name = self.options[index]
             if self.subject_activity.activity_type.id == 'cycle':
                 pass
             else:
+                print("change subsystem)))))))))))))))))))))))))")
                 existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
                 system_exists = False
                 for subsystem in existing_subsystems:
-                    if getattr(subsystem.product_type, 'id', '') == system_name:
+                    print("looking for:", system_name)
+                    print(getattr(subsystem, 'id', 'NA'))
+                    if getattr(subsystem, 'id', '') == system_name:
+                        print("found subsystem:", system_name)
                         system_exists = True
                         self.act_of = subsystem
-                # if not system_exists:
-                #     self.make_new_system(system_name)
-
                 self.scene = self.set_new_scene()
                 self.update_view()
             dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
@@ -846,9 +847,11 @@ class ConOpsModeler(QMainWindow):
                 dispatcher.send("enable widget")
 
                 if hasattr(self.sub_widget, 'combo_box'):
+                    print("========================================================")
                     self.sub_widget.update_combo_box()
                 else:
-                    self.sub_widget.make_combo_box(obj)
+                    print("need to make combobox+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+                    self.sub_widget.make_combo_box()
 
 
     def set_widgets(self, scene=None, current_activity=None, init=False):
@@ -875,7 +878,7 @@ class ConOpsModeler(QMainWindow):
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         self.sceneScaleChanged("50%")
-        self.bottom_table = ActivityTables(subject=self.subject_activity, parent=self, position='bottom')
+        self.bottom_table = ActivityTables(subject=self.subject_activity, act_of=self.spacecraft,parent=self, position='bottom')
         self.set_bottom_table()
         if init:
             self.right_dock = QDockWidget()

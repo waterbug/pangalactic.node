@@ -282,11 +282,14 @@ class ActivityTables(QMainWindow):
                     self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=self.position)
 
     def on_focused_changed(self, obj=None):
-        if obj.activity_of.product_type.id != 'spacecraft':
-            pass
-        elif self.position == 'top':
+
+        if self.position == 'bottom':
+            self.act_of = obj.activity_of
+            self.sort_and_set_table(parent_act=obj.where_used[0].assembly, position=self.position)
+
+        if self.position == 'top':
             self.statusbar.showMessage("New Activity Selected!")
-        else:
+        elif (self.position == 'middle') and (obj.activity_of.product_type.id != 'spacecraft'):
             self.statusbar.showMessage("Table Refreshed!")
             self.sort_and_set_table(parent_act=obj, position=self.position)
 
@@ -333,7 +336,10 @@ class ActivityTables(QMainWindow):
 
         if self.position == 'bottom':
             if position == 'top':
-                all_acus = [(acu.reference_designator, acu) for acu in parent_act.components]
+                for act in parent_act.components:
+                    if self.act_of == act.component.activity_of:
+                        system_acts.append(act)
+                all_acus = [(acu.reference_designator, acu) for acu in system_acts]
             else:
                 for act in parent_act.components:
                     if self.act_of == act.component.activity_of:
