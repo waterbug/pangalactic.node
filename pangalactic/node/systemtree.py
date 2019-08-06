@@ -25,8 +25,7 @@ from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import get_pval, get_pval_as_str, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.validation  import (get_assembly, get_bom_oids,
-                                          get_assembly_oids)
+from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.core.units       import in_si
 from pangalactic.core.utils.meta  import display_name, get_acu_id, get_acu_name
 from pangalactic.node.dialogs     import AssemblyNodeDialog
@@ -719,10 +718,8 @@ class SystemTreeModel(QAbstractItemModel):
                 orb.log.info('    + target is a subclass of Product ...')
                 # first check for cycles (cycles will crash the tree)
                 bom_oids = get_bom_oids(dropped_item)
-                assembly_oids = get_assembly_oids(dropped_item)
-                if ((drop_target.oid in bom_oids and 
-                     drop_target.oid != 'pgefobjects:TBD') or
-                     drop_target.oid in assembly_oids):
+                if (drop_target.oid in bom_oids and
+                    drop_target.oid != 'pgefobjects:TBD'):
                     # case 0: dropped item would cause a cycle -> abort
                     popup = QMessageBox(
                                 QMessageBox.Critical,
@@ -734,6 +731,17 @@ class SystemTreeModel(QAbstractItemModel):
                 elif drop_target.oid == 'pgefobjects:TBD':
                     # case 1: drop target is "TBD" product -> replace it
                     node = self.get_node(parent)
+                    # avoid cycles:  check if the assembly is in the bom
+                    if (hasattr(node.link, 'assembly') and
+                        getattr(node.link.assembly, 'oid', '') in bom_oids):
+                        # dropped item would cause a cycle -> abort
+                        popup = QMessageBox(
+                                    QMessageBox.Critical,
+                                    "Prohibited Operation",
+                                    "Product cannot be used in its own assembly.",
+                                    QMessageBox.Ok, self.parent)
+                        popup.show()
+                        return False
                     if not 'modify' in get_perms(node.link):
                         ret = QMessageBox.critical(
                                   self.parent,
