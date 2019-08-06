@@ -8,10 +8,10 @@ from functools import partial
 
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QAction, QApplication, QDialogButtonBox,
+from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFormLayout, QHBoxLayout, QLabel, QMainWindow,
-                             QMessageBox, QSizePolicy, QTabWidget, QVBoxLayout,
-                             QWidget)
+                             QMessageBox, QSizePolicy, QTabWidget, QToolBar,
+                             QVBoxLayout, QWidget)
 
 from louie      import dispatcher
 from sqlalchemy import ForeignKey
@@ -535,7 +535,7 @@ class ParameterForm(PgxnForm):
             event.ignore()
 
 
-class PgxnObject(QMainWindow):
+class PgxnObject(QDialog):
     """
     Object viewer/editor.
 
@@ -642,7 +642,6 @@ class PgxnObject(QMainWindow):
         # set min width so text fields don't get truncated
         self.setMinimumWidth(500)
         # self.setMinimumHeight(300)
-        self.init_toolbar()
         self.vbox = QVBoxLayout()
         self.title = QLabel()
         self.title.setSizePolicy(QSizePolicy.Minimum,
@@ -650,11 +649,14 @@ class PgxnObject(QMainWindow):
         self.vbox.addWidget(self.title)
         self.build_from_object()
         self.main_panel = QWidget()
-        self.main_panel.setLayout(self.vbox)
-        self.setCentralWidget(self.main_panel)
+        self.setLayout(self.vbox)
+        self.init_toolbar()
+        # self.setCentralWidget(self.main_panel)
+        self.vbox.addWidget(self.main_panel)
 
     def init_toolbar(self):
-        self.toolbar = self.addToolBar('Tools')
+        # self.toolbar = self.addToolBar('Tools')
+        self.toolbar = QToolBar('Tools')
         self.freeze_action = self.create_action('freeze',
                                 slot=self.freeze, icon='freeze_16',
                                 tip='Freeze this object',
@@ -697,6 +699,7 @@ class PgxnObject(QMainWindow):
                                 modes=['edit', 'view'])
         self.toolbar.addAction(self.viewer_action)
         self.toolbar.addAction(self.where_used_action)
+        self.vbox.insertWidget(0, self.toolbar)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False, modes=None):
@@ -881,55 +884,59 @@ class PgxnObject(QMainWindow):
                                                    QDialogButtonBox.ActionRole)
         else:
             # not embedded -> external dialog
-            if self.modal_mode:
-                orb.log.debug('* [pgxnobj] modal mode (always edit)')
-                orb.log.debug('            adding buttons ...')
-                # modal:  always "edit mode", ends with save or cancel (no
-                # delete because not needed: cancel rolls back)
-                self.edit_mode = True
+            # "non-modal mode" is deprecated -- need to always be on top ...
+                # orb.log.debug('* [pgxnobj] modal mode')
+                # orb.log.debug('            adding buttons ...')
+                # self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
+                # self.save_button = self.bbox.addButton('Save',
+                                                   # QDialogButtonBox.ActionRole)
+            # else:
+                # # non-modal (persistent) alternates between "edit" and "view"
+                # orb.log.debug('* [pgxnobj] non-modal mode')
+            self.modal_mode = True
+            orb.log.debug('* [pgxnobj] external window: always modal mode)')
+            if self.edit_mode:
+                orb.log.debug('            setting up edit mode ...')
+                # Cancel button cancels edits and switches to view mode
                 self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
                 self.save_button = self.bbox.addButton('Save',
-                                                   QDialogButtonBox.ActionRole)
+                                               QDialogButtonBox.ActionRole)
+                if 'delete' in perms and self.enable_delete:
+                    self.delete_button = self.bbox.addButton('Delete',
+                                               QDialogButtonBox.ActionRole)
+                # if hasattr(self, 'edit_button'):
+                    # # if switching to edit mode, don't need 'Edit' button
+                    # try:
+                        # self.bbox.removeButton(self.edit_button)
+                    # except:
+                        # # C++ object went away?
+                        # pass
             else:
-                # non-modal (persistent) alternates between "edit" and "view"
-                orb.log.debug('* [pgxnobj] non-modal mode')
-                if self.edit_mode:
-                    orb.log.debug('            setting up edit mode ...')
-                    # Cancel button cancels edits and switches to view mode
-                    self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
-                    self.save_button = self.bbox.addButton('Save',
-                                                   QDialogButtonBox.ActionRole)
-                    if 'delete' in perms and self.enable_delete:
-                        self.delete_button = self.bbox.addButton('Delete',
-                                                   QDialogButtonBox.ActionRole)
-                    # if hasattr(self, 'edit_button'):
-                        # # if switching to edit mode, don't need 'Edit' button
-                        # try:
-                            # self.bbox.removeButton(self.edit_button)
-                        # except:
-                            # # C++ object went away?
-                            # pass
-                else:
-                    orb.log.debug('            setting up view mode ...')
-                    self.bbox = QDialogButtonBox()
-                    orb.log.debug('            checking perms ...')
-                    if not self.view_only and 'modify' in perms:
-                        orb.log.debug('            "modify" in perms --')
-                        orb.log.debug('            adding "edit" button ...')
-                        self.edit_button = self.bbox.addButton('Edit',
-                                                   QDialogButtonBox.ActionRole)
-                    if (state.get('connected') and
-                        isinstance(self.obj, orb.classes['ManagedObject']) and
-                        not isinstance(self.obj,
-                                   orb.classes['ParameterDefinition'])):
-                        self.cloaking_button = self.bbox.addButton('Cloaking',
-                                                   QDialogButtonBox.ActionRole)
+                orb.log.debug('            setting up view mode ...')
+                self.bbox = QDialogButtonBox()
+                orb.log.debug('            checking perms ...')
+                if not self.view_only and 'modify' in perms:
+                    orb.log.debug('            "modify" in perms --')
+                    orb.log.debug('            adding "edit" button ...')
+                    self.edit_button = self.bbox.addButton('Edit',
+                                               QDialogButtonBox.ActionRole)
+                if (state.get('connected') and
+                    isinstance(self.obj, orb.classes['ManagedObject']) and
+                    not isinstance(self.obj,
+                               orb.classes['ParameterDefinition'])):
+                    self.cloaking_button = self.bbox.addButton('Cloaking',
+                                               QDialogButtonBox.ActionRole)
+            self.close_button = self.bbox.addButton(QDialogButtonBox.Close)
+            self.close_button.clicked.connect(self.on_close)
         self.vbox.addWidget(self.tabs)
         self.vbox.setStretch(1, 1)
         self.vbox.addWidget(self.bbox)
         self.create_connections()
         self.tabs.setCurrentIndex(self.go_to_tab)
         self.adjustSize()
+
+    def on_close(self):
+        self.close()
 
     def sizeHint(self):
         if getattr(self, 'tabs'):

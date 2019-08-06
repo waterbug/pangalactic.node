@@ -218,7 +218,7 @@ class LibraryListView(QListView):
             orb.log.debug('* clicked index: {}]'.format(i))
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
-            dlg = PgxnObject(obj, parent=self)
+            dlg = PgxnObject(obj, modal_mode=True, parent=self)
             dlg.show()
 
     def create_template(self):

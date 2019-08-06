@@ -580,7 +580,7 @@ class PortBlock(QtWidgets.QGraphicsItem):
         Dirty = True
 
     def parentWidget(self):
-        return self.parent_block
+        return self.parent_block.parentWidget()
 
     def contextMenuEvent(self, event):
         if isinstance(self.parent_block, SubjectBlock):
@@ -619,8 +619,9 @@ class PortBlock(QtWidgets.QGraphicsItem):
             parent_block.rebuild_port_blocks()
 
     def open_pxo(self):
-        pxo = PgxnObject(self.port)
-        pxo.show()
+        dlg = PgxnObject(self.port, modal_mode=True,
+                         parent=self.parentWidget())
+        dlg.show()
 
     def boundingRect(self):
         return self.rect.adjusted(-1, -1, 1, 1)

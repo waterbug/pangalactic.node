@@ -25,7 +25,8 @@ from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import get_pval, get_pval_as_str, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.validation  import get_assembly, get_bom_oids
+from pangalactic.core.validation  import (get_assembly, get_bom_oids,
+                                          get_assembly_oids)
 from pangalactic.core.units       import in_si
 from pangalactic.core.utils.meta  import display_name, get_acu_id, get_acu_name
 from pangalactic.node.dialogs     import AssemblyNodeDialog
@@ -114,11 +115,11 @@ class Node(object):
             if isinstance(self.link, orb.classes['Acu']):
                 if (getattr(self.link, 'product_type_hint', None)
                     and getattr(self.link.product_type_hint, 'name')):
-                    return 'TBD [' + self.link.product_type_hint.name + ']'
+                    return self.link.product_type_hint.name + ' [TBD]'
                 elif getattr(self.link, 'reference_designator', None):
-                    return 'TBD [' + self.link.reference_designator + ']'
+                    return self.link.reference_designator + ' [TBD]' 
                 else:
-                    return 'TBD [unknown type]'
+                    return 'unknown type [TBD]'
             elif isinstance(self.link, orb.classes['ProjectSystemUsage']):
                 return self.link.system_role or obj_name
             else:
@@ -718,8 +719,10 @@ class SystemTreeModel(QAbstractItemModel):
                 orb.log.info('    + target is a subclass of Product ...')
                 # first check for cycles (cycles will crash the tree)
                 bom_oids = get_bom_oids(dropped_item)
-                if (drop_target.oid in bom_oids and 
-                    drop_target.oid != 'pgefobjects:TBD'):
+                assembly_oids = get_assembly_oids(dropped_item)
+                if ((drop_target.oid in bom_oids and 
+                     drop_target.oid != 'pgefobjects:TBD') or
+                     drop_target.oid in assembly_oids):
                     # case 0: dropped item would cause a cycle -> abort
                     popup = QMessageBox(
                                 QMessageBox.Critical,
@@ -757,28 +760,19 @@ class SystemTreeModel(QAbstractItemModel):
                                     # QMessageBox.Yes | QMessageBox.No)
                             if ret == QMessageBox.Cancel:
                                 return False
-                            ### DEPRECATED:  this code enabled the
-                            ### "product type hint" to be overridden ...
-                            # if ret == QMessageBox.Yes:
-                                # product = create_product_from_template(
-                                                                # dropped_item)
-                                # view = dict(id='', name='', product_type='',
-                                            # description='')
-                                # panels = ['main']
-                                # # call new product dialog:
-                                # dlg = PgxnObject(product, edit_mode=True,
-                                                 # view=view, panels=panels,
-                                                 # modal_mode=True,
-                                                 # parent=self.parent)
-                                # if dlg.exec_():
-                                    # # NOTE:  setting node.obj saves the link
-                                    # # (acu/psu) object
-                                    # node.obj = product
-                                    # self.dataChanged.emit(parent, parent)
-                                    # self.successful_drop.emit()
-                                    # return True
-                            # elif ret == QMessageBox.No:
-                                # return False
+                        elif (hint and ptype.name == hint and
+                              hasattr(node.link, 'assembly') and
+                              getattr(node.link.assembly.product_type,
+                                      'name', '') == hint):
+                            # do not create a component of the same product_type
+                            # as its assembly
+                            ret = QMessageBox.critical(
+                                    self.parent, "Product Type Check",
+                                    "Not permitted: template has same product "
+                                    "type as assembly.".format(hint),
+                                    QMessageBox.Cancel)
+                            if ret == QMessageBox.Cancel:
+                                return False
                         else:
                             product = create_product_from_template(
                                                                 dropped_item)
@@ -826,13 +820,6 @@ class SystemTreeModel(QAbstractItemModel):
                                         # QMessageBox.Yes | QMessageBox.No)
                             if ret == QMessageBox.Cancel:
                                 return False
-                            # if ret == QMessageBox.Yes:
-                                # node.obj = dropped_item
-                                # self.dataChanged.emit(parent, parent)
-                                # self.successful_drop.emit()
-                                # return True
-                            # elif ret == QMessageBox.No:
-                                # return False
                         else:
                             if not getattr(node.link, 'product_type_hint',
                                            None):
@@ -1261,7 +1248,7 @@ class SystemTreeView(QTreeView):
             i = self.selectedIndexes()[0]
             mapped_i = self.proxy_model.mapToSource(i)
             obj = self.source_model.get_node(mapped_i).obj
-            dlg = PgxnObject(obj, parent=self)
+            dlg = PgxnObject(obj, modal_mode=True, parent=self)
             dlg.show()
 
     def modify_node(self):
