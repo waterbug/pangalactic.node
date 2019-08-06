@@ -290,7 +290,11 @@ class DiagramScene(QGraphicsScene):
     def focus_changed_handler(self, new_item, old_item):
         if new_item is not None:
             if new_item != self.current_focus:
-                self.current_focus = new_item
+                # self.current_focus = new_item
+                old = getattr(getattr(old_item, 'activity', None), 'id',None)
+                new = getattr(getattr(new_item, 'activity', None), 'id',None)
+                # print("new item:", new)
+                # print("old item:", old)
                 dispatcher.send("activity focused", obj=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
@@ -643,13 +647,14 @@ class TimelineWidget(QWidget):
         return options
 
     def make_combo_box(self):
+        # print("make combo box!!!!!!!!!!!!!!!!!!!!!")
         self.combo_box = QComboBox(self)
         self.options = self.create_option_list()
+        # print("self.options =", self.options)
         self.combo_box.addItems(self.options)
         self.toolbar.addWidget(self.combo_box)
         self.combo_box.currentIndexChanged.connect(self.change_subsystem)
         # self.combo_box.setCurrentIndex(0)
-        print("make combo box!!!!!!!!!!!!!!!!!!!!!")
         dispatcher.send("make combo box", index=0)
 
     def update_combo_box(self):
@@ -657,25 +662,33 @@ class TimelineWidget(QWidget):
         self.update_view()
 
     def change_subsystem(self, index=None):
+        # print("change subsystem called~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)")
+        # print("act_of", self.act_of)
+        # print("spacecraft:", self.spacecraft)
+        # print("---------------------------------")
         if self.act_of != self.spacecraft:
-            system_name = self.options[index]
-            if self.subject_activity.activity_type.id == 'cycle':
+            # system_name = ''
+            # if hasattr(self, 'options'):
+            # print("self.options:8888888888888888888888888",self.options)
+            try:
+                system_name = self.options[index]
+                if self.subject_activity.activity_type.id == 'cycle':
+                    pass
+                else:
+                    existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
+                    system_exists = False
+                    for subsystem in existing_subsystems:
+                        # print("looking for:", system_name)
+                        # print(getattr(subsystem, 'id', 'NA'))
+                        if getattr(subsystem, 'id', '') == system_name:
+                            # print("found subsystem:", system_name)
+                            system_exists = True
+                            self.act_of = subsystem
+                    self.scene = self.set_new_scene()
+                    self.update_view()
+                dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
+            except:
                 pass
-            else:
-                print("change subsystem)))))))))))))))))))))))))")
-                existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
-                system_exists = False
-                for subsystem in existing_subsystems:
-                    print("looking for:", system_name)
-                    print(getattr(subsystem, 'id', 'NA'))
-                    if getattr(subsystem, 'id', '') == system_name:
-                        print("found subsystem:", system_name)
-                        system_exists = True
-                        self.act_of = subsystem
-                self.scene = self.set_new_scene()
-                self.update_view()
-            dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
-
     def make_new_system(self, system_name):
         pro_type = orb.select("ProductType", id=system_name)
         new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner, product_type=pro_type, id=pro_type.id, name=pro_type.id)
@@ -845,12 +858,12 @@ class ConOpsModeler(QMainWindow):
             else:
                 self.sub_widget.setEnabled(True)
                 dispatcher.send("enable widget")
-
                 if hasattr(self.sub_widget, 'combo_box'):
-                    print("========================================================")
-                    self.sub_widget.update_combo_box()
+                    # print("========================================================")
+                    # self.sub_widget.update_combo_box()
+                    pass
                 else:
-                    print("need to make combobox+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+                    # print("need to make combobox+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
                     self.sub_widget.make_combo_box()
 
 

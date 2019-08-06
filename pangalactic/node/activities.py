@@ -276,7 +276,8 @@ class ActivityTables(QMainWindow):
             else:
                 pt_id = getattr(self.act_of.product_type,'id','None')
                 if pt_id  == 'spacecraft': # or self.act_of.product_type.id == 'spacecraft':
-                    print("ITS THE SPACECRAFT!")
+                    # print("ITS THE SPACECRAFT!")
+                    pass
                 else:
                     self.act_of = act_of
                     self.sort_and_set_table(parent_act=parent_act, act_of=act_of, position=self.position)
@@ -314,7 +315,8 @@ class ActivityTables(QMainWindow):
                 try:
                     all_acus.sort()
                 except:
-                    print('SORTING FAIL', all_acus)
+                    # print('SORTING FAIL', all_acus)
+                    pass
                 activities = [acu_tuple[1].component for acu_tuple in all_acus]
                 self.set_system_table(activities)
                 self.set_subsystem_title(parent_act, self.act_of.product_type.id)
@@ -329,7 +331,8 @@ class ActivityTables(QMainWindow):
                 try:
                     all_acus.sort()
                 except:
-                    print('SORTING FAIL', all_acus)
+                    # print('SORTING FAIL', all_acus)
+                    pass
                 activities = [acu_tuple[1].component for acu_tuple in all_acus]
                 self.set_system_table(activities)
                 self.set_system_title(parent_act)
@@ -348,7 +351,8 @@ class ActivityTables(QMainWindow):
             try:
                 all_acus.sort()
             except:
-                print('SORTING FAIL', all_acus)
+                # print('SORTING FAIL', all_acus)
+                pass
             activities = [acu_tuple[1].component for acu_tuple in all_acus]
             self.set_bottom_table(activities)
             self.set_bottom_title(parent_act)
@@ -394,7 +398,7 @@ class EditableTableModel(QAbstractTableModel):
         # self.param = 'duration'
         oid = cur_obj.oid
         # print("VALUE", value)
-        print("parameter in table",self.param)
+        # print("parameter in table",self.param)
         set_pval_from_str(orb, oid, self.param, value)
         # print("HEYYYY",get_pval_as_str(orb, oid, self.param))
         return True
@@ -427,10 +431,10 @@ if __name__ == '__main__':
     mission = orb.get('test:Mission.H2G2')
     if not mission:
         if not state.get('test_users_loaded'):
-            print('* loading test users ...')
+            # print('* loading test users ...')
             deserialize(orb, create_test_users())
             state['test_users_loaded'] = True
-        print('* loading test project H2G2 ...')
+        # print('* loading test project H2G2 ...')
         deserialize(orb, create_test_project())
         mission = orb.get('test:Mission.H2G2')
     if not mission.components:
