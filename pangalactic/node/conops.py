@@ -469,7 +469,7 @@ class TimelineWidget(QWidget):
         self.go_back_action.setDisabled(False)
 
     def set_new_scene(self):
-
+        '''return a new scene with new subject activity or an empty scene if no subject activity'''
         if self.act_of is not None:
             scene = DiagramScene(self, self.subject_activity, act_of=self.act_of, position=self.position)
             if self.subject_activity != None and len(self.subject_activity.components) > 0:
@@ -495,14 +495,15 @@ class TimelineWidget(QWidget):
             self.show_empty_scene()
 
     def show_empty_scene(self):
+        '''return an empty scene'''
         self.set_title()
         scene = QGraphicsScene()
         return scene
 
     def update_view(self):
+        '''update the view with a new scene'''
         self.view.setScene(self.scene)
         self.view.show()
-        # self.update()
 
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
@@ -539,6 +540,11 @@ class TimelineWidget(QWidget):
 
 
     def delete_activity(self, act=None):
+        '''delete an activity, along with the children of this activity
+            keyword arguments:
+            act -- activity that needs to be deleted
+        '''
+
         oid = getattr(act, "oid", None)
         subj_oid = self.subject_activity.oid
         current_comps = [acu.component for acu in self.subject_activity.components]
@@ -558,6 +564,10 @@ class TimelineWidget(QWidget):
             self.setEnabled(False)
 
     def serialized_deleted(self, act=None):
+        '''serialize the target activity and its children.
+            keyword arguments:
+            act(Activity) -- target activity
+        '''
         if len(act.components) <= 0:
             serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
             self.temp_serialized.extend(serialized_act)
@@ -568,6 +578,10 @@ class TimelineWidget(QWidget):
             self.temp_serialized.extend(serialized_act)
 
     def delete_children(self, act=None):
+        '''delete the children of the target activity
+            keyword Arguments:
+            act(Activity) -- parent activity of the children needed to be deleted
+        '''
         if len(act.components) <= 0:
             orb.delete([act])
         elif len(act.components) > 0:
@@ -576,6 +590,7 @@ class TimelineWidget(QWidget):
             orb.delete([act])
 
     def clear_activities(self):
+        '''delete all the activities and their children on this widget'''
         children = [acu.component for acu in self.subject_activity.components]
         for child in children:
             self.undo_action.setDisabled(False)
@@ -707,8 +722,7 @@ class ConOpsModeler(QMainWindow):
             corresponding to the object being modeled
         history (list):  list of previous subject Activity instances
     """
-    def __init__(self, scene=None, preferred_size=None, logo=None, idx=None,
-                 external=False, parent=None):
+    def __init__(self, external=False, parent=None):
         """
         Main window for displaying models and their metadata.
 
@@ -725,11 +739,11 @@ class ConOpsModeler(QMainWindow):
         """
         super(ConOpsModeler, self).__init__(parent=parent)
         orb.log.info('* ConOpsModeler initializing')
-        self.logo = logo
-        self.external = external
-        self.idx = idx
-        self.preferred_size = preferred_size
-        self.model_files = {}
+        # self.logo = logo
+        # self.external = external
+        # self.idx = idx
+        # self.preferred_size = preferred_size
+        # self.model_files = {}
         project = orb.get(state.get('project'))
         sc_type = orb.select("ProductType", id='spacecraft')
         if project:
@@ -742,7 +756,7 @@ class ConOpsModeler(QMainWindow):
                                 name=mission_name)
                 orb.save([mission])
             self.subject_activity = mission
-            self.mission = mission
+            # self.mission = mission
 
         else:
             self.subject_activity = clone("Activity", id="temp", name="temp")
@@ -754,9 +768,9 @@ class ConOpsModeler(QMainWindow):
         self.sc_lst = []
         if psus:
             for p in psus:
-
                 if p.system.product_type is sc_type:
                     self.sc_lst.append(p.system)
+        if self.sc_lst:
             self.spacecraft = self.sc_lst[0]
         else:
             message = "You don't have a spacecraft!"
@@ -765,36 +779,27 @@ class ConOpsModeler(QMainWindow):
                         "No spacecraft", message,
                         QMessageBox.Ok, self)
             popup.show()
-        # if not spacecraft:
-        #     spacecraft = clone("HardwareProduct", owner=project, product_type=sc_type)
-        #     psu = clone("ProjectSystemUsage", project=project, system=spacecraft)
-        #     orb.save([psu, spacecraft])
 
-
-        # self.spacecraft = spacecrafts
         self.create_library()
-        self.subsys_act = None
-        self.history = []
         self._init_ui()
         self.init_toolbar()
+
         self.bottom_dock = QDockWidget()
         self.bottom_dock.setObjectName('BottomDock')
         self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
+
         self.set_widgets(current_activity=self.subject_activity, init=True)
         #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
         dispatcher.connect(self.view_subsystem, "activity focused")
-        self.deleted_acts = []
-        self.temp_serialized = []
 
     def set_bottom_table(self):
-        # bottom_table = ActivityTables(subject=self.subject_activity, parent=self, position='bottom')
         self.bottom_dock.setWidget(self.bottom_table)
-
         self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
         self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
+
     def create_library(self):
         """
         Create the library of operation/event block types.
@@ -835,7 +840,6 @@ class ConOpsModeler(QMainWindow):
 
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
-        # self.statusbar = self.statusBar()
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -859,16 +863,12 @@ class ConOpsModeler(QMainWindow):
                 self.sub_widget.setEnabled(True)
                 dispatcher.send("enable widget")
                 if hasattr(self.sub_widget, 'combo_box'):
-                    # print("========================================================")
-                    # self.sub_widget.update_combo_box()
                     pass
                 else:
-                    # print("need to make combobox+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
                     self.sub_widget.make_combo_box()
 
 
-    def set_widgets(self, scene=None, current_activity=None, init=False):
-        self.subject_activity = current_activity
+    def set_widgets(self, current_activity=None, init=False):
         self.system_widget = TimelineWidget(self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft, position='top')
         self.system_widget.setMinimumSize(900, 300)
         self.sub_widget = TimelineWidget(self.spacecraft, position='middle')
