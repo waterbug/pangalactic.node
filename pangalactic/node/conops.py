@@ -863,7 +863,8 @@ class ConOpsModeler(QMainWindow):
                 self.sub_widget.setEnabled(True)
                 dispatcher.send("enable widget")
                 if hasattr(self.sub_widget, 'combo_box'):
-                    pass
+                    self.sub_widget.scene = self.sub_widget.set_new_scene()
+                    self.sub_widget.update_view()
                 else:
                     self.sub_widget.make_combo_box()
 
