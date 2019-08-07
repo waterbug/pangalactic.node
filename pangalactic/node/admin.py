@@ -203,9 +203,9 @@ class LdapSearchDialog(QDialog):
 
     def do_search(self):
         orb.log.info('* LdapSearchDialog: do_search()')
-        # q = {}
+        q = {}
         # for testing:
-        q = {'test': 'result'}
+        # q = {'test': 'result'}
         for name, w in self.form_widgets.items():
             val = w.get_value()
             if val:
