@@ -1375,8 +1375,8 @@ class SystemTreeView(QTreeView):
                 orb.log.info('  deleting position and component "%s"'
                              % ref_des)
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
-                # permissions are determined from the object and user's roles
-                if not 'delete' in get_perms(node.obj):
+                # permissions are determined from the link and user's roles
+                if not 'delete' in get_perms(node.link):
                     ret = QMessageBox.critical(
                               self,
                               "Unauthorized Operation",
