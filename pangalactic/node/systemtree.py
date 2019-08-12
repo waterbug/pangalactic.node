@@ -808,6 +808,10 @@ class SystemTreeModel(QAbstractItemModel):
                                     node.link.name))
                                 dispatcher.send('modified object',
                                                 obj=node.link)
+                                if product.components:
+                                    orb.save(product.components)
+                                    for acu in product.components:
+                                        dispatcher.send('new object', obj=acu)
                                 return True
                         else:
                             # case 1.2:  drop item is product -> use it if
@@ -885,6 +889,10 @@ class SystemTreeModel(QAbstractItemModel):
                             self.successful_drop_index = parent
                             self.successful_drop.emit()
                             dispatcher.send('new object', obj=new_acu)
+                            if product.components:
+                                orb.save(product.components)
+                                for acu in product.components:
+                                    dispatcher.send('new object', obj=acu)
                             return True
                         else:
                             # case 2.2:  drop item is a product -> add it as a new
@@ -953,6 +961,10 @@ class SystemTreeModel(QAbstractItemModel):
                             self.successful_drop_index = parent
                             self.successful_drop.emit()
                             dispatcher.send('new object', obj=new_psu)
+                            if product.components:
+                                orb.save(product.components)
+                                for acu in product.components:
+                                    dispatcher.send('new object', obj=acu)
                             return True
                         elif ret == QMessageBox.No:
                             # check whether a PSU already exists for that Template
