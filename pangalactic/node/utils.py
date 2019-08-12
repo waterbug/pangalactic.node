@@ -246,7 +246,8 @@ def create_product_from_template(template):
     orb.log.info('* create_product_from_template')
     product = clone('HardwareProduct', id=product_id,
                     name=product_name, description=product_desc,
-                    product_type=template.product_type)
+                    product_type=template.product_type,
+                    public=True)
     tbd = orb.get('pgefobjects:TBD')
     if template.components:
         for acu in template.components:

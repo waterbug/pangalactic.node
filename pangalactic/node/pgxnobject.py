@@ -9,9 +9,9 @@ from functools import partial
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
-                             QFormLayout, QHBoxLayout, QLabel, QMainWindow,
-                             QMessageBox, QSizePolicy, QTabWidget, QToolBar,
-                             QVBoxLayout, QWidget)
+                             QFormLayout, QHBoxLayout, QLabel, QMessageBox,
+                             QSizePolicy, QTabWidget, QToolBar, QVBoxLayout,
+                             QWidget)
 
 from louie      import dispatcher
 from sqlalchemy import ForeignKey
@@ -60,7 +60,7 @@ class PgxnForm(QWidget):
         mask (list of str):  list of fields to be displayed as read-only
     """
     def __init__(self, obj, form_type, edit_mode=False, view=None,
-                 main_view=None, mask=None, seq=None, idvs=None,
+                 main_view=None, mask=None, unmask=None, seq=None, idvs=None,
                  placeholders=None, parent=None):
         """
         Initialize.
@@ -76,6 +76,8 @@ class PgxnForm(QWidget):
             main_view (list):  names of the fields to put on the 'main' panel
             mask (list of str):  list of fields to be displayed as read-only
                 (default: None)
+            unmask (list of str):  list of fields to be editable which are not
+                editable by default (default: None)
             seq (int):  sequence number of parameter panel in pgxnobject
             idvs (list of tuples):  list of current (`id`, `version`) values to
                 avoid
@@ -309,6 +311,8 @@ class PgxnForm(QWidget):
                 editable = schema['fields'][field_name].get('editable')
                 if mask and field_name in mask:
                     editable = False
+                if unmask and field_name in unmask:
+                    editable = True
             else:
                 editable = False
             related_cname = schema['fields'][field_name].get('related_cname')

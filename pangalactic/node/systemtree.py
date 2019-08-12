@@ -788,15 +788,11 @@ class SystemTreeModel(QAbstractItemModel):
                             else:
                                 product = create_product_from_template(
                                                                 dropped_item)
-                                # view = dict(id='', name='', product_type='',
-                                            # description='')
-                                # panels = ['main']
-                                # # call new product dialog:
-                                # dlg = PgxnObject(product, edit_mode=True,
-                                                 # view=view, panels=panels,
-                                                 # new=True, modal_mode=True,
-                                                 # parent=self.parent)
-                                # dlg.show()
+                                # call object editor:
+                                dlg = PgxnObject(product, edit_mode=True,
+                                                 new=True, modal_mode=True,
+                                                 parent=self.parent)
+                                dlg.show()
                                 if not getattr(node.link, 'product_type_hint',
                                                None):
                                     pt = product.product_type
@@ -863,15 +859,11 @@ class SystemTreeModel(QAbstractItemModel):
                             # create a new product that will be a dropped_item
                             ptype = dropped_item.product_type
                             product = create_product_from_template(dropped_item)
-                            # view = dict(id='', name='', product_type='',
-                                        # description='')
-                            # panels = ['main']
-                            # # call new product dialog:
-                            # dlg = PgxnObject(product, edit_mode=True,
-                                             # view=view, panels=panels,
-                                             # new=True, modal_mode=True,
-                                             # parent=self.parent)
-                            # if dlg.exec_():
+                            dlg = PgxnObject(product, edit_mode=True,
+                                             new=True, modal_mode=True,
+                                             unmask=['public'],
+                                             parent=self.parent)
+                            dlg.show()
                             orb.log.info('      creating Acu ...')
                             # generate a new reference_designator
                             ref_des = orb.get_next_ref_des(drop_target,
@@ -933,15 +925,11 @@ class SystemTreeModel(QAbstractItemModel):
                         if ret == QMessageBox.Yes:
                             ptype = dropped_item.product_type
                             product = create_product_from_template(dropped_item)
-                            # view = dict(id='', name='', product_type='',
-                                        # description='')
-                            # panels = ['main']
-                            # call new product dialog:
-                            # dlg = PgxnObject(product, edit_mode=True,
-                                             # view=view, panels=panels,
-                                             # new=True, modal_mode=True,
-                                             # parent=self.parent)
-                            # if dlg.exec_():
+                            dlg = PgxnObject(product, edit_mode=True,
+                                             new=True, modal_mode=True,
+                                             unmask=['public'],
+                                             parent=self.parent)
+                            dlg.show()
                             orb.log.info('      creating ProjectSystemUsage')
                             psu_role = getattr(product.product_type, 'name',
                                                'System')

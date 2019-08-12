@@ -1752,9 +1752,10 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(export_button)
         new_object_icon_file = 'new_box' + state['icon_type']
         new_object_icon_path = os.path.join(icon_dir, new_object_icon_file)
-        new_object_actions = [self.new_parameter_action,
+        new_object_actions = [
+                              # self.new_parameter_action,
                               self.new_product_action,
-                              self.new_product_type_action,
+                              # self.new_product_type_action,
                               self.new_functional_requirement_action,
                               self.new_performance_requirement_action,
                               self.new_test_action]

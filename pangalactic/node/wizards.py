@@ -629,6 +629,7 @@ class IdentificationPage(QtWidgets.QWizardPage):
         id_panel_layout = QtWidgets.QVBoxLayout()
         id_panel_layout.addWidget(inst_label)
         id_panel_layout.addWidget(self.pgxn_obj)
+        id_panel_layout.addStretch(self.pgxn_obj)
         main_layout = self.layout()
         main_layout.addLayout(id_panel_layout)
 
