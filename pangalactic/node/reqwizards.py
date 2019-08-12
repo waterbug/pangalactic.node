@@ -119,6 +119,8 @@ class ReqWizard(QWizard):
         """
         super(ReqWizard, self).__init__(parent)
         self.setWizardStyle(QWizard.ClassicStyle)
+        self.setTitleFormat(Qt.RichText)
+        self.setSubTitleFormat(Qt.RichText)
         included_buttons = [QWizard.Stretch,
                             QWizard.BackButton,
                             QWizard.NextButton,
@@ -177,7 +179,7 @@ class ReqWizard(QWizard):
             req_wizard_state['performance'] = False
             self.addPage(RequirementIDPage(self))
             self.addPage(ReqAllocPage(self))
-            # self.addPage(ReqVerificationPage(self))
+            self.addPage(ReqVerificationPage(self))
             self.addPage(ReqSummaryPage(self))
             self.setWindowTitle('Functional Requirement Wizard')
             self.setGeometry(50, 50, 850, 900);
@@ -185,18 +187,22 @@ class ReqWizard(QWizard):
             req_wizard_state['performance'] = True
             if not self.new_req:
                 # if an existing performance requirement, it has a parameter
+                # (unless its data is corrupted -- but we sholdn't crash from
+                # corrupted data!)
                 rel = req.computable_form
-                prs = rel.correlates_parameters
-                if prs:
-                    pr = prs[0]
-                    pd = pr.correlates_parameter
-                    req_wizard_state['req_parameter'] = pd.id
+                if rel:
+                    prs = rel.correlates_parameters
+                    if prs:
+                        pr = prs[0]
+                        pd = pr.correlates_parameter
+                        req_wizard_state['req_parameter'] = pd.id
             self.addPage(RequirementIDPage(self))
             self.addPage(ReqAllocPage(self))
             self.addPage(PerformanceDefineParmPage(self))
             self.addPage(PerformReqBuildShallPage(self))
-            self.addPage(PerformanceMarginCalcPage(self))
-            # self.addPage(ReqVerificationPage(self))
+            # TODO: make PerformanceMarginCalcPage useful ...
+            # self.addPage(PerformanceMarginCalcPage(self))
+            self.addPage(ReqVerificationPage(self))
             self.addPage(ReqSummaryPage(self))
             self.setWindowTitle('Performance Requirement Wizard')
             self.setGeometry(50, 50, 850, 750);
@@ -322,6 +328,7 @@ class RequirementIDPage(QWizardPage):
         id_panel_layout = QVBoxLayout()
         id_panel_layout.addWidget(inst_label)
         id_panel_layout.addWidget(self.pgxn_obj)
+        id_panel_layout.addStretch(1)
         id_panel_layout.addLayout(self.level_layout)
         main_layout = self.layout()
         main_layout.addLayout(id_panel_layout)
@@ -652,7 +659,9 @@ class PerformanceDefineParmPage(QWizardPage):
         proj = orb.get(project_oid)
         self.project = proj
         self.setTitle('Parameter Selection')
-        self.setSubTitle('Select the performance parameter.')
+        subtxt = 'To select a performance parameter, '
+        subtxt += "<b>DOUBLE-CLICK</b> on the parameter."
+        self.setSubTitle(subtxt)
 
         # The inner layouts
         self.parm_layout = QVBoxLayout()
