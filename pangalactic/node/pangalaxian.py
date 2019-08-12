@@ -36,6 +36,7 @@ from pangalactic.core                 import config, write_config
 from pangalactic.core                 import prefs, write_prefs
 from pangalactic.core                 import state, write_state
 from pangalactic.core                 import trash, write_trash
+from pangalactic.core.access          import get_perms
 from pangalactic.core.log             import get_loggers
 from pangalactic.core.parametrics     import node_count
 from pangalactic.core.refdata         import ref_pd_oids
@@ -59,7 +60,8 @@ from pangalactic.node.dialogs         import (CloakingDialog,
                                               NotificationDialog,
                                               ObjectSelectionDialog,
                                               # OptionNotification,
-                                              PrefsDialog, Viewer3DDialog)
+                                              PrefsDialog, ProgressDialog,
+                                              Viewer3DDialog)
 # from pangalactic.node.filters         import FilterDialog
 from pangalactic.node.helpwidget      import HelpWidget
 from pangalactic.node.libraries       import LibraryDialog, LibraryListWidget
@@ -144,6 +146,7 @@ class Main(QtWidgets.QMainWindow):
         self.app_version = app_version
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
+        self.progress_value = 0
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
@@ -222,6 +225,7 @@ class Main(QtWidgets.QMainWindow):
         # modeler interface", so just call that)
         dispatcher.connect(self.set_product_modeler_interface,
                            'set current product')
+        dispatcher.connect(self.update_sync_progress, 'sync progress')
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
@@ -327,7 +331,15 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
         orb.log.info('  with arg: "{}"'.format(userid))
-        # rpc.addCallback(self.on_get_admin_result)
+        progress_max = 4
+        txt = 'Syncing with repository ... please be patient! :)'
+        self.progress_dialog = ProgressDialog(title='Sync',
+                                          label=txt,
+                                          maximum=progress_max,
+                                          parent=self)
+        self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
+        self.progress_dialog.setValue(1)
+        QtWidgets.QApplication.processEvents()
         rpc = message_bus.session.call('vger.get_user_roles', userid)
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
@@ -443,6 +455,7 @@ class Main(QtWidgets.QMainWindow):
         else:
             self.role_label.setText('online [no project selected]')
         channels.append('vger.channel.public')
+        dispatcher.send('sync progress', txt='user roles synced ...')
         return channels
 
     def subscribe_to_mbus_channels(self, channels):
@@ -631,6 +644,16 @@ class Main(QtWidgets.QMainWindow):
             self.statusbar.showMessage('synced.')
         return message_bus.session.call('vger.sync_project', proj_oid, data)
 
+    def update_sync_progress(self, txt='syncing...'):
+        try:
+            if getattr(self, 'progress_dialog', None):
+                self.progress_value += 1
+                self.progress_dialog.setValue(self.progress_value)
+                self.progress_dialog.setLabelText(txt)
+        except:
+            # oops -- my C++ object probably got deleted
+            pass
+
     def on_user_objs_sync_result(self, data):
         self.on_sync_result(data, user_objs_sync=True)
 
@@ -679,6 +702,8 @@ class Main(QtWidgets.QMainWindow):
                 self.statusbar.showMessage(
                     'deserializing {} objects ...'.format(n))
                 deserialize(orb, sobjs)
+                txt = 'objects synced ...'
+                dispatcher.send('sync progress', txt=txt)
                 if not project_sync:
                     # if new Parameter Definitions found, create icons
                     pd_oids = [so['oid'] for so in sobjs
@@ -736,8 +761,15 @@ class Main(QtWidgets.QMainWindow):
         #######################################################################
         if sobjs_to_save:
             self.statusbar.showMessage('saving local objs to repo ...')
+            txt = 'saving objects ...'.format(len(sobjs_to_save))
+            dispatcher.send('sync progress', txt=txt)
         else:
             self.statusbar.showMessage('synced.')
+            if project_sync:
+                QtWidgets.QApplication.processEvents()
+                self.progress_dialog.setValue(self.progress_dialog.maximum())
+                self.progress_dialog.done(0)
+                self.progress_value = 0
         return message_bus.session.call('vger.save', sobjs_to_save)
 
     def on_sync_library_result(self, data, project_sync=False):
@@ -812,6 +844,8 @@ class Main(QtWidgets.QMainWindow):
         # if library objects have been added or deleted, call _update_views()
         if update_needed:
             self._update_views()
+        txt = 'saving objects ...'
+        dispatcher.send('sync progress', txt=txt)
         return message_bus.session.call('vger.save', sobjs_to_save)
 
     def on_pubsub_msg(self, msg):
@@ -1387,7 +1421,8 @@ class Main(QtWidgets.QMainWindow):
                                     slot=self.edit_prefs)
         self.refresh_tree_action = self.create_action(
                                     "Refresh System Tree and Dashboard",
-                                    slot=self.refresh_tree_and_dashboard)
+                                    slot=self.refresh_tree_and_dashboard,
+                                    modes=['system'])
         # self.compare_items_action = self.create_action(
                                     # "Compare Items by Parameters",
                                     # slot=self.compare_items)
@@ -2163,17 +2198,9 @@ class Main(QtWidgets.QMainWindow):
         if online.
         """
         project_oid = state.get('project')
-        # disable 'delete' and 'enable_collaboration' context menu opts if
-        # project not created by local user or project is SANDBOX
-        if project_oid == 'pgefobjects:SANDBOX':
-            self.delete_project_action.setVisible(False)
-            self.delete_project_action.setEnabled(False)
-            self.enable_collab_action.setVisible(False)
-            self.enable_collab_action.setEnabled(False)
-            self.admin_action.setVisible(False)
-            self.admin_action.setEnabled(False)
         if (project_oid and project_oid != 'pgefobjects:SANDBOX'
             and state.get('connected')):
+            # TODO: if project is "local", activate "enable collab" action
             rpc = self.sync_current_project(None)
             rpc.addCallback(self.on_project_sync_result)
             rpc.addErrback(self.on_failure)
@@ -2219,6 +2246,9 @@ class Main(QtWidgets.QMainWindow):
                                           assigned_role=admin_role,
                                           assigned_to=self.local_user,
                                           role_assignment_context=None)
+                if 'delete' in get_perms(p):
+                    project_is_local = True
+                    role_label_txt = ': '.join([p.id, '[local]'])
                 if global_admin:
                     p_roles.append('Global Administrator')
                 if p_roles:
@@ -2233,12 +2263,20 @@ class Main(QtWidgets.QMainWindow):
                         tt_txt += '</ul>'
                     else:
                         role_label_txt = ': '.join([p.id, p_roles[0]])
-                else:
-                    project_is_local = True
-                    role_label_txt = ': '.join([p.id, '[local]'])
                 if state['connected']:
-                    if p_roles:
-                        # project is already collaborative
+                    if project_is_local:
+                        # it is local -> it can be deleted by its creator or
+                        # collaboration can be enabled
+                        self.delete_project_action.setEnabled(True)
+                        self.delete_project_action.setVisible(True)
+                        self.enable_collab_action.setVisible(True)
+                        self.enable_collab_action.setEnabled(True)
+                    else:
+                        # project is collaborative ->
+                        # to delete it, all roles must first be deleted ...
+                        # (in which case it becomes a local project :)
+                        self.delete_project_action.setEnabled(False)
+                        self.delete_project_action.setVisible(False)
                         self.enable_collab_action.setVisible(False)
                         self.enable_collab_action.setEnabled(False)
                         if ('Administrator' in p_roles or
@@ -2246,18 +2284,6 @@ class Main(QtWidgets.QMainWindow):
                             # role assignments for the project ...
                             self.admin_action.setVisible(True)
                             self.admin_action.setEnabled(True)
-                            # to delete a collaborative project,
-                            # collaboration must first be disabled ...
-                            # self.disable_collab_action.setVisible(True)
-                            # self.disable_collab_action.setEnabled(True)
-                    else:
-                        # if we have no roles on the project but we have
-                        # the project, then it is local, and it can be
-                        # deleted or collaboration can be enabled
-                        self.delete_project_action.setEnabled(True)
-                        self.delete_project_action.setVisible(True)
-                        self.enable_collab_action.setVisible(True)
-                        self.enable_collab_action.setEnabled(True)
                 else:
                     # when offline, `enable collaboration` is disabled
                     self.enable_collab_action.setVisible(False)
@@ -2265,7 +2291,7 @@ class Main(QtWidgets.QMainWindow):
                     # when offline, admin action is disabled
                     self.admin_action.setVisible(False)
                     self.admin_action.setEnabled(False)
-                    # when offline, only local projects can be deleted
+                    # only local projects can be deleted
                     if project_is_local:
                         self.delete_project_action.setEnabled(True)
                         self.delete_project_action.setVisible(True)
