@@ -147,6 +147,7 @@ class Main(QtWidgets.QMainWindow):
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.progress_value = 0
+        state['done_with_progress'] = False
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
@@ -333,13 +334,14 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('  with arg: "{}"'.format(userid))
         progress_max = 4
         txt = 'Syncing with repository ... please be patient! :)'
-        self.progress_dialog = ProgressDialog(title='Sync',
-                                          label=txt,
-                                          maximum=progress_max,
-                                          parent=self)
-        self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
-        self.progress_dialog.setValue(1)
-        self.progress_dialog.show()
+        if not state.get('done_with_progress'):
+            self.progress_dialog = ProgressDialog(title='Sync',
+                                              label=txt,
+                                              maximum=progress_max,
+                                              parent=self)
+            self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
+            self.progress_dialog.setValue(1)
+            self.progress_dialog.show()
         QtWidgets.QApplication.processEvents()
         rpc = message_bus.session.call('vger.get_user_roles', userid)
         rpc.addCallback(self.on_get_user_roles_result)
@@ -772,6 +774,7 @@ class Main(QtWidgets.QMainWindow):
                 self.progress_dialog.done(0)
                 self.progress_dialog.close()
                 self.progress_value = 0
+                state['done_with_progress'] = True
         return message_bus.session.call('vger.save', sobjs_to_save)
 
     def on_sync_library_result(self, data, project_sync=False):
@@ -1204,6 +1207,7 @@ class Main(QtWidgets.QMainWindow):
         message_bus.session.disconnect()
         message_bus.session = None
         state['connected'] = False
+        state['done_with_progress'] = False
 
     def _create_actions(self):
         orb.log.debug('* creating actions ...')
