@@ -150,7 +150,7 @@ class ProgressDialog(QProgressDialog):
         # self.setMinimum(0)
         self.setMaximum(maximum)
         # this sets minimum duration at 100 ms (i.e. sure to display)
-        self.setMinimumDuration(100)
+        self.setMinimumDuration(0)
         self.setValue(0)
         self.show()
 

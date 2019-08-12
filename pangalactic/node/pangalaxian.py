@@ -339,6 +339,7 @@ class Main(QtWidgets.QMainWindow):
                                           parent=self)
         self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
         self.progress_dialog.setValue(1)
+        QtWidgets.QApplication.processEvents()
         self.progress_dialog.show()
         QtWidgets.QApplication.processEvents()
         rpc = message_bus.session.call('vger.get_user_roles', userid)
