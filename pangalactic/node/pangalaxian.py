@@ -147,11 +147,9 @@ class Main(QtWidgets.QMainWindow):
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.progress_value = 0
-        state['done_with_progress'] = False
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
-        state['connected'] = False
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)
         orb.start(home=home, console=console, debug=debug)
@@ -240,6 +238,8 @@ class Main(QtWidgets.QMainWindow):
             self.db_mode_action.trigger()
         else:
             self.data_mode_action.trigger()
+        state['done_with_progress'] = False
+        state['connected'] = False
 
     def add_splash_msg(self, msg):
         self.splash_msg += msg + '\n'
