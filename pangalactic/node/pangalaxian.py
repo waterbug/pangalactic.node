@@ -770,6 +770,7 @@ class Main(QtWidgets.QMainWindow):
                 QtWidgets.QApplication.processEvents()
                 self.progress_dialog.setValue(self.progress_dialog.maximum())
                 self.progress_dialog.done(0)
+                self.progress_dialog.close()
                 self.progress_value = 0
         return message_bus.session.call('vger.save', sobjs_to_save)
 
