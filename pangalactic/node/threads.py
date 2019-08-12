@@ -1,7 +1,5 @@
-from __future__ import print_function
-from builtins import range
-from PyQt5.QtWidgets import (QApplication, QDialog, QMainWindow, QVBoxLayout,
-                             QLabel, QProgressBar, QPushButton, QWidget)
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QLabel,
+                             QProgressBar, QPushButton, QWidget)
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, QObject, QRunnable,
                           QThreadPool, QTimer)
 
