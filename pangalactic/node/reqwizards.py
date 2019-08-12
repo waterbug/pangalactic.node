@@ -177,7 +177,7 @@ class ReqWizard(QWizard):
             req_wizard_state['performance'] = False
             self.addPage(RequirementIDPage(self))
             self.addPage(ReqAllocPage(self))
-            self.addPage(ReqVerificationPage(self))
+            # self.addPage(ReqVerificationPage(self))
             self.addPage(ReqSummaryPage(self))
             self.setWindowTitle('Functional Requirement Wizard')
             self.setGeometry(50, 50, 850, 900);
@@ -196,7 +196,7 @@ class ReqWizard(QWizard):
             self.addPage(PerformanceDefineParmPage(self))
             self.addPage(PerformReqBuildShallPage(self))
             self.addPage(PerformanceMarginCalcPage(self))
-            self.addPage(ReqVerificationPage(self))
+            # self.addPage(ReqVerificationPage(self))
             self.addPage(ReqSummaryPage(self))
             self.setWindowTitle('Performance Requirement Wizard')
             self.setGeometry(50, 50, 850, 750);
