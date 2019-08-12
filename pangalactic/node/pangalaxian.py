@@ -703,7 +703,7 @@ class Main(QtWidgets.QMainWindow):
                 self.statusbar.showMessage(
                     'deserializing {} objects ...'.format(n))
                 deserialize(orb, sobjs)
-                txt = 'objects synced ...'
+                txt = 'objects syncing ...'
                 dispatcher.send('sync progress', txt=txt)
                 if not project_sync:
                     # if new Parameter Definitions found, create icons
