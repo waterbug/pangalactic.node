@@ -649,10 +649,18 @@ class Main(QtWidgets.QMainWindow):
 
     def update_sync_progress(self, txt='syncing...'):
         try:
-            if getattr(self, 'progress_dialog', None):
+            if (state.get('done_with_progress') and
+                getattr(self, 'progress_dialog', None)):
+                QtWidgets.QApplication.processEvents()
+                self.progress_dialog.setValue(self.progress_dialog.maximum())
+                self.progress_dialog.done(0)
+                self.progress_dialog.close()
+                self.progress_value = 0
+            elif getattr(self, 'progress_dialog', None):
                 self.progress_value += 1
                 self.progress_dialog.setValue(self.progress_value)
                 self.progress_dialog.setLabelText(txt)
+                QtWidgets.QApplication.processEvents()
         except:
             # oops -- my C++ object probably got deleted
             pass
