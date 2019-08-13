@@ -417,11 +417,12 @@ class SystemTreeModel(QAbstractItemModel):
             # NOTE: "if acu.component" is needed in case Acu has been corrupted
             # (e.g. if its 'component' object is None)
             acus = [acu for acu in pnode.obj.components if acu.component]
-            for acu in acus:
-                comp_node = self.node_for_object(acu.component, pnode,
-                                                 link=acu)
-                nodes.append(comp_node)
-                dispatcher.send('tree node fetched')
+            if acus:
+                for acu in acus:
+                    comp_node = self.node_for_object(acu.component, pnode,
+                                                     link=acu)
+                    nodes.append(comp_node)
+                    dispatcher.send('tree node fetched')
         elif pnode.cname == 'Project':
             # -> this is a Project node
             psus = [psu for psu in pnode.obj.systems if psu.system]
