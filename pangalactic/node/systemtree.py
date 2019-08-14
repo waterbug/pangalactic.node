@@ -1098,6 +1098,7 @@ class SystemTreeModel(QAbstractItemModel):
         for child in nodes:
             node.add_child(child)
         self.endInsertRows()
+        self.dataChanged.emit(parent, parent)
         self.dirty = True
         return True
 
