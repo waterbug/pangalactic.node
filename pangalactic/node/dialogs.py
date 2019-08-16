@@ -350,7 +350,6 @@ class CloakingDialog(QDialog):
         layout.addLayout(form)
 
     def on_decloak(self):
-        # currently, actor is left out -- only decloaking to current project
         dispatcher.send(signal='decloaking', oid=self.obj.oid)
         self.reject()
 

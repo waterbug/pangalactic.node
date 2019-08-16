@@ -735,7 +735,6 @@ class Main(QtWidgets.QMainWindow):
             created_objs = set()
             objs_to_delete = set()
             for o in local_only_objs:
-                # TODO:  use 'get_perms' to determine permissions
                 if hasattr(o, 'creator') and o.creator == self.local_user:
                     created_objs.add(o)
                 elif (o.__class__.__name__ == 'ProjectSystemUsage' and
@@ -830,7 +829,6 @@ class Main(QtWidgets.QMainWindow):
             objs_to_delete = set(orb.get(oids=local_only))
             local_objs = set()
             for o in objs_to_delete:
-                # TODO:  use 'get_perms' to determine permissions
                 if (hasattr(o, 'creator') and o.creator == self.local_user
                     and o.oid not in list(trash.keys())):
                     objs_to_delete.remove(o)
@@ -917,10 +915,11 @@ class Main(QtWidgets.QMainWindow):
             rpc.addCallback(self.on_get_cloaking_status)
             rpc.addErrback(self.on_failure)
 
-    def decloak(self, oid='', actor_oid=''):
+    def decloak(self, oid=''):
         """
         Call 'vger.decloak' with the specified arguments, in response to a
-        local 'decloaking' signal.
+        local 'decloaking' signal.  This decloaks the object to its "owner"
+        project or organization.
 
         Keyword Args:
             oid (str):  oid of the object to be decloaked
@@ -929,23 +928,51 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.info('[pgxn] local "decloaking" signal received:')
         orb.log.info('       decloak("{}")'.format(oid))
-        # TODO:  if not connected, show a warning to that effect ...
-        # NOTE:  currently only decloaks object to current project
-        if not actor_oid:
-            actor_oid = state.get('project')
-            if not actor_oid:
-                orb.log.info('  no current project; could not decloak.')
-                return
-            elif actor_oid == 'pgefobjects:SANDBOX':
-                orb.log.info('       current project is SANDBOX;')
-                orb.log.info('       cannot decloak to SANDBOX.')
-                return
-        if oid and actor_oid:
+        obj = orb.get(oid)
+        if not obj:
+            message = "Object not found; could not decloak."
+            popup = QtWidgets.QMessageBox(
+                        QtWidgets.QMessageBox.Warning,
+                        "No object", message,
+                        QtWidgets.QMessageBox.Ok, self)
+            popup.show()
+            orb.log.info('  object not found; could not decloak.')
+            return
+        if 'decloak' not in get_perms(obj):
+            message = "User's permissions do not allow this."
+            popup = QtWidgets.QMessageBox(
+                        QtWidgets.QMessageBox.Warning,
+                        "Not authorized", message,
+                        QtWidgets.QMessageBox.Ok, self)
+            popup.show()
+            orb.log.info('  not authorized; could not decloak.')
+            return
+        owner = getattr(obj, 'owner', None)
+        if not owner:
+            message = "Object has no owner; could not decloak."
+            popup = QtWidgets.QMessageBox(
+                        QtWidgets.QMessageBox.Warning,
+                        "No owner", message,
+                        QtWidgets.QMessageBox.Ok, self)
+            popup.show()
+            orb.log.info('  no owner org; could not decloak.')
+            return
+        if oid and owner:
             orb.log.info('       sending vger.decloak("{}", "{}")'.format(oid,
-                                                                    actor_oid))
-            rpc = message_bus.session.call('vger.decloak', oid, actor_oid)
-            rpc.addCallback(self.on_get_cloaking_status)
-            rpc.addErrback(self.on_failure)
+                                                                    owner.oid))
+            # check for mbus session, in case we lost connection ...
+            if getattr(message_bus, 'session', None):
+                rpc = message_bus.session.call('vger.decloak', oid, owner.oid)
+                rpc.addCallback(self.on_get_cloaking_status)
+                rpc.addErrback(self.on_failure)
+            else:
+                message = "Not connected; could not decloak."
+                popup = QtWidgets.QMessageBox(
+                            QtWidgets.QMessageBox.Warning,
+                            "Not connected", message,
+                            QtWidgets.QMessageBox.Ok, self)
+                popup.show()
+                return
 
     def on_get_cloaking_status(self, result):
         """
@@ -1000,11 +1027,11 @@ class Main(QtWidgets.QMainWindow):
                 if dlg.exec_():
                     pass
             else:
-                # TODO:  handle failure ...
-                pass
+                txt = '       received cloaking status but could not '
+                txt += 'find object'
+                orb.log.info(txt)
         else:
-            # TODO:  handle failure ...
-            pass
+            orb.log.info('       cloaking status request failed.')
 
     def on_remote_decloaked_signal(self, content=None):
         """

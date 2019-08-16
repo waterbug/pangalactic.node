@@ -888,15 +888,6 @@ class PgxnObject(QDialog):
                                                    QDialogButtonBox.ActionRole)
         else:
             # not embedded -> external dialog
-            # "non-modal mode" is deprecated -- need to always be on top ...
-                # orb.log.debug('* [pgxnobj] modal mode')
-                # orb.log.debug('            adding buttons ...')
-                # self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
-                # self.save_button = self.bbox.addButton('Save',
-                                                   # QDialogButtonBox.ActionRole)
-            # else:
-                # # non-modal (persistent) alternates between "edit" and "view"
-                # orb.log.debug('* [pgxnobj] non-modal mode')
             self.modal_mode = True
             orb.log.debug('* [pgxnobj] external window: always modal mode)')
             if self.edit_mode:
@@ -904,6 +895,9 @@ class PgxnObject(QDialog):
                 # Cancel button cancels edits and switches to view mode
                 self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
                 self.save_button = self.bbox.addButton('Save',
+                                               QDialogButtonBox.ActionRole)
+                self.save_and_close_button = self.bbox.addButton(
+                                               'Save and Close',
                                                QDialogButtonBox.ActionRole)
                 if 'delete' in perms and self.enable_delete:
                     self.delete_button = self.bbox.addButton('Delete',
@@ -956,6 +950,8 @@ class PgxnObject(QDialog):
             self.edit_button.clicked.connect(self.on_edit)
         if hasattr(self, 'save_button'):
             self.save_button.clicked.connect(self.on_save)
+        if hasattr(self, 'save_and_close_button'):
+            self.save_and_close_button.clicked.connect(self.on_save_and_close)
         if hasattr(self, 'delete_button'):
             self.delete_button.clicked.connect(self.on_delete)
         if hasattr(self, 'cloaking_button'):
@@ -1046,6 +1042,10 @@ class PgxnObject(QDialog):
         except:
             # oops -- my C++ object probably got deleted
             pass
+
+    def on_save_and_close(self):
+        self.closing = True
+        self.on_save()
 
     def on_save(self):
         orb.log.info('* [pgxnobj] saving ...')
@@ -1181,11 +1181,13 @@ class PgxnObject(QDialog):
             parent = self.parent()
             if parent:
                 parent.setFocus()
-        if self.modal_mode:
-            orb.log.debug('  [pgxnobj] in modal mode -- closing.')
+        if getattr(self, 'closing', False):
+            orb.log.debug('  [pgxnobj] saving and closing ...')
+            # reset 'closing'
+            self.closing = False
             self.close()
         else:
-            orb.log.debug('  [pgxnobj] in non-modal mode -- rebuilding.')
+            orb.log.debug('  [pgxnobj] saved -- rebuilding ...')
             self.edit_mode = False
             self.build_from_object()
         if state.get('mode') in ['system', 'component']:
