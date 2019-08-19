@@ -113,8 +113,9 @@ class PgxnMessageBus(Application):
 
     def run(self, url=u"ws://localhost:8080/ws", realm=u"realm1",
             start_reactor=True, ssl=None):
-        runner = ApplicationRunner(url, realm, ssl=ssl)
-        return runner.run(self.__call__, start_reactor)
+        self.runner = ApplicationRunner(url, realm, ssl=ssl)
+        return self.runner.run(self.__call__, start_reactor,
+                               auto_reconnect=True)
 
 
 if __name__ == '__main__':

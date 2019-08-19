@@ -84,16 +84,6 @@ from pangalactic.node.reqmanager      import RequirementManager
 from pangalactic.node.reqwizards      import ReqWizard, req_wizard_state
 from pangalactic.node.splash          import SplashScreen
 
-message_bus = PgxnMessageBus()
-
-@message_bus.signal('onjoined')
-def onjoined():
-    dispatcher.send(signal='onjoined')
-
-@message_bus.signal('onleave')
-def onleave():
-    dispatcher.send(signal='onleave')
-
 
 class Main(QtWidgets.QMainWindow):
     """
@@ -219,7 +209,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.set_product, 'drop on product info')
         # connect dispatcher signals for message bus events
         dispatcher.connect(self.on_mbus_joined, 'onjoined')
-        dispatcher.connect(self.on_mbus_leave, 'onleave')
+        dispatcher.connect(self.on_mbus_disconnect, 'disconnect')
         # 'set current product' only affects 'component mode' (the "product
         # modeler interface", so just call that)
         dispatcher.connect(self.set_product_modeler_interface,
@@ -269,14 +259,23 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.info('* connect_to_bus() ...')
         self.statusbar.showMessage('connecting to message bus ...')
+        ###########################################################
+        # Initialize message bus instance
+        ###########################################################
+        self.mbus = PgxnMessageBus()
+
+        @self.mbus.signal('onjoined')
+        def onjoined():
+            dispatcher.send(signal='onjoined')
+
         # TODO:  add a remote url configuration item
         if self.connect_to_bus_action.isChecked():
             login_dlg = LoginDialog(userid=state.get('userid', ''),
                                     parent=self)
             if login_dlg.exec_() == QtWidgets.QDialog.Accepted:
                 state['userid'] = asciify(login_dlg.userid)
-                message_bus.set_authid(login_dlg.userid)
-                message_bus.set_passwd(login_dlg.passwd)
+                self.mbus.set_authid(login_dlg.userid)
+                self.mbus.set_passwd(login_dlg.passwd)
                 host = config.get('host', 'localhost')
                 port = config.get('port', '8080')
                 tls_options = None
@@ -297,8 +296,8 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.info('  logging in with userid "{}"'.format(
                                                             login_dlg.userid))
                 orb.log.info('  to url "{}"'.format(url))
-                message_bus.run(url, realm=None, start_reactor=False,
-                                ssl=tls_options)
+                self.mbus.run(url, realm=None, start_reactor=False,
+                              ssl=tls_options)
             else:
                 # uncheck button if login dialog is cancelled
                 self.connect_to_bus_action.setChecked(False)
@@ -307,7 +306,11 @@ class Main(QtWidgets.QMainWindow):
         else:
             if state['connected']:
                 orb.log.info('* disconnecting from message bus ...')
-                message_bus.session.leave()
+                if getattr(self.mbus, 'session', None) is not None:
+                    self.mbus.session.leave()
+                if getattr(self.mbus, 'runner', None) is not None:
+                    self.mbus.runner.stop()
+                dispatcher.send(signal='disconnect')
             else:
                 orb.log.info('* already disconnected from message bus.')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
@@ -343,7 +346,7 @@ class Main(QtWidgets.QMainWindow):
             self.progress_dialog.setValue(1)
             self.progress_dialog.show()
         QtWidgets.QApplication.processEvents()
-        rpc = message_bus.session.call('vger.get_user_roles', userid)
+        rpc = self.mbus.session.call('vger.get_user_roles', userid)
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.subscribe_to_mbus_channels)
@@ -469,7 +472,7 @@ class Main(QtWidgets.QMainWindow):
                                                                     channels))
         subs = []
         for channel in channels:
-            sub = message_bus.session.subscribe(self.on_pubsub_msg, channel)
+            sub = self.mbus.session.subscribe(self.on_pubsub_msg, channel)
             sub.addCallback(self.on_pubsub_success)
             sub.addErrback(self.on_pubsub_failure)
             subs.append(sub)
@@ -508,7 +511,7 @@ class Main(QtWidgets.QMainWindow):
             for org_oid in admin_orgs:
                 orb.log.info('  -> getting roles in org "{}" ...'.format(
                                                                 org_oid))
-                search = message_bus.session.call('vger.get_roles_in_org',
+                search = self.mbus.session.call('vger.get_roles_in_org',
                                                   org_oid)
                 search.addCallback(self.on_get_roles_success)
                 search.addErrback(self.on_get_roles_failure)
@@ -552,7 +555,7 @@ class Main(QtWidgets.QMainWindow):
         data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
         orb.log.info('       -> rpc: vger.sync_parameter_definitions()')
-        return message_bus.session.call('vger.sync_parameter_definitions',
+        return self.mbus.session.call('vger.sync_parameter_definitions',
                                         data)
 
     def sync_user_created_objs_to_repo(self, data):
@@ -574,7 +577,7 @@ class Main(QtWidgets.QMainWindow):
         oids = [o.oid for o in self.local_user.created_objects]
         data = orb.get_mod_dts(oids=oids)
         orb.log.info('       -> rpc: vger.sync_objects()')
-        return message_bus.session.call('vger.sync_objects', data)
+        return self.mbus.session.call('vger.sync_objects', data)
 
     def sync_library_objs(self, data):
         """
@@ -593,7 +596,7 @@ class Main(QtWidgets.QMainWindow):
         # come back in the set of oids to be ignored
         data = orb.get_mod_dts(cname='HardwareProduct')
         data.update(orb.get_mod_dts(cname='Template'))
-        return message_bus.session.call('vger.sync_library_objects', data)
+        return self.mbus.session.call('vger.sync_library_objects', data)
 
     # def sync_projects_with_roles(self, data):
         # """
@@ -607,7 +610,7 @@ class Main(QtWidgets.QMainWindow):
         # for org_oid in set(state['assigned_roles']).union(
                        # set(state['admin_of'])):
             # if org_oid and not orb.get(org_oid):
-                # rpc = message_bus.session.call('vger.get_object', org_oid)
+                # rpc = self.mbus.session.call('vger.get_object', org_oid)
                 # rpc.addCallback(self.on_rpc_get_object)
                 # rpc.addErrback(self.on_failure)
         # return True
@@ -645,7 +648,7 @@ class Main(QtWidgets.QMainWindow):
                     data[obj.oid] = dts
         else:
             self.statusbar.showMessage('synced.')
-        return message_bus.session.call('vger.sync_project', proj_oid, data)
+        return self.mbus.session.call('vger.sync_project', proj_oid, data)
 
     def update_sync_progress(self, txt='syncing...'):
         try:
@@ -782,7 +785,7 @@ class Main(QtWidgets.QMainWindow):
                 self.progress_dialog.close()
                 self.progress_value = 0
                 state['done_with_progress'] = True
-        return message_bus.session.call('vger.save', sobjs_to_save)
+        return self.mbus.session.call('vger.save', sobjs_to_save)
 
     def on_sync_library_result(self, data, project_sync=False):
         """
@@ -857,7 +860,7 @@ class Main(QtWidgets.QMainWindow):
             self._update_views()
         txt = 'saving objects ...'
         dispatcher.send('sync progress', txt=txt)
-        return message_bus.session.call('vger.save', sobjs_to_save)
+        return self.mbus.session.call('vger.save', sobjs_to_save)
 
     def on_pubsub_msg(self, msg):
         """
@@ -911,7 +914,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('       (local "cloaking" signal received ...)')
         # TODO:  if not connected, show a warning to that effect ...
         if oid:
-            rpc = message_bus.session.call('vger.get_cloaking_status', oid)
+            rpc = self.mbus.session.call('vger.get_cloaking_status', oid)
             rpc.addCallback(self.on_get_cloaking_status)
             rpc.addErrback(self.on_failure)
 
@@ -961,8 +964,8 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info('       sending vger.decloak("{}", "{}")'.format(oid,
                                                                     owner.oid))
             # check for mbus session, in case we lost connection ...
-            if getattr(message_bus, 'session', None):
-                rpc = message_bus.session.call('vger.decloak', oid, owner.oid)
+            if getattr(self.mbus, 'session', None):
+                rpc = self.mbus.session.call('vger.decloak', oid, owner.oid)
                 rpc.addCallback(self.on_get_cloaking_status)
                 rpc.addErrback(self.on_failure)
             else:
@@ -1061,7 +1064,7 @@ class Main(QtWidgets.QMainWindow):
         else:
             # get object from repository ...
             orb.log.info('  - decloaked object unknown -- get from repo...')
-            rpc = message_bus.session.call('vger.get_object', obj_oid,
+            rpc = self.mbus.session.call('vger.get_object', obj_oid,
                                            include_components=True)
             rpc.addCallback(self.on_rpc_get_object)
             rpc.addErrback(self.on_failure)
@@ -1071,7 +1074,7 @@ class Main(QtWidgets.QMainWindow):
         Send 'vger.search_ldap' rpc when 'ldap search' signal is received.
         """
         q = query or {}
-        rpc = message_bus.session.call('vger.search_ldap', **q)
+        rpc = self.mbus.session.call('vger.search_ldap', **q)
         rpc.addCallback(self.on_rpc_ldap_result)
         rpc.addErrback(self.on_failure)
 
@@ -1082,7 +1085,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Send 'vger.add_person' rpc when 'add person' signal is received.
         """
-        rpc = message_bus.session.call('vger.add_person', data)
+        rpc = self.mbus.session.call('vger.add_person', data)
         rpc.addCallback(self.on_rpc_add_person_result)
         rpc.addErrback(self.on_failure)
 
@@ -1234,13 +1237,11 @@ class Main(QtWidgets.QMainWindow):
             self.update_project_role_labels()
         return True
 
-    def on_mbus_leave(self):
-        orb.log.info('* on_mbus_leave: message bus session left.')
+    def on_mbus_disconnect(self):
+        orb.log.info('* on_mbus_disconnect: message bus session disconnected.')
         self.net_status.setPixmap(self.offline_icon)
         self.net_status.setToolTip('offline')
-        # self.role_label.setVisible(False)
-        message_bus.session.disconnect()
-        message_bus.session = None
+        self.mbus = None
         state['connected'] = False
         state['done_with_progress'] = False
 
@@ -1754,9 +1755,9 @@ class Main(QtWidgets.QMainWindow):
                                               console=console, debug=debug)
         orb.log.info('* pangalaxian client logging initialized ...')
         # TODO:  ignoring mb_error_log for now but will need it in future ...
-        mb_log, mb_error_log = get_loggers(orb.home, 'mbus',
-                                           console=console, debug=debug)
-        message_bus.set_logger(mb_log)
+        # mb_log, mb_error_log = get_loggers(orb.home, 'mbus',
+                                           # console=console, debug=debug)
+        # self.mbus.set_logger(mb_log)
 
     def init_toolbar(self):
         orb.log.debug('  - initializing toolbar ...')
@@ -1959,7 +1960,7 @@ class Main(QtWidgets.QMainWindow):
             if state['connected']:
                 orb.log.info('  calling vger.save() for project id: {}'.format(
                                                                        obj.id))
-                rpc = message_bus.session.call('vger.save',
+                rpc = self.mbus.session.call('vger.save',
                                                serialize(orb, [obj]))
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
@@ -1979,7 +1980,7 @@ class Main(QtWidgets.QMainWindow):
             # orb.log.debug('      org_type={}'.format('Project'))
             # parent_org = getattr(obj.parent_organization, 'oid', None)
             # orb.log.debug('      parent={}'.format(parent_org))
-            # rpc = message_bus.session.call('omb.organization.add',
+            # rpc = self.mbus.session.call('omb.organization.add',
                         # oid=obj.oid, id=obj.id, name=obj.name,
                         # org_type='Project', parent=parent_org)
             # rpc.addCallback(self.on_null_result)
@@ -2011,7 +2012,7 @@ class Main(QtWidgets.QMainWindow):
             elif dts > obj.mod_datetime:
                 # get the remote object
                 orb.log.info('  remote object is newer, getting...')
-                rpc = message_bus.session.call('vger.get_object', obj.oid,
+                rpc = self.mbus.session.call('vger.get_object', obj.oid,
                                                include_components=True)
                 rpc.addCallback(self.on_remote_get_mod_object)
                 rpc.addErrback(self.on_failure)
@@ -2020,7 +2021,7 @@ class Main(QtWidgets.QMainWindow):
         else:
             orb.log.info('  ')
             orb.log.info('  object not found in local db, getting ...')
-            rpc = message_bus.session.call('vger.get_object', obj.oid,
+            rpc = self.mbus.session.call('vger.get_object', obj.oid,
                                            include_components=True)
             rpc.addCallback(self.on_remote_get_mod_object)
             rpc.addErrback(self.on_failure)
@@ -2170,13 +2171,13 @@ class Main(QtWidgets.QMainWindow):
                 if isinstance(obj, orb.classes['RoleAssignment']):
                     orb.log.info('  calling rpc vger.assign_role() ...')
                     orb.log.info('  - role assignment: {}'.format(obj.id))
-                    rpc = message_bus.session.call('vger.assign_role',
+                    rpc = self.mbus.session.call('vger.assign_role',
                                                    serialized_objs)
                 else:
                     orb.log.info('  calling rpc vger.save() ...')
                     orb.log.info('  - saved obj id: {} | oid: {}'.format(
                                                           obj.id, obj.oid))
-                    rpc = message_bus.session.call('vger.save',
+                    rpc = self.mbus.session.call('vger.save',
                                                    serialized_objs)
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
@@ -2228,7 +2229,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
             # to a remote user, they have the object
-            rpc = message_bus.session.call('vger.delete', [oid])
+            rpc = self.mbus.session.call('vger.delete', [oid])
             rpc.addCallback(self.on_result)
             rpc.addErrback(self.on_failure)
             if oid in state.get('synced_oids', []):
@@ -2390,8 +2391,8 @@ class Main(QtWidgets.QMainWindow):
             self.get_project_roles()
 
     def get_project_roles(self):
-        if state.get('connected') and message_bus.session:
-            rpc = message_bus.session.call('vger.get_roles_in_org',
+        if state.get('connected') and self.mbus.session:
+            rpc = self.mbus.session.call('vger.get_roles_in_org',
                                            self.project.oid)
             rpc.addCallback(self.on_get_roles_success)
             rpc.addErrback(self.on_get_roles_failure)
@@ -3712,7 +3713,8 @@ class Main(QtWidgets.QMainWindow):
         # save a serialized version of the db to vault/db.yaml
         self.statusbar.showMessage('Exporting local DB to vault...')
         if state.get('connected'):
-            message_bus.session = None
+            self.mbus.session = None
+            self.mbus = None
             state['connected'] = False
         if diagramz:
             orb._save_diagramz()
