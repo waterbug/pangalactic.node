@@ -209,7 +209,6 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.set_product, 'drop on product info')
         # connect dispatcher signals for message bus events
         dispatcher.connect(self.on_mbus_joined, 'onjoined')
-        dispatcher.connect(self.on_mbus_disconnect, 'disconnect')
         # 'set current product' only affects 'component mode' (the "product
         # modeler interface", so just call that)
         dispatcher.connect(self.set_product_modeler_interface,
@@ -310,7 +309,12 @@ class Main(QtWidgets.QMainWindow):
                     self.mbus.session.leave()
                 if getattr(self.mbus, 'runner', None) is not None:
                     self.mbus.runner.stop()
-                dispatcher.send(signal='disconnect')
+                orb.log.info('  message bus session disconnected.')
+                self.net_status.setPixmap(self.offline_icon)
+                self.net_status.setToolTip('offline')
+                self.mbus = None
+                state['connected'] = False
+                state['done_with_progress'] = False
             else:
                 orb.log.info('* already disconnected from message bus.')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
@@ -1236,14 +1240,6 @@ class Main(QtWidgets.QMainWindow):
                 self.set_object_table_for(cname)
             self.update_project_role_labels()
         return True
-
-    def on_mbus_disconnect(self):
-        orb.log.info('* on_mbus_disconnect: message bus session disconnected.')
-        self.net_status.setPixmap(self.offline_icon)
-        self.net_status.setToolTip('offline')
-        self.mbus = None
-        state['connected'] = False
-        state['done_with_progress'] = False
 
     def _create_actions(self):
         orb.log.debug('* creating actions ...')
