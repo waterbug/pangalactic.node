@@ -4,11 +4,11 @@ Admin interface
 import sys
 from collections import OrderedDict
 
-from PyQt5.QtCore import Qt, QVariant
-from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
-                             QDialogButtonBox, QFormLayout, QHBoxLayout,
-                             QLabel, QMenu, QMessageBox, QSizePolicy,
-                             QTableView, QVBoxLayout, QWidget)
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
+                             QFormLayout, QHBoxLayout, QLabel, QMenu,
+                             QMessageBox, QSizePolicy, QTableView, QVBoxLayout,
+                             QWidget)
 
 from louie import dispatcher
 
@@ -351,17 +351,18 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.adjust_size, 'admin contents resized')
         dispatcher.connect(self.refresh_roles, 'deleted object')
         dispatcher.connect(self.refresh_roles, 'remote: deleted')
+        dispatcher.connect(self.refresh_libs, 'person added')
 
     def do_ldap_search(self):
         dlg = LdapSearchDialog(parent=self)
         dlg.show()
 
-    def on_person_added(self, obj=None):
+    def refresh_libs(self, **kw):
         """
-        Handler for the "person added" dispatcher signal: update the Person
-        library table.
+        Refresh the library widgets when a 'person added' signal is received,
+        which is sent when the result of the rpc 'vger.add_person' is received
+        in pangalaxian.
         """
-        orb.log.debug('* on_person_added()')
         self.lib_widget.refresh(cname='Person')
 
     def refresh_roles(self):
