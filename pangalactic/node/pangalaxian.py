@@ -350,7 +350,22 @@ class Main(QtWidgets.QMainWindow):
             self.progress_dialog.setValue(1)
             self.progress_dialog.show()
         QtWidgets.QApplication.processEvents()
-        rpc = self.mbus.session.call('vger.get_user_roles', userid)
+        try:
+            rpc = self.mbus.session.call('vger.get_user_roles', userid)
+        except:
+            orb.log.info('  rpc "vger.get_user_roles" failed.')
+            orb.log.info('  trying again ...')
+            time.sleep(1)
+            try:
+                rpc = self.mbus.session.call('vger.get_user_roles', userid)
+            except:
+                orb.log.info('  rpc "vger.get_user_roles" failed again ...')
+                message = "Could not recoonect -- log out and log in again."
+                popup = QtWidgets.QMessageBox(
+                            QtWidgets.QMessageBox.Warning,
+                            "Connection Lost", message,
+                            QtWidgets.QMessageBox.Ok, self)
+                popup.show()
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.subscribe_to_mbus_channels)
@@ -1957,7 +1972,7 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.info('  calling vger.save() for project id: {}'.format(
                                                                        obj.id))
                 rpc = self.mbus.session.call('vger.save',
-                                               serialize(orb, [obj]))
+                                             serialize(orb, [obj]))
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
 

@@ -107,7 +107,9 @@ class PgxnMessageBus(Application):
 
     def __call__(self, config):
         config.extra = self.extra
-        assert(self.session is None)
+        # assert(self.session is None)
+        if self.session is not None:
+            self.session = None
         self.session = PgxnAuthSession(config, self)
         return self.session
 
