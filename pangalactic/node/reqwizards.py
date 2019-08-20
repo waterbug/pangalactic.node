@@ -18,6 +18,7 @@ from louie import dispatcher
 from pangalactic.core             import config, state
 from pangalactic.core.parametrics import parm_defz
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import get_attr_ext_name
 from pangalactic.core.units       import alt_units
 from pangalactic.node.libraries   import LibraryListView
@@ -25,7 +26,6 @@ from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, ReqAllocDelegate
 from pangalactic.node.widgets     import PlaceHolder, NameLabel, ValueLabel
 from pangalactic.node.systemtree  import SystemTreeView
-
 
 req_wizard_state = {}
 
@@ -535,7 +535,10 @@ class ReqAllocPage(QWizardPage):
         else:
             allocation += self.project.id + ' project'
         req_wizard_state['allocation'] = allocation
+        self.req.mod_datetime = dtstamp()
+        self.req.modifier = orb.get(state.get('local_user_oid'))
         orb.save([self.req])
+        dispatcher.send(signal='modified object', obj=self.req)
         self.update_summary()
 
     def update_summary(self):
@@ -629,6 +632,8 @@ class ReqSummaryPage(QWizardPage):
         self.req.req_subject = req_wizard_state.get('req_subject')
         self.req.req_predicate = req_wizard_state.get('req_predicate')
         self.req.req_epilog = req_wizard_state.get('req_epilog')
+        self.req.mod_datetime = dtstamp()
+        self.req.modifier = orb.get(state.get('local_user_oid'))
         orb.save([self.req])
         dispatcher.send(signal='modified object', obj=self.req)
 
