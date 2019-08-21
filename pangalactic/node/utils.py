@@ -2,11 +2,6 @@
 """
 GUI related utility functions
 """
-from __future__ import division
-from builtins import bytes
-from future import standard_library
-standard_library.install_aliases()
-from builtins import range
 import os, sys
 from copy import deepcopy
 from uuid import uuid4

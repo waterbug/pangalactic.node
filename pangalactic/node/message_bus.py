@@ -1,6 +1,3 @@
-from __future__ import print_function
-from builtins import object
-import six
 from twisted.internet.defer import inlineCallbacks
 from autobahn.twisted.wamp import (Application, ApplicationRunner,
                                    _ApplicationSession)
@@ -125,14 +122,14 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--authid', dest='authid', type=six.text_type,
+    parser.add_argument('--authid', dest='authid', type=str,
                         default=u'user1',
                         help='The authid to connect under (required)')
-    parser.add_argument('--realm', dest='realm', type=six.text_type,
+    parser.add_argument('--realm', dest='realm', type=str,
                         default=None,
                         help='The realm to join. If not provided, let the '
                         'router auto-choose the realm (default).')
-    parser.add_argument('--url', dest='url', type=six.text_type,
+    parser.add_argument('--url', dest='url', type=str,
                         default=u'ws://localhost:8080/ws',
                         help='The router URL '
                              '(default: ws://localhost:8080/ws).')

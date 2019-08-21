@@ -8,11 +8,6 @@ Various dialogs.
 # from pangalactic.node.threads     import threadpool, Worker
 # from pangalactic.node.process     import run_conda
 
-from __future__ import division
-from builtins import range
-# NOTE: fixed div's so old_div not needed
-# from past.utils import old_div
-from builtins import object
 import sys
 
 from PyQt5.QtCore import (Qt, QPoint, QRectF, QSize, QVariant)

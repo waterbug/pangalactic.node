@@ -1,9 +1,6 @@
 """
 A canvas-style document editor example
 """
-from __future__ import division
-from __future__ import print_function
-from builtins import str
 # NOTE: divisions fixed so probably don't need old_div ...
 # from past.utils import old_div
 import functools, os, random, sys

@@ -4,9 +4,6 @@ Dashboards:  a dashboard in Pangalaxian is a dockable widget in the top section
 of the main window, in which widgets can be added to display the current values
 and realtime updates of specified parameters of a system that is being modeled.
 """
-from __future__  import print_function
-
-from builtins import range
 from louie import dispatcher
 
 from PyQt5.QtCore    import Qt, QModelIndex, QItemSelectionModel

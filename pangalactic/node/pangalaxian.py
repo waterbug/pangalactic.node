@@ -3,12 +3,7 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-from __future__ import division
-from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from builtins import range
-import argparse, atexit, os, shutil, six, sys, traceback
+import argparse, atexit, os, platform, shutil, six, sys, time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
 from collections import OrderedDict
 
@@ -60,8 +55,7 @@ from pangalactic.node.dialogs         import (CloakingDialog,
                                               NotificationDialog,
                                               ObjectSelectionDialog,
                                               # OptionNotification,
-                                              PrefsDialog, ProgressDialog,
-                                              Viewer3DDialog)
+                                              PrefsDialog, ProgressDialog)
 # from pangalactic.node.filters         import FilterDialog
 from pangalactic.node.helpwidget      import HelpWidget
 from pangalactic.node.libraries       import LibraryDialog, LibraryListWidget
@@ -1835,7 +1829,9 @@ class Main(QtWidgets.QMainWindow):
                                    actions=system_tools_actions, parent=self)
         self.toolbar.addWidget(system_tools_button)
 
-        self.toolbar.addAction(self.view_cad_action)
+        # pythonocc CAD library currently not working on OSX ("Darwin")
+        if not platform.platform().startswith('Darwin'):
+            self.toolbar.addAction(self.view_cad_action)
 
         help_icon_file = 'tardis' + state['icon_type']
         help_icon_path = os.path.join(icon_dir, help_icon_file)
@@ -2999,6 +2995,7 @@ class Main(QtWidgets.QMainWindow):
         help_widget.show()
 
     def view_cad(self, file_path):
+        from pangalactic.node.dialogs import Viewer3DDialog
         orb.log.info('* view_cad({})'.format(file_path))
         viewer = Viewer3DDialog(self)
         viewer.show()

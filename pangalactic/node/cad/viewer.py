@@ -17,9 +17,6 @@
 ##You should have received a copy of the GNU Lesser General Public License
 ##along with pythonOCC.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
-from builtins import range
-from builtins import object
 import sys
 
 from OCC.Display import OCCViewer
