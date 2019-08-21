@@ -1829,9 +1829,9 @@ class Main(QtWidgets.QMainWindow):
                                    actions=system_tools_actions, parent=self)
         self.toolbar.addWidget(system_tools_button)
 
-        # pythonocc CAD library currently not working on OSX ("Darwin")
-        if not platform.platform().startswith('Darwin'):
-            self.toolbar.addAction(self.view_cad_action)
+        # if pythonocc CAD library not working on OSX ("Darwin") ...
+        # if not platform.platform().startswith('Darwin'):
+        self.toolbar.addAction(self.view_cad_action)
 
         help_icon_file = 'tardis' + state['icon_type']
         help_icon_path = os.path.join(icon_dir, help_icon_file)
