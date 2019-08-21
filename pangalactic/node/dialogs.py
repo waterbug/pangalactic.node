@@ -8,7 +8,7 @@ Various dialogs.
 # from pangalactic.node.threads     import threadpool, Worker
 # from pangalactic.node.process     import run_conda
 
-import sys
+import platform, sys
 
 from PyQt5.QtCore import (Qt, QPoint, QRectF, QSize, QVariant)
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
@@ -27,11 +27,12 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.cad.viewer  import QtViewer3DColor
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.widgets     import NameLabel, UnitsWidget, ValueLabel
 from pangalactic.node.widgets     import StringFieldWidget, IntegerFieldWidget
 
+if not platform.platform().startswith('Darwin'):
+    from pangalactic.node.cad.viewer  import QtViewer3DColor
 
 COLORS = {True: 'green', False: 'red'}
 
