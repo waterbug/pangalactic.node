@@ -262,19 +262,24 @@ class Timeline(QGraphicsPathItem):
         for item in self.item_list:
             if self.item_list.index(item) != item_list_copy.index(item):
                 same = False
-
-        for i,item in enumerate(self.item_list):
+        for i, item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
             acu = orb.select("Acu", assembly=parent_act, component=item.activity)
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
+            dispatcher.send(signal='modified object', obj=acu, cname='Acu')
             if initial:
-                acu.component.id = acu.component.id or acu.reference_designator# for testing purposes
-                acu.component.name = acu.component.name or "{} {}".format(parent_act.name,str(i))
+                acu.component.id = acu.component.id or acu.reference_designator
+                acu.component.name = acu.component.name or "{} {}".format(
+                                                    parent_act.name, str(i))
                 orb.save([acu.component])
                 dispatcher.send("modified activity", activity=acu.component)
+                dispatcher.send(signal='modified object', obj=acu.component,
+                                cname='Activity')
         if not same:
-            dispatcher.send("order changed", parent_act=self.scene().current_activity, position=self.scene().position)
+            dispatcher.send("order changed",
+                            parent_act=self.scene().current_activity,
+                            position=self.scene().position)
         self.update()
 
 class DiagramScene(QGraphicsScene):
@@ -337,7 +342,9 @@ class DiagramScene(QGraphicsScene):
             item.setPos(event.scenePos())
             self.addItem(item)
             self.timeline.add_item(item)
-            dispatcher.send("new activity", parent_act=self.current_activity, act_of=self.act_of, position=self.position)
+            dispatcher.send("new activity", parent_act=self.current_activity,
+                            act_of=self.act_of, position=self.position)
+            dispatcher.send(signal='new object', obj=acu)
             self.update()
 
     def edit_parameters(self, activity):
@@ -707,7 +714,8 @@ class TimelineWidget(QWidget):
                 if self.subject_activity.activity_type.id == 'cycle':
                     pass
                 else:
-                    existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
+                    existing_subsystems = [acu.component for acu in
+                                           self.spacecraft.components]
                     for subsystem in existing_subsystems:
                         # print("looking for:", system_name)
                         # print(getattr(subsystem, 'id', 'NA'))
@@ -716,15 +724,12 @@ class TimelineWidget(QWidget):
                             self.act_of = subsystem
                     self.scene = self.set_new_scene()
                     self.update_view()
-                dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
+                dispatcher.send("changed subsystem",
+                                parent_act=self.subject_activity,
+                                act_of=self.act_of, position=self.position)
             except:
                 pass
-    def make_new_system(self, system_name):
-        pro_type = orb.select("ProductType", id=system_name)
-        new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner, product_type=pro_type, id=pro_type.id, name=pro_type.id)
-        acu = clone("Acu", assembly=self.spacecraft, component=new_subsystem)
-        self.act_of = new_subsystem
-        orb.save([new_subsystem, acu])
+
 
 class ConOpsModeler(QMainWindow):
     """
@@ -763,20 +768,22 @@ class ConOpsModeler(QMainWindow):
         sc_type = orb.select("ProductType", id='spacecraft')
         if project:
             mission = orb.select('Mission', owner=project)
-
             if not mission:
                 mission_id = '_'.join([project.id, 'mission'])
                 mission_name = ' '.join([project.name, 'Mission'])
                 mission = clone('Mission', owner=project, id=mission_id,
                                 name=mission_name)
                 orb.save([mission])
+                dispatcher.send(signal='new object', obj=mission)
             self.subject_activity = mission
             # self.mission = mission
-
         else:
-            self.subject_activity = clone("Activity", id="temp", name="temp")
-            self.mission = self.subject_activity
-
+            message = "There is no current project -- select a project."
+            popup = QMessageBox(
+                        QMessageBox.Warning,
+                        "No project", message,
+                        QMessageBox.Ok, self)
+            popup.show()
         self.project = project
         self.spacecraft = None
         psus = orb.search_exact(cname='ProjectSystemUsage', project=project)
