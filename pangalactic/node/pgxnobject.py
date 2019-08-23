@@ -702,7 +702,8 @@ class PgxnObject(QDialog):
                                 tip='View models of this object',
                                 modes=['edit', 'view'])
         self.toolbar.addAction(self.viewer_action)
-        self.toolbar.addAction(self.where_used_action)
+        if hasattr(self.obj, 'where_used'):
+            self.toolbar.addAction(self.where_used_action)
         self.vbox.insertWidget(0, self.toolbar)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -748,19 +749,20 @@ class PgxnObject(QDialog):
             orb.save([self.obj])
 
     def show_where_used(self):
-        assemblies = set([acu.assembly for acu in self.obj.where_used])
-        if assemblies:
-            txt = 'This Product is a component in the following assemblies:'
-        else:
-            txt = 'This Product is not used in any assemblies.'
-        notice = QMessageBox(QMessageBox.Information, 'Where Used', txt,
-                             QMessageBox.Ok, self)
-        if assemblies and len(assemblies) > 0:
-            info = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br>(id: {})</li>'.format(
-                           a.name, a.id, a.oid) for a in assemblies if a]))
-            notice.setInformativeText(info)
-        notice.show()
+        if hasattr(self.obj, 'where_used'):
+            assemblies = set([acu.assembly for acu in self.obj.where_used])
+            if assemblies:
+                txt = 'This is a component in the following assemblies:'
+            else:
+                txt = 'This is not used in any assemblies.'
+            notice = QMessageBox(QMessageBox.Information, 'Where Used', txt,
+                                 QMessageBox.Ok, self)
+            if assemblies and len(assemblies) > 0:
+                info = '<p><ul>{}</ul></p>'.format('\n'.join(
+                               ['<li><b>{}</b><br>(id: {})</li>'.format(
+                               a.name, a.id, a.oid) for a in assemblies if a]))
+                notice.setInformativeText(info)
+            notice.show()
 
     def on_clone(self):
         """
