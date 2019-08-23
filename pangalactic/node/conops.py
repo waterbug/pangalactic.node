@@ -9,11 +9,11 @@ from louie import dispatcher
 from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
 
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
-                             QHBoxLayout, QMainWindow, QSizePolicy, QWidget,
-                             QGraphicsItem, QGraphicsPolygonItem,
-                             QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
-                             QToolBox, QPushButton, QGraphicsPathItem,
-                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar, QMessageBox)
+                             QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
+                             QGraphicsPolygonItem, QGraphicsScene,
+                             QGraphicsView, QGridLayout, QMenu, QToolBox,
+                             QPushButton, QGraphicsPathItem, QVBoxLayout,
+                             QToolBar, QWidgetAction, QStatusBar, QMessageBox)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -186,8 +186,8 @@ class DiagramView(QGraphicsView):
 
     def dragEnterEvent(self, event):
         try:
-            has_act_of = self.scene().act_of
-            event.accept()
+            if self.scene().act_of:
+                event.accept()
         except:
             pass
 
@@ -253,6 +253,7 @@ class Timeline(QGraphicsPathItem):
         # self.make_point_list()
         # self.reposition()
         self.update_timeline()
+
     def reposition(self, initial=False):
         parent_act = self.scene().current_activity
         item_list_copy = self.item_list[:]
@@ -277,25 +278,31 @@ class Timeline(QGraphicsPathItem):
         self.update()
 
 class DiagramScene(QGraphicsScene):
-    def __init__(self, parent, current_activity=None, act_of=None,position=None):
+    def __init__(self, parent, current_activity=None, act_of=None,
+                 position=None):
         super(DiagramScene, self).__init__(parent)
         self.position = position
         self.current_activity = current_activity
+        if isinstance(current_activity, orb.classes['Activity']):
+            self.act_of = current_activity.activity_of
+        else:
+            self.act_of = act_of
         self.timeline = Timeline(self)
         self.addItem(self.timeline)
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
-        self.act_of = act_of
         self.grabbed_item = None
+
     def focus_changed_handler(self, new_item, old_item):
         if new_item is not None:
             if new_item != self.current_focus:
                 # self.current_focus = new_item
-                old = getattr(getattr(old_item, 'activity', None), 'id',None)
-                new = getattr(getattr(new_item, 'activity', None), 'id',None)
+                # old = getattr(getattr(old_item, 'activity', None), 'id',None)
+                # new = getattr(getattr(new_item, 'activity', None), 'id',None)
                 # print("new item:", new)
                 # print("old item:", old)
-                dispatcher.send("activity focused", obj=self.focusItem().activity)
+                dispatcher.send("activity focused",
+                                obj=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
@@ -387,7 +394,8 @@ class ToolbarAction(QWidgetAction):
 
 
 class TimelineWidget(QWidget):
-    def __init__(self, spacecraft, subject_activity=None, act_of=None,parent=None, position=None):
+    def __init__(self, spacecraft, subject_activity=None, act_of=None,
+                 parent=None, position=None):
         super(TimelineWidget, self).__init__(parent=parent)
         self.possible_systems = []
         self.position = position
@@ -434,7 +442,8 @@ class TimelineWidget(QWidget):
 
     def disable_widget(self, parent_act=None):
         try:
-            if (self.act_of != self.spacecraft) and (self.subject_activity != parent_act):
+            if ((self.act_of != self.spacecraft) and
+                (self.subject_activity != parent_act)):
                 self.scene = self.set_new_scene()
                 self.update_view()
                 self.setDisabled(True)
@@ -469,11 +478,17 @@ class TimelineWidget(QWidget):
         self.go_back_action.setDisabled(False)
 
     def set_new_scene(self):
-        '''return a new scene with new subject activity or an empty scene if no subject activity'''
+        """
+        Return a new scene with new subject activity or an empty scene if no
+        subject activity.
+        """
         if self.act_of is not None:
-            scene = DiagramScene(self, self.subject_activity, act_of=self.act_of, position=self.position)
-            if self.subject_activity != None and len(self.subject_activity.components) > 0:
-                all_acus = [(acu.reference_designator, acu) for acu in self.subject_activity.components]
+            scene = DiagramScene(self, self.subject_activity,
+                                 act_of=self.act_of, position=self.position)
+            if (self.subject_activity != None and
+                len(self.subject_activity.components) > 0):
+                all_acus = [(acu.reference_designator, acu)
+                            for acu in self.subject_activity.components]
                 try:
                     all_acus.sort()
                 except:
@@ -484,7 +499,9 @@ class TimelineWidget(QWidget):
                     activity = acu.component
                     if activity.activity_of == self.act_of:
                         self.clear_activities_action.setDisabled(False)
-                        item = EventBlock(activity=activity, parent_activity=self.subject_activity)
+                        item = EventBlock(
+                                    activity=activity,
+                                    parent_activity=self.subject_activity)
                         item_list.append(item)
                         scene.addItem(item)
                     scene.update()
@@ -623,7 +640,7 @@ class TimelineWidget(QWidget):
             objs = self.deleted_acts.pop()
             if len(self.deleted_acts) == 0:
                 self.undo_action.setDisabled(True)
-            ds = deserialize(orb, objs)
+            deserialize(orb, objs)
             self.scene = self.set_new_scene()
             self.update_view()
             dispatcher.send("new activity", parent_act=self.subject_activity, position=self.position)
@@ -653,11 +670,11 @@ class TimelineWidget(QWidget):
         options = []
         for system in lst:
             try:
-                #check if the id is TBD
+                # check if the id is TBD
                 system_id = system.id
                 if system_id != "TBD":
                     options.append(system_id)
-            except Exception as e:
+            except:
                 pass
         return options
 
@@ -691,13 +708,11 @@ class TimelineWidget(QWidget):
                     pass
                 else:
                     existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
-                    system_exists = False
                     for subsystem in existing_subsystems:
                         # print("looking for:", system_name)
                         # print(getattr(subsystem, 'id', 'NA'))
                         if getattr(subsystem, 'id', '') == system_name:
                             # print("found subsystem:", system_name)
-                            system_exists = True
                             self.act_of = subsystem
                     self.scene = self.set_new_scene()
                     self.update_view()
@@ -841,14 +856,9 @@ class ConOpsModeler(QMainWindow):
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
 
-    def sceneScaleChanged(self, percentscale):
-        newscale = float(percentscale[:-1]) / 100.0
-
     def double_clicked_handler(self, act):
-
         if act.activity_type.id == 'cycle':
             self.system_widget.widget_drill_down(act)
-
 
     def view_subsystem(self, obj=None):
         ### change obj to activity
@@ -870,18 +880,24 @@ class ConOpsModeler(QMainWindow):
 
 
     def set_widgets(self, current_activity=None, init=False):
-        self.system_widget = TimelineWidget(self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft, position='top')
+        self.system_widget = TimelineWidget(self.spacecraft,
+                                            subject_activity=self.subject_activity,
+                                            act_of=self.spacecraft,
+                                            position='top')
         self.system_widget.setMinimumSize(900, 300)
         self.sub_widget = TimelineWidget(self.spacecraft, position='middle')
         self.sub_widget.setEnabled(False)
         self.sub_widget.setMinimumSize(900, 300)
         self.outer_layout = QGridLayout()
-        system_table = ActivityTables(subject=self.subject_activity, parent=self, act_of=self.spacecraft, position='top')
+        system_table = ActivityTables(subject=self.subject_activity,
+                                      parent=self, act_of=self.spacecraft,
+                                      position='top')
         system_table.setMinimumSize(500, 300)
         system_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.outer_layout.addWidget(self.system_widget, 0, 1)
         self.outer_layout.addWidget(system_table, 0, 0)
-        subsystem_table = ActivityTables(subject=self.subject_activity, parent=self, position='middle')
+        subsystem_table = ActivityTables(subject=self.subject_activity,
+                                         parent=self, position='middle')
         subsystem_table.setDisabled(True)
         subsystem_table.setMinimumSize(500, 300)
         subsystem_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -891,8 +907,9 @@ class ConOpsModeler(QMainWindow):
         self.widget.setMinimumSize(1450, 600)
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
-        self.sceneScaleChanged("50%")
-        self.bottom_table = ActivityTables(subject=self.subject_activity, act_of=self.spacecraft,parent=self, position='bottom')
+        self.bottom_table = ActivityTables(subject=self.subject_activity,
+                                           act_of=self.spacecraft,
+                                           parent=self, position='bottom')
         self.set_bottom_table()
         if init:
             self.right_dock = QDockWidget()
