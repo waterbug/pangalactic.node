@@ -434,6 +434,10 @@ class SpecialSortModel(QSortFilterProxyModel):
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
     reqpat = r'[a-zA-Z][a-zA-Z0-9]*(\.[0-9][0-9]*)(\.[a-zA-Z0-9][a-zA-Z0-9]*)'
 
+    def __init__(self, parent=None):
+        super(SpecialSortModel, self).__init__(parent=parent)
+        self.setSortCaseSensitivity(Qt.CaseInsensitive)
+
     def is_version(self, s):
         try:
             m = re.match(self.versionpat, str(s))
