@@ -156,6 +156,7 @@ class Main(QtWidgets.QMainWindow):
         self.tall_logo = os.path.join(orb.image_dir, config['tall_logo'])
         self.auto_update = not config.get('no_auto_update', False)
         state['last_path'] = ""
+        state['synced_projects'] = []
         # set path to server cert
         self.cert_path = os.path.join(orb.home, 'server_cert.pem')
         if os.path.exists(self.cert_path):
@@ -309,6 +310,7 @@ class Main(QtWidgets.QMainWindow):
                 self.mbus = None
                 state['connected'] = False
                 state['done_with_progress'] = False
+                state['synced_projects'] = []
             else:
                 orb.log.info('* already disconnected from message bus.')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
@@ -798,6 +800,7 @@ class Main(QtWidgets.QMainWindow):
                 self.progress_dialog.close()
                 self.progress_value = 0
                 state['done_with_progress'] = True
+            state['synced_projects'].append(state.get('project'))
         return self.mbus.session.call('vger.save', sobjs_to_save)
 
     def on_sync_library_result(self, data, project_sync=False):
@@ -2246,10 +2249,13 @@ class Main(QtWidgets.QMainWindow):
     def on_set_current_project_signal(self):
         """
         Update views as a result of a project being set, syncing project data
-        if online.
+        if [1] online, [2] project is not "SANDBOX", and [3] project has not
+        already been synced in this session (i.e., project oid is not in
+        state['synced_projects'] list).
         """
         project_oid = state.get('project')
         if (project_oid and project_oid != 'pgefobjects:SANDBOX'
+            and project_oid not in state.get('synced_projects', [])
             and state.get('connected')):
             # TODO: if project is "local", activate "enable collab" action
             rpc = self.sync_current_project(None)
