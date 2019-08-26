@@ -3,7 +3,7 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, os, platform, shutil, six, sys, time, traceback
+import argparse, atexit, os, platform, shutil, six, sys, time
 import urllib.parse, urllib.request, urllib.parse, urllib.error
 from collections import OrderedDict
 
@@ -1169,7 +1169,7 @@ class Main(QtWidgets.QMainWindow):
                 if hasattr(self, 'sys_tree'):
                     orb.log.info('  updating trees with: "{}"'.format(obj.id))
                     # sys_tree_model = self.sys_tree.model()
-                    sys_tree_model = self.sys_tree.source_model
+                    # sys_tree_model = self.sys_tree.source_model
                     if hasattr(obj, 'project'):
                         # NOTE:  SANDBOX PSUs are not synced
                         if (obj.project.oid == state.get('project') and
@@ -2053,18 +2053,17 @@ class Main(QtWidgets.QMainWindow):
             if (cname in ['Acu', 'ProjectSystemUsage']
                 and hasattr(self, 'sys_tree')):
                 # find all expanded tree nodes that reference obj
-                if cname == 'Acu':
-                    comp = obj.component
-                else:   # 'ProjectSystemUsage'
-                    comp = obj.system
-                idxs = self.sys_tree.object_indexes_in_tree(comp)
+                idxs = self.sys_tree.link_indexes_in_tree(obj)
                 # if any are found, signal them to update
                 for idx in idxs:
                     node = self.sys_tree.source_model.get_node(idx)
-                    ref_des = getattr(node.link, 'reference_designator',
-                                      '(No reference designator)')
-                    orb.log.info('  deleting position and component "%s"'
-                                 % ref_des)
+                    if cname == 'Acu':
+                        node_des = (getattr(node.link, 'reference_designator',
+                                    None) or '(No reference designator)')
+                    else:
+                        node_des = (getattr(node.link, 'system_role',
+                                    None) or '(No system role)')
+                    orb.log.info('  deleting position "%s"'.format(node_des))
                     pos = idx.row()
                     row_parent = idx.parent()
                     parent_id = self.sys_tree.source_model.get_node(
