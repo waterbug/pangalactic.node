@@ -9,12 +9,11 @@ from louie import dispatcher
 from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
 
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
-                             QHBoxLayout, QMainWindow, QSizePolicy, QWidget,
-                             QGraphicsItem, QGraphicsPolygonItem,
-                             QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
-                             QToolBox, QPushButton, QGraphicsPathItem,
-                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar,
-                             QMessageBox)
+                             QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
+                             QGraphicsPolygonItem, QGraphicsScene,
+                             QGraphicsView, QGridLayout, QMenu, QToolBox,
+                             QPushButton, QGraphicsPathItem, QVBoxLayout,
+                             QToolBar, QWidgetAction, QStatusBar, QMessageBox)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -191,7 +190,6 @@ class DiagramView(QGraphicsView):
 
     def dragEnterEvent(self, event):
         try:
-            has_act_of = self.scene().act_of
             event.accept()
         except:
             pass
@@ -275,12 +273,14 @@ class Timeline(QGraphicsPathItem):
                              component=item.activity)
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
+            dispatcher.send("modified object", obj=acu)
             if initial:
                 acu.component.id = acu.component.id or acu.reference_designator
                 acu.component.name = acu.component.name or "{} {}".format(
                                                         parent_act.name,str(i))
                 orb.save([acu.component])
                 dispatcher.send("modified activity", activity=acu.component)
+                dispatcher.send("modified object", obj=acu.component)
         if not same:
             dispatcher.send("order changed",
                             parent_act=self.scene().current_activity,
@@ -302,12 +302,8 @@ class DiagramScene(QGraphicsScene):
     def focus_changed_handler(self, new_item, old_item):
         if new_item is not None:
             if new_item != self.current_focus:
-                # self.current_focus = new_item
-                old = getattr(getattr(old_item, 'activity', None), 'id',None)
-                new = getattr(getattr(new_item, 'activity', None), 'id',None)
-                # print("new item:", new)
-                # print("old item:", old)
-                dispatcher.send("activity focused", obj=self.focusItem().activity)
+                dispatcher.send("activity focused",
+                                obj=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
         super(DiagramScene, self).mousePressEvent(mouseEvent)
@@ -349,6 +345,8 @@ class DiagramScene(QGraphicsScene):
             self.timeline.add_item(item)
             dispatcher.send("new activity", parent_act=self.current_activity,
                             act_of=self.act_of, position=self.position)
+            dispatcher.send("new object", obj=activity)
+            dispatcher.send("new object", obj=acu)
             self.update()
 
     def edit_parameters(self, activity):
@@ -522,13 +520,17 @@ class TimelineWidget(QWidget):
             self.show_empty_scene()
 
     def show_empty_scene(self):
-        '''return an empty scene'''
+        """
+        Return an empty scene.
+        """
         self.set_title()
         scene = QGraphicsScene()
         return scene
 
     def update_view(self):
-        '''update the view with a new scene'''
+        """
+        Update the view with a new scene.
+        """
         self.view.setScene(self.scene)
         self.view.show()
 
@@ -567,11 +569,12 @@ class TimelineWidget(QWidget):
 
 
     def delete_activity(self, act=None):
-        '''delete an activity, along with the children of this activity
-            keyword arguments:
-            act -- activity that needs to be deleted
-        '''
+        """
+        Delete an activity, along with the children of this activity
 
+        Keyword Args:
+            act (Activity): the activity to be deleted
+        """
         oid = getattr(act, "oid", None)
         subj_oid = self.subject_activity.oid
         current_comps = [acu.component
@@ -594,10 +597,12 @@ class TimelineWidget(QWidget):
             self.setEnabled(False)
 
     def serialized_deleted(self, act=None):
-        '''serialize the target activity and its children.
-            keyword arguments:
-            act(Activity) -- target activity
-        '''
+        """
+        Serialize the target activity and its children.
+
+        Keyword Args:
+            act (Activity) -- target activity
+        """
         if len(act.components) <= 0:
             serialized_act = serialize(orb, [act, act.where_used[0]],
                                        include_components=True)
@@ -611,10 +616,10 @@ class TimelineWidget(QWidget):
 
     def delete_children(self, act=None):
         """
-        Delete the children of the target activity
+        Delete the children of the target activity.
 
-        Keyword Arguments:
-            act(Activity): parent activity of the children needed to be deleted
+        Keyword Args:
+            act (Activity): parent activity of the children to be deleted
         """
         if len(act.components) <= 0:
             orb.delete([act])
@@ -662,7 +667,7 @@ class TimelineWidget(QWidget):
             objs = self.deleted_acts.pop()
             if len(self.deleted_acts) == 0:
                 self.undo_action.setDisabled(True)
-            ds = deserialize(orb, objs)
+            deserialize(orb, objs)
             self.scene = self.set_new_scene()
             self.update_view()
             dispatcher.send("new activity", parent_act=self.subject_activity,
@@ -697,7 +702,7 @@ class TimelineWidget(QWidget):
                 system_id = system.id
                 if system_id != "TBD":
                     options.append(system_id)
-            except Exception as e:
+            except:
                 pass
         return options
 
@@ -731,13 +736,11 @@ class TimelineWidget(QWidget):
                 else:
                     existing_subsystems = [acu.component for acu
                                            in self.spacecraft.components]
-                    system_exists = False
                     for subsystem in existing_subsystems:
                         # print("looking for:", system_name)
                         # print(getattr(subsystem, 'id', 'NA'))
                         if getattr(subsystem, 'id', '') == system_name:
                             # print("found subsystem:", system_name)
-                            system_exists = True
                             self.act_of = subsystem
                     self.scene = self.set_new_scene()
                     self.update_view()
@@ -759,6 +762,8 @@ class TimelineWidget(QWidget):
         acu = clone("Acu", assembly=self.spacecraft, component=new_subsystem)
         self.act_of = new_subsystem
         orb.save([new_subsystem, acu])
+        dispatcher.send("new object", obj=new_subsystem)
+        dispatcher.send("new object", obj=acu)
 
 class ConOpsModeler(QMainWindow):
     """
@@ -804,13 +809,12 @@ class ConOpsModeler(QMainWindow):
                 mission = clone('Mission', owner=project, id=mission_id,
                                 name=mission_name)
                 orb.save([mission])
+                dispatcher.send("new object", obj=mission)
             self.subject_activity = mission
             # self.mission = mission
-
         else:
             self.subject_activity = clone("Activity", id="temp", name="temp")
             self.mission = self.subject_activity
-
         self.project = project
         self.spacecraft = None
         psus = orb.search_exact(cname='ProjectSystemUsage', project=project)
@@ -890,14 +894,9 @@ class ConOpsModeler(QMainWindow):
     def _init_ui(self):
         orb.log.debug('  - _init_ui() ...')
 
-    def sceneScaleChanged(self, percentscale):
-        newscale = float(percentscale[:-1]) / 100.0
-
     def double_clicked_handler(self, act):
-
         if act.activity_type.id == 'cycle':
             self.system_widget.widget_drill_down(act)
-
 
     def view_subsystem(self, obj=None):
         ### change obj to activity
@@ -946,7 +945,6 @@ class ConOpsModeler(QMainWindow):
         self.widget.setMinimumSize(1450, 600)
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
-        self.sceneScaleChanged("50%")
         self.bottom_table = ActivityTables(subject=self.subject_activity,
                                            act_of=self.spacecraft,
                                            parent=self, position='bottom')
