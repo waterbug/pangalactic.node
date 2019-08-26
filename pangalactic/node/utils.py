@@ -238,15 +238,29 @@ def create_product_from_template(template):
     product_id = '-'.join([project_id, pt_id])
     product_name = ' '.join([project_id, pt_name])
     product_desc = ' '.join([project_id, pt_name])
+    # NOTE: get TBD product here to avoid a db commit()
+    tbd = orb.get('pgefobjects:TBD')
     orb.log.info('* create_product_from_template')
     product = clone('HardwareProduct', id=product_id,
                     name=product_name, description=product_desc,
                     product_type=template.product_type,
                     public=True)
-    tbd = orb.get('pgefobjects:TBD')
+    new_comps = 0
     if template.components:
         for acu in template.components:
-            pth = acu.product_type_hint or acu.component.product_type
+            if acu.component is None:
+                # if there is no component, ignore it
+                continue
+            elif getattr(acu.component, 'oid', '') == 'pgefobjects:TBD':
+                if acu.product_type_hint:
+                    # if component is TBD, use pth of acu
+                    pth = acu.product_type_hint
+                else:
+                    # if component is TBD but no pth, ignore it
+                    continue
+            else:
+                # if there is a real component, use its pt as the pth
+                pth = acu.component.product_type
             pth_id = getattr(pth, 'id', '[unspecified product type]')
             pth_name = getattr(pth, 'name', '[unspecified product type]')
             acu_id = '-'.join([product_id, pth_id])
@@ -254,8 +268,16 @@ def create_product_from_template(template):
             clone('Acu', id=acu_id, name=acu_name, assembly=product,
                   component=tbd, reference_designator=acu.reference_designator,
                   product_type_hint=pth)
-    orb.log.info('  created HardwareProduct instance with id "%s" ...' % (
-                                                               product.id))
+            new_comps += 1
+    # NOTE: put product and acus all in one db commit so tree rebuild does not
+    # get confused
+    orb.db.commit()
+    orb.log.info('  created HardwareProduct instance with id "%s" ...'.format(
+                                                                   product.id))
+    if new_comps:
+        orb.log.info('  and {} components.'.format(new_comps))
+    else:
+        orb.log.info('  and no components.')
     return product
 
 def get_object_title(obj, new=False):
