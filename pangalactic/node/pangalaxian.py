@@ -209,6 +209,10 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.set_product_modeler_interface,
                            'set current product')
         dispatcher.connect(self.update_sync_progress, 'sync progress')
+        # "refresh tree views" is needed specifically after a template is
+        # dropped and creates a new product (sometimes stale tree artifacts may
+        # be displayed in component positions until the tree is refreshed)
+        dispatcher.connect(self.refresh_tree_views, 'refresh tree views')
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
