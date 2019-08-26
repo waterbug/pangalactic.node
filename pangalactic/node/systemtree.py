@@ -809,10 +809,11 @@ class SystemTreeModel(QAbstractItemModel):
                                     node.link.name))
                                 dispatcher.send('modified object',
                                                 obj=node.link)
-                                if product.components:
-                                    orb.save(product.components)
-                                    for acu in product.components:
-                                        dispatcher.send('new object', obj=acu)
+                                # NOTE: see if this is the problem ...
+                                # if product.components:
+                                    # orb.save(product.components)
+                                    # for acu in product.components:
+                                        # dispatcher.send('new object', obj=acu)
                                 return True
                         else:
                             # case 1.2:  drop item is product -> use it if
