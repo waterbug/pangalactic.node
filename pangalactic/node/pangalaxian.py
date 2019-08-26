@@ -1218,22 +1218,23 @@ class Main(QtWidgets.QMainWindow):
                                                             obj.assembly.id))
                         comp = obj.component
                         orb.log.info('  - component: {}'.format(comp.id))
-                        idxs = self.sys_tree.object_indexes_in_tree(
-                                                                obj.assembly)
-                        orb.log.info('  the assembly occurs {} times'.format(
-                                                                   len(idxs)))
-                        orb.log.info('  in the system tree.')
-                        if idxs:
-                            orb.log.info('  adding component nodes ...')
-                        for i, idx in enumerate(idxs):
-                            try:
-                                assembly_node = sys_tree_model.get_node(idx)
-                                sys_tree_model.add_nodes(
-                                    [sys_tree_model.node_for_object(
-                                     comp, assembly_node, link=obj)],
-                                    parent=idx)
-                            except Exception:
-                                orb.log.info(traceback.format_exc())
+                        self.refresh_tree_views()
+                        # idxs = self.sys_tree.object_indexes_in_tree(
+                                                                # obj.assembly)
+                        # orb.log.info('  the assembly occurs {} times'.format(
+                                                                   # len(idxs)))
+                        # orb.log.info('  in the system tree.')
+                        # if idxs:
+                            # orb.log.info('  adding component nodes ...')
+                        # for i, idx in enumerate(idxs):
+                            # try:
+                                # assembly_node = sys_tree_model.get_node(idx)
+                                # sys_tree_model.add_nodes(
+                                    # [sys_tree_model.node_for_object(
+                                     # comp, assembly_node, link=obj)],
+                                    # parent=idx)
+                            # except Exception:
+                                # orb.log.info(traceback.format_exc())
                     # resize dashboard columns if necessary
                     self.refresh_dashboard()
             elif (isinstance(obj, orb.classes['RoleAssignment'])

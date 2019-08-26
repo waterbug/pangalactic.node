@@ -809,11 +809,10 @@ class SystemTreeModel(QAbstractItemModel):
                                     node.link.name))
                                 dispatcher.send('modified object',
                                                 obj=node.link)
-                                # NOTE: see if this is the problem ...
-                                # if product.components:
-                                    # orb.save(product.components)
-                                    # for acu in product.components:
-                                        # dispatcher.send('new object', obj=acu)
+                                if product.components:
+                                    orb.save(product.components)
+                                    for acu in product.components:
+                                        dispatcher.send('new object', obj=acu)
                                 return True
                         else:
                             # case 1.2:  drop item is product -> use it if
@@ -1517,6 +1516,9 @@ class SystemTreeView(QTreeView):
             obj (Product):  specified object
             idx (QModelIndex):  index of the assembly or project node
         """
+        # NOTE: ignore "TBD" objects
+        if getattr(obj, 'oid', '') == 'pgefobjects:TBD':
+            return []
         model = self.source_model
         assembly_node = model.get_node(idx)
         if hasattr(assembly_node.link, 'component'):
