@@ -50,7 +50,6 @@ class ActivityTables(QMainWindow):
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-
         dispatcher.connect(self.on_activity_added, 'new activity')
         dispatcher.connect(self.on_activity_modified, 'modified activity')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
@@ -142,7 +141,7 @@ class ActivityTables(QMainWindow):
                                                       'unidentified activity'))
         self.title.setText(txt)
 
-    def set_bottom_title(self, parent_act,position=None):
+    def set_bottom_title(self, parent_act, position=None):
         try:
             if position == 'top':
                 txt = '{} for {} in {}'.format(self.param_menu.currentText(),
@@ -234,6 +233,7 @@ class ActivityTables(QMainWindow):
         return QSize(900, 800)
 
     def on_activity_modified(self, activity=None):
+        orb.log.debug('* ActivityTable: on_activity_modified()')
         if activity and activity.where_used:
             parent_act = getattr(activity.where_used[0], 'assembly', None)
             if parent_act:
@@ -241,11 +241,14 @@ class ActivityTables(QMainWindow):
 
     def on_activity_added(self, parent_act=None, modified=False, act_of=None,
                           position=None):
-        if self.position == position or self.position =='bottom':
+        orb.log.debug('* ActivityTable: on_activity_added() called ...')
+        if self.position == position or self.position == 'bottom':
             if modified:
                 self.statusbar.showMessage('Activity Modified!')
+                orb.log.debug('  - activity modified!')
             else:
                 self.statusbar.showMessage('Activity Added!')
+                orb.log.debug('  - activity added!')
                 self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
                                         position=position)
 
