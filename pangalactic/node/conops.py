@@ -13,7 +13,8 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
                              QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
                              QToolBox, QPushButton, QGraphicsPathItem,
-                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar, QMessageBox)
+                             QVBoxLayout, QToolBar, QWidgetAction, QStatusBar,
+                             QMessageBox)
 from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
@@ -25,9 +26,9 @@ from pangalactic.node.activities  import ActivityTables
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
-from pangalactic.node.widgets    import NameLabel
-from pangalactic.core.serializers      import serialize, deserialize
-from pangalactic.core               import config
+from pangalactic.node.widgets     import NameLabel
+from pangalactic.core.serializers import serialize, deserialize
+from pangalactic.core             import config
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
     'step:203' : None,
@@ -116,7 +117,8 @@ class EventBlock(QGraphicsPolygonItem):
         self.setBrush(Qt.white)
         path = QPainterPath()
         #---draw blocks depending on the 'shape' string passed in
-        self.parent_activity = parent_activity or self.activity.where_used[0].assembly
+        self.parent_activity = (parent_activity or
+                                self.activity.where_used[0].assembly)
         dispatcher.connect(self.id_changed_handler, "modified activity")
         self.create_actions()
 
@@ -135,41 +137,44 @@ class EventBlock(QGraphicsPolygonItem):
             self.myPolygon = path.toFillPolygon(QTransform())
             self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
         self.setPolygon(self.myPolygon)
-        self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '', self, point_size=8)
+        self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
+                                      self, point_size=8)
 
     def id_changed_handler(self, activity=None):
         try:
             if activity is self.activity:
                 self.block_label.set_text(self.activity.name)
-            dispatcher.send("activity modified", activity=activity, position=self.scene().position)
+            dispatcher.send("activity modified", activity=activity,
+                            position=self.scene().position)
         except:
             pass
+
     def mouseDoubleClickEvent(self, event):
         super(EventBlock, self).mouseDoubleClickEvent(event)
         dispatcher.send("double clicked", act=self.activity)
 
     def contextMenuEvent(self, event):
-
-
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
         self.menu.addAction(self.edit_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
-        self.delete_action = QAction("Delete", self.scene(), statusTip="Delete Item",
+        self.delete_action = QAction("Delete", self.scene(),
+                                     statusTip="Delete Item",
                                      triggered=self.delete_item)
-        self.edit_action = QAction("Edit", self.scene(), statusTip="Edit activity", triggered=self.edit_activity)
-
+        self.edit_action = QAction("Edit", self.scene(),
+                                   statusTip="Edit activity",
+                                   triggered=self.edit_activity)
 
     def edit_activity(self):
         self.scene().edit_parameters(self.activity)
 
     def delete_item(self):
-        dispatcher.send("remove activity", parent_act=self.parent_activity, act=self.activity )
+        dispatcher.send("remove activity", parent_act=self.parent_activity,
+                        act=self.activity)
 
     def itemChange(self, change, value):
-
         return value
 
     def mousePressEvent(self, event):
@@ -244,7 +249,8 @@ class Timeline(QGraphicsPathItem):
     def make_point_list(self):
         self.length = self.path.length()-2*self.circle_length
         factor = self.length/(len(self.item_list)+1)
-        self.list_of_pos = [(n+1)*factor+100 for n in range(0, len(self.item_list))]
+        self.list_of_pos = [(n+1)*factor+100
+                            for n in range(0, len(self.item_list))]
 
     def populate(self, item_list):
         self.item_list = item_list
@@ -265,20 +271,25 @@ class Timeline(QGraphicsPathItem):
 
         for i,item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
-            acu = orb.select("Acu", assembly=parent_act, component=item.activity)
+            acu = orb.select("Acu", assembly=parent_act,
+                             component=item.activity)
             acu.reference_designator = "{}{}".format(parent_act.id,str(i))
             orb.save([acu])
             if initial:
-                acu.component.id = acu.component.id or acu.reference_designator# for testing purposes
-                acu.component.name = acu.component.name or "{} {}".format(parent_act.name,str(i))
+                acu.component.id = acu.component.id or acu.reference_designator
+                acu.component.name = acu.component.name or "{} {}".format(
+                                                        parent_act.name,str(i))
                 orb.save([acu.component])
                 dispatcher.send("modified activity", activity=acu.component)
         if not same:
-            dispatcher.send("order changed", parent_act=self.scene().current_activity, position=self.scene().position)
+            dispatcher.send("order changed",
+                            parent_act=self.scene().current_activity,
+                            position=self.scene().position)
         self.update()
 
 class DiagramScene(QGraphicsScene):
-    def __init__(self, parent, current_activity=None, act_of=None,position=None):
+    def __init__(self, parent, current_activity=None, act_of=None,
+                 position=None):
         super(DiagramScene, self).__init__(parent)
         self.position = position
         self.current_activity = current_activity
@@ -313,7 +324,8 @@ class DiagramScene(QGraphicsScene):
         self.grabbed_item == None
 
     def dropEvent(self, event):
-        if (event.mimeData().text() == "Cycle") and (self.act_of.product_type.id != 'spacecraft'):
+        if ((event.mimeData().text() == "Cycle") and
+            (self.act_of.product_type.id != 'spacecraft')):
             pass
         else:
             if event.mimeData().text() == "Cycle":
@@ -324,14 +336,19 @@ class DiagramScene(QGraphicsScene):
             else:
                 activity_type = orb.select("ActivityType", name="Event")
             project = orb.get(state.get("project"))
-            activity = clone("Activity", activity_type = activity_type, owner=project, activity_of=self.act_of)
-            acu = clone("Acu", assembly=self.current_activity, component=activity)
+            activity = clone("Activity", activity_type=activity_type,
+                             owner=project, activity_of=self.act_of,
+                             public=True)
+            acu = clone("Acu", assembly=self.current_activity,
+                        component=activity)
             orb.save([acu, activity])
-            item = EventBlock(activity=activity, parent_activity=self.current_activity)
+            item = EventBlock(activity=activity,
+                              parent_activity=self.current_activity)
             item.setPos(event.scenePos())
             self.addItem(item)
             self.timeline.add_item(item)
-            dispatcher.send("new activity", parent_act=self.current_activity, act_of=self.act_of, position=self.position)
+            dispatcher.send("new activity", parent_act=self.current_activity,
+                            act_of=self.act_of, position=self.position)
             self.update()
 
     def edit_parameters(self, activity):
@@ -388,7 +405,8 @@ class ToolbarAction(QWidgetAction):
 
 
 class TimelineWidget(QWidget):
-    def __init__(self, spacecraft, subject_activity=None, act_of=None,parent=None, position=None):
+    def __init__(self, spacecraft, subject_activity=None,
+                 act_of=None,parent=None, position=None):
         super(TimelineWidget, self).__init__(parent=parent)
         self.possible_systems = []
         self.position = position
@@ -435,12 +453,12 @@ class TimelineWidget(QWidget):
 
     def disable_widget(self, parent_act=None):
         try:
-            if (self.act_of != self.spacecraft) and (self.subject_activity != parent_act):
+            if ((self.act_of != self.spacecraft) and
+                (self.subject_activity != parent_act)):
                 self.scene = self.set_new_scene()
                 self.update_view()
                 self.setDisabled(True)
                 dispatcher.send("disable widget")
-
         except:
             pass
 
@@ -461,7 +479,8 @@ class TimelineWidget(QWidget):
             obj (EventBlock):  the block that received the double-click
         """
 
-        dispatcher.send("drill down", obj=act, act_of=self.act_of, position=self.position)
+        dispatcher.send("drill down", obj=act, act_of=self.act_of,
+                        position=self.position)
         self.subject_activity = act
         self.scene = self.set_new_scene()
         self.update_view()
@@ -470,11 +489,17 @@ class TimelineWidget(QWidget):
         self.go_back_action.setDisabled(False)
 
     def set_new_scene(self):
-        '''return a new scene with new subject activity or an empty scene if no subject activity'''
+        """
+        Return a new scene with new subject activity or an empty scene if no
+        subject activity.
+        """
         if self.act_of is not None:
-            scene = DiagramScene(self, self.subject_activity, act_of=self.act_of, position=self.position)
-            if self.subject_activity != None and len(self.subject_activity.components) > 0:
-                all_acus = [(acu.reference_designator, acu) for acu in self.subject_activity.components]
+            scene = DiagramScene(self, self.subject_activity,
+                                 act_of=self.act_of, position=self.position)
+            if (self.subject_activity != None and
+                len(self.subject_activity.components) > 0):
+                all_acus = [(acu.reference_designator, acu)
+                            for acu in self.subject_activity.components]
                 try:
                     all_acus.sort()
                 except:
@@ -485,7 +510,8 @@ class TimelineWidget(QWidget):
                     activity = acu.component
                     if activity.activity_of == self.act_of:
                         self.clear_activities_action.setDisabled(False)
-                        item = EventBlock(activity=activity, parent_activity=self.subject_activity)
+                        item = EventBlock(activity=activity,
+                                      parent_activity=self.subject_activity)
                         item_list.append(item)
                         scene.addItem(item)
                     scene.update()
@@ -548,7 +574,8 @@ class TimelineWidget(QWidget):
 
         oid = getattr(act, "oid", None)
         subj_oid = self.subject_activity.oid
-        current_comps = [acu.component for acu in self.subject_activity.components]
+        current_comps = [acu.component
+                         for acu in self.subject_activity.components]
         if len(current_comps) == 1:
             self.clear_activities_action.setDisabled(True)
         if act in current_comps:
@@ -557,7 +584,9 @@ class TimelineWidget(QWidget):
             self.delete_children(act=act)
             self.deleted_acts.append(self.temp_serialized)
             self.temp_serialized = []
-            dispatcher.send("removed activity", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
+            dispatcher.send("removed activity",
+                            parent_act=self.subject_activity,
+                            act_of=self.act_of, position=self.position)
         self.scene = self.set_new_scene()
         self.update_view()
         # self.update()
@@ -570,19 +599,23 @@ class TimelineWidget(QWidget):
             act(Activity) -- target activity
         '''
         if len(act.components) <= 0:
-            serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
+            serialized_act = serialize(orb, [act, act.where_used[0]],
+                                       include_components=True)
             self.temp_serialized.extend(serialized_act)
         elif len(act.components) > 0:
             for acu in act.components:
                 self.serialized_deleted(act=acu.component)
-            serialized_act = serialize(orb, [act, act.where_used[0]], include_components=True)
+            serialized_act = serialize(orb, [act, act.where_used[0]],
+                                       include_components=True)
             self.temp_serialized.extend(serialized_act)
 
     def delete_children(self, act=None):
-        '''delete the children of the target activity
-            keyword Arguments:
-            act(Activity) -- parent activity of the children needed to be deleted
-        '''
+        """
+        Delete the children of the target activity
+
+        Keyword Arguments:
+            act(Activity): parent activity of the children needed to be deleted
+        """
         if len(act.components) <= 0:
             orb.delete([act])
         elif len(act.components) > 0:
@@ -591,7 +624,9 @@ class TimelineWidget(QWidget):
             orb.delete([act])
 
     def clear_activities(self):
-        '''delete all the activities and their children on this widget'''
+        """
+        Delete all the activities and their children on this widget.
+        """
         children = [acu.component for acu in self.subject_activity.components]
         for child in children:
             self.undo_action.setDisabled(False)
@@ -602,7 +637,8 @@ class TimelineWidget(QWidget):
         self.scene = self.set_new_scene()
         self.update_view()
         self.clear_activities_action.setDisabled(True)
-        dispatcher.send("cleared activities", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
+        dispatcher.send("cleared activities", parent_act=self.subject_activity,
+                        act_of=self.act_of, position=self.position)
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -616,9 +652,11 @@ class TimelineWidget(QWidget):
             self.scene = self.set_new_scene()
             self.update_view()
             self.disable_widget()
-            dispatcher.send("go back", obj=self.subject_activity, position=self.position)
+            dispatcher.send("go back", obj=self.subject_activity,
+                            position=self.position)
         except:
             pass
+
     def undo(self):
         try:
             objs = self.deleted_acts.pop()
@@ -627,7 +665,8 @@ class TimelineWidget(QWidget):
             ds = deserialize(orb, objs)
             self.scene = self.set_new_scene()
             self.update_view()
-            dispatcher.send("new activity", parent_act=self.subject_activity, position=self.position)
+            dispatcher.send("new activity", parent_act=self.subject_activity,
+                            position=self.position)
         except:
             pass
 
@@ -650,7 +689,7 @@ class TimelineWidget(QWidget):
 
     def create_option_list(self):
         lst = [acu.component for acu in self.spacecraft.components]
-        # print(lst,"0000000000000000000000000000000000000000000000000000000000000000")
+        # print(lst,"0000000000000000000000000000000000000000000000000000000")
         options = []
         for system in lst:
             try:
@@ -663,7 +702,6 @@ class TimelineWidget(QWidget):
         return options
 
     def make_combo_box(self):
-        # print("make combo box!!!!!!!!!!!!!!!!!!!!!")
         self.combo_box = QComboBox(self)
         self.options = self.create_option_list()
         # print("self.options =", self.options)
@@ -678,20 +716,21 @@ class TimelineWidget(QWidget):
         self.update_view()
 
     def change_subsystem(self, index=None):
-        # print("change subsystem called~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)")
+        # print("change subsystem called~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)")
         # print("act_of", self.act_of)
         # print("spacecraft:", self.spacecraft)
         # print("---------------------------------")
         if self.act_of != self.spacecraft:
             # system_name = ''
             # if hasattr(self, 'options'):
-            # print("self.options:8888888888888888888888888",self.options)
+            # print("self.options:8888888888888888888888888", self.options)
             try:
                 system_name = self.options[index]
                 if self.subject_activity.activity_type.id == 'cycle':
                     pass
                 else:
-                    existing_subsystems = [acu.component for acu in self.spacecraft.components] #list of objects
+                    existing_subsystems = [acu.component for acu
+                                           in self.spacecraft.components]
                     system_exists = False
                     for subsystem in existing_subsystems:
                         # print("looking for:", system_name)
@@ -702,12 +741,21 @@ class TimelineWidget(QWidget):
                             self.act_of = subsystem
                     self.scene = self.set_new_scene()
                     self.update_view()
-                dispatcher.send("changed subsystem", parent_act=self.subject_activity, act_of=self.act_of, position=self.position)
+                dispatcher.send("changed subsystem",
+                                parent_act=self.subject_activity,
+                                act_of=self.act_of,
+                                position=self.position)
             except:
-                pass
+                orb.log.debug("* TLWidget.change_subsystem() failed.")
+
     def make_new_system(self, system_name):
+        """
+        (Deprecated) Make a new subsystem if one does not exist.
+        """
         pro_type = orb.select("ProductType", id=system_name)
-        new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner, product_type=pro_type, id=pro_type.id, name=pro_type.id)
+        new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner,
+                              product_type=pro_type, id=pro_type.id,
+                              name=pro_type.id, public=True)
         acu = clone("Acu", assembly=self.spacecraft, component=new_subsystem)
         self.act_of = new_subsystem
         orb.save([new_subsystem, acu])
@@ -871,18 +919,24 @@ class ConOpsModeler(QMainWindow):
 
 
     def set_widgets(self, current_activity=None, init=False):
-        self.system_widget = TimelineWidget(self.spacecraft, subject_activity = self.subject_activity, act_of=self.spacecraft, position='top')
+        self.system_widget = TimelineWidget(
+                                    self.spacecraft,
+                                    subject_activity=self.subject_activity,
+                                    act_of=self.spacecraft, position='top')
         self.system_widget.setMinimumSize(900, 300)
         self.sub_widget = TimelineWidget(self.spacecraft, position='middle')
         self.sub_widget.setEnabled(False)
         self.sub_widget.setMinimumSize(900, 300)
         self.outer_layout = QGridLayout()
-        system_table = ActivityTables(subject=self.subject_activity, parent=self, act_of=self.spacecraft, position='top')
+        system_table = ActivityTables(subject=self.subject_activity,
+                                      parent=self, act_of=self.spacecraft,
+                                      position='top')
         system_table.setMinimumSize(500, 300)
         system_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.outer_layout.addWidget(self.system_widget, 0, 1)
         self.outer_layout.addWidget(system_table, 0, 0)
-        subsystem_table = ActivityTables(subject=self.subject_activity, parent=self, position='middle')
+        subsystem_table = ActivityTables(subject=self.subject_activity,
+                                         parent=self, position='middle')
         subsystem_table.setDisabled(True)
         subsystem_table.setMinimumSize(500, 300)
         subsystem_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -893,7 +947,9 @@ class ConOpsModeler(QMainWindow):
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         self.sceneScaleChanged("50%")
-        self.bottom_table = ActivityTables(subject=self.subject_activity, act_of=self.spacecraft,parent=self, position='bottom')
+        self.bottom_table = ActivityTables(subject=self.subject_activity,
+                                           act_of=self.spacecraft,
+                                           parent=self, position='bottom')
         self.set_bottom_table()
         if init:
             self.right_dock = QDockWidget()
@@ -911,3 +967,4 @@ if __name__ == '__main__':
     mw = ConOpsModeler(external=True)
     mw.show()
     sys.exit(app.exec_())
+
