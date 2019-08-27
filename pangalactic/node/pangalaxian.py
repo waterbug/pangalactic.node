@@ -1064,28 +1064,38 @@ class Main(QtWidgets.QMainWindow):
 
         Keyword Args:
             content (tuple):  content of the pub/sub message, which has the
-                form of a 4-tuple:  (obj_oid, obj_id, actor_oid, actor_id)
+                form of a 3-tuple:  (oid_id_dict, actor_oid, actor_id)
+                where oid_id_dict is a dict of the form (oid: id}
         """
         # TODO:  other actions will be needed ...
         orb.log.info('* "remote: decloaked" signal received ...')
+        unknown_oids = []
         if not content:
             orb.log.debug(' - content was empty.')
             return
         try:
-            obj_oid, obj_id, actor_oid, actor_id = content
+            oid_id_dict, actor_oid, actor_id = content
         except:
             # handle the error (pop up a notification dialog)
             orb.log.debug('  - content could not be parsed:')
             orb.log.debug('    {}'.format(str(content)))
             return
-        obj = orb.get(obj_oid)
-        if obj:
-            orb.log.info('  - decloaked object is already in local db.')
-        else:
-            # get object from repository ...
-            orb.log.info('  - decloaked object unknown -- get from repo...')
-            rpc = self.mbus.session.call('vger.get_object', obj_oid,
-                                           include_components=True)
+        for obj_oid, obj_id in oid_id_dict.items():
+            obj = orb.get(obj_oid)
+            if obj:
+                orb.log.info('  - object {} is already in local db.'.format(
+                                                                    obj_id))
+            else:
+                # get object from repository ...
+                log_msg = '- object {} is unknown -- get from repo...'.format(
+                                                                    obj_id)
+                orb.log.info('  {}'.format(log_msg))
+                unknown_oids.append(obj_oid)
+        if unknown_oids:
+            rpc = self.mbus.session.call('vger.get_objects', unknown_oids,
+                                         include_components=True)
+            # callback is the same as for "get_object", since that also returns
+            # a list of objects ...
             rpc.addCallback(self.on_rpc_get_object)
             rpc.addErrback(self.on_failure)
 
@@ -1142,8 +1152,8 @@ class Main(QtWidgets.QMainWindow):
 
     def on_rpc_get_object(self, serialized_objects):
         """
-        Handle the result of the rpc 'vger.get_object', which returns a list of
-        serialized objects.
+        Handle the results of the rpcs 'vger.get_object' and
+        'vger.get_objects', which return a list of serialized objects.
 
         Args:
             serialized_objects (list): a list of serialized objects
