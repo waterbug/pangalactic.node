@@ -884,18 +884,18 @@ class SystemTreeModel(QAbstractItemModel):
                                     product_type_hint=dropped_item.product_type,
                                     reference_designator=ref_des)
                             orb.save([new_acu])
+                            dispatcher.send('new object', obj=new_acu)
                             orb.log.info('      Acu created: %s' % new_acu.name)
                             self.add_nodes([self.node_for_object(product,
                                             parent=self.get_node(parent),
                                             link=new_acu)], parent)
                             self.successful_drop_index = parent
                             self.successful_drop.emit()
-                            dispatcher.send('new object', obj=new_acu)
                             if product.components:
                                 orb.save(product.components)
-                                for acu in product.components:
-                                    dispatcher.send('new object', obj=acu)
-                                dispatcher.send('refresh tree views')
+                                dispatcher.send('new objects',
+                                                objs=product.components)
+                            # dispatcher.send('refresh tree views')
                             return True
                         else:
                             # case 2.2:  drop item is a product -> add it as a new

@@ -182,6 +182,7 @@ class Main(QtWidgets.QMainWindow):
         # self.create_timer()
         # register various signals ...
         dispatcher.connect(self.on_new_object_signal, 'new object')
+        dispatcher.connect(self.on_new_objects_signal, 'new objects')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.refresh_tree_and_dashboard, 'dashboard mod')
@@ -2208,6 +2209,28 @@ class Main(QtWidgets.QMainWindow):
                 rpc.addErrback(self.on_failure)
         else:
             orb.log.info('  *** no object provided -- ignoring! ***')
+
+    def on_new_objects_signal(self, objs=None, cname=''):
+        """
+        Handle (local) dispatcher signal for "new objects".
+        """
+        orb.log.info('* local "new objects" signal received ...')
+        if objs:
+            if self.mode == 'system':
+                if getattr(self, 'sys_tree', None):
+                    for obj in objs:
+                        self.update_object_in_trees(obj)
+            elif self.mode == 'db':
+                self.refresh_cname_list()
+                self.set_object_table_for(cname)
+            if state['connected']:
+                serialized_objs = serialize(orb, objs)
+                orb.log.info('  calling rpc vger.save() ...')
+                rpc = self.mbus.session.call('vger.save', serialized_objs)
+                rpc.addCallback(self.on_result)
+                rpc.addErrback(self.on_failure)
+        else:
+            orb.log.info('  *** no objects provided -- ignoring! ***')
 
     # def on_null_result(self):
         # orb.log.info('  rpc success.')
