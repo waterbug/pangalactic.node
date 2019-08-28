@@ -156,7 +156,10 @@ class Node(object):
     def is_traversed(self):
         if self.cname == 'FakeRoot':
             return True
-        elif issubclass(orb.classes[self.cname], orb.classes['Product']):
+        # *** THIS 'issubclass' test appears to have been the source of the
+        # tree build "race" bug!!!
+        # elif issubclass(orb.classes[self.cname], orb.classes['Product']):
+        elif isinstance(self.obj, orb.classes['Product']):
             return self.child_count() == len(self.obj.components)
         elif self.cname == 'Project':
             return self.child_count() == len(self.obj.systems)
