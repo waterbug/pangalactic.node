@@ -32,7 +32,6 @@ from pangalactic.node.dialogs     import AssemblyNodeDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 # from pangalactic.node.utils      import HTMLDelegate
 from pangalactic.node.utils       import (clone, create_mime_data,
-                                          create_product_from_template,
                                           extract_mime_content, get_pixmap)
 
 
@@ -649,8 +648,7 @@ class SystemTreeModel(QAbstractItemModel):
         MIME Types accepted for drops.
         """
         # TODO:  should return mime types for Product and *ALL* subclasses
-        return ['application/x-pgef-hardware-product',
-                'application/x-pgef-template']
+        return ['application/x-pgef-hardware-product']
 
     def mimeData(self, indexes):
         # according to PyQt docs, return 0 (not an empty list) if no indexes
@@ -670,19 +668,13 @@ class SystemTreeModel(QAbstractItemModel):
         possible cases:
 
             0: dropped item would cause a cycle -> abort
-            1: drop target is "TBD" -> replace it
-                1.1:  drop item is Template -> create a new Product from it
-                1.2:  drop item is Product -> use it
+            1: drop target is "TBD" -> replace it if drop item is a Product
+               and matches the "product_type_hint" of the Acu
             2: drop target is a normal Product -> add a new component position
-                2.1:  drop item is a Template -> create a new Product from it
-                      that will be added as a component
-                2.2:  drop item is a Product -> add it as a new component
-            3: drop target is a Project
-                3.1:  drop item is a Template
-                      3.1.1 -> use it to create a new Product as a "system"
-                      3.1.2 -> add it as a Template so it can be edited
-                3.2:  drop item is a Product -> *if* it is not already in use
-                      on the Project, use it to create a new ProjectSystemUsage
+               with the dropped item as the new component
+            3: drop target is a Project ->
+               if drop item is a Product *and* it is not already in use
+               on the Project, use it to create a new ProjectSystemUsage
         """
         orb.log.info('* SystemTreeModel.dropMimeData()')
         try:
@@ -693,15 +685,10 @@ class SystemTreeModel(QAbstractItemModel):
             if not drop_target or not hasattr(drop_target, 'oid'):
                 orb.log.info('  - drop ignored -- invalid drop target.')
                 return False
-            if (data.hasFormat("application/x-pgef-hardware-product")
-                or data.hasFormat("application/x-pgef-template")):
+            if data.hasFormat("application/x-pgef-hardware-product"):
                 self.successful_drop_index = None
-                if data.hasFormat("application/x-pgef-hardware-product"):
-                    content = extract_mime_content(data,
+                content = extract_mime_content(data,
                                         "application/x-pgef-hardware-product")
-                else:
-                    content = extract_mime_content(data,
-                                            "application/x-pgef-template")
                 icon, obj_oid, obj_id, obj_name, obj_cname = content
                 dropped_item = orb.get(obj_oid)
                 orb.log.info('  - item dropped: %s' % (dropped_item.name))
@@ -757,102 +744,40 @@ class SystemTreeModel(QAbstractItemModel):
                                       QMessageBox.Ok)
                             if ret == QMessageBox.Ok:
                                 return False
-                        if data.hasFormat("application/x-pgef-template"):
-                            # case 1.1:  drop item is Template -> create a new
-                            # product from it
-                            ptype = dropped_item.product_type
-                            hint = ''
-                            if getattr(node.link, 'product_type_hint', None):
-                                hint = getattr(node.link.product_type_hint,
-                                               'name', '')
-                            if hint and ptype.name != hint:
-                                # ret = QMessageBox.warning(
-                                ret = QMessageBox.critical(
+                        # use dropped item if its product_type is the same as
+                        # acu's "product_type_hint"
+                        ptname = getattr(dropped_item.product_type,
+                                         'name', '')
+                        hint = ''
+                        if getattr(node.link, 'product_type_hint', None):
+                            hint = getattr(node.link.product_type_hint,
+                                           'name', '')
+                        if hint and ptname != hint:
+                            # ret = QMessageBox.warning(
+                            ret = QMessageBox.critical(
                                         self.parent, "Product Type Check",
-                                        "The template you dropped is not for "
-                                        "a {}.".format(hint),
+                                        "The product you dropped is not a "
+                                        "{}.".format(hint),
                                         QMessageBox.Cancel)
-                                        # "use it anyway?".format(hint),
+                                        # " Add it anyway?".format(hint),
                                         # QMessageBox.Yes | QMessageBox.No)
-                                if ret == QMessageBox.Cancel:
-                                    return False
-                            elif (hint and ptype.name == hint and
-                                  hasattr(node.link, 'assembly') and
-                                  getattr(node.link.assembly.product_type,
-                                          'name', '') == hint):
-                                # do not create a component of the same
-                                # product_type as its assembly
-                                txt = "Not permitted: template has same "
-                                txt += "product type as assembly.".format(hint)
-                                ret = QMessageBox.critical(
-                                        self.parent, "Product Type Check", txt,
-                                        QMessageBox.Cancel)
-                                if ret == QMessageBox.Cancel:
-                                    return False
-                            else:
-                                product = create_product_from_template(
-                                                                dropped_item)
-                                # call object editor:
-                                dlg = PgxnObject(product, edit_mode=True,
-                                                 new=True, modal_mode=True,
-                                                 parent=self.parent)
-                                dlg.show()
-                                if not getattr(node.link, 'product_type_hint',
-                                               None):
-                                    pt = product.product_type
-                                    node.link.product_type_hint = pt
-                                # NOTE: orb.save([node.link]) is called by Node
-                                # obj setter
-                                node.obj = product
-                                self.dataChanged.emit(parent, parent)
-                                self.successful_drop.emit()
-                                orb.log.info(
-                                    '   node link modified [product created '
-                                    'from template]: {}'.format(
-                                    node.link.name))
-                                dispatcher.send('modified object',
-                                                obj=node.link)
-                                if product.components:
-                                    orb.save(product.components)
-                                    for acu in product.components:
-                                        dispatcher.send('new object', obj=acu)
-                                    # dispatcher.send('refresh tree views')
-                                return True
+                            if ret == QMessageBox.Cancel:
+                                return False
                         else:
-                            # case 1.2:  drop item is product -> use it if
-                            # dropped item's product_type same as acu's "hint"
-                            ptname = getattr(dropped_item.product_type,
-                                             'name', '')
-                            hint = ''
-                            if getattr(node.link, 'product_type_hint', None):
-                                hint = getattr(node.link.product_type_hint,
-                                               'name', '')
-                            if hint and ptname != hint:
-                                # ret = QMessageBox.warning(
-                                ret = QMessageBox.critical(
-                                            self.parent, "Product Type Check",
-                                            "The product you dropped is not a "
-                                            "{}.".format(hint),
-                                            QMessageBox.Cancel)
-                                            # " Add it anyway?".format(hint),
-                                            # QMessageBox.Yes | QMessageBox.No)
-                                if ret == QMessageBox.Cancel:
-                                    return False
-                            else:
-                                if not getattr(node.link, 'product_type_hint',
-                                               None):
-                                    pt = dropped_item.product_type
-                                    node.link.product_type_hint = pt
-                                # NOTE: orb.save([node.link]) is called by Node
-                                # obj setter
-                                node.obj = dropped_item
-                                self.dataChanged.emit(parent, parent)
-                                self.successful_drop.emit()
-                                orb.log.info('   node link mod: {}'.format(
-                                             node.link.name))
-                                dispatcher.send('modified object',
-                                                obj=node.link)
-                                return True
+                            if not getattr(node.link, 'product_type_hint',
+                                           None):
+                                pt = dropped_item.product_type
+                                node.link.product_type_hint = pt
+                            # NOTE: orb.save([node.link]) is called by Node
+                            # obj setter
+                            node.obj = dropped_item
+                            self.dataChanged.emit(parent, parent)
+                            self.successful_drop.emit()
+                            orb.log.info('   node link mod: {}'.format(
+                                         node.link.name))
+                            dispatcher.send('modified object',
+                                            obj=node.link)
+                            return True
                     else:
                         # case 2: drop target is a normal product -> add new Acu
                         if not 'modify' in get_perms(drop_target):
@@ -863,46 +788,7 @@ class SystemTreeModel(QAbstractItemModel):
                                       QMessageBox.Ok, self.parent)
                             popup.show()
                             return False
-                        if data.hasFormat("application/x-pgef-template"):
-                            # case 2.1:  drop item is a Template -> use it to
-                            # create a new product that will be a dropped_item
-                            ptype = dropped_item.product_type
-                            product = create_product_from_template(dropped_item)
-                            dlg = PgxnObject(product, edit_mode=True,
-                                             new=True, modal_mode=True,
-                                             unmask=['public'],
-                                             parent=self.parent)
-                            dlg.show()
-                            orb.log.info('      creating Acu ...')
-                            # generate a new reference_designator
-                            ref_des = orb.get_next_ref_des(drop_target,
-                                                           product)
-                            # NOTE: clone assigns local user as creator & modifier,
-                            # uses dtstamp() for create_|mod_datetime ...
-                            new_acu = clone('Acu',
-                                    id=get_acu_id(drop_target.id, ref_des),
-                                    name=get_acu_name(drop_target.name, ref_des),
-                                    assembly=drop_target,
-                                    component=product,
-                                    product_type_hint=dropped_item.product_type,
-                                    reference_designator=ref_des)
-                            orb.save([new_acu])
-                            dispatcher.send('new object', obj=new_acu)
-                            orb.log.info('      Acu created: %s' % new_acu.name)
-                            self.add_nodes([self.node_for_object(product,
-                                            parent=self.get_node(parent),
-                                            link=new_acu)], parent)
-                            self.successful_drop_index = parent
-                            self.successful_drop.emit()
-                            if product.components:
-                                orb.save(product.components)
-                                for acu in product.components:
-                                    dispatcher.send('new object', obj=acu)
-                                # dispatcher.send('refresh tree views')
-                            return True
                         else:
-                            # case 2.2:  drop item is a product -> add it as a new
-                            # component
                             orb.log.info('      creating Acu ...')
                             # generate a new reference_designator
                             ref_des = orb.get_next_ref_des(drop_target,
@@ -927,118 +813,38 @@ class SystemTreeModel(QAbstractItemModel):
                 elif target_cname == 'Project':
                     # case 3: drop target is a project
                     orb.log.info('    + target is a Project -- creating PSU ...')
-                    # TODO:  apply or generate system_role attr
-                    if data.hasFormat("application/x-pgef-template"):
-                        # case 3.1:  drop item is a Template -> use it to
-                        # create a new product that will be a component
-                        ret = QMessageBox.warning(
-                                self.parent, "Template Check",
-                                "You dropped a Template -- do you want to create "
-                                "a product from it?",
-                                QMessageBox.Yes | QMessageBox.No)
-                        if ret == QMessageBox.Yes:
-                            ptype = dropped_item.product_type
-                            product = create_product_from_template(dropped_item)
-                            dlg = PgxnObject(product, edit_mode=True,
-                                             new=True, modal_mode=True,
-                                             unmask=['public'],
-                                             parent=self.parent)
-                            dlg.show()
-                            orb.log.info('      creating ProjectSystemUsage')
-                            psu_role = getattr(product.product_type, 'name',
-                                               'System')
-                            psu_id = ':'.join([drop_target.id,
-                                               '-'.join(psu_role.split(' '))])
-                            psu_name = (drop_target.name + ':' + psu_role)
-                            new_psu = clone('ProjectSystemUsage',
-                                            id=psu_id,
-                                            name=psu_name,
-                                            system_role=psu_role,
-                                            project=drop_target,
-                                            system=product)
-                            orb.save([new_psu])
-                            orb.log.info('      ProjectSystemUsage created: %s'
-                                          % psu_name)
-                            self.add_nodes([self.node_for_object(
-                                               product,
-                                               parent=self.get_node(parent),
-                                               link=new_psu)],
-                                           parent)
-                            self.successful_drop_index = parent
-                            self.successful_drop.emit()
-                            dispatcher.send('new object', obj=new_psu)
-                            if product.components:
-                                orb.save(product.components)
-                                for acu in product.components:
-                                    dispatcher.send('new object', obj=acu)
-                            return True
-                        elif ret == QMessageBox.No:
-                            # check whether a PSU already exists for that Template
-                            psu = orb.search_exact(cname='ProjectSystemUsage',
-                                                   project=drop_target,
-                                                   system=dropped_item)
-                            if psu:
-                                QMessageBox.warning(self.parent,
-                                    'Already exists',
-                                    'Template "{0}" already exists '
-                                    'on project {1}'.format(
-                                    dropped_item.name, drop_target.id))
-                            else:
-                                psu_role = getattr(dropped_item.product_type, 'name',
-                                                   'System')
-                                psu_id = ':'.join([drop_target.id,
-                                                   '-'.join(psu_role.split(' '))])
-                                psu_name = (drop_target.name + ':' + psu_role)
-                                new_psu = clone('ProjectSystemUsage',
-                                                id=psu_id,
-                                                name=psu_name,
-                                                system_role=psu_role,
-                                                project=drop_target,
-                                                system=dropped_item)
-                                orb.save([new_psu])
-                                orb.log.info('      ProjectSystemUsage created: %s'
-                                              % psu_name)
-                                self.add_nodes([self.node_for_object(
-                                                dropped_item,
-                                                parent=self.get_node(parent),
-                                                link=new_psu)], parent)
-                                self.successful_drop_index = parent
-                                self.successful_drop.emit()
-                                dispatcher.send('new object', obj=new_psu)
-                                return True
+                    # case 3:  drop item is a product -> *if* it is not
+                    # already in use on the project, add a new PSU
+                    psu = orb.search_exact(cname='ProjectSystemUsage',
+                                           project=drop_target,
+                                           system=dropped_item)
+                    if psu:
+                        QMessageBox.warning(self.parent,
+                                        'Already exists',
+                                        'System "{0}" already exists on '
+                                        'project {1}'.format(
+                                        dropped_item.name, drop_target.id))
                     else:
-                        # case 3.2:  drop item is a product -> *if* it is not
-                        # already in use on the project, add a new Psu
-                        psu = orb.search_exact(cname='ProjectSystemUsage',
-                                               project=drop_target,
-                                               system=dropped_item)
-                        if psu:
-                            QMessageBox.warning(self.parent,
-                                            'Already exists',
-                                            'System "{0}" already exists on '
-                                            'project {1}'.format(
-                                            dropped_item.name, drop_target.id))
-                        else:
-                            psu_id = 'psu-' + dropped_item.id + '-' + drop_target.id
-                            psu_name = ('psu: ' + dropped_item.name +
-                                        ' (system used on) ' + drop_target.name)
-                            psu_role = getattr(dropped_item.product_type, 'name',
-                                               'System')
-                            new_psu = clone('ProjectSystemUsage',
-                                            id=psu_id,
-                                            name=psu_name,
-                                            system_role=psu_role,
-                                            project=drop_target,
-                                            system=dropped_item)
-                            orb.save([new_psu])
-                            orb.log.info('      ProjectSystemUsage created: %s'
-                                          % psu_name)
-                            self.add_nodes([self.node_for_object(
-                                       dropped_item, parent=self.get_node(parent),
-                                       link=new_psu)], parent)
-                            self.successful_drop_index = parent
-                            self.successful_drop.emit()
-                            dispatcher.send('new object', obj=new_psu)
+                        psu_id = 'psu-' + dropped_item.id + '-' + drop_target.id
+                        psu_name = ('psu: ' + dropped_item.name +
+                                    ' (system used on) ' + drop_target.name)
+                        psu_role = getattr(dropped_item.product_type, 'name',
+                                           'System')
+                        new_psu = clone('ProjectSystemUsage',
+                                        id=psu_id,
+                                        name=psu_name,
+                                        system_role=psu_role,
+                                        project=drop_target,
+                                        system=dropped_item)
+                        orb.save([new_psu])
+                        orb.log.info('      ProjectSystemUsage created: %s'
+                                      % psu_name)
+                        self.add_nodes([self.node_for_object(
+                                   dropped_item, parent=self.get_node(parent),
+                                   link=new_psu)], parent)
+                        self.successful_drop_index = parent
+                        self.successful_drop.emit()
+                        dispatcher.send('new object', obj=new_psu)
                 else:
                     orb.log.info('    + target is not a Project or Product '
                                   '-- no action taken.')

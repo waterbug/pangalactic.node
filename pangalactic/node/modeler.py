@@ -21,7 +21,8 @@ from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
 from pangalactic.node.dialogs     import Viewer3DDialog
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.utils       import clone, extract_mime_data
+from pangalactic.node.utils       import (clone, extract_mime_data,
+                                          create_product_from_template)
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 
 supported_model_types = {
@@ -589,11 +590,14 @@ class ProductInfoPanel(QWidget):
 
     def mimeTypes(self):
         # TODO:  should return mime types for Product and *ALL* subclasses
-        return ['application/x-pgef-hardware-product']
+        return ["application/x-pgef-hardware-product",
+                "application/x-pgef-template"]
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasFormat(
-                                "application/x-pgef-hardware-product"):
+        if (event.mimeData().hasFormat(
+                        "application/x-pgef-hardware-product") or
+            event.mimeData().hasFormat(
+                        "application/x-pgef-template")):
             event.accept()
         else:
             event.ignore()
@@ -613,6 +617,17 @@ class ProductInfoPanel(QWidget):
                 event.ignore()
                 orb.log.info("* product drop event: ignoring oid '%s' -- "
                              "not found in db." % p_oid)
+        elif event.mimeData().hasFormat("application/x-pgef-template"):
+            # drop item is Template -> create a new product from it
+            data = extract_mime_data(event, "application/x-pgef-template")
+            icon, t_oid, t_id, t_name, t_cname = data
+            template = orb.get(t_oid)
+            product = create_product_from_template(template)
+            if product.components:
+                orb.save(product.components)
+                for acu in product.components:
+                    dispatcher.send('new object', obj=acu)
+            dispatcher.send("drop on product info", p=product)
         else:
             event.ignore()
 
