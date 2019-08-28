@@ -182,7 +182,6 @@ class Main(QtWidgets.QMainWindow):
         # self.create_timer()
         # register various signals ...
         dispatcher.connect(self.on_new_object_signal, 'new object')
-        dispatcher.connect(self.on_new_objects_signal, 'new objects')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.refresh_tree_and_dashboard, 'dashboard mod')
@@ -210,10 +209,6 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.set_product_modeler_interface,
                            'set current product')
         dispatcher.connect(self.update_sync_progress, 'sync progress')
-        # "refresh tree views" is needed specifically after a template is
-        # dropped and creates a new product (sometimes stale tree artifacts may
-        # be displayed in component positions until the tree is refreshed)
-        dispatcher.connect(self.refresh_tree_views, 'refresh tree views')
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
@@ -1065,38 +1060,28 @@ class Main(QtWidgets.QMainWindow):
 
         Keyword Args:
             content (tuple):  content of the pub/sub message, which has the
-                form of a 3-tuple:  (oid_id_dict, actor_oid, actor_id)
-                where oid_id_dict is a dict of the form (oid: id}
+                form of a 4-tuple:  (obj_oid, obj_id, actor_oid, actor_id)
         """
         # TODO:  other actions will be needed ...
         orb.log.info('* "remote: decloaked" signal received ...')
-        unknown_oids = []
         if not content:
             orb.log.debug(' - content was empty.')
             return
         try:
-            oid_id_dict, actor_oid, actor_id = content
+            obj_oid, obj_id, actor_oid, actor_id = content
         except:
             # handle the error (pop up a notification dialog)
             orb.log.debug('  - content could not be parsed:')
             orb.log.debug('    {}'.format(str(content)))
             return
-        for obj_oid, obj_id in oid_id_dict.items():
-            obj = orb.get(obj_oid)
-            if obj:
-                orb.log.info('  - object {} is already in local db.'.format(
-                                                                    obj_id))
-            else:
-                # get object from repository ...
-                log_msg = '- object {} is unknown -- get from repo...'.format(
-                                                                    obj_id)
-                orb.log.info('  {}'.format(log_msg))
-                unknown_oids.append(obj_oid)
-        if unknown_oids:
-            rpc = self.mbus.session.call('vger.get_objects', unknown_oids,
-                                         include_components=True)
-            # callback is the same as for "get_object", since that also returns
-            # a list of objects ...
+        obj = orb.get(obj_oid)
+        if obj:
+            orb.log.info('  - decloaked object is already in local db.')
+        else:
+            # get object from repository ...
+            orb.log.info('  - decloaked object unknown -- get from repo...')
+            rpc = self.mbus.session.call('vger.get_object', obj_oid,
+                                           include_components=True)
             rpc.addCallback(self.on_rpc_get_object)
             rpc.addErrback(self.on_failure)
 
@@ -1153,8 +1138,8 @@ class Main(QtWidgets.QMainWindow):
 
     def on_rpc_get_object(self, serialized_objects):
         """
-        Handle the results of the rpcs 'vger.get_object' and
-        'vger.get_objects', which return a list of serialized objects.
+        Handle the result of the rpc 'vger.get_object', which returns a list of
+        serialized objects.
 
         Args:
             serialized_objects (list): a list of serialized objects
@@ -2209,28 +2194,6 @@ class Main(QtWidgets.QMainWindow):
                 rpc.addErrback(self.on_failure)
         else:
             orb.log.info('  *** no object provided -- ignoring! ***')
-
-    def on_new_objects_signal(self, objs=None, cname=''):
-        """
-        Handle (local) dispatcher signal for "new objects".
-        """
-        orb.log.info('* local "new objects" signal received ...')
-        if objs:
-            if self.mode == 'system':
-                if getattr(self, 'sys_tree', None):
-                    for obj in objs:
-                        self.update_object_in_trees(obj)
-            elif self.mode == 'db':
-                self.refresh_cname_list()
-                self.set_object_table_for(cname)
-            if state['connected']:
-                serialized_objs = serialize(orb, objs)
-                orb.log.info('  calling rpc vger.save() ...')
-                rpc = self.mbus.session.call('vger.save', serialized_objs)
-                rpc.addCallback(self.on_result)
-                rpc.addErrback(self.on_failure)
-        else:
-            orb.log.info('  *** no objects provided -- ignoring! ***')
 
     # def on_null_result(self):
         # orb.log.info('  rpc success.')
