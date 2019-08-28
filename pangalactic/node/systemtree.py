@@ -816,7 +816,7 @@ class SystemTreeModel(QAbstractItemModel):
                                     orb.save(product.components)
                                     for acu in product.components:
                                         dispatcher.send('new object', obj=acu)
-                                    dispatcher.send('refresh tree views')
+                                    # dispatcher.send('refresh tree views')
                                 return True
                         else:
                             # case 1.2:  drop item is product -> use it if
@@ -896,9 +896,9 @@ class SystemTreeModel(QAbstractItemModel):
                             self.successful_drop.emit()
                             if product.components:
                                 orb.save(product.components)
-                                dispatcher.send('new objects',
-                                                objs=product.components)
-                            # dispatcher.send('refresh tree views')
+                                for acu in product.components:
+                                    dispatcher.send('new object', obj=acu)
+                                # dispatcher.send('refresh tree views')
                             return True
                         else:
                             # case 2.2:  drop item is a product -> add it as a new
