@@ -1167,7 +1167,6 @@ class Main(QtWidgets.QMainWindow):
             elif isinstance(obj, (orb.classes['Acu'],
                                   orb.classes['ProjectSystemUsage'])):
                 if hasattr(self, 'sys_tree'):
-                    orb.log.info('  updating trees with: "{}"'.format(obj.id))
                     # sys_tree_model = self.sys_tree.model()
                     # sys_tree_model = self.sys_tree.source_model
                     if hasattr(obj, 'project'):
@@ -1218,23 +1217,23 @@ class Main(QtWidgets.QMainWindow):
                                                             obj.assembly.id))
                         comp = obj.component
                         orb.log.info('  - component: {}'.format(comp.id))
-                        self.refresh_tree_views()
-                        # idxs = self.sys_tree.object_indexes_in_tree(
-                                                                # obj.assembly)
-                        # orb.log.info('  the assembly occurs {} times'.format(
-                                                                   # len(idxs)))
-                        # orb.log.info('  in the system tree.')
-                        # if idxs:
-                            # orb.log.info('  adding component nodes ...')
-                        # for i, idx in enumerate(idxs):
-                            # try:
-                                # assembly_node = sys_tree_model.get_node(idx)
-                                # sys_tree_model.add_nodes(
-                                    # [sys_tree_model.node_for_object(
-                                     # comp, assembly_node, link=obj)],
-                                    # parent=idx)
-                            # except Exception:
-                                # orb.log.info(traceback.format_exc())
+                        # self.refresh_tree_views()
+                        idxs = self.sys_tree.object_indexes_in_tree(
+                                                                obj.assembly)
+                        orb.log.info('  the assembly occurs {} times'.format(
+                                                                   len(idxs)))
+                        orb.log.info('  in the system tree.')
+                        if idxs:
+                            orb.log.info('  adding component nodes ...')
+                        for i, idx in enumerate(idxs):
+                            try:
+                                assembly_node = sys_tree_model.get_node(idx)
+                                sys_tree_model.add_nodes(
+                                    [sys_tree_model.node_for_object(
+                                     comp, assembly_node, link=obj)],
+                                    parent=idx)
+                            except Exception:
+                                orb.log.info(traceback.format_exc())
                     # resize dashboard columns if necessary
                     self.refresh_dashboard()
             elif (isinstance(obj, orb.classes['RoleAssignment'])
@@ -2786,11 +2785,6 @@ class Main(QtWidgets.QMainWindow):
         self.top_dock_widget.setWidget(self.dashboard_panel)
         # TODO:  right dock contains libraries
         self.right_dock.setVisible(True)
-        # run set_system_model_window() *AFTER* refreshing tree, so
-        # that the model window will get all the remaining space
-        # NOTE: EXPERIMENTALLY running set_system_model_window() as part of
-        # refresh_tree_views()
-        # self.set_system_model_window()
 
     def set_system_model_window(self, system=None):
         orb.log.debug('* [pgxn] setting system model window ...')
