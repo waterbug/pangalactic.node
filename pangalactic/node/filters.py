@@ -164,15 +164,15 @@ class ProductFilterDialog(QDialog):
             self.engineering_discipline_selected = False
 
     def product_type_selected(self, clicked_index):
-        clicked_row = clicked_index.row()
-        orb.log.debug('* clicked row is "{}"'.format(clicked_row))
+        # clicked_row = clicked_index.row()
+        # orb.log.debug('* clicked row is "{}"'.format(clicked_row))
         mapped_row = self.product_type_panel.proxy_model.mapToSource(
                                                         clicked_index).row()
-        orb.log.debug(
-            '  product type selected [mapped row] is: {}'.format(mapped_row))
+        # orb.log.debug(
+            # '  product type selected [mapped row] is: {}'.format(mapped_row))
         pt = self.product_type_panel.objs[mapped_row]
-        pt_name = getattr(pt, 'name', '[not set]')
-        orb.log.debug('  ... which is "{}"'.format(pt_name))
+        # pt_name = getattr(pt, 'name', '[not set]')
+        # orb.log.debug('  ... which is "{}"'.format(pt_name))
         if pt:
             msg = 'Product Type: {}'.format(pt.name)
             dispatcher.send('product types selected', msg=msg, objs=[pt])
@@ -191,8 +191,8 @@ class ProductFilterDialog(QDialog):
                        self.product_type_panel.proxy_model.mapToSource(
                                                                 idx).row()])
         pts = [pt for pt in pts if pt.id != 'TBD']
-        orb.log.debug(' - selected product types: {}'.format(
-                                   '|'.join([pt.id for pt in pts])))
+        # orb.log.debug(' - selected product types: {}'.format(
+                                   # '|'.join([pt.id for pt in pts])))
         if (self.cb_all.isChecked() or not pts
             or self.engineering_discipline_selected):
             # all or none -> ALL
@@ -347,11 +347,11 @@ class ProxyView(QTableView):
             self.setModel(proxy_model)
         self.setSortingEnabled(True)
         if as_library:
-            orb.log.debug('  ... as library.')
+            # orb.log.debug('  ... as library.')
             self.setDragEnabled(True)
             self.setDragDropMode(QAbstractItemView.DragDrop)
         else:
-            orb.log.debug('  ... non-library.')
+            # orb.log.debug('  ... non-library.')
             self.setDragEnabled(False)
         self.setShowGrid(False)
         # NOTE: default is Qt.ElideRight
@@ -423,12 +423,12 @@ class FilterPanel(QWidget):
         super(FilterPanel, self).__init__(parent=parent)
         self.as_library = as_library
         if as_library and cname:
-            orb.log.debug('* Create FilterPanel as {} library ...'.format(
-                                                                    cname))
+            # orb.log.debug('* Create FilterPanel as {} library ...'.format(
+                                                                    # cname))
             self.cname = cname
             self.objs = orb.get_by_type(cname) or [orb.get('pgefobjects:TBD')]
         else:
-            orb.log.debug('* Create FilterPanel ...')
+            # orb.log.debug('* Create FilterPanel ...')
             self.objs = objs or [orb.get('pgefobjects:TBD')]
             self.cname = self.objs[0].__class__.__name__
         schema = orb.schemas[self.cname]
@@ -522,7 +522,7 @@ class FilterPanel(QWidget):
         self.dirty = False
 
     def set_source_model(self, model):
-        orb.log.debug('  - FilterPanel.set_source_model()')
+        # orb.log.debug('  - FilterPanel.set_source_model()')
         self.proxy_model.setSourceModel(model)
         for i, colname in enumerate(self.view):
             self.proxy_view.setColumnWidth(i,
@@ -537,7 +537,7 @@ class FilterPanel(QWidget):
             objs (iterable):  iterable of objects to use for the model
             cls (class):  class of the model to be instantiated
         """
-        orb.log.debug('  - FilterPanel.create_model()')
+        # orb.log.debug('  - FilterPanel.create_model()')
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
         self.objs = objs or [orb.get('pgefobjects:TBD')]
@@ -546,7 +546,7 @@ class FilterPanel(QWidget):
         return model
 
     def refresh(self):
-        orb.log.debug('  - FilterPanel.refresh()')
+        # orb.log.debug('  - FilterPanel.refresh()')
         if self.as_library and self.cname:
             self.objs = orb.get_by_type(self.cname)
         self.set_source_model(self.create_model(objs=self.objs))
@@ -628,7 +628,7 @@ class FilterPanel(QWidget):
         if len(self.proxy_view.selectedIndexes()) >= 1:
             i = self.proxy_model.mapToSource(
                 self.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('* clicked index: {}]'.format(i))
+            # orb.log.debug('* clicked index: {}]'.format(i))
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             obj = orb.get(oid)
             template = create_template_from_product(obj)

@@ -43,13 +43,13 @@ class LibraryListModel(QAbstractListModel):
             parent (QWidget):  the library model's parent widget
         """
         self.subtypes = include_subtypes
-        orb.log.info("* LibraryListModel for class %s initializing" % cname)
+        # orb.log.debug("* LibraryListModel for class %s initializing" % cname)
         super(LibraryListModel, self).__init__(parent=parent)
         self.cname = cname
         self.refresh()
 
     def refresh(self):
-        orb.log.info("* LibraryListModel: %s library refresh ..." % self.cname)
+        # orb.log.debug("* LibraryListModel: %s library refresh ..." % self.cname)
         if self.subtypes:
             objs = orb.get_all_subtypes(self.cname)
         else:
@@ -60,8 +60,8 @@ class LibraryListModel(QAbstractListModel):
             key=lambda o: getattr(o, 'name', '') or  getattr(o, 'id', ''))
         for obj in objs:
             self.add_object(obj)
-        orb.log.info("  - objs: {}".format(', '.join(
-            [getattr(obj, 'id', 'none') or 'none' for obj in self.objs])))
+        # orb.log.debug("  - objs: {}".format(', '.join(
+            # [getattr(obj, 'id', 'none') or 'none' for obj in self.objs])))
 
     def add_object(self, obj):
         """
@@ -213,7 +213,7 @@ class LibraryListView(QListView):
         # mapped_row = self.table_proxy.mapToSource(clicked_index).row()
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0].row()
-            orb.log.debug('* clicked index: {}]'.format(i))
+            # orb.log.debug('* clicked index: {}]'.format(i))
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
             dlg = PgxnObject(obj, modal_mode=True, parent=self)
@@ -226,7 +226,7 @@ class LibraryListView(QListView):
         # TODO:  invoke a "Template Wizard"
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0].row()
-            orb.log.debug('* clicked index: {}]'.format(i))
+            # orb.log.debug('* clicked index: {}]'.format(i))
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
             template = create_template_from_product(obj)
@@ -412,9 +412,9 @@ class LibraryListWidget(QWidget):
                                            'pgefobjects:admin'])
             people = [p for p in orb.get_by_type('Person')
                       if p not in oids_non_grata]
-            orb.log.info('- oids non grata: {}'.format([p.oid
-                                                for p in oids_non_grata]))
-            orb.log.info('- people: {}'.format([p.oid for p in people]))
+            # orb.log.debug('- oids non grata: {}'.format([p.oid
+                                                # for p in oids_non_grata]))
+            # orb.log.debug('- people: {}'.format([p.oid for p in people]))
             people.sort(key=lambda o: getattr(o, 'last_name', '') or '')
             widget = FilterPanel(people, view=view, as_library=True,
                                  label=select_label, word_wrap=self.word_wrap,
@@ -435,30 +435,30 @@ class LibraryListWidget(QWidget):
         self.stack.setCurrentIndex(index)
 
     def refresh(self, cname=None, **kw):
-        orb.log.info("* LibraryListWidget.refresh(cname={})".format(cname))
+        # orb.log.debug("* LibraryListWidget.refresh(cname={})".format(cname))
         if cname:
             # if cname, just refresh that lib widget
             lib_widget = self.libraries.get(cname)
             if hasattr(lib_widget, 'refresh'):
-                orb.log.debug("  lib_widget.refresh() for {}".format(cname))
+                # orb.log.debug("  lib_widget.refresh() for {}".format(cname))
                 lib_widget.refresh()
             elif (hasattr(lib_widget, 'model') and
                   hasattr(lib_widget.model(), 'refresh')):
-                orb.log.debug("  lib_widget.model().refresh()")
-                orb.log.debug("  for {}".format(cname))
+                # orb.log.debug("  lib_widget.model().refresh()")
+                # orb.log.debug("  for {}".format(cname))
                 lib_widget.model().refresh()
         else:
             # otherwise, refresh all lib widgets
             for cname in self.libraries:
                 lib_widget = self.libraries[cname]
                 if hasattr(lib_widget, 'refresh'):
-                    orb.log.debug("  lib_widget.refresh() for {}".format(
-                                                                    cname))
+                    # orb.log.debug("  lib_widget.refresh() for {}".format(
+                                                                    # cname))
                     lib_widget.refresh()
                 elif (hasattr(lib_widget, 'model') and
                       hasattr(lib_widget.model(), 'refresh')):
-                    orb.log.debug("  lib_widget.model().refresh()")
-                    orb.log.debug("  for {}".format(cname))
+                    # orb.log.debug("  lib_widget.model().refresh()")
+                    # orb.log.debug("  for {}".format(cname))
                     lib_widget.model().refresh()
         # call on_only_mine_toggled() to ensure filtering is consistent with
         # state after a refresh
@@ -469,9 +469,9 @@ class LibraryListWidget(QWidget):
         self.filter_dlg.show()
 
     def on_product_types_selected(self, msg='', objs=None):
-        orb.log.info('* on_product_types_selected:')
-        orb.log.info('  objs: {}'.format(', '.join([o.id for o in objs])))
-        orb.log.info('  msg: {}'.format(msg))
+        # orb.log.debug('* on_product_types_selected:')
+        # orb.log.debug('  objs: {}'.format(', '.join([o.id for o in objs])))
+        # orb.log.debug('  msg: {}'.format(msg))
         hw_lib = self.libraries.get('HardwareProduct')
         if hw_lib:
             self.msg = msg
@@ -565,9 +565,9 @@ class LibraryDialog(QDialog):
         self.filter_dlg.show()
 
     def on_product_types_selected(self, msg='', objs=None):
-        orb.log.info('* on_product_types_selected:')
-        orb.log.info('  objs: {}'.format(', '.join([o.id for o in objs])))
-        orb.log.info('  msg: {}'.format(msg))
+        # orb.log.debug('* on_product_types_selected:')
+        # orb.log.debug('  objs: {}'.format(', '.join([o.id for o in objs])))
+        # orb.log.debug('  msg: {}'.format(msg))
         self.msg = msg
         self.product_types = objs
         select_product_types(self.lib_view, msg=msg,
@@ -584,7 +584,7 @@ class LibraryDialog(QDialog):
                                  product_types=self.product_types)
 
     def refresh(self, cname=None, **kw):
-        orb.log.info("* LibraryDialog.refresh(cname={})".format(cname))
+        # orb.log.debug("* LibraryDialog.refresh(cname={})".format(cname))
         if self.cname == 'HardwareProduct':
             select_product_types(self.lib_view, msg=self.msg,
                                  only_mine=state.get('only_mine'),

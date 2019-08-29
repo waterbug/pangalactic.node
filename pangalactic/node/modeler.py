@@ -62,7 +62,7 @@ def get_model_path(model):
         return ''
     # check if there is a STEP AP203 / AP214 model type
     model_type_oid = getattr(model.type_of_model, 'oid', '')
-    orb.log.debug('  - model type oid: "{}"'.format(model_type_oid))
+    # orb.log.debug('  - model type oid: "{}"'.format(model_type_oid))
     if (model.has_representations and model_type_oid in supported_model_types):
         # FIXME:  for now we assume 1 Representation and 1 File
         rep = model.has_representations[0]
@@ -126,7 +126,7 @@ class ModelWindow(QMainWindow):
         # NOTE: this set_subject() call serves only to create the diagram_view,
         # which is needed by _init_ui(); the final set_subject() actually sets
         # the subject to the currently selected object
-        self.set_subject(obj=obj)
+        self.set_subject(obj=obj, msg='(creating diagram view)')
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
@@ -136,7 +136,7 @@ class ModelWindow(QMainWindow):
                            'diagram object drill down')
         dispatcher.connect(self.save_diagram_connector,
                            'diagram connector added')
-        self.set_subject(obj=obj)
+        self.set_subject(obj=obj, msg='(setting to selected object)')
 
     def sizeHint(self):
         if self.preferred_size:
@@ -144,7 +144,7 @@ class ModelWindow(QMainWindow):
         return QSize(900, 800)
 
     def _init_ui(self):
-        orb.log.debug('  - _init_ui() ...')
+        # orb.log.debug('  - _init_ui() ...')
         # set a placeholder for the central widget
         self.set_placeholder()
         self.init_toolbar()
@@ -273,7 +273,7 @@ class ModelWindow(QMainWindow):
         self.cache_block_model()
         self.history.append(ModelerState._make((self.obj, self.idx)))
         self.idx = None
-        self.set_subject(obj=obj)
+        self.set_subject(obj=obj, msg='(setting from diagram drill-down)')
 
     def set_subject_from_node(self, index=None, obj=None):
         """
@@ -288,9 +288,9 @@ class ModelWindow(QMainWindow):
         self.cache_block_model()
         self.history.append(ModelerState._make((self.obj, self.idx)))
         self.idx = index
-        self.set_subject(obj=obj)
+        self.set_subject(obj=obj, msg='(setting from tree node selection)')
 
-    def set_subject(self, obj=None):
+    def set_subject(self, obj=None, msg=''):
         """
         Set an object for the current modeler context.  If the object does not
         have a Block model one is created from its components (or an empty
@@ -299,8 +299,10 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        orb.log.info('* ModelWindow.set_subject()')
-        orb.log.info('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        orb.log.debug('* ModelWindow.set_subject({})'.format(
+                      getattr(obj, 'oid', 'None')))
+        if msg:
+            orb.log.debug('  {}'.format(msg))
         # reset model_files
         self.model_files = {}
         if hasattr(self, 'view_cad_action'):
@@ -312,7 +314,7 @@ class ModelWindow(QMainWindow):
         self.obj = obj
         if self.obj:
             if isinstance(self.obj, orb.classes['Modelable']):
-                orb.log.info('* ModelWindow: checking for models ...')
+                # orb.log.debug('* ModelWindow: checking for models ...')
                 # model_types = set()
                 if self.obj.has_models:
                     for m in self.obj.has_models:
@@ -357,7 +359,7 @@ class ModelWindow(QMainWindow):
         try:
             model, fpath = self.models_by_label.get('CAD')
             if fpath:
-                orb.log.info('* ModelWindow.display_cad_model({})'.format(
+                orb.log.debug('* ModelWindow.display_cad_model({})'.format(
                                                                     fpath))
                 viewer = Viewer3DDialog(self)
                 viewer.show()
@@ -369,9 +371,9 @@ class ModelWindow(QMainWindow):
         """
         Display a block diagram for the current object.
         """
-        orb.log.info('* Modeler:  display_block_diagram()')
+        # orb.log.debug('* Modeler:  display_block_diagram()')
         if not getattr(self, 'obj', None):
-            orb.log.info('  no object selected.')
+            # orb.log.info('  no object selected.')
             return
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
@@ -389,12 +391,12 @@ class ModelWindow(QMainWindow):
             orb.log.info('  - restoring saved block diagram ...')
             scene.restore_diagram(model, objs)
         else:
-            if model and model.get('dirty'):
-                orb.log.info('  - block diagram found needed redrawing,')
-            elif not model:
-                orb.log.info('  - no block diagram found in cache or files ')
-            orb.log.info('    generating new block diagram ...')
-            # orb.log.info('  - generating diagram (cache disabled for testing)')
+            # if model and model.get('dirty'):
+                # orb.log.debug('  - block diagram found needed redrawing,')
+            # elif not model:
+                # orb.log.debug('  - no block diagram found in cache or files ')
+            orb.log.debug('    generating new block diagram ...')
+            # orb.log.debug('  - generating diagram (cache disabled for testing)')
             scene.create_ibd(objs)
             # create a block Model object if self.obj doesn't have one
             block_model_type = orb.get(BLOCK_OID)

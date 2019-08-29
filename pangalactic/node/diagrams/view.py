@@ -248,10 +248,10 @@ class DiagramScene(QGraphicsScene):
         Args:
             items (list of ObjectBlock): blocks to be enclosed
         """
-        orb.log.info('* DiagramScene: create_ibd_subject_block()')
+        # orb.log.debug('* DiagramScene: create_ibd_subject_block()')
         if items:
             item_group = self.createItemGroup(items)
-            orb.log.info('  - DiagramScene: created item group ...')
+            # orb.log.debug('  - DiagramScene: created item group ...')
             brect = item_group.boundingRect()
             sb_width = brect.width() + 150
             sb_height = brect.height() + 150
@@ -270,7 +270,7 @@ class DiagramScene(QGraphicsScene):
         Args:
             objs (list of Modelables): objects to create blocks for
         """
-        orb.log.info('* DiagramScene: create_ibd()')
+        # orb.log.debug('* DiagramScene: create_ibd()')
         # TODO:  use actual block widths/heights in placement algorithm ... for
         # now, use some defaults for simplification
         w = 100
@@ -284,7 +284,7 @@ class DiagramScene(QGraphicsScene):
         # create component blocks in 2 vertical columns
         for obj in objs:
             all_ports += obj.ports
-            orb.log.info('  - creating block for "%s" ...' % obj.name)
+            # orb.log.debug('  - creating block for "%s" ...' % obj.name)
             if i == 2.0:
                 left_col = right_ports = False
                 p = QPointF(7*w, y_right_next)
@@ -293,8 +293,8 @@ class DiagramScene(QGraphicsScene):
                 left_col = right_ports = True
                 p = QPointF(w, y_left_next)
                 i += 1.0
-            orb.log.info('    ... at position ({}, {}) ...'.format(p.x(),
-                                                                   p.y()))
+            # orb.log.debug('    ... at position ({}, {}) ...'.format(p.x(),
+                                                                   # p.y()))
             new_item = self.create_item(ObjectBlock, obj=obj, pos=p,
                                         right_ports=right_ports)
             items.append(new_item)
@@ -318,10 +318,10 @@ class DiagramScene(QGraphicsScene):
                          flow.end_port in all_ports and
                          flow.flow_context == self.subject)]
         if all_flows:
-            orb.log.info('  - flows found: {}'.format(
+            orb.log.debug('  - flows found: {}'.format(
                                     str([f.id for f in all_flows])))
         else:
-            orb.log.info('  - no flows found')
+            orb.log.debug('  - no flows found')
         for flow in all_flows:
             start_item = port_blocks[flow.start_port.oid]
             end_item = port_blocks[flow.end_port.oid]
@@ -344,7 +344,7 @@ class DiagramScene(QGraphicsScene):
         the diagram is deserialized (flows are auto-routed, so it is not
         necessary to save their geometry).
         """
-        orb.log.info('* DiagramScene: save_diagram()')
+        # orb.log.debug('* DiagramScene: save_diagram()')
         object_blocks = {}
         subject_block = {}
         for shape in self.items():
@@ -352,7 +352,7 @@ class DiagramScene(QGraphicsScene):
                 x = shape.x()
                 y = shape.y()
                 rp = getattr(shape, 'right_ports', False)
-                orb.log.debug('* ObjectBlock at {}, {}'.format(x, y))
+                # orb.log.debug('* ObjectBlock at {}, {}'.format(x, y))
                 object_blocks[shape.obj.oid] = dict(x=x, y=y, right_ports=rp)
             ## Instantiating the ObjectBlock will recreate its PortBlocks
             ## automatically, and RoutedConnectors (Flows) will know their
@@ -360,8 +360,8 @@ class DiagramScene(QGraphicsScene):
             ## TODO: specify positions of PortBlocks (if positions will
             ## be modifiable by preference or for routing)
         # check on routing channel ...
-        orb.log.debug('* routing channel: {}'.format(
-                                                self.get_routing_channel()))
+        # orb.log.debug('* routing channel: {}'.format(
+                                                # self.get_routing_channel()))
         return dict(object_blocks=object_blocks,
                     subject_block=subject_block,
                     dirty=False)
@@ -377,7 +377,7 @@ class DiagramScene(QGraphicsScene):
                 object_blocks for
         """
         # TODO:  include objs (add blocks for any missing ones)
-        orb.log.info('* DiagramScene: restore_diagram()')
+        # orb.log.debug('* DiagramScene: restore_diagram()')
         port_blocks = {}   # maps Port oids to PortBlock instances
         object_blocks = []
         y_left_last = y_right_last = 0  # y coord of tops of last blocks
@@ -397,12 +397,12 @@ class DiagramScene(QGraphicsScene):
                     else:
                         # if not, ignore it (do not include it in the diagram)
                         continue
-                    orb.log.info('  - creating block "{}" ...'.format(
-                                                                    obj.name))
+                    # orb.log.debug('  - creating block "{}" ...'.format(
+                                                                    # obj.name))
                     x, y = item['x'], item['y']
                     p = QPointF(x, y)
-                    orb.log.info('    ... at position ({}, {}) ...'.format(
-                                                                        x, y))
+                    # orb.log.debug('    ... at position ({}, {}) ...'.format(
+                                                                        # x, y))
                     rp = item.get('right_ports', False)
                     obj_block = self.create_item(None, obj=obj, pos=p,
                                                  right_ports=rp)
@@ -419,8 +419,8 @@ class DiagramScene(QGraphicsScene):
                                             + spacing)
             for obj in objs_by_oid.values():
                 # create blocks for missing objs, if any
-                orb.log.info('  - adding missing block "{}" ...'.format(
-                                                                    obj.name))
+                # orb.log.debug('  - adding missing block "{}" ...'.format(
+                                                                    # obj.name))
                 if y_left_next <= y_right_next:
                     # left col is shorter or same so add next block there ...
                     p = QPointF(w, y_left_next)
@@ -462,8 +462,8 @@ class DiagramScene(QGraphicsScene):
                 self.addItem(connector)
                 connector.updatePosition()
         # check on routing channel ...
-        orb.log.debug('* routing channel: {}'.format(
-                                                self.get_routing_channel()))
+        # orb.log.debug('* routing channel: {}'.format(
+                                                # self.get_routing_channel()))
         # center the view on the upper left of the scene ...
         diag_view = self.views()[0]
         diag_view.centerOn(0, 0)

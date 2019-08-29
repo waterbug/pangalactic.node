@@ -3,7 +3,7 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, os, platform, shutil, six, sys, time
+import argparse, atexit, os, platform, shutil, six, sys, time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
 from collections import OrderedDict
 
@@ -452,6 +452,7 @@ class Main(QtWidgets.QMainWindow):
                    for ra in ras]
         channels = ['vger.channel.' + org_id
                     for org_id in org_ids if org_id and org_id != 'global']
+        channels = list(set(channels))
         admins = [ra for ra in ras
                   if ra.assigned_role.oid == 'pgefobjects:Role.Administrator']
         if admins:
@@ -527,7 +528,7 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.info('  -> getting roles in org "{}" ...'.format(
                                                                 org_oid))
                 search = self.mbus.session.call('vger.get_roles_in_org',
-                                                  org_oid)
+                                                org_oid)
                 search.addCallback(self.on_get_roles_success)
                 search.addErrback(self.on_get_roles_failure)
                 searches.append(search)
@@ -537,8 +538,8 @@ class Main(QtWidgets.QMainWindow):
         return DeferredList(searches, consumeErrors=True)
 
     def on_get_roles_success(self, result):
-        orb.log.info("  - vger.get_roles_in_org succeeded: {}".format(
-                                                            str(result)))
+        orb.log.info("  - vger.get_roles_in_org succeeded.")
+        orb.log.debug("  - role data: {}".format(str(result)))
         deserialize(orb, result)
 
     def on_get_roles_failure(self, f):
@@ -722,7 +723,7 @@ class Main(QtWidgets.QMainWindow):
             deferred:  result of `vger.save` rpc
         """
         orb.log.info('[pgxn] on_sync_result()')
-        orb.log.debug('       data: {}'.format(str(data)))
+        # orb.log.debug('       data: {}'.format(str(data)))
         sobjs, same_dts, to_update, local_only = data
         # TODO:  create a progress bar for this ...
         n = len(sobjs)
@@ -829,7 +830,7 @@ class Main(QtWidgets.QMainWindow):
             deferred:  result of `vger.save` rpc
         """
         orb.log.info('[pgxn] on_sync_library_result()')
-        orb.log.debug('       data: {}'.format(str(data)))
+        # orb.log.debug('       data: {}'.format(str(data)))
         update_needed = False
         sobjs, same_dts, to_ignore, local_only = data
         # TODO:  create a progress bar for this ...
@@ -1162,13 +1163,13 @@ class Main(QtWidgets.QMainWindow):
                 # refresh library widgets ...
                 orb.log.info('  updating libraries with: "{}"'.format(obj.id))
                 if hasattr(self, 'library_widget'):
-                    orb.log.info('  - refreshing library_widget')
+                    # orb.log.debug('  - refreshing library_widget')
                     self.library_widget.refresh(cname=cname)
             elif isinstance(obj, (orb.classes['Acu'],
                                   orb.classes['ProjectSystemUsage'])):
                 if hasattr(self, 'sys_tree'):
                     # sys_tree_model = self.sys_tree.model()
-                    # sys_tree_model = self.sys_tree.source_model
+                    sys_tree_model = self.sys_tree.source_model
                     if hasattr(obj, 'project'):
                         # NOTE:  SANDBOX PSUs are not synced
                         if (obj.project.oid == state.get('project') and
@@ -1896,7 +1897,7 @@ class Main(QtWidgets.QMainWindow):
         # self.circle_timer.start(25)
 
     def _init_ui(self, width, height):
-        orb.log.debug('* _init_ui() ...')
+        # orb.log.debug('* _init_ui() ...')
         # set a placeholder in central widget
         self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
                                           parent=self))
@@ -2378,7 +2379,7 @@ class Main(QtWidgets.QMainWindow):
             obj (Identifiable):  object whose change triggered the update
         """
         orb.log.info('* [pgxn] _update_views()')
-        orb.log.info('         triggered by object: {}'.format(
+        orb.log.debug('        triggered by object: {}'.format(
                                             getattr(obj, 'id', '[no object]')))
         if hasattr(self, 'system_model_window'):
             self.system_model_window.cache_block_model()
@@ -2411,7 +2412,7 @@ class Main(QtWidgets.QMainWindow):
             rpc.addErrback(self.on_get_roles_failure)
 
     def _setup_top_dock_widgets(self):
-        orb.log.debug('  - no top dock widget -- building one now...')
+        # orb.log.debug('  - no top dock widget -- building one now...')
         self.top_dock_widget = QtWidgets.QDockWidget()
         self.top_dock_widget.setObjectName('TopDock')
         self.top_dock_widget.setAllowedAreas(Qt.TopDockWidgetArea)
@@ -2443,7 +2444,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Set up the persistent left dock widget containers.
         """
-        orb.log.debug('  - no left dock widget -- adding one now...')
+        # orb.log.debug('  - no left dock widget -- adding one now...')
         # if we don't have a left dock widget yet, create ALL the stuff
         self.left_dock = QtWidgets.QDockWidget()
         self.left_dock.setObjectName('LeftDock')
@@ -2454,7 +2455,7 @@ class Main(QtWidgets.QMainWindow):
     def _setup_right_dock(self):
         # NOTE:  refactored to use LibraryListWidget instead of
         # multiple instances of LibraryListView
-        orb.log.debug('  - no right dock widget -- building one now...')
+        # orb.log.debug('  - no right dock widget -- building one now...')
         # if we don't have a right dock widget yet, create ALL the stuff
         self.right_dock = QtWidgets.QDockWidget()
         self.right_dock.setObjectName('RightDock')
@@ -2469,8 +2470,8 @@ class Main(QtWidgets.QMainWindow):
         """
         Set up a new PgxnObject panel (left dock widget in Component mode).
         """
-        orb.log.info('* [pgxn] update_pgxn_obj_panel(create_new={})'.format(
-                                                           str(create_new)))
+        # orb.log.debug('* [pgxn] update_pgxn_obj_panel(create_new={})'.format(
+                                                           # str(create_new)))
         # if there is an existing panel, remove and destroy its contents
         if getattr(self, 'pgxn_obj_panel', None):
             try:
@@ -2522,14 +2523,14 @@ class Main(QtWidgets.QMainWindow):
         """
         Tree / dashboard refresh.  Can be user-activated by menu item.
         """
-        orb.log.debug('* [pgxn] refresh_tree_and_dashboard()')
+        # orb.log.debug('* [pgxn] refresh_tree_and_dashboard()')
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.refresh_tree_views()
 
     def refresh_tree_views(self):
-        orb.log.debug('* [pgxn] refresh_tree_views()')
-        orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
+        # orb.log.debug('* [pgxn] refresh_tree_views()')
+        # orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
         # use number of tree components to set max in progress bar
         if not state.get('sys_trees'):
             state['sys_trees'] = {}
@@ -2543,7 +2544,7 @@ class Main(QtWidgets.QMainWindow):
             # if dashboard exists, it has to be destroyed too since the tree
             # and dashboard share their model()
             # if hasattr(self, 'dashboard_panel'):
-            orb.log.debug('  + destroying existing dashboard, if any ...')
+            # orb.log.debug('  + destroying existing dashboard, if any ...')
             dashboard_layout = self.dashboard_panel.layout()
             dashboard_layout.removeWidget(self.dashboard)
             self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
@@ -2556,7 +2557,7 @@ class Main(QtWidgets.QMainWindow):
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
         try:
-            orb.log.debug('  + destroying existing self.sys_tree, if any ...')
+            # orb.log.debug('  + destroying existing self.sys_tree, if any ...')
             # NOTE:  WA_DeleteOnClose kills the "ghost tree" bug
             self.sys_tree.setAttribute(Qt.WA_DeleteOnClose)
             self.sys_tree.parent = None
@@ -2565,7 +2566,7 @@ class Main(QtWidgets.QMainWindow):
         except:
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
-        orb.log.debug('  + destroying existing pgxn_obj panel, if any ...')
+        # orb.log.debug('  + destroying existing pgxn_obj panel, if any ...')
         self.update_pgxn_obj_panel(create_new=False)
         orb.log.debug('    self.pgxn_obj is {}'.format(str(
                       getattr(self, 'pgxn_obj', None))))
@@ -2576,9 +2577,9 @@ class Main(QtWidgets.QMainWindow):
             ld_widget.parent = None
             ld_widget.close()
         self.sys_tree = SystemTreeView(self.project)
-        orb.log.debug('  + new self.sys_tree created ...')
-        model = self.sys_tree.source_model
-        orb.log.debug('    with source model: {}'.format(str(model)))
+        # orb.log.debug('  + new self.sys_tree created ...')
+        # model = self.sys_tree.source_model
+        # orb.log.debug('    with source model: {}'.format(str(model)))
         self.sys_tree.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
                                     QtWidgets.QSizePolicy.Expanding)
         self.sys_tree_rebuilt = True
@@ -2590,7 +2591,7 @@ class Main(QtWidgets.QMainWindow):
             for system in systems:
                 nodes += node_count(system.oid) + 1
         state['sys_trees'][self.project.id]['nodes'] = nodes
-        orb.log.debug('    and {} nodes.'.format(str(nodes)))
+        # orb.log.debug('    and {} nodes.'.format(str(nodes)))
         # NB:  rebuild dashboard before expanding sys_tree, because their
         # expand events are linked so they must both exist
         self.rebuild_dashboard()
@@ -2604,22 +2605,22 @@ class Main(QtWidgets.QMainWindow):
         self.set_system_model_window()
 
     def rebuild_dashboard(self):
-        orb.log.info('* [pgxn] rebuild_dashboard()')
+        # orb.log.debug('* [pgxn] rebuild_dashboard()')
         if not self.sys_tree_rebuilt:
-            orb.log.info('         sys_tree not rebuilt yet; not rebuilding.')
+            # orb.log.debug('      sys_tree not rebuilt yet; not rebuilding.')
             return
         elif self.dashboard_rebuilt:
             # sys_tree has been rebuilt and dashboard has been rebuilt for this
             # sys_tree, so no need to rebuild
-            orb.log.info('         dashboard already rebuilt; not rebuilding.')
+            # orb.log.debug('      dashboard already rebuilt; not rebuilding.')
             return
-        orb.log.info('         + sys_tree rebuilt -- rebuilding dashboard ...')
+        # orb.log.debug('      + sys_tree rebuilt -- rebuilding dashboard ...')
         if getattr(self, 'dashboard_panel', None):
-            orb.log.info('         + dashboard_panel exists ...')
+            # orb.log.debug('         + dashboard_panel exists ...')
             dashboard_layout = self.dashboard_panel.layout()
             if dashboard_layout.layout():
-                orb.log.info('           dashboard_layout has a layout ...')
-                orb.log.info('           clearing out old stuff ...')
+                # orb.log.debug('           dashboard_layout has a layout ...')
+                # orb.log.debug('           clearing out old stuff ...')
                 dashboard_title_layout = dashboard_layout.layout()
                 dashboard_title_layout.removeWidget(self.dashboard)
                 dashboard_title_layout.removeWidget(self.dash_select)
@@ -2627,13 +2628,13 @@ class Main(QtWidgets.QMainWindow):
                 self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
                 self.dashboard.close()
                 self.dashboard = None
-            orb.log.info('           destroying old dashboard_panel ...')
+            # orb.log.debug('           destroying old dashboard_panel ...')
             self.dashboard_panel.setAttribute(Qt.WA_DeleteOnClose)
             self.dashboard_panel.close()
             self.dashboard_panel = None
-        else:
-            orb.log.info('         + no dashboard_panel exists ...')
-        orb.log.info('           creating new dashboard panel ...')
+        # else:
+            # orb.log.debug('         + no dashboard_panel exists ...')
+        # orb.log.debug('           creating new dashboard panel ...')
         self.dashboard_panel = QtWidgets.QWidget(self)
         self.dashboard_panel.setMinimumSize(500, 200)
         self.dashboard_panel.size_policy = QtWidgets.QSizePolicy(
@@ -2642,7 +2643,7 @@ class Main(QtWidgets.QMainWindow):
         dashboard_layout = QtWidgets.QVBoxLayout()
         dashboard_title_layout = QtWidgets.QHBoxLayout()
         self.dash_title = QtWidgets.QLabel()
-        orb.log.info('           adding title ...')
+        # orb.log.debug('           adding title ...')
         dashboard_title_layout.addWidget(self.dash_title)
         self.dash_select = QtWidgets.QComboBox()
         self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
@@ -2654,18 +2655,18 @@ class Main(QtWidgets.QMainWindow):
             dash_idx = prefs['dashboard_names'].index(dash_name)
         self.dash_select.setCurrentIndex(dash_idx)
         self.dash_select.activated.connect(self.set_dashboard)
-        orb.log.info('           adding dashboard selector ...')
+        # orb.log.debug('           adding dashboard selector ...')
         dashboard_title_layout.addWidget(self.dash_select)
         dashboard_layout.addLayout(dashboard_title_layout)
         self.dashboard_panel.setLayout(dashboard_layout)
         self.top_dock_widget.setWidget(self.dashboard_panel)
         if getattr(self, 'sys_tree', None):
-            orb.log.info('         + creating new dashboard tree ...')
+            # orb.log.debug('         + creating new dashboard tree ...')
             self.dashboard = SystemDashboard(self.sys_tree.model(),
                                              parent=self)
         else:
-            orb.log.info('         + no sys_tree; using placeholder '
-                         'for dashboard...')
+            orb.log.debug('         + no sys_tree; using placeholder '
+                          'for dashboard...')
             self.dashboard = QtWidgets.QLabel('No Project Selected')
             self.dashboard.setStyleSheet('font-weight: bold; font-size: 16px')
         self.dashboard.setFrameStyle(QtWidgets.QFrame.Panel |
@@ -2689,7 +2690,7 @@ class Main(QtWidgets.QMainWindow):
         self.refresh_tree_and_dashboard()
 
     def refresh_dashboard(self):
-        orb.log.info('* refreshing dashboard ...')
+        # orb.log.debug('* refreshing dashboard ...')
         if hasattr(self, 'dashboard'):
             for column in range(self.dashboard.model().columnCount(
                                                     QModelIndex())):
@@ -2699,9 +2700,9 @@ class Main(QtWidgets.QMainWindow):
         """
         Update the tree and dashboard in response to a modified object.
         """
-        orb.log.info('* [orb] update_object_in_tree() ...')
+        orb.log.debug('* [orb] update_object_in_tree() ...')
         if not obj:
-            orb.log.info('  no object provided; ignoring.')
+            orb.log.debug('  no object provided; ignoring.')
             return
         try:
             cname = obj.__class__.__name__
@@ -2713,31 +2714,31 @@ class Main(QtWidgets.QMainWindow):
                 # NOTE: link_indexes_in_tree() returns *source* model indexes
                 idxs = self.sys_tree.link_indexes_in_tree(obj)
                 if idxs:
-                    orb.log.info('  - indexes found in tree, updating ...')
+                    orb.log.debug('  - indexes found in tree, updating ...')
                     if cname == 'Acu':
-                        orb.log.info('  [obj is Acu]')
+                        orb.log.debug('  [obj is Acu]')
                         node_obj = obj.component
                     elif cname == 'ProjectSystemUsage':
-                        orb.log.info('  [obj is PSU]')
+                        orb.log.debug('  [obj is PSU]')
                         node_obj = obj.system
                     for idx in idxs:
                         self.sys_tree.source_model.setData(idx, node_obj)
                 else:
-                    orb.log.info('  - no instances found in tree.')
+                    orb.log.debug('  - no instances found in tree.')
             elif isinstance(obj, orb.classes['Product']):
                 idxs = self.sys_tree.object_indexes_in_tree(obj)
                 if idxs:
-                    orb.log.info('  - instances found in tree, updating ...')
+                    orb.log.debug('  - instances found in tree, updating ...')
                     for idx in idxs:
                         self.sys_tree.source_model.dataChanged.emit(idx, idx)
                 else:
-                    orb.log.info('  - no instances found in tree.')
+                    orb.log.debug('  - no instances found in tree.')
             # resize/refresh dashboard columns if necessary
             self.refresh_dashboard()
         except:
             # oops, sys_tree's C++ object got deleted
-            orb.log.info('  - sys_tree C++ object might have got deleted '
-                         '... bailing out!')
+            orb.log.debug('  - sys_tree C++ object might have got deleted '
+                          '... bailing out!')
 
     ### SET UP 'component' mode (product modeler interface)
 
@@ -2771,7 +2772,7 @@ class Main(QtWidgets.QMainWindow):
     ### SET UP 'system' mode (system modeler interface)
 
     def set_system_modeler_interface(self):
-        orb.log.info('* setting system modeler interface')
+        # orb.log.debug('* setting system modeler interface')
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         # ********************************************************
@@ -2787,10 +2788,10 @@ class Main(QtWidgets.QMainWindow):
         self.right_dock.setVisible(True)
 
     def set_system_model_window(self, system=None):
-        orb.log.debug('* [pgxn] setting system model window ...')
+        # orb.log.debug('* [pgxn] setting system model window ...')
         if system:
-            orb.log.info('  - using specified system {} ...'.format(
-                                                                system.id))
+            # orb.log.debug('  - using specified system {} ...'.format(
+                                                                # system.id))
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.setCentralWidget(self.system_model_window)
