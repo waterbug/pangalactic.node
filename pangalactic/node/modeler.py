@@ -270,6 +270,7 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
+        orb.log.debug('* set_subject_from_diagram_drill_down')
         self.cache_block_model()
         self.history.append(ModelerState._make((self.obj, self.idx)))
         self.idx = None

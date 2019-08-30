@@ -211,14 +211,13 @@ class DiagramScene(QGraphicsScene):
         """
         # NOTE:  drill-down so far only applies to ObjectBlock, and *not* to
         # SubjectBlock (a subclass)
-        orb.log.info('* DiagramScene: item_doubleclick()')
+        orb.log.debug('* DiagramScene: item_doubleclick()')
+        orb.log.debug('  item: {}'.format(str(item)))
         if platform.platform().startswith('Darwin'):
             # drill-down currently crashes on OSX
-            orb.log.info('  - Mac does not like this -- ignoring.')
+            orb.log.info('  - Mac not like drill-down -- ignoring!')
             return
-        if isinstance(item, SubjectBlock):
-            return
-        elif isinstance(item, ObjectBlock):
+        if isinstance(item, ObjectBlock):
             obj = item.obj
             dispatcher.send('diagram object drill down', obj=obj)
 
@@ -255,6 +254,9 @@ class DiagramScene(QGraphicsScene):
             brect = item_group.boundingRect()
             sb_width = brect.width() + 150
             sb_height = brect.height() + 150
+            # NOTE: it is ESSENTIAL to destroy the group; otherwise the object
+            # blocks in it will not receive their mouse events!
+            self.destroyItemGroup(item_group)
         else:
             # if empty, give it minimum w, h
             sb_width = 300
@@ -404,7 +406,7 @@ class DiagramScene(QGraphicsScene):
                     # orb.log.debug('    ... at position ({}, {}) ...'.format(
                                                                         # x, y))
                     rp = item.get('right_ports', False)
-                    obj_block = self.create_item(None, obj=obj, pos=p,
+                    obj_block = self.create_item(ObjectBlock, obj=obj, pos=p,
                                                  right_ports=rp)
                     port_blocks.update(obj_block.port_blocks)
                     object_blocks.append(obj_block)
@@ -429,7 +431,7 @@ class DiagramScene(QGraphicsScene):
                     # right col is shorter ...
                     p = QPointF(7*w, y_right_next)
                     rp = False
-                obj_block = self.create_item(None, obj=obj, pos=p,
+                obj_block = self.create_item(ObjectBlock, obj=obj, pos=p,
                                              right_ports=rp)
                 port_blocks.update(obj_block.port_blocks)
                 object_blocks.append(obj_block)

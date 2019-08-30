@@ -145,9 +145,6 @@ class Block(QtWidgets.QGraphicsItem):
         global Dirty
         Dirty = True
 
-    def mouseDoubleClickEvent(self, event):
-        self.scene().item_doubleclick(self)
-
     @property
     def ordered_ports(self):
         """
@@ -259,6 +256,20 @@ class ObjectBlock(Block):
         scene.clearSelection()
         self.setSelected(True)
         self.setFocus()
+        # NOTE: actually, z-value is not very relevant ...
+        # make sure the ObjectBlock has higher z-value than its SubjectBlock
+        # z_value = -1.0
+        # overlap_items = self.collidingItems()
+        # if overlap_items:
+            # for item in overlap_items:
+                # if (item.zValue() >= z_value and
+                    # isinstance(item, SubjectBlock)):
+                    # z_value = item.zValue() + 0.1
+                    # orb.log.debug('* SubjectBlock z-value is {}'.format(
+                                  # item.zValue()))
+        # orb.log.debug('  setting ObjectBlock z-value to {}'.format(
+                      # z_value))
+        # self.setZValue(z_value)
         self.rebuild_port_blocks()
         self.update()
         global Dirty
@@ -302,21 +313,14 @@ class ObjectBlock(Block):
         Dirty = True
 
     def mouseDoubleClickEvent(self, event):
+        super(ObjectBlock, self).mouseDoubleClickEvent(event)
         self.scene().item_doubleclick(self)
 
     def mimeTypes(self):
         return ["application/x-pgef-hardware-product"]
-                # "application/x-pgef-port-type",
-                # "application/x-pgef-port-template"]
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
-            # or event.mimeData().hasFormat(
-                                # "application/x-pgef-port-type")
-            # or event.mimeData().hasFormat(
-                                # "application/x-pgef-port-template")):
-            # self.dragOver = True
-            # self.update()
             event.accept()
         else:
             event.ignore()
@@ -373,6 +377,8 @@ class SubjectBlock(Block):
                                           style=style, editable=editable)
         self.setFlags(QtWidgets.QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
+        # this apparently does work, but not what I wanted
+        # self.setAcceptedMouseButtons(Qt.NoButton)
         self.rect = QtCore.QRectF(0, 0, width, height)
         self.style = style or Qt.SolidLine
         self.obj = obj
@@ -397,14 +403,6 @@ class SubjectBlock(Block):
         self.name_label = BlockLabel(name, self, centered=False, x=name_x,
                                      y=name_y)
         self.rebuild_port_blocks()
-        # make sure the SubjectBlock has the lowest z-value
-        z_value = 0.0
-        overlap_items = self.collidingItems()
-        if overlap_items:
-            for item in overlap_items:
-                if (item.zValue() >= z_value and isinstance(item, Block)):
-                    z_value = item.zValue() - 0.1
-        self.setZValue(z_value)
         self.update()
         global Dirty
         Dirty = True
