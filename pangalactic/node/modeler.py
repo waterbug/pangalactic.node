@@ -162,10 +162,8 @@ class ModelWindow(QMainWindow):
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         self.back_action = self.create_action(
-                                    "Go Back",
+                                    "Back",
                                     slot=self.go_back,
-                                    # icon="left_arrow",
-                                    # icon="back_arrow",
                                     icon="back",
                                     tip="Back to Previous Model")
         self.toolbar.addAction(self.back_action)

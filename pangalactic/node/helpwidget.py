@@ -31,18 +31,11 @@ class HelpWidget(QDialog):
     def create_widgets(self):
         self.text_browser = QTextBrowser()
         self.back_action = self.create_action(
-                                    "Go Back",
+                                    "Back",
                                     slot=self.text_browser.backward,
-                                    icon="left_arrow",
+                                    icon="back",
                                     tip="Back to previous page")
         self.back_action.setShortcut(QKeySequence.Back)
-        # "forward" does not work correctly (confused by links in the TOC)
-        # self.forward_action = self.create_action(
-                                    # "Go Forward",
-                                    # slot=self.text_browser.forward,
-                                    # icon="right_arrow",
-                                    # tip="Back to previous page")
-        # self.forward_action.setShortcut(QKeySequence.Forward)
         self.home_action = self.create_action(
                                     "Home",
                                     slot=self.text_browser.home,
@@ -62,7 +55,7 @@ class HelpWidget(QDialog):
         action = QAction(text, self)
         if icon is not None:
             icon_file = icon + state.get('icon_type', '.png')
-            icon_dir = getattr(orb, 'icon_dir', 'icons')
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             icon_path = os.path.join(icon_dir, icon_file)
             action.setIcon(QIcon(icon_path))
         if tip is not None:
