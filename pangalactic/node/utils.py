@@ -318,8 +318,10 @@ def get_icon_path(obj):
     """
     # first, check whether object is cloaked
     icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-    if hasattr(obj, 'public') and not obj.public:
-        # if obj is not public, use the 'cloakedable' icon
+    if (hasattr(obj, 'public') and not obj.public
+        and not isinstance(obj, (orb.classes['Actor'],
+                                 orb.classes['Template']))):
+        # if obj is not public, use the 'cloakable' icon
         return os.path.join(icon_dir, 'cloakable' + state['icon_type'])
     # check for a special icon for this specific object
     if getattr(obj, 'id', None):
