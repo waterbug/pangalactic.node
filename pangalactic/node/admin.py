@@ -418,8 +418,9 @@ class AdminDialog(QDialog):
 
     def set_current_org(self):
         orb.log.info('* admin: set_current_org()')
-        orgs = list(orb.get_by_type('Project'))
-        orgs.sort(key=lambda p: p.id)
+        orgs = [org for org in orb.get_all_subtypes('Organization')
+                if org.id != 'PGANA']
+        orgs.sort(key=lambda org: org.id)
         if orgs:
             dlg = ObjectSelectionDialog(orgs, parent=self)
             dlg.make_popup(self.org_selection)
