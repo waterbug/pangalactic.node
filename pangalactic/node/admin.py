@@ -16,7 +16,8 @@ from pangalactic.core                 import config, state
 from pangalactic.core.uberorb         import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import get_ra_id, get_ra_name
-from pangalactic.node.buttons         import SizedButton
+from pangalactic.node.buttons         import ButtonLabel, SizedButton
+from pangalactic.node.dialogs         import ObjectSelectionDialog
 from pangalactic.node.libraries       import LibraryListWidget
 from pangalactic.node.tablemodels     import ODTableModel
 from pangalactic.node.utils           import clone, extract_mime_data
@@ -328,6 +329,13 @@ class AdminDialog(QDialog):
         hbox.addLayout(self.left_vbox)
         hbox.addLayout(self.right_vbox)
         hbox.addStretch(1)
+
+        self.org_selection = ButtonLabel(self.org.id,
+                                    # actions=[self.new_org_action],
+                                    w=120)
+        self.org_selection.clicked.connect(self.set_current_org)
+        self.left_vbox.addWidget(self.org_selection)
+
         # build role assignments in left_vbox
         self.refresh_roles()
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok, Qt.Horizontal,
@@ -407,6 +415,23 @@ class AdminDialog(QDialog):
 
     def adjust_size(self):
         self.adjustSize()
+
+    def set_current_org(self):
+        orb.log.info('* admin: set_current_org()')
+        orgs = list(orb.get_by_type('Project'))
+        orgs.sort(key=lambda p: p.id)
+        if orgs:
+            dlg = ObjectSelectionDialog(orgs, parent=self)
+            dlg.make_popup(self.org_selection)
+            # dlg.exec_() -> modal dialog
+            if dlg.exec_():
+                # dlg.exec_() being true means dlg was "accepted" (OK)
+                # refresh project selection combo
+                # and set the current project to the new project
+                new_oid = dlg.get_oid()
+                self.org = orb.get(new_oid)
+                self.org_selection.setText(self.org.id)
+                self.refresh_roles()
 
     def get_labels(self, ra):
         # Role
