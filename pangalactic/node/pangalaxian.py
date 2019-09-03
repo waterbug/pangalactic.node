@@ -1693,7 +1693,7 @@ class Main(QtWidgets.QMainWindow):
     @property
     def projects(self):
         """
-        The current list of project ids (codes/acronyms).
+        The current list of project objects.
         """
         return list(orb.get_by_type('Project'))
 
@@ -3659,11 +3659,12 @@ class Main(QtWidgets.QMainWindow):
 
     def set_current_project(self):
         orb.log.info('* set_current_project()')
-        # NOTE:  will need to restrict the projects based on user's
-        # authorizations ...
-        projects = list(orb.get_by_type('Project'))
-        if projects:
-            dlg = ObjectSelectionDialog(projects, parent=self)
+        # NOTE:  will need to restrict the orgs based on user's authorizations
+        orgs = [org for org in orb.get_all_subtypes('Organization')
+                if org.id != 'PGANA']
+        orgs.sort(key=lambda org: getattr(org, 'id', ''))
+        if orgs:
+            dlg = ObjectSelectionDialog(orgs, parent=self)
             dlg.make_popup(self.project_selection)
             # dlg.exec_() -> modal dialog
             if dlg.exec_():
