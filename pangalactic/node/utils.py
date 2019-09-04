@@ -19,7 +19,8 @@ from sqlalchemy import ForeignKey
 from pangalactic.core             import state
 from pangalactic.core.utils.meta  import (display_name, get_acu_id,
                                           get_acu_name, get_external_name,
-                                          to_media_name)
+                                          get_next_port_seq, get_port_id,
+                                          get_port_name, to_media_name)
 from pangalactic.core.parametrics import (add_default_parameters, parameterz,
                                           refresh_componentz)
 from pangalactic.core.uberorb     import orb
@@ -152,7 +153,12 @@ def clone(what, include_ports=True, include_components=True,
             # if we are including ports, add them ...
             if include_ports and getattr(obj, 'ports', None):
                 for port in obj.ports:
-                    clone('Port', id=port.id, name=port.name,
+                    seq = get_next_port_seq(new_obj, port.type_of_port)
+                    port_id = get_port_id(port.type_of_port.id,
+                                          seq)
+                    port_name = get_port_name(port.type_of_port.name, seq)
+                    clone('Port', id=port_id, name=port_name,
+                          abbreviation=port_name,
                           type_of_port=port.type_of_port, of_product=new_obj,
                           creator=new_obj.creator, modifier=new_obj.creator,
                           create_datetime=NOW, mod_datetime=NOW)
@@ -164,7 +170,7 @@ def clone(what, include_ports=True, include_components=True,
                           id=get_acu_id(new_obj.id, ref_des),
                           name=get_acu_name(new_obj.name, ref_des),
                           assembly=new_obj, component=acu.component,
-                          product_type_hint=acu.component.product_type,
+                          product_type_hint=acu.product_type_hint,
                           reference_designator=ref_des,
                           creator=new_obj.creator, modifier=new_obj.creator,
                           create_datetime=NOW, mod_datetime=NOW)

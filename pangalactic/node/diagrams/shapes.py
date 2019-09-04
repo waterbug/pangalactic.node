@@ -12,13 +12,14 @@ from PyQt5.QtGui import QColor
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core             import diagramz
+from pangalactic.core             import diagramz, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import parameterz
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import (get_flow_id, get_flow_name,
-                                          get_next_port_seq, get_port_abbr,
-                                          get_port_id, get_port_name)
+                                          get_next_port_seq, get_port_id,
+                                          get_port_name)
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, extract_mime_data
 
@@ -472,13 +473,16 @@ class SubjectBlock(Block):
             elif port_type:
                 orb.log.info('  - orb found {} "{}"'.format(cname, name))
                 orb.log.info('    creating Port ...')
+                NOW = dtstamp()
+                user_obj = orb.get(state.get('local_user_oid'))
                 seq = get_next_port_seq(self.obj, port_type)
-                port_id = get_port_id(self.obj.id, port_type.id, seq)
-                port_name = get_port_name(self.obj.name, port_type.name, seq)
-                port_abbr = get_port_abbr(port_type.name, seq)
+                port_id = get_port_id(port_type.id, seq)
+                port_name = get_port_name(port_type.name, seq)
                 new_port = clone('Port', id=port_id, name=port_name,
-                                 abbreviation=port_abbr,
-                                 type_of_port=port_type, of_product=self.obj)
+                                 abbreviation=port_name,
+                                 type_of_port=port_type, of_product=self.obj,
+                                 creator=user_obj, modifier=user_obj,
+                                 create_datetime=NOW, mod_datetime=NOW)
                 orb.db.commit()
                 dispatcher.send('new object', obj=new_port)
                 # mark existing diagrams containing that object as "dirty" (the
@@ -507,12 +511,11 @@ class SubjectBlock(Block):
                 orb.log.info('    creating Port ...')
                 port_type = port_template.type_of_port
                 seq = get_next_port_seq(self.obj, port_type)
-                port_id = get_port_id(self.obj.id, port_type.id, seq)
-                port_name = get_port_name(self.obj.name, port_type.name, seq)
-                port_abbr = get_port_abbr(port_type.name, seq)
+                port_id = get_port_id(port_type.id, seq)
+                port_name = get_port_name(port_type.name, seq)
                 port_desc = port_template.description
                 new_port = clone('Port', id=port_id, name=port_name,
-                                 abbreviation=port_abbr, description=port_desc,
+                                 abbreviation=port_name, description=port_desc,
                                  type_of_port=port_type, of_product=self.obj)
                 orb.db.commit()
                 # if the port_template has parameters, add them to the new port

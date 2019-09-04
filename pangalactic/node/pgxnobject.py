@@ -526,6 +526,7 @@ class ParameterForm(PgxnForm):
                 event.setDropAction(Qt.CopyAction)
                 event.accept()
                 add_parameter(orb, self.obj.oid, pd_id)
+                self.obj.modifier = orb.get(state.get('local_user_oid'))
                 self.obj.mod_datetime = dtstamp()
                 orb.save([self.obj])
                 dispatcher.send(signal='modified object', obj=self.obj)
@@ -696,12 +697,14 @@ class PgxnObject(QDialog):
                                 slot=self.on_clone, icon='clone_16',
                                 tip='Clone this object',
                                 modes=['edit', 'view'])
-        self.toolbar.addAction(self.clone_action)
-        self.viewer_action = self.create_action('viewer',
-                                slot=self.open_viewer, icon='view_16',
-                                tip='View models of this object',
-                                modes=['edit', 'view'])
-        self.toolbar.addAction(self.viewer_action)
+        if not isinstance(self.obj, orb.classes['Template']):
+            # NOTE: Template cloning has problems atm ...
+            self.toolbar.addAction(self.clone_action)
+        # self.viewer_action = self.create_action('viewer',
+                                # slot=self.open_viewer, icon='view_16',
+                                # tip='View models of this object',
+                                # modes=['edit', 'view'])
+        # self.toolbar.addAction(self.viewer_action)
         if hasattr(self.obj, 'where_used'):
             self.toolbar.addAction(self.where_used_action)
         self.vbox.insertWidget(0, self.toolbar)
@@ -772,10 +775,11 @@ class PgxnObject(QDialog):
         new_obj = clone(self.obj, id='new-id')
         orb.save([new_obj])
         pxo = PgxnObject(new_obj, edit_mode=True, new=True)
+        pxo.setModal(True)
         pxo.show()
 
-    def open_viewer(self):
-        pass
+    # def open_viewer(self):
+        # pass
 
     def build_from_object(self):
         """
@@ -1011,6 +1015,7 @@ class PgxnObject(QDialog):
 
     def on_del_parameter(self, pid=None):
         delete_parameter(orb, self.obj.oid, pid)
+        self.obj.modifier = orb.get(state.get('local_user_oid'))
         self.obj.mod_datetime = dtstamp()
         orb.save([self.obj])
         dispatcher.send(signal='modified object', obj=self.obj)
@@ -1091,6 +1096,9 @@ class PgxnObject(QDialog):
                 setattr(self.obj, name, val)
                 orb.log.info('  [pgxnobj] - {}: {}'.format(
                                             name, val.__repr__()))
+            user_obj = orb.get(state.get('local_user_oid'))
+            self.obj.creator = user_obj
+            self.obj.modifier = user_obj
             self.obj.create_datetime = NOW
             self.obj.mod_datetime = NOW
             orb.save([self.obj])
@@ -1140,8 +1148,11 @@ class PgxnObject(QDialog):
                                           units=u_cur)
             if caching_parameters:
                 self.progress_dialog.setValue(2)
+            user_obj = orb.get(state.get('local_user_oid'))
             if self.new:
+                self.obj.creator = user_obj
                 self.obj.create_datetime = NOW
+            self.obj.modifier = user_obj
             self.obj.mod_datetime = NOW
             if caching_parameters:
                 self.progress_value = 3
