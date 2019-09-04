@@ -391,8 +391,8 @@ class LibraryListWidget(QWidget):
         select_label = get_external_name_plural(cname)
         if cname == 'HardwareProduct':
             select_label = 'Systems & Components (Hardware Products)'
-            view = ['id', 'name', 'version', 'iteration',
-                    'product_type', 'description', 'comment']
+            view = ['id', 'name', 'product_type', 'version', 'iteration',
+                    'description', 'comment']
             widget = FilterPanel(None, view=view, as_library=True,
                                  cname=cname, label=library_label,
                                  word_wrap=self.word_wrap,
