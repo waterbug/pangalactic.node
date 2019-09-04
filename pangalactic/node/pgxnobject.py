@@ -666,12 +666,10 @@ class PgxnObject(QDialog):
                                 slot=self.freeze, icon='freeze_16',
                                 tip='Freeze this object',
                                 modes=['edit', 'view'])
-        self.toolbar.addAction(self.freeze_action)
         self.frozen_action = self.create_action('frozen',
                                 slot=self.frozen, icon='frozen_16',
                                 tip='This object is frozen',
                                 modes=['edit', 'view'])
-        self.toolbar.addAction(self.frozen_action)
         self.thaw_action = self.create_action('thaw',
                                 slot=self.thaw, icon='thaw_16',
                                 tip='Thaw this object',
@@ -680,33 +678,43 @@ class PgxnObject(QDialog):
                                 slot=self.show_where_used, icon='system',
                                 tip='Show where this object is used ...',
                                 modes=['edit', 'view'])
-        if orb.is_versioned(self.obj):
+        if isinstance(self.obj, orb.classes['Product']):
+            self.toolbar.addAction(self.freeze_action)
+            self.toolbar.addAction(self.frozen_action)
+            self.toolbar.addAction(self.thaw_action)
+            self.toolbar.addAction(self.where_used_action)
+            perms = get_perms(self.obj)
+            orb.log.debug('            user perms: {}'.format(str(perms)))
             if self.obj.frozen:
+                orb.log.debug('            object is frozen.')
                 self.frozen_action.setVisible(True)
-                self.thaw_action.setVisible(True)
                 self.freeze_action.setVisible(False)
+                if 'delete' in perms:
+                    # if perms include "delete", can also "thaw"
+                    self.thaw_action.setVisible(True)
             else:
+                orb.log.debug('            object is NOT frozen.')
                 self.frozen_action.setVisible(False)
                 self.thaw_action.setVisible(False)
-                self.freeze_action.setVisible(True)
+                if 'delete' in perms:
+                    # if perms include "delete", can also "freeze"
+                    self.freeze_action.setVisible(True)
         else:
             self.frozen_action.setVisible(False)
             self.thaw_action.setVisible(False)
             self.freeze_action.setVisible(False)
+            self.where_used_action.setVisible(False)
         self.clone_action = self.create_action('clone',
                                 slot=self.on_clone, icon='clone_16',
                                 tip='Clone this object',
                                 modes=['edit', 'view'])
-        if not isinstance(self.obj, orb.classes['Template']):
-            # NOTE: Template cloning has problems atm ...
-            self.toolbar.addAction(self.clone_action)
+        self.toolbar.addAction(self.clone_action)
+        # NOTE: viewer may be reactivated later ...
         # self.viewer_action = self.create_action('viewer',
                                 # slot=self.open_viewer, icon='view_16',
                                 # tip='View models of this object',
                                 # modes=['edit', 'view'])
         # self.toolbar.addAction(self.viewer_action)
-        if hasattr(self.obj, 'where_used'):
-            self.toolbar.addAction(self.where_used_action)
         self.vbox.insertWidget(0, self.toolbar)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -733,23 +741,27 @@ class PgxnObject(QDialog):
         return action
 
     def freeze(self):
-        if orb.is_versioned(self.obj):
+        if (isinstance(self.obj, orb.classes['Product'])
+            and not self.obj.frozen):
+            self.freeze_action.setVisible(False)
             self.frozen_action.setVisible(True)
             self.thaw_action.setVisible(True)
-            self.freeze_action.setVisible(False)
             self.obj.frozen = True
             orb.save([self.obj])
+            self.build_from_object()
 
     def frozen(self):
         pass
 
     def thaw(self):
-        if orb.is_versioned(self.obj):
+        if (isinstance(self.obj, orb.classes['Product'])
+            and self.obj.frozen):
+            self.freeze_action.setVisible(True)
             self.frozen_action.setVisible(False)
             self.thaw_action.setVisible(False)
-            self.freeze_action.setVisible(True)
             self.obj.frozen = False
             orb.save([self.obj])
+            self.build_from_object()
 
     def show_where_used(self):
         if hasattr(self.obj, 'where_used'):
@@ -883,7 +895,8 @@ class PgxnObject(QDialog):
                                                    QDialogButtonBox.ActionRole)
             else:
                 self.bbox = QDialogButtonBox()
-                if not self.view_only and 'modify' in perms:
+                if (not self.view_only and 'modify' in perms
+                    and not self.obj.frozen):
                         self.edit_button = self.bbox.addButton('Edit',
                                                    QDialogButtonBox.ActionRole)
                 if (state.get('connected') and
@@ -919,7 +932,8 @@ class PgxnObject(QDialog):
                 orb.log.debug('            setting up view mode ...')
                 self.bbox = QDialogButtonBox()
                 orb.log.debug('            checking perms ...')
-                if not self.view_only and 'modify' in perms:
+                if (not self.view_only and 'modify' in perms
+                    and not self.obj.frozen):
                     orb.log.debug('            "modify" in perms --')
                     orb.log.debug('            adding "edit" button ...')
                     self.edit_button = self.bbox.addButton('Edit',
