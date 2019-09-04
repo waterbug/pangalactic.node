@@ -152,14 +152,17 @@ class PgxnForm(QWidget):
                 # 2. "computeds" shown only when a relevant "context" is set
                 # (to be implemented)
                 ##############################################################
-                # pref_computeds = [pid for pid in PGXN_PARAMETERS
-                                  # if pid in parmz
-                                  # and parmz[pid].get('computed')]
-                # np_computeds = [pid for pid in parmz
-                                # if parmz[pid].get('computed')
-                                # and pid not in PGXN_PARAMETERS]
-                # computeds = pref_computeds + np_computeds
-                computeds = []
+                ### Put ... computeds ... BECK! (SCW 2019-03-25) #############
+                ### (Per request of Patrick and Rachel)
+                ##############################################################
+                pref_computeds = [pid for pid in PGXN_PARAMETERS
+                                  if pid in parmz
+                                  and parm_defz[pid].get('computed')]
+                np_computeds = [pid for pid in parmz
+                                if parm_defz[pid].get('computed')
+                                and pid not in PGXN_PARAMETERS]
+                computeds = pref_computeds + np_computeds
+                # computeds = []
                 p_ordering = editables + computeds
                 orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
                                                             str(p_ordering)))

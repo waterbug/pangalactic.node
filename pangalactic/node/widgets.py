@@ -208,13 +208,7 @@ class ParameterLabel(QLabel):
         QLabel.__init__(self, parent=parent)
         # 'x_y' will be interpreted as "x sub y".
         # 'x_y_z' will be interpreted as "x sub y-z", etc.
-        pid = parameter_definition.id
-        parts = pid.split('_')
-        if len(parts) >= 2:
-            name, sub = parts[0], '-'.join(parts[1:])
-            html = '<b>{}<sub>{}</b>'.format(name, sub)
-        else:
-            html = '<b>{}</b>'.format(pid)
+        html = make_parm_html(parameter_definition.id)
         super(ParameterLabel, self).__init__(html)
 
     def get_pixmap(self):
