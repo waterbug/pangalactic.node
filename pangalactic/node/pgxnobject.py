@@ -665,23 +665,23 @@ class PgxnObject(QDialog):
     def init_toolbar(self):
         # self.toolbar = self.addToolBar('Tools')
         self.toolbar = QToolBar('Tools')
-        self.freeze_action = self.create_action('freeze',
-                                slot=self.freeze, icon='freeze_16',
-                                tip='Freeze this object',
-                                modes=['edit', 'view'])
-        self.frozen_action = self.create_action('frozen',
-                                slot=self.frozen, icon='frozen_16',
-                                tip='This object is frozen',
-                                modes=['edit', 'view'])
-        self.thaw_action = self.create_action('thaw',
-                                slot=self.thaw, icon='thaw_16',
-                                tip='Thaw this object',
-                                modes=['edit', 'view'])
-        self.where_used_action = self.create_action('where used',
-                                slot=self.show_where_used, icon='system',
-                                tip='Show where this object is used ...',
-                                modes=['edit', 'view'])
         if isinstance(self.obj, orb.classes['Product']):
+            self.freeze_action = self.create_action('freeze',
+                                    slot=self.freeze, icon='freeze_16',
+                                    tip='Freeze this object',
+                                    modes=['edit', 'view'])
+            self.frozen_action = self.create_action('frozen',
+                                    slot=self.frozen, icon='frozen_16',
+                                    tip='This object is frozen',
+                                    modes=['edit', 'view'])
+            self.thaw_action = self.create_action('thaw',
+                                    slot=self.thaw, icon='thaw_16',
+                                    tip='Thaw this object',
+                                    modes=['edit', 'view'])
+            self.where_used_action = self.create_action('where used',
+                                    slot=self.show_where_used, icon='system',
+                                    tip='Show where this object is used ...',
+                                    modes=['edit', 'view'])
             self.toolbar.addAction(self.freeze_action)
             self.toolbar.addAction(self.frozen_action)
             self.toolbar.addAction(self.thaw_action)
@@ -702,11 +702,6 @@ class PgxnObject(QDialog):
                 if 'delete' in perms:
                     # if perms include "delete", can also "freeze"
                     self.freeze_action.setVisible(True)
-        else:
-            self.frozen_action.setVisible(False)
-            self.thaw_action.setVisible(False)
-            self.freeze_action.setVisible(False)
-            self.where_used_action.setVisible(False)
         self.clone_action = self.create_action('clone',
                                 slot=self.on_clone, icon='clone_16',
                                 tip='Clone this object',
@@ -899,7 +894,7 @@ class PgxnObject(QDialog):
             else:
                 self.bbox = QDialogButtonBox()
                 if (not self.view_only and 'modify' in perms
-                    and not self.obj.frozen):
+                    and not getattr(self.obj, 'frozen', False)):
                         self.edit_button = self.bbox.addButton('Edit',
                                                    QDialogButtonBox.ActionRole)
                 if (state.get('connected') and
@@ -936,7 +931,7 @@ class PgxnObject(QDialog):
                 self.bbox = QDialogButtonBox()
                 orb.log.debug('            checking perms ...')
                 if (not self.view_only and 'modify' in perms
-                    and not self.obj.frozen):
+                    and not getattr(self.obj, 'frozen', False)):
                     orb.log.debug('            "modify" in perms --')
                     orb.log.debug('            adding "edit" button ...')
                     self.edit_button = self.bbox.addButton('Edit',

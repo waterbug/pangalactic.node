@@ -14,7 +14,6 @@ from louie import dispatcher
 
 from pangalactic.core                 import config, state
 from pangalactic.core.uberorb         import orb
-from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import get_ra_id, get_ra_name
 from pangalactic.node.buttons         import ButtonLabel, SizedButton
 from pangalactic.node.dialogs         import ObjectSelectionDialog
@@ -120,41 +119,97 @@ class RADropLabel(ColorLabel):
     def dropEvent(self, event):
         """
         Handle drop events (change 'assigned_role' if a Role is dropped or
-        'assigned_to' if a Person is dropped).
+        'assigned_to' if a Person is dropped).  Note that rather than modifying
+        the existing RoleAssignment object this will delete that one and create
+        a new one, because modifying the existing object would not trigger the
+        appropriate notifications (i.e., for the old role being removed and the
+        new one assigned).
         """
         if event.mimeData().hasFormat(self.mime):
             if self.mime == 'application/x-pgef-person':
                 data = extract_mime_data(event, self.mime)
                 icon, p_oid, p_id, p_name, p_cname = data
-                p = orb.get(p_oid)
-                name = ' '.join([p.first_name or '',
-                                 p.last_name or '[no last name]'])
+                person = orb.get(p_oid)
+                name = ' '.join([person.first_name or '',
+                                 person.last_name or '[no last name]'])
                 orb.log.info('[RADropLabel] Person dropped, {}: "{}"'.format(
-                                                                p.oid, name))
-                self.ra.assigned_to = p
-                self.ra.mod_datetime = dtstamp()
-                orb.save([self.ra])
+                                                            person.oid, name))
+                # get the Role object from the existing RoleAssignment
+                role = self.ra.assigned_role
+                # then create a new RoleAssignment
+                ra_id = get_ra_id(self.org.id, role.id,
+                                  person.first_name or '',
+                                  person.mi_or_name or '',
+                                  person.last_name or '')
+                ra_name = get_ra_name(self.org.id, role.id,
+                                  person.first_name or '',
+                                  person.mi_or_name or '',
+                                  person.last_name or '')
+                local_user = orb.get(state.get('local_user_oid'))
+                ra = clone('RoleAssignment', id=ra_id, name=ra_name,
+                           assigned_to=person,
+                           assigned_role=role,
+                           role_assignment_context=self.org,
+                           creator=local_user, modifier=local_user)
+                # NOTE:  clone() adds a dtstamp()
+                orb.save([ra])
+                # pangalaxian will handle the 'new object' signal and call the
+                # 'vger.assign_role' rpc ... also note that it's best to send
+                # the "new object" notification before the "deleted object"
+                # notification because that way the user will have at least one
+                # role assigned on the project during the process.
+                dispatcher.send(signal='new object', obj=ra)
+                # now delete the existing RoleAssignment ...
+                deleted_oid = self.ra.oid
+                orb.delete([self.ra])
+                # ... and set the new ra as the widget's ra
+                self.ra = ra
                 self.setText(get_styled_text(name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                # pangalaxian will handle the 'modified object' signal and call
-                # the 'vger.assign_role' rpc (if online)
-                dispatcher.send(signal='modified object', obj=self.ra)
+                dispatcher.send(signal='deleted object', oid=deleted_oid,
+                                cname='RoleAssignment')
             elif self.mime == 'application/x-pgef-role':
                 data = extract_mime_data(event, 'application/x-pgef-role')
                 icon, r_oid, r_id, r_name, r_cname = data
                 role = orb.get(r_oid)
                 orb.log.info('[RADropLabel] Role dropped: "{}"'.format(
                                                                role.name))
-                self.ra.assigned_role = role
-                self.ra.mod_datetime = dtstamp()
-                orb.save([self.ra])
+                # get the Person object from the existing RoleAssignment
+                person = self.ra.assigned_to
+                # then create a new RoleAssignment
+                ra_id = get_ra_id(self.org.id, role.id,
+                                  person.first_name or '',
+                                  person.mi_or_name or '',
+                                  person.last_name or '')
+                ra_name = get_ra_name(self.org.id, role.id,
+                                  person.first_name or '',
+                                  person.mi_or_name or '',
+                                  person.last_name or '')
+                local_user = orb.get(state.get('local_user_oid'))
+                ra = clone('RoleAssignment', id=ra_id, name=ra_name,
+                           assigned_to=person,
+                           assigned_role=role,
+                           role_assignment_context=self.org,
+                           creator=local_user, modifier=local_user)
+                # NOTE:  clone() adds a dtstamp()
+                orb.save([ra])
+                # pangalaxian will handle the 'new object' signal and call the
+                # 'vger.assign_role' rpc ... also note that it's best to send
+                # the "new object" notification before the "deleted object"
+                # notification because that way the user will have at least one
+                # role assigned on the project during the process.
+                dispatcher.send(signal='new object', obj=ra)
+                # now delete the existing RoleAssignment ...
+                deleted_oid = self.ra.oid
+                orb.delete([self.ra])
+                # ... and set the new ra as the widget's ra
+                self.ra = ra
                 self.setText(get_styled_text(role.name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                # pangalaxian will handle the 'modified object' signal and call
-                # the 'vger.assign_role' rpc (if online)
-                dispatcher.send(signal='modified object', obj=self.ra)
+                dispatcher.send(signal='deleted object', oid=deleted_oid,
+                                cname='RoleAssignment')
             else:
                 event.ignore()
         else:
@@ -502,13 +557,13 @@ class AdminDialog(QDialog):
                            assigned_to=person,
                            assigned_role=observer,
                            role_assignment_context=self.org,
-                           creator=local_user)
+                           creator=local_user, modifier=local_user)
                 # NOTE:  clone() adds a dtstamp()
                 orb.save([ra])
                 # rebuild role assignments
                 self.refresh_roles()
                 # pangalaxian will handle the 'new object' signal and call the
-                # 'vger.assign_role' rpc (if online)
+                # 'vger.assign_role' rpc ...
                 dispatcher.send(signal='new object', obj=ra)
             else:
                 orb.log.info('[Admin] Unknown Person dropped: "{}"'.format(
@@ -534,7 +589,8 @@ class AdminDialog(QDialog):
                     ra = clone('RoleAssignment', id=ra_id, name=ra_name,
                                assigned_to=tbd,
                                assigned_role=role,
-                               role_assignment_context=self.org)
+                               role_assignment_context=self.org,
+                               creator=local_user, modifier=local_user)
                     # NOTE:  clone() adds a dtstamp()
                     orb.save([ra])
                     # rebuild role assignments

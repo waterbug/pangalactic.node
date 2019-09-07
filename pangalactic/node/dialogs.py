@@ -79,9 +79,9 @@ class LoginDialog(QDialog):
 class NotificationDialog(QDialog):
     def __init__(self, something, parent=None):
         super(NotificationDialog, self).__init__(parent)
-        self.setWindowTitle("Yo!")
+        self.setWindowTitle("Notification")
         form = QFormLayout(self)
-        something_happened_label = QLabel('woo:', self)
+        something_happened_label = QLabel('News:', self)
         something_happened = QLabel(something, self)
         form.addRow(something_happened_label, something_happened)
         # OK and Cancel buttons

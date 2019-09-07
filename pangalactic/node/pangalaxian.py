@@ -410,14 +410,11 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug(log_msg)
         # data should be a list with 2 elements:
         szd_user, szd_role_assignments, szd_orgs = data
-        if szd_orgs:
-            # if organizations/projects are returned, it means we are a Global
-            # Administrator
-            deserialize(orb, szd_orgs)
+        deserialize(orb, szd_orgs)
         channels = []
         if szd_user:
-            objs = deserialize(orb, szd_user)
-            self.local_user = objs[0]
+            deserialize(orb, szd_user)
+            self.local_user = orb.select('Person', id=state['userid'])
             orb.log.info('* local user returned: {}'.format(
                                                   self.local_user.oid))
             state['local_user_oid'] = str(self.local_user.oid)
@@ -2189,8 +2186,7 @@ class Main(QtWidgets.QMainWindow):
                     orb.log.info('  calling rpc vger.save() ...')
                     orb.log.info('  - saved obj id: {} | oid: {}'.format(
                                                           obj.id, obj.oid))
-                    rpc = self.mbus.session.call('vger.save',
-                                                   serialized_objs)
+                    rpc = self.mbus.session.call('vger.save', serialized_objs)
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
         else:
