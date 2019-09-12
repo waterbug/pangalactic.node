@@ -410,7 +410,6 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug(log_msg)
         # data should be a list with 2 elements:
         szd_user, szd_role_assignments, szd_orgs = data
-        deserialize(orb, szd_orgs)
         channels = []
         if szd_user:
             deserialize(orb, szd_user)
@@ -435,6 +434,20 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.info('  - login user matches current local user.')
         else:
             orb.log.info('  - user object for local user not returned!')
+        orb.log.info('  - inspecting projects and orgs ...')
+        local_orgs = orb.get_all_subtypes('Organization')
+        server_org_oids = [so.get('oid') for so in szd_orgs]
+        for local_org in local_orgs:
+            # if a local org is not on the server and was not created by the
+            # local user, delete it ...
+            if (local_org.oid not in server_org_oids
+                and local_org.creator is not self.local_user):
+                systems = getattr(local_org, 'systems', None)
+                if systems:
+                    # if it is a project and has PSUs, delete them first
+                    orb.delete(systems)
+                orb.delete([local_org])
+        deserialize(orb, szd_orgs)
         orb.log.info('  - deserializing role assignments ...')
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE:
         # all local role assignment data should be deleted before deserializing
@@ -1150,6 +1163,10 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info('  result was empty!')
             return False
         objs = deserialize(orb, serialized_objects)
+        if not objs:
+            orb.log.info('  deserialize() returned no objects --')
+            orb.log.info('  those received were already in the local db.')
+            return False
         rep = '\n  '.join([obj.name + " (" + obj.__class__.__name__ + ")"
                            for obj in objs])
         orb.log.info('  deserializes as:')
@@ -2099,7 +2116,11 @@ class Main(QtWidgets.QMainWindow):
 
     def on_remote_get_mod_object(self, serialized_objects):
         orb.log.info('* on_remote_get_mod_object()')
-        for obj in deserialize(orb, serialized_objects):
+        objs =  deserialize(orb, serialized_objects)
+        if not objs:
+            orb.log.info('  deserialize() returned nothing --')
+            orb.log.info('  the objs received were already in the local db.')
+        for obj in objs:
             # same as for local 'modified object' but without the remote
             # calls ...
             cname = obj.__class__.__name__
