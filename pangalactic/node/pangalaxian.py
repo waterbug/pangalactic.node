@@ -435,7 +435,9 @@ class Main(QtWidgets.QMainWindow):
         else:
             orb.log.info('  - user object for local user not returned!')
         orb.log.info('  - inspecting projects and orgs ...')
-        local_orgs = orb.get_all_subtypes('Organization')
+        # don't include SANDBOX in local_orgs -- it's special
+        local_orgs = [org for org in orb.get_all_subtypes('Organization')
+                      if org.oid != 'pgefobjects:SANDBOX']
         server_org_oids = [so.get('oid') for so in szd_orgs]
         for local_org in local_orgs:
             # if a local org is not on the server and was not created by the
@@ -734,6 +736,11 @@ class Main(QtWidgets.QMainWindow):
             deferred:  result of `vger.save` rpc
         """
         orb.log.info('[pgxn] on_sync_result()')
+        sync_type = ''
+        if project_sync:
+            sync_type = 'project'
+        elif user_objs_sync:
+            sync_type = 'user objs'
         # orb.log.debug('       data: {}'.format(str(data)))
         sobjs, same_dts, to_update, local_only = data
         # TODO:  create a progress bar for this ...
@@ -801,7 +808,8 @@ class Main(QtWidgets.QMainWindow):
         #######################################################################
         if sobjs_to_save:
             self.statusbar.showMessage('saving local objs to repo ...')
-            txt = 'saving objects ...'.format(len(sobjs_to_save))
+            txt = '{} sync: saving objects ...'.format(sync_type,
+                                                         len(sobjs_to_save))
             dispatcher.send('sync progress', txt=txt)
         else:
             self.statusbar.showMessage('synced.')
@@ -886,7 +894,7 @@ class Main(QtWidgets.QMainWindow):
         # if library objects have been added or deleted, call _update_views()
         if update_needed:
             self._update_views()
-        txt = 'saving objects ...'
+        txt = 'library sync: saving objects ...'
         dispatcher.send('sync progress', txt=txt)
         return self.mbus.session.call('vger.save', sobjs_to_save)
 
