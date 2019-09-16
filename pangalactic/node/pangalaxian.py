@@ -449,7 +449,8 @@ class Main(QtWidgets.QMainWindow):
                     # if it is a project and has PSUs, delete them first
                     orb.delete(systems)
                 orb.delete([local_org])
-        deserialize(orb, szd_orgs)
+        # deserialize(orb, szd_orgs)
+        self.load_serialized_objects(szd_orgs)
         orb.log.info('  - deserializing role assignments ...')
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE:
         # all local role assignment data should be deleted before deserializing
@@ -459,7 +460,8 @@ class Main(QtWidgets.QMainWindow):
         # NOTE: serialized RoleAssignment objects include all related
         # objects -- 'assigned_role' (Role), 'assigned_to' (Person), and
         # 'role_assignment_context' (Organization or Project)
-        deserialize(orb, szd_role_assignments)
+        # deserialize(orb, szd_role_assignments)
+        self.load_serialized_objects(szd_role_assignments)
         ras = orb.get_by_type('RoleAssignment')
         org_ids = [getattr(ra.role_assignment_context, 'id', '')
                    for ra in ras]
@@ -749,9 +751,10 @@ class Main(QtWidgets.QMainWindow):
             try:
                 self.statusbar.showMessage(
                     'deserializing {} objects ...'.format(n))
-                deserialize(orb, sobjs)
                 txt = 'objects syncing ...'
                 dispatcher.send('sync progress', txt=txt)
+                # deserialize(orb, sobjs)
+                self.load_serialized_objects(sobjs)
                 if not project_sync:
                     # if new Parameter Definitions found, create icons
                     pd_oids = [so['oid'] for so in sobjs
@@ -859,7 +862,8 @@ class Main(QtWidgets.QMainWindow):
             # mod_datetime than the corresponding local object ... so first
             # make sure they are not in our local trash ...
             not_trash = [so for so in sobjs if so.get('oid') not in trash]
-            deserialize(orb, not_trash)
+            # deserialize(orb, not_trash)
+            self.load_serialized_objects(not_trash)
             update_needed = True
         # then collect any local objects that need to be saved to the repo ...
         sobjs_to_save = []
@@ -1187,7 +1191,8 @@ class Main(QtWidgets.QMainWindow):
         if not serialized_objects:
             orb.log.info('  result was empty!')
             return False
-        objs = deserialize(orb, serialized_objects)
+        # objs = deserialize(orb, serialized_objects)
+        objs = self.load_serialized_objects(serialized_objects)
         if not objs:
             orb.log.info('  deserialize() returned no objects --')
             orb.log.info('  those received were already in the local db.')
@@ -3514,10 +3519,16 @@ class Main(QtWidgets.QMainWindow):
                 return
             self.load_serialized_objects(sobjs)
 
-    def load_serialized_objects(self, sobjs):
+    def load_serialized_objects(self, sobjs, importing=False):
+        objs = []
         if sobjs:
             byclass = {}
-            message = ''
+            if importing:
+                begin = 'Loading'
+                end = 'imported'
+            else:
+                begin = 'Syncing'
+                end = 'synced'
             for so in sobjs:
                 if byclass.get(so['_cname']):
                     byclass[so['_cname']].append(so)
@@ -3526,14 +3537,14 @@ class Main(QtWidgets.QMainWindow):
             if 'Project' in byclass:
                 projid = byclass['Project'][0].get('id', '')
                 if projid:
-                    start_msg = 'Loading data for {} ...'.format(projid)
-                    message = "Success: project {} imported.".format(projid)
+                    start_msg = '{} data for {} ...'.format(begin, projid)
+                    message = "Success: project {} .".format(projid, end)
                 else:
-                    start_msg = 'Loading data for your project ...'
-                    message = "Your data has been imported."
+                    start_msg = '{} data for your project ...'.format(begin)
+                    message = "Your data has been {}.".format(end)
             else:
-                start_msg = 'Loading data for your project ...'
-                message = "Your data has been imported."
+                start_msg = '{} data for your project ...'.format(begin)
+                message = "Your data has been {}.".format(end)
             self.statusbar.showMessage(start_msg)
             self.pb.show()
             self.pb.setValue(0)
@@ -3548,7 +3559,7 @@ class Main(QtWidgets.QMainWindow):
                         if so.get('creator') == 'me' and not user_is_me:
                             so['creator'] = self.local_user.oid
                             so['modifier'] = self.local_user.oid
-                        deserialize(orb, [so])
+                        objs += deserialize(orb, [so])
                         i += 1
                         self.pb.setValue(i)
                         self.statusbar.showMessage('{}: {}'.format(cname,
@@ -3563,31 +3574,33 @@ class Main(QtWidgets.QMainWindow):
                         if so.get('creator') == 'me' and not user_is_me:
                             so['creator'] = self.local_user.oid
                             so['modifier'] = self.local_user.oid
-                        deserialize(orb, [so])
+                        objs += deserialize(orb, [so])
                         i += 1
                         self.pb.setValue(i)
             self.pb.hide()
             if not message:
-                message = "Your data has been imported."
+                message = "Your data has been {}.".format(end)
             self.statusbar.showMessage(message)
-            popup = QtWidgets.QMessageBox(
-                        QtWidgets.QMessageBox.Information,
-                        "Project Data Import", message,
-                        QtWidgets.QMessageBox.Ok, self)
-            popup.show()
+            if importing:
+                popup = QtWidgets.QMessageBox(
+                            QtWidgets.QMessageBox.Information,
+                            "Project Data Import", message,
+                            QtWidgets.QMessageBox.Ok, self)
+                popup.show()
             if hasattr(self, 'library_widget'):
                 self.library_widget.refresh()
             if hasattr(self, 'sys_tree'):
                 self.refresh_tree_and_dashboard()
-            return
+            return objs
         else:
-            message = "No data found."
-            popup = QtWidgets.QMessageBox(
-                        QtWidgets.QMessageBox.Warning,
-                        "No data found.", message,
-                        QtWidgets.QMessageBox.Ok, self)
-            popup.show()
-            return
+            if importing:
+                message = "No data found."
+                popup = QtWidgets.QMessageBox(
+                            QtWidgets.QMessageBox.Warning,
+                            "No data found.", message,
+                            QtWidgets.QMessageBox.Ok, self)
+                popup.show()
+            return []
 
     def load_test_objects(self):
         if not state.get('test_objects_loaded'):
