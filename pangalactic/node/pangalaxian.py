@@ -913,24 +913,41 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info("       pop-up notification ...")
             # text = ('subject: {}<br>'.format(subject))
             obj_id = '[unknown]'
+            # base msg
+            msg = "remote {}: ".format(subject)
             if subject == 'decloaked':
                 # actor_oid is the oid of the Actor to which the object has
                 # been decloaked (usually an Organization or Project)
                 obj_oid, obj_id, actor_oid, actor_id = content
+                msg += obj_id
             elif subject == 'modified':
                 obj_oid, obj_id, obj_mod_datetime = content
+                obj = orb.get(obj_oid)
+                if obj and obj.name:
+                    if isinstance(obj, orb.classes['Product']):
+                        pt = getattr(obj.product_type, 'name', 'unknown type')
+                        msg += "{} ({}) [{}]".format(obj_id, obj.name, pt)
+                    elif isinstance(obj, orb.classes['Acu']):
+                        pth = getattr(obj.product_type_hint, 'name',
+                                      'unknown type')
+                        msg += "{} [{}]".format(obj_id, pth)
+                else:
+                    msg += obj_id
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
                 if obj:
                     obj_id = obj.id
+                msg += obj_id
             elif subject == 'organization':
                 obj_oid = content['oid']
                 obj_id = content['id']
+                msg += obj_id
             elif subject == 'person added':
                 obj_oid = content['oid']
                 obj_id = content['id']
-            self.statusbar.showMessage("remote {}: {}".format(subject, obj_id))
+                msg += obj_id
+            self.statusbar.showMessage(msg)
             if subject == 'decloaked':
                 dispatcher.send(signal="remote: decloaked", content=content)
             elif subject == 'modified':
