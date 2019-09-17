@@ -191,6 +191,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.decloak, 'decloaking')
         dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')
+        dispatcher.connect(self.on_get_people, 'get people')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., RoleAssignment instances)
@@ -1144,6 +1145,15 @@ class Main(QtWidgets.QMainWindow):
         Send 'vger.add_person' rpc when 'add person' signal is received.
         """
         rpc = self.mbus.session.call('vger.add_person', data)
+        rpc.addCallback(self.on_rpc_add_person_result)
+        rpc.addErrback(self.on_failure)
+
+    def on_get_people(self):
+        """
+        Send 'vger.get_people' rpc when 'get people' signal is received from
+        the admin tool.
+        """
+        rpc = self.mbus.session.call('vger.get_people')
         rpc.addCallback(self.on_rpc_add_person_result)
         rpc.addErrback(self.on_failure)
 

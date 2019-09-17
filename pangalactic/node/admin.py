@@ -126,6 +126,9 @@ class RADropLabel(ColorLabel):
         new one assigned).
         """
         if event.mimeData().hasFormat(self.mime):
+            # get the Role object from the existing RoleAssignment
+            role = self.ra.assigned_role
+            org = self.ra.role_assignment_context
             if self.mime == 'application/x-pgef-person':
                 data = extract_mime_data(event, self.mime)
                 icon, p_oid, p_id, p_name, p_cname = data
@@ -134,14 +137,12 @@ class RADropLabel(ColorLabel):
                                  person.last_name or '[no last name]'])
                 orb.log.info('[RADropLabel] Person dropped, {}: "{}"'.format(
                                                             person.oid, name))
-                # get the Role object from the existing RoleAssignment
-                role = self.ra.assigned_role
-                # then create a new RoleAssignment
-                ra_id = get_ra_id(self.org.id, role.id,
+                # create a new RoleAssignment
+                ra_id = get_ra_id(org.id, role.id,
                                   person.first_name or '',
                                   person.mi_or_name or '',
                                   person.last_name or '')
-                ra_name = get_ra_name(self.org.id, role.id,
+                ra_name = get_ra_name(org.id, role.id,
                                   person.first_name or '',
                                   person.mi_or_name or '',
                                   person.last_name or '')
@@ -149,7 +150,7 @@ class RADropLabel(ColorLabel):
                 ra = clone('RoleAssignment', id=ra_id, name=ra_name,
                            assigned_to=person,
                            assigned_role=role,
-                           role_assignment_context=self.org,
+                           role_assignment_context=org,
                            creator=local_user, modifier=local_user)
                 # NOTE:  clone() adds a dtstamp()
                 orb.save([ra])
@@ -178,11 +179,11 @@ class RADropLabel(ColorLabel):
                 # get the Person object from the existing RoleAssignment
                 person = self.ra.assigned_to
                 # then create a new RoleAssignment
-                ra_id = get_ra_id(self.org.id, role.id,
+                ra_id = get_ra_id(org.id, role.id,
                                   person.first_name or '',
                                   person.mi_or_name or '',
                                   person.last_name or '')
-                ra_name = get_ra_name(self.org.id, role.id,
+                ra_name = get_ra_name(org.id, role.id,
                                   person.first_name or '',
                                   person.mi_or_name or '',
                                   person.last_name or '')
@@ -190,7 +191,7 @@ class RADropLabel(ColorLabel):
                 ra = clone('RoleAssignment', id=ra_id, name=ra_name,
                            assigned_to=person,
                            assigned_role=role,
-                           role_assignment_context=self.org,
+                           role_assignment_context=org,
                            creator=local_user, modifier=local_user)
                 # NOTE:  clone() adds a dtstamp()
                 orb.save([ra])
@@ -372,6 +373,8 @@ class AdminDialog(QDialog):
         orb.log.info('* AdminDialog()')
         super(AdminDialog, self).__init__(parent)
         self.setAcceptDrops(True)
+        # this triggers an rpc that asynchronously updates the Person table
+        dispatcher.send(signal='get people')
         self.org = org
         title = "Administer {} Roles".format(getattr(self.org, 'id', ''))
         self.setWindowTitle(title)
@@ -384,13 +387,11 @@ class AdminDialog(QDialog):
         hbox.addLayout(self.left_vbox)
         hbox.addLayout(self.right_vbox)
         hbox.addStretch(1)
-
         self.org_selection = ButtonLabel(self.org.id,
                                     # actions=[self.new_org_action],
                                     w=120)
         self.org_selection.clicked.connect(self.set_current_org)
         self.left_vbox.addWidget(self.org_selection)
-
         # build role assignments in left_vbox
         self.refresh_roles()
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok, Qt.Horizontal,
@@ -417,6 +418,9 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.refresh_libs, 'person added')
 
     def do_ldap_search(self):
+        """
+        Invoke the LDAP Search Dialog.
+        """
         dlg = LdapSearchDialog(parent=self)
         dlg.show()
 
