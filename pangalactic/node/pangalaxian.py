@@ -55,7 +55,8 @@ from pangalactic.node.dialogs         import (CloakingDialog,
                                               NotificationDialog,
                                               ObjectSelectionDialog,
                                               # OptionNotification,
-                                              PrefsDialog, ProgressDialog)
+                                              PrefsDialog)
+                                              # ProgressDialog)
 # from pangalactic.node.filters         import FilterDialog
 from pangalactic.node.helpwidget      import HelpWidget
 from pangalactic.node.libraries       import LibraryDialog, LibraryListWidget
@@ -208,7 +209,7 @@ class Main(QtWidgets.QMainWindow):
         # modeler interface", so just call that)
         dispatcher.connect(self.set_product_modeler_interface,
                            'set current product')
-        dispatcher.connect(self.update_sync_progress, 'sync progress')
+        # dispatcher.connect(self.update_sync_progress, 'sync progress')
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
@@ -335,16 +336,16 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
         orb.log.info('  with arg: "{}"'.format(userid))
-        progress_max = 4
-        txt = 'Syncing with repository ... please be patient! :)'
-        if not state.get('done_with_progress'):
-            self.progress_dialog = ProgressDialog(title='Sync',
-                                              label=txt,
-                                              maximum=progress_max,
-                                              parent=self)
-            self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
-            self.progress_dialog.setValue(1)
-            self.progress_dialog.show()
+        # progress_max = 4
+        # txt = 'Syncing with repository ... please be patient! :)'
+        # if not state.get('done_with_progress'):
+            # self.progress_dialog = ProgressDialog(title='Sync',
+                                              # label=txt,
+                                              # maximum=progress_max,
+                                              # parent=self)
+            # self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
+            # self.progress_dialog.setValue(1)
+            # self.progress_dialog.show()
         QtWidgets.QApplication.processEvents()
         try:
             rpc = self.mbus.session.call('vger.get_user_roles', userid)
@@ -681,23 +682,23 @@ class Main(QtWidgets.QMainWindow):
             self.statusbar.showMessage('synced.')
         return self.mbus.session.call('vger.sync_project', proj_oid, data)
 
-    def update_sync_progress(self, txt='syncing...'):
-        try:
-            if (state.get('done_with_progress') and
-                getattr(self, 'progress_dialog', None)):
-                QtWidgets.QApplication.processEvents()
-                self.progress_dialog.setValue(self.progress_dialog.maximum())
-                self.progress_dialog.done(0)
-                self.progress_dialog.close()
-                self.progress_value = 0
-            elif getattr(self, 'progress_dialog', None):
-                self.progress_value += 1
-                self.progress_dialog.setValue(self.progress_value)
-                self.progress_dialog.setLabelText(txt)
-                QtWidgets.QApplication.processEvents()
-        except:
-            # oops -- my C++ object probably got deleted
-            pass
+    # def update_sync_progress(self, txt='syncing...'):
+        # try:
+            # if (state.get('done_with_progress') and
+                # getattr(self, 'progress_dialog', None)):
+                # QtWidgets.QApplication.processEvents()
+                # self.progress_dialog.setValue(self.progress_dialog.maximum())
+                # self.progress_dialog.done(0)
+                # self.progress_dialog.close()
+                # self.progress_value = 0
+            # elif getattr(self, 'progress_dialog', None):
+                # self.progress_value += 1
+                # self.progress_dialog.setValue(self.progress_value)
+                # self.progress_dialog.setLabelText(txt)
+                # QtWidgets.QApplication.processEvents()
+        # except:
+            # # oops -- my C++ object probably got deleted
+            # pass
 
     def on_user_objs_sync_result(self, data):
         self.on_sync_result(data, user_objs_sync=True)
@@ -816,13 +817,13 @@ class Main(QtWidgets.QMainWindow):
             dispatcher.send('sync progress', txt=txt)
         else:
             self.statusbar.showMessage('synced.')
-            if project_sync:
-                QtWidgets.QApplication.processEvents()
-                self.progress_dialog.setValue(self.progress_dialog.maximum())
-                self.progress_dialog.done(0)
-                self.progress_dialog.close()
-                self.progress_value = 0
-                state['done_with_progress'] = True
+            # if project_sync:
+                # QtWidgets.QApplication.processEvents()
+                # self.progress_dialog.setValue(self.progress_dialog.maximum())
+                # self.progress_dialog.done(0)
+                # self.progress_dialog.close()
+                # self.progress_value = 0
+                # state['done_with_progress'] = True
             state['synced_projects'].append(state.get('project'))
         return self.mbus.session.call('vger.save', sobjs_to_save)
 
