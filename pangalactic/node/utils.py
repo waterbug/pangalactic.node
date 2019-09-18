@@ -324,9 +324,11 @@ def get_icon_path(obj):
     """
     # first, check whether object is cloaked
     icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-    if (hasattr(obj, 'public') and not obj.public
-        and not isinstance(obj, (orb.classes['Actor'],
-                                 orb.classes['Template']))):
+    # Products are the only class that should be "cloakable" ... this may
+    # require schema change in future (move "public" attr from ManagedObject to
+    # Product), but for now just use 'isinstance' ...
+    if (isinstance(obj, orb.classes['Product']) and not obj.public
+        and not isinstance(obj, orb.classes['Template'])):
         # if obj is not public, use the 'cloakable' icon
         return os.path.join(icon_dir, 'cloakable' + state['icon_type'])
     # check for a special icon for this specific object
