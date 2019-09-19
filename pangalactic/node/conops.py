@@ -776,7 +776,7 @@ class ConOpsModeler(QMainWindow):
             corresponding to the object being modeled
         history (list):  list of previous subject Activity instances
     """
-    def __init__(self, external=False, parent=None):
+    def __init__(self, parent=None):
         """
         Main window for displaying models and their metadata.
 
@@ -788,13 +788,11 @@ class ConOpsModeler(QMainWindow):
                 "placeholder" image when object is not provided
             idx (QModelIndex):  index in the system tree's proxy model
                 corresponding to the object being modeled
-            external (bool):  initialize as an external window
             preferred_size (tuple):  size to set -- (width, height)
         """
         super(ConOpsModeler, self).__init__(parent=parent)
         orb.log.info('* ConOpsModeler initializing')
         # self.logo = logo
-        # self.external = external
         # self.idx = idx
         # self.preferred_size = preferred_size
         # self.model_files = {}
@@ -962,7 +960,7 @@ if __name__ == '__main__':
     import sys
     orb.start(home='junk_home', debug=True)
     app = QApplication(sys.argv)
-    mw = ConOpsModeler(external=True)
+    mw = ConOpsModeler()
     mw.show()
     sys.exit(app.exec_())
 

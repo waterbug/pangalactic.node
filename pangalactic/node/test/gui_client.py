@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
                              QMessageBox, QPushButton, QSizePolicy,
                              QTextBrowser, QVBoxLayout, QWidget)
 from louie import dispatcher
+from twisted.internet.defer import DeferredList
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
@@ -28,8 +29,8 @@ from pangalactic.core.test.utils      import (create_test_project,
                                               create_test_users,
                                               gen_test_pvals, test_parms)
 from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.utils.meta      import uncook_datetime
 from pangalactic.core.uberorb         import orb
-from pangalactic.node.activities      import ActivityTables
 from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dialogs         import LoginDialog
 from pangalactic.node.widgets         import ModeLabel
@@ -69,7 +70,7 @@ class NotificationDialog(QDialog):
         super(NotificationDialog, self).__init__(parent)
         self.setWindowTitle("Hey!")
         form = QFormLayout(self)
-        something_happened_label = QLabel('woo:', self)
+        something_happened_label = QLabel('woo!', self)
         something_happened = QLabel(something, self)
         form.addRow(something_happened_label, something_happened)
         # OK and Cancel buttons
@@ -138,8 +139,12 @@ class MainWindow(QMainWindow):
         self.create_timer()
         dispatcher.connect(self.on_joined, 'onjoined')
         dispatcher.connect(self.on_leave, 'onleave')
-        dispatcher.connect(self.on_activity, 'new activity')
-        #dispatcher.connect(self.remove_activity, 'removed activity')
+        dispatcher.connect(self.on_remote_decloaked_signal,
+                                                    'remote: decloaked')
+        dispatcher.connect(self.on_remote_modified_signal,
+                                                    'remote: modified')
+        dispatcher.connect(self.on_remote_deleted_signal,
+                                                    'remote: deleted')
         self.new_index = 0
         self.test_oid = ''
         self.cloaked = []
@@ -151,20 +156,65 @@ class MainWindow(QMainWindow):
     def on_signal(self, msg):
         print("event received on: {}".format(msg))
         subject, content = list(msg.items())[0]
-        text = "Event: {} '{}'".format(str(subject), str(content))
         self.log("Event received:")
         self.log("      subject: {}".format(str(subject)))
         self.log("      content: {}".format(str(content)))
-        print(text)
-        print("Opening notification dialog ...")
-        self.w = NotificationDialog(text, parent=self)
-        # self.w.setWidth(200)
-        self.w.show()
         if str(subject) in ['decloaked', 'modified']:
             self.log('* calling rpc vger.get_object() on {}'.format(content[0]))
-            rpc = message_bus.session.call(u'vger.get_object', content[0])
+            rpc = message_bus.session.call('vger.get_object', content[0])
             rpc.addCallback(self.on_get_object_result)
             rpc.addErrback(self.on_failure)
+
+    def on_pubsub_msg(self, msg):
+        """
+        Handle pubsub messages.
+
+        Args:
+            msg (tuple): the message, a tuple of (subject, content)
+        """
+        for item in msg.items():
+            subject, content = item
+            self.log("*** received pubsub msg ...")
+            self.log("       subject: {}".format(subject))
+            self.log("       content: {}".format(content))
+            obj_id = '[unknown]'
+            # base text
+            text = "remote {}: ".format(subject)
+            if subject == 'decloaked':
+                # actor_oid is the oid of the Actor to which the object has
+                # been decloaked (usually an Organization or Project)
+                obj_oid, obj_id, actor_oid, actor_id = content
+                text += obj_id
+            elif subject == 'modified':
+                obj_oid, obj_id, obj_mod_datetime = content
+                obj = orb.get(obj_oid)
+                if obj and obj.name:
+                    if isinstance(obj, orb.classes['Product']):
+                        pt = getattr(obj.product_type, 'name', 'unknown type')
+                        text += "{} ({}) [{}]".format(obj_id, obj.name, pt)
+                    elif isinstance(obj, orb.classes['Acu']):
+                        pth = getattr(obj.product_type_hint, 'name',
+                                      'unknown type')
+                        text += "{} [{}]".format(obj_id, pth)
+                else:
+                    text += obj_id
+            elif subject == 'deleted':
+                obj_oid = content
+                obj = orb.get(obj_oid)
+                if obj:
+                    obj_id = obj.id
+                text += obj_id
+            elif subject == 'organization':
+                obj_oid = content['oid']
+                obj_id = content['id']
+                text += obj_id
+            elif subject == 'person added':
+                obj_oid = content['oid']
+                obj_id = content['id']
+                text += obj_id
+            w = NotificationDialog(text, parent=self)
+            w.setWidth(200)
+            w.show()
 
     def create_main_frame(self):
         self.circle_widget = CircleWidget()
@@ -174,10 +224,6 @@ class MainWindow(QMainWindow):
         self.conops_button = QPushButton('Con Ops Modeler')
         self.conops_button.clicked.connect(self.start_conops)
         self.conops_button.setVisible(True)
-        # start up Activity Tables --> opens an ActivityTables window
-        self.acttabs_button = QPushButton('Activity Tables')
-        self.acttabs_button.clicked.connect(self.start_act_tabs)
-        self.acttabs_button.setVisible(True)
         # check version -- just displays result
         self.check_version_button = QPushButton('Check Version')
         self.check_version_button.setVisible(False)
@@ -189,16 +235,9 @@ class MainWindow(QMainWindow):
         self.ldap_result_button = QPushButton('Test LDAP Result')
         self.ldap_result_button.setVisible(False)
         self.ldap_result_button.clicked.connect(self.on_test_ldap_result)
-        # check output of 'get_user_roles' -- just displays result
-        # self.get_user_roles_button = QPushButton('Test Get User Roles')
-        # self.get_user_roles_button.setVisible(False)
-        # self.get_user_roles_button.clicked.connect(self.get_user_roles)
         self.save_object_button = QPushButton('Save Object')
         self.save_object_button.setVisible(False)
         self.save_object_button.clicked.connect(self.on_save_object)
-        self.add_project_button = QPushButton('Add a Project')
-        self.add_project_button.setVisible(False)
-        self.add_project_button.clicked.connect(self.on_add_project)
         self.add_psu_button = QPushButton('Add a Project System Usage')
         self.add_psu_button.setVisible(False)
         self.add_psu_button.clicked.connect(self.on_add_psu)
@@ -214,9 +253,9 @@ class MainWindow(QMainWindow):
         self.get_object_button = QPushButton('Get Object')
         self.get_object_button.setVisible(False)
         self.get_object_button.clicked.connect(self.on_get_object)
-        self.sync_project_button = QPushButton('Sync Project')
-        self.sync_project_button.setVisible(False)
-        self.sync_project_button.clicked.connect(self.on_sync_project)
+        # self.sync_project_button = QPushButton('Sync Project')
+        # self.sync_project_button.setVisible(False)
+        # self.sync_project_button.clicked.connect(self.on_sync_project)
         self.logout_button = QPushButton('Log out')
         self.logout_button.setVisible(False)
         self.logout_button.clicked.connect(self.logout)
@@ -241,19 +280,16 @@ class MainWindow(QMainWindow):
                                 QMessageBox.Ok, self)
             popup.show()
         vbox.addWidget(self.conops_button, alignment=Qt.AlignVCenter)
-        vbox.addWidget(self.acttabs_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_result_button, alignment=Qt.AlignVCenter)
-        # vbox.addWidget(self.get_user_roles_button, alignment=Qt.AlignVCenter)
-        vbox.addWidget(self.add_project_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.save_object_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_psu_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_acu_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.remove_comp_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.gcs_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.get_object_button, alignment=Qt.AlignVCenter)
-        vbox.addWidget(self.sync_project_button, alignment=Qt.AlignVCenter)
+        # vbox.addWidget(self.sync_project_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.logout_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.circle_widget)
         vbox.addWidget(cloaked_list_label)
@@ -281,7 +317,7 @@ class MainWindow(QMainWindow):
             self.userid = login_dlg.userid
             message_bus.set_authid(login_dlg.userid)
             message_bus.set_passwd(login_dlg.passwd)
-            message_bus.run(u'wss://{}:{}/ws'.format(self.host, self.port),
+            message_bus.run('wss://{}:{}/ws'.format(self.host, self.port),
                             realm=six.u('pangalactic-services'),
                             start_reactor=False, ssl=tls_options)
 
@@ -292,47 +328,37 @@ class MainWindow(QMainWindow):
         self.check_version_button.setVisible(True)
         self.ldap_search_button.setVisible(True)
         self.ldap_result_button.setVisible(True)
-        # self.get_user_roles_button.setVisible(True)
-        self.add_project_button.setVisible(True)
         self.save_object_button.setVisible(True)
         self.add_psu_button.setVisible(False)
         self.add_acu_button.setVisible(False)
         self.remove_comp_button.setVisible(False)
         self.gcs_button.setVisible(True)
         self.get_object_button.setVisible(True)
-        self.sync_project_button.setVisible(True)
+        # self.sync_project_button.setVisible(True)
         self.log('  - getting roles from repo ...')
-        # rpc = message_bus.session.call(u'vger.get_role_assignments',
-                                       # self.userid)
-        # rpc.addCallback(self.on_get_admin_result)
-        rpc = message_bus.session.call(u'vger.get_user_roles',
+        rpc = message_bus.session.call('vger.get_user_roles',
                                        self.userid)
         rpc.addCallback(self.on_get_user_roles_result)
-        rpc.addCallback(self.sync_user)
+        rpc.addErrback(self.on_failure)
+        rpc.addCallback(self.subscribe_to_channels)
+        rpc.addErrback(self.on_failure)
+        rpc.addCallback(self.on_sync_project)
         rpc.addErrback(self.on_failure)
 
     def start_conops(self):
         mw = ConOpsModeler(parent=self)
         mw.show()
 
-    def start_act_tabs(self):
-        win = ActivityTables(parent=self)
-        win.show()
-
-    def start_activities(self):
-        win = ActivityTables(parent=self)
-        win.show()
-
     def on_get_admin_result(self, data):
         """
         Handle result of the rpc that got our role assignments, which comes in
         one of two forms.  The data has the format:
 
-            {u'organizations': [{oid, id, name, description,
+            {'organizations': [{oid, id, name, description,
                                  parent_organization}, ...],
-             u'users': [{oid, id, name}, ...],
-             u'roles': [{oid, name}, ...],
-             u'roleAssignments': [{assigned_role, assigned_to,
+             'users': [{oid, id, name}, ...],
+             'roles': [{oid, name}, ...],
+             'roleAssignments': [{assigned_role, assigned_to,
                                    role_assignment_context}, ...]}
 
         ... unless the 'no_filter' keyword arg is set to True, in which case
@@ -342,7 +368,7 @@ class MainWindow(QMainWindow):
         if data:
             self.log('* test role data from repo ...')
             self.log('  Organizations:')
-            orgs = data[u'organizations']
+            orgs = data['organizations']
             for i, org in enumerate(orgs):
                 self.log('    [{}] oid: {}'.format(i, org['oid']))
                 self.log('         id: {}'.format(org['id']))
@@ -350,18 +376,18 @@ class MainWindow(QMainWindow):
                 self.log('         mod_datetime: {}'.format(
                                 org.get('mod_datetime', '[none]')))
             self.log('  Users:')
-            users = data[u'users']
+            users = data['users']
             for i, user in enumerate(users):
                 self.log('    [{}] oid: {}'.format(i, user['oid']))
                 self.log('         id: {}'.format(user['id']))
                 self.log('         name: {}'.format(user['name']))
             self.log('  Roles:')
-            roles = data[u'roles']
+            roles = data['roles']
             for i, role in enumerate(roles):
                 self.log('    [{}] oid: {}'.format(i, role['oid']))
                 self.log('         name: {}'.format(role['name']))
             self.log('  Role Assignments:')
-            ras = data[u'roleAssignments']
+            ras = data['roleAssignments']
             if ras:
                 for i, rasgt in enumerate(ras):
                     self.log('    [{}] assigned role: {}'.format(i,
@@ -371,7 +397,7 @@ class MainWindow(QMainWindow):
                     self.log('         assignment context: {}'.format(
                                         rasgt['role_assignment_context']))
                 ra = ras[0]
-                roles = {r[u'oid']:r[u'name'] for r in data[u'roles']}
+                roles = {r['oid']:r['name'] for r in data['roles']}
                 self.log('  - role data:  %s' % str(roles))
                 ra_txt = ': '.join([ra.get('role_assignment_context', 'Global'),
                                     roles[ra['assigned_role']]])
@@ -380,96 +406,62 @@ class MainWindow(QMainWindow):
                 self.role_label.setVisible(True)
         else:
             self.log('* no role assignments found.')
-        self.subscribe_to_channels()
 
     def subscribe_to_channels(self, channels=None):
         channels = channels or []
         if not channels:
-            channels = [u'vger.channel.public', u'vger.channel.H2G2']
+            channels = ['vger.channel.public', 'vger.channel.H2G2']
+        subs = []
         for channel in channels:
-            sub = message_bus.session.subscribe(self.on_signal, channel)
+            sub = message_bus.session.subscribe(self.on_pubsub_msg, channel)
             sub.addCallback(self.on_success)
             sub.addErrback(self.on_failure)
-        return channels
+            subs.append(sub)
+        self.log('* subscribed to channels: {}'.format(channels))
+        return DeferredList(subs, consumeErrors=True)
 
     def on_success(self, result):
-        print("* subscribed successfully: {}".format(str(result)))
+        self.log("* subscribed successfully: {}".format(str(result)))
 
     def on_failure(self, f):
-        print("* subscription failure: {}".format(f.getTraceback()))
-
-    def sync_user(self, data):
-        """
-        Sync the user's Person object with the admin/repo service.
-
-        Args:
-            data:  parameter required for callback (ignored)
-        """
-        # get Person object corresponding to login userid
-        self.log('* calling rpc get_user_object ...')
-        rpc = message_bus.session.call(u'vger.get_user_object', self.userid)
-        rpc.addCallback(self.reset_user)
-        rpc.addErrback(self.on_failure)
-
-    def reset_user(self, data):
-        """
-        Substitute the user's Person object for the admin/repo service.
-
-        Args:
-            data:  parameter required for callback (ignored)
-        """
-        # TODO:  replace all 'me' objects with user's Person instance
-        # -- use 'created_objects' to find them ...
-        self.log('* return from get_user_object:  {}'.format(data))
-
-    def get_user_roles(self):
-        rpc = message_bus.session.call(u'vger.get_user_roles', self.userid)
-        # first, let's see what we get ...
-        # rpc.addCallback(self.on_result)
-        rpc.addCallback(self.on_get_user_roles_result)
-        rpc.addErrback(self.on_failure)
-
-    def on_activity(self, act=None, acu=None):
-        self.log('I just got activity {}'.format(
-                 getattr(act, 'id', '[unnamed activity]')))
+        self.log("* subscription failure: {}".format(f.getTraceback()))
 
     def on_get_user_roles_result(self, data):
         """
-        Handle result of the rpc 'vger.get_user_roles'.  The data has the
-        format:
+        Handle result of the rpc 'vger.get_user_roles'.  The returned data has
+        the structure:
 
-            [serialized user, serialized role assignments]
-
-        ... in which both items are lists of serialized objects.
+            [serialized user (Person) object,
+             serialized RoleAssignment objects,
+             serialized Organization/Project objects]
         """
         if data:
-            user_data, ras_data = data
+            user_data, ras_data, org_data = data
+            deserialize(orb, user_data)
+            deserialize(orb, ras_data)
+            deserialize(orb, org_data)
             szd_user = user_data[0]
-            self.log('---- USER ROLE DATA ---------------')
+            self.log('---- USER ROLES INFO ---------------')
             self.log('* userid: {}'.format(szd_user['id']))
-            self.log('* serialized role-related objects:')
+            self.log('* roles assigned to this user:')
             for so in ras_data:
-                self.log('  - class: {}'.format(so['_cname']))
-                self.log('    + id: "{}", oid: "{}"'.format(so['id'],
-                                                            so['oid']))
-                if so['_cname'] == 'RoleAssignment':
-                    self.log('    + assigned role: {}'.format(
+                if (so['_cname'] == 'RoleAssignment' and
+                    so['assigned_to'] == szd_user['oid']):
+                    self.log('    + assigned role oid: {}'.format(
                                                      so['assigned_role']))
-                    self.log('    + assigned to: {}'.format(
-                                                     so['assigned_to']))
-                    self.log('    + assignment context: {}'.format(
+                    self.log('    + assignment context oid: {}'.format(
                                     so.get('role_assignment_context', 'None')))
-            self.log('---- END USER ROLE DATA -----------')
+            self.log('---- END USER ROLES INFO -----------')
 
     def on_check_version(self):
         self.log('* calling rpc "vger.get_version()" ...')
-        rpc = message_bus.session.call(u'vger.get_version')
+        rpc = message_bus.session.call('vger.get_version')
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
 
     def on_test_ldap_search(self):
         self.log('* calling rpc "vger.search_ldap()" ...')
-        rpc = message_bus.session.call(u'vger.search_ldap', test='search',
+        rpc = message_bus.session.call('vger.search_ldap', test='search',
                                        first_name='Stephen',
                                        last_name='Waterbury')
         rpc.addCallback(self.on_result)
@@ -477,7 +469,7 @@ class MainWindow(QMainWindow):
 
     def on_test_ldap_result(self):
         self.log('* calling rpc "vger.search_ldap()" ...')
-        rpc = message_bus.session.call(u'vger.search_ldap', test='result',
+        rpc = message_bus.session.call('vger.search_ldap', test='result',
                                        first_name='Stephen',
                                        last_name='Waterbury')
         rpc.addCallback(self.on_result)
@@ -490,7 +482,7 @@ class MainWindow(QMainWindow):
         actor_oid = 'H2G2'
         # for testing "public" decloak:
         # actor_oid = ''
-        rpc = message_bus.session.call(u'vger.decloak', obj_oid, actor_oid)
+        rpc = message_bus.session.call('vger.decloak', obj_oid, actor_oid)
         rpc.addCallback(self.on_decloak_result)
         rpc.addErrback(self.on_failure)
 
@@ -520,7 +512,7 @@ class MainWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable):  object whose cloaking info is to be shown
         """
-        rpc = message_bus.session.call(u'vger.get_cloaking_status',
+        rpc = message_bus.session.call('vger.get_cloaking_status',
                                        self.test_oid)
         rpc.addCallback(self.on_get_cloaking_status)
         rpc.addErrback(self.on_failure)
@@ -532,6 +524,178 @@ class MainWindow(QMainWindow):
         """
         self.log('* cloaking status:')
         self.log(str(result))
+
+    def on_remote_decloaked_signal(self, content=None):
+        """
+        Call functions to update applicable widgets when a pub/sub message is
+        received from the repository service indicating that a new object has
+        been decloaked or an existing decloaked object has been modified.
+
+        Keyword Args:
+            content (tuple):  content of the pub/sub message, which has the
+                form of a 4-tuple:  (obj_oid, obj_id, actor_oid, actor_id)
+        """
+        self.log('* "remote: decloaked" signal received ...')
+        if not content:
+            self.log(' - content was empty.')
+            return
+        try:
+            obj_oid, obj_id, actor_oid, actor_id = content
+        except:
+            # handle the error
+            # TODO: pop up a notification dialog
+            self.log('  - content could not be parsed:')
+            self.log('    {}'.format(str(content)))
+            return
+        obj = orb.get(obj_oid)
+        if obj:
+            self.log('  - object is already in local db.')
+        else:
+            # get object from repository ...
+            self.log('  - object unknown -- getting from repo...')
+            rpc = message_bus.session.call('vger.get_object', obj_oid,
+                                           include_components=True)
+            rpc.addCallback(self.on_rpc_get_object)
+            rpc.addErrback(self.on_failure)
+
+    def on_rpc_get_object(self, serialized_objects):
+        """
+        Handle the result of the rpc 'vger.get_object', which returns a list of
+        serialized objects.
+
+        Args:
+            serialized_objects (list): a list of serialized objects
+        """
+        self.log("* on_rpc_get_object")
+        self.log("  got: {} serialized objects".format(
+                                                    len(serialized_objects)))
+        if not serialized_objects:
+            self.log('  result was empty!')
+            return False
+        objs = deserialize(orb, serialized_objects)
+        if not objs:
+            self.log('  deserialize() returned no objects --')
+            self.log('  those received were already in the local db.')
+
+    def on_remote_modified_signal(self, content=None):
+        """
+        Handle louie signal "remote: modified".
+        """
+        self.log('* "remote: modified" signal received ...')
+        # content is a tuple:  (obj.oid, str(obj.mod_datetime))
+        obj_oid, obj_id, dts_str = content
+        self.log('  oid: {}'.format(obj_oid))
+        self.log('  id: {}'.format(obj_id))
+        # first check if we have the object
+        obj = orb.get(obj_oid)
+        if obj:
+            self.log('  ')
+            # if the mod_datetime of the repo object is later, get it
+            dts = None
+            if dts_str:
+                dts = uncook_datetime(dts_str)
+            self.log('  remote object mod_datetime: {}'.format(dts_str))
+            self.log('  local  object mod_datetime: {}'.format(
+                                            str(obj.mod_datetime)))
+            if dts == obj.mod_datetime:
+                self.log('  local and remote objects have')
+                self.log('  same mod_datetime, ignoring.')
+            elif dts > obj.mod_datetime:
+                # get the remote object
+                self.log('  remote object is newer, getting...')
+                rpc = message_bus.session.call('vger.get_object', obj.oid,
+                                               include_components=True)
+                rpc.addCallback(self.on_remote_get_mod_object)
+                rpc.addErrback(self.on_failure)
+            else:
+                self.log('  local object is newer, ignoring remote.')
+        else:
+            self.log('  ')
+            self.log('  object not found in local db, getting ...')
+            rpc = message_bus.session.call('vger.get_object', obj.oid,
+                                           include_components=True)
+            rpc.addCallback(self.on_remote_get_mod_object)
+            rpc.addErrback(self.on_failure)
+
+    def on_remote_get_mod_object(self, serialized_objects):
+        self.log('* on_remote_get_mod_object()')
+        objs =  deserialize(orb, serialized_objects)
+        if not objs:
+            self.log('  deserialize() returned nothing --')
+            self.log('  the objs received were already in the local db.')
+        for obj in objs:
+            # same as for local 'modified object' but without the remote
+            # calls ...
+            cname = obj.__class__.__name__
+            if cname == 'RoleAssignment':
+                user_oid = 'test:' + self.userid
+                if obj.assigned_to.oid == user_oid:
+                    html = '<h3>You have been assigned the role:</h3>'
+                    html += '<p><b><font color="green">{}</font></b>'.format(
+                                                        obj.assigned_role.id)
+                    html += ' in <b><font color="green">{}</font>'.format(
+                                    getattr(obj.role_assignment_context, 'id',
+                                            'global context'))
+                    html += '</b></p>'
+                    self.w = NotificationDialog(html, parent=self)
+                    self.w.show()
+
+    def on_remote_deleted_signal(self, content=None):
+        """
+        Handle louie signal "remote: deleted".
+        """
+        self.log('* "remote: deleted" signal received ...')
+        # content is an oid
+        obj_oid = content
+        self.log('  oid: {}'.format(obj_oid))
+        # first check if we have the object
+        obj = orb.get(obj_oid)
+        if obj:
+            cname = obj.__class__.__name__
+            if (cname in ['Acu', 'ProjectSystemUsage']
+                and hasattr(self, 'sys_tree')):
+                # find all expanded tree nodes that reference obj
+                idxs = self.sys_tree.link_indexes_in_tree(obj)
+                # if any are found, signal them to update
+                for idx in idxs:
+                    node = self.sys_tree.source_model.get_node(idx)
+                    if cname == 'Acu':
+                        node_des = (getattr(node.link, 'reference_designator',
+                                    None) or '(No reference designator)')
+                    else:
+                        node_des = (getattr(node.link, 'system_role',
+                                    None) or '(No system role)')
+                    self.log('  deleting position "%s"'.format(node_des))
+                    pos = idx.row()
+                    row_parent = idx.parent()
+                    parent_id = self.sys_tree.source_model.get_node(
+                                                            row_parent).obj.id
+                    self.log('  at row {} of parent {}'.format(pos,
+                                                                   parent_id))
+                    # removeRow calls orb.delete on the object ...
+                    self.sys_tree.source_model.removeRow(pos, row_parent)
+                # resize dashboard columns if necessary
+                self.refresh_dashboard()
+            elif cname == 'RoleAssignment':
+                user_oid = 'test:' + self.userid
+                if obj.assigned_to.oid == user_oid:
+                    # TODO: if removed role assignment was the last one for
+                    # this user on the project, switch to SANDBOX project
+                    html = '<h3>Your role:</h3>'
+                    html += '<p><b><font color="green">{}</font></b>'.format(
+                                                        obj.assigned_role.id)
+                    html += ' in <b><font color="green">{}</font>'.format(
+                                    getattr(obj.role_assignment_context, 'id',
+                                            'global context'))
+                    html += '<br> has been removed.</b></p>'
+                    self.w = NotificationDialog(html, parent=self)
+                    self.w.show()
+                orb.delete([obj])
+            else:
+                orb.delete([obj])
+            self.log('  - object deleted.')
+        else:
+            self.log('  oid not found in local db; ignoring.')
 
     def on_save_object(self):
         """
@@ -563,7 +727,7 @@ class MainWindow(QMainWindow):
             self.add_acu_button.setVisible(True)
         else:
             self.add_psu_button.setVisible(True)
-        rpc = message_bus.session.call(u'vger.save', [serialized_obj])
+        rpc = message_bus.session.call('vger.save', [serialized_obj])
         rpc.addCallback(self.on_save_result)
         rpc.addErrback(self.on_failure)
 
@@ -579,22 +743,6 @@ class MainWindow(QMainWindow):
     def on_null_result(self):
         self.log('* no result expected.')
 
-    def on_add_project(self):
-        new_oid = str(uuid4())
-        self.test_oid = new_oid
-        suffix = new_oid[0:5]
-        new_id = 'TEST_PROJECT_' + suffix
-        new_name = str('Test Project ') + str(suffix)
-        self.log('* calling rpc vger.save() with project "{}"'.format(new_id))
-        rpc = message_bus.session.call(u'omb.organization.add',
-                oid=new_oid, id=new_id, name=new_name, org_type='Project',
-                parent=None)
-        rpc.addCallback(self.on_save_project_result)
-        rpc.addErrback(self.on_failure)
-
-    def on_save_project_result(self, stuff):
-        self.log('* result received from rpc "vger.save":  %s' % str(stuff))
-
     def on_add_psu(self):
         if self.last_saved_obj:
             self.log('* Adding a ProjectSystemUsage for system {} ...'.format(
@@ -604,7 +752,7 @@ class MainWindow(QMainWindow):
             return
         new_oid = str(uuid4())
         new_id = 'psu-H2G2-' + self.last_saved_obj['id']
-        new_name = u'Test ProjectSystemUsage ' + str(new_id)
+        new_name = 'Test ProjectSystemUsage ' + str(new_id)
         now = str(dtstamp())
         user_oid = 'test:' + self.userid
         psu = dict(_cname='ProjectSystemUsage', oid=new_oid, id=new_id,
@@ -616,7 +764,7 @@ class MainWindow(QMainWindow):
         self.cloaked = []
         self.cloaked_list.clear()
         self.add_psu_button.setVisible(False)
-        rpc = message_bus.session.call(u'vger.save', [psu])
+        rpc = message_bus.session.call('vger.save', [psu])
         rpc.addCallback(self.on_save_result)
         rpc.addErrback(self.on_failure)
 
@@ -631,7 +779,7 @@ class MainWindow(QMainWindow):
         new_oid = str(uuid4())
         new_id = '-'.join(['acu', self.system_level_obj['id'],
                            self.last_saved_obj['id']])
-        new_name = u'Test Acu ' + str(new_id)
+        new_name = 'Test Acu ' + str(new_id)
         now = str(dtstamp())
         user_oid = 'test:' + self.userid
         acu = dict(_cname='Acu', oid=new_oid, id=new_id,
@@ -648,7 +796,7 @@ class MainWindow(QMainWindow):
         self.remove_comp_button.setVisible(True)
         self.cloaked = []
         self.cloaked_list.clear()
-        rpc = message_bus.session.call(u'vger.save', [acu])
+        rpc = message_bus.session.call('vger.save', [acu])
         rpc.addCallback(self.on_save_result)
         rpc.addErrback(self.on_failure)
 
@@ -661,7 +809,7 @@ class MainWindow(QMainWindow):
             acu = self.latest_acu
             self.latest_acu = None
             self.remove_comp_button.setVisible(False)
-            rpc = message_bus.session.call(u'vger.save', [acu])
+            rpc = message_bus.session.call('vger.save', [acu])
             rpc.addCallback(self.on_save_result)
             rpc.addErrback(self.on_failure)
         else:
@@ -670,15 +818,48 @@ class MainWindow(QMainWindow):
 
     def on_get_object(self):
         self.log('* calling rpc "vger.get_object()" ...')
-        rpc = message_bus.session.call(u'vger.get_object', 'H2G2')
+        rpc = message_bus.session.call('vger.get_object', 'H2G2')
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
 
-    def on_sync_project(self):
+    def on_sync_project(self, data=None):
+        """
+        Function to call rpc 'vger.sync_project'.  Note that the "data"
+        argument is a dummy that is required when using this as a callback
+        """
         self.log('* calling rpc vger.sync_project({})'.format('H2G2'))
-        rpc = message_bus.session.call(u'vger.sync_project', 'H2G2', [])
-        rpc.addCallback(self.on_result)
+        rpc = message_bus.session.call('vger.sync_project', 'H2G2', {})
+        rpc.addCallback(self.on_sync_project_result)
         rpc.addErrback(self.on_failure)
+
+    def on_sync_project_result(self, data):
+        """
+        Callback function to process the result of `vger.sync_project`.
+
+        The server response is a list of lists:
+            [0]:  server objects with later mod_datetime(s) or whose oids were
+                  not in the submitted list of oids
+            [1]:  oids of server objects with the same mod_datetime(s)
+            [2]:  oids of server objects with earlier mod_datetime(s),
+            [3]:  oids sent that were not found on the server
+
+        Args:
+            data:  response from the server
+
+        Keyword Args:
+            project_sync (bool): called from a project sync
+            user_objs_sync (bool): called from the result of a user created
+                objects sync
+
+        Return:
+            deferred:  result of `vger.save` rpc
+        """
+        sobjs, same_dts, to_update, local_only = data
+        self.log('* vger.sync_project result received: {} objects.'.format(
+                                                                len(sobjs)))
+        self.log('  - deserializing ...')
+        deserialize(orb, sobjs)
+        self.log('    done.')
 
     def on_result(self, stuff):
         self.log('* result received:  %s' % str(stuff))
@@ -703,13 +884,11 @@ class MainWindow(QMainWindow):
         self.check_version_button.setVisible(False)
         self.ldap_search_button.setVisible(False)
         self.ldap_result_button.setVisible(False)
-        # self.get_user_roles_button.setVisible(False)
-        self.add_project_button.setVisible(False)
         self.save_object_button.setVisible(False)
         self.add_psu_button.setVisible(False)
         self.gcs_button.setVisible(False)
         self.get_object_button.setVisible(False)
-        self.sync_project_button.setVisible(False)
+        # self.sync_project_button.setVisible(False)
         self.role_label.setText('')
         self.role_label.setVisible(False)
         message_bus.session = None
@@ -751,6 +930,9 @@ if __name__ == "__main__":
     options = parser.parse_args()
     app = QApplication(sys.argv)
     orb.start('junk_home', debug=True)
+    # set project to oid 'H2G2' because ConOps will look it up and use it to
+    # find spacecraft(s)
+    state['project'] = 'H2G2'
     mission = orb.get('test:Mission.H2G2')
     if not mission:
         if not state.get('test_users_loaded'):
@@ -782,3 +964,4 @@ if __name__ == "__main__":
     mainwindow.show()
     reactor.runReturn()
     sys.exit(app.exec_())
+

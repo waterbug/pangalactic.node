@@ -109,28 +109,47 @@ class Node(object):
         # else:
         # *not* in ref designator mode -- only return ref des if node is
         # "empty" (i.e., obj_name is 'TBD')
+        pth_name = ''
+        pth_abbr = ''
+        pt_name = ''
+        pt_abbr = ''
+        if getattr(self.link, 'product_type_hint', None):
+            if getattr(self.link.product_type_hint, 'abbreviation', ''):
+                pth_abbr = self.link.product_type_hint.abbreviation
+            if getattr(self.link.product_type_hint, 'name', ''):
+                pth_name = self.link.product_type_hint.name
         if obj_name == 'TBD':
+            pth = pth_abbr or pth_name
             if isinstance(self.link, orb.classes['Acu']):
-                if (getattr(self.link, 'product_type_hint', None)
-                    and getattr(self.link.product_type_hint, 'name')):
-                    return self.link.product_type_hint.name + ' [TBD]'
+                if pth:
+                    return '[{}] [TBD]'.format(pth)
                 elif getattr(self.link, 'reference_designator', None):
-                    return self.link.reference_designator + ' [TBD]' 
+                    return self.link.reference_designator + ': [TBD]' 
                 else:
-                    return 'unknown type [TBD]'
-            elif isinstance(self.link, orb.classes['ProjectSystemUsage']):
-                return self.link.system_role or obj_name
-            else:
-                return obj_name
+                    return '[unknown type] [TBD]'
         else:
-            if (getattr(self.link, 'component', None) == self.obj
-                and hasattr(self.link, 'quantity')):
-                if self.link.quantity and self.link.quantity > 1:
-                    return '{} [{}]'.format(obj_name, str(self.link.quantity))
-                else:
-                    return obj_name
-            else:
-                return obj_name
+            if hasattr(self.obj, 'product_type'):
+                pt_abbr = self.obj.product_type.abbreviation
+                pt_name = self.obj.product_type.name
+            pt = pth_abbr or pt_abbr or pth_name or pt_name
+            if getattr(self.link, 'component', None) == self.obj:
+                if (hasattr(self.link, 'quantity')
+                    and self.link.quantity is not None
+                    and self.link.quantity > 1):
+                    if pt:
+                        return '[{}] {} ({})'.format(pt, obj_name,
+                                                str(self.link.quantity))
+                    else:
+                        return '{} ({})'.format(obj_name,
+                                                str(self.link.quantity))
+                elif pt:
+                    return '[{}] {}'.format(pt, obj_name)
+                elif getattr(self.link, 'reference_designator', None):
+                    return self.link.reference_designator + ': [TBD]' 
+            # if link is ProjectSystemUsage ...
+            elif getattr(self.link, 'system_role', None):
+                    return '[{}] {}'.format(self.link.system_role, obj_name)
+            return obj_name
 
     @property
     def tooltip(self):
