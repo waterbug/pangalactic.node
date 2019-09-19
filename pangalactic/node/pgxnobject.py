@@ -152,7 +152,7 @@ class PgxnForm(QWidget):
                 # 2. "computeds" shown only when a relevant "context" is set
                 # (to be implemented)
                 ##############################################################
-                ### Put ... computeds ... BECK! (SCW 2019-03-25) #############
+                ### Put ... computeds ... BECK! (SCW 2019-09-04) #############
                 ### (Per request of Patrick and Rachel)
                 ##############################################################
                 pref_computeds = [pid for pid in PGXN_PARAMETERS
@@ -212,6 +212,26 @@ class PgxnForm(QWidget):
                                                tooltip=definition,
                                                parm_field=True,
                                                parm_type=parm_type)
+                    # float parms should have contingency parms -- if so, the
+                    # contingency parm will have an entry in parm_defz ...
+                    c_pid = get_parameter_id(pid, 'Ctgcy')
+                    c_pd = parm_defz.get(c_pid)
+                    c_widget = None
+                    if c_pd:
+                        c_ext_name = c_pd.get('name', '') or '[unknown]'
+                        c_units = '%'
+                        c_units_widget = QLabel(c_units)
+                        c_definition = (c_pd.get('description', '')
+                                        or 'unknown definition')
+                        c_str_val = get_pval_as_str(orb, self.obj.oid, c_pid,
+                                                    units=units)
+                        c_widget, c_label = get_widget(c_pid, 'parameter',
+                                                      value=c_str_val,
+                                                      external_name=c_ext_name,
+                                                      editable=editable,
+                                                      tooltip=c_definition,
+                                                      parm_field=True,
+                                                      parm_type='float')
                     if widget:
                         # *** this is EXTREMELY verbose, even for debugging!
                         # orb.log.debug('  [pgxnobj]'
@@ -224,7 +244,7 @@ class PgxnForm(QWidget):
                         # the form field
                         self.u_widget_values[pid] = units
                         self.previous_units[pid] = units
-                        self.p_widget_values[pid] = str(parm.get('value'))
+                        self.p_widget_values[pid] = str(parm.get('value', ''))
                         widget.setSizePolicy(QSizePolicy.Minimum,
                                              QSizePolicy.Minimum)
                         if pd.get('computed'):
@@ -239,12 +259,26 @@ class PgxnForm(QWidget):
                         if edit_mode:
                             del_action = QAction('delete', label)
                             del_action.triggered.connect(
-                                        partial(parent.on_del_parameter, pid=pid))
+                                    partial(parent.on_del_parameter, pid=pid))
                             label.addAction(del_action)
                             label.setContextMenuPolicy(Qt.ActionsContextMenu)
                         value_layout = QHBoxLayout()
                         value_layout.addWidget(widget)
                         value_layout.addWidget(units_widget)
+                        if c_widget:
+                            self.p_widgets[c_pid] = c_widget
+                            self.u_widgets[c_pid] = c_units_widget
+                            self.u_widget_values[c_pid] = '%'
+                            self.previous_units[c_pid] = '%'
+                            c_parm = parmz.get(c_pid) or {}
+                            self.p_widget_values[c_pid] = str(c_parm.get(
+                                                                'value', ''))
+                            c_widget.setSizePolicy(QSizePolicy.Minimum,
+                                                   QSizePolicy.Minimum)
+                            # c_layout = QHBoxLayout()
+                            value_layout.addWidget(c_label)
+                            value_layout.addWidget(c_widget)
+                            value_layout.addWidget(c_units_widget)
                         form.addRow(label, value_layout)
                         # orb.log.debug('* [pgxnobj] size hint: %s' % str(
                                                     # widget.sizeHint()))
