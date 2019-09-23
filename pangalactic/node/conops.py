@@ -170,8 +170,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.scene().edit_parameters(self.activity)
 
     def delete_item(self):
-        dispatcher.send("remove activity", parent_act=self.parent_activity,
-                        act=self.activity)
+        dispatcher.send("remove activity", act=self.activity)
 
     def itemChange(self, change, value):
         return value
@@ -567,7 +566,6 @@ class TimelineWidget(QWidget):
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
 
-
     def delete_activity(self, act=None):
         """
         Delete an activity, along with the children of this activity
@@ -575,6 +573,8 @@ class TimelineWidget(QWidget):
         Keyword Args:
             act (Activity): the activity to be deleted
         """
+        # NOTE: DO NOT dispatcher.send("deleted object") !!
+        # -- that will cause a cycle
         oid = getattr(act, "oid", None)
         subj_oid = self.subject_activity.oid
         current_comps = [acu.component

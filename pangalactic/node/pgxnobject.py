@@ -275,7 +275,6 @@ class PgxnForm(QWidget):
                                                                 'value', ''))
                             c_widget.setSizePolicy(QSizePolicy.Minimum,
                                                    QSizePolicy.Minimum)
-                            # c_layout = QHBoxLayout()
                             value_layout.addWidget(c_label)
                             value_layout.addWidget(c_widget)
                             value_layout.addWidget(c_units_widget)

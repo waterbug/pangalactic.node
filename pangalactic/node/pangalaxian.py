@@ -2147,6 +2147,11 @@ class Main(QtWidgets.QMainWindow):
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
                                 remote=True)
                 self.update_project_role_labels()
+            elif cname == 'Activity':
+                dispatcher.send('remove activity', act=obj)
+                orb.delete([obj])
+                dispatcher.send('deleted object', oid=obj_oid, cname=cname,
+                                remote=True)
             else:
                 orb.delete([obj])
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
@@ -2176,9 +2181,14 @@ class Main(QtWidgets.QMainWindow):
                     html += '</b></p>'
                     self.w = NotificationDialog(html, parent=self)
                     self.w.show()
+            elif cname == 'Activity':
+                dispatcher.send("modified activity", activity=obj)
             elif hasattr(self, 'library_widget'):
                 self.library_widget.refresh(cname=cname)
-            if hasattr(self, 'sys_tree'):
+            if (getattr(self, 'sys_tree', None)
+                and isinstance(obj, (orb.classes['Product'],
+                                     orb.classes['Acu'],
+                                     orb.classes['ProjectSystemUsage']))):
                 self.update_object_in_trees(obj)
             elif self.mode == 'db':
                 self.refresh_cname_list()
@@ -2220,9 +2230,12 @@ class Main(QtWidgets.QMainWindow):
             # object", "modified object", etc. ...)
             # if hasattr(self, 'library_widget'):
                 # self.library_widget.refresh(cname=cname)
-            if self.mode == 'system':
-                if getattr(self, 'sys_tree', None):
-                    self.update_object_in_trees(obj)
+            if (self.mode == 'system'
+                and getattr(self, 'sys_tree', None)
+                and isinstance(obj, (orb.classes['Product'],
+                                     orb.classes['Acu'],
+                                     orb.classes['ProjectSystemUsage']))):
+                self.update_object_in_trees(obj)
                 # NOTE:  EXPERIMENTALLY, set_system_model_window() is now run
                 # inside refresh_tree_and_dashboard()
                 # NOTE:  see if we can update the tree without rebuilding it
