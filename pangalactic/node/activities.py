@@ -231,7 +231,7 @@ class ActivityTables(QMainWindow):
         return QSize(900, 800)
 
     def on_activity_modified(self, activity=None):
-        orb.log.debug('* ActivityTable: on_activity_modified()')
+        orb.log.debug('* ActivityTables: on_activity_modified()')
         if activity and activity.where_used:
             parent_act = getattr(activity.where_used[0], 'assembly', None)
             if parent_act:
@@ -239,7 +239,7 @@ class ActivityTables(QMainWindow):
 
     def on_activity_added(self, parent_act=None, modified=False, act_of=None,
                           position=None):
-        orb.log.debug('* ActivityTable: on_activity_added() called ...')
+        orb.log.debug('* ActivityTables: on_activity_added() called ...')
         if self.position == position or self.position == 'bottom':
             if modified:
                 self.statusbar.showMessage('Activity Modified!')
@@ -582,6 +582,73 @@ class ActivityTable(QWidget):
         if self.preferred_size:
             return QSize(*self.preferred_size)
         return QSize(600, 500)
+
+    def on_activity_modified(self, activity=None):
+        txt = '* {} table: on_activity_modified()'
+        orb.log.debug(txt.format(self.position))
+        if activity and activity.where_used:
+            parent_act = getattr(activity.where_used[0], 'assembly', None)
+            if parent_act:
+                self.on_activity_added(parent_act=parent_act, modified=True)
+
+    def on_activity_added(self, parent_act=None, modified=False, act_of=None,
+                          position=None):
+        txt = '* {} table: on_activity_added(modified=True)'
+        orb.log.debug(txt.format(self.position))
+        if self.position == position:
+            if modified:
+                self.statusbar.showMessage('Activity Modified!')
+                orb.log.debug('  - activity modified!')
+            else:
+                self.statusbar.showMessage('Activity Added!')
+                orb.log.debug('  - activity added!')
+        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
+                                position=position)
+
+    def on_activity_removed(self, parent_act=None, act_of=None, position=None):
+        if self.position == position or self.position == 'bottom':
+            self.statusbar.showMessage('Activity Removed!')
+            self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
+                                    position=position)
+
+    def on_order_changed(self, parent_act=None, act_of=None, position=None):
+        if self.position == position or self.position == 'bottom':
+            self.statusbar.showMessage('Order Updated!')
+            self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
+                                    position=position)
+
+    def on_drill_down(self, obj=None, position=None):
+        if self.position != 'middle':
+            self.statusbar.showMessage("Drilled Down!")
+            self.sort_and_set_table(parent_act=obj, position=position)
+
+    def on_drill_up(self, obj=None, position=None):
+        if self.position != 'middle':
+            self.statusbar.showMessage("Drilled Up!")
+            self.sort_and_set_table(parent_act=obj, position=position)
+
+    def on_activities_cleared(self, parent_act=None, position=None):
+        # if self.position == position or self.position == 'bottom':
+        self.statusbar.showMessage("Activities Cleared!")
+        self.sort_and_set_table(parent_act=parent_act, position=position)
+
+    def on_subsystem_changed(self, parent_act=None, act_of=None):
+        if self.position == 'middle':
+            self.statusbar.showMessage("Subsystem Changed!")
+        if self.position == 'middle' or self.position == 'bottom':
+            self.setDisabled(False)
+            if self.act_of is None:
+                self.act_of = act_of
+            else:
+                pt_id = getattr(self.act_of.product_type,'id','None')
+                if pt_id  == 'spacecraft':
+                    # print("ITS THE SPACECRAFT!")
+                    pass
+                else:
+                    self.act_of = act_of
+                    self.sort_and_set_table(parent_act=parent_act,
+                                            act_of=act_of,
+                                            position=self.position)
 
     def on_focused_changed(self, obj=None):
         if self.position == 'top':

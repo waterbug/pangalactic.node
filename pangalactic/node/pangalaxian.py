@@ -249,23 +249,23 @@ class Main(QtWidgets.QMainWindow):
             self.local_user = local_user
         state['local_user_oid'] = str(self.local_user.oid)
 
-    def connect_to_bus(self):
+    def set_bus_state(self):
         """
         Connect to the message bus (crossbar server).
         """
-        orb.log.info('* connect_to_bus() ...')
-        self.statusbar.showMessage('connecting to message bus ...')
-        ###########################################################
-        # Initialize message bus instance
-        ###########################################################
-        self.mbus = PgxnMessageBus()
-
-        @self.mbus.signal('onjoined')
-        def onjoined():
-            dispatcher.send(signal='onjoined')
-
+        orb.log.info('* set_bus_state() ...')
         # TODO:  add a remote url configuration item
         if self.connect_to_bus_action.isChecked():
+            ###########################################################
+            # Initialize message bus instance
+            ###########################################################
+            self.mbus = PgxnMessageBus()
+
+            @self.mbus.signal('onjoined')
+            def onjoined():
+                dispatcher.send(signal='onjoined')
+
+            self.statusbar.showMessage('connecting to the message bus ...')
             login_dlg = LoginDialog(userid=state.get('userid', ''),
                                     parent=self)
             if login_dlg.exec_() == QtWidgets.QDialog.Accepted:
@@ -302,6 +302,8 @@ class Main(QtWidgets.QMainWindow):
         else:
             if state['connected']:
                 orb.log.info('* disconnecting from message bus ...')
+                self.statusbar.showMessage(
+                                        'disconnecting from message bus ...')
                 if getattr(self.mbus, 'session', None) is not None:
                     self.mbus.session.leave()
                 if getattr(self.mbus, 'runner', None) is not None:
@@ -799,7 +801,7 @@ class Main(QtWidgets.QMainWindow):
         if project_sync:
             # if on_sync_result() was called from a project sync, update views
             # (which will update the 'role_label' with the project etc.)
-            self._update_views()
+            self._update_views(project_sync=True)
         if user_objs_sync:
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
@@ -865,8 +867,9 @@ class Main(QtWidgets.QMainWindow):
             # make sure they are not in our local trash ...
             not_trash = [so for so in sobjs if so.get('oid') not in trash]
             # deserialize(orb, not_trash)
-            self.load_serialized_objects(not_trash)
-            update_needed = True
+            objs = self.load_serialized_objects(not_trash)
+            if objs:
+                update_needed = True
         # then collect any local objects that need to be saved to the repo ...
         sobjs_to_save = []
         if local_only:
@@ -1204,14 +1207,20 @@ class Main(QtWidgets.QMainWindow):
             return False
         # objs = deserialize(orb, serialized_objects)
         objs = self.load_serialized_objects(serialized_objects)
-        if not objs:
+        if objs:
+            orb.log.info('  deserialize() returned {} object(s):'.format(
+                                                                    len(objs)))
+            txt = str([o.id for o in objs])
+            orb.log.info('  {}'.format(txt))
+        else:
             orb.log.info('  deserialize() returned no objects --')
-            orb.log.info('  those received were already in the local db.')
+            orb.log.info('  (any received were already in the local db).')
             return False
         rep = '\n  '.join([obj.name + " (" + obj.__class__.__name__ + ")"
                            for obj in objs])
         orb.log.info('  deserializes as:')
         orb.log.info('  {}'.format(str(rep)))
+        need_to_refresh_tree = False
         for obj in objs:
             cname = obj.__class__.__name__
             if isinstance(obj, (orb.classes['Product'],
@@ -1237,8 +1246,7 @@ class Main(QtWidgets.QMainWindow):
                                                                 obj.system.id))
                             # Just adding a new system node did not work, so
                             # the whole tree is rebuilt (refreshed)
-                            orb.log.info('  rebuilding tree ...')
-                            self.refresh_tree_views()
+                            need_to_refresh_tree = True
                             # **********************************************
                             # DEACTIVATED stuff
                             # (below was an unsuccessful attempt to just add a
@@ -1274,7 +1282,6 @@ class Main(QtWidgets.QMainWindow):
                                                             obj.assembly.id))
                         comp = obj.component
                         orb.log.info('  - component: {}'.format(comp.id))
-                        # self.refresh_tree_views()
                         idxs = self.sys_tree.object_indexes_in_tree(
                                                                 obj.assembly)
                         orb.log.info('  the assembly occurs {} times'.format(
@@ -1308,6 +1315,8 @@ class Main(QtWidgets.QMainWindow):
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
             self.update_project_role_labels()
+        if need_to_refresh_tree:
+            self.refresh_tree_views()
         return True
 
     def _create_actions(self):
@@ -1493,8 +1502,8 @@ class Main(QtWidgets.QMainWindow):
                                     "Load Test Objects",
                                     slot=self.load_test_objects)
         self.connect_to_bus_action = self.create_action(
-                                    "Connect to the message bus",
-                                    slot=self.connect_to_bus,
+                                    "Connect/disconnect to the message bus",
+                                    slot=self.set_bus_state,
                                     icon="system",
                                     checkable=True,
                                     tip="Connect to the message bus")
@@ -1910,15 +1919,16 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(project_label)
         self.project_selection = ButtonLabel(
                                     self.project.id,
-                                    actions=[self.enable_collab_action,
+                                    actions=[
+                                             # self.enable_collab_action,
                                              self.admin_action,
                                              self.delete_project_action,
                                              self.new_project_action],
                                     w=120)
         self.delete_project_action.setVisible(False)
         self.delete_project_action.setEnabled(False)
-        self.enable_collab_action.setVisible(False)
-        self.enable_collab_action.setEnabled(False)
+        # self.enable_collab_action.setVisible(False)
+        # self.enable_collab_action.setEnabled(False)
         self.project_selection.clicked.connect(self.set_current_project)
         self.toolbar.addWidget(self.project_selection)
         # project_selection and its label will only be visible in 'data',
@@ -2333,8 +2343,10 @@ class Main(QtWidgets.QMainWindow):
             rpc = self.sync_current_project(None)
             rpc.addCallback(self.on_project_sync_result)
             rpc.addErrback(self.on_failure)
-            rpc.addCallback(self._update_views)
-            rpc.addErrback(self.on_failure)
+            # NOTE:  this callback was unnecessary because
+            # on_project_sync_result() already calls _update_views()
+            # rpc.addCallback(self._update_views)
+            # rpc.addErrback(self.on_failure)
         else:
             self.sys_tree_rebuilt = False
             self.dashboard_rebuilt = False
@@ -2398,16 +2410,16 @@ class Main(QtWidgets.QMainWindow):
                         # collaboration can be enabled
                         self.delete_project_action.setEnabled(True)
                         self.delete_project_action.setVisible(True)
-                        self.enable_collab_action.setVisible(True)
-                        self.enable_collab_action.setEnabled(True)
+                        # self.enable_collab_action.setVisible(True)
+                        # self.enable_collab_action.setEnabled(True)
                     else:
                         # project is collaborative ->
                         # to delete it, all roles must first be deleted ...
                         # (in which case it becomes a local project :)
                         self.delete_project_action.setEnabled(False)
                         self.delete_project_action.setVisible(False)
-                        self.enable_collab_action.setVisible(False)
-                        self.enable_collab_action.setEnabled(False)
+                        # self.enable_collab_action.setVisible(False)
+                        # self.enable_collab_action.setEnabled(False)
                         if ('Administrator' in p_roles or
                             'Global Administrator' in p_roles):
                             # role assignments for the project ...
@@ -2415,8 +2427,8 @@ class Main(QtWidgets.QMainWindow):
                             self.admin_action.setEnabled(True)
                 else:
                     # when offline, `enable collaboration` is disabled
-                    self.enable_collab_action.setVisible(False)
-                    self.enable_collab_action.setEnabled(False)
+                    # self.enable_collab_action.setVisible(False)
+                    # self.enable_collab_action.setEnabled(False)
                     # when offline, admin action is disabled
                     self.admin_action.setVisible(False)
                     self.admin_action.setEnabled(False)
@@ -2442,7 +2454,7 @@ class Main(QtWidgets.QMainWindow):
         else:
             self.role_label.setToolTip(role_label_txt)
 
-    def _update_views(self, obj=None):
+    def _update_views(self, obj=None, project_sync=False):
         """
         Call functions to update all widgets when mode has changed due to some
         action.
@@ -2473,7 +2485,7 @@ class Main(QtWidgets.QMainWindow):
             self.get_project_roles()
         elif self.mode == 'system':
             orb.log.debug('* mode: system')
-            self.set_system_modeler_interface()
+            self.set_system_modeler_interface(project_sync=project_sync)
             self.get_project_roles()
 
     def get_project_roles(self):
@@ -2600,7 +2612,7 @@ class Main(QtWidgets.QMainWindow):
         self.dashboard_rebuilt = False
         self.refresh_tree_views()
 
-    def refresh_tree_views(self):
+    def refresh_tree_views(self, rebuilding=False):
         # orb.log.debug('* [pgxn] refresh_tree_views()')
         # orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
         # use number of tree components to set max in progress bar
@@ -2609,7 +2621,11 @@ class Main(QtWidgets.QMainWindow):
         if not state['sys_trees'].get(self.project.id):
             state['sys_trees'][self.project.id] = {}
         nodes = state['sys_trees'][self.project.id].get('nodes') or 0
-        self.start_progress('rebuilding tree ...', count=nodes)
+        if rebuilding:
+            msg = 'rebuilding system tree ...'
+        else:
+            msg = 'updating system tree ...'
+        self.start_progress(msg, count=nodes)
         # if getattr(self, 'sys_tree', None):
         try:
             # orb.log.debug('  + self.sys_tree exists ...')
@@ -2843,15 +2859,21 @@ class Main(QtWidgets.QMainWindow):
 
     ### SET UP 'system' mode (system modeler interface)
 
-    def set_system_modeler_interface(self):
+    def set_system_modeler_interface(self, project_sync=False):
         # orb.log.debug('* setting system modeler interface')
-        self.sys_tree_rebuilt = False
-        self.dashboard_rebuilt = False
         # ********************************************************
         # system tree and dashboard
         # ********************************************************
         # refresh_tree_views() creates self.sys_tree if there isn't one
-        self.refresh_tree_views()
+        # (only rebuild tree & dash if called by a project sync)
+        if project_sync:
+            self.sys_tree_rebuilt = False
+            self.dashboard_rebuilt = False
+            self.refresh_tree_views(rebuilding=True)
+        else:
+            self.sys_tree_rebuilt = True
+            self.dashboard_rebuilt = True
+            self.refresh_tree_views(rebuilding=False)
         self.top_dock_widget.setFeatures(
                                 QtWidgets.QDockWidget.DockWidgetFloatable)
         self.top_dock_widget.setVisible(True)
