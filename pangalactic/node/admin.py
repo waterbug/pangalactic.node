@@ -588,6 +588,7 @@ class AdminDialog(QDialog):
                     orb.log.info('        already have TBD -- ignoring.')
                 else:
                     orb.log.info('        adding as TBD ...')
+                    local_user = orb.get(state.get('local_user_oid'))
                     ra_id = get_ra_id(self.org.id, role.id, 'TBD', '', '')
                     ra_name = get_ra_name(self.org.id, role.id, 'TBD', '', '')
                     ra = clone('RoleAssignment', id=ra_id, name=ra_name,
