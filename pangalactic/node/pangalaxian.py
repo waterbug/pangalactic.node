@@ -802,7 +802,7 @@ class Main(QtWidgets.QMainWindow):
         if project_sync:
             # if on_sync_result() was called from a project sync, update views
             # (which will update the 'role_label' with the project etc.)
-            self._update_views(project_sync=True)
+            self._update_views()
         if user_objs_sync:
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
@@ -2455,7 +2455,7 @@ class Main(QtWidgets.QMainWindow):
         else:
             self.role_label.setToolTip(role_label_txt)
 
-    def _update_views(self, obj=None, project_sync=False):
+    def _update_views(self, obj=None):
         """
         Call functions to update all widgets when mode has changed due to some
         action.
@@ -2486,7 +2486,7 @@ class Main(QtWidgets.QMainWindow):
             self.get_project_roles()
         elif self.mode == 'system':
             orb.log.debug('* mode: system')
-            self.set_system_modeler_interface(project_sync=project_sync)
+            self.set_system_modeler_interface()
             self.get_project_roles()
 
     def get_project_roles(self):
@@ -2860,21 +2860,16 @@ class Main(QtWidgets.QMainWindow):
 
     ### SET UP 'system' mode (system modeler interface)
 
-    def set_system_modeler_interface(self, project_sync=False):
+    def set_system_modeler_interface(self):
         # orb.log.debug('* setting system modeler interface')
         # ********************************************************
         # system tree and dashboard
         # ********************************************************
         # refresh_tree_views() creates self.sys_tree if there isn't one
-        # (only rebuild tree & dash if called by a project sync)
-        if project_sync:
-            self.sys_tree_rebuilt = False
-            self.dashboard_rebuilt = False
-            self.refresh_tree_views(rebuilding=True)
-        else:
-            self.sys_tree_rebuilt = True
-            self.dashboard_rebuilt = True
-            self.refresh_tree_views(rebuilding=False)
+        # (only rebuild tree & dash if called in a project sync or mode change)
+        self.sys_tree_rebuilt = False
+        self.dashboard_rebuilt = False
+        self.refresh_tree_views(rebuilding=True)
         self.top_dock_widget.setFeatures(
                                 QtWidgets.QDockWidget.DockWidgetFloatable)
         self.top_dock_widget.setVisible(True)
