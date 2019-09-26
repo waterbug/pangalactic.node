@@ -133,7 +133,7 @@ class PgxnForm(QWidget):
             # Special case for parameters form ...
             idvs = orb.get_idvs(cname='ParameterDefinition')
             variables = [idv[0] for idv in idvs]
-            contingencies = [get_parameter_id(idv[0], 'Contingency') for idv in idvs]
+            contingencies = [get_parameter_id(idv[0], 'Ctgcy') for idv in idvs]
             parmz = parameterz.get(obj.oid, {})
             pids = [p for p in parmz if p in variables or p in contingencies]
             if pids:
@@ -163,7 +163,8 @@ class PgxnForm(QWidget):
                                 and pid not in PGXN_PARAMETERS]
                 computeds = pref_computeds + np_computeds
                 # computeds = []
-                p_ordering = editables + computeds
+                p_ordering = [pid for pid in editables + computeds
+                              if pid not in contingencies]
                 orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
                                                             str(p_ordering)))
                 if seq is None:
@@ -841,13 +842,15 @@ class PgxnObject(QDialog):
             # get a 'parameters' panel
             # First find the parameters to be displayed for this object ...
             idvs = orb.get_idvs(cname='ParameterDefinition')
-            variables = [idv[0] for idv in idvs]
+            # variables = [idv[0] for idv in idvs]
             contingencies = [get_parameter_id(idv[0], 'Contingency') for idv in idvs]
             parmz = parameterz.get(self.obj.oid, {})
-            pids = [p for p in parmz if p in variables or p in contingencies]
+            # contingencies are not used in calculating the number of
+            # parameters on the panel, since they do not have separate rows
+            pids = [p for p in parmz if p not in contingencies]
             if len(pids) > PARMS_NBR:
                 n_of_parms = len(pids)
-                # allow 16 parameters to a panel ...
+                # allow PARMS_NBR parameters to a panel ...
                 n_of_parm_panels = int(math.ceil(
                                        float(n_of_parms)/float(PARMS_NBR)))
                 for i in range(n_of_parm_panels):
@@ -1161,15 +1164,16 @@ class PgxnObject(QDialog):
                               name, val.__repr__()))
             # NOTE:  for new objects, save *ALL* parameters (they are new
             # also); for existing objects, save only modified parameters
-            if parameterz.get(self.obj.oid) and self.new:
+            # if parameterz.get(self.obj.oid) and self.new:
+            if self.new:
                 for p_id in self.p_widgets:
                     val = None   # for computed parms (set_pval ignores it)
                     if hasattr(self.p_widgets[p_id], 'get_value'):
                         str_val = self.p_widgets[p_id].get_value()
                         set_pval_from_str(orb, self.obj.oid, p_id, str_val)
-            elif parameterz.get(self.obj.oid):
-                # if object is *not* new and has parameters, save only the
-                # modified ones
+            # elif parameterz.get(self.obj.oid):
+            else:
+                # if object is *not* new, save any modified parameters
                 for p_id in self.p_widgets:
                     # if p is computed, its widget is a label (no 'get_value')
                     # DO NOT MODIFY units/values ... but:

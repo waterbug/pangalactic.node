@@ -2614,6 +2614,12 @@ class Main(QtWidgets.QMainWindow):
         self.refresh_tree_views()
 
     def refresh_tree_views(self, rebuilding=False):
+        ######################################################################
+        # TODO: possibly use get_bom() or get_assembly() when the current
+        # project is set to get all sys tree items for the current project,
+        # cache all oids and use that to determine whether the tree needs to be
+        # refreshed ...
+        ######################################################################
         # orb.log.debug('* [pgxn] refresh_tree_views()')
         # orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
         # use number of tree components to set max in progress bar
