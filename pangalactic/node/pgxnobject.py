@@ -1167,7 +1167,7 @@ class PgxnObject(QDialog):
             # if parameterz.get(self.obj.oid) and self.new:
             if self.new:
                 for p_id in self.p_widgets:
-                    val = None   # for computed parms (set_pval ignores it)
+                    # only non-computed parm widgets have 'get_value'
                     if hasattr(self.p_widgets[p_id], 'get_value'):
                         str_val = self.p_widgets[p_id].get_value()
                         set_pval_from_str(orb, self.obj.oid, p_id, str_val)
