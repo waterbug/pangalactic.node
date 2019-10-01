@@ -157,9 +157,11 @@ class PgxnForm(QWidget):
                 ##############################################################
                 pref_computeds = [pid for pid in PGXN_PARAMETERS
                                   if pid in parmz
+                                  and parm_defz.get(pid)
                                   and parm_defz[pid].get('computed')]
                 np_computeds = [pid for pid in parmz
-                                if parm_defz[pid].get('computed')
+                                if parm_defz.get(pid)
+                                and parm_defz[pid].get('computed')
                                 and pid not in PGXN_PARAMETERS]
                 computeds = pref_computeds + np_computeds
                 # computeds = []

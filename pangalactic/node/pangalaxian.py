@@ -406,15 +406,16 @@ class Main(QtWidgets.QMainWindow):
         Handle result of the rpc 'vger.get_user_roles'.  The returned data has
         the structure:
 
-            [serialized user (Person) object,
-             serialized RoleAssignment objects,
-             serialized Organization/Project objects]
+            [serialized local user (Person) object,
+             serialized Organization/Project objects,
+             serialized Person objects (all users),
+             serialized RoleAssignment objects]
         """
         log_msg = '* results of rpc "vger.get_user_roles" ...\n'
         log_msg += '  - data:  %s' % str(data)
         orb.log.debug(log_msg)
         # data should be a list with 2 elements:
-        szd_user, szd_role_assignments, szd_orgs = data
+        szd_user, szd_orgs, szd_people, szd_role_assignments = data
         channels = []
         if szd_user:
             deserialize(orb, szd_user)
@@ -454,8 +455,11 @@ class Main(QtWidgets.QMainWindow):
                     # if it is a project and has PSUs, delete them first
                     orb.delete(systems)
                 orb.delete([local_org])
+        # deserialize all Organization objects
         # deserialize(orb, szd_orgs)
         self.load_serialized_objects(szd_orgs)
+        # deserialize all Person objects
+        self.load_serialized_objects(szd_people)
         orb.log.info('  - deserializing role assignments ...')
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE:
         # all local role assignment data should be deleted before deserializing
