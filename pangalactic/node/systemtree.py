@@ -115,6 +115,9 @@ class Node(object):
                     return self.link.reference_designator + ': [TBD]' 
                 else:
                     return '[unknown type] [TBD]'
+        if getattr(self.link, 'system_role', None):
+            # link is ProjectSystemUsage ...
+            return '[{}] {}'.format(self.link.system_role, obj_name)
         else:
             if hasattr(self.obj, 'product_type'):
                 pt_abbr = self.obj.product_type.abbreviation
@@ -134,9 +137,6 @@ class Node(object):
                     return '[{}] {}'.format(pt, obj_name)
                 elif getattr(self.link, 'reference_designator', None):
                     return self.link.reference_designator + ': [TBD]' 
-            # if link is ProjectSystemUsage ...
-            elif getattr(self.link, 'system_role', None):
-                    return '[{}] {}'.format(self.link.system_role, obj_name)
             return obj_name
 
     @property
@@ -757,8 +757,12 @@ class SystemTreeModel(QAbstractItemModel):
                                          'name', '')
                         hint = ''
                         if getattr(node.link, 'product_type_hint', None):
+                            # NOTE: 'product_type_hint' is a ProductType
                             hint = getattr(node.link.product_type_hint,
                                            'name', '')
+                        elif getattr(node.link, 'system_role', None):
+                            # NOTE: 'system_role' the *name* of a ProductType
+                            hint = node.link.system_role
                         if hint and ptname != hint:
                             # ret = QMessageBox.warning(
                             ret = QMessageBox.critical(
