@@ -119,7 +119,7 @@ class Node(object):
             # link is ProjectSystemUsage ...
             return '[{}] {}'.format(self.link.system_role, obj_name)
         else:
-            if hasattr(self.obj, 'product_type'):
+            if getattr(self.obj, 'product_type', None):
                 pt_abbr = self.obj.product_type.abbreviation
                 pt_name = self.obj.product_type.name
             pt = pth_abbr or pt_abbr or pth_name or pt_name
