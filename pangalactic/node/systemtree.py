@@ -97,18 +97,6 @@ class Node(object):
     @property
     def name(self):
         obj_name = display_name(self.obj)
-        # if self.refdes:
-            # if isinstance(self.link, orb.classes['Acu']):
-                # return (self.link.reference_designator or
-                        # self.link.product_type_hint or
-                        # obj_name)
-            # elif isinstance(self.link, orb.classes['ProjectSystemUsage']):
-                # return self.link.system_role or obj_name
-            # else:
-                # return obj_name
-        # else:
-        # *not* in ref designator mode -- only return ref des if node is
-        # "empty" (i.e., obj_name is 'TBD')
         pth_name = ''
         pth_abbr = ''
         pt_name = ''
@@ -174,9 +162,6 @@ class Node(object):
     def is_traversed(self):
         if self.cname == 'FakeRoot':
             return True
-        # *** THIS 'issubclass' test appears to have been the source of the
-        # tree build "race" bug!!!
-        # elif issubclass(orb.classes[self.cname], orb.classes['Product']):
         elif isinstance(self.obj, orb.classes['Product']):
             return self.child_count() == len(self.obj.components)
         elif self.cname == 'Project':
@@ -433,8 +418,9 @@ class SystemTreeModel(QAbstractItemModel):
         # call this node "pnode" (parent node)
         pnode = self.get_node(index)
         nodes = []
-        if hasattr(pnode.obj, 'components'):
-            # -> this is a Product node
+        # if hasattr(pnode.obj, 'components'):
+        if getattr(pnode.obj, 'components', None):
+            # -> this is a Product node and it has acus
             # NOTE: "if acu.component" is needed in case Acu has been corrupted
             # (e.g. if its 'component' object is None)
             acus = [acu for acu in pnode.obj.components if acu.component]
@@ -455,7 +441,9 @@ class SystemTreeModel(QAbstractItemModel):
                                                     link=psu)
                     nodes.append(sys_node)
                     dispatcher.send('tree node fetched')
-        self.add_nodes(nodes, index)
+        # only call add_nodes if nodes are found ...
+        if nodes:
+            self.add_nodes(nodes, index)
 
     def hasChildren(self, index):
         """

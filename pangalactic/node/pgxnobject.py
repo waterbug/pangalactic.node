@@ -818,14 +818,12 @@ class PgxnObject(QDialog):
         Respond to 'clone' action by cloning the current object.
         """
         # TODO:  dialog with choice of: (1) clone to version or (2) clone to cp
-        new_obj = clone(self.obj, id='new-id')
+        new_obj = clone(self.obj, id='new-id', derived_from=self.obj)
         orb.save([new_obj])
-        pxo = PgxnObject(new_obj, edit_mode=True, new=True)
-        pxo.setModal(True)
-        pxo.show()
-
-    # def open_viewer(self):
-        # pass
+        self.obj = new_obj
+        self.go_to_tab = 2
+        self.build_from_object()
+        self.on_edit()
 
     def build_from_object(self):
         """

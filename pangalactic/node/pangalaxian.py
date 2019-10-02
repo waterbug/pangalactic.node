@@ -226,6 +226,7 @@ class Main(QtWidgets.QMainWindow):
             self.data_mode_action.trigger()
         state['done_with_progress'] = False
         state['connected'] = False
+        state['synced'] = False
 
     def add_splash_msg(self, msg):
         self.splash_msg += msg + '\n'
@@ -314,6 +315,7 @@ class Main(QtWidgets.QMainWindow):
                 self.mbus = None
                 state['connected'] = False
                 state['done_with_progress'] = False
+                state['synced'] = False
                 state['synced_projects'] = []
             else:
                 orb.log.info('* already disconnected from message bus.')
@@ -325,16 +327,19 @@ class Main(QtWidgets.QMainWindow):
         self.statusbar.showMessage('connected to message bus.')
         self.connect_to_bus_action.setToolTip(
                                         'Disconnect from the message bus')
-        self.role_label.setText('online - syncing data, please wait ...')
         self.net_status.setPixmap(self.online_icon)
         self.net_status.setToolTip('connected')
-        # set 'synced' state to False (informs check_version whether to run
-        # sync_with_services())
-        state['synced'] = False
         self.sync_with_services()
 
     def sync_with_services(self):
+        if state.get('synced'):
+            current_text = self.role_label.text()
+            self.role_label.setText('online - auto-reconnected ...')
+            time.sleep(1)
+            self.role_label.setText(current_text)
+            return
         state['synced'] = True
+        self.role_label.setText('syncing data ...')
         # orb.log.info('* calling rpc "vger.get_role_assignments"')
         orb.log.info('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
@@ -806,6 +811,7 @@ class Main(QtWidgets.QMainWindow):
         if project_sync:
             # if on_sync_result() was called from a project sync, update views
             # (which will update the 'role_label' with the project etc.)
+            state['project_sync'] = True
             self._update_views()
         if user_objs_sync:
             state['synced_oids'] = [o.oid for o in
@@ -2682,6 +2688,7 @@ class Main(QtWidgets.QMainWindow):
         self.sys_tree.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
                                     QtWidgets.QSizePolicy.Expanding)
         self.sys_tree_rebuilt = True
+
         # node_count() gets # of nodes in sys tree for later use in setting max
         # for progress bar
         systems = [psu.system for psu in self.project.systems]
@@ -2876,9 +2883,10 @@ class Main(QtWidgets.QMainWindow):
         # system tree and dashboard
         # ********************************************************
         # refresh_tree_views() creates self.sys_tree if there isn't one
-        # (only rebuild tree & dash if called in a project sync or mode change)
-        self.sys_tree_rebuilt = False
-        self.dashboard_rebuilt = False
+        # (only rebuild tree & dash if called in a project sync)
+        if state.get('project_sync'):
+            self.sys_tree_rebuilt = False
+            self.dashboard_rebuilt = False
         self.refresh_tree_views(rebuilding=True)
         self.top_dock_widget.setFeatures(
                                 QtWidgets.QDockWidget.DockWidgetFloatable)
