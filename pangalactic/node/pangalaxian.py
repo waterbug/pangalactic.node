@@ -324,20 +324,17 @@ class Main(QtWidgets.QMainWindow):
     def on_mbus_joined(self):
         orb.log.info('* on_mbus_joined:  message bus session joined.')
         state['connected'] = True
-        self.statusbar.showMessage('connected to message bus.')
         self.connect_to_bus_action.setToolTip(
                                         'Disconnect from the message bus')
         self.net_status.setPixmap(self.online_icon)
         self.net_status.setToolTip('connected')
-        self.sync_with_services()
+        if not state.get('synced'):
+            self.statusbar.showMessage('connected to message bus, syncing ...')
+            self.sync_with_services()
+        else:
+            self.statusbar.showMessage('auto-reconnected, not syncing.')
 
     def sync_with_services(self):
-        if state.get('synced'):
-            current_text = self.role_label.text()
-            self.role_label.setText('online - auto-reconnected ...')
-            time.sleep(1)
-            self.role_label.setText(current_text)
-            return
         state['synced'] = True
         self.role_label.setText('syncing data ...')
         # orb.log.info('* calling rpc "vger.get_role_assignments"')
@@ -2884,9 +2881,8 @@ class Main(QtWidgets.QMainWindow):
         # ********************************************************
         # refresh_tree_views() creates self.sys_tree if there isn't one
         # (only rebuild tree & dash if called in a project sync)
-        if state.get('project_sync'):
-            self.sys_tree_rebuilt = False
-            self.dashboard_rebuilt = False
+        self.sys_tree_rebuilt = False
+        self.dashboard_rebuilt = False
         self.refresh_tree_views(rebuilding=True)
         self.top_dock_widget.setFeatures(
                                 QtWidgets.QDockWidget.DockWidgetFloatable)
@@ -3619,7 +3615,7 @@ class Main(QtWidgets.QMainWindow):
                         if so.get('creator') == 'me' and not user_is_me:
                             so['creator'] = self.local_user.oid
                             so['modifier'] = self.local_user.oid
-                        objs += deserialize(orb, [so])
+                        objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
                         self.pb.setValue(i)
                         self.statusbar.showMessage('{}: {}'.format(cname,
@@ -3634,23 +3630,27 @@ class Main(QtWidgets.QMainWindow):
                         if so.get('creator') == 'me' and not user_is_me:
                             so['creator'] = self.local_user.oid
                             so['modifier'] = self.local_user.oid
-                        objs += deserialize(orb, [so])
+                        objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
                         self.pb.setValue(i)
             self.pb.hide()
             if not message:
                 message = "Your data has been {}.".format(end)
             self.statusbar.showMessage(message)
+            new_obj_classes = [o.__class__.__name__ for o in objs]
+            if ('HardwareProduct' in new_obj_classes
+                or 'Acu' in new_obj_classes):
+                orb.recompute_parmz()
+                if hasattr(self, 'library_widget'):
+                    self.library_widget.refresh()
+                if hasattr(self, 'sys_tree'):
+                    self.refresh_tree_and_dashboard()
             if importing:
                 popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Information,
                             "Project Data Import", message,
                             QtWidgets.QMessageBox.Ok, self)
                 popup.show()
-            if hasattr(self, 'library_widget'):
-                self.library_widget.refresh()
-            if hasattr(self, 'sys_tree'):
-                self.refresh_tree_and_dashboard()
             return objs
         else:
             if importing:
