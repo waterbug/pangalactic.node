@@ -310,6 +310,7 @@ class Main(QtWidgets.QMainWindow):
                 if getattr(self.mbus, 'runner', None) is not None:
                     self.mbus.runner.stop()
                 orb.log.info('  message bus session disconnected.')
+                self.sync_project_action.setEnabled(False)
                 self.net_status.setPixmap(self.offline_icon)
                 self.net_status.setToolTip('offline')
                 self.mbus = None
@@ -328,6 +329,7 @@ class Main(QtWidgets.QMainWindow):
                                         'Disconnect from the message bus')
         self.net_status.setPixmap(self.online_icon)
         self.net_status.setToolTip('connected')
+        self.sync_project_action.setEnabled(True)
         if not state.get('synced'):
             self.statusbar.showMessage('connected to message bus, syncing ...')
             self.sync_with_services()
@@ -1543,6 +1545,10 @@ class Main(QtWidgets.QMainWindow):
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
+        self.sync_project_action = self.create_action(
+                                    "Re-Sync Current Project",
+                                    slot=self.resync_current_project,
+                                    modes=['system'])
         self.refresh_tree_action = self.create_action(
                                     "Refresh System Tree and Dashboard",
                                     slot=self.refresh_tree_and_dashboard,
@@ -1890,17 +1896,20 @@ class Main(QtWidgets.QMainWindow):
         system_tools_icon_file = 'tools' + state['icon_type']
         system_tools_icon_path = os.path.join(icon_dir,
                                               system_tools_icon_file)
-        system_tools_actions = [self.edit_prefs_action,
+        system_tools_actions = [self.sync_project_action,
                                 self.refresh_tree_action,
+                                self.reqts_manager_action,
+                                self.conops_modeler_action,
                                 self.product_lib_action,
                                 self.port_template_lib_action,
                                 self.parameter_lib_action,
                                 # self.display_disciplines_action,
                                 self.display_product_types_action,
-                                self.reqts_manager_action,
-                                self.conops_modeler_action
+                                self.edit_prefs_action
                                 # self.compare_items_action
                                 ]
+        # disable sync project action until we are online
+        self.sync_project_action.setEnabled(False)
         system_tools_button = MenuButton(QtGui.QIcon(system_tools_icon_path),
                                    tooltip='Tools',
                                    actions=system_tools_actions, parent=self)
@@ -2336,7 +2345,10 @@ class Main(QtWidgets.QMainWindow):
             if oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(oid)
 
-    def on_set_current_project_signal(self):
+    def resync_current_project(self):
+        self.on_set_current_project_signal(resync=True)
+
+    def on_set_current_project_signal(self, resync=False):
         """
         Update views as a result of a project being set, syncing project data
         if [1] online, [2] project is not "SANDBOX", and [3] project has not
@@ -2344,9 +2356,10 @@ class Main(QtWidgets.QMainWindow):
         state['synced_projects'] list).
         """
         project_oid = state.get('project')
-        if (project_oid and project_oid != 'pgefobjects:SANDBOX'
-            and project_oid not in state.get('synced_projects', [])
-            and state.get('connected')):
+        if (((project_oid and project_oid != 'pgefobjects:SANDBOX'
+             and project_oid not in state.get('synced_projects', []))
+             or resync)
+             and state.get('connected')):
             # TODO: if project is "local", activate "enable collab" action
             rpc = self.sync_current_project(None)
             rpc.addCallback(self.on_project_sync_result)
