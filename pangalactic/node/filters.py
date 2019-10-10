@@ -12,7 +12,8 @@ from textwrap import wrap
 from louie import dispatcher
 
 from pangalactic.core             import state
-from pangalactic.core.meta        import PGEF_COL_WIDTHS, PGEF_COL_NAMES
+from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
+                                          PGEF_COL_NAMES)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import (get_external_name_plural,
                                           get_attr_ext_name)
@@ -432,7 +433,7 @@ class FilterPanel(QWidget):
             self.objs = objs or [orb.get('pgefobjects:TBD')]
             self.cname = self.objs[0].__class__.__name__
         schema = orb.schemas[self.cname]
-        view = view or ['id', 'name', 'description']
+        view = view or MAIN_VIEWS.get(self.cname, ['id', 'name', 'description'])
         self.view = [a for a in view if a in schema['field_names']]
         # if col name, use that; otherwise, use external name
         col_labels = [PGEF_COL_NAMES.get(a, get_attr_ext_name(self.cname, a))

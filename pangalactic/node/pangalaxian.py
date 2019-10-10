@@ -3341,8 +3341,7 @@ class Main(QtWidgets.QMainWindow):
         # dlg.show()
 
     def display_product_types(self):
-        view = ['id', 'name', 'description', 'comment']
-        dlg = LibraryDialog('ProductType', view=view,
+        dlg = LibraryDialog('ProductType',
                             width=self.geometry().width()//2,
                             height=self.geometry().height(), parent=self)
         dlg.show()
