@@ -606,8 +606,6 @@ class ProductInfoPanel(QWidget):
     def dropEvent(self, event):
         if event.mimeData().hasFormat(
                                 "application/x-pgef-hardware-product"):
-            # if the dropped object is not a HardwareProduct, the
-            # drop event is ignored
             data = extract_mime_data(event,
                                      "application/x-pgef-hardware-product")
             icon, p_oid, p_id, p_name, p_cname = data

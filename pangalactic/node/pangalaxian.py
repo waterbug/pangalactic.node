@@ -2715,7 +2715,7 @@ class Main(QtWidgets.QMainWindow):
             # TODO:  save last expanded state of project and reset to that
             # self._expand_tree_from_saved_state()
             # self.sys_tree.expandAll()
-            self.sys_tree.expandToDepth(2)
+            self.sys_tree.expandToDepth(1)
         self.left_dock.setWidget(self.sys_tree)
         self.end_progress()
         self.set_system_model_window()
