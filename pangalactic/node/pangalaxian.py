@@ -339,10 +339,10 @@ class Main(QtWidgets.QMainWindow):
     def sync_with_services(self):
         state['synced'] = True
         self.role_label.setText('syncing data ...')
-        # orb.log.info('* calling rpc "vger.get_role_assignments"')
         orb.log.info('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
         orb.log.info('  with arg: "{}"'.format(userid))
+        # NOTE: progress dialog deprecated because doesn't work on OSX
         # progress_max = 4
         # txt = 'Syncing with repository ... please be patient! :)'
         # if not state.get('done_with_progress'):
@@ -354,14 +354,20 @@ class Main(QtWidgets.QMainWindow):
             # self.progress_dialog.setValue(1)
             # self.progress_dialog.show()
         QtWidgets.QApplication.processEvents()
+        data = orb.get_mod_dts(cname='Person')
+        data.update(orb.get_mod_dts(cname='Organization'))
+        data.update(orb.get_mod_dts(cname='Project'))
+        data.update(orb.get_mod_dts(cname='RoleAssignment'))
         try:
-            rpc = self.mbus.session.call('vger.get_user_roles', userid)
+            rpc = self.mbus.session.call('vger.get_user_roles', userid,
+                                         data=data)
         except:
             orb.log.info('  rpc "vger.get_user_roles" failed.')
             orb.log.info('  trying again ...')
             time.sleep(1)
             try:
-                rpc = self.mbus.session.call('vger.get_user_roles', userid)
+                rpc = self.mbus.session.call('vger.get_user_roles', userid,
+                                             data=data)
             except:
                 orb.log.info('  rpc "vger.get_user_roles" failed again ...')
                 message = "Could not recoonect -- log out and log in again."
@@ -374,11 +380,6 @@ class Main(QtWidgets.QMainWindow):
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.subscribe_to_mbus_channels)
         rpc.addErrback(self.on_failure)
-        # NOTE: get_org_role_data works but is commented because org role
-        # assignments data will be refreshed when state is "connected" and a
-        # project is selected (better because the data will be fresher)
-        # rpc.addCallback(self.get_org_role_data)
-        # rpc.addErrback(self.on_failure)
         # NOTE: sync_parameter_definitions isn't needed (they are all refdata!)
         # rpc.addCallback(self.sync_parameter_definitions)
         # rpc.addErrback(self.on_failure)
@@ -412,16 +413,18 @@ class Main(QtWidgets.QMainWindow):
 
             [serialized local user (Person) object,
              serialized Organization/Project objects,
-             serialized Person objects (all users),
-             serialized RoleAssignment objects]
+             serialized Person objects,
+             serialized RoleAssignment objects,
+             oids unknown to the server]
         """
         log_msg = '* results of rpc "vger.get_user_roles" ...\n'
         log_msg += '  - data:  %s' % str(data)
         orb.log.debug(log_msg)
-        # data should be a list with 2 elements:
-        szd_user, szd_orgs, szd_people, szd_role_assignments = data
+        # data should be a list with 5 elements:
+        szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
         channels = []
         if szd_user:
+            # deserialize local user's Person object
             deserialize(orb, szd_user)
             self.local_user = orb.select('Person', id=state['userid'])
             orb.log.info('* local user returned: {}'.format(
@@ -445,36 +448,30 @@ class Main(QtWidgets.QMainWindow):
         else:
             orb.log.info('  - user object for local user not returned!')
         orb.log.info('  - inspecting projects and orgs ...')
-        # don't include SANDBOX in local_orgs -- it's special
-        local_orgs = [org for org in orb.get_all_subtypes('Organization')
-                      if org.oid != 'pgefobjects:SANDBOX']
-        server_org_oids = [so.get('oid') for so in szd_orgs]
-        for local_org in local_orgs:
-            # if a local org is not on the server and was not created by the
-            # local user, delete it ...
-            if (local_org.oid not in server_org_oids
-                and local_org.creator is not self.local_user):
-                systems = getattr(local_org, 'systems', None)
-                if systems:
-                    # if it is a project and has PSUs, delete them first
-                    orb.delete(systems)
-                orb.delete([local_org])
-        # deserialize all Organization objects
-        # deserialize(orb, szd_orgs)
+        local_orgs = orb.get_by_type('Organization')
+        invalid_orgs = [org for org in local_orgs if org.oid in unknown_oids]
+        if invalid_orgs:
+            orb.log.debug('    deleting {} invalid orgs.'.format(
+                                                        len(invalid_orgs)))
+            orb.delete(invalid_orgs)
+        else:
+            orb.log.debug('    no invalid orgs found.')
+        # deserialize all new Project and Organization objects
         self.load_serialized_objects(szd_orgs)
-        # deserialize all Person objects
+        # deserialize all new Person objects
         self.load_serialized_objects(szd_people)
         orb.log.info('  - deserializing role assignments ...')
-        # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE:
-        # all local role assignment data should be deleted before deserializing
-        # what is received from the server
+        # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE, so
+        # delete any role assignments whose oids are not known to the server
         ras_local = orb.get_by_type('RoleAssignment')
-        orb.delete(ras_local)
+        invalid_ras = [ra for ra in ras_local if ra.oid in unknown_oids]
+        if invalid_ras:
+            orb.delete(invalid_ras)
         # NOTE: serialized RoleAssignment objects include all related
         # objects -- 'assigned_role' (Role), 'assigned_to' (Person), and
         # 'role_assignment_context' (Organization or Project)
-        # deserialize(orb, szd_role_assignments)
-        self.load_serialized_objects(szd_role_assignments)
+        # deserialize all new RoleAssignment objects
+        self.load_serialized_objects(szd_ras)
         ras = orb.get_by_type('RoleAssignment')
         org_ids = [getattr(ra.role_assignment_context, 'id', '')
                    for ra in ras]
@@ -527,52 +524,6 @@ class Main(QtWidgets.QMainWindow):
 
     def on_pubsub_failure(self, f):
         orb.log.info("  - subscription failure: {}".format(f.getTraceback()))
-
-    # DEPRECATED in favor of 'get_project_roles', which is called when
-    # current project is set or mode is changed to "system" or "component"
-    def get_org_role_data(self, data):
-        """
-        Get all RoleAssignment objects for all Organizations on which the local
-        user has Administrator role (these are needed when administering role
-        assignments for projects and other organizations).
-
-        Args:
-            data:  parameter required for callback (ignored)
-
-        Return:
-            deferred: result of `vger.` rpc
-        """
-        orb.log.info('[pgxn] get_org_role_data()')
-        admin = orb.get('pgefobjects:Role.Administrator')
-        admin_ras = orb.search_exact(cname='RoleAssignment', assigned_role=admin,
-                                     assigned_to=self.local_user)
-        admin_orgs = [getattr(ra.role_assignment_context, 'oid', 'global')
-                      for ra in admin_ras]
-        orb.log.info('       - we have Admin roles: {}'.format(
-                                                            str(admin_orgs)))
-        searches = []
-        if admin_orgs:
-            for org_oid in admin_orgs:
-                orb.log.info('  -> getting roles in org "{}" ...'.format(
-                                                                org_oid))
-                search = self.mbus.session.call('vger.get_roles_in_org',
-                                                org_oid)
-                search.addCallback(self.on_get_roles_success)
-                search.addErrback(self.on_get_roles_failure)
-                searches.append(search)
-            self.statusbar.showMessage('getting role assignments ...')
-        else:
-            orb.log.info('       - No organization administrator roles found.')
-        return DeferredList(searches, consumeErrors=True)
-
-    def on_get_roles_success(self, result):
-        orb.log.info("  - vger.get_roles_in_org succeeded.")
-        orb.log.debug("  - role data: {}".format(str(result)))
-        deserialize(orb, result)
-
-    def on_get_roles_failure(self, f):
-        orb.log.info("  - vger.get_roles_in_org failed: {}".format(
-                                                            f.getTraceback()))
 
     def sync_parameter_definitions(self, data):
         """
@@ -2503,18 +2454,9 @@ class Main(QtWidgets.QMainWindow):
         elif self.mode == 'component':
             orb.log.debug('* mode: component')
             self.set_product_modeler_interface()
-            self.get_project_roles()
         elif self.mode == 'system':
             orb.log.debug('* mode: system')
             self.set_system_modeler_interface()
-            self.get_project_roles()
-
-    def get_project_roles(self):
-        if state.get('connected') and self.mbus.session:
-            rpc = self.mbus.session.call('vger.get_roles_in_org',
-                                           self.project.oid)
-            rpc.addCallback(self.on_get_roles_success)
-            rpc.addErrback(self.on_get_roles_failure)
 
     def _setup_top_dock_widgets(self):
         # orb.log.debug('  - no top dock widget -- building one now...')
