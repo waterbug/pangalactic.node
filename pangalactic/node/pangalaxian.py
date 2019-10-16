@@ -1197,6 +1197,7 @@ class Main(QtWidgets.QMainWindow):
                     # sys_tree_model = self.sys_tree.model()
                     sys_tree_model = self.sys_tree.source_model
                     if hasattr(obj, 'project'):
+                        # -> object is a ProjectSystemUsage (PSU)
                         # NOTE:  SANDBOX PSUs are not synced
                         if (obj.project.oid == state.get('project') and
                             obj.project.oid != 'pgefobjects:SANDBOX'):
@@ -3591,14 +3592,17 @@ class Main(QtWidgets.QMainWindow):
             if not message:
                 message = "Your data has been {}.".format(end)
             self.statusbar.showMessage(message)
-            new_obj_classes = [o.__class__.__name__ for o in objs]
-            if ('HardwareProduct' in new_obj_classes
-                or 'Acu' in new_obj_classes):
+            new_products_psus_or_acus = [obj for obj in objs if isinstance(obj,
+                                         (orb.classes['Product'],
+                                          orb.classes['Acu'],
+                                          orb.classes['ProjectSystemUsage']))]
+            if new_products_psus_or_acus:
                 orb.recompute_parmz()
                 if hasattr(self, 'library_widget'):
                     self.library_widget.refresh()
                 if hasattr(self, 'sys_tree'):
-                    self.refresh_tree_and_dashboard()
+                    for obj in new_products_psus_or_acus:
+                        self.update_object_in_trees(obj)
             if importing:
                 popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Information,

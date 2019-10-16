@@ -1224,12 +1224,11 @@ class SystemTreeView(QTreeView):
         self.addAction(self.del_position_action)
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
 
-    # FIXME:  this probably doesn't work any more -- needs to map indexes ...
     def link_indexes_in_tree(self, link):
         """
-        Find the indexes of all nodes in the system tree that reference the
-        specified link (Acu or ProjectSystemUsage) -- this is needed for
-        updating the tree in-place when a link object is modified.
+        Find the source model indexes of all nodes in the system tree that
+        reference the specified link (Acu or ProjectSystemUsage) -- this is
+        needed for updating the tree in-place when a link object is modified.
 
         Args:
             link (Acu or ProjectSystemUsage):  specified link object
@@ -1272,17 +1271,16 @@ class SystemTreeView(QTreeView):
                     link_idxs += self.link_indexes_in_assembly(link, sys_idx)
                 orb.log.debug('    {} link occurrences found.'.format(
                               len(link_idxs)))
-            return list(set(link_idxs))
+            return link_idxs
         else:
             orb.log.info('  - link not found in tree.')
         return []
 
-    # FIXME:  this probably doesn't work any more -- needs to map indexes ...
     def object_indexes_in_tree(self, obj):
         """
-        Find the indexes of all nodes in the system tree that reference the
-        specified object (this is needed for updating the tree in-place when an
-        object is modified).
+        Find the source model indexes of all nodes in the system tree that
+        reference the specified object (this is needed for updating the tree
+        in-place when an object is modified).
 
         Args:
             obj (Product):  specified object
@@ -1291,8 +1289,8 @@ class SystemTreeView(QTreeView):
         model = self.source_model
         project_index = model.index(0, 0, QModelIndex())
         project_node = model.get_node(project_index)
-        orb.log.info('  for project {}'.format(project_node.obj.oid))
-        orb.log.info('  (node cname: {})'.format(project_node.cname))
+        orb.log.debug('  for project {}'.format(project_node.obj.oid))
+        orb.log.debug('  (node cname: {})'.format(project_node.cname))
         systems = [psu.system for psu in model.project.systems]
         # first check whether obj *is* one of the systems:
         is_a_system = [sys for sys in systems if sys.oid == obj.oid]
@@ -1323,20 +1321,20 @@ class SystemTreeView(QTreeView):
                     obj_idxs += self.object_indexes_in_assembly(obj, sys_idx)
                 orb.log.debug('    {} component occurrences found.'.format(
                               len(obj_idxs)))
-            return list(set(system_idxs + obj_idxs))
+            return list(set(system_proxy_idxs + obj_proxy_idxs))
         else:
             orb.log.info('  - object not found in tree.')
         return []
 
-    # FIXME:  this probably doesn't work any more -- needs to map indexes ...
     def object_indexes_in_assembly(self, obj, idx):
         """
-        Find the indexes of all nodes in an assembly that reference the
-        specified object.
+        Find the source model indexes of all nodes in an assembly that reference
+        the specified object and source model index.
 
         Args:
             obj (Product):  specified object
-            idx (QModelIndex):  index of the assembly or project node
+            idx (QModelIndex):  source model index of the assembly or project
+                node
         """
         # NOTE: ignore "TBD" objects
         if getattr(obj, 'oid', '') == 'pgefobjects:TBD':
@@ -1347,7 +1345,7 @@ class SystemTreeView(QTreeView):
             assembly = assembly_node.link.component
         else:
             assembly = assembly_node.link.system
-        orb.log.info('* object_indexes_in_assembly({})'.format(assembly.id))
+        orb.log.debug('* object_indexes_in_assembly({})'.format(assembly.id))
         if obj.oid == assembly.oid:
             orb.log.debug('  assembly *is* the object')
             return [idx]
@@ -1362,11 +1360,11 @@ class SystemTreeView(QTreeView):
         else:
             return []
 
-    # FIXME:  this probably doesn't work any more -- needs to map indexes ...
     def link_indexes_in_assembly(self, link, idx):
         """
-        Find the indexes of all nodes in an assembly that have the specified
-        link as their `link` attribute.
+        Find the source model indexes of all nodes in an assembly that have the
+        specified link as their `link` attribute and the specified source model
+        index.
 
         Args:
             link (Acu):  specified link
