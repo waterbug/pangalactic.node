@@ -2754,6 +2754,7 @@ class Main(QtWidgets.QMainWindow):
             for column in range(self.dashboard.model().columnCount(
                                                     QModelIndex())):
                 self.dashboard.resizeColumnToContents(column)
+            self.dashboard.setFocus()
             self.dashboard.repaint()
 
     def update_object_in_trees(self, obj):
