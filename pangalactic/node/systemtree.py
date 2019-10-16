@@ -77,8 +77,8 @@ class Node(object):
 
     @obj.setter
     def obj(self, value):
-        orb.log.info('* Node.obj.setter: set obj {}'.format(
-                                            getattr(value, 'id', 'unknown')))
+        # orb.log.debug('* Node.obj.setter: set obj {}'.format(
+                                            # getattr(value, 'id', 'unknown')))
         self._obj = value
         if self.link:
             if self.link.__class__.__name__ == 'Acu':
@@ -92,7 +92,8 @@ class Node(object):
             # "modified object" signal is sent by the drop event when object is
             # created or modified by a local action (a drop)
         else:
-            orb.log.debug('  - ERROR: node has no link.')
+            # orb.log.debug('  - ERROR: node has no link.')
+            pass
 
     @property
     def name(self):
@@ -683,14 +684,14 @@ class SystemTreeModel(QAbstractItemModel):
                if drop item is a Product *and* it is not already in use
                on the Project, use it to create a new ProjectSystemUsage
         """
-        orb.log.info('* SystemTreeModel.dropMimeData()')
+        # orb.log.debug('* SystemTreeModel.dropMimeData()')
         try:
             # NOTE: for now, dropped item must be a HardwareProduct ... in the
             # future, may accomodate *ANY* Product subclass (including Model,
             # Document, etc.)
             drop_target = self.data(parent, Qt.UserRole)
             if not drop_target or not hasattr(drop_target, 'oid'):
-                orb.log.info('  - drop ignored -- invalid drop target.')
+                # orb.log.debug('  - drop ignored -- invalid drop target.')
                 return False
             if data.hasFormat("application/x-pgef-hardware-product"):
                 self.successful_drop_index = None
@@ -698,9 +699,9 @@ class SystemTreeModel(QAbstractItemModel):
                                         "application/x-pgef-hardware-product")
                 icon, obj_oid, obj_id, obj_name, obj_cname = content
                 dropped_item = orb.get(obj_oid)
-                orb.log.info('  - item dropped: %s' % (dropped_item.name))
+                # orb.log.debug('  - item dropped: %s' % (dropped_item.name))
                 if drop_target.oid == obj_oid:
-                    orb.log.info('    invalid: dropped item same as target.')
+                    # orb.log.debug('    invalid: dropped item same as target.')
                     popup = QMessageBox(
                                 QMessageBox.Critical,
                                 "Assembly same as Component",
@@ -708,14 +709,14 @@ class SystemTreeModel(QAbstractItemModel):
                                 QMessageBox.Ok, self.parent)
                     popup.show()
                     return False
-                orb.log.debug('  - action: {}'.format(action))
-                orb.log.debug('  - row: {}'.format(row))
-                orb.log.debug('  - column: {}'.format(column))
-                orb.log.debug('  - target name: {}'.format(drop_target.name))
+                # orb.log.debug('  - action: {}'.format(action))
+                # orb.log.debug('  - row: {}'.format(row))
+                # orb.log.debug('  - column: {}'.format(column))
+                # orb.log.debug('  - target name: {}'.format(drop_target.name))
                 target_cname = drop_target.__class__.__name__
                 if issubclass(orb.classes[target_cname],
                               orb.classes['Product']):
-                    orb.log.info('    + target is a subclass of Product ...')
+                    # orb.log.debug('    + target is a subclass of Product ...')
                     # first check for cycles (cycles will crash the tree)
                     bom_oids = get_bom_oids(dropped_item)
                     if (drop_target.oid in bom_oids and
@@ -784,35 +785,36 @@ class SystemTreeModel(QAbstractItemModel):
                             node.obj = dropped_item
                             self.dataChanged.emit(parent, parent)
                             self.successful_drop.emit()
-                            orb.log.info('   node link mod: {}'.format(
-                                         node.link.name))
+                            # orb.log.debug('   node link mod: {}'.format(
+                                          # node.link.name))
                             dispatcher.send('modified object',
                                             obj=node.link)
                             return True
                     else:
-                        # case 2: drop target is a normal product -> add new Acu
+                        # case 2: drop target is normal product -> add new Acu
                         if not 'modify' in get_perms(drop_target):
                             popup = QMessageBox(
-                                      QMessageBox.Critical,
-                                      "Unauthorized Operation",
-                                      "User's roles do not permit this operation",
-                                      QMessageBox.Ok, self.parent)
+                                  QMessageBox.Critical,
+                                  "Unauthorized Operation",
+                                  "User's roles do not permit this operation",
+                                  QMessageBox.Ok, self.parent)
                             popup.show()
                             return False
                         else:
-                            orb.log.info('      creating Acu ...')
+                            # orb.log.debug('      creating Acu ...')
                             # generate a new reference_designator
                             ref_des = orb.get_next_ref_des(drop_target,
                                                            dropped_item)
                             new_acu = clone('Acu',
-                                    id=get_acu_id(drop_target.id, ref_des),
-                                    name=get_acu_name(drop_target.name, ref_des),
-                                    assembly=drop_target,
-                                    component=dropped_item,
-                                    product_type_hint=dropped_item.product_type,
-                                    reference_designator=ref_des)
+                                id=get_acu_id(drop_target.id, ref_des),
+                                name=get_acu_name(drop_target.name, ref_des),
+                                assembly=drop_target,
+                                component=dropped_item,
+                                product_type_hint=dropped_item.product_type,
+                                reference_designator=ref_des)
                             orb.save([new_acu])
-                            orb.log.info('      Acu created: %s' % new_acu.name)
+                            # orb.log.debug('      Acu created: %s'.format(
+                                          # new_acu.name))
                             self.add_nodes([self.node_for_object(
                                             dropped_item,
                                             parent=self.get_node(parent),
@@ -823,9 +825,8 @@ class SystemTreeModel(QAbstractItemModel):
                             return True
                 elif target_cname == 'Project':
                     # case 3: drop target is a project
-                    orb.log.info('    + target is a Project -- creating PSU ...')
-                    # case 3:  drop item is a product -> *if* it is not
-                    # already in use on the project, add a new PSU
+                    # log_txt = '+ target is a Project -- creating PSU ...'
+                    # orb.log.debug('    {}'.format(log_txt))
                     psu = orb.search_exact(cname='ProjectSystemUsage',
                                            project=drop_target,
                                            system=dropped_item)
@@ -836,7 +837,8 @@ class SystemTreeModel(QAbstractItemModel):
                                         'project {1}'.format(
                                         dropped_item.name, drop_target.id))
                     else:
-                        psu_id = 'psu-' + dropped_item.id + '-' + drop_target.id
+                        psu_id = ('psu-' + dropped_item.id + '-' +
+                                  drop_target.id)
                         psu_name = ('psu: ' + dropped_item.name +
                                     ' (system used on) ' + drop_target.name)
                         psu_role = getattr(dropped_item.product_type, 'name',
@@ -848,8 +850,8 @@ class SystemTreeModel(QAbstractItemModel):
                                         project=drop_target,
                                         system=dropped_item)
                         orb.save([new_psu])
-                        orb.log.info('      ProjectSystemUsage created: %s'
-                                      % psu_name)
+                        # orb.log.debug('      ProjectSystemUsage created: %s'
+                                      # % psu_name)
                         self.add_nodes([self.node_for_object(
                                    dropped_item, parent=self.get_node(parent),
                                    link=new_psu)], parent)
@@ -857,14 +859,14 @@ class SystemTreeModel(QAbstractItemModel):
                         self.successful_drop.emit()
                         dispatcher.send('new object', obj=new_psu)
                 else:
-                    orb.log.info('    + target is not a Project or Product '
-                                  '-- no action taken.')
+                    # orb.log.debug('    + target is not a Project or Product '
+                                  # '-- no action taken.')
                     return False
                 return True
             else:
                 return False
         except:
-            orb.log.info('  OOPS! Something bad happened ...')
+            orb.log.info('* OOPS! Something bad happened in a drop ...')
             orb.log.info(traceback.format_exc())
 
     def removeRows(self, position, count, parent=QModelIndex()):
@@ -878,12 +880,12 @@ class SystemTreeModel(QAbstractItemModel):
         represent the same object, which is being deleted, all such nodes must
         be located and deleted.
         """
-        orb.log.info('* SystemTreeModel.removeRows()')
-        orb.log.debug('  position: {}'.format(position))
-        orb.log.debug('  count: {}'.format(count))
+        # orb.log.debug('* SystemTreeModel.removeRows()')
+        # orb.log.debug('  position: {}'.format(position))
+        # orb.log.debug('  count: {}'.format(count))
         parent_node = self.get_node(parent)
-        orb.log.debug('  parent_node: {}'.format(
-                                 getattr(parent_node.obj, 'id', '[no id]')))
+        # orb.log.debug('  parent_node: {}'.format(
+                                 # getattr(parent_node.obj, 'id', '[no id]')))
         self.beginRemoveRows(parent, position, position + count - 1)
         links_to_delete = []
         for pos in range(position, position + count):
@@ -892,16 +894,16 @@ class SystemTreeModel(QAbstractItemModel):
             links_to_delete.append(node_being_removed.link)
         acus = [l.oid for l in links_to_delete
                 if isinstance(l, orb.classes['Acu'])]
-        if acus:
-            orb.log.debug('  + acus to be deleted: {}'.format(
-                          [l.id for l in links_to_delete
-                           if isinstance(l, orb.classes['Acu'])]))
+        # if acus:
+            # orb.log.debug('  + acus to be deleted: {}'.format(
+                          # [l.id for l in links_to_delete
+                           # if isinstance(l, orb.classes['Acu'])]))
         psus = [l.oid for l in links_to_delete
                 if isinstance(l, orb.classes['ProjectSystemUsage'])]
-        if psus:
-            orb.log.debug('  + psus to be deleted: {}'.format(
-                          [l.oid for l in links_to_delete
-                if isinstance(l, orb.classes['ProjectSystemUsage'])]))
+        # if psus:
+            # orb.log.debug('  + psus to be deleted: {}'.format(
+                          # [l.oid for l in links_to_delete
+                # if isinstance(l, orb.classes['ProjectSystemUsage'])]))
         orb.delete(links_to_delete)
         success = parent_node.remove_children(position, count)
         self.endRemoveRows()
@@ -1057,7 +1059,7 @@ class SystemTreeView(QTreeView):
         Expand the currently selected node (connected to 'rowsInserted' signal,
         to expand the drop target after a new node has been created).
         """
-        orb.log.info('* successful drop.')
+        orb.log.debug('* successful drop.')
         sdi = self.source_model.successful_drop_index
         if sdi:
             mapped_sdi = self.proxy_model.mapFromSource(sdi)
@@ -1098,18 +1100,18 @@ class SystemTreeView(QTreeView):
         the 'reference_designator' attribute or [2] if a ProjectSystemUsage
         object, the 'system_role' attribute.
         """
-        orb.log.info('* SystemTreeView: modify_node() ...')
+        orb.log.debug('* SystemTreeView: modify_node() ...')
         for i in self.selectedIndexes():
             mapped_i = self.proxy_model.mapToSource(i)
             node = self.source_model.get_node(mapped_i)
             rel_obj = node.link
             if rel_obj.__class__.__name__ == 'Acu':
-                orb.log.info('  editing assembly node ...')
+                # orb.log.debug('  editing assembly node ...')
                 ref_des = rel_obj.reference_designator
                 quantity = rel_obj.quantity
                 system = False
             elif rel_obj.__class__.__name__ == 'ProjectSystemUsage':
-                orb.log.info('  editing project system node ...')
+                # orb.log.debug('  editing project system node ...')
                 ref_des = rel_obj.system_role
                 quantity = None
                 system = True
@@ -1130,12 +1132,12 @@ class SystemTreeView(QTreeView):
         Remove a component from an assembly position (a node in the system
         tree), replacing it with the `TBD` object.
         """
-        orb.log.info('* SystemTreeView: del_component() ...')
+        orb.log.debug('* SystemTreeView: del_component() ...')
         for i in self.selectedIndexes():
             mapped_i = self.proxy_model.mapToSource(i)
             node = self.source_model.get_node(mapped_i)
             if node.cname == 'Project':
-                orb.log.info('  project node, no action taken.')
+                orb.log.debug('  project node, no action taken.')
                 QMessageBox.critical(self, 'Project node',
                     'Project node cannot be removed')
                 return
@@ -1149,8 +1151,8 @@ class SystemTreeView(QTreeView):
                     if ret == QMessageBox.Ok:
                         return False
                 # replace component with special "TBD" product
-                orb.log.info('  deleting component "%s" ...'
-                             % node.link.component.id)
+                orb.log.debug('  deleting component "%s" ...'
+                              % node.link.component.id)
                 if (not node.link.product_type_hint and
                     node.link.component.product_type):
                     pt = node.link.component.product_type
@@ -1159,10 +1161,11 @@ class SystemTreeView(QTreeView):
                 self.source_model.setData(mapped_i, tbd)
                 dispatcher.send('modified object', obj=node.link)
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
-                orb.log.info('  deleting system usage "%s" ...' % node.obj.id)
+                orb.log.debug('  deleting system usage "%s" ...'.format(
+                              node.obj.id))
                 # replace system with special "TBD" product
-                orb.log.info('  deleting system "%s" ...'
-                             % node.link.system.id)
+                orb.log.debug('  deleting system "%s" ...'
+                              % node.link.system.id)
                 tbd = orb.get('pgefobjects:TBD')
                 self.source_model.setData(mapped_i, tbd)
                 dispatcher.send('modified object', obj=node.link)
@@ -1176,7 +1179,7 @@ class SystemTreeView(QTreeView):
             mapped_i = self.proxy_model.mapToSource(i)
             node = self.source_model.get_node(mapped_i)
             if node.cname == 'Project':
-                orb.log.info('  project node, no action taken.')
+                orb.log.debug('  project node, no action taken.')
                 QMessageBox.critical(self, 'Project node',
                     'Project node cannot be removed')
                 return
@@ -1196,8 +1199,8 @@ class SystemTreeView(QTreeView):
                         return False
                 ref_des = getattr(node.link, 'reference_designator',
                                   '(No reference designator)')
-                orb.log.info('  deleting position and component "%s"'
-                             % ref_des)
+                orb.log.debug('  deleting position and component "%s"'
+                              % ref_des)
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
                 # permissions are determined from the link and user's roles
                 if not 'delete' in get_perms(node.link):
@@ -1208,11 +1211,11 @@ class SystemTreeView(QTreeView):
                               QMessageBox.Ok)
                     if ret == QMessageBox.Ok:
                         return False
-                orb.log.info('  deleting system usage "%s" ...' % node.obj.id)
+                orb.log.debug('  deleting system usage "%s" ...' % node.obj.id)
             pos = mapped_i.row()
             row_parent = mapped_i.parent()
             parent_id = self.source_model.get_node(row_parent).obj.id
-            orb.log.info('  at row {} of parent {}'.format(pos, parent_id))
+            orb.log.debug('  at row {} of parent {}'.format(pos, parent_id))
             # NOTE:  removeRow() dispatches the "deleted object" signal,
             # which triggers the "deleted" remote message to be published
             self.source_model.removeRow(pos, row_parent)
@@ -1233,12 +1236,12 @@ class SystemTreeView(QTreeView):
         Args:
             link (Acu or ProjectSystemUsage):  specified link object
         """
-        orb.log.info('* link_indexes_in_tree({})'.format(link.id))
+        # orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
         model = self.source_model
         project_index = model.index(0, 0, QModelIndex())
-        project_node = model.get_node(project_index)
-        orb.log.info('  for project {}'.format(project_node.obj.oid))
-        orb.log.info('  (node cname: {})'.format(project_node.cname))
+        # project_node = model.get_node(project_index)
+        # orb.log.debug('  for project {}'.format(project_node.obj.oid))
+        # orb.log.debug('  (node cname: {})'.format(project_node.cname))
         # first check whether link is a PSU:
         is_a_psu = [psu for psu in model.project.systems
                     if psu.oid == link.oid]
@@ -1251,7 +1254,7 @@ class SystemTreeView(QTreeView):
                         for row in range(model.rowCount(project_index))]
             link_idxs = []
             if is_a_psu:
-                orb.log.debug('  - link is a ProjectSystemUsage ...')
+                # orb.log.debug('  - link is a ProjectSystemUsage ...')
                 # orb.log.debug('    project has {} system(s).'.format(
                                                             # len(systems)))
                 # orb.log.debug('    tree has {} system(s).'.format(
@@ -1259,21 +1262,22 @@ class SystemTreeView(QTreeView):
                 for idx in sys_idxs:
                     system_node = model.get_node(idx)
                     if system_node.link.oid == link.oid:
-                        orb.log.debug('    + {}'.format(system_node.link.id))
-                        orb.log.debug('      system: {}'.format(
-                                                        system_node.obj.id))
+                        # orb.log.debug('    + {}'.format(system_node.link.id))
+                        # orb.log.debug('      system: {}'.format(
+                                                        # system_node.obj.id))
                         link_idxs.append(idx)
-                orb.log.debug('    {} system occurrences found.'.format(
-                              len(link_idxs)))
+                # orb.log.debug('    {} system occurrences found.'.format(
+                              # len(link_idxs)))
             if in_system:
-                orb.log.debug('  - link is an Acu ...')
+                # orb.log.debug('  - link is an Acu ...')
                 for sys_idx in sys_idxs:
                     link_idxs += self.link_indexes_in_assembly(link, sys_idx)
-                orb.log.debug('    {} link occurrences found.'.format(
-                              len(link_idxs)))
+                # orb.log.debug('    {} link occurrences found.'.format(
+                              # len(link_idxs)))
             return link_idxs
         else:
-            orb.log.info('  - link not found in tree.')
+            # orb.log.debug('  - link not found in tree.')
+            pass
         return []
 
     def object_indexes_in_tree(self, obj):
@@ -1285,12 +1289,12 @@ class SystemTreeView(QTreeView):
         Args:
             obj (Product):  specified object
         """
-        orb.log.info('* object_indexes_in_tree({})'.format(obj.id))
+        # orb.log.debug('* object_indexes_in_tree({})'.format(obj.id))
         model = self.source_model
         project_index = model.index(0, 0, QModelIndex())
-        project_node = model.get_node(project_index)
-        orb.log.debug('  for project {}'.format(project_node.obj.oid))
-        orb.log.debug('  (node cname: {})'.format(project_node.cname))
+        # project_node = model.get_node(project_index)
+        # orb.log.debug('  for project {}'.format(project_node.obj.oid))
+        # orb.log.debug('  (node cname: {})'.format(project_node.cname))
         systems = [psu.system for psu in model.project.systems]
         # first check whether obj *is* one of the systems:
         is_a_system = [sys for sys in systems if sys.oid == obj.oid]
@@ -1303,27 +1307,28 @@ class SystemTreeView(QTreeView):
             system_idxs = []
             obj_idxs = []
             if is_a_system:
-                orb.log.debug('  - object is a system.')
-                orb.log.debug('    project has {} system(s).'.format(
-                                                            len(systems)))
-                orb.log.debug('    tree has {} system(s).'.format(
-                                                            len(sys_idxs)))
+                # orb.log.debug('  - object is a system.')
+                # orb.log.debug('    project has {} system(s).'.format(
+                                                            # len(systems)))
+                # orb.log.debug('    tree has {} system(s).'.format(
+                                                            # len(sys_idxs)))
                 for idx in sys_idxs:
                     system_node = model.get_node(idx)
-                    orb.log.debug('    + {}'.format(system_node.obj.id))
+                    # orb.log.debug('    + {}'.format(system_node.obj.id))
                     if system_node.obj.oid == obj.oid:
                         system_idxs.append(idx)
-                orb.log.debug('    {} system occurrences found.'.format(
-                              len(system_idxs)))
+                # orb.log.debug('    {} system occurrences found.'.format(
+                              # len(system_idxs)))
             if in_system:
-                orb.log.debug('  - object is a component.')
+                # orb.log.debug('  - object is a component.')
                 for sys_idx in sys_idxs:
                     obj_idxs += self.object_indexes_in_assembly(obj, sys_idx)
-                orb.log.debug('    {} component occurrences found.'.format(
-                              len(obj_idxs)))
-            return list(set(system_proxy_idxs + obj_proxy_idxs))
+                # orb.log.debug('    {} component occurrences found.'.format(
+                              # len(obj_idxs)))
+            return list(set(system_idxs + obj_idxs))
         else:
-            orb.log.info('  - object not found in tree.')
+            # orb.log.info('  - object not found in tree.')
+            pass
         return []
 
     def object_indexes_in_assembly(self, obj, idx):
@@ -1345,12 +1350,12 @@ class SystemTreeView(QTreeView):
             assembly = assembly_node.link.component
         else:
             assembly = assembly_node.link.system
-        orb.log.debug('* object_indexes_in_assembly({})'.format(assembly.id))
+        # orb.log.debug('* object_indexes_in_assembly({})'.format(assembly.id))
         if obj.oid == assembly.oid:
-            orb.log.debug('  assembly *is* the object')
+            # orb.log.debug('  assembly *is* the object')
             return [idx]
         elif model.hasChildren(idx) and obj.oid in get_bom_oids(assembly):
-            orb.log.debug('  obj in assembly bom -- looking for children ...')
+            # orb.log.debug('  obj in assembly bom -- look for children ...')
             obj_idxs = []
             comp_idxs = [model.index(row, 0, idx)
                          for row in range(model.rowCount(idx))]
@@ -1377,12 +1382,12 @@ class SystemTreeView(QTreeView):
                 assembly = assembly_node.link.component
             else:
                 assembly = assembly_node.link.system
-            orb.log.info('* link_indexes_in_assembly({})'.format(link.id))
+            # orb.log.debug('* link_indexes_in_assembly({})'.format(link.id))
             if link.oid == assembly_node.link.oid:
-                orb.log.debug('  assembly node *is* the link node')
+                # orb.log.debug('  assembly node *is* the link node')
                 return [idx]
             elif model.hasChildren(idx) and link in get_assembly(assembly):
-                orb.log.debug('  link in assembly -- looking for acus ...')
+                # orb.log.debug('  link in assembly -- looking for acus ...')
                 link_idxs = []
                 comp_idxs = [model.index(row, 0, idx)
                              for row in range(model.rowCount(idx))]
