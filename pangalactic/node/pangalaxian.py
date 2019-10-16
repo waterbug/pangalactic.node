@@ -3603,6 +3603,9 @@ class Main(QtWidgets.QMainWindow):
                 if hasattr(self, 'sys_tree'):
                     for obj in new_products_psus_or_acus:
                         self.update_object_in_trees(obj)
+                    # might need to refresh dashboard, e.g. if acu quantities
+                    # have changed ...
+                    self.refresh_dashboard()
             if importing:
                 popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Information,
