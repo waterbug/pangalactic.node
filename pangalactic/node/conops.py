@@ -28,6 +28,7 @@ from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 from pangalactic.core.serializers import serialize, deserialize
 from pangalactic.core             import config
+from pangalactic.core.parametrics import get_pval, get_pval_as_str, set_pval, set_pval_from_str
 supported_model_types = {
     # CAD models get "eyes" icon, not a lable button
     'step:203' : None,
@@ -301,6 +302,7 @@ class TimelineScene(QGraphicsScene):
     def focus_changed_handler(self, new_item, old_item):
         if new_item is not None:
             if new_item != self.current_focus:
+
                 dispatcher.send("activity focused",
                                 obj=self.focusItem().activity)
 
@@ -574,6 +576,12 @@ class TimelineWidget(QWidget):
                                     tip="undo")
         self.toolbar.addAction(self.undo_action)
         self.undo_action.setDisabled(True)
+        self.plot_action = self.create_action(
+                                    "plot",
+                                    slot=self.plot,
+                                    icon="back",
+                                    tip="plot")
+        self.toolbar.addAction(self.plot_action)
         #create and add scene scale menu
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
@@ -691,7 +699,23 @@ class TimelineWidget(QWidget):
                             position=self.position)
         except:
             pass
-
+    def plot(self):
+        act_durations= []
+        start_times = []
+        for acu in self.subject_activity.components:
+            act=acu.component
+            oid = getattr(act, "oid", None)
+            act_durations.append(get_pval(orb, oid, 'duration'))
+            start_times.append(get_pval(orb, oid, 't_start'))
+            #print(act_durations)
+            # try:
+            #     print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]")
+            #     print(get_pval(orb, oid, 'duration'))
+            # except Exception as e:
+            #     print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]")
+            #     print(e)
+        print(start_times)
+        print(act_durations)
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
@@ -910,6 +934,13 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug('  - _init_ui() ...')
 
     def double_clicked_handler(self, act):
+        oid = getattr(act, "oid", None)
+        try:
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+            print(get_pval(orb, oid, 'duration'))
+        except Exception as e:
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+            print(e)
         if act.activity_type.id == 'cycle':
             self.system_widget.widget_drill_down(act)
 
@@ -980,4 +1011,3 @@ if __name__ == '__main__':
     mw = ConOpsModeler()
     mw.show()
     sys.exit(app.exec_())
-
