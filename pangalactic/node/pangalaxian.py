@@ -417,9 +417,9 @@ class Main(QtWidgets.QMainWindow):
              serialized RoleAssignment objects,
              oids unknown to the server]
         """
-        log_msg = '* results of rpc "vger.get_user_roles" ...\n'
-        log_msg += '  - data:  %s' % str(data)
-        orb.log.debug(log_msg)
+        log_msg = '* processing results of rpc "vger.get_user_roles" ...'
+        orb.log.info(log_msg)
+        # orb.log.debug('  - data:  {}'.format(str(data)))
         # data should be a list with 5 elements:
         szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
         channels = []
@@ -427,16 +427,16 @@ class Main(QtWidgets.QMainWindow):
             # deserialize local user's Person object
             deserialize(orb, szd_user)
             self.local_user = orb.select('Person', id=state['userid'])
-            orb.log.info('* local user returned: {}'.format(
+            orb.log.debug('  - local user returned: {}'.format(
                                                   self.local_user.oid))
             state['local_user_oid'] = str(self.local_user.oid)
             if str(state.get('local_user_oid')) == 'me':
                 # current local user is 'me' -- replace ...
-                orb.log.info('  local user was "me", replacing ...')
+                orb.log.debug('    local user was "me", replacing ...')
                 state['local_user_oid'] = str(self.local_user.oid)
                 me = orb.get('me')
                 if me and me.created_objects:
-                    orb.log.info('  updating {} local objects ...'.format(
+                    orb.log.debug('    updating {} local objects ...'.format(
                                             str(len(me.created_objects))))
                     for obj in me.created_objects:
                         obj.creator = self.local_user
@@ -444,10 +444,10 @@ class Main(QtWidgets.QMainWindow):
                         orb.save([obj])
                         dispatcher.send('modified object', obj=obj)
             else:
-                orb.log.info('  - login user matches current local user.')
+                orb.log.debug('    + login user matches current local user.')
         else:
-            orb.log.info('  - user object for local user not returned!')
-        orb.log.info('  - inspecting projects and orgs ...')
+            orb.log.debug('    + user object for local user not returned!')
+        orb.log.debug('  - inspecting projects and orgs ...')
         local_orgs = orb.get_by_type('Organization')
         invalid_orgs = [org for org in local_orgs if org.oid in unknown_oids]
         if invalid_orgs:
@@ -460,7 +460,7 @@ class Main(QtWidgets.QMainWindow):
         self.load_serialized_objects(szd_orgs)
         # deserialize all new Person objects
         self.load_serialized_objects(szd_people)
-        orb.log.info('  - deserializing role assignments ...')
+        orb.log.debug('  - deserializing role assignments ...')
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE, so
         # delete any role assignments whose oids are not known to the server
         ras_local = orb.get_by_type('RoleAssignment')
@@ -485,7 +485,7 @@ class Main(QtWidgets.QMainWindow):
             # admin channel, so we will be notified when new Persons are added
             # to the repository
             channels.append('vger.channel.admin')
-        orb.log.debug('    channels we will subscribe to: {}'.format(
+        orb.log.info('    channels we will subscribe to: {}'.format(
                                                        str(channels)))
         if self.project:
             proj_ras = orb.search_exact(cname='RoleAssignment',
