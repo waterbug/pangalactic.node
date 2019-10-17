@@ -2751,13 +2751,11 @@ class Main(QtWidgets.QMainWindow):
     def refresh_dashboard(self):
         # orb.log.debug('* refreshing dashboard ...')
         if hasattr(self, 'dashboard'):
+            self.dashboard.setFocus()
             for column in range(self.dashboard.model().columnCount(
                                                     QModelIndex())):
                 self.dashboard.resizeColumnToContents(column)
-            self.dashboard.setFocus()
-            self.dashboard.update()
             self.dashboard.repaint()
-            self.dashboard.setFocus()
 
     def update_object_in_trees(self, obj):
         """
