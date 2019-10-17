@@ -179,13 +179,13 @@ class ObjectTableModel(ODTableModel):
             as_library (bool): (default: False) if True, provide icons, etc.
             parent (QWidget):  parent widget
         """
-        orb.log.info("* ObjectTableModel initializing ...")
+        # orb.log.debug("* ObjectTableModel initializing ...")
         self.objs = objs or []
         icons = []
         if as_library:
-            orb.log.info("  ... as library ...")
+            # orb.log.debug("  ... as library ...")
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
-        orb.log.info("  ... with {} objects.".format(len(objs)))
+        # orb.log.debug("  ... with {} objects.".format(len(objs)))
         self.column_labels = ['No Data']
         self.view = view or []
         self.cname = ''
@@ -286,10 +286,10 @@ class ObjectTableModel(ODTableModel):
         return True
 
     def mod_object(self, obj):
-        orb.log.debug("  ObjectTableModel.mod_object() ...")
+        # orb.log.debug("  ObjectTableModel.mod_object() ...")
         try:
             row = self.objs.index(obj)  # raises ValueError if problem
-            orb.log.debug("    object found at row {}".format(row))
+            # orb.log.debug("    object found at row {}".format(row))
             idx = self.index(row, 0, index=QModelIndex())
             self.beginResetModel()
             self.setData(idx, obj)
