@@ -343,7 +343,8 @@ class ProxyView(QTableView):
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.setWordWrap(word_wrap)
+        # NEVER wrapping, for now
+        self.setWordWrap(False)
         if proxy_model:
             self.setModel(proxy_model)
         self.setSortingEnabled(True)

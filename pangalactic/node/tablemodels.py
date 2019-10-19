@@ -26,7 +26,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 
 # pangalactic
 from pangalactic.core             import state
-from pangalactic.core.meta        import MAIN_VIEWS
+from pangalactic.core.meta        import MAIN_VIEWS, TEXT_PROPERTIES
 from pangalactic.core.parametrics import get_pval_as_str
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import (display_id, pname_to_header_label,
@@ -248,7 +248,9 @@ class ObjectTableModel(ODTableModel):
             else:
                 val = getattr(obj, name)
             if self.schema['fields'][name]['field_type'] == ForeignKey:
-                odict[name] = getattr(val, 'id', '')
+                odict[name] = getattr(val, 'id', '[no id]')
+            elif name in TEXT_PROPERTIES:
+                odict[name] = (val or ' ').replace('\n', ' ')
             else:
                 odict[name] = val
         return odict
