@@ -655,8 +655,9 @@ class SystemTreeModel(QAbstractItemModel):
         """
         MIME Types accepted for drops.
         """
-        # TODO:  should return mime types for Product and *ALL* subclasses
-        return ['application/x-pgef-hardware-product']
+        # NOTE:  systemtree does not accept drops any more
+        # return ['application/x-pgef-hardware-product']
+        return []
 
     def mimeData(self, indexes):
         # according to PyQt docs, return 0 (not an empty list) if no indexes

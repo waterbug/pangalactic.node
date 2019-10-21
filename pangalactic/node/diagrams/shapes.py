@@ -327,24 +327,26 @@ class ObjectBlock(Block):
             event.ignore()
 
     def dropEvent(self, event):
-        orb.log.debug("* ObjectBlock: something dropped on me ...")
-        if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
-            data = extract_mime_data(event,
-                                     "application/x-pgef-hardware-product")
-            icon, oid, _id, name, cname = data
-            orb.log.info("  - it is a {} ...".format(cname))
-            product = orb.get(oid)
-            if product:
-                orb.log.info('  - orb found {} "{}"'.format(cname, name))
-                orb.log.info(
-                    '    sending message "product dropped on object block"')
-                dispatcher.send('product dropped on object block', p=product)
-            else:
-                orb.log.info("  - dropped product oid not in db.")
-                event.ignore()
-        else:
-            orb.log.info("  - dropped object is not an allowed type")
-            orb.log.info("    to drop on object block.")
+        pass
+        # orb.log.debug("* ObjectBlock: something dropped on me ...")
+        # NOTE: ObjectBlock does not do anything with drops
+        # if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
+            # data = extract_mime_data(event,
+                                     # "application/x-pgef-hardware-product")
+            # icon, oid, _id, name, cname = data
+            # orb.log.info("  - it is a {} ...".format(cname))
+            # product = orb.get(oid)
+            # if product:
+                # orb.log.info('  - orb found {} "{}"'.format(cname, name))
+                # orb.log.info(
+                    # '    sending message "product dropped on object block"')
+                # dispatcher.send('product dropped on object block', p=product)
+            # else:
+                # orb.log.info("  - dropped product oid not in db.")
+                # event.ignore()
+        # else:
+            # orb.log.info("  - dropped object is not an allowed type")
+            # orb.log.info("    to drop on object block.")
 
 
 class SubjectBlock(Block):

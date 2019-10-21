@@ -13,7 +13,6 @@ from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
 from pangalactic.core             import diagramz, state
-from pangalactic.core.parametrics import componentz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
                                              get_block_model_name,
@@ -378,11 +377,8 @@ class ModelWindow(QMainWindow):
         scene = self.diagram_view.scene()
         model = diagramz.get(self.obj.oid)
         objs = []
-        if hasattr(self.obj, 'components') and componentz.get(self.obj.oid):
-            # self.obj is a Product -- use componentz cache (more efficient
-            # than using obj.components ...
-            oids = [c[0] for c in componentz[self.obj.oid]]
-            objs = orb.get(oids=oids)
+        if hasattr(self.obj, 'components') and self.obj.components:
+            objs = [c.component for c in self.obj.components]
         elif hasattr(self.obj, 'systems') and len(self.obj.systems):
             # self.obj is a Project
             objs = [psu.system for psu in self.obj.systems]
