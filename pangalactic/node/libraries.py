@@ -320,7 +320,7 @@ class LibraryListWidget(QWidget):
             of the library view in the QStackedLayout
     """
     def __init__(self, cnames=None, include_subtypes=True, icon_size=None,
-                 word_wrap=False, title=None, parent=None):
+                 title=None, parent=None):
         """
         Initialize the library container widget.
 
@@ -331,12 +331,10 @@ class LibraryListWidget(QWidget):
         Keyword Args:
             include_subtypes (bool): flag, if True include subtypes
             icon_size (Qsize):  size of the icons to be used for library items
-            word_wrap (bool):  if True, wrap words in fields
             title (str):  optional text for widget title; default is 'Libraries'
             parent (QWidget):  the library view's parent widget
         """
         super(LibraryListWidget, self).__init__(parent)
-        self.word_wrap = word_wrap
         layout = QVBoxLayout(self)
         # layout.setSizeConstraint(layout.SetMinimumSize)
         title = title or 'Libraries'
@@ -395,9 +393,7 @@ class LibraryListWidget(QWidget):
                     'description', 'comment']
             widget = FilterPanel(None, view=view, as_library=True,
                                  cname=cname, label=library_label,
-                                 word_wrap=self.word_wrap,
-                                 external_filters=True,
-                                 parent=self)
+                                 external_filters=True, parent=self)
             if hasattr(widget, 'ext_filters'):
                 widget.ext_filters.clicked.connect(self.show_ext_filters)
                 dispatcher.connect(self.on_product_types_selected,
@@ -417,8 +413,7 @@ class LibraryListWidget(QWidget):
             # orb.log.debug('- people: {}'.format([p.oid for p in people]))
             people.sort(key=lambda o: getattr(o, 'last_name', '') or '')
             widget = FilterPanel(people, view=view, as_library=True,
-                                 label=select_label, word_wrap=self.word_wrap,
-                                 parent=self)
+                                 label=select_label, parent=self)
         else:
             widget = LibraryListView(cname, include_subtypes=include_subtypes,
                                      icon_size=icon_size, parent=self)
@@ -496,7 +491,7 @@ class LibraryDialog(QDialog):
     """
     def __init__(self, cname, include_subtypes=False, icon_size=None,
                  tabular=True, prefilter=None, view=None, width=None,
-                 height=None, word_wrap=False, parent=None):
+                 height=None, parent=None):
         """
         Initialize the library dialog.
 
@@ -523,8 +518,8 @@ class LibraryDialog(QDialog):
         if tabular:
             if self.cname == 'HardwareProduct':
                 lib_view = FilterPanel(objs, view=view, as_library=True,
-                                       label=label, word_wrap=word_wrap,
-                                       external_filters=True, parent=self)
+                                       label=label, external_filters=True,
+                                       parent=self)
                 lib_view.ext_filters.clicked.connect(self.show_ext_filters)
                 dispatcher.connect(self.on_product_types_selected,
                                    'product types selected')
@@ -532,8 +527,7 @@ class LibraryDialog(QDialog):
                                    'only mine toggled')
             else:
                 lib_view = FilterPanel(objs, view=view, as_library=True,
-                                       label=label, word_wrap=word_wrap,
-                                       parent=self)
+                                       label=label, parent=self)
             # only listen for these signals if using FilterPanel, which does
             # not itself listen for them; if using LibraryListView, it already
             # listens for them
