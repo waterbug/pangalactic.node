@@ -21,7 +21,7 @@ from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
 from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import asciify, get_block_model_file_name
-from pangalactic.node.activities  import ActivityTables
+from pangalactic.node.activities  import ActivityTable, ParameterTable
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
@@ -460,12 +460,29 @@ class TimelineWidget(QWidget):
             pass
 
     def set_title(self):
-        try:
-            title = self.subject_activity.id + ": " + self.act_of.id
-            self.title.setText(title)
-            # self.update()
-        except:
-            pass
+        # try:
+        red_text = '<font color="red">{}</font>'
+        blue_text = '<font color="blue">{}</font>'
+        title = ''
+        if isinstance(self.subject_activity, orb.classes['Mission']):
+            txt = ''
+            project = orb.get(state.get('project'))
+            if project:
+                txt = project.id + ' '
+            txt += 'Mission: '
+            title = red_text.format(txt)
+        elif isinstance(self.subject_activity, orb.classes['Activity']):
+            txt = self.subject_activity.name
+            if self.subject_activity.activity_type:
+                txt += ' ' + self.subject_activity.activity_type.name
+            txt += ': '
+            title = red_text.format(txt)
+        if isinstance(self.act_of, orb.classes['Product']):
+            title += blue_text.format(self.act_of.name) + ' '
+        title += 'Timeline'
+        self.title.setText(title)
+        # except:
+            # pass
 
     def widget_drill_down(self, act):
         """
@@ -925,15 +942,15 @@ class ConOpsModeler(QMainWindow):
         self.sub_widget.setEnabled(False)
         self.sub_widget.setMinimumSize(900, 300)
         self.outer_layout = QGridLayout()
-        system_table = ActivityTables(subject=self.subject_activity,
-                                      parent=self, act_of=self.spacecraft,
-                                      position='top')
+        system_table = ActivityTable(subject=self.subject_activity,
+                                     parent=self, act_of=self.spacecraft,
+                                     position='top')
         system_table.setMinimumSize(500, 300)
         system_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.outer_layout.addWidget(self.system_widget, 0, 1)
         self.outer_layout.addWidget(system_table, 0, 0)
-        subsystem_table = ActivityTables(subject=self.subject_activity,
-                                         parent=self, position='middle')
+        subsystem_table = ActivityTable(subject=self.subject_activity,
+                                        parent=self, position='middle')
         subsystem_table.setDisabled(True)
         subsystem_table.setMinimumSize(500, 300)
         subsystem_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -943,9 +960,9 @@ class ConOpsModeler(QMainWindow):
         self.widget.setMinimumSize(1450, 600)
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
-        self.bottom_table = ActivityTables(subject=self.subject_activity,
+        self.bottom_table = ParameterTable(subject=self.subject_activity,
                                            act_of=self.spacecraft,
-                                           parent=self, position='bottom')
+                                           parent=self)
         self.set_bottom_table()
         if init:
             self.right_dock = QDockWidget()
