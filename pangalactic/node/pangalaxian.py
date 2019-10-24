@@ -2761,9 +2761,9 @@ class Main(QtWidgets.QMainWindow):
         """
         Update the tree and dashboard in response to a modified object.
         """
-        orb.log.debug('* [orb] update_object_in_tree() ...')
+        # orb.log.debug('* update_object_in_tree() ...')
         if not obj:
-            orb.log.debug('  no object provided; ignoring.')
+            # orb.log.debug('  no object provided; ignoring.')
             return
         try:
             cname = obj.__class__.__name__
@@ -2785,7 +2785,8 @@ class Main(QtWidgets.QMainWindow):
                     for idx in idxs:
                         self.sys_tree.source_model.setData(idx, node_obj)
                 else:
-                    orb.log.debug('  - no instances found in tree.')
+                    # orb.log.debug('  - no instances found in tree.')
+                    pass
             elif isinstance(obj, orb.classes['Product']):
                 idxs = self.sys_tree.object_indexes_in_tree(obj)
                 if idxs:
@@ -2793,13 +2794,14 @@ class Main(QtWidgets.QMainWindow):
                     for idx in idxs:
                         self.sys_tree.source_model.dataChanged.emit(idx, idx)
                 else:
-                    orb.log.debug('  - no instances found in tree.')
+                    # orb.log.debug('  - no instances found in tree.')
+                    pass
             # resize/refresh dashboard columns if necessary
             self.refresh_dashboard()
         except:
             # oops, sys_tree's C++ object got deleted
-            orb.log.debug('  - sys_tree C++ object might have got deleted '
-                          '... bailing out!')
+            orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
+                          'might have got deleted ... bailing out!')
 
     ### SET UP 'component' mode (product modeler interface)
 
@@ -3738,10 +3740,34 @@ class Main(QtWidgets.QMainWindow):
 
     def set_current_project(self):
         orb.log.debug('* set_current_project()')
-        # NOTE:  will need to restrict the projects based on user's
-        # authorizations ...
-        projects = list(orb.get_by_type('Project'))
+        admin_role = orb.get('pgefobjects:Role.Administrator')
+        global_admin = orb.select('RoleAssignment',
+                                  assigned_role=admin_role,
+                                  assigned_to=self.local_user,
+                                  role_assignment_context=None)
+        if global_admin:
+            # orb.log.debug('  - user is a Global Admin ...')
+            projects = orb.get_by_type('Project')
+        else:
+            # orb.log.debug('  - user is NOT a Global Admin ...')
+            # if user is not a global admin, restrict the projects to those on
+            # which the user has a role
+            ras = orb.search_exact(cname='RoleAssignment',
+                                   assigned_to=self.local_user)
+            projects = set([ra.role_assignment_context for ra in ras
+                            if isinstance(ra.role_assignment_context,
+                                          orb.classes['Project'])])
+            # Add user-created projects
+            user_projects = set(orb.search_exact(cname='Project',
+                                                 creator=self.local_user))
+            projects |= user_projects
+            projects = list(projects)
+            # "SANDBOX project" doesn't have roles so add it separately
+            sandbox_project = orb.get('pgefobjects:SANDBOX')
+            projects.append(sandbox_project)
         projects.sort(key=lambda p: p.id)
+        # orb.log.debug('  - project list: {}'.format(
+                      # str([p.id for p in projects])))
         if projects:
             dlg = ObjectSelectionDialog(projects, parent=self)
             dlg.make_popup(self.project_selection)

@@ -63,7 +63,6 @@ class Node(object):
         # TODO:  make 'cname' a property
         self.parent = None
         self.children = []
-        # self.is_traversed = False
         # if parent is not None:
             # parent.add_child(self)
 
@@ -173,9 +172,9 @@ class Node(object):
     def is_branch_node(self):
         if self.cname == 'FakeRoot':
             return True
-        elif issubclass(orb.classes.get(self.cname), orb.classes['Product']):
+        elif isinstance(self.obj, orb.classes['Product']):
             return bool(self.obj.components)
-        elif self.cname == 'Project':
+        elif isinstance(self.obj, orb.classes['Project']):
             return bool(self.obj.systems)
         return False
 
@@ -655,9 +654,8 @@ class SystemTreeModel(QAbstractItemModel):
         """
         MIME Types accepted for drops.
         """
-        # NOTE:  systemtree does not accept drops any more
-        # return ['application/x-pgef-hardware-product']
-        return []
+        # NOTE:  systemtree may not accept drops in the future
+        return ['application/x-pgef-hardware-product']
 
     def mimeData(self, indexes):
         # according to PyQt docs, return 0 (not an empty list) if no indexes
