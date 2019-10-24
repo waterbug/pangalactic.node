@@ -3129,6 +3129,7 @@ class Main(QtWidgets.QMainWindow):
         # TODO:  also remove it from the repository
         orb.log.info('* delete_project()')
         # first delete any ProjectSystemUsage relationships
+        project_oid = self.project.oid
         orb.delete(self.project.systems)
         # if the project owns things, change the owner to 'PGANA'
         pgana = orb.get('pgefobjects:PGANA')
@@ -3151,6 +3152,13 @@ class Main(QtWidgets.QMainWindow):
             self.project = orb.get('pgefobjects:SANDBOX')
             self.delete_project_action.setEnabled(False)
             self.delete_project_action.setVisible(False)
+        if state.get('connected'):
+            orb.log.info('  - calling "vger.delete"')
+            rpc = self.mbus.session.call('vger.delete', [project_oid])
+            rpc.addCallback(self.on_result)
+            rpc.addErrback(self.on_failure)
+            if project_oid in state.get('synced_oids', []):
+                state['synced_oids'].remove(project_oid)
 
     def enable_collaboration(self):
         """
