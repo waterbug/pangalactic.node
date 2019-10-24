@@ -1726,7 +1726,35 @@ class Main(QtWidgets.QMainWindow):
         """
         The current list of project objects.
         """
-        return list(orb.get_by_type('Project'))
+        admin_role = orb.get('pgefobjects:Role.Administrator')
+        global_admin = orb.select('RoleAssignment',
+                                  assigned_role=admin_role,
+                                  assigned_to=self.local_user,
+                                  role_assignment_context=None)
+        if global_admin:
+            # orb.log.debug('  - user is a Global Admin ...')
+            projects = orb.get_by_type('Project')
+        else:
+            # orb.log.debug('  - user is NOT a Global Admin ...')
+            # if user is not a global admin, restrict the projects to those on
+            # which the user has a role
+            ras = orb.search_exact(cname='RoleAssignment',
+                                   assigned_to=self.local_user)
+            projects = set([ra.role_assignment_context for ra in ras
+                            if isinstance(ra.role_assignment_context,
+                                          orb.classes['Project'])])
+            # Add user-created projects
+            user_projects = set(orb.search_exact(cname='Project',
+                                                 creator=self.local_user))
+            projects |= user_projects
+            projects = list(projects)
+            # "SANDBOX project" doesn't have roles so add it separately
+            sandbox_project = orb.get('pgefobjects:SANDBOX')
+            projects.append(sandbox_project)
+        projects.sort(key=lambda p: p.id)
+        # orb.log.debug('  - project list: {}'.format(
+                      # str([p.id for p in projects])))
+        return projects
 
     # 'systems' property (read-only)
     @property
@@ -2360,6 +2388,10 @@ class Main(QtWidgets.QMainWindow):
                                           assigned_role=admin_role,
                                           assigned_to=self.local_user,
                                           role_assignment_context=None)
+                project_admin = orb.select('RoleAssignment',
+                                          assigned_role=admin_role,
+                                          assigned_to=self.local_user,
+                                          role_assignment_context=p)
                 if 'delete' in get_perms(p):
                     project_is_local = True
                     role_label_txt = ': '.join([p.id, '[local]'])
@@ -2378,7 +2410,8 @@ class Main(QtWidgets.QMainWindow):
                     else:
                         role_label_txt = ': '.join([p.id, p_roles[0]])
                 if state['connected']:
-                    if project_is_local:
+                    if (project_is_local and 
+                        ((p.creator == self.local_user) or global_admin)):
                         # it is local -> it can be deleted by its creator or
                         # collaboration can be enabled
                         self.delete_project_action.setEnabled(True)
@@ -2391,13 +2424,9 @@ class Main(QtWidgets.QMainWindow):
                         # (in which case it becomes a local project :)
                         self.delete_project_action.setEnabled(False)
                         self.delete_project_action.setVisible(False)
-                        # self.enable_collab_action.setVisible(False)
-                        # self.enable_collab_action.setEnabled(False)
-                        if ('Administrator' in p_roles or
-                            'Global Administrator' in p_roles):
-                            # role assignments for the project ...
-                            self.admin_action.setVisible(True)
-                            self.admin_action.setEnabled(True)
+                    if project_admin or global_admin:
+                        self.admin_action.setVisible(True)
+                        self.admin_action.setEnabled(True)
                 else:
                     # when offline, `enable collaboration` is disabled
                     # self.enable_collab_action.setVisible(False)
@@ -2406,7 +2435,8 @@ class Main(QtWidgets.QMainWindow):
                     self.admin_action.setVisible(False)
                     self.admin_action.setEnabled(False)
                     # only local projects can be deleted
-                    if project_is_local:
+                    if (project_is_local and 
+                        (p.creator == self.local_user or global_admin)):
                         self.delete_project_action.setEnabled(True)
                         self.delete_project_action.setVisible(True)
                     else:
@@ -3099,18 +3129,17 @@ class Main(QtWidgets.QMainWindow):
         # TODO:  also remove it from the repository
         orb.log.info('* delete_project()')
         # first delete any ProjectSystemUsage relationships
-        for psu in self.project.systems:
-            orb.db.delete(psu)
-        # if the project owns things, remove its ownership
+        orb.delete(self.project.systems)
+        # if the project owns things, change the owner to 'PGANA'
+        pgana = orb.get('pgefobjects:PGANA')
         things = orb.search_exact(owner=self.project)
-        for thing in things:
-            thing.owner = None
-        orb.save(things)
-        for thing in things:
-            dispatcher.send('modified object', obj=thing)
-        oid = self.project.oid
-        orb.db.delete(orb.get(oid))
-        orb.db.commit()
+        if things:
+            for thing in things:
+                thing.owner = pgana
+            orb.db.commit()
+            for thing in things:
+                dispatcher.send('modified object', obj=thing)
+        orb.delete([self.project])
         if len(self.projects) > 1:
             self.project = self.projects[-1]
             if self.project.oid == 'pgefobjects:SANDBOX':
@@ -3740,44 +3769,15 @@ class Main(QtWidgets.QMainWindow):
 
     def set_current_project(self):
         orb.log.debug('* set_current_project()')
-        admin_role = orb.get('pgefobjects:Role.Administrator')
-        global_admin = orb.select('RoleAssignment',
-                                  assigned_role=admin_role,
-                                  assigned_to=self.local_user,
-                                  role_assignment_context=None)
-        if global_admin:
-            # orb.log.debug('  - user is a Global Admin ...')
-            projects = orb.get_by_type('Project')
-        else:
-            # orb.log.debug('  - user is NOT a Global Admin ...')
-            # if user is not a global admin, restrict the projects to those on
-            # which the user has a role
-            ras = orb.search_exact(cname='RoleAssignment',
-                                   assigned_to=self.local_user)
-            projects = set([ra.role_assignment_context for ra in ras
-                            if isinstance(ra.role_assignment_context,
-                                          orb.classes['Project'])])
-            # Add user-created projects
-            user_projects = set(orb.search_exact(cname='Project',
-                                                 creator=self.local_user))
-            projects |= user_projects
-            projects = list(projects)
-            # "SANDBOX project" doesn't have roles so add it separately
-            sandbox_project = orb.get('pgefobjects:SANDBOX')
-            projects.append(sandbox_project)
-        projects.sort(key=lambda p: p.id)
-        # orb.log.debug('  - project list: {}'.format(
-                      # str([p.id for p in projects])))
-        if projects:
-            dlg = ObjectSelectionDialog(projects, parent=self)
-            dlg.make_popup(self.project_selection)
-            # dlg.exec_() -> modal dialog
-            if dlg.exec_():
-                # dlg.exec_() being true means dlg was "accepted" (OK)
-                # refresh project selection combo
-                # and set the current project to the new project
-                new_oid = dlg.get_oid()
-                self.project = orb.get(new_oid)
+        dlg = ObjectSelectionDialog(self.projects, parent=self)
+        dlg.make_popup(self.project_selection)
+        # dlg.exec_() -> modal dialog
+        if dlg.exec_():
+            # dlg.exec_() being true means dlg was "accepted" (OK)
+            # refresh project selection combo
+            # and set the current project to the new project
+            new_oid = dlg.get_oid()
+            self.project = orb.get(new_oid)
 
     def edit_prefs(self):
         orb.log.debug('* edit_prefs()')
