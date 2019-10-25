@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # NOTE: fixed div's so old_div is not needed.
 # from past.utils import old_div
+import pyqtgraph as pg
 import os
 from collections import namedtuple
 from urllib.parse    import urlparse
@@ -413,6 +414,7 @@ class TimelineWidget(QWidget):
         if ds:
             self.possible_systems = list(config.get(
                                          'discipline_subsystems').values())
+        self.plot_win = None
         self.spacecraft = spacecraft
         self.init_toolbar()
         self.subject_activity = subject_activity
@@ -685,20 +687,42 @@ class TimelineWidget(QWidget):
     def plot(self):
         act_durations= []
         start_times = []
+        values = []
         for acu in self.subject_activity.components:
             act=acu.component
             oid = getattr(act, "oid", None)
             act_durations.append(get_pval(orb, oid, 'duration'))
             start_times.append(get_pval(orb, oid, 't_start'))
-            #print(act_durations)
-            # try:
-            #     print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]")
-            #     print(get_pval(orb, oid, 'duration'))
-            # except Exception as e:
-            #     print("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]")
-            #     print(e)
-        print(start_times)
-        print(act_durations)
+            values.append(get_pval(orb, oid, 'P'))
+        win = pg.GraphicsWindow()
+        win.resize(800,350)
+        win.setWindowTitle('pyqtgraph example: Histogram')
+        self.plot_win = win
+        plt1 = win.addPlot()
+        print("durations", act_durations)
+        print("start_times", start_times)
+        print("values", values)
+        duration = sum(act_durations)
+        s_time = min(start_times)
+        generated_x = [s_time]
+        generated_y = []
+        # for count, d in enumerate(act_durations, start = int(s_time+1)):
+        #     generated_x.extend([count]*int(d))
+        # generated_x.append(s_time+duration)#add the ending time
+        last = int(max(start_times))+int(act_durations[-1])
+        generated_x = list(range(int(s_time), last))
+        for c, y in enumerate(act_durations):
+            generated_y.extend([values[c]]*(int(act_durations[c])))
+    #    generated_y.append(values[-1])
+        print("length_x", len(generated_x),"generated_x", generated_x)
+        print("length_y", len(generated_y),"generated_y", generated_y)
+        plt1.plot(generated_x, generated_y, brush=(0,0,255,150))
+        x = [-3,-2,-2,-1,-1,0,0,1,1,2,2,3,3,4]
+        y = [ 0, 0,-1,-1, 1,1,2,2,1,1,0,0,0,0]
+
+        plt1.plot(x, y, brush=(0,0,255,150))
+
+        # print("power", power)
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
