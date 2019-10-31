@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 from louie import dispatcher
 
 from collections import OrderedDict
 from textwrap import wrap, fill
 
 from PyQt5.QtCore import QSize, Qt, QAbstractTableModel, QVariant
-from PyQt5.QtWidgets import (QAction, QApplication, QMainWindow, QSizePolicy,
-                             QStatusBar, QVBoxLayout, QWidget, QTableView,
-                             QComboBox)
-from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QApplication, QComboBox, QSizePolicy, QStatusBar,
+                             QTableView, QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
 from pangalactic.core.parametrics import get_pval_as_str, set_pval_from_str
@@ -22,366 +19,13 @@ from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 
 
-class ActivityTables(QMainWindow):
-    """
-    Table for displaying the component Activities of an Activity and related
-    data.
-
-    Attrs:
-        subject (Activity):  the Activity whose component Activities are shown
-    """
-    def __init__(self, subject=None, preferred_size=None, parent=None,
-                 act_of=None, position=None):
-        """
-        Initialize table for displaying the component Activities of an Activity
-        and related data.
-
-        Keyword Args:
-            subject (Activity):  Activity whose component Activities are to be
-                shown in the table
-            preferred_size (tuple):  default size -- (width, height)
-            parent (QWidget):  parent widget
-            position (str): specifies which table is initialized
-        """
-        super(ActivityTables, self).__init__(parent=parent)
-        orb.log.info('* ActivityTables initializing for "{}" ...'.format(
-                                                            subject.name))
-        self.subject = subject
-        self.preferred_size = preferred_size
-        self.position = position
-        self.act_of = act_of
-
-        self._init_ui()
-        self.setSizePolicy(QSizePolicy.Expanding,
-                           QSizePolicy.Expanding)
-        dispatcher.connect(self.on_activity_added, 'new activity')
-        dispatcher.connect(self.on_activity_modified, 'modified activity')
-        dispatcher.connect(self.on_activity_removed, 'removed activity')
-        dispatcher.connect(self.on_order_changed, 'order changed')
-        dispatcher.connect(self.on_drill_down, 'drill down')
-        dispatcher.connect(self.on_drill_up, 'go back')
-        dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
-        dispatcher.connect(self.on_focused_changed, 'activity focused')
-        dispatcher.connect(self.on_disable,'disable widget')
-        dispatcher.connect(self.on_enable, 'enable widget')
-        dispatcher.connect(self.on_activities_cleared, 'cleared activities')
-
-    def _init_ui(self):
-        orb.log.debug('  - _init_ui() ...')
-        if self.position == 'bottom':
-            self.init_toolbar()
-        self.set_central_widget()
-        self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
-        self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
-        self.statusbar = self.statusBar()
-
-    def set_central_widget(self):
-        self.main_widget = QWidget()
-        self.main_layout = QVBoxLayout()
-        self.main_widget.setLayout(self.main_layout)
-        self.setCentralWidget(self.main_widget)
-        self.title = NameLabel(getattr(self.subject, 'name',
-                                       'No Parent Activity'))
-        self.title.setStyleSheet(
-            'font-weight: bold; font-size: 18px; color: purple')
-        self.main_layout.addWidget(self.title)
-        self.sort_and_set_table(self.subject, self.act_of,
-                                position=self.position)
-
-    def set_title(self, activity, subsystem=None):
-        if getattr(activity, 'activity_type', None) and subsystem:
-            a_type = activity.activity_type.name
-            txt = '{} "{}": {}'.format(a_type, activity.id,subsystem)
-        elif getattr(activity, 'activity_type', None):
-            a_type = activity.activity_type.name
-            txt = 'Summary of {} "{}"'.format(a_type, activity.id)
-        else:
-            txt = 'Summary of "{}"'.format(getattr(activity, 'id',
-                                                   'unidentified activity'))
-        self.title.setText(txt)
-
-    def set_table(self, objs):
-        table_cols = ['id', 'name', 't_start', 'duration', 'description']
-        table_headers = dict(id='ID', name='Name',
-                           t_start='Start\nTime',
-                           duration='Duration',
-                           description='Description')
-        od_list = []
-        for obj in objs:
-            obj_dict = OrderedDict()
-            for col in table_cols:
-                if col in orb.schemas['Activity']['field_names']:
-                    attr_str = getattr(obj, col)
-                    if attr_str and len(attr_str) > 28:
-                        wrap(attr_str, width=28)
-                        attr_str = fill(attr_str, width=28)
-                    obj_dict[table_headers[col]] = attr_str
-                else:
-                    val = get_pval_as_str(orb, obj.oid, col)
-                    obj_dict[table_headers[col]] = val
-            od_list.append(obj_dict)
-
-        new_model = ODTableModel(od_list)
-        new_table = QTableView()
-        new_table.setModel(new_model)
-
-        new_table.setSizePolicy(QSizePolicy.Preferred,
-                                QSizePolicy.Preferred)
-        new_table.setAlternatingRowColors(True)
-        new_table.resizeColumnsToContents()
-
-        if getattr(self, 'table', None):
-            self.main_layout.removeWidget(self.table)
-            self.table.setAttribute(Qt.WA_DeleteOnClose)
-            self.table.parent = None
-            self.table.close()
-            self.table = None
-        self.main_layout.addWidget(new_table, stretch=1)
-        self.table = new_table
-
-    def set_bottom_title(self, parent_act, position=None):
-        try:
-            if position == 'top':
-                txt = '{} for {} in {}'.format(self.param_menu.currentText(),
-                                               'spacecraft', parent_act.id)
-            else:
-                txt = '{} for {} in {}'.format(self.param_menu.currentText(),
-                                               self.act_of.product_type.id,
-                                               parent_act.id)
-        except:
-            txt = '{}'.format(self.param_menu.currentText())
-        self.title.setText(txt)
-
-    def set_bottom_table(self, objs):
-        param = self.current_param
-
-        obj_list = []
-        for obj in objs:
-            obj_list.append(obj)
-
-        od_list = []
-        obj_dict = OrderedDict()
-        for obj_name in obj_list:
-            val = get_pval_as_str(orb, obj.oid, param)
-            obj_dict[obj_name] = val
-        od_list.append(obj_dict)
-
-        new_model = EditableTableModel(od_list, param)
-        new_table = QTableView()
-        new_table.setModel(new_model)
-
-        new_table.setSizePolicy(QSizePolicy.Preferred,
-                                QSizePolicy.Preferred)
-        new_table.setAlternatingRowColors(True)
-        new_table.resizeColumnsToContents()
-
-        if getattr(self, 'table', None):
-            self.main_layout.removeWidget(self.table)
-            self.table.setAttribute(Qt.WA_DeleteOnClose)
-            self.table.parent = None
-            self.table.close()
-            self.table = None
-        self.main_layout.addWidget(new_table, stretch=1)
-        self.table = new_table
-
-    def init_toolbar(self):
-        self.toolbar = self.addToolBar("Actions")
-        self.toolbar.setObjectName('ActionsToolBar')
-        self.report_action = self.create_action("report",
-                                                slot=self.write_report,
-                                                icon="document",
-                                                tip="Save to file")
-        self.toolbar.addAction(self.report_action)
-
-        # if self.position == 'bottom':
-        self.param_menu = QComboBox()
-        self.param_menu.addItems(["Power", "Data Rate"])
-        self.param_menu.setCurrentIndex(0)
-        self.current_param = 'P'
-        self.param_menu.currentIndexChanged[str].connect(self.param_changed)
-        self.toolbar.addWidget(self.param_menu)
-
-    def param_changed(self, param=None):
-        dispatcher.send("parameter changed",param=param)
-        if param == 'Power':
-            self.current_param = 'P'
-        elif param == "Data Rate":
-            self.current_param = 'R_D'
-
-    def create_action(self, text, slot=None, icon=None, tip=None,
-                      checkable=False):
-        action = QAction(text, self)
-        if icon is not None:
-            icon_file = icon + state.get('icon_type', '.png')
-            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-            icon_path = os.path.join(icon_dir, icon_file)
-            action.setIcon(QIcon(icon_path))
-        if tip is not None:
-            action.setToolTip(tip)
-            action.setStatusTip(tip)
-        if slot is not None:
-            action.triggered.connect(slot)
-        if checkable:
-            action.setCheckable(True)
-        return action
-
-    def sizeHint(self):
-        if self.preferred_size:
-            return QSize(*self.preferred_size)
-        return QSize(900, 800)
-
-    def on_activity_modified(self, activity=None):
-        orb.log.debug('* ActivityTables: on_activity_modified()')
-        if activity and activity.where_used:
-            parent_act = getattr(activity.where_used[0], 'assembly', None)
-            if parent_act:
-                self.on_activity_added(parent_act=parent_act, modified=True)
-
-    def on_activity_added(self, parent_act=None, modified=False, act_of=None,
-                          position=None):
-        orb.log.debug('* ActivityTables: on_activity_added() called ...')
-        if self.position == position or self.position == 'bottom':
-            if modified:
-                self.statusbar.showMessage('Activity Modified!')
-                orb.log.debug('  - activity modified!')
-            else:
-                self.statusbar.showMessage('Activity Added!')
-                orb.log.debug('  - activity added!')
-        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
-                                position=position)
-
-    def on_activity_removed(self, parent_act=None, act_of=None, position=None):
-        if self.position == position or self.position == 'bottom':
-            self.statusbar.showMessage('Activity Removed!')
-            self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
-                                    position=position)
-
-    def on_order_changed(self, parent_act=None, act_of=None, position=None):
-        if self.position == position or self.position == 'bottom':
-            self.statusbar.showMessage('Order Updated!')
-            self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
-                                    position=position)
-
-    def on_drill_down(self, obj=None, position=None):
-        if self.position != 'middle':
-            self.statusbar.showMessage("Drilled Down!")
-            self.sort_and_set_table(parent_act=obj, position=position)
-
-    def on_drill_up(self, obj=None, position=None):
-        if self.position != 'middle':
-            self.statusbar.showMessage("Drilled Up!")
-            self.sort_and_set_table(parent_act=obj, position=position)
-
-    def on_activities_cleared(self, parent_act=None, position=None):
-        # if self.position == position or self.position == 'bottom':
-        self.statusbar.showMessage("Activities Cleared!")
-        self.sort_and_set_table(parent_act=parent_act, position=position)
-
-    def on_subsystem_changed(self, parent_act=None, act_of=None):
-        if self.position == 'middle':
-            self.statusbar.showMessage("Subsystem Changed!")
-        if self.position == 'middle' or self.position == 'bottom':
-            self.setDisabled(False)
-            if self.act_of is None:
-                self.act_of = act_of
-            else:
-                pt_id = getattr(self.act_of.product_type,'id','None')
-                if pt_id  == 'spacecraft':
-                    # print("ITS THE SPACECRAFT!")
-                    pass
-                else:
-                    self.act_of = act_of
-                    self.sort_and_set_table(parent_act=parent_act,
-                                            act_of=act_of,
-                                            position=self.position)
-
-    def on_focused_changed(self, obj=None):
-
-        if self.position == 'bottom':
-            self.act_of = obj.activity_of
-            self.sort_and_set_table(parent_act=obj.where_used[0].assembly,
-                                    position=self.position)
-        if self.position == 'top':
-            self.statusbar.showMessage("New Activity Selected!")
-        elif ((self.position == 'middle') and
-              (obj.activity_of.product_type.id == 'spacecraft')):
-            self.statusbar.showMessage("Table Refreshed!")
-            self.sort_and_set_table(parent_act=obj, position=self.position)
-
-    def on_disable(self):
-        if self.position == 'middle':
-            self.setDisabled(True)
-
-    def on_enable(self):
-        if self.position == 'middle':
-            self.setEnabled(True)
-
-    def sort_and_set_table(self, parent_act=None, act_of=None, position=None):
-        system_acts = []
-        if self.act_of is None:
-            pass
-        else:
-            # cur_pt_id = getattr(self.act_of.product_type,'id','None')
-            if position == 'middle' and self.act_of != 'spacecraft':
-                for act in parent_act.components:
-                    if self.act_of == act.component.activity_of:
-                        system_acts.append(act)
-                all_acus = [(acu.reference_designator, acu)
-                            for acu in system_acts]
-                try:
-                    all_acus.sort()
-                except:
-                    orb.log.debug('* ActivityTables: all_acus sort failed.')
-                activities = [acu_tuple[1].component for acu_tuple in all_acus]
-                self.set_table(activities)
-                self.set_title(parent_act, self.act_of.product_type.id)
-
-            elif position == 'top':# and 'spacecraft' in cur_pt_id:
-                for act in parent_act.components:
-                    if self.act_of == act.component.activity_of:
-                        system_acts.append(act)
-                all_acus = [(acu.reference_designator, acu)
-                            for acu in system_acts]
-                try:
-                    all_acus.sort()
-                except:
-                    orb.log.debug('* ActivityTables: all_acus sort failed.')
-                activities = [acu_tuple[1].component for acu_tuple in all_acus]
-                self.set_table(activities)
-                self.set_title(parent_act)
-
-        if self.position == 'bottom':
-            if position == 'top':
-                for act in parent_act.components:
-                    if self.act_of == act.component.activity_of:
-                        system_acts.append(act)
-                all_acus = [(acu.reference_designator, acu)
-                            for acu in system_acts]
-            else:
-                for act in parent_act.components:
-                    if self.act_of == act.component.activity_of:
-                        system_acts.append(act)
-                all_acus = [(acu.reference_designator, acu)
-                            for acu in system_acts]
-            try:
-                all_acus.sort()
-            except:
-                orb.log.debug('* ActivityTables: all_acus sort failed.')
-            activities = [acu_tuple[1].component for acu_tuple in all_acus]
-            self.set_bottom_table(activities)
-            self.set_bottom_title(parent_act)
-
-    def write_report(self):
-        pass
-
-
 class EditableTableModel(QAbstractTableModel):
     def __init__(self, obj_list, param, parent=None):
         super(EditableTableModel, self).__init__(parent=parent)
         self.obj = obj_list
         self.param = param
 
-        orb.log.info('* EditableActivityTable initializing...')
+        orb.log.info('* EditableTableModel initializing...')
 
     def rowCount(self, parent):
         return len(self.obj)
@@ -465,14 +109,14 @@ class ActivityTable(QWidget):
         orb.log.info('* ActivityTable initializing for "{}" ...'.format(
                                                             subject.name))
         self.subject = subject
+        self.project = orb.get(state.get('project'))
         self.preferred_size = preferred_size
         self.position = position
         self.act_of = act_of
         self.statusbar = QStatusBar()
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
-        self.title = NameLabel(getattr(self.subject, 'name',
-                                       'No Parent Activity'))
+        self.title = NameLabel('Timeline Details')
         self.title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
         self.main_layout.addWidget(self.title)
@@ -488,7 +132,7 @@ class ActivityTable(QWidget):
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
         dispatcher.connect(self.on_focused_changed, 'activity focused')
-        dispatcher.connect(self.on_disable,'disable widget')
+        dispatcher.connect(self.on_disable, 'disable widget')
         dispatcher.connect(self.on_enable, 'enable widget')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
@@ -511,9 +155,8 @@ class ActivityTable(QWidget):
                     orb.log.debug(fail_txt.format(self.position))
                 activities = [acu_tuple[1].component for acu_tuple in all_acus]
                 self.set_table(activities)
-                self.set_title(parent_act, self.act_of.product_type.id)
-
-            elif position == 'top':# and 'spacecraft' in cur_pt_id:
+            elif position == 'top':   # and 'spacecraft' in cur_pt_id:
+                parent_act = self.subject
                 for act in parent_act.components:
                     if self.act_of == act.component.activity_of:
                         system_acts.append(act)
@@ -525,19 +168,6 @@ class ActivityTable(QWidget):
                     orb.log.debug(fail_txt.format(self.position))
                 activities = [acu_tuple[1].component for acu_tuple in all_acus]
                 self.set_table(activities)
-                self.set_title(parent_act)
-
-    def set_title(self, activity, subsystem=None):
-        if getattr(activity, 'activity_type', None) and subsystem:
-            a_type = activity.activity_type.name
-            txt = '{} "{}": {}'.format(a_type, activity.id,subsystem)
-        elif getattr(activity, 'activity_type', None):
-            a_type = activity.activity_type.name
-            txt = 'Summary of {} "{}"'.format(a_type, activity.id)
-        else:
-            txt = 'Summary of "{}"'.format(getattr(activity, 'id',
-                                                   'unidentified activity'))
-        self.title.setText(txt)
 
     def set_table(self, objs):
         table_cols = ['id', 'name', 't_start', 'duration', 'description']
@@ -618,7 +248,7 @@ class ActivityTable(QWidget):
                                     position=position)
 
     def on_drill_down(self, obj=None, position=None):
-        if self.position != 'middle':
+        if self.position == 'middle':
             self.statusbar.showMessage("Drilled Down!")
             self.sort_and_set_table(parent_act=obj, position=position)
 
@@ -667,6 +297,203 @@ class ActivityTable(QWidget):
             self.setEnabled(True)
 
 
+class ParameterTable(QWidget):
+    """
+    Table for displaying the component Activities of an Activity and related
+    data.
+
+    Attrs:
+        subject (Activity):  the Activity whose component Activities are shown
+    """
+    def __init__(self, subject=None, preferred_size=None, act_of=None,
+                 initial_param=None, parent=None):
+        """
+        Initialize table for displaying the component Activities of an Activity
+        and related data.
+
+        Keyword Args:
+            subject (Activity):  Activity whose component Activities are to be
+                shown in the table
+            preferred_size (tuple):  default size -- (width, height)
+            parent (QWidget):  parent widget
+            act_of (Product):  Product of which the subject is an Activity
+            initial_param (str):  id of initial parameter setting
+        """
+        super(ParameterTable, self).__init__(parent=parent)
+        orb.log.info('* ParameterTable initializing for "{}" ...'.format(
+                                                            subject.name))
+        self.subject = subject
+        self.project = orb.get(state.get('project'))
+        self.preferred_size = preferred_size
+        self.act_of = act_of
+        self.current_param = initial_param or 'P'
+        self.statusbar = QStatusBar()
+        self.main_layout = QVBoxLayout()
+        self.setLayout(self.main_layout)
+        self.title = NameLabel('Timeline Details')
+        self.title.setStyleSheet(
+            'font-weight: bold; font-size: 18px; color: purple')
+        self.main_layout.addWidget(self.title)
+        # TODO: refactor param_menu creation into function
+        self.param_menu = QComboBox()
+        self.param_menu.addItems(["Power", "Data Rate"])
+        self.param_menu.setCurrentIndex(0)
+        self.param_menu.currentIndexChanged[str].connect(self.param_changed)
+        self.main_layout.addWidget(self.param_menu)
+        self.sort_and_set_table(self.subject, self.act_of)
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
+        dispatcher.connect(self.on_activity_added, 'new activity')
+        dispatcher.connect(self.on_activity_modified, 'modified activity')
+        dispatcher.connect(self.on_activity_removed, 'removed activity')
+        dispatcher.connect(self.on_order_changed, 'order changed')
+        dispatcher.connect(self.on_drill_down, 'drill down')
+        dispatcher.connect(self.on_drill_up, 'go back')
+        dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
+        dispatcher.connect(self.on_focused_changed, 'activity focused')
+        dispatcher.connect(self.on_activities_cleared, 'cleared activities')
+
+    def sort_and_set_table(self, parent_act=None, act_of=None, position=None):
+        system_acts = []
+        parent_act = parent_act or self.subject
+        if self.act_of is None:
+            pass
+        if position == 'top':
+            for act in parent_act.components:
+                if self.act_of == act.component.activity_of:
+                    system_acts.append(act)
+            all_acus = [(acu.reference_designator, acu)
+                        for acu in system_acts]
+        else:
+            for act in parent_act.components:
+                if self.act_of == act.component.activity_of:
+                    system_acts.append(act)
+            all_acus = [(acu.reference_designator, acu)
+                        for acu in system_acts]
+        try:
+            all_acus.sort()
+        except:
+            orb.log.debug('* ParameterTable: all_acus sort failed.')
+        activities = [acu_tuple[1].component for acu_tuple in all_acus]
+        self.set_table(activities)
+        self.set_title(parent_act)
+
+    def set_table(self, objs):
+        param = self.current_param
+
+        obj_list = []
+        for obj in objs:
+            obj_list.append(obj)
+
+        od_list = []
+        obj_dict = OrderedDict()
+        for obj_name in obj_list:
+            val = get_pval_as_str(orb, obj.oid, param)
+            obj_dict[obj_name] = val
+        od_list.append(obj_dict)
+
+        new_model = EditableTableModel(od_list, param)
+        new_table = QTableView()
+        new_table.setModel(new_model)
+
+        new_table.setSizePolicy(QSizePolicy.Preferred,
+                                QSizePolicy.Preferred)
+        new_table.setAlternatingRowColors(True)
+        new_table.resizeColumnsToContents()
+
+        if getattr(self, 'table', None):
+            self.main_layout.removeWidget(self.table)
+            self.table.setAttribute(Qt.WA_DeleteOnClose)
+            self.table.parent = None
+            self.table.close()
+            self.table = None
+        self.main_layout.addWidget(new_table, stretch=1)
+        self.table = new_table
+
+    def set_title(self, parent_act):
+        try:
+            txt = '{} for {} in {}'.format(self.param_menu.currentText(),
+                                           self.act_of.product_type.name,
+                                           parent_act.name)
+        except:
+            txt = '{}'.format(self.param_menu.currentText())
+        self.title.setText(txt)
+
+    def param_changed(self, param=None):
+        # dispatcher.send("parameter changed", param=param)
+        if param == 'Power':
+            self.current_param = 'P'
+        elif param == "Data Rate":
+            self.current_param = 'R_D'
+        self.sort_and_set_table()
+
+    def sizeHint(self):
+        if self.preferred_size:
+            return QSize(*self.preferred_size)
+        return QSize(600, 500)
+
+    def on_activity_modified(self, activity=None):
+        txt = '* ParameterTable: on_activity_modified()'
+        orb.log.debug(txt)
+        if activity and activity.where_used:
+            parent_act = getattr(activity.where_used[0], 'assembly', None)
+            if parent_act:
+                self.on_activity_added(parent_act=parent_act, modified=True)
+
+    def on_activity_added(self, parent_act=None, modified=False, act_of=None,
+                          position=None):
+        txt = '* ParameterTable: on_activity_added(modified=True) ({})'
+        orb.log.debug(txt.format(position))
+        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
+                                position=position)
+
+    def on_activity_removed(self, parent_act=None, act_of=None, position=None):
+        self.statusbar.showMessage('Activity Removed! ({})'.format(position))
+        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
+                                position=position)
+
+    def on_order_changed(self, parent_act=None, act_of=None, position=None):
+        self.statusbar.showMessage('Order Updated! ({})'.format(position))
+        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
+                                position=position)
+
+    def on_drill_down(self, obj=None, position=None):
+        pass
+        # NOTE:  should this never affect the parameter table?
+        # if self.position == 'middle':
+            # self.statusbar.showMessage("Drilled Down!")
+            # self.sort_and_set_table(parent_act=obj, position=position)
+
+    def on_drill_up(self, obj=None, position=None):
+        pass
+        # NOTE:  should this never affect the parameter table?
+        # if self.position != 'middle':
+            # self.statusbar.showMessage("Drilled Up!")
+            # self.sort_and_set_table(parent_act=obj, position=position)
+
+    def on_activities_cleared(self, parent_act=None, position=None):
+        self.statusbar.showMessage("Activities Cleared! ({})".format(position))
+        self.sort_and_set_table(parent_act=parent_act, position=position)
+
+    def on_subsystem_changed(self, parent_act=None, act_of=None):
+        self.setDisabled(False)
+        if self.act_of is None:
+            self.act_of = act_of
+        else:
+            pt_id = getattr(self.act_of.product_type,'id','None')
+            if pt_id  == 'spacecraft':
+                # print("ITS THE SPACECRAFT!")
+                pass
+            else:
+                self.act_of = act_of
+                self.sort_and_set_table(parent_act=parent_act,
+                                        act_of=act_of)
+
+    def on_focused_changed(self, obj=None):
+        self.act_of = obj.activity_of
+        self.sort_and_set_table(parent_act=obj.where_used[0].assembly)
+
+
 if __name__ == '__main__':
     import sys
     from pangalactic.core.serializers import deserialize
@@ -690,7 +517,7 @@ if __name__ == '__main__':
                     assembly=mission, component=launch)
         orb.save([launch, acu])
     app = QApplication(sys.argv)
-    w = ActivityTables(subject=mission)
+    w = ActivityTable(subject=mission)
     w.show()
     sys.exit(app.exec_())
 

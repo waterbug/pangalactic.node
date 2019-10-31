@@ -13,7 +13,6 @@ from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
 from pangalactic.core             import diagramz, state
-from pangalactic.core.parametrics import componentz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
                                              get_block_model_name,
@@ -55,10 +54,10 @@ def get_model_path(model):
     Returns:
         a file path in the orb's "vault"
     """
-    orb.log.info('* get_model_path(model with oid "{}")'.format(getattr(model,
-                                                            'oid', 'None')))
+    # orb.log.debug('* get_model_path(model with oid "{}")'.format(
+                  # getattr(model, 'oid', 'None')))
     if not isinstance(model, orb.classes['Modelable']):
-        orb.log.info('  not an instance of Modelable.')
+        # orb.log.debug('  not an instance of Modelable.')
         return ''
     # check if there is a STEP AP203 / AP214 model type
     model_type_oid = getattr(model.type_of_model, 'oid', '')
@@ -115,8 +114,8 @@ class ModelWindow(QMainWindow):
             preferred_size (tuple):  size to set -- (width, height)
         """
         super(ModelWindow, self).__init__(parent=parent)
-        orb.log.info('* ModelWindow initializing with:')
-        orb.log.info('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        # orb.log.debug('* ModelWindow initializing with:')
+        # orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         self.logo = logo
         self.external = external
         self.idx = idx
@@ -234,7 +233,7 @@ class ModelWindow(QMainWindow):
         self.placeholder = new_placeholder
 
     def display_external_window(self):
-        orb.log.info('* ModelWindow.display_external_window() ...')
+        # orb.log.debug('* ModelWindow.display_external_window() ...')
         mw = ModelWindow(obj=self.obj, scene=self.diagram_view.scene(),
                          logo=self.logo, external=True,
                          parent=self.parent())
@@ -268,7 +267,7 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        orb.log.debug('* set_subject_from_diagram_drill_down')
+        # orb.log.debug('* set_subject_from_diagram_drill_down')
         self.cache_block_model()
         self.history.append(ModelerState._make((self.obj, self.idx)))
         self.idx = None
@@ -298,10 +297,10 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        orb.log.debug('* ModelWindow.set_subject({})'.format(
-                      getattr(obj, 'oid', 'None')))
-        if msg:
-            orb.log.debug('  {}'.format(msg))
+        # orb.log.debug('* ModelWindow.set_subject({})'.format(
+                      # getattr(obj, 'oid', 'None')))
+        # if msg:
+            # orb.log.debug('  {}'.format(msg))
         # reset model_files
         self.model_files = {}
         if hasattr(self, 'view_cad_action'):
@@ -325,13 +324,13 @@ class ModelWindow(QMainWindow):
                         # model_types.add(m.type_of_model.oid)
                 self.display_block_diagram()
             else:
-                orb.log.info('* ModelWindow: obj is not Modelable, ignoring')
+                # orb.log.debug('* ModelWindow: obj not Modelable, ignoring')
                 self.obj = None
-                orb.log.info('  ... setting placeholder widget.')
+                # orb.log.debug('  ... setting placeholder widget.')
                 self.set_placeholder()
         else:
             self.obj = None
-            orb.log.info('  no object; setting placeholder widget.')
+            # orb.log.debug('  no object; setting placeholder widget.')
             self.set_placeholder()
         # TODO:  enable multiple CAD models (e.g. "detailed" / "simplified")
         if self.model_files:
@@ -358,13 +357,13 @@ class ModelWindow(QMainWindow):
         try:
             model, fpath = self.models_by_label.get('CAD')
             if fpath:
-                orb.log.debug('* ModelWindow.display_cad_model({})'.format(
-                                                                    fpath))
+                # orb.log.debug('* ModelWindow.display_cad_model({})'.format(
+                                                                    # fpath))
                 viewer = Viewer3DDialog(self)
                 viewer.show()
                 viewer.view_cad(fpath)
         except:
-            orb.log.info('  CAD model not found.')
+            orb.log.debug('  CAD model not found.')
 
     def display_block_diagram(self):
         """
@@ -372,29 +371,26 @@ class ModelWindow(QMainWindow):
         """
         # orb.log.debug('* Modeler:  display_block_diagram()')
         if not getattr(self, 'obj', None):
-            # orb.log.info('  no object selected.')
+            # orb.log.debug('  no object selected.')
             return
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
         model = diagramz.get(self.obj.oid)
         objs = []
-        if hasattr(self.obj, 'components') and componentz.get(self.obj.oid):
-            # self.obj is a Product -- use componentz cache (more efficient
-            # than using obj.components ...
-            oids = [c[0] for c in componentz[self.obj.oid]]
-            objs = orb.get(oids=oids)
+        if hasattr(self.obj, 'components') and self.obj.components:
+            objs = [c.component for c in self.obj.components]
         elif hasattr(self.obj, 'systems') and len(self.obj.systems):
             # self.obj is a Project
             objs = [psu.system for psu in self.obj.systems]
         if model and not model.get('dirty'):
-            orb.log.info('  - restoring saved block diagram ...')
+            # orb.log.debug('  - restoring saved block diagram ...')
             scene.restore_diagram(model, objs)
         else:
             # if model and model.get('dirty'):
                 # orb.log.debug('  - block diagram found needed redrawing,')
             # elif not model:
                 # orb.log.debug('  - no block diagram found in cache or files ')
-            orb.log.debug('    generating new block diagram ...')
+            # orb.log.debug('    generating new block diagram ...')
             # orb.log.debug('  - generating diagram (cache disabled for testing)')
             scene.create_ibd(objs)
             # create a block Model object if self.obj doesn't have one
@@ -428,10 +424,10 @@ class ModelWindow(QMainWindow):
         Serialize block model metadata into a dictionary format and save it to
         the `diagramz` cache.
         """
-        orb.log.info('* Modeler: cache_block_model()')
+        # orb.log.debug('* Modeler: cache_block_model()')
         # TODO: first "block"; then "activity" (mission models, etc.)
         if not getattr(self, 'obj'):
-            orb.log.info('  ... no object, returning.')
+            # orb.log.debug('  ... no object, returning.')
             return
         # NOTE:  do not write to a file -- orb._save_diagramz() does that
         # TODO: also send the serialized "model" to vger to be saved there ...
@@ -441,9 +437,10 @@ class ModelWindow(QMainWindow):
             m = scene.save_diagram()
             # cache the saved diagram
             diagramz[self.obj.oid] = m
-            orb.log.info('  ... block model cached.')
+            # orb.log.debug('  ... block model cached.')
         except:
-            orb.log.info('  ... could not cache model (C++ obj deleted?)')
+            # orb.log.debug('  ... could not cache model (C++ obj deleted?)')
+            pass
 
     # DEPRECATED:  now using diagramz cache, not block model files
     # def write_block_model(self, cached_model=None, fpath=None):
@@ -457,23 +454,23 @@ class ModelWindow(QMainWindow):
         # Keyword args:
             # fpath (str):  path of file to be written.
         # """
-        # orb.log.info('* Modeler: write_block_model()')
+        # orb.log.debug('* Modeler: write_block_model()')
         # # TODO: find or create a Representation with 'of_object' == model.oid
         # # and a RepresentationFile that will get the file path as its 'url'
         # # attribute.
         # if not cached_model:
             # if (not self.obj or
                 # not diagramz.get(self.obj.oid)):
-                # orb.log.info('  no cached block model found; returning.')
+                # orb.log.debug('  no cached block model found; returning.')
                 # return
             # cached_model = diagramz[self.obj.oid]
         # fname = get_block_model_file_name(self.obj)
         # if not fpath:
             # # write to vault if fpath is not given
-            # orb.log.info('  writing to vault: {}'.format(fname))
+            # orb.log.debug('  writing to vault: {}'.format(fname))
             # fpath = os.path.join(orb.vault, fname)
         # f = open(fpath, 'w')
-        # orb.log.info('  writing to path {} ...'.format(fpath))
+        # orb.log.debug('  writing to path {} ...'.format(fpath))
         # f.write(json.dumps(cached_model,
                            # separators=(',', ':'),
                            # indent=4, sort_keys=True))
@@ -487,12 +484,12 @@ class ModelWindow(QMainWindow):
         # Args:
             # fpath (str): path to a serialized block model file
         # """
-        # orb.log.info('* Modeler: read_block_model({})'.format(fpath))
+        # orb.log.debug('* Modeler: read_block_model({})'.format(fpath))
         # if not os.path.exists(fpath):
-            # orb.log.info('  - path does not exist.')
+            # orb.log.debug('  - path does not exist.')
             # return None
         # f = open(fpath)
-        # orb.log.info('  reading model from path {} ...'.format(fpath))
+        # orb.log.debug('  reading model from path {} ...'.format(fpath))
         # m = json.loads(f.read())
         # f.close()
         # return m
@@ -521,8 +518,8 @@ class ModelWindow(QMainWindow):
     def create_new_model(self, event):
         if isinstance(self.obj, orb.classes['Identifiable']):
             # TODO:  check for parameters; if found, add them
-            orb.log.info('* ModelWindow: creating new Model for '
-                         'Product with id "%s"' % self.obj.id)
+            orb.log.debug('* ModelWindow: creating new Model for '
+                          'Product with id "%s"' % self.obj.id)
             owner = orb.get(state.get('project'))
             model_id = get_block_model_id(self.obj)
             model_name = get_block_model_name(self.obj)
@@ -539,7 +536,7 @@ class ProductInfoPanel(QWidget):
 
     def __init__(self, parent=None):
         super(ProductInfoPanel, self).__init__(parent)
-        orb.log.info('* ProductInfoPanel initializing ...')
+        orb.log.debug('* ProductInfoPanel initializing ...')
         self.setAcceptDrops(True)
         # product frame
         product_frame_vbox = QVBoxLayout()
@@ -614,8 +611,8 @@ class ProductInfoPanel(QWidget):
                 dispatcher.send("drop on product info", p=product)
             else:
                 event.ignore()
-                orb.log.info("* product drop event: ignoring oid '%s' -- "
-                             "not found in db." % p_oid)
+                orb.log.debug("* product drop event: ignoring oid '%s' -- "
+                              "not found in db." % p_oid)
         elif event.mimeData().hasFormat("application/x-pgef-template"):
             # drop item is Template -> create a new product from it
             data = extract_mime_data(event, "application/x-pgef-template")
@@ -634,15 +631,15 @@ class ProductInfoPanel(QWidget):
         """
         Set a product in the modeler context.
         """
-        orb.log.info('* ProductInfoPanel: set_product')
+        # orb.log.debug('* ProductInfoPanel: set_product')
         # product_oid = state.get('product')
         # product = orb.get(product_oid)
         if product:
             # if not a HardwareProduct, product is ignored
             if product.__class__.__name__ != 'HardwareProduct':
-                orb.log.info('  - not a HardwareProduct -- ignored.')
+                # orb.log.debug('  - not a HardwareProduct -- ignored.')
                 return
-            orb.log.info('  - oid: %s' % product.oid)
+            # orb.log.debug('  - oid: %s' % product.oid)
             self.product_id_value_label.setText(product.id)
             self.product_name_value_label.setText(product.name)
             if hasattr(product, 'version'):
@@ -652,7 +649,7 @@ class ProductInfoPanel(QWidget):
             self.product_name_value_label.setEnabled(True)
             self.product_version_value_label.setEnabled(True)
         else:
-            orb.log.info('  - None')
+            # orb.log.debug('  - None')
             # set widgets to disabled state
             self.product_id_value_label.setEnabled(False)
             self.product_name_value_label.setEnabled(False)

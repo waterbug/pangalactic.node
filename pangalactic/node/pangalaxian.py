@@ -32,6 +32,7 @@ from pangalactic.core                 import prefs, write_prefs
 from pangalactic.core                 import state, write_state
 from pangalactic.core                 import trash, write_trash
 from pangalactic.core.access          import get_perms
+from pangalactic.core.datastructures  import chunkify
 from pangalactic.core.log             import get_loggers
 from pangalactic.core.parametrics     import node_count
 from pangalactic.core.refdata         import ref_pd_oids
@@ -161,16 +162,16 @@ class Main(QtWidgets.QMainWindow):
         # set path to server cert
         self.cert_path = os.path.join(orb.home, 'server_cert.pem')
         if os.path.exists(self.cert_path):
-            orb.log.info('    server cert found.')
+            orb.log.debug('    server cert found.')
         else:
-            orb.log.info('    server cert NOT found.')
+            orb.log.debug('    server cert NOT found.')
         # self.mode_widgets is a mapping from modes (see below) to the widgets
         # that are visible in each mode
         self.mode_widgets = dict((mode, set()) for mode in self.modes)
         self.mode_widgets['all'] = set()  # for actions visible in all modes
         # NOTE: the following function calls are *very* order-dependent!
         self._create_actions()
-        orb.log.info('*** projects:  %s' % str([p.id for p in self.projects]))
+        orb.log.debug('*** projects:  %s' % str([p.id for p in self.projects]))
         self.add_splash_msg('... projects identified ...')
         screen_resolution = QtWidgets.QApplication.desktop().screenGeometry()
         default_width = min(screen_resolution.width() - 300, 900)
@@ -254,7 +255,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Connect to the message bus (crossbar server).
         """
-        orb.log.info('* set_bus_state() ...')
+        orb.log.debug('* set_bus_state() ...')
         # TODO:  add a remote url configuration item
         if self.connect_to_bus_action.isChecked():
             ###########################################################
@@ -278,7 +279,7 @@ class Main(QtWidgets.QMainWindow):
                 tls_options = None
                 if self.use_tls:
                     if self.cert_path:
-                        orb.log.info('  - using tls ...')
+                        orb.log.debug('  - using tls ...')
                         cert = crypto.load_certificate(
                                 crypto.FILETYPE_PEM,
                                 six.u(open(self.cert_path, 'r').read()))
@@ -286,7 +287,7 @@ class Main(QtWidgets.QMainWindow):
                             trustRoot=OpenSSLCertificateAuthorities([cert]))
                         url = 'wss://{}:{}/ws'.format(host, port)
                     else:
-                        orb.log.info('  - no server cert; cannot use tls.')
+                        orb.log.debug('  - no server cert; cannot use tls.')
                         return
                 else:
                     url = 'ws://{}:{}/ws'.format(host, port)
@@ -339,9 +340,9 @@ class Main(QtWidgets.QMainWindow):
     def sync_with_services(self):
         state['synced'] = True
         self.role_label.setText('syncing data ...')
-        orb.log.info('* calling rpc "vger.get_user_roles"')
+        orb.log.debug('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
-        orb.log.info('  with arg: "{}"'.format(userid))
+        orb.log.debug('  with arg: "{}"'.format(userid))
         # NOTE: progress dialog deprecated because doesn't work on OSX
         # progress_max = 4
         # txt = 'Syncing with repository ... please be patient! :)'
@@ -362,14 +363,14 @@ class Main(QtWidgets.QMainWindow):
             rpc = self.mbus.session.call('vger.get_user_roles', userid,
                                          data=data)
         except:
-            orb.log.info('  rpc "vger.get_user_roles" failed.')
-            orb.log.info('  trying again ...')
+            orb.log.debug('  rpc "vger.get_user_roles" failed.')
+            orb.log.debug('  trying again ...')
             time.sleep(1)
             try:
                 rpc = self.mbus.session.call('vger.get_user_roles', userid,
                                              data=data)
             except:
-                orb.log.info('  rpc "vger.get_user_roles" failed again ...')
+                orb.log.debug('  rpc "vger.get_user_roles" failed again ...')
                 message = "Could not recoonect -- log out and log in again."
                 popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Warning,
@@ -399,12 +400,11 @@ class Main(QtWidgets.QMainWindow):
         # sync_projects_with_roles() does not require callback on_sync_result()
         # rpc.addCallback(self.sync_projects_with_roles)
         # rpc.addErrback(self.on_failure)
-        # sync_current_project() requires callback on_project_sync_result()
-        rpc.addCallback(self.sync_current_project)
-        rpc.addErrback(self.on_failure)
-        rpc.addCallback(self.on_project_sync_result)
-        rpc.addCallback(self.on_result)
-        rpc.addErrback(self.on_failure)
+        # rpc.addCallback(self.sync_current_project)
+        # rpc.addErrback(self.on_failure)
+        # rpc.addCallback(self.on_project_sync_result)
+        # rpc.addCallback(self.on_result)
+        # rpc.addErrback(self.on_failure)
 
     def on_get_user_roles_result(self, data):
         """
@@ -417,9 +417,9 @@ class Main(QtWidgets.QMainWindow):
              serialized RoleAssignment objects,
              oids unknown to the server]
         """
-        log_msg = '* results of rpc "vger.get_user_roles" ...\n'
-        log_msg += '  - data:  %s' % str(data)
+        log_msg = '* processing results of rpc "vger.get_user_roles" ...'
         orb.log.debug(log_msg)
+        # orb.log.debug('  - data:  {}'.format(str(data)))
         # data should be a list with 5 elements:
         szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
         channels = []
@@ -427,16 +427,16 @@ class Main(QtWidgets.QMainWindow):
             # deserialize local user's Person object
             deserialize(orb, szd_user)
             self.local_user = orb.select('Person', id=state['userid'])
-            orb.log.info('* local user returned: {}'.format(
+            orb.log.debug('  - local user returned: {}'.format(
                                                   self.local_user.oid))
             state['local_user_oid'] = str(self.local_user.oid)
             if str(state.get('local_user_oid')) == 'me':
                 # current local user is 'me' -- replace ...
-                orb.log.info('  local user was "me", replacing ...')
+                orb.log.debug('    local user was "me", replacing ...')
                 state['local_user_oid'] = str(self.local_user.oid)
                 me = orb.get('me')
                 if me and me.created_objects:
-                    orb.log.info('  updating {} local objects ...'.format(
+                    orb.log.debug('    updating {} local objects ...'.format(
                                             str(len(me.created_objects))))
                     for obj in me.created_objects:
                         obj.creator = self.local_user
@@ -444,10 +444,10 @@ class Main(QtWidgets.QMainWindow):
                         orb.save([obj])
                         dispatcher.send('modified object', obj=obj)
             else:
-                orb.log.info('  - login user matches current local user.')
+                orb.log.debug('    + login user matches current local user.')
         else:
-            orb.log.info('  - user object for local user not returned!')
-        orb.log.info('  - inspecting projects and orgs ...')
+            orb.log.debug('    + user object for local user not returned!')
+        orb.log.debug('  - inspecting projects and orgs ...')
         local_orgs = orb.get_by_type('Organization')
         invalid_orgs = [org for org in local_orgs if org.oid in unknown_oids]
         if invalid_orgs:
@@ -460,7 +460,7 @@ class Main(QtWidgets.QMainWindow):
         self.load_serialized_objects(szd_orgs)
         # deserialize all new Person objects
         self.load_serialized_objects(szd_people)
-        orb.log.info('  - deserializing role assignments ...')
+        orb.log.debug('  - deserializing role assignments ...')
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE, so
         # delete any role assignments whose oids are not known to the server
         ras_local = orb.get_by_type('RoleAssignment')
@@ -485,7 +485,7 @@ class Main(QtWidgets.QMainWindow):
             # admin channel, so we will be notified when new Persons are added
             # to the repository
             channels.append('vger.channel.admin')
-        orb.log.debug('    channels we will subscribe to: {}'.format(
+        orb.log.info('    channels we will subscribe to: {}'.format(
                                                        str(channels)))
         if self.project:
             proj_ras = orb.search_exact(cname='RoleAssignment',
@@ -509,7 +509,7 @@ class Main(QtWidgets.QMainWindow):
         # TODO: subscribe to channels for all our projects (as determined from
         # our role assignments)
         channels = channels or ['vger.channel.public']
-        orb.log.info('* attempting to subscribe to channels:  %s' % str(
+        orb.log.debug('* attempting to subscribe to channels:  %s' % str(
                                                                     channels))
         subs = []
         for channel in channels:
@@ -543,13 +543,13 @@ class Main(QtWidgets.QMainWindow):
         Return:
             deferred: result of `vger.sync_parameter_definitions` rpc
         """
-        orb.log.info('[pgxn] rpc: vger.sync_parameter_definitions()')
+        orb.log.debug('[pgxn] rpc: vger.sync_parameter_definitions()')
         self.statusbar.showMessage('syncing parameter definitions ...')
         # exclude refdata (already shared)
         pd_mod_dts = orb.get_mod_dts(cname='ParameterDefinition')
         data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
-        orb.log.info('       -> rpc: vger.sync_parameter_definitions()')
+        orb.log.debug('       -> rpc: vger.sync_parameter_definitions()')
         return self.mbus.session.call('vger.sync_parameter_definitions',
                                         data)
 
@@ -567,11 +567,11 @@ class Main(QtWidgets.QMainWindow):
         Args:
             data:  parameter required for callback (ignored)
         """
-        orb.log.info('[pgxn] sync_user_created_objs_to_repo()')
+        orb.log.debug('[pgxn] sync_user_created_objs_to_repo()')
         self.statusbar.showMessage('syncing locally created objects ...')
         oids = [o.oid for o in self.local_user.created_objects]
         data = orb.get_mod_dts(oids=oids)
-        orb.log.info('       -> rpc: vger.sync_objects()')
+        orb.log.debug('       -> rpc: vger.sync_objects()')
         return self.mbus.session.call('vger.sync_objects', data)
 
     def sync_library_objs(self, data):
@@ -585,7 +585,7 @@ class Main(QtWidgets.QMainWindow):
             data:  parameter required for callback (ignored)
         """
         # TODO:  Include all library classes (not just HardwareProduct)
-        orb.log.info('[pgxn] sync_library_objs()')
+        orb.log.debug('[pgxn] sync_library_objs()')
         self.statusbar.showMessage('syncing library objects ...')
         # include the user's objects in `data`; it's faster and their oids will
         # come back in the set of oids to be ignored
@@ -601,7 +601,7 @@ class Main(QtWidgets.QMainWindow):
         # Args:
             # data:  parameter required for callback (ignored)
         # """
-        # orb.log.info('[pgxn] sync_projects_with_roles()')
+        # orb.log.debug('[pgxn] sync_projects_with_roles()')
         # for org_oid in set(state['assigned_roles']).union(
                        # set(state['admin_of'])):
             # if org_oid and not orb.get(org_oid):
@@ -727,8 +727,8 @@ class Main(QtWidgets.QMainWindow):
                         self.library_widget.refresh(
                                                 cname='ParameterDefinition')
             except:
-                orb.log.info('      - deserialization failure')
-                orb.log.info('        oids: {}'.format(
+                orb.log.debug('      - deserialization failure')
+                orb.log.debug('        oids: {}'.format(
                              str([so.get('oid', 'no oid') for so in sobjs])))
         created_sos = []
         sobjs_to_save = serialize(orb, orb.get(oids=to_update))
@@ -797,14 +797,12 @@ class Main(QtWidgets.QMainWindow):
         `vger.sync_library_objects` rpc.  The server response is a list of
         lists:
 
-            [0]:  server objects with later mod_datetime(s) or not found in the
-                  local data sent with `sync_library_objects()`
-                  -> add these to the local db
-            [1]:  oids of server objects with the same mod_datetime(s)
-                  -> ignore these
-            [2]:  oids of server objects with earlier mod_datetime(s),
-                  -> ignore these (*should* be empty!)
-            [3]:  oids in the data sent with `sync_library_objects()` that were
+            [0]:  oids of server objects (in DESERIALIZATION_ORDER) with later
+                  mod_datetime(s) or not found in the local data sent with
+                  `sync_library_objects()`
+                  -> do one or more vger.get_objects() rpcs to get the objects
+                  and add them to the local db
+            [1]:  oids in the data sent with `sync_library_objects()` that were
                   not found on the server
                   -> delete these from the local db if they are either:
                      [a] not created by the local user
@@ -816,57 +814,69 @@ class Main(QtWidgets.QMainWindow):
         Return:
             deferred:  result of `vger.save` rpc
         """
-        orb.log.info('[pgxn] on_sync_library_result()')
-        # orb.log.debug('       data: {}'.format(str(data)))
-        update_needed = False
-        sobjs, same_dts, to_ignore, local_only = data
-        # TODO:  create a progress bar for this ...
-        # deserialize the objects to be saved locally [1]
-        if sobjs:
-            # server objects that are either not in local db or have a later
-            # mod_datetime than the corresponding local object ... so first
-            # make sure they are not in our local trash ...
-            not_trash = [so for so in sobjs if so.get('oid') not in trash]
-            # deserialize(orb, not_trash)
-            objs = self.load_serialized_objects(not_trash)
-            if objs:
-                update_needed = True
+        orb.log.debug('[pgxn] on_sync_library_result()')
+        orb.log.debug('       data: {}'.format(str(data)))
+        newer, local_only = data
         # then collect any local objects that need to be saved to the repo ...
-        sobjs_to_save = []
         if local_only:
             orb.log.debug('       objects unknown to server found ...')
             objs_to_delete = set(orb.get(oids=local_only))
-            local_objs = set()
             for o in objs_to_delete:
                 if (hasattr(o, 'creator') and o.creator == self.local_user
                     and o.oid not in list(trash.keys())):
                     objs_to_delete.remove(o)
-                    local_objs.add(o)
                 # NOTE: ProjectSystemUsages are not relevant to library sync
                 # elif (o.__class__.__name__ == 'ProjectSystemUsage' and
                       # o.project.oid in state['admin_of']):
                     # objs_to_delete.remove(o)
-                    # local_objs.add(o)
                 else:
                     objs_to_delete.add(o)
             if objs_to_delete:
                 orb.log.debug('       to be deleted: {}'.format(
                               ', '.join([o.oid for o in objs_to_delete])))
                 orb.delete(objs_to_delete)
-                update_needed = True
-            if local_objs:
-                # sobjs_to_save = serialize(orb, local_objs,
-                                            # include_components=True)
-                sobjs_to_save = serialize(orb, local_objs)
-        if sobjs_to_save:
-            orb.log.debug('       to be saved in repo: {}'.format(
-                          ', '.join([sobj['oid'] for sobj in sobjs_to_save])))
-        # if library objects have been added or deleted, call _update_views()
-        if update_needed:
+        if newer:
+            orb.log.debug('       new objects found ...')
+            # chunks = chunkify(newer, 5)   # set chunks small for testing
+            chunks = chunkify(newer, 100)
+            orb.log.debug('       chunks: {}'.format(str(chunks)))
+            chunk = chunks.pop(0)
+            state['chunks_to_get'] = chunks
+            rpc = self.mbus.session.call('vger.get_objects', chunk)
+            rpc.addCallback(self.on_get_library_objects_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            # if no newer objects but objects have been deleted, update views
             self._update_views()
-        txt = 'library sync: saving objects ...'
-        dispatcher.send('sync progress', txt=txt)
-        return self.mbus.session.call('vger.save', sobjs_to_save)
+            return 'success'  # return value will be ignored
+
+    def on_get_library_objects_result(self, data):
+        """
+        Handler for the result of the rpc 'vger.get_objects()' when called by
+        'on_sync_library_result()' (i.e., only at login).  This should only be
+        used as handler for 'on_sync_library_result()' (at login) because when
+        finished (no more chunks to get) it calls
+        'self.on_set_current_project_signal()'.
+
+        Args:
+            data (list):  a list of serialized objects
+        """
+        orb.log.debug('* on_get_library_objects_result()')
+        if data is not None:
+            orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
+            self.load_serialized_objects(data)
+        if state.get('chunks_to_get'):
+            chunk = state['chunks_to_get'].pop(0)
+            orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
+            rpc = self.mbus.session.call('vger.get_objects', chunk)
+            rpc.addCallback(self.on_get_library_objects_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            # sync_current_project() requires callback on_project_sync_result()
+            # NOTE: call to on_set_current_project_signal which calls
+            # 'sync_current_project()' and incorporates its own callback and
+            # errback ...
+            self.on_set_current_project_signal()
 
     def on_pubsub_msg(self, msg):
         """
@@ -933,8 +943,8 @@ class Main(QtWidgets.QMainWindow):
         Keyword Args:
             obj (Identifiable):  object whose cloaking info is to be shown
         """
-        orb.log.info('[pgxn] get_cloaking_status("{}")'.format(oid))
-        orb.log.info('       (local "cloaking" signal received ...)')
+        orb.log.debug('[pgxn] get_cloaking_status("{}")'.format(oid))
+        orb.log.debug('       (local "cloaking" signal received ...)')
         # TODO:  if not connected, show a warning to that effect ...
         if oid:
             rpc = self.mbus.session.call('vger.get_cloaking_status', oid)
@@ -1009,8 +1019,8 @@ class Main(QtWidgets.QMainWindow):
         (2) a status message (text)
         (3) the oid of the object whose cloaking status was returned
         """
-        orb.log.info('[pgxn] get_cloaking_status() returned:')
-        orb.log.info('       {}'.format(str(result)))
+        orb.log.debug('[pgxn] get_cloaking_status() returned:')
+        orb.log.debug('       {}'.format(str(result)))
         decloak_button = True
         if result:
             actor_oids, msg, obj_oid = result
@@ -1026,10 +1036,10 @@ class Main(QtWidgets.QMainWindow):
                             actor = orb.get(ao)
                             if actor:
                                 actors.append(actor)
-                orb.log.info('       calling CloakingDialog() with:')
-                orb.log.info('       - obj = {}'.format(obj.oid))
-                orb.log.info('       - msg = {}'.format(msg))
-                orb.log.info('       - actors = {}'.format(str(actors)))
+                orb.log.debug('       calling CloakingDialog() with:')
+                orb.log.debug('       - obj = {}'.format(obj.oid))
+                orb.log.debug('       - msg = {}'.format(msg))
+                orb.log.debug('       - actors = {}'.format(str(actors)))
                 # if object has already been decloaked to the current project,
                 # show the status dialog without the Decloak button
                 if state.get('project') in actor_oids:
@@ -1055,9 +1065,9 @@ class Main(QtWidgets.QMainWindow):
             else:
                 txt = '       received cloaking status but could not '
                 txt += 'find object'
-                orb.log.info(txt)
+                orb.log.debug(txt)
         else:
-            orb.log.info('       cloaking status request failed.')
+            orb.log.debug('       cloaking status request failed.')
 
     def on_remote_decloaked_signal(self, content=None):
         """
@@ -1083,10 +1093,10 @@ class Main(QtWidgets.QMainWindow):
             return
         obj = orb.get(obj_oid)
         if obj:
-            orb.log.info('  - decloaked object is already in local db.')
+            orb.log.debug('  - decloaked object is already in local db.')
         else:
             # get object from repository ...
-            orb.log.info('  - decloaked object unknown -- get from repo...')
+            orb.log.debug('  - decloaked object unknown -- get from repo...')
             rpc = self.mbus.session.call('vger.get_object', obj_oid,
                                            include_components=True)
             rpc.addCallback(self.on_rpc_get_object)
@@ -1140,17 +1150,17 @@ class Main(QtWidgets.QMainWindow):
                                                             obj.first_name,
                                                             obj.mi_or_name,
                                                             obj.org.name)
-                            orb.log.info('  - person "{}" saved.'.format(
+                            orb.log.debug('  - person "{}" saved.'.format(
                                                                 display_name))
                             dispatcher.send('person added', obj=obj)
                         elif isinstance(obj, orb.classes['Organization']):
-                            orb.log.info('  - org "{}" saved.'.format(
+                            orb.log.debug('  - org "{}" saved.'.format(
                                                                 obj.name))
             except:
                 d = str(res)
-                orb.log.info('- cannot deserialize received data: '.format(d))
+                orb.log.debug('- cannot deserialize received data: '.format(d))
         else:
-            orb.log.info('- rpc failed: no data received!')
+            orb.log.debug('- rpc failed: no data received!')
 
     def on_rpc_get_object(self, serialized_objects):
         """
@@ -1160,34 +1170,34 @@ class Main(QtWidgets.QMainWindow):
         Args:
             serialized_objects (list): a list of serialized objects
         """
-        orb.log.info("* on_rpc_get_object")
-        orb.log.info("  got: {} serialized objects".format(
+        orb.log.debug("* on_rpc_get_object")
+        orb.log.debug("  got: {} serialized objects".format(
                                                     len(serialized_objects)))
         if not serialized_objects:
-            orb.log.info('  result was empty!')
+            orb.log.debug('  result was empty!')
             return False
         # objs = deserialize(orb, serialized_objects)
         objs = self.load_serialized_objects(serialized_objects)
         if objs:
-            orb.log.info('  deserialize() returned {} object(s):'.format(
+            orb.log.debug('  deserialize() returned {} object(s):'.format(
                                                                     len(objs)))
             txt = str([o.id for o in objs])
-            orb.log.info('  {}'.format(txt))
+            orb.log.debug('  {}'.format(txt))
         else:
-            orb.log.info('  deserialize() returned no objects --')
-            orb.log.info('  (any received were already in the local db).')
+            orb.log.debug('  deserialize() returned no objects --')
+            orb.log.debug('  (any received were already in the local db).')
             return False
         rep = '\n  '.join([obj.name + " (" + obj.__class__.__name__ + ")"
                            for obj in objs])
-        orb.log.info('  deserializes as:')
-        orb.log.info('  {}'.format(str(rep)))
+        orb.log.debug('  deserializes as:')
+        orb.log.debug('  {}'.format(str(rep)))
         need_to_refresh_tree = False
         for obj in objs:
             cname = obj.__class__.__name__
             if isinstance(obj, (orb.classes['Product'],
                                 orb.classes['ParameterDefinition'])):
                 # refresh library widgets ...
-                orb.log.info('  updating libraries with: "{}"'.format(obj.id))
+                orb.log.debug('  updating libraries with: "{}"'.format(obj.id))
                 if hasattr(self, 'library_widget'):
                     # orb.log.debug('  - refreshing library_widget')
                     self.library_widget.refresh(cname=cname)
@@ -1201,10 +1211,10 @@ class Main(QtWidgets.QMainWindow):
                         # NOTE:  SANDBOX PSUs are not synced
                         if (obj.project.oid == state.get('project') and
                             obj.project.oid != 'pgefobjects:SANDBOX'):
-                            orb.log.info('  this is a ProjectSystemUsage for '
+                            orb.log.debug('  this is a ProjectSystemUsage for '
                                       'the current project ({}) ...'.format(
                                       state['project']))
-                            orb.log.info('  its system is: "{}"'.format(
+                            orb.log.debug('  its system is: "{}"'.format(
                                                                 obj.system.id))
                             # Just adding a new system node did not work, so
                             # the whole tree is rebuilt (refreshed)
@@ -1221,36 +1231,36 @@ class Main(QtWidgets.QMainWindow):
                                                                  # root_index)
                             # project_node = sys_tree_model.node_for_object(
                                               # obj.project, sys_tree_model.root)
-                            # orb.log.info('  now try to add node ...')
+                            # orb.log.debug('  now try to add node ...')
                             # try:
                                 # sys_tree_model.add_nodes(
                                     # [sys_tree_model.node_for_object(
                                         # obj.system, project_node, link=obj)],
                                     # parent=project_index)
                             # except Exception:
-                                # orb.log.info(traceback.format_exc())
-                            # orb.log.info('  dataChanged.emit()')
+                                # orb.log.debug(traceback.format_exc())
+                            # orb.log.debug('  dataChanged.emit()')
                             # sys_tree_model.dataChanged.emit(project_index,
                                                             # project_index)
                             # **********************************************
                         else:
-                            orb.log.info('  new object is NOT a system for '
+                            orb.log.debug('  new object is NOT a system for '
                                       'the current project ({}) ...'.format(
                                       state['project']))
-                            orb.log.info('  no system node will be added.')
+                            orb.log.debug('  no system node will be added.')
                     else:
-                        orb.log.info('  this is an Acu ...')
-                        orb.log.info('  - assembly:  {}'.format(
+                        orb.log.debug('  this is an Acu ...')
+                        orb.log.debug('  - assembly:  {}'.format(
                                                             obj.assembly.id))
                         comp = obj.component
-                        orb.log.info('  - component: {}'.format(comp.id))
+                        orb.log.debug('  - component: {}'.format(comp.id))
                         idxs = self.sys_tree.object_indexes_in_tree(
                                                                 obj.assembly)
-                        orb.log.info('  the assembly occurs {} times'.format(
+                        orb.log.debug('  the assembly occurs {} times'.format(
                                                                    len(idxs)))
-                        orb.log.info('  in the system tree.')
+                        orb.log.debug('  in the system tree.')
                         if idxs:
-                            orb.log.info('  adding component nodes ...')
+                            orb.log.debug('  adding component nodes ...')
                         for i, idx in enumerate(idxs):
                             try:
                                 assembly_node = sys_tree_model.get_node(idx)
@@ -1273,7 +1283,7 @@ class Main(QtWidgets.QMainWindow):
                 self.w = NotificationDialog(html, parent=self)
                 self.w.show()
             if self.mode == 'db':
-                orb.log.info('  updating db views with: "{}"'.format(obj.id))
+                orb.log.debug('  updating db views with: "{}"'.format(obj.id))
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
             self.update_project_role_labels()
@@ -1631,7 +1641,7 @@ class Main(QtWidgets.QMainWindow):
             names (list of str):  list of the names of currently stored
                 datasets
         """
-        orb.log.info('* setting datasets: {}'.format(str(names)))
+        orb.log.debug('* setting datasets: {}'.format(str(names)))
         state['datasets'] = [str(n) for n in names]
 
     def del_datasets(self):
@@ -1657,7 +1667,7 @@ class Main(QtWidgets.QMainWindow):
         Arguments:
             name (str):  name of currently selected dataset
         """
-        orb.log.info('* setting dataset: {}'.format(name))
+        orb.log.debug('* setting dataset: {}'.format(name))
         state['dataset'] = name
 
     def del_dataset(self):
@@ -1701,17 +1711,17 @@ class Main(QtWidgets.QMainWindow):
         # NOTE:  set_project() now just sets the 'project' state (project oid)
         # and dispatches the 'set current project' signal
         if p:
-            orb.log.info('* set_project({})'.format(p.id))
+            orb.log.debug('* set_project({})'.format(p.id))
             state['project'] = str(p.oid)
             if state['connected']:
                 self.role_label.setText('online: syncing project data ...')
             else:
                 self.role_label.setText('loading project data ...')
         else:
-            orb.log.info('* set_project(None)')
-            orb.log.info('  setting project to SANDBOX (default)')
+            orb.log.debug('* set_project(None)')
+            orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
-        orb.log.info('  dispatching "set current project" signal ...')
+        orb.log.debug('  dispatching "set current project" signal ...')
         dispatcher.send(signal="set current project")
 
     def del_project(self):
@@ -1726,7 +1736,35 @@ class Main(QtWidgets.QMainWindow):
         """
         The current list of project objects.
         """
-        return list(orb.get_by_type('Project'))
+        admin_role = orb.get('pgefobjects:Role.Administrator')
+        global_admin = orb.select('RoleAssignment',
+                                  assigned_role=admin_role,
+                                  assigned_to=self.local_user,
+                                  role_assignment_context=None)
+        if global_admin:
+            # orb.log.debug('  - user is a Global Admin ...')
+            projects = orb.get_by_type('Project')
+        else:
+            # orb.log.debug('  - user is NOT a Global Admin ...')
+            # if user is not a global admin, restrict the projects to those on
+            # which the user has a role
+            ras = orb.search_exact(cname='RoleAssignment',
+                                   assigned_to=self.local_user)
+            projects = set([ra.role_assignment_context for ra in ras
+                            if isinstance(ra.role_assignment_context,
+                                          orb.classes['Project'])])
+            # Add user-created projects
+            user_projects = set(orb.search_exact(cname='Project',
+                                                 creator=self.local_user))
+            projects |= user_projects
+            projects = list(projects)
+            # "SANDBOX project" doesn't have roles so add it separately
+            sandbox_project = orb.get('pgefobjects:SANDBOX')
+            projects.append(sandbox_project)
+        projects.sort(key=lambda p: p.id)
+        # orb.log.debug('  - project list: {}'.format(
+                      # str([p.id for p in projects])))
+        return projects
 
     # 'systems' property (read-only)
     @property
@@ -1753,7 +1791,7 @@ class Main(QtWidgets.QMainWindow):
             p (Product):  the product to be set.
         """
         oid = getattr(p, 'oid', None)
-        orb.log.info('* setting product: {}'.format(oid))
+        orb.log.debug('* setting product: {}'.format(oid))
         state['product'] = str(oid)
         orb.log.debug('  - dispatching "set current product" ...')
         dispatcher.send(signal="set current product",
@@ -2000,12 +2038,12 @@ class Main(QtWidgets.QMainWindow):
         """
         Handle louie signal for (local) "new project".
         """
-        orb.log.info('* on_new_project_signal(obj: {})'.format(
+        orb.log.debug('* on_new_project_signal(obj: {})'.format(
                                                getattr(obj, 'id', 'None')))
         if obj:
             self.project = obj
             if state['connected']:
-                orb.log.info('  calling vger.save() for project id: {}'.format(
+                orb.log.debug('  calling vger.save() for project id: {}'.format(
                                                                        obj.id))
                 rpc = self.mbus.session.call('vger.save',
                                              serialize(orb, [obj]))
@@ -2019,7 +2057,7 @@ class Main(QtWidgets.QMainWindow):
         # set up a previously local-only project on the server so that other
         # users can be given collaborative roles on it ...
         # if obj and state['connected']:
-            # orb.log.info('  - calling rpc omb.organization.add')
+            # orb.log.debug('  - calling rpc omb.organization.add')
             # orb.log.debug('    with arguments:')
             # orb.log.debug('      oid={}'.format(obj.oid))
             # orb.log.debug('      id={}'.format(obj.id))
@@ -2050,24 +2088,24 @@ class Main(QtWidgets.QMainWindow):
             dts = None
             if dts_str:
                 dts = uncook_datetime(dts_str)
-            orb.log.info('  remote object mod_datetime: {}'.format(dts_str))
-            orb.log.info('  local  object mod_datetime: {}'.format(
+            orb.log.debug('  remote object mod_datetime: {}'.format(dts_str))
+            orb.log.debug('  local  object mod_datetime: {}'.format(
                                             str(obj.mod_datetime)))
             if dts == obj.mod_datetime:
-                orb.log.info('  local and remote objects have')
-                orb.log.info('  same mod_datetime, ignoring.')
+                orb.log.debug('  local and remote objects have')
+                orb.log.debug('  same mod_datetime, ignoring.')
             elif dts > obj.mod_datetime:
                 # get the remote object
-                orb.log.info('  remote object is newer, getting...')
+                orb.log.debug('  remote object is newer, getting...')
                 rpc = self.mbus.session.call('vger.get_object', obj.oid,
                                                include_components=True)
                 rpc.addCallback(self.on_remote_get_mod_object)
                 rpc.addErrback(self.on_failure)
             else:
-                orb.log.info('  local object is newer, ignoring remote.')
+                orb.log.debug('  local object is newer, ignoring remote.')
         else:
-            orb.log.info('  ')
-            orb.log.info('  object not found in local db, getting ...')
+            orb.log.debug('  ')
+            orb.log.debug('  object not found in local db, getting ...')
             rpc = self.mbus.session.call('vger.get_object', obj.oid,
                                            include_components=True)
             rpc.addCallback(self.on_remote_get_mod_object)
@@ -2098,12 +2136,12 @@ class Main(QtWidgets.QMainWindow):
                     else:
                         node_des = (getattr(node.link, 'system_role',
                                     None) or '(No system role)')
-                    orb.log.info('  deleting position "%s"'.format(node_des))
+                    orb.log.debug('  deleting position "%s"'.format(node_des))
                     pos = idx.row()
                     row_parent = idx.parent()
                     parent_id = self.sys_tree.source_model.get_node(
                                                             row_parent).obj.id
-                    orb.log.info('  at row {} of parent {}'.format(pos,
+                    orb.log.debug('  at row {} of parent {}'.format(pos,
                                                                    parent_id))
                     # removeRow calls orb.delete on the object ...
                     self.sys_tree.source_model.removeRow(pos, row_parent)
@@ -2135,16 +2173,16 @@ class Main(QtWidgets.QMainWindow):
                 orb.delete([obj])
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
                                 remote=True)
-            orb.log.info('  - object deleted.')
+            orb.log.debug('  - object deleted.')
         else:
-            orb.log.info('  oid not found in local db; ignoring.')
+            orb.log.debug('  oid not found in local db; ignoring.')
 
     def on_remote_get_mod_object(self, serialized_objects):
         orb.log.info('* on_remote_get_mod_object()')
         objs =  deserialize(orb, serialized_objects)
         if not objs:
-            orb.log.info('  deserialize() returned nothing --')
-            orb.log.info('  the objs received were already in the local db.')
+            orb.log.debug('  deserialize() returned nothing --')
+            orb.log.debug('  the objs received were already in the local db.')
         for obj in objs:
             # same as for local 'modified object' but without the remote
             # calls ...
@@ -2197,14 +2235,14 @@ class Main(QtWidgets.QMainWindow):
                     state['cloaked'].append(obj.oid)
                 else:
                     state['cloaked'] = [obj.oid]
-                orb.log.info('  - new object added to state["cloaked"]')
+                orb.log.debug('  - new object added to state["cloaked"]')
         else:
             orb.log.info('* received local "modified object" signal')
         if obj:
             cname = obj.__class__.__name__
-            orb.log.info('  object oid: "{}"'.format(
+            orb.log.debug('  object oid: "{}"'.format(
                                         str(getattr(obj, 'oid', '[no oid]'))))
-            orb.log.info('  cname: "{}"'.format(str(cname)))
+            orb.log.debug('  cname: "{}"'.format(str(cname)))
             # the library widget will now refresh itself (it listens for "new
             # object", "modified object", etc. ...)
             # if hasattr(self, 'library_widget'):
@@ -2223,7 +2261,7 @@ class Main(QtWidgets.QMainWindow):
                 # run set_system_model_window() *AFTER* refreshing tree, so
                 # that the model window will get all the remaining space
                 # if cname == 'ProjectSystemUsage':
-                    # orb.log.info('  - obj is PSU, resetting model window ...')
+                    # orb.log.debug('  - obj is PSU, resetting model window ...')
                     # # update the model window
                     # self.set_system_model_window(obj.system)
             elif self.mode == 'db':
@@ -2232,31 +2270,31 @@ class Main(QtWidgets.QMainWindow):
             if state['connected']:
                 serialized_objs = serialize(orb, [obj])
                 if isinstance(obj, orb.classes['RoleAssignment']):
-                    orb.log.info('  calling rpc vger.assign_role() ...')
-                    orb.log.info('  - role assignment: {}'.format(obj.id))
+                    orb.log.debug('  calling rpc vger.assign_role() ...')
+                    orb.log.debug('  - role assignment: {}'.format(obj.id))
                     rpc = self.mbus.session.call('vger.assign_role',
                                                    serialized_objs)
                 else:
-                    orb.log.info('  calling rpc vger.save() ...')
-                    orb.log.info('  - saved obj id: {} | oid: {}'.format(
+                    orb.log.debug('  calling rpc vger.save() ...')
+                    orb.log.debug('  - saved obj id: {} | oid: {}'.format(
                                                           obj.id, obj.oid))
                     rpc = self.mbus.session.call('vger.save', serialized_objs)
                 rpc.addCallback(self.on_result)
                 rpc.addErrback(self.on_failure)
         else:
-            orb.log.info('  *** no object provided -- ignoring! ***')
+            orb.log.debug('  *** no object provided -- ignoring! ***')
 
     # def on_null_result(self):
-        # orb.log.info('  rpc success.')
+        # orb.log.debug('  rpc success.')
         # self.statusbar.showMessage('synced.')
 
     def on_result(self, stuff):
-        orb.log.info('  rpc result: %s' % str(stuff))
+        orb.log.debug('  rpc result: %s' % str(stuff))
         # TODO:  add more detailed status message ...
         self.statusbar.showMessage('synced.')
 
     def on_failure(self, f):
-        orb.log.info("* rpc failure: {}".format(f.getTraceback()))
+        orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
 
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
@@ -2307,6 +2345,7 @@ class Main(QtWidgets.QMainWindow):
         already been synced in this session (i.e., project oid is not in
         state['synced_projects'] list).
         """
+        orb.log.debug('* on_set_current_project_signal()')
         project_oid = state.get('project')
         if (((project_oid and project_oid != 'pgefobjects:SANDBOX'
              and project_oid not in state.get('synced_projects', []))
@@ -2336,7 +2375,7 @@ class Main(QtWidgets.QMainWindow):
         p_roles = []
         if p:
             self.project_selection.setText(self.project.id)
-            orb.log.info('* set_project({})'.format(p.id))
+            orb.log.debug('* set_project({})'.format(p.id))
             state['project'] = str(p.oid)
             # if hasattr(self, 'delete_project_action'):
             if p.oid == 'pgefobjects:SANDBOX':
@@ -2360,6 +2399,10 @@ class Main(QtWidgets.QMainWindow):
                                           assigned_role=admin_role,
                                           assigned_to=self.local_user,
                                           role_assignment_context=None)
+                project_admin = orb.select('RoleAssignment',
+                                          assigned_role=admin_role,
+                                          assigned_to=self.local_user,
+                                          role_assignment_context=p)
                 if 'delete' in get_perms(p):
                     project_is_local = True
                     role_label_txt = ': '.join([p.id, '[local]'])
@@ -2378,7 +2421,8 @@ class Main(QtWidgets.QMainWindow):
                     else:
                         role_label_txt = ': '.join([p.id, p_roles[0]])
                 if state['connected']:
-                    if project_is_local:
+                    if (project_is_local and 
+                        ((p.creator == self.local_user) or global_admin)):
                         # it is local -> it can be deleted by its creator or
                         # collaboration can be enabled
                         self.delete_project_action.setEnabled(True)
@@ -2391,13 +2435,9 @@ class Main(QtWidgets.QMainWindow):
                         # (in which case it becomes a local project :)
                         self.delete_project_action.setEnabled(False)
                         self.delete_project_action.setVisible(False)
-                        # self.enable_collab_action.setVisible(False)
-                        # self.enable_collab_action.setEnabled(False)
-                        if ('Administrator' in p_roles or
-                            'Global Administrator' in p_roles):
-                            # role assignments for the project ...
-                            self.admin_action.setVisible(True)
-                            self.admin_action.setEnabled(True)
+                    if project_admin or global_admin:
+                        self.admin_action.setVisible(True)
+                        self.admin_action.setEnabled(True)
                 else:
                     # when offline, `enable collaboration` is disabled
                     # self.enable_collab_action.setVisible(False)
@@ -2406,7 +2446,8 @@ class Main(QtWidgets.QMainWindow):
                     self.admin_action.setVisible(False)
                     self.admin_action.setEnabled(False)
                     # only local projects can be deleted
-                    if project_is_local:
+                    if (project_is_local and 
+                        (p.creator == self.local_user or global_admin)):
                         self.delete_project_action.setEnabled(True)
                         self.delete_project_action.setVisible(True)
                     else:
@@ -2414,8 +2455,8 @@ class Main(QtWidgets.QMainWindow):
                         self.delete_project_action.setVisible(False)
         else:
             self.project_selection.setText('None')
-            orb.log.info('* set_project(None)')
-            orb.log.info('  setting project to SANDBOX (default)')
+            orb.log.debug('* set_project(None)')
+            orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
             role_label_txt = 'SANDBOX'
             if hasattr(self, 'delete_project_action'):
@@ -2626,8 +2667,8 @@ class Main(QtWidgets.QMainWindow):
             pass
         # orb.log.debug('  + destroying existing pgxn_obj panel, if any ...')
         self.update_pgxn_obj_panel(create_new=False)
-        orb.log.debug('    self.pgxn_obj is {}'.format(str(
-                      getattr(self, 'pgxn_obj', None))))
+        # orb.log.debug('    self.pgxn_obj is {}'.format(str(
+                      # getattr(self, 'pgxn_obj', None))))
         # destroy left dock's widget
         ld_widget = self.left_dock.widget()
         if ld_widget:
@@ -2751,19 +2792,19 @@ class Main(QtWidgets.QMainWindow):
     def refresh_dashboard(self):
         # orb.log.debug('* refreshing dashboard ...')
         if hasattr(self, 'dashboard'):
+            self.dashboard.setFocus()
             for column in range(self.dashboard.model().columnCount(
                                                     QModelIndex())):
                 self.dashboard.resizeColumnToContents(column)
-            self.dashboard.setFocus()
             self.dashboard.repaint()
 
     def update_object_in_trees(self, obj):
         """
         Update the tree and dashboard in response to a modified object.
         """
-        orb.log.debug('* [orb] update_object_in_tree() ...')
+        # orb.log.debug('* update_object_in_tree() ...')
         if not obj:
-            orb.log.debug('  no object provided; ignoring.')
+            # orb.log.debug('  no object provided; ignoring.')
             return
         try:
             cname = obj.__class__.__name__
@@ -2785,7 +2826,8 @@ class Main(QtWidgets.QMainWindow):
                     for idx in idxs:
                         self.sys_tree.source_model.setData(idx, node_obj)
                 else:
-                    orb.log.debug('  - no instances found in tree.')
+                    # orb.log.debug('  - no instances found in tree.')
+                    pass
             elif isinstance(obj, orb.classes['Product']):
                 idxs = self.sys_tree.object_indexes_in_tree(obj)
                 if idxs:
@@ -2793,18 +2835,19 @@ class Main(QtWidgets.QMainWindow):
                     for idx in idxs:
                         self.sys_tree.source_model.dataChanged.emit(idx, idx)
                 else:
-                    orb.log.debug('  - no instances found in tree.')
+                    # orb.log.debug('  - no instances found in tree.')
+                    pass
             # resize/refresh dashboard columns if necessary
             self.refresh_dashboard()
         except:
             # oops, sys_tree's C++ object got deleted
-            orb.log.debug('  - sys_tree C++ object might have got deleted '
-                          '... bailing out!')
+            orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
+                          'might have got deleted ... bailing out!')
 
     ### SET UP 'component' mode (product modeler interface)
 
     def set_product_modeler_interface(self):
-        orb.log.info('* setting product modeler interface')
+        orb.log.debug('* setting product modeler interface')
         # update the model window
         self.set_system_model_window(self.product)
         self.top_dock_widget.setFloating(False)
@@ -2878,7 +2921,7 @@ class Main(QtWidgets.QMainWindow):
         Show data sets.  [Currently deactivated for re-implementation of data
         store without pandas/pytables/hdf5.]
         """
-        orb.log.info('* setting data mode interface ...')
+        orb.log.debug('* setting data mode interface ...')
         # hide the top and right dock widgets
         self.top_dock_widget.setVisible(False)
         self.right_dock.setVisible(False)
@@ -2927,7 +2970,7 @@ class Main(QtWidgets.QMainWindow):
                                               parent=self))
 
     def on_dataset_selected(self, row):
-        orb.log.info('* dataset selected')
+        orb.log.debug('* dataset selected')
         orb.log.debug('  - mode: "{}"'.format(self.mode))
         orb.log.debug('  - selected row: %i' % row)
         orb.log.debug('  - current dataset: {}'.format(self.dataset))
@@ -2942,7 +2985,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('    -> selected row < 0: selection aborted.')
 
     def select_dataset(self, dataset_name):
-        orb.log.info('* selecting dataset "%s"' % dataset_name)
+        orb.log.debug('* selecting dataset "%s"' % dataset_name)
         # currently inactive -- orb.data_store is an empty dict
         df = orb.data_store.get(dataset_name)
         if df is not None:
@@ -3022,24 +3065,24 @@ class Main(QtWidgets.QMainWindow):
             self.set_object_table_for(cur_cname)
 
     def on_cname_selected(self, idx):
-        orb.log.info('* class selected')
-        orb.log.debug('  - mode: "{}"'.format(self.mode))
-        orb.log.debug('  - selected index: "%i"' % idx)
+        # orb.log.debug('* class selected')
+        # orb.log.debug('  - mode: "{}"'.format(self.mode))
+        # orb.log.debug('  - selected index: "%i"' % idx)
         # try:
         if idx == -1:
             cname = state.get('current_cname', 'HardwareProduct')
         else:
             cname = self.cnames[idx]
         state['current_cname'] = str(cname)
-        orb.log.info('  - class: "%s"' % cname)
+        orb.log.debug('  - class: "%s"' % cname)
         self.set_object_table_for(cname)
         # except:
-            # orb.log.info('  - set_object_table_for("%s") had an exception.'
+            # orb.log.debug('  - set_object_table_for("%s") had an exception.'
                           # % cname)
 
     def set_object_table_for(self, cname):
         # TODO:  let view and sort_field be parameters
-        orb.log.info('* setting object table for "%s"' % cname)
+        orb.log.debug('* setting object table for "%s"' % cname)
         objs = list(orb.get_by_type(cname))
         tableview = ObjectTableView(objs)
         self.setCentralWidget(tableview)
@@ -3067,14 +3110,14 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('  - displaying CAD model ...')
 
     def on_db_selected(self, selected, deselected):
-        orb.log.info('* db selected [item: %i]' % selected.row())
+        orb.log.debug('* db selected [item: %i]' % selected.row())
         if deselected:
-            orb.log.info('  - [deselected item: %i]' % deselected.row())
+            orb.log.debug('  - [deselected item: %i]' % deselected.row())
 
     def on_model_selected(self, selected, deselected):
-        orb.log.info('* model selected [item: %i]' % selected.row())
+        orb.log.debug('* model selected [item: %i]' % selected.row())
         if deselected:
-            orb.log.info('  - [deselected item: %i]' % deselected.row())
+            orb.log.debug('  - [deselected item: %i]' % deselected.row())
 
     def new_project(self):
         orb.log.info('* new_project()')
@@ -3097,18 +3140,18 @@ class Main(QtWidgets.QMainWindow):
         # TODO:  also remove it from the repository
         orb.log.info('* delete_project()')
         # first delete any ProjectSystemUsage relationships
-        for psu in self.project.systems:
-            orb.db.delete(psu)
-        # if the project owns things, remove its ownership
+        project_oid = self.project.oid
+        orb.delete(self.project.systems)
+        # if the project owns things, change the owner to 'PGANA'
+        pgana = orb.get('pgefobjects:PGANA')
         things = orb.search_exact(owner=self.project)
-        for thing in things:
-            thing.owner = None
-        orb.save(things)
-        for thing in things:
-            dispatcher.send('modified object', obj=thing)
-        oid = self.project.oid
-        orb.db.delete(orb.get(oid))
-        orb.db.commit()
+        if things:
+            for thing in things:
+                thing.owner = pgana
+            orb.db.commit()
+            for thing in things:
+                dispatcher.send('modified object', obj=thing)
+        orb.delete([self.project])
         if len(self.projects) > 1:
             self.project = self.projects[-1]
             if self.project.oid == 'pgefobjects:SANDBOX':
@@ -3120,6 +3163,13 @@ class Main(QtWidgets.QMainWindow):
             self.project = orb.get('pgefobjects:SANDBOX')
             self.delete_project_action.setEnabled(False)
             self.delete_project_action.setVisible(False)
+        if state.get('connected'):
+            orb.log.info('  - calling "vger.delete"')
+            rpc = self.mbus.session.call('vger.delete', [project_oid])
+            rpc.addCallback(self.on_result)
+            rpc.addErrback(self.on_failure)
+            if project_oid in state.get('synced_oids', []):
+                state['synced_oids'].remove(project_oid)
 
     def enable_collaboration(self):
         """
@@ -3149,8 +3199,8 @@ class Main(QtWidgets.QMainWindow):
         Display a dialog to create a new Product.  (Now simply calls
         new_product_wizard.)
         """
-        orb.log.info('* [pgxn] new_product()')
-        orb.log.info('         calling new_product_wizard() ...')
+        orb.log.debug('* [pgxn] new_product()')
+        orb.log.debug('         calling new_product_wizard() ...')
         self.new_product_wizard()
 
     def new_product_wizard(self):
@@ -3158,10 +3208,10 @@ class Main(QtWidgets.QMainWindow):
         Display New Product Wizard, a guided process to create new Product
         instances.
         """
-        orb.log.info('* [pgxn] new_product_wizard()')
+        orb.log.debug('* [pgxn] new_product_wizard()')
         wizard = NewProductWizard(parent=self)
         if wizard.exec_() == QtWidgets.QDialog.Accepted:
-            orb.log.info('  [pgxn] New Product Wizard completed successfully.')
+            orb.log.debug('  [pgxn] New Product Wizard completed successfully.')
             product = orb.get(wizard_state.get('product_oid'))
             if product:
                 self.product = product
@@ -3173,7 +3223,7 @@ class Main(QtWidgets.QMainWindow):
                 # switch to 'component' mode (in case not already there) ...
                 self.component_mode_action.trigger()
         else:
-            orb.log.info('  [pgxn] New Product Wizard cancelled.')
+            orb.log.debug('  [pgxn] New Product Wizard cancelled.')
             oid = wizard_state.get('product_oid')
             # if wizard was canceled before saving the new product, oid will be
             # None and no object was created, so there is nothing to delete
@@ -3186,7 +3236,7 @@ class Main(QtWidgets.QMainWindow):
     def new_functional_requirement(self):
         wizard = ReqWizard(parent=self, performance=False)
         if wizard.exec_() == QtWidgets.QDialog.Accepted:
-            orb.log.info('* reqt wizard completed.')
+            orb.log.debug('* reqt wizard completed.')
             req_oid = req_wizard_state.get('req_oid')
             req = orb.get(req_oid)
             if req and getattr(wizard, 'pgxn_obj', None):
@@ -3195,7 +3245,7 @@ class Main(QtWidgets.QMainWindow):
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
-            orb.log.info('* reqt wizard cancelled.')
+            orb.log.debug('* reqt wizard cancelled.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
@@ -3205,14 +3255,14 @@ class Main(QtWidgets.QMainWindow):
     def new_perform_requirement(self):
         wizard = ReqWizard(parent=self, performance=True)
         if wizard.exec_() == QtWidgets.QDialog.Accepted:
-            orb.log.info('* reqt wizard completed.')
+            orb.log.debug('* reqt wizard completed.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
-            orb.log.info('* reqt wizard cancelled...')
+            orb.log.debug('* reqt wizard cancelled...')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
@@ -3308,7 +3358,7 @@ class Main(QtWidgets.QMainWindow):
             # file.write(<function to export data to whatever>)
 
     def export_project_to_file(self):
-        orb.log.info('* [pgxn] export_project_to_file() for {}'.format(
+        orb.log.debug('* [pgxn] export_project_to_file() for {}'.format(
                  getattr(self.project, 'id', None) or '[no current project]'))
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         dtstr = date2str(dtstamp())
@@ -3316,7 +3366,7 @@ class Main(QtWidgets.QMainWindow):
                                     self, 'Export Project to File',
                                     self.project.id + '-' + dtstr + '.yaml')
         if fpath:
-            orb.log.info('  - file selected: "%s"' % fpath)
+            orb.log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
             state['last_path'] = os.path.dirname(fpath)
             # serialize all the objects relevant to the current project
@@ -3326,13 +3376,13 @@ class Main(QtWidgets.QMainWindow):
             f = open(fpath, 'w')
             f.write(yaml.safe_dump(serialized_objs, default_flow_style=False))
             f.close()
-            orb.log.info('    %i project objects written.' % len(
+            orb.log.debug('    %i project objects written.' % len(
                                                         serialized_objs))
         else:
             return
 
     def export_reqts_to_file(self):
-        orb.log.info('* [pgxn] export_reqts_to_file() for project {}'.format(
+        orb.log.debug('* [pgxn] export_reqts_to_file() for project {}'.format(
                  getattr(self.project, 'id', None) or '[no current project]'))
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         dtstr = date2str(dtstamp())
@@ -3341,7 +3391,7 @@ class Main(QtWidgets.QMainWindow):
                                 self, 'Export Project Requirements to File',
                                 fname)
         if fpath:
-            orb.log.info('  - file selected: "%s"' % fpath)
+            orb.log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
             state['last_path'] = os.path.dirname(fpath)
             # serialize all the objects relevant to the current project
@@ -3353,17 +3403,17 @@ class Main(QtWidgets.QMainWindow):
                 f.write(yaml.safe_dump(serialized_reqts,
                                        default_flow_style=False))
                 f.close()
-                orb.log.info('    %i project requirements written.' % len(
+                orb.log.debug('    %i project requirements written.' % len(
                                                             serialized_reqts))
             else:
                 # TODO: notify user that no requirements were found ...
-                orb.log.info('    no project requirements found.')
+                orb.log.debug('    no project requirements found.')
                 return
         else:
             return
 
     def import_reqts_from_file(self):
-        orb.log.info('* [pgxn] import_reqts_from_file()')
+        orb.log.debug('* [pgxn] import_reqts_from_file()')
         # TODO:
         # [1] create a "wizard" dialog with some convenient defaults ...
         # [2] replace Project in file with current Project
@@ -3382,7 +3432,7 @@ class Main(QtWidgets.QMainWindow):
                 fpath = fpaths[0]
             dialog.close()
         if fpath:
-            orb.log.info('  [pgxn] file path: {}'.format(fpath))
+            orb.log.debug('  [pgxn] file path: {}'.format(fpath))
             if is_binary(fpath):
                 message = "File '%s' is not importable." % fpath
                 popup = QtWidgets.QMessageBox(
@@ -3478,7 +3528,7 @@ class Main(QtWidgets.QMainWindow):
         Import a collection of serialized objects from a file (using a
         QFileDialog to select the file).
         """
-        orb.log.info('* [pgxn] import_objects()')
+        orb.log.debug('* [pgxn] import_objects()')
         data = None
         message = ''
         # TODO:  create a "wizard" dialog with some convenient defaults ...
@@ -3494,7 +3544,7 @@ class Main(QtWidgets.QMainWindow):
                 fpath = fpaths[0]
             dialog.close()
         if fpath:
-            orb.log.info('  [pgxn] file path: {}'.format(fpath))
+            orb.log.debug('  [pgxn] file path: {}'.format(fpath))
             if is_binary(fpath):
                 message = "File '%s' is not importable." % fpath
                 popup = QtWidgets.QMessageBox(
@@ -3627,7 +3677,7 @@ class Main(QtWidgets.QMainWindow):
 
     def load_test_objects(self):
         if not state.get('test_objects_loaded'):
-            orb.log.info('* loading test objects ...')
+            orb.log.debug('* loading test objects ...')
             self.statusbar.showMessage('Loading test objects ... ')
             sobjs = create_test_users() + create_test_project()
             self.load_serialized_objects(sobjs)
@@ -3642,7 +3692,7 @@ class Main(QtWidgets.QMainWindow):
                     if u.scheme == 'vault' and os.path.exists(fpath):
                         shutil.copy(fpath, orb.vault)
         else:
-            orb.log.info('* test objects already loaded.')
+            orb.log.debug('* test objects already loaded.')
             self.statusbar.showMessage('Test objects already loaded.')
 
     def output_mel(self):
@@ -3701,8 +3751,8 @@ class Main(QtWidgets.QMainWindow):
             try:
                 wizard = DataImportWizard(file_path=fpath, parent=self)
                 wizard.exec_()
-                orb.log.info('* import_excel_data: dialog completed:')
-                orb.log.info('  setting mode to "data" (which updates view)')
+                orb.log.debug('* import_excel_data: dialog completed:')
+                orb.log.debug('  setting mode to "data" (which updates view)')
                 # set mode to "data"
                 self.data_mode_action.trigger()
             except:
@@ -3717,7 +3767,7 @@ class Main(QtWidgets.QMainWindow):
             return
 
     def open_step_file(self):
-        orb.log.info('* opening a STEP file')
+        orb.log.debug('* opening a STEP file')
         # NOTE: for demo purposes ... actual function TBD
         if not state.get('last_path'):
             state['last_path'] = orb.test_data_dir
@@ -3737,36 +3787,31 @@ class Main(QtWidgets.QMainWindow):
             return
 
     def set_current_project(self):
-        orb.log.info('* set_current_project()')
-        # NOTE:  will need to restrict the projects based on user's
-        # authorizations ...
-        projects = list(orb.get_by_type('Project'))
-        projects.sort(key=lambda p: p.id)
-        if projects:
-            dlg = ObjectSelectionDialog(projects, parent=self)
-            dlg.make_popup(self.project_selection)
-            # dlg.exec_() -> modal dialog
-            if dlg.exec_():
-                # dlg.exec_() being true means dlg was "accepted" (OK)
-                # refresh project selection combo
-                # and set the current project to the new project
-                new_oid = dlg.get_oid()
-                self.project = orb.get(new_oid)
+        orb.log.debug('* set_current_project()')
+        dlg = ObjectSelectionDialog(self.projects, parent=self)
+        dlg.make_popup(self.project_selection)
+        # dlg.exec_() -> modal dialog
+        if dlg.exec_():
+            # dlg.exec_() being true means dlg was "accepted" (OK)
+            # refresh project selection combo
+            # and set the current project to the new project
+            new_oid = dlg.get_oid()
+            self.project = orb.get(new_oid)
 
     def edit_prefs(self):
-        orb.log.info('* edit_prefs()')
+        orb.log.debug('* edit_prefs()')
         dlg = PrefsDialog(parent=self)
         if dlg.exec_():
             # TODO:  use 'clear_rows' setting for data imported in data mode
             prefs['clear_rows'] = dlg.get_clear_rows()
             prefs['dash_no_row_colors'] = not dlg.get_dash_row_colors()
-            orb.log.info('  - edit_prefs dialog completed.')
+            orb.log.debug('  - edit_prefs dialog completed.')
 
     def do_admin_stuff(self):
-        orb.log.info('* do_admin_stuff()')
+        orb.log.debug('* do_admin_stuff()')
         dlg = AdminDialog(org=self.project, parent=self)
         if dlg.exec_():
-            orb.log.info('  - admin dialog completed.')
+            orb.log.debug('  - admin dialog completed.')
             self.update_project_role_labels()
 
     # def compare_items(self):
@@ -3779,12 +3824,12 @@ class Main(QtWidgets.QMainWindow):
 
     def load_requirements(self):
         # TODO:  make this an excel import / map demo
-        orb.log.info('* load_requirements()')
+        orb.log.debug('* load_requirements()')
         if not state.get('last_path'):
             state['last_path'] = orb.test_data_dir
 
     def dump_database(self):
-        orb.log.info('* dump_database()')
+        orb.log.debug('* dump_database()')
         orb.dump_db()
 
     def closeEvent(self, event):

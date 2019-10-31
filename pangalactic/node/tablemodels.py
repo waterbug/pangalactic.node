@@ -26,7 +26,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 
 # pangalactic
 from pangalactic.core             import state
-from pangalactic.core.meta        import MAIN_VIEWS
+from pangalactic.core.meta        import MAIN_VIEWS, TEXT_PROPERTIES
 from pangalactic.core.parametrics import get_pval_as_str
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import (display_id, pname_to_header_label,
@@ -179,13 +179,13 @@ class ObjectTableModel(ODTableModel):
             as_library (bool): (default: False) if True, provide icons, etc.
             parent (QWidget):  parent widget
         """
-        orb.log.info("* ObjectTableModel initializing ...")
+        # orb.log.debug("* ObjectTableModel initializing ...")
         self.objs = objs or []
         icons = []
         if as_library:
-            orb.log.info("  ... as library ...")
+            # orb.log.debug("  ... as library ...")
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
-        orb.log.info("  ... with {} objects.".format(len(objs)))
+        # orb.log.debug("  ... with {} objects.".format(len(objs)))
         self.column_labels = ['No Data']
         self.view = view or []
         self.cname = ''
@@ -248,7 +248,9 @@ class ObjectTableModel(ODTableModel):
             else:
                 val = getattr(obj, name)
             if self.schema['fields'][name]['field_type'] == ForeignKey:
-                odict[name] = getattr(val, 'id', '')
+                odict[name] = getattr(val, 'id', '[no id]')
+            elif name in TEXT_PROPERTIES:
+                odict[name] = (val or ' ').replace('\n', ' ')
             else:
                 odict[name] = val
         return odict
@@ -286,10 +288,10 @@ class ObjectTableModel(ODTableModel):
         return True
 
     def mod_object(self, obj):
-        orb.log.debug("  ObjectTableModel.mod_object() ...")
+        # orb.log.debug("  ObjectTableModel.mod_object() ...")
         try:
             row = self.objs.index(obj)  # raises ValueError if problem
-            orb.log.debug("    object found at row {}".format(row))
+            # orb.log.debug("    object found at row {}".format(row))
             idx = self.index(row, 0, index=QModelIndex())
             self.beginResetModel()
             self.setData(idx, obj)

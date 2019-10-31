@@ -5,9 +5,13 @@ from collections import OrderedDict
 # import functools
 from textwrap import wrap
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtCore import Qt, QLineF, QPointF, QRectF, QSizeF
+from PyQt5.QtGui import (QColor, QFont, QPainterPath, QPen, QPolygonF,
+                         QTextOption)
+from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFontComboBox,
+                             QGraphicsItem, QGraphicsLineItem,
+                             QGraphicsTextItem, QGridLayout, QLabel, QMenu,
+                             QMessageBox, QSpinBox, QStyle, QTextEdit)
 
 from louie import dispatcher
 
@@ -17,9 +21,11 @@ from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import parameterz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.utils.meta  import (get_flow_id, get_flow_name,
+from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
+                                          get_flow_id, get_flow_name,
                                           get_next_port_seq, get_port_id,
                                           get_port_name)
+from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, extract_mime_data
 
@@ -71,7 +77,7 @@ PORT_TYPE_COLORS = OrderedDict([
 PORT_TYPES = list(PORT_TYPE_COLORS.keys())
 
 
-class Block(QtWidgets.QGraphicsItem):
+class Block(QGraphicsItem):
     """
     A Block represents a Product (which can be a Model of either an artifact or
     a natural phenomenon).  This is intended to be an abstract base class.
@@ -95,11 +101,10 @@ class Block(QtWidgets.QGraphicsItem):
                 edited in place
         """
         super(Block, self).__init__()
-        self.setFlags(QtWidgets.QGraphicsItem.ItemIsSelectable |
-                      QtWidgets.QGraphicsItem.ItemIsMovable |
-                      QtWidgets.QGraphicsItem.ItemIsFocusable)
-        self.rect = QtCore.QRectF(0, -POINT_SIZE, 20 * POINT_SIZE,
-                                  20 * POINT_SIZE)
+        self.setFlags(QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsMovable |
+                      QGraphicsItem.ItemIsFocusable)
+        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         # TODO:  notify the user if 'obj' is not a Product instance ... that
         # will cause errors
@@ -122,13 +127,13 @@ class Block(QtWidgets.QGraphicsItem):
         return self.rect.adjusted(-2, -2, 2, 2)
 
     def paint(self, painter, option, widget):
-        pen = QtGui.QPen(self.style)
+        pen = QPen(self.style)
         pen.setColor(Qt.black)
         pen.setWidth(2)
         if self.isUnderMouse() and self.has_sub_diagram:
             pen.setColor(Qt.green)
             pen.setWidth(6)
-        elif option.state & QtWidgets.QStyle.State_Selected:
+        elif option.state & QStyle.State_Selected:
             pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRect(self.rect)
@@ -230,12 +235,11 @@ class ObjectBlock(Block):
         """
         super(ObjectBlock, self).__init__(position, scene=scene, obj=obj,
                                           style=style, editable=editable)
-        self.setFlags(QtWidgets.QGraphicsItem.ItemIsSelectable |
-                      QtWidgets.QGraphicsItem.ItemIsMovable |
-                      QtWidgets.QGraphicsItem.ItemIsFocusable)
+        self.setFlags(QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsMovable |
+                      QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
-        self.rect = QtCore.QRectF(0, -POINT_SIZE, 20 * POINT_SIZE,
-                                  20 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.obj = obj
         self.right_ports = right_ports
@@ -279,7 +283,7 @@ class ObjectBlock(Block):
     # def contextMenuEvent(self, event):
         # self.scene().clearSelection()
         # self.setSelected(True)
-        # menu = QtWidgets.QMenu()
+        # menu = QMenu()
         # menu.addAction('do something blockish', self.something)
         # menu.exec_(event.screenPos())
 
@@ -293,13 +297,13 @@ class ObjectBlock(Block):
         return self.rect.adjusted(-2, -2, 2, 2)
 
     def paint(self, painter, option, widget):
-        pen = QtGui.QPen(self.style)
+        pen = QPen(self.style)
         pen.setColor(Qt.black)
         pen.setWidth(2)
         if self.isUnderMouse() and self.has_sub_diagram:
             pen.setColor(Qt.green)
             pen.setWidth(6)
-        elif option.state & QtWidgets.QStyle.State_Selected:
+        elif option.state & QStyle.State_Selected:
             pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRect(self.rect)
@@ -327,24 +331,26 @@ class ObjectBlock(Block):
             event.ignore()
 
     def dropEvent(self, event):
-        orb.log.debug("* ObjectBlock: something dropped on me ...")
-        if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
-            data = extract_mime_data(event,
-                                     "application/x-pgef-hardware-product")
-            icon, oid, _id, name, cname = data
-            orb.log.info("  - it is a {} ...".format(cname))
-            product = orb.get(oid)
-            if product:
-                orb.log.info('  - orb found {} "{}"'.format(cname, name))
-                orb.log.info(
-                    '    sending message "product dropped on object block"')
-                dispatcher.send('product dropped on object block', p=product)
-            else:
-                orb.log.info("  - dropped product oid not in db.")
-                event.ignore()
-        else:
-            orb.log.info("  - dropped object is not an allowed type")
-            orb.log.info("    to drop on object block.")
+        pass
+        # orb.log.debug("* ObjectBlock: something dropped on me ...")
+        # NOTE: ObjectBlock does not do anything with drops
+        # if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
+            # data = extract_mime_data(event,
+                                     # "application/x-pgef-hardware-product")
+            # icon, oid, _id, name, cname = data
+            # orb.log.info("  - it is a {} ...".format(cname))
+            # product = orb.get(oid)
+            # if product:
+                # orb.log.info('  - orb found {} "{}"'.format(cname, name))
+                # orb.log.info(
+                    # '    sending message "product dropped on object block"')
+                # dispatcher.send('product dropped on object block', p=product)
+            # else:
+                # orb.log.info("  - dropped product oid not in db.")
+                # event.ignore()
+        # else:
+            # orb.log.info("  - dropped object is not an allowed type")
+            # orb.log.info("    to drop on object block.")
 
 
 class SubjectBlock(Block):
@@ -376,11 +382,11 @@ class SubjectBlock(Block):
         """
         super(SubjectBlock, self).__init__(position, scene=scene, obj=obj,
                                           style=style, editable=editable)
-        self.setFlags(QtWidgets.QGraphicsItem.ItemIsFocusable)
+        self.setFlags(QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
         # this apparently does work, but not what I wanted
         # self.setAcceptedMouseButtons(Qt.NoButton)
-        self.rect = QtCore.QRectF(0, 0, width, height)
+        self.rect = QRectF(0, 0, width, height)
         self.style = style or Qt.SolidLine
         self.obj = obj
         self.right_ports = right_ports
@@ -419,10 +425,10 @@ class SubjectBlock(Block):
         Reimplemented paint() to avoid green highlight (which indicates
         drill-down-able -- not applicable to a SubjectBlock).
         """
-        pen = QtGui.QPen(self.style)
+        pen = QPen(self.style)
         pen.setColor(Qt.black)
         pen.setWidth(2)
-        if option.state & QtWidgets.QStyle.State_Selected:
+        if option.state & QStyle.State_Selected:
             pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRect(self.rect)
@@ -446,21 +452,153 @@ class SubjectBlock(Block):
             event.ignore()
 
     def dropEvent(self, event):
+        """
+        Handle the drop event on SubjectBlock.  This includes the following
+        possible cases:
+
+            0: dropped item would cause a cycle -> abort
+            1: drop target is "TBD" -> replace it if drop item is a Product
+               and matches the "product_type_hint" of the Acu
+            2: drop target is a normal Product -> add a new component position
+               with the dropped item as the new component
+            3: drop target is a Project ->
+               if drop item is a Product *and* it is not already in use
+               on the Project, use it to create a new ProjectSystemUsage
+        """
         orb.log.debug("* SubjectBlock: something dropped on me ...")
+        drop_target = self.obj
         if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
             data = extract_mime_data(event,
                                      "application/x-pgef-hardware-product")
-            icon, oid, _id, name, cname = data
-            orb.log.info("  - it is a {} ...".format(cname))
-            product = orb.get(oid)
-            if product:
-                orb.log.info('  - orb found {} "{}"'.format(cname, name))
+            icon, obj_oid, obj_id, obj_name, obj_cname = data
+            orb.log.info("  - it is a {} ...".format(obj_cname))
+            dropped_item = orb.get(obj_oid)
+            if dropped_item:
+                orb.log.info('  - found in db: "{}"'.format(obj_name))
                 orb.log.info(
                     '    sending message "product dropped on subject block"')
-                dispatcher.send('product dropped on subject block', p=product)
+                dispatcher.send('product dropped on subject block',
+                                p=dropped_item)
             else:
                 orb.log.info("  - dropped product oid not in db.")
                 event.ignore()
+
+            # CODE FROM systree dropMimeData()
+            if drop_target.oid == obj_oid:
+                # orb.log.debug('    invalid: dropped item same as target.')
+                popup = QMessageBox(
+                            QMessageBox.Critical,
+                            "Assembly same as Component",
+                            "A product cannot be a component of itself.",
+                            QMessageBox.Ok, self.parent)
+                popup.show()
+            # orb.log.debug('  - action: {}'.format(action))
+            # orb.log.debug('  - row: {}'.format(row))
+            # orb.log.debug('  - column: {}'.format(column))
+            # orb.log.debug('  - target name: {}'.format(drop_target.name))
+            target_cname = drop_target.__class__.__name__
+            if issubclass(orb.classes[target_cname],
+                          orb.classes['Product']):
+                # orb.log.debug('    + target is a subclass of Product ...')
+                # first check for cycles (cycles will crash the tree)
+                bom_oids = get_bom_oids(dropped_item)
+                if (drop_target.oid in bom_oids and
+                    drop_target.oid != 'pgefobjects:TBD'):
+                    # case 0: dropped item would cause a cycle -> abort
+                    popup = QMessageBox(
+                            QMessageBox.Critical,
+                            "Prohibited Operation",
+                            "Product cannot be used in its own assembly.",
+                            QMessageBox.Ok, self.parent)
+                    popup.show()
+                # elif drop_target.oid == 'pgefobjects:TBD':
+                # NOTE:  TBD object -> SocketBlock, so not applicable --
+                # this needs to be in dropEvent() method of SocketBlock
+                    # # case 1: drop target is "TBD" product -> replace it
+                    # node = self.get_node(parent)
+                    # # avoid cycles:  check if the assembly is in the bom
+                    # if (hasattr(node.link, 'assembly') and
+                        # (getattr(node.link.assembly, 'oid', '')
+                         # in bom_oids)):
+                        # # dropped item would cause a cycle -> abort
+                        # txt = "Product cannot be used in its own assembly."
+                        # popup = QMessageBox(
+                                    # QMessageBox.Critical,
+                                    # "Prohibited Operation", txt,
+                                    # QMessageBox.Ok, self.parent)
+                        # popup.show()
+                        # return False
+                    # if not 'modify' in get_perms(node.link):
+                        # txt = "User's roles do not permit this operation"
+                        # ret = QMessageBox.critical(
+                                  # self.parent,
+                                  # "Unauthorized Operation", txt,
+                                  # QMessageBox.Ok)
+                        # if ret == QMessageBox.Ok:
+                            # return False
+                    # # use dropped item if its product_type is the same as
+                    # # acu's "product_type_hint"
+                    # ptname = getattr(dropped_item.product_type,
+                                     # 'name', '')
+                    # hint = ''
+                    # if getattr(node.link, 'product_type_hint', None):
+                        # # NOTE: 'product_type_hint' is a ProductType
+                        # hint = getattr(node.link.product_type_hint,
+                                       # 'name', '')
+                    # elif getattr(node.link, 'system_role', None):
+                        # # NOTE: 'system_role' the *name* of a ProductType
+                        # hint = node.link.system_role
+                    # if hint and ptname != hint:
+                        # # ret = QMessageBox.warning(
+                        # ret = QMessageBox.critical(
+                                    # self.parent, "Product Type Check",
+                                    # "The product you dropped is not a "
+                                    # "{}.".format(hint),
+                                    # QMessageBox.Cancel)
+                                    # # " Add it anyway?".format(hint),
+                                    # # QMessageBox.Yes | QMessageBox.No)
+                        # if ret == QMessageBox.Cancel:
+                            # return False
+                    # else:
+                        # if not getattr(node.link, 'product_type_hint',
+                                       # None):
+                            # pt = dropped_item.product_type
+                            # node.link.product_type_hint = pt
+                        # # NOTE: orb.save([node.link]) is called by Node
+                        # # obj setter
+                        # node.obj = dropped_item
+                        # self.dataChanged.emit(parent, parent)
+                        # self.successful_drop.emit()
+                        # # orb.log.debug('   node link mod: {}'.format(
+                                      # # node.link.name))
+                        # dispatcher.send('modified object',
+                                        # obj=node.link)
+                else:
+                    # case 2: drop target is normal product -> add new Acu
+                    if not 'modify' in get_perms(drop_target):
+                        popup = QMessageBox(
+                              QMessageBox.Critical,
+                              "Unauthorized Operation",
+                              "User's roles do not permit this operation",
+                              QMessageBox.Ok, self.parent)
+                        popup.show()
+                    else:
+                        # orb.log.debug('      creating Acu ...')
+                        # generate a new reference_designator
+                        ref_des = orb.get_next_ref_des(drop_target,
+                                                       dropped_item)
+                        new_acu = clone('Acu',
+                            id=get_acu_id(drop_target.id, ref_des),
+                            name=get_acu_name(drop_target.name, ref_des),
+                            assembly=drop_target,
+                            component=dropped_item,
+                            product_type_hint=dropped_item.product_type,
+                            reference_designator=ref_des)
+                        orb.save([new_acu])
+                        # orb.log.debug('      Acu created: {}'.format(
+                                      # new_acu.name))
+                        dispatcher.send('new object', obj=new_acu)
+
         elif event.mimeData().hasFormat("application/x-pgef-port-type"):
             data = extract_mime_data(event, "application/x-pgef-port-type")
             icon, oid, _id, name, cname = data
@@ -532,7 +670,7 @@ class SubjectBlock(Block):
             orb.log.info("    to drop on object block.")
 
 
-class PortBlock(QtWidgets.QGraphicsItem):
+class PortBlock(QGraphicsItem):
     """
     A PortBlock is a small block shape on the edge of an ObjectBlock.  It
     represents an interface (Port) in the Object represented by the
@@ -560,12 +698,12 @@ class PortBlock(QtWidgets.QGraphicsItem):
         """
         super(PortBlock, self).__init__(parent=parent_block)
         self.setFlags(
-                      # QtWidgets.QGraphicsItem.ItemIsSelectable |
-                      QtWidgets.QGraphicsItem.ItemIsFocusable)
+                      # QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsFocusable)
         self.setAcceptHoverEvents(True)
         tooltip_text = port.abbreviation or port.name
         self.setToolTip(tooltip_text)
-        self.rect = QtCore.QRectF(0, -POINT_SIZE, PORT_SIZE, PORT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE, PORT_SIZE, PORT_SIZE)
         self.right_port = right
         self.style = style or Qt.SolidLine
         self.parent_block = parent_block
@@ -584,7 +722,7 @@ class PortBlock(QtWidgets.QGraphicsItem):
             perms = get_perms(self.port)
             self.scene().clearSelection()
             # self.setSelected(True)
-            menu = QtWidgets.QMenu()
+            menu = QMenu()
             menu.addAction('inspect port object', self.open_pxo)
             if 'delete' in perms:
                 menu.addAction('delete port', self.delete)
@@ -595,12 +733,10 @@ class PortBlock(QtWidgets.QGraphicsItem):
     def delete(self):
         txt = 'This will delete the {}'.format(self.port.name)
         txt += ' and any associated Flow(s) -- are you sure?'
-        confirm_dlg = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Question,
-                                            'Delete Port?', txt,
-                                            QtWidgets.QMessageBox.Yes |
-                                            QtWidgets.QMessageBox.No)
+        confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Port?', txt,
+                                  QMessageBox.Yes | QMessageBox.No)
         response = confirm_dlg.exec_()
-        if response == QtWidgets.QMessageBox.Yes:
+        if response == QMessageBox.Yes:
             # delete connector(s) and their associated flows, if any ...
             for shape in self.scene().items():
                 if (isinstance(shape, RoutedConnector) and
@@ -624,10 +760,10 @@ class PortBlock(QtWidgets.QGraphicsItem):
         return self.rect.adjusted(-1, -1, 1, 1)
 
     def paint(self, painter, option, widget):
-        pen = QtGui.QPen(self.style)
+        pen = QPen(self.style)
         pen.setColor(Qt.black)
         pen.setWidth(1)
-        if option.state & QtWidgets.QStyle.State_Selected:
+        if option.state & QStyle.State_Selected:
             pen.setColor(Qt.blue)
         painter.setPen(pen)
         # set the brush by PortType (port.type_of_port)
@@ -637,7 +773,7 @@ class PortBlock(QtWidgets.QGraphicsItem):
         painter.drawRect(self.rect)
 
     def itemChange(self, change, value):
-        if change == QtWidgets.QGraphicsItem.ItemPositionChange:
+        if change == QGraphicsItem.ItemPositionChange:
             for connector in self.connectors:
                 connector.updatePosition()
         return value
@@ -680,11 +816,10 @@ class EntityBlock(Block):
         """
         super(EntityBlock, self).__init__(position, scene=None, obj=obj,
                                           style=style, editable=editable)
-        self.setFlags(QtWidgets.QGraphicsItem.ItemIsSelectable |
-                      QtWidgets.QGraphicsItem.ItemIsMovable |
-                      QtWidgets.QGraphicsItem.ItemIsFocusable)
-        self.rect = QtCore.QRectF(0, -POINT_SIZE, 20 * POINT_SIZE,
-                                  20 * POINT_SIZE)
+        self.setFlags(QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsMovable |
+                      QGraphicsItem.ItemIsFocusable)
+        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.obj = obj
         self.has_sub_diagram = False
@@ -698,7 +833,7 @@ class EntityBlock(Block):
         self.connectors = []
         self.setPos(position)
         self.name_label = BlockLabel(name, self, editable=editable)
-        self.title_separator = QtWidgets.QGraphicsLineItem(
+        self.title_separator = QGraphicsLineItem(
                                         0.0, 2.0 * POINT_SIZE,
                                         20.0 * POINT_SIZE, 2.0 * POINT_SIZE,
                                         parent=self)
@@ -717,19 +852,19 @@ class EntityBlock(Block):
         return self.rect.adjusted(-2, -2, 2, 2)
 
     def paint(self, painter, option, widget):
-        pen = QtGui.QPen(self.style)
+        pen = QPen(self.style)
         pen.setColor(Qt.black)
         pen.setWidth(2)
         if self.isUnderMouse() and self.has_sub_diagram:
             pen.setColor(Qt.green)
             pen.setWidth(6)
-        elif option.state & QtWidgets.QStyle.State_Selected:
+        elif option.state & QStyle.State_Selected:
             pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRoundedRect(self.rect, 10, 10)
 
     def itemChange(self, change, value):
-        if change == QtWidgets.QGraphicsItem.ItemPositionChange:
+        if change == QGraphicsItem.ItemPositionChange:
             for connector in self.connectors:
                 connector.updatePosition()
         return value
@@ -738,7 +873,7 @@ class EntityBlock(Block):
         # TODO ...
         pass
         # wrapped = []
-        # menu = QtWidgets.QMenu()
+        # menu = QMenu()
         # for text, param in (
                 # ("&Solid", Qt.SolidLine),
                 # ("&Dashed", Qt.DashLine),
@@ -781,17 +916,17 @@ def segment_bounding_rect(segment):
     p2 = segment.p2()
     # orb.log.debug("  - (%f, %f) to (%f, %f)" % (
                   # p1.x(), p1.y(), p2.x(), p2.y()))
-    # return QtCore.QRectF(
+    # return QRectF(
             # p1,
-            # QtCore.QSizeF(p2.x() - p1.x(), p2.y() - p1.y())
+            # QSizeF(p2.x() - p1.x(), p2.y() - p1.y())
                 # ).normalized().adjusted(-extra, -extra, extra, extra)
-    return QtCore.QRectF(
+    return QRectF(
             p1,
-            QtCore.QSizeF(p2.x() - p1.x() + 1, p2.y() - p1.y() + 1)
+            QSizeF(p2.x() - p1.x() + 1, p2.y() - p1.y() + 1)
                 ).normalized().adjusted(-extra, -extra, extra, extra)
 
 
-class RoutedConnector(QtWidgets.QGraphicsItem):
+class RoutedConnector(QGraphicsItem):
     """
     This is intended to be a connecting line composed of vertical and/or
     horizontal segments, routed so as to avoid other lines and diagram shapes
@@ -837,8 +972,8 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
         self.type_of_flow = getattr(start_item.port.type_of_port, 'id',
                                     'electrical_power')
         self.color = PORT_TYPE_COLORS[self.type_of_flow]
-        self.pen = QtGui.QPen(self.color, pen_width, QtCore.Qt.SolidLine,
-                              QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin)
+        self.pen = QPen(self.color, pen_width, Qt.SolidLine, Qt.RoundCap,
+                        Qt.RoundJoin)
         self.start_item = start_item
         self.end_item = end_item
         self.context = context
@@ -848,7 +983,7 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
         self.normal_pen_width = pen_width
         self.wide_pen_width = pen_width + 5
         if arrow:
-            self.arrow_head = QtGui.QPolygonF()
+            self.arrow_head = QPolygonF()
         # 'paints' is for dev analysis -- number of calls to paint()
         # self.paints = 0
         flows = orb.search_exact(start_port=start_item.port,
@@ -870,19 +1005,17 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
     def contextMenuEvent(self, event):
         self.scene().clearSelection()
         self.setSelected(True)
-        menu = QtWidgets.QMenu()
+        menu = QMenu()
         menu.addAction('delete connector', self.delete)
         menu.exec_(event.screenPos())
 
     def delete(self):
         txt = 'This will delete the {}'.format(self.flow.name)
         txt += ' -- are you sure?'
-        confirm_dlg = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Question,
-                                            'Delete Connector?', txt,
-                                            QtWidgets.QMessageBox.Yes |
-                                            QtWidgets.QMessageBox.No)
+        confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Connector?',
+                                  txt, QMessageBox.Yes | QMessageBox.No)
         response = confirm_dlg.exec_()
-        if response == QtWidgets.QMessageBox.Yes:
+        if response == QMessageBox.Yes:
             orb.log.debug("* deleting RoutedConnector:")
             orb.log.debug("  - start id: {}".format(self.start_item.obj.id))
             orb.log.debug("  - end id: {}".format(self.end_item.obj.id))
@@ -942,14 +1075,12 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
         p2 = self.p2()
         # orb.log.debug("  - (%f, %f) to (%f, %f)" % (
                       # p1.x(), p1.y(), p2.x(), p2.y()))
-        return QtCore.QRectF(
-                p1,
-                QtCore.QSizeF(p2.x() - p1.x(), p2.y() - p1.y())
-                    ).normalized().adjusted(-extra, -extra, extra, extra)
+        return QRectF(p1, QSizeF(p2.x() - p1.x(), p2.y() - p1.y())
+                      ).normalized().adjusted(-extra, -extra, extra, extra)
 
     def shape(self):
         if self.segments:
-            path = QtGui.QPainterPath()
+            path = QPainterPath()
             for segment in self.segments:
                 path.addRect(segment_bounding_rect(segment))
         else:
@@ -1030,17 +1161,17 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
                 seg1p2x = seg1p1x + total_x/2.0
                 seg1p1y = start_item.scenePos().y()
                 seg3p2x = seg1p2x + total_x/2.0
-            seg1p1 = QtCore.QPointF(seg1p1x, seg1p1y)
-            seg1p2 = QtCore.QPointF(seg1p2x, seg1p1y)
+            seg1p1 = QPointF(seg1p1x, seg1p1y)
+            seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
             seg2p2y = end_item.scenePos().y()
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2
-            seg2p2 = QtCore.QPointF(seg2p2x, seg2p2y)
+            seg2p2 = QPointF(seg2p2x, seg2p2y)
             seg3p1 = seg2p2
-            seg3p2 = QtCore.QPointF(seg3p2x, seg3p2y)
+            seg3p2 = QPointF(seg3p2x, seg3p2y)
         elif not start_right and end_right:
         # [2] from right (obj left port), to left (obj right port)
             # arrow should point left
@@ -1080,17 +1211,17 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
                 seg1p2x = seg1p1x + total_x/2.0
                 seg1p1y = start_item.scenePos().y()
                 seg3p2x = seg1p2x + total_x/2.0
-            seg1p1 = QtCore.QPointF(seg1p1x, seg1p1y)
-            seg1p2 = QtCore.QPointF(seg1p2x, seg1p1y)
+            seg1p1 = QPointF(seg1p1x, seg1p1y)
+            seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
             seg2p2y = end_item.scenePos().y()
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2
-            seg2p2 = QtCore.QPointF(seg2p2x, seg2p2y)
+            seg2p2 = QPointF(seg2p2x, seg2p2y)
             seg3p1 = seg2p2
-            seg3p2 = QtCore.QPointF(seg3p2x, seg3p2y)
+            seg3p2 = QPointF(seg3p2x, seg3p2y)
         elif not start_right and not end_right:
         # [3] from start_item left port to end_item left port
             # arrow should point right
@@ -1120,17 +1251,17 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
                 seg1p1y = start_item.scenePos().y()
                 # seg3p2x = seg1p2x + x_jog
                 seg3p2x = end_item.scenePos().x()
-            seg1p1 = QtCore.QPointF(seg1p1x, seg1p1y)
-            seg1p2 = QtCore.QPointF(seg1p2x, seg1p1y)
+            seg1p1 = QPointF(seg1p1x, seg1p1y)
+            seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
             seg2p2y = end_item.scenePos().y()
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2
-            seg2p2 = QtCore.QPointF(seg2p2x, seg2p2y)
+            seg2p2 = QPointF(seg2p2x, seg2p2y)
             seg3p1 = seg2p2
-            seg3p2 = QtCore.QPointF(seg3p2x, seg3p2y)
+            seg3p2 = QPointF(seg3p2x, seg3p2y)
         elif start_right and end_right:
         # [4] from start_item right port to end_item right port
             # arrow should point left
@@ -1159,35 +1290,35 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
                 seg1p1y = start_item.scenePos().y()
                 # seg3p2x = seg1p2x - x_jog - start_x_pad + end_x_pad
                 seg3p2x = end_item.scenePos().x()
-            seg1p1 = QtCore.QPointF(seg1p1x, seg1p1y)
-            seg1p2 = QtCore.QPointF(seg1p2x, seg1p1y)
+            seg1p1 = QPointF(seg1p1x, seg1p1y)
+            seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
             seg2p2y = end_item.scenePos().y()
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2
-            seg2p2 = QtCore.QPointF(seg2p2x, seg2p2y)
+            seg2p2 = QPointF(seg2p2x, seg2p2y)
             seg3p1 = seg2p2
-            seg3p2 = QtCore.QPointF(seg3p2x, seg3p2y)
-            seg1p1 = QtCore.QPointF(seg1p1x, seg1p1y)
-            seg1p2 = QtCore.QPointF(seg1p2x, seg1p1y)
+            seg3p2 = QPointF(seg3p2x, seg3p2y)
+            seg1p1 = QPointF(seg1p1x, seg1p1y)
+            seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
             seg2p2y = end_item.scenePos().y()
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2
-            seg2p2 = QtCore.QPointF(seg2p2x, seg2p2y)
+            seg2p2 = QPointF(seg2p2x, seg2p2y)
             seg3p1 = seg2p2
-            seg3p2 = QtCore.QPointF(seg3p2x, seg3p2y)
+            seg3p2 = QPointF(seg3p2x, seg3p2y)
         # orb.log.debug(" - new seg1 from (%f, %f) to (%f, %f)" % (seg1p1x,
                                                                  # seg1p1y,
                                                                  # seg1p2x,
                                                                  # seg1p1y))
-        seg1 = QtCore.QLineF(seg1p1, seg1p2)
-        seg2 = QtCore.QLineF(seg2p1, seg2p2)
-        seg3 = QtCore.QLineF(seg3p1, seg3p2)
+        seg1 = QLineF(seg1p1, seg1p2)
+        seg2 = QLineF(seg2p1, seg2p2)
+        seg3 = QLineF(seg3p1, seg3p2)
         self.segments.append(seg1)
         self.segments.append(seg2)
         self.segments.append(seg3)
@@ -1199,23 +1330,23 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
         if self.arrow:
             if right_arrow:
                 # cases [1] and [3]: right-pointing arrow
-                arrow_p1 = seg3p2 + QtCore.QPointF(- arrow_size / 1.7,
-                                                   arrow_size / 4.0)
-                arrow_p2 = seg3p2 + QtCore.QPointF(- arrow_size / 1.7,
-                                                   - arrow_size / 4.0)
+                arrow_p1 = seg3p2 + QPointF(- arrow_size / 1.7,
+                                            arrow_size / 4.0)
+                arrow_p2 = seg3p2 + QPointF(- arrow_size / 1.7,
+                                            - arrow_size / 4.0)
             else:
                 # cases [2] and [4]: left-pointing arrow
-                arrow_p1 = seg3p2 + QtCore.QPointF(arrow_size / 1.7,
-                                                   - arrow_size / 4.0)
-                arrow_p2 = seg3p2 + QtCore.QPointF(arrow_size / 1.7,
-                                                   arrow_size / 4.0)
+                arrow_p1 = seg3p2 + QPointF(arrow_size / 1.7,
+                                            - arrow_size / 4.0)
+                arrow_p2 = seg3p2 + QPointF(arrow_size / 1.7,
+                                            arrow_size / 4.0)
             self.arrow_head.clear()
             for point in [seg3p2, arrow_p1, arrow_p2]:
                 self.arrow_head.append(point)
             painter.drawPolygon(self.arrow_head)
         # if self.isSelected():
-            # painter.setPen(QtGui.QPen(self.color, 1, QtCore.Qt.DashLine))
-            # myLine = QtCore.QLineF(seg1)
+            # painter.setPen(QPen(self.color, 1, Qt.DashLine))
+            # myLine = QLineF(seg1)
             # myLine.translate(0, 4.0)
             # painter.drawLine(myLine)
             # myLine.translate(0, -8.0)
@@ -1234,7 +1365,7 @@ class RoutedConnector(QtWidgets.QGraphicsItem):
         # self.update()
 
 
-class BlockLabel(QtWidgets.QGraphicsTextItem):
+class BlockLabel(QGraphicsTextItem):
     """
     Label for a block "name", which may contain spaces (and therefore may be
     wrapped).  It is not editable through the UI but can be programmatically
@@ -1256,8 +1387,8 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         super(BlockLabel, self).__init__(parent=parent)
         self.parent = parent
         self.centered = centered
-        self.text_option = QtGui.QTextOption()
-        self.text_option.setWrapMode(QtGui.QTextOption.WordWrap)
+        self.text_option = QTextOption()
+        self.text_option.setWrapMode(QTextOption.WordWrap)
         self.document().setDefaultTextOption(self.text_option)
         self.x = x or 0
         self.y = y or 0
@@ -1272,7 +1403,7 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         self.font_name = font_name or getattr(self, 'font_name', "Arial")
         self.point_size = point_size or getattr(self, 'point_size', POINT_SIZE)
         self.weight = weight or getattr(self, 'weight', 75)
-        font = QtGui.QFont(self.font_name, self.point_size, weight=self.weight)
+        font = QFont(self.font_name, self.point_size, weight=self.weight)
         self.setFont(font)
         self.document().setDefaultTextOption(self.text_option)
         self.setParentItem(self.parent)
@@ -1289,7 +1420,7 @@ class BlockLabel(QtWidgets.QGraphicsTextItem):
         self.setPos(x, y)
 
 
-class TextLabel(QtWidgets.QGraphicsTextItem):
+class TextLabel(QGraphicsTextItem):
     """
     Label for a blob of text, which may contain spaces (and therefore may be
     wrapped).
@@ -1304,7 +1435,7 @@ class TextLabel(QtWidgets.QGraphicsTextItem):
         editable (bool):  whether the text should be editable
     """
     # TODO:  add scrolling capability
-    def __init__(self, text, parent, font=QtGui.QFont("Arial", POINT_SIZE),
+    def __init__(self, text, parent, font=QFont("Arial", POINT_SIZE),
                  color=None, editable=False, nowrap=False):
         if nowrap:
             textw = text
@@ -1312,28 +1443,28 @@ class TextLabel(QtWidgets.QGraphicsTextItem):
             textw = '\n'.join(wrap(text, width=25, break_long_words=False))
         super(TextLabel, self).__init__(textw, parent=parent)
         if not nowrap:
-            text_option = QtGui.QTextOption()
-            text_option.setWrapMode(QtGui.QTextOption.WordWrap)
+            text_option = QTextOption()
+            text_option.setWrapMode(QTextOption.WordWrap)
             self.document().setDefaultTextOption(text_option)
             self.setTextWidth(parent.boundingRect().width() - 50)
         self.setFont(font)
         if color in QTCOLORS:
             self.setDefaultTextColor(getattr(Qt, color))
         if editable:
-            self.setFlags(QtWidgets.QGraphicsItem.ItemIsSelectable)
+            self.setFlags(QGraphicsItem.ItemIsSelectable)
 
     def itemChange(self, change, variant):
-        if change != QtWidgets.QGraphicsItem.ItemSelectedChange:
+        if change != QGraphicsItem.ItemSelectedChange:
             global Dirty
             Dirty = True
-        return QtWidgets.QGraphicsTextItem.itemChange(self, change, variant)
+        return QGraphicsTextItem.itemChange(self, change, variant)
 
     def mouseDoubleClickEvent(self, event):
         dialog = TextItemDlg(self, self.parentWidget())
         dialog.exec_()
 
 
-class TextItem(QtWidgets.QGraphicsTextItem):
+class TextItem(QGraphicsTextItem):
     """
     Widget to contain a blob of text, which may contain spaces (and therefore
     may be wrapped).
@@ -1350,12 +1481,12 @@ class TextItem(QtWidgets.QGraphicsTextItem):
     """
     # TODO:  add scrolling capability
     def __init__(self, text, position, scene,
-                 font=QtGui.QFont("Arial", POINT_SIZE),
+                 font=QFont("Arial", POINT_SIZE),
                  color=None):
         textw = '\n'.join(wrap(text, width=25, break_long_words=False))
         super(TextItem, self).__init__(textw)
-        self.setFlags(QtWidgets.QGraphicsItem.ItemIsSelectable |
-                      QtWidgets.QGraphicsItem.ItemIsMovable)
+        self.setFlags(QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsMovable)
         self.setFont(font)
         if color in QTCOLORS:
             self.setDefaultTextColor(getattr(Qt, color))
@@ -1370,20 +1501,20 @@ class TextItem(QtWidgets.QGraphicsTextItem):
         return self.scene().views()[0]
 
     def itemChange(self, change, variant):
-        if change != QtWidgets.QGraphicsItem.ItemSelectedChange:
+        if change != QGraphicsItem.ItemSelectedChange:
             global Dirty
             Dirty = True
-        return QtWidgets.QGraphicsTextItem.itemChange(self, change, variant)
+        return QGraphicsTextItem.itemChange(self, change, variant)
 
     def mouseDoubleClickEvent(self, event):
         dialog = TextItemDlg(self, self.parentWidget())
         dialog.exec_()
 
 
-class TextItemDlg(QtWidgets.QDialog):
+class TextItemDlg(QDialog):
 
     def __init__(self, item=None, position=None, scene=None, parent=None):
-        super(QtWidgets.QDialog, self).__init__(parent)
+        super(QDialog, self).__init__(parent)
         self.item = item
         self.position = position
         self.scene = scene
@@ -1395,25 +1526,24 @@ class TextItemDlg(QtWidgets.QDialog):
         self.updateUi()
 
     def create_widgets(self):
-        self.editor = QtWidgets.QTextEdit()
+        self.editor = QTextEdit()
         self.editor.setAcceptRichText(False)
         self.editor.setTabChangesFocus(True)
-        self.editorLabel = QtWidgets.QLabel("&Text:")
+        self.editorLabel = QLabel("&Text:")
         self.editorLabel.setBuddy(self.editor)
-        self.fontComboBox = QtWidgets.QFontComboBox()
-        self.fontComboBox.setCurrentFont(QtGui.QFont("Arial", POINT_SIZE))
-        self.fontLabel = QtWidgets.QLabel("&Font:")
+        self.fontComboBox = QFontComboBox()
+        self.fontComboBox.setCurrentFont(QFont("Arial", POINT_SIZE))
+        self.fontLabel = QLabel("&Font:")
         self.fontLabel.setBuddy(self.fontComboBox)
-        self.fontSpinBox = QtWidgets.QSpinBox()
+        self.fontSpinBox = QSpinBox()
         self.fontSpinBox.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
         self.fontSpinBox.setRange(6, 280)
         self.fontSpinBox.setValue(POINT_SIZE)
-        self.fontSizeLabel = QtWidgets.QLabel("&Size:")
+        self.fontSizeLabel = QLabel("&Size:")
         self.fontSizeLabel.setBuddy(self.fontSpinBox)
-        self.buttonBox = QtWidgets.QDialogButtonBox(
-                                          QtWidgets.QDialogButtonBox.Ok |
-                                          QtWidgets.QDialogButtonBox.Cancel)
-        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok |
+                                          QDialogButtonBox.Cancel)
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
         if self.item is not None:
             self.editor.setPlainText(self.item.toPlainText())
@@ -1421,7 +1551,7 @@ class TextItemDlg(QtWidgets.QDialog):
             self.fontSpinBox.setValue(self.item.font().pointSize())
 
     def layout_widgets(self):
-        layout = QtWidgets.QGridLayout()
+        layout = QGridLayout()
         layout.addWidget(self.editorLabel, 0, 0)
         layout.addWidget(self.editor, 1, 0, 1, 6)
         layout.addWidget(self.fontLabel, 2, 0)
@@ -1442,7 +1572,7 @@ class TextItemDlg(QtWidgets.QDialog):
         font = self.fontComboBox.currentFont()
         font.setPointSize(self.fontSpinBox.value())
         self.editor.document().setDefaultFont(font)
-        self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok).setEnabled(
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(
                               bool(self.editor.toPlainText()))
 
     def accept(self):
@@ -1457,4 +1587,4 @@ class TextItemDlg(QtWidgets.QDialog):
         self.item.update()
         global Dirty
         Dirty = True
-        QtWidgets.QDialog.accept(self)
+        QDialog.accept(self)

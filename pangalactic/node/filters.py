@@ -1,7 +1,7 @@
 from builtins import str
 from builtins import range
 from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
-                          QSortFilterProxyModel, QTimer, QVariant)
+                          QSortFilterProxyModel, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
         QCheckBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel,
@@ -11,7 +11,7 @@ import re
 from textwrap import wrap
 from louie import dispatcher
 
-from pangalactic.core             import state
+from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.uberorb     import orb
@@ -332,18 +332,19 @@ class ProxyView(QTableView):
     """
     Presentation table view for a filtered set of objects.
     """
-    def __init__(self, proxy_model, as_library=False, word_wrap=False,
-                 parent=None):
+    def __init__(self, proxy_model, as_library=False, parent=None):
         super(ProxyView, self).__init__(parent=parent)
         col_header = self.horizontalHeader()
         # col_header.setSectionResizeMode(col_header.Stretch)
         # TODO:  add a handler to set column order pref when sections are moved
         col_header.setSectionsMovable(True)
         col_header.setStyleSheet('font-weight: bold')
+        col_header.sectionMoved.connect(self.on_section_moved)
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.setWordWrap(word_wrap)
+        # NEVER wrapping, for now
+        self.setWordWrap(False)
         if proxy_model:
             self.setModel(proxy_model)
         self.setSortingEnabled(True)
@@ -362,11 +363,21 @@ class ProxyView(QTableView):
         self.verticalHeader().hide()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.sortByColumn(0, Qt.AscendingOrder)
-        if word_wrap:
-            # QTimer trick ...
-            QTimer.singleShot(0, self.resizeRowsToContents)
-        else:
-            QTimer.singleShot(0, self.resizeColumnsToContents)
+        # NOTE:  word_wrap is deprecated but this code is kept commented as an
+        # example of how to do those "resize..." methods
+        # if word_wrap:
+            # # QTimer trick ...
+            # QTimer.singleShot(0, self.resizeRowsToContents)
+        # else:
+            # QTimer.singleShot(0, self.resizeColumnsToContents)
+
+    def on_section_moved(self, logical_index, old_index, new_index):
+        orb.log.debug('* FilterPanel.on_section_moved() ...')
+        orb.log.debug('  logical index: {}'.format(logical_index))
+        orb.log.debug('  old index: {}'.format(old_index))
+        orb.log.debug('  new index: {}'.format(new_index))
+        dispatcher.send(signal='column moved', old_index=old_index,
+                        new_index=new_index)
 
     def mouseMoveEvent(self, event):
         if self.dragEnabled():
@@ -397,8 +408,8 @@ class ProxyView(QTableView):
 
 class FilterPanel(QWidget):
     def __init__(self, objs, view=None, label='', width=None, height=None,
-                 as_library=False, cname=None, word_wrap=False,
-                 external_filters=False, parent=None):
+                 as_library=False, cname=None, external_filters=False,
+                 parent=None):
         """
         Initialize.
 
@@ -413,8 +424,6 @@ class FilterPanel(QWidget):
                 -- i.e. its objects can be drag/dropped onto other widgets
             cname (str):  class name of the objects to be displayed ("objs" arg
                 will be ignored)
-            word_wrap (bool):  (default: False) flag whether to apply word wrap
-                to table cells
             external_filters (bool):  (default: False) flag whether external
                 widgets will be called to select additional filter states --
                 so far this is only used for the Product library
@@ -433,6 +442,9 @@ class FilterPanel(QWidget):
             self.objs = objs or [orb.get('pgefobjects:TBD')]
             self.cname = self.objs[0].__class__.__name__
         schema = orb.schemas[self.cname]
+        if prefs.get('views', {}).get(self.cname):
+            # if there is a preferred view, ignore the provided view
+            view = prefs['views'][self.cname]
         view = view or MAIN_VIEWS.get(self.cname, ['id', 'name', 'description'])
         self.view = [a for a in view if a in schema['field_names']]
         # if col name, use that; otherwise, use external name
@@ -477,7 +489,7 @@ class FilterPanel(QWidget):
         self.clear_btn.clicked.connect(self.clear_text)
         self.filter_case_checkbox.toggled.connect(self.textFilterChanged)
         self.proxy_view = ProxyView(self.proxy_model, as_library=as_library,
-                                    word_wrap=word_wrap, parent=self)
+                                    parent=self)
         # IMPORTANT:  after a sort, rows retain the heights they had before
         # the sort (i.e. wrong) unless this is done:
         self.proxy_model.layoutChanged.connect(
@@ -520,6 +532,7 @@ class FilterPanel(QWidget):
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_del_object_signal, 'deleted object')
+        dispatcher.connect(self.on_column_moved, 'column moved')
         self.dirty = False
 
     def set_source_model(self, model):
@@ -551,6 +564,13 @@ class FilterPanel(QWidget):
         if self.as_library and self.cname:
             self.objs = orb.get_by_type(self.cname)
         self.set_source_model(self.create_model(objs=self.objs))
+
+    def on_column_moved(self, old_index=None, new_index=None):
+        item = self.view.pop(old_index)
+        self.view.insert(new_index, item)
+        if not prefs.get('views'):
+            prefs['views'] = {}
+        prefs['views'][self.cname] = self.view[:]
 
     def clear_text(self):
         self.filter_pattern_line_edit.setText("")

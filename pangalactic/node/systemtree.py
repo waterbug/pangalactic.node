@@ -63,7 +63,6 @@ class Node(object):
         # TODO:  make 'cname' a property
         self.parent = None
         self.children = []
-        # self.is_traversed = False
         # if parent is not None:
             # parent.add_child(self)
 
@@ -173,9 +172,9 @@ class Node(object):
     def is_branch_node(self):
         if self.cname == 'FakeRoot':
             return True
-        elif issubclass(orb.classes.get(self.cname), orb.classes['Product']):
+        elif isinstance(self.obj, orb.classes['Product']):
             return bool(self.obj.components)
-        elif self.cname == 'Project':
+        elif isinstance(self.obj, orb.classes['Project']):
             return bool(self.obj.systems)
         return False
 
@@ -655,7 +654,7 @@ class SystemTreeModel(QAbstractItemModel):
         """
         MIME Types accepted for drops.
         """
-        # TODO:  should return mime types for Product and *ALL* subclasses
+        # NOTE:  systemtree may not accept drops in the future
         return ['application/x-pgef-hardware-product']
 
     def mimeData(self, indexes):
@@ -813,7 +812,7 @@ class SystemTreeModel(QAbstractItemModel):
                                 product_type_hint=dropped_item.product_type,
                                 reference_designator=ref_des)
                             orb.save([new_acu])
-                            # orb.log.debug('      Acu created: %s'.format(
+                            # orb.log.debug('      Acu created: {}'.format(
                                           # new_acu.name))
                             self.add_nodes([self.node_for_object(
                                             dropped_item,
@@ -1151,7 +1150,7 @@ class SystemTreeView(QTreeView):
                     if ret == QMessageBox.Ok:
                         return False
                 # replace component with special "TBD" product
-                orb.log.debug('  deleting component "%s" ...'
+                orb.log.debug('  removing component "%s" ...'
                               % node.link.component.id)
                 if (not node.link.product_type_hint and
                     node.link.component.product_type):
@@ -1161,11 +1160,11 @@ class SystemTreeView(QTreeView):
                 self.source_model.setData(mapped_i, tbd)
                 dispatcher.send('modified object', obj=node.link)
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
-                orb.log.debug('  deleting system usage "%s" ...'.format(
+                orb.log.debug('  deleting system usage "{}" ...'.format(
                               node.obj.id))
                 # replace system with special "TBD" product
-                orb.log.debug('  deleting system "%s" ...'
-                              % node.link.system.id)
+                orb.log.debug('  removing system "{}" ...'.format(
+                              node.link.system.id))
                 tbd = orb.get('pgefobjects:TBD')
                 self.source_model.setData(mapped_i, tbd)
                 dispatcher.send('modified object', obj=node.link)
@@ -1199,8 +1198,8 @@ class SystemTreeView(QTreeView):
                         return False
                 ref_des = getattr(node.link, 'reference_designator',
                                   '(No reference designator)')
-                orb.log.debug('  deleting position and component "%s"'
-                              % ref_des)
+                orb.log.debug('  deleting position and component "{}"'.format(
+                              ref_des))
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
                 # permissions are determined from the link and user's roles
                 if not 'delete' in get_perms(node.link):
