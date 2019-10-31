@@ -728,13 +728,17 @@ class TimelineWidget(QWidget):
         generated_y = []
         for count, d in enumerate(act_durations, start = int(s_time)):
             generated_x.extend(list(range(int(start_times[count]), int(start_times[count]+int(d))+1)))
-)
+
         for c, y in enumerate(act_durations):
             generated_y.extend([values[c]]*(int(act_durations[c])+1))
+        #generated_y.append(values[-1])
         print("length_x", len(generated_x),"generated_x", generated_x)
         print("length_y", len(generated_y),"generated_y", generated_y)
         plt1.plot(generated_x, generated_y, brush=(0,0,255,150))
+        x = [-3,-2,-2,-1,-1,0,0,1,1,2,2,3,3,4]
+        y = [ 0, 0,-1,-1, 1,1,2,2,1,1,0,0,0,0]
 
+        plt1.plot(x, y, brush=(0,0,255,150))
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
