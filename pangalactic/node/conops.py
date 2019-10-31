@@ -715,9 +715,9 @@ class TimelineWidget(QWidget):
             d_r.append(get_pval(orb, oid, 'R_D'))
         win = pg.GraphicsWindow()
         win.resize(800,350)
-        win.setWindowTitle('Power')
+        win.setWindowTitle(' ')
         self.plot_win = win
-        plt1 = win.addPlot()
+        plt1 = win.addPlot(title="Power")
         duration = sum(act_durations)
         s_time = min(start_times)
         generated_x = []
@@ -728,11 +728,12 @@ class TimelineWidget(QWidget):
             generated_power.extend([power[c]]*(int(act_durations[c])+1))
         plt1.plot(generated_x, generated_power, brush=(0,0,255,150))
 
-        plt2 = win.addPlot()
+        plt2 = win.addPlot(title="Data Rate")
         generated_dr = []
         for d_index, d in enumerate(act_durations):
             generated_dr.extend([d_r[d_index]]*(int(act_durations[d_index])+1))
         plt2.plot(generated_x, generated_dr, brush=(0,0,255,150))
+
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
