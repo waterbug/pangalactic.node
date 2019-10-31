@@ -32,6 +32,7 @@ from pangalactic.core                 import prefs, write_prefs
 from pangalactic.core                 import state, write_state
 from pangalactic.core                 import trash, write_trash
 from pangalactic.core.access          import get_perms
+from pangalactic.core.datastructures  import chunkify
 from pangalactic.core.log             import get_loggers
 from pangalactic.core.parametrics     import node_count
 from pangalactic.core.refdata         import ref_pd_oids
@@ -399,12 +400,11 @@ class Main(QtWidgets.QMainWindow):
         # sync_projects_with_roles() does not require callback on_sync_result()
         # rpc.addCallback(self.sync_projects_with_roles)
         # rpc.addErrback(self.on_failure)
-        # sync_current_project() requires callback on_project_sync_result()
-        rpc.addCallback(self.sync_current_project)
-        rpc.addErrback(self.on_failure)
-        rpc.addCallback(self.on_project_sync_result)
-        rpc.addCallback(self.on_result)
-        rpc.addErrback(self.on_failure)
+        # rpc.addCallback(self.sync_current_project)
+        # rpc.addErrback(self.on_failure)
+        # rpc.addCallback(self.on_project_sync_result)
+        # rpc.addCallback(self.on_result)
+        # rpc.addErrback(self.on_failure)
 
     def on_get_user_roles_result(self, data):
         """
@@ -797,14 +797,12 @@ class Main(QtWidgets.QMainWindow):
         `vger.sync_library_objects` rpc.  The server response is a list of
         lists:
 
-            [0]:  server objects with later mod_datetime(s) or not found in the
-                  local data sent with `sync_library_objects()`
-                  -> add these to the local db
-            [1]:  oids of server objects with the same mod_datetime(s)
-                  -> ignore these
-            [2]:  oids of server objects with earlier mod_datetime(s),
-                  -> ignore these (*should* be empty!)
-            [3]:  oids in the data sent with `sync_library_objects()` that were
+            [0]:  oids of server objects (in DESERIALIZATION_ORDER) with later
+                  mod_datetime(s) or not found in the local data sent with
+                  `sync_library_objects()`
+                  -> do one or more vger.get_objects() rpcs to get the objects
+                  and add them to the local db
+            [1]:  oids in the data sent with `sync_library_objects()` that were
                   not found on the server
                   -> delete these from the local db if they are either:
                      [a] not created by the local user
@@ -817,56 +815,68 @@ class Main(QtWidgets.QMainWindow):
             deferred:  result of `vger.save` rpc
         """
         orb.log.debug('[pgxn] on_sync_library_result()')
-        # orb.log.debug('       data: {}'.format(str(data)))
-        update_needed = False
-        sobjs, same_dts, to_ignore, local_only = data
-        # TODO:  create a progress bar for this ...
-        # deserialize the objects to be saved locally [1]
-        if sobjs:
-            # server objects that are either not in local db or have a later
-            # mod_datetime than the corresponding local object ... so first
-            # make sure they are not in our local trash ...
-            not_trash = [so for so in sobjs if so.get('oid') not in trash]
-            # deserialize(orb, not_trash)
-            objs = self.load_serialized_objects(not_trash)
-            if objs:
-                update_needed = True
+        orb.log.debug('       data: {}'.format(str(data)))
+        newer, local_only = data
         # then collect any local objects that need to be saved to the repo ...
-        sobjs_to_save = []
         if local_only:
             orb.log.debug('       objects unknown to server found ...')
             objs_to_delete = set(orb.get(oids=local_only))
-            local_objs = set()
             for o in objs_to_delete:
                 if (hasattr(o, 'creator') and o.creator == self.local_user
                     and o.oid not in list(trash.keys())):
                     objs_to_delete.remove(o)
-                    local_objs.add(o)
                 # NOTE: ProjectSystemUsages are not relevant to library sync
                 # elif (o.__class__.__name__ == 'ProjectSystemUsage' and
                       # o.project.oid in state['admin_of']):
                     # objs_to_delete.remove(o)
-                    # local_objs.add(o)
                 else:
                     objs_to_delete.add(o)
             if objs_to_delete:
                 orb.log.debug('       to be deleted: {}'.format(
                               ', '.join([o.oid for o in objs_to_delete])))
                 orb.delete(objs_to_delete)
-                update_needed = True
-            if local_objs:
-                # sobjs_to_save = serialize(orb, local_objs,
-                                            # include_components=True)
-                sobjs_to_save = serialize(orb, local_objs)
-        if sobjs_to_save:
-            orb.log.debug('       to be saved in repo: {}'.format(
-                          ', '.join([sobj['oid'] for sobj in sobjs_to_save])))
-        # if library objects have been added or deleted, call _update_views()
-        if update_needed:
+        if newer:
+            orb.log.debug('       new objects found ...')
+            # chunks = chunkify(newer, 5)   # set chunks small for testing
+            chunks = chunkify(newer, 100)
+            orb.log.debug('       chunks: {}'.format(str(chunks)))
+            chunk = chunks.pop(0)
+            state['chunks_to_get'] = chunks
+            rpc = self.mbus.session.call('vger.get_objects', chunk)
+            rpc.addCallback(self.on_get_library_objects_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            # if no newer objects but objects have been deleted, update views
             self._update_views()
-        txt = 'library sync: saving objects ...'
-        dispatcher.send('sync progress', txt=txt)
-        return self.mbus.session.call('vger.save', sobjs_to_save)
+            return 'success'  # return value will be ignored
+
+    def on_get_library_objects_result(self, data):
+        """
+        Handler for the result of the rpc 'vger.get_objects()' when called by
+        'on_sync_library_result()' (i.e., only at login).  This should only be
+        used as handler for 'on_sync_library_result()' (at login) because when
+        finished (no more chunks to get) it calls
+        'self.on_set_current_project_signal()'.
+
+        Args:
+            data (list):  a list of serialized objects
+        """
+        orb.log.debug('* on_get_library_objects_result()')
+        if data is not None:
+            orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
+            self.load_serialized_objects(data)
+        if state.get('chunks_to_get'):
+            chunk = state['chunks_to_get'].pop(0)
+            orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
+            rpc = self.mbus.session.call('vger.get_objects', chunk)
+            rpc.addCallback(self.on_get_library_objects_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            # sync_current_project() requires callback on_project_sync_result()
+            # NOTE: call to on_set_current_project_signal which calls
+            # 'sync_current_project()' and incorporates its own callback and
+            # errback ...
+            self.on_set_current_project_signal()
 
     def on_pubsub_msg(self, msg):
         """
@@ -2335,6 +2345,7 @@ class Main(QtWidgets.QMainWindow):
         already been synced in this session (i.e., project oid is not in
         state['synced_projects'] list).
         """
+        orb.log.debug('* on_set_current_project_signal()')
         project_oid = state.get('project')
         if (((project_oid and project_oid != 'pgefobjects:SANDBOX'
              and project_oid not in state.get('synced_projects', []))
