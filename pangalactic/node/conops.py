@@ -704,38 +704,35 @@ class TimelineWidget(QWidget):
     def plot(self):
         act_durations= []
         start_times = []
-        values = []
+        power = []
+        d_r = []
         for acu in self.subject_activity.components:
             act=acu.component
             oid = getattr(act, "oid", None)
             act_durations.append(get_pval(orb, oid, 'duration'))
             start_times.append(get_pval(orb, oid, 't_start'))
-            values.append(get_pval(orb, oid, 'P'))
-        print(act_durations)
-        print(start_times)
-        print(values)
+            power.append(get_pval(orb, oid, 'P'))
+            d_r.append(get_pval(orb, oid, 'R_D'))
         win = pg.GraphicsWindow()
         win.resize(800,350)
-        win.setWindowTitle('pyqtgraph example: Histogram')
+        win.setWindowTitle('Power')
         self.plot_win = win
         plt1 = win.addPlot()
-        print("durations", act_durations)
-        print("start_times", start_times)
-        print("values", values)
         duration = sum(act_durations)
         s_time = min(start_times)
         generated_x = []
-        generated_y = []
+        generated_power = []
         for count, d in enumerate(act_durations, start = int(s_time)):
             generated_x.extend(list(range(int(start_times[count]), int(start_times[count]+int(d))+1)))
-
         for c, y in enumerate(act_durations):
-            generated_y.extend([values[c]]*(int(act_durations[c])+1))
-        #generated_y.append(values[-1])
-        print("length_x", len(generated_x),"generated_x", generated_x)
-        print("length_y", len(generated_y),"generated_y", generated_y)
-        plt1.plot(generated_x, generated_y, brush=(0,0,255,150))
-        
+            generated_power.extend([power[c]]*(int(act_durations[c])+1))
+        plt1.plot(generated_x, generated_power, brush=(0,0,255,150))
+
+        plt2 = win.addPlot()
+        generated_dr = []
+        for d_index, d in enumerate(act_durations):
+            generated_dr.extend([d_r[d_index]]*(int(act_durations[d_index])+1))
+        plt2.plot(generated_x, generated_dr, brush=(0,0,255,150))
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
