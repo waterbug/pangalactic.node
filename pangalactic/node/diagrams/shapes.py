@@ -108,7 +108,7 @@ class Block(QGraphicsItem):
         self.style = style or Qt.SolidLine
         # TODO:  notify the user if 'obj' is not a Product instance ... that
         # will cause errors
-        self.obj = obj
+        self.__obj = obj
         self.port_blocks = {}
         self.port_spacing = port_spacing or POINT_SIZE
         self.setPos(position)
@@ -119,6 +119,10 @@ class Block(QGraphicsItem):
         self.setFocus()
         global Dirty
         Dirty = True
+
+    @property
+    def obj(self):
+        return self.__obj
 
     def parentWidget(self):
         return self.scene().views()[0]
@@ -211,14 +215,17 @@ class Block(QGraphicsItem):
 
 class ObjectBlock(Block):
     """
-    An ObjectBlock represents an object.
+    An ObjectBlock represents a "usage" (Acu or ProjectSystemUsage) of a
+    product within an assembly or a project, which is represented by the
+    SubjectBlock that contains the ObjectBlock.
 
     Attributes:
         has_sub_diagram (bool): flag indicating the block can be "drilled
             down" to reveal another (sub) diagram
-        obj (Identifiable):  object the block represents
+        usage (Acu or ProjectSystemUsage):  usage the block represents
+        obj (Product):  the 'component' attribute of the block's 'usage'
     """
-    def __init__(self, position, scene=None, obj=None, style=None,
+    def __init__(self, position, scene=None, usage=None, style=None,
                  editable=False, right_ports=False):
         """
         Initialize ObjectBlock.
@@ -228,30 +235,30 @@ class ObjectBlock(Block):
             scene (QGraphicsScene):  scene in which to create block
 
         Keyword Args:
-            obj (Identifiable):  object the block represents
+            usage (Acu or ProjectSystemUsage):  usage the block represents
             style (Qt.PenStyle):  style of block border
             editable (bool):  flag indicating whether block properties can be
                 edited in place
         """
-        super(ObjectBlock, self).__init__(position, scene=scene, obj=obj,
-                                          style=style, editable=editable)
+        component = (getattr(usage, 'component', None) or
+                     getattr(usage, 'system', None))
+        super(ObjectBlock, self).__init__(position, scene=scene,
+                                          obj=component, style=style,
+                                          editable=editable)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
         self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
         self.style = style or Qt.SolidLine
-        self.obj = obj
         self.right_ports = right_ports
-        self.has_sub_diagram = False
-        if hasattr(obj, 'components') and len(obj.components):
-            self.has_sub_diagram = True
-        name = getattr(obj, 'name', None) or obj.id
-        version = getattr(obj, 'version', '')
+        self.usage = usage
+        name = getattr(self.obj, 'name', None) or self.obj.id
+        version = getattr(self.obj, 'version', '')
         if version:
             name += '<br>v.' + version
         description = '[{}]'.format(
-                            getattr(obj.product_type, 'name', 'Product'))
+                            getattr(self.obj.product_type, 'name', 'Product'))
         # self.connectors = []
         self.setPos(position)
         self.name_label = BlockLabel(name, self)
@@ -279,6 +286,16 @@ class ObjectBlock(Block):
         self.update()
         global Dirty
         Dirty = True
+
+    @property
+    def obj(self):
+        return (getattr(self.usage, 'component', None) or
+                getattr(self.usage, 'system', None))
+
+    @property
+    def has_sub_diagram(self):
+        return bool(hasattr(self.obj, 'components')
+                    and len(self.obj.components))
 
     # def contextMenuEvent(self, event):
         # self.scene().clearSelection()
@@ -388,7 +405,7 @@ class SubjectBlock(Block):
         # self.setAcceptedMouseButtons(Qt.NoButton)
         self.rect = QRectF(0, 0, width, height)
         self.style = style or Qt.SolidLine
-        self.obj = obj
+        self.__obj = obj   # used by the 'obj' property of Block
         self.right_ports = right_ports
         name = getattr(obj, 'name', None) or obj.id
         version = getattr(obj, 'version', '')

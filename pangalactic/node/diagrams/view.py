@@ -52,14 +52,14 @@ class DiagramScene(QGraphicsScene):
         point = QPoint(coord, coord)
         return self.parent().mapToScene(point)
 
-    def create_item(self, item_type, obj=None, pos=None, width=None,
-                    height=None, right_ports=False):
+    def create_item(self, item_type, usage=None, obj=None, pos=None,
+                    width=None, height=None, right_ports=False):
         # TODO: define item types ... for now, ignore ...
         if not pos:
             # NOTE:  for now, new_position() selects a random position ...
             pos = self.new_position()
         if not item_type or item_type is ObjectBlock:
-            item = ObjectBlock(pos, scene=self, obj=obj,
+            item = ObjectBlock(pos, scene=self, usage=usage,
                                right_ports=right_ports)
             self.item_inserted.emit(item)
         elif item_type is SubjectBlock:
@@ -265,12 +265,14 @@ class DiagramScene(QGraphicsScene):
                                 pos=QPointF(20, 20),
                                 width=sb_width, height=sb_height)
 
-    def create_ibd(self, objs):
+    def create_ibd(self, usages):
         """
-        Create an Internal Block Diagram (IBD) for a list of objects.
+        Create an Internal Block Diagram (IBD) for a list of usages (Acu or
+        ProjectSystemUsage instances).
 
         Args:
-            objs (list of Modelables): objects to create blocks for
+            usages (list of (Acu or ProjectSystemUsage): usages to create
+                blocks for
         """
         # orb.log.debug('* DiagramScene: create_ibd()')
         # TODO:  use actual block widths/heights in placement algorithm ... for
@@ -284,8 +286,10 @@ class DiagramScene(QGraphicsScene):
         all_ports = []
         port_blocks = {}   # maps Port oids to PortBlock instances
         # create component blocks in 2 vertical columns
-        for obj in objs:
-            all_ports += obj.ports
+        for usage in usages:
+            obj = (getattr(usage, 'component', None)
+                   or getattr(usage, 'system', None))
+            all_ports += getattr(obj, 'ports', [])
             # orb.log.debug('  - creating block for "%s" ...' % obj.name)
             if i == 2.0:
                 left_col = right_ports = False
@@ -297,7 +301,7 @@ class DiagramScene(QGraphicsScene):
                 i += 1.0
             # orb.log.debug('    ... at position ({}, {}) ...'.format(p.x(),
                                                                    # p.y()))
-            new_item = self.create_item(ObjectBlock, obj=obj, pos=p,
+            new_item = self.create_item(ObjectBlock, usage=usage, pos=p,
                                         right_ports=right_ports)
             items.append(new_item)
             if left_col:
@@ -355,7 +359,7 @@ class DiagramScene(QGraphicsScene):
                 y = shape.y()
                 rp = getattr(shape, 'right_ports', False)
                 # orb.log.debug('* ObjectBlock at {}, {}'.format(x, y))
-                object_blocks[shape.obj.oid] = dict(x=x, y=y, right_ports=rp)
+                object_blocks[shape.usage.oid] = dict(x=x, y=y, right_ports=rp)
             ## Instantiating the ObjectBlock will recreate its PortBlocks
             ## automatically, and RoutedConnectors (Flows) will know their
             ## start/end ## PortBlocks' associated Port oids.
@@ -368,17 +372,16 @@ class DiagramScene(QGraphicsScene):
                     subject_block=subject_block,
                     dirty=False)
 
-    def restore_diagram(self, model, objs):
+    def restore_diagram(self, model, usages):
         """
         Recreate a block diagram from a saved model, ensuring that blocks for
-        all objects in 'objs' are included.
+        all usages are included.
 
         Args:
             model (dict): a serialized block model
-            objs (list of Modelables): component objects to create
-                object_blocks for
+            usages (list of Acu or ProjectSystemUsage): usages to create
+                object blocks for
         """
-        # TODO:  include objs (add blocks for any missing ones)
         # orb.log.debug('* DiagramScene: restore_diagram()')
         port_blocks = {}   # maps Port oids to PortBlock instances
         object_blocks = []
@@ -386,16 +389,16 @@ class DiagramScene(QGraphicsScene):
         y_left_next = y_right_next = 150 # y of top of next blocks
         spacing = 20
         w = 100
-        if objs:
-            objs_by_oid = {o.oid : o for o in objs}
+        if usages:
+            usages_by_oid = {o.oid : o for o in usages}
             if model.get('object_blocks'):
                 for oid, item in model['object_blocks'].items():
                     # first restore ObjectBlocks -- ports created automatically
                     # if the "obj" has a non-null "ports" attribute
-                    if oid in objs_by_oid:
-                        # if in objs, get the object and remove it from objs
-                        obj = objs_by_oid[oid]
-                        del objs_by_oid[oid]
+                    if oid in usages_by_oid:
+                        # if in usages, get the usage and remove it
+                        usage = usages_by_oid[oid]
+                        del usages_by_oid[oid]
                     else:
                         # if not, ignore it (do not include it in the diagram)
                         continue
@@ -406,8 +409,8 @@ class DiagramScene(QGraphicsScene):
                     # orb.log.debug('    ... at position ({}, {}) ...'.format(
                                                                         # x, y))
                     rp = item.get('right_ports', False)
-                    obj_block = self.create_item(ObjectBlock, obj=obj, pos=p,
-                                                 right_ports=rp)
+                    obj_block = self.create_item(ObjectBlock, usage=usage,
+                                                 pos=p, right_ports=rp)
                     port_blocks.update(obj_block.port_blocks)
                     object_blocks.append(obj_block)
                     if rp:
@@ -419,8 +422,8 @@ class DiagramScene(QGraphicsScene):
                             y_right_last = y
                             y_right_next = (y + obj_block.rect.height()
                                             + spacing)
-            for obj in objs_by_oid.values():
-                # create blocks for missing objs, if any
+            for usage in usages_by_oid.values():
+                # create blocks for missing usages, if any
                 # orb.log.debug('  - adding missing block "{}" ...'.format(
                                                                     # obj.name))
                 if y_left_next <= y_right_next:
@@ -431,7 +434,7 @@ class DiagramScene(QGraphicsScene):
                     # right col is shorter ...
                     p = QPointF(7*w, y_right_next)
                     rp = False
-                obj_block = self.create_item(ObjectBlock, obj=obj, pos=p,
+                obj_block = self.create_item(ObjectBlock, usage=usage, pos=p,
                                              right_ports=rp)
                 port_blocks.update(obj_block.port_blocks)
                 object_blocks.append(obj_block)
