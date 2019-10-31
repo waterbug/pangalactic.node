@@ -735,11 +735,7 @@ class TimelineWidget(QWidget):
         print("length_x", len(generated_x),"generated_x", generated_x)
         print("length_y", len(generated_y),"generated_y", generated_y)
         plt1.plot(generated_x, generated_y, brush=(0,0,255,150))
-        x = [-3,-2,-2,-1,-1,0,0,1,1,2,2,3,3,4]
-        y = [ 0, 0,-1,-1, 1,1,2,2,1,1,0,0,0,0]
-
-        plt1.plot(x, y, brush=(0,0,255,150))
-
+        
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
