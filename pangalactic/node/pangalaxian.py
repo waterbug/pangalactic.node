@@ -2247,8 +2247,7 @@ class Main(QtWidgets.QMainWindow):
             # object", "modified object", etc. ...)
             # if hasattr(self, 'library_widget'):
                 # self.library_widget.refresh(cname=cname)
-            if (self.mode == 'system'
-                and getattr(self, 'sys_tree', None)
+            if (getattr(self, 'sys_tree', None)
                 and isinstance(obj, (orb.classes['Product'],
                                      orb.classes['Acu'],
                                      orb.classes['ProjectSystemUsage']))):

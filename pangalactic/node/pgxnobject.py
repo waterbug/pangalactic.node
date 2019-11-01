@@ -1187,12 +1187,12 @@ class PgxnObject(QDialog):
                         u_cur = None
                         if hasattr(self.u_widgets[p_id], 'currentText'):
                             u_cur = self.u_widgets[p_id].currentText()
-                            orb.log.debug('  - units widget set to {}'.format(
-                                                                        u_cur))
+                            # orb.log.debug('  - units widget set to {}'.format(
+                                                                        # u_cur))
                         # set parameter values/units for ALL editable
                         # parameters (faster/simpler than checking for mods)
-                        orb.log.debug('  - setting {} to {} {}'.format(
-                                      p_id, str_val, u_cur))
+                        # orb.log.debug('  - setting {} to {} {}'.format(
+                                      # p_id, str_val, u_cur))
                         set_pval_from_str(orb, self.obj.oid, p_id, str_val,
                                           units=u_cur)
             if caching_parameters:
