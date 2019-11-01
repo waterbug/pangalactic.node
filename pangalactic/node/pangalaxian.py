@@ -3787,6 +3787,8 @@ class Main(QtWidgets.QMainWindow):
 
     def set_current_project(self):
         orb.log.debug('* set_current_project()')
+        # this is a good time to serialize the parameterz dict ...
+        orb._save_parmz()
         dlg = ObjectSelectionDialog(self.projects, parent=self)
         dlg.make_popup(self.project_selection)
         # dlg.exec_() -> modal dialog
@@ -3846,6 +3848,7 @@ class Main(QtWidgets.QMainWindow):
             orb.db.commit()
         # save a serialized version of the db to vault/db.yaml
         self.statusbar.showMessage('Exporting local DB to vault...')
+        orb.dump_db()
         if state.get('connected'):
             self.mbus.session = None
             self.mbus = None
