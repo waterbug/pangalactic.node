@@ -529,8 +529,8 @@ class SubjectBlock(Block):
                             QMessageBox.Ok, self.parent)
                     popup.show()
                 # elif drop_target.oid == 'pgefobjects:TBD':
-                # NOTE:  TBD object -> SocketBlock, so not applicable --
-                # this needs to be in dropEvent() method of SocketBlock
+                # NOTE:  TBD object -> ObjectBlock, so not applicable --
+                # this needs to be in dropEvent() method of ObjectBlock
                     # # case 1: drop target is "TBD" product -> replace it
                     # node = self.get_node(parent)
                     # # avoid cycles:  check if the assembly is in the bom
@@ -585,7 +585,6 @@ class SubjectBlock(Block):
                         # # obj setter
                         # node.obj = dropped_item
                         # self.dataChanged.emit(parent, parent)
-                        # self.successful_drop.emit()
                         # # orb.log.debug('   node link mod: {}'.format(
                                       # # node.link.name))
                         # dispatcher.send('modified object',
@@ -600,7 +599,7 @@ class SubjectBlock(Block):
                               QMessageBox.Ok, self.parent)
                         popup.show()
                     else:
-                        # orb.log.debug('      creating Acu ...')
+                        orb.log.debug('      creating Acu ...')
                         # generate a new reference_designator
                         ref_des = orb.get_next_ref_des(drop_target,
                                                        dropped_item)
@@ -612,9 +611,41 @@ class SubjectBlock(Block):
                             product_type_hint=dropped_item.product_type,
                             reference_designator=ref_des)
                         orb.save([new_acu])
-                        # orb.log.debug('      Acu created: {}'.format(
-                                      # new_acu.name))
+                        orb.log.debug('      Acu created: {}'.format(
+                                      new_acu.name))
+                        self.scene().create_item(ObjectBlock, usage=new_acu)
                         dispatcher.send('new object', obj=new_acu)
+            elif target_cname == 'Project':
+                # case 3: drop target is a project
+                log_txt = '+ target is a Project -- creating PSU ...'
+                orb.log.debug('    {}'.format(log_txt))
+                psu = orb.search_exact(cname='ProjectSystemUsage',
+                                       project=drop_target,
+                                       system=dropped_item)
+                if psu:
+                    QMessageBox.warning(self.parent,
+                                    'Already exists',
+                                    'System "{0}" already exists on '
+                                    'project {1}'.format(
+                                    dropped_item.name, drop_target.id))
+                else:
+                    psu_id = ('psu-' + dropped_item.id + '-' +
+                              drop_target.id)
+                    psu_name = ('psu: ' + dropped_item.name +
+                                ' (system used on) ' + drop_target.name)
+                    psu_role = getattr(dropped_item.product_type, 'name',
+                                       'System')
+                    new_psu = clone('ProjectSystemUsage',
+                                    id=psu_id,
+                                    name=psu_name,
+                                    system_role=psu_role,
+                                    project=drop_target,
+                                    system=dropped_item)
+                    orb.save([new_psu])
+                    orb.log.debug('      ProjectSystemUsage created: %s'
+                                  % psu_name)
+                    self.scene().create_item(ObjectBlock, usage=new_psu)
+                    dispatcher.send('new object', obj=new_psu)
 
         elif event.mimeData().hasFormat("application/x-pgef-port-type"):
             data = extract_mime_data(event, "application/x-pgef-port-type")
