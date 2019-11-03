@@ -405,8 +405,14 @@ class SystemTreeModel(QAbstractItemModel):
         Check if the node has data that has not been loaded yet.
         """
         node = self.get_node(index)
-        if node.is_branch_node and not node.is_traversed:
-            return True
+        if node.is_branch_node:
+            if getattr(node.obj, 'components', None):
+                # -> this is a Product node and it has acus
+                return bool(len(node.obj.components) > len(node.children))
+            elif node.cname == 'Project':
+                return bool(len(node.obj.systems) > len(node.children))
+            else:
+                return False
         return False
 
     def fetchMore(self, index):
@@ -418,25 +424,28 @@ class SystemTreeModel(QAbstractItemModel):
         # call this node "pnode" (parent node)
         pnode = self.get_node(index)
         nodes = []
+        links = set([child.link for child in pnode.children])
         # if hasattr(pnode.obj, 'components'):
         if getattr(pnode.obj, 'components', None):
             # -> this is a Product node and it has acus
             # NOTE: "if acu.component" is needed in case Acu has been corrupted
             # (e.g. if its 'component' object is None)
-            acus = [acu for acu in pnode.obj.components if acu.component]
-            if acus:
-                for acu in acus:
+            acus = set([acu for acu in pnode.obj.components if acu.component])
+            new_acus = acus - links
+            if new_acus:
+                for acu in new_acus:
                     comp_node = self.node_for_object(acu.component, pnode,
                                                      link=acu)
                     nodes.append(comp_node)
                     dispatcher.send('tree node fetched')
         elif pnode.cname == 'Project':
             # -> this is a Project node
-            psus = [psu for psu in pnode.obj.systems if psu.system]
+            psus = set([psu for psu in pnode.obj.systems if psu.system])
+            new_psus = psus - links
             # NOTE: "if psu.system" is needed in case psu has been corrupted
             # (e.g. if its 'system' object is None)
-            if psus:
-                for psu in psus:
+            if new_psus:
+                for psu in new_psus:
                     sys_node = self.node_for_object(psu.system, pnode,
                                                     link=psu)
                     nodes.append(sys_node)
