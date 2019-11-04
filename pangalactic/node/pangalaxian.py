@@ -2315,7 +2315,7 @@ class Main(QtWidgets.QMainWindow):
             orb.recompute_parmz()
             # TODO:  value might not be displayed until dashboard gets focus --
             # may have to explicitly set focus to dashboard to force it
-            # self.refresh_tree_and_dashboard()
+            self.refresh_tree_and_dashboard()
         # TODO:  other actions may be needed ...
         # NOTE:  libraries are now subscribed to the 'deleted object' signal
         # and update themselves, so no need to call them.
