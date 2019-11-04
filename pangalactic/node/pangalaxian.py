@@ -2123,8 +2123,16 @@ class Main(QtWidgets.QMainWindow):
         obj = orb.get(obj_oid)
         if obj:
             cname = obj.__class__.__name__
-            if (cname in ['Acu', 'ProjectSystemUsage']
-                and hasattr(self, 'sys_tree')):
+            if ((cname == 'Acu') and hasattr(self, 'sys_tree')):
+                # NOTE:  refreshing the whole tree is very disruptive but is
+                # the only reliable way to deal with the possibility that the
+                # deleted Acu occurs multiple times in the assembly tree 
+                orb.delete([obj])
+                self.refresh_tree_and_dashboard()
+            elif ((cname == 'ProjectSystemUsage')
+                   and hasattr(self, 'sys_tree')):
+                # NOTE:  for a PSU, refreshing the whole tree is not necessary
+                # because a PSU cannot occur multiple times in a tree structure
                 # find all expanded tree nodes that reference obj
                 idxs = self.sys_tree.link_indexes_in_tree(obj)
                 # if any are found, signal them to update
