@@ -2123,20 +2123,12 @@ class Main(QtWidgets.QMainWindow):
         obj = orb.get(obj_oid)
         if obj:
             cname = obj.__class__.__name__
-            if ((cname == 'Acu') and hasattr(self, 'sys_tree')):
-                # NOTE:  refreshing the whole tree is very disruptive but is
-                # the only reliable way to deal with the possibility that the
-                # deleted Acu occurs multiple times in the assembly tree 
-                orb.delete([obj])
-                self.refresh_tree_and_dashboard()
-            elif ((cname == 'ProjectSystemUsage')
+            if ((cname in ['Acu', 'ProjectSystemUsage'])
                    and hasattr(self, 'sys_tree')):
-                # NOTE:  for a PSU, refreshing the whole tree is not necessary
-                # because a PSU cannot occur multiple times in a tree structure
-                # find all expanded tree nodes that reference obj
                 idxs = self.sys_tree.link_indexes_in_tree(obj)
-                # if any are found, signal them to update
-                for idx in idxs:
+                if len(idxs) == 1:
+                    # if the link occurs exactly once in the tree, remove it
+                    idx = idxs[0]
                     node = self.sys_tree.source_model.get_node(idx)
                     if cname == 'Acu':
                         node_des = (getattr(node.link, 'reference_designator',
@@ -2153,8 +2145,13 @@ class Main(QtWidgets.QMainWindow):
                                                                    parent_id))
                     # removeRow calls orb.delete on the object ...
                     self.sys_tree.source_model.removeRow(pos, row_parent)
-                # resize dashboard columns if necessary
-                self.refresh_dashboard()
+                    # this will resize dashboard columns if necessary
+                    # self.refresh_dashboard()
+                elif len(idxs) > 1:
+                    # NOTE:  refreshing the whole tree is very disruptive but is
+                    # necessary if the link occurs multiple times in the tree 
+                    orb.delete([obj])
+                    self.refresh_tree_and_dashboard()
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
