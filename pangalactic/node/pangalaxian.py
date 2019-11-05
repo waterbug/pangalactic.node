@@ -1447,10 +1447,10 @@ class Main(QtWidgets.QMainWindow):
                                     tip="Write MEL...",
                                     modes=['system'])
         self.dump_db_action = self.create_action(
-                                    "Dump Database to a File...",
+                                    "Backup Local Database to a File...",
                                     slot=self.dump_database,
                                     tip="Dump DB...",
-                                    modes=['db'])
+                                    modes=['system', 'component', 'db'])
         # actions accessible via the 'Import Data or Objects' toolbar menu:
         # * import_excel_data_action
         # * import_objects (import project or other serialized objs)
@@ -2248,26 +2248,50 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  object oid: "{}"'.format(
                                         str(getattr(obj, 'oid', '[no oid]'))))
             orb.log.debug('  cname: "{}"'.format(str(cname)))
-            # the library widget will now refresh itself (it listens for "new
-            # object", "modified object", etc. ...)
-            # if hasattr(self, 'library_widget'):
-                # self.library_widget.refresh(cname=cname)
+            # NOTE: the library widget refreshes itself (it listens for "new object",
+            # "modified object", etc.), so no need to worry about
+            # self.library_widget
             if (getattr(self, 'sys_tree', None)
                 and isinstance(obj, (orb.classes['Product'],
                                      orb.classes['Acu'],
                                      orb.classes['ProjectSystemUsage']))):
+                # update system tree and dashboard as necessary
                 self.update_object_in_trees(obj)
-                # NOTE:  EXPERIMENTALLY, set_system_model_window() is now run
-                # inside refresh_tree_and_dashboard()
-                # NOTE:  see if we can update the tree without rebuilding it
-                # ... so comment out the refresh_tree_and_dashboard()
-                # self.refresh_tree_and_dashboard()
-                # run set_system_model_window() *AFTER* refreshing tree, so
-                # that the model window will get all the remaining space
-                # if cname == 'ProjectSystemUsage':
-                    # orb.log.debug('  - obj is PSU, resetting model window ...')
-                    # # update the model window
-                    # self.set_system_model_window(obj.system)
+                # check if model window needs updating
+                # NOTE: Hm, maybe the diagram should listen for "modified
+                # object" signal -- i.e., put this code in DiagramView
+                # (view.py)
+                if getattr(self, 'system_model_window', None):
+                    diagram_subject = self.system_model_window.obj
+                    if msg == 'new':
+                        # if it's a new object, only a new Acu or PSU will matter
+                        if (isinstance(obj, orb.classes['Acu']) and
+                            obj.assembly is diagram_subject):
+                            # add a new block to the diagram
+                            # WORKING HERE
+                            pass
+                        elif (isinstance(obj,
+                                         orb.classes['ProjectSystemUsage'])
+                              and obj.project is diagram_subject):
+                            # add a new block to the diagram
+                            # WORKING HERE
+                            pass
+                    else:
+                        # if it's a modified object, check if it is in the diagram
+                        if isinstance(diagram_subject, orb.classes['Project']):
+                            links = diagram_subject.systems
+                            products = set([link.system for link in links])
+                        else:
+                            links = diagram_subject.components
+                            products = set([link.component for link in links])
+                        if obj in links:
+                            # update the diagram ...
+                            # WORKING HERE
+                            pass
+                        elif obj in products:
+                            # update the diagram ...
+                            # WORKING HERE
+                            pass
             elif self.mode == 'db':
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
@@ -2483,7 +2507,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('* [pgxn] _update_views()')
         orb.log.debug('        triggered by object: {}'.format(
                                             getattr(obj, 'id', '[no object]')))
-        if hasattr(self, 'system_model_window'):
+        if getattr(self, 'system_model_window', None):
             self.system_model_window.cache_block_model()
         # [gui refactor] creation of top dock moved to _init_ui()
         self.update_project_role_labels()
@@ -3835,8 +3859,11 @@ class Main(QtWidgets.QMainWindow):
             state['last_path'] = orb.test_data_dir
 
     def dump_database(self):
+        self.statusbar.showMessage('Exporting DB ...')
         orb.log.debug('* dump_database()')
         orb.dump_db()
+        txt = 'Exporting DB ... done. [File: ~/cattens_home/vault/db.yaml]'
+        self.statusbar.showMessage(txt)
 
     def closeEvent(self, event):
         # things to do when window is closed
@@ -3851,9 +3878,6 @@ class Main(QtWidgets.QMainWindow):
         orb._save_parmz()
         if orb.db.dirty:
             orb.db.commit()
-        # save a serialized version of the db to vault/db.yaml
-        self.statusbar.showMessage('Exporting local DB to vault...')
-        orb.dump_db()
         if state.get('connected'):
             self.mbus.session = None
             self.mbus = None

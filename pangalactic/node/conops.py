@@ -183,9 +183,9 @@ class EventBlock(QGraphicsPolygonItem):
 
 
 
-class DiagramView(QGraphicsView):
+class TimelineView(QGraphicsView):
     def __init__(self, parent=None):
-        super(DiagramView, self).__init__(parent)
+        super(TimelineView, self).__init__(parent)
 
     def dragEnterEvent(self, event):
         try:
@@ -286,10 +286,10 @@ class Timeline(QGraphicsPathItem):
                             position=self.scene().position)
         self.update()
 
-class DiagramScene(QGraphicsScene):
+class TimelineScene(QGraphicsScene):
     def __init__(self, parent, current_activity=None, act_of=None,
                  position=None):
-        super(DiagramScene, self).__init__(parent)
+        super(TimelineScene, self).__init__(parent)
         self.position = position
         self.current_activity = current_activity
         self.timeline = Timeline(self)
@@ -305,14 +305,14 @@ class DiagramScene(QGraphicsScene):
                                 obj=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
-        super(DiagramScene, self).mousePressEvent(mouseEvent)
+        super(TimelineScene, self).mousePressEvent(mouseEvent)
 
     def mouseMoveEvent(self, event):
-        super(DiagramScene, self).mouseMoveEvent(event)
+        super(TimelineScene, self).mouseMoveEvent(event)
         self.grabbed_item = self.mouseGrabberItem()
 
     def mouseReleaseEvent(self, event):
-        super(DiagramScene, self).mouseReleaseEvent(event)
+        super(TimelineScene, self).mouseReleaseEvent(event)
         if self.grabbed_item != None:
             self.grabbed_item.setPos(event.scenePos().x(), 250)
             self.timeline.reposition()
@@ -355,7 +355,7 @@ class DiagramScene(QGraphicsScene):
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
     def mouseDoubleClickEvent(self, event):
-        super(DiagramScene, self).mouseDoubleClickEvent(event)
+        super(TimelineScene, self).mouseDoubleClickEvent(event)
 
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
@@ -423,7 +423,7 @@ class TimelineWidget(QWidget):
         # self.setVisible(visible)
         # self.set_title()
         self.scene = self.set_new_scene()
-        self.view = DiagramView(self)
+        self.view = TimelineView(self)
         self.update_view()
         # self.statusbar = QStatusBar()
         self.layout = QVBoxLayout()
@@ -508,7 +508,7 @@ class TimelineWidget(QWidget):
         subject activity.
         """
         if self.act_of is not None:
-            scene = DiagramScene(self, self.subject_activity,
+            scene = TimelineScene(self, self.subject_activity,
                                  act_of=self.act_of, position=self.position)
             if (self.subject_activity != None and
                 len(self.subject_activity.components) > 0):
