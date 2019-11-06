@@ -19,8 +19,9 @@ from sqlalchemy import ForeignKey
 from pangalactic.core             import state
 from pangalactic.core.utils.meta  import (display_name, get_acu_id,
                                           get_acu_name, get_external_name,
-                                          get_next_port_seq, get_port_id,
-                                          get_port_name, to_media_name)
+                                          get_next_port_seq, get_next_ref_des,
+                                          get_port_id, get_port_name,
+                                          to_media_name)
 from pangalactic.core.parametrics import (add_default_parameters, parameterz,
                                           refresh_componentz)
 from pangalactic.core.uberorb     import orb
@@ -165,7 +166,7 @@ def clone(what, include_ports=True, include_components=True,
             # if we are including components, add them ...
             if include_components and getattr(obj, 'components', None):
                 for acu in obj.components:
-                    ref_des = orb.get_next_ref_des(new_obj, acu.component)
+                    ref_des = get_next_ref_des(new_obj, acu.component)
                     clone('Acu', 
                           id=get_acu_id(new_obj.id, ref_des),
                           name=get_acu_name(new_obj.name, ref_des),

@@ -24,6 +24,7 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
                                           get_flow_id, get_flow_name,
                                           get_next_port_seq, get_port_id,
+                                          get_next_ref_des, 
                                           get_port_name)
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -587,8 +588,7 @@ class SubjectBlock(Block):
                     # add new Acu
                     orb.log.debug('      creating Acu ...')
                     # generate a new reference_designator
-                    ref_des = orb.get_next_ref_des(drop_target,
-                                                   dropped_item)
+                    ref_des = get_next_ref_des(drop_target, dropped_item)
                     new_acu = clone('Acu',
                         id=get_acu_id(drop_target.id, ref_des),
                         name=get_acu_name(drop_target.name, ref_des),

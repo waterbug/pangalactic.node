@@ -27,7 +27,8 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.core.units       import in_si
-from pangalactic.core.utils.meta  import display_name, get_acu_id, get_acu_name
+from pangalactic.core.utils.meta  import (display_name, get_acu_id,
+                                          get_acu_name, get_next_ref_des)
 from pangalactic.node.dialogs     import AssemblyNodeDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 # from pangalactic.node.utils      import HTMLDelegate
@@ -811,8 +812,8 @@ class SystemTreeModel(QAbstractItemModel):
                         else:
                             # orb.log.debug('      creating Acu ...')
                             # generate a new reference_designator
-                            ref_des = orb.get_next_ref_des(drop_target,
-                                                           dropped_item)
+                            ref_des = get_next_ref_des(drop_target,
+                                                       dropped_item)
                             new_acu = clone('Acu',
                                 id=get_acu_id(drop_target.id, ref_des),
                                 name=get_acu_name(drop_target.name, ref_des),
