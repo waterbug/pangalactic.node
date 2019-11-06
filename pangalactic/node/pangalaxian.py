@@ -2257,41 +2257,8 @@ class Main(QtWidgets.QMainWindow):
                                      orb.classes['ProjectSystemUsage']))):
                 # update system tree and dashboard as necessary
                 self.update_object_in_trees(obj)
-                # check if model window needs updating
-                # NOTE: Hm, maybe the diagram should listen for "modified
-                # object" signal -- i.e., put this code in DiagramView
-                # (view.py)
-                if getattr(self, 'system_model_window', None):
-                    diagram_subject = self.system_model_window.obj
-                    if msg == 'new':
-                        # if it's a new object, only a new Acu or PSU will matter
-                        if (isinstance(obj, orb.classes['Acu']) and
-                            obj.assembly is diagram_subject):
-                            # add a new block to the diagram
-                            # WORKING HERE
-                            pass
-                        elif (isinstance(obj,
-                                         orb.classes['ProjectSystemUsage'])
-                              and obj.project is diagram_subject):
-                            # add a new block to the diagram
-                            # WORKING HERE
-                            pass
-                    else:
-                        # if it's a modified object, check if it is in the diagram
-                        if isinstance(diagram_subject, orb.classes['Project']):
-                            links = diagram_subject.systems
-                            products = set([link.system for link in links])
-                        else:
-                            links = diagram_subject.components
-                            products = set([link.component for link in links])
-                        if obj in links:
-                            # update the diagram ...
-                            # WORKING HERE
-                            pass
-                        elif obj in products:
-                            # update the diagram ...
-                            # WORKING HERE
-                            pass
+                # NOTE: the diagram will listen for "new | modified object"
+                # signals -- i.e., DiagramScene (in view.py)
             elif self.mode == 'db':
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)

@@ -46,23 +46,91 @@ class DiagramScene(QGraphicsScene):
         self.prev_point = QPoint()
         self.item_inserted.connect(self.process_item_inserted)
         self.item_selected.connect(self.process_item_selected)
+        dispatcher.connect(self.on_new_object_signal, 'new object')
+        dispatcher.connect(self.on_mod_object_signal, 'modified object')
+
+    def on_new_object_signal(self, obj=None, cname=''):
+        """
+        Handle (local) dispatcher signal for "new object".
+        """
+        # for now, use on_mod_object_signal (may change in the future)
+        self.on_mod_object_signal(obj=obj, cname=cname, msg='new')
+
+    def on_mod_object_signal(self, obj=None, cname='', msg=None):
+        """
+        Handle local "new object" and "modified object" signals.
+        """
+        orb.log.info('* [diagram] on_mod_object_signal()')
+        if msg == 'new':
+            orb.log.info('  - local "new object" signal')
+        else:
+            orb.log.info('  - local "modified object" signal')
+        if obj:
+            cname = obj.__class__.__name__
+            orb.log.debug('  cname: "{}"'.format(str(cname)))
+            if msg == 'new':
+                # only a new Acu or PSU will matter
+                if (isinstance(obj, orb.classes['Acu']) and
+                    obj.assembly is self.subject):
+                    # add a new block to the diagram
+                    # WORKING HERE
+                    pass
+                elif (isinstance(obj,
+                                 orb.classes['ProjectSystemUsage'])
+                      and obj.project is self.subject):
+                    # add a new block to the diagram
+                    # WORKING HERE
+                    pass
+            else:
+                # check if modified object is in the diagram
+                if isinstance(self.subject, orb.classes['Project']):
+                    links = self.subject.systems
+                    products = set([link.system for link in links])
+                else:
+                    links = self.subject.components
+                    products = set([link.component for link in links])
+                if obj in links:
+                    # update the diagram ...
+                    # WORKING HERE
+                    pass
+                elif obj in products:
+                    # update the diagram ...
+                    # WORKING HERE
+                    pass
 
     def new_position(self):
         coord = random.randint(36, 144)
         point = QPoint(coord, coord)
         return self.parent().mapToScene(point)
 
-    def create_item(self, item_type, usage=None, obj=None, pos=None,
-                    width=None, height=None, right_ports=False):
-        # TODO: define item types ... for now, ignore ...
+    def create_block(self, block_type, usage=None, obj=None, pos=None,
+                     width=None, height=None, right_ports=False):
+        """
+        Create a new graphics item.
+
+        Args:
+            block_type (class): SubjectBlock or ObjectBlock
+
+        Keyword Args:
+            usage (Acu or ProjectSystemUsage):  the relationship between the
+                created item's 'obj' and its parent item's 'obj'.
+            obj (Project or Product):  the object whose usage is represented by
+                the created item
+            pos (QPointF):  position of the item in parent coordinates (or
+                scene coordinates if it has no parent)
+            width (int):  width of the item in pixels
+            height (int):  height of the item in pixels
+            right_ports (bool):  flag; if True, any ports the item has will be
+                on its right side, else they will be on the left side
+        """
         if not pos:
             # NOTE:  for now, new_position() selects a random position ...
             pos = self.new_position()
-        if not item_type or item_type is ObjectBlock:
+        if not block_type or block_type is ObjectBlock:
             item = ObjectBlock(pos, scene=self, usage=usage,
                                right_ports=right_ports)
             self.item_inserted.emit(item)
-        elif item_type is SubjectBlock:
+        elif block_type is SubjectBlock:
             w = width or 100
             h = height or 50
             # ports, if any, are on the right by default for SubjectBlock
@@ -261,9 +329,9 @@ class DiagramScene(QGraphicsScene):
             # if empty, give it minimum w, h
             sb_width = 300
             sb_height = 300
-        return self.create_item(SubjectBlock, obj=self.subject,
-                                pos=QPointF(20, 20),
-                                width=sb_width, height=sb_height)
+        return self.create_block(SubjectBlock, obj=self.subject,
+                                 pos=QPointF(20, 20),
+                                 width=sb_width, height=sb_height)
 
     def create_ibd(self, usages):
         """
@@ -301,8 +369,8 @@ class DiagramScene(QGraphicsScene):
                 i += 1.0
             # orb.log.debug('    ... at position ({}, {}) ...'.format(p.x(),
                                                                    # p.y()))
-            new_item = self.create_item(ObjectBlock, usage=usage, pos=p,
-                                        right_ports=right_ports)
+            new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
+                                         right_ports=right_ports)
             items.append(new_item)
             if left_col:
                 y_left_next += new_item.rect.height() + spacing
@@ -409,8 +477,8 @@ class DiagramScene(QGraphicsScene):
                     # orb.log.debug('    ... at position ({}, {}) ...'.format(
                                                                         # x, y))
                     rp = item.get('right_ports', False)
-                    obj_block = self.create_item(ObjectBlock, usage=usage,
-                                                 pos=p, right_ports=rp)
+                    obj_block = self.create_block(ObjectBlock, usage=usage,
+                                                  pos=p, right_ports=rp)
                     port_blocks.update(obj_block.port_blocks)
                     object_blocks.append(obj_block)
                     if rp:
@@ -434,8 +502,8 @@ class DiagramScene(QGraphicsScene):
                     # right col is shorter ...
                     p = QPointF(7*w, y_right_next)
                     rp = False
-                obj_block = self.create_item(ObjectBlock, usage=usage, pos=p,
-                                             right_ports=rp)
+                obj_block = self.create_block(ObjectBlock, usage=usage, pos=p,
+                                              right_ports=rp)
                 port_blocks.update(obj_block.port_blocks)
                 object_blocks.append(obj_block)
                 if rp:
@@ -533,24 +601,4 @@ class DiagramView(QGraphicsView):
             event.accept()
         else:
             event.ignore()
-
-    # def dropEvent(self, event):
-        # orb.log.debug("* DiagramView: something dropped on me ...")
-        # if event.mimeData().hasFormat(
-                                # "application/x-pgef-hardware-product"):
-            # orb.log.info("  - it is a hardware product ...")
-            # data = extract_mime_data(event, 
-                                     # "application/x-pgef-hardware-product")
-            # icon, p_oid, p_id, p_name, p_cname = data
-            # product = orb.get(p_oid)
-            # if product:
-                # orb.log.info(
-                    # '  - orb found oid, sending message "drop on diagram"')
-                # dispatcher.send('drop on diagram', p=product)
-            # else:
-                # event.ignore()
-                # orb.log.info("  - dropped product oid not in db.")
-        # else:
-            # orb.log.info("  - dropped product oid not in db.")
-
 

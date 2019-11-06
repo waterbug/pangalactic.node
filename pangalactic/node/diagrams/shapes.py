@@ -257,20 +257,27 @@ class ObjectBlock(Block):
         version = getattr(self.obj, 'version', '')
         if version:
             name += '<br>v.' + version
-        description = '[{}]'.format(
-                            getattr(self.obj.product_type, 'name', 'Product'))
+        hint = ''
+        if hasattr(self.usage, 'product_type_hint'):
+            hint = getattr(self.usage.product_type_hint, 'abbreviation',
+                           '[Unspecified Type]')
+        if hasattr(self.usage, 'system_role'):
+            hint = self.usage.system_role or '[Unspecified Type]'
+        hint = hint or '[Unspecified Type]'
+        description = '[{}]'.format(getattr(self.obj.product_type,
+                                    'abbreviation', hint))
         # self.connectors = []
         self.setPos(position)
         self.name_label = BlockLabel(name, self)
-        self.description_label = TextLabel(description, self,
-                                           color='darkMagenta')
+        self.description_label = BlockLabel(description, self,
+                                            color='darkMagenta')
         self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
         scene.clearSelection()
         self.setSelected(True)
         self.setFocus()
         # NOTE: actually, z-value is not very relevant ...
         # make sure the ObjectBlock has higher z-value than its SubjectBlock
-        # z_value = -1.0
+        z_value = 1.0
         # overlap_items = self.collidingItems()
         # if overlap_items:
             # for item in overlap_items:
@@ -279,9 +286,9 @@ class ObjectBlock(Block):
                     # z_value = item.zValue() + 0.1
                     # orb.log.debug('* SubjectBlock z-value is {}'.format(
                                   # item.zValue()))
-        # orb.log.debug('  setting ObjectBlock z-value to {}'.format(
-                      # z_value))
-        # self.setZValue(z_value)
+        orb.log.debug('  setting ObjectBlock z-value to {}'.format(
+                      z_value))
+        self.setZValue(z_value)
         self.rebuild_port_blocks()
         self.update()
         global Dirty
@@ -348,26 +355,62 @@ class ObjectBlock(Block):
             event.ignore()
 
     def dropEvent(self, event):
-        pass
-        # orb.log.debug("* ObjectBlock: something dropped on me ...")
-        # NOTE: ObjectBlock does not do anything with drops
-        # if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
-            # data = extract_mime_data(event,
-                                     # "application/x-pgef-hardware-product")
-            # icon, oid, _id, name, cname = data
-            # orb.log.info("  - it is a {} ...".format(cname))
-            # product = orb.get(oid)
-            # if product:
-                # orb.log.info('  - orb found {} "{}"'.format(cname, name))
-                # orb.log.info(
-                    # '    sending message "product dropped on object block"')
-                # dispatcher.send('product dropped on object block', p=product)
-            # else:
-                # orb.log.info("  - dropped product oid not in db.")
-                # event.ignore()
-        # else:
-            # orb.log.info("  - dropped object is not an allowed type")
-            # orb.log.info("    to drop on object block.")
+        orb.log.debug("* ObjectBlock: something dropped on me ...")
+        # only accept the drop if dropped item is a HardwareProduct and our
+        # object is TBD
+        drop_target = self.obj
+        if (event.mimeData().hasFormat("application/x-pgef-hardware-product")
+            and drop_target.oid == 'pgefobjects:TBD'):
+            data = extract_mime_data(event,
+                                     "application/x-pgef-hardware-product")
+            icon, oid, _id, name, cname = data
+            dropped_item = orb.get(oid)
+            if dropped_item:
+                orb.log.info('  - dropped_item: "{}"'.format(name))
+                dispatcher.send('product dropped on object block',
+                                p=dropped_item)
+                # drop target is "TBD" product -> replace it with the dropped
+                # item if it has the right product_type
+                # use dropped item if its product_type is the same as
+                # acu's "product_type_hint"
+                ptname = getattr(dropped_item.product_type,
+                                 'name', '')
+                hint = ''
+                if getattr(self.usage, 'product_type_hint', None):
+                    # NOTE: 'product_type_hint' is a ProductType
+                    hint = getattr(self.usage.product_type_hint,
+                                   'name', '')
+                elif getattr(self.usage, 'system_role', None):
+                    # NOTE: 'system_role' the *name* of a ProductType
+                    hint = self.usage.system_role
+                if hint and (ptname != hint or not ptname):
+                    QMessageBox.critical(
+                                self.parent, "Product Type Check",
+                                "The product you dropped is not a "
+                                "{}.".format(hint or "[unspecified type]"),
+                                QMessageBox.Cancel)
+                    event.accept()
+                else:
+                    pt = dropped_item.product_type
+                    if isinstance(self.usage, orb.classes['Acu']):
+                        self.usage.component = dropped_item
+                        self.usage.product_type_hint = pt
+                    elif isinstance(self.usage,
+                                    orb.classes['ProjectSystemUsage']):
+                        self.usage.system = dropped_item
+                        self.usage.system_role = pt.name
+                    orb.save([self.usage])
+                    orb.log.debug('   self.usage modified: {}'.format(
+                                  self.usage.name))
+                    dispatcher.send('modified object', obj=self.usage)
+                    event.accept()
+            else:
+                orb.log.info("  - dropped product not in db; nothing done.")
+                event.accept()
+        else:
+            orb.log.info("  - dropped object was not a HardwareProduct")
+            orb.log.info("    or was not dropped on a TBD -- ignored!")
+            event.ignore()
 
 
 class SubjectBlock(Block):
@@ -412,15 +455,16 @@ class SubjectBlock(Block):
         if version:
             name += ' v.' + version
         if hasattr(obj, 'product_type'):
-            desc = getattr(obj.product_type, 'name', 'Product')
+            desc = getattr(obj.product_type, 'abbreviation',
+                           '[Unspecified Type]')
         else:
             # for now, if it doesn't have a product_type, it's a project ...
             desc = 'Project'
         description = '[{}]'.format(desc)
         # self.connectors = []
         self.setPos(position)
-        self.description_label = TextLabel(description, self,
-                                           color='darkMagenta')
+        self.description_label = BlockLabel(description, self,
+                                            color='darkMagenta')
         self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
         name_x = 20
         name_y = self.description_label.boundingRect().height() + 5
@@ -428,6 +472,10 @@ class SubjectBlock(Block):
                                      y=name_y)
         self.rebuild_port_blocks()
         self.update()
+        z_value = 0.0
+        orb.log.debug('  setting SubjectBlock z-value to {}'.format(
+                      z_value))
+        self.setZValue(z_value)
         global Dirty
         Dirty = True
 
@@ -484,7 +532,16 @@ class SubjectBlock(Block):
         """
         orb.log.debug("* SubjectBlock: something dropped on me ...")
         drop_target = self.obj
-        if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
+        # orb.log.debug('  - target name: {}'.format(drop_target.name))
+        # first, check that user has permission to modify the target
+        if not 'modify' in get_perms(drop_target):
+            popup = QMessageBox(
+                  QMessageBox.Critical,
+                  "Unauthorized Operation",
+                  "User's roles do not permit this operation",
+                  QMessageBox.Ok, self.parent)
+            popup.show()
+        elif event.mimeData().hasFormat("application/x-pgef-hardware-product"):
             data = extract_mime_data(event,
                                      "application/x-pgef-hardware-product")
             icon, obj_oid, obj_id, obj_name, obj_cname = data
@@ -499,122 +556,51 @@ class SubjectBlock(Block):
             else:
                 orb.log.info("  - dropped product oid not in db.")
                 event.ignore()
-
-            # CODE FROM systree dropMimeData()
-            if drop_target.oid == obj_oid:
-                # orb.log.debug('    invalid: dropped item same as target.')
-                popup = QMessageBox(
-                            QMessageBox.Critical,
-                            "Assembly same as Component",
-                            "A product cannot be a component of itself.",
-                            QMessageBox.Ok, self.parent)
-                popup.show()
-            # orb.log.debug('  - action: {}'.format(action))
-            # orb.log.debug('  - row: {}'.format(row))
-            # orb.log.debug('  - column: {}'.format(column))
-            # orb.log.debug('  - target name: {}'.format(drop_target.name))
             target_cname = drop_target.__class__.__name__
             if issubclass(orb.classes[target_cname],
                           orb.classes['Product']):
                 # orb.log.debug('    + target is a subclass of Product ...')
-                # first check for cycles (cycles will crash the tree)
                 bom_oids = get_bom_oids(dropped_item)
-                if (drop_target.oid in bom_oids and
-                    drop_target.oid != 'pgefobjects:TBD'):
-                    # case 0: dropped item would cause a cycle -> abort
+                # check if target is same as dropped object
+                # and check for cycles
+                if drop_target.oid == obj_oid:
+                    # orb.log.debug(
+                      # '    invalid: dropped object same as target object.')
+                    popup = QMessageBox(
+                                QMessageBox.Critical,
+                                "Assembly same as Component",
+                                "A product cannot be a component of itself.",
+                                QMessageBox.Ok, self.parent)
+                    popup.show()
+                    event.ignore()
+                elif (drop_target.oid in bom_oids and
+                      drop_target.oid != 'pgefobjects:TBD'):
+                    # dropped object would cause a cycle -> abort
                     popup = QMessageBox(
                             QMessageBox.Critical,
                             "Prohibited Operation",
                             "Product cannot be used in its own assembly.",
                             QMessageBox.Ok, self.parent)
                     popup.show()
-                # elif drop_target.oid == 'pgefobjects:TBD':
-                # NOTE:  TBD object -> ObjectBlock, so not applicable --
-                # this needs to be in dropEvent() method of ObjectBlock
-                    # # case 1: drop target is "TBD" product -> replace it
-                    # node = self.get_node(parent)
-                    # # avoid cycles:  check if the assembly is in the bom
-                    # if (hasattr(node.link, 'assembly') and
-                        # (getattr(node.link.assembly, 'oid', '')
-                         # in bom_oids)):
-                        # # dropped item would cause a cycle -> abort
-                        # txt = "Product cannot be used in its own assembly."
-                        # popup = QMessageBox(
-                                    # QMessageBox.Critical,
-                                    # "Prohibited Operation", txt,
-                                    # QMessageBox.Ok, self.parent)
-                        # popup.show()
-                        # return False
-                    # if not 'modify' in get_perms(node.link):
-                        # txt = "User's roles do not permit this operation"
-                        # ret = QMessageBox.critical(
-                                  # self.parent,
-                                  # "Unauthorized Operation", txt,
-                                  # QMessageBox.Ok)
-                        # if ret == QMessageBox.Ok:
-                            # return False
-                    # # use dropped item if its product_type is the same as
-                    # # acu's "product_type_hint"
-                    # ptname = getattr(dropped_item.product_type,
-                                     # 'name', '')
-                    # hint = ''
-                    # if getattr(node.link, 'product_type_hint', None):
-                        # # NOTE: 'product_type_hint' is a ProductType
-                        # hint = getattr(node.link.product_type_hint,
-                                       # 'name', '')
-                    # elif getattr(node.link, 'system_role', None):
-                        # # NOTE: 'system_role' the *name* of a ProductType
-                        # hint = node.link.system_role
-                    # if hint and ptname != hint:
-                        # # ret = QMessageBox.warning(
-                        # ret = QMessageBox.critical(
-                                    # self.parent, "Product Type Check",
-                                    # "The product you dropped is not a "
-                                    # "{}.".format(hint),
-                                    # QMessageBox.Cancel)
-                                    # # " Add it anyway?".format(hint),
-                                    # # QMessageBox.Yes | QMessageBox.No)
-                        # if ret == QMessageBox.Cancel:
-                            # return False
-                    # else:
-                        # if not getattr(node.link, 'product_type_hint',
-                                       # None):
-                            # pt = dropped_item.product_type
-                            # node.link.product_type_hint = pt
-                        # # NOTE: orb.save([node.link]) is called by Node
-                        # # obj setter
-                        # node.obj = dropped_item
-                        # self.dataChanged.emit(parent, parent)
-                        # # orb.log.debug('   node link mod: {}'.format(
-                                      # # node.link.name))
-                        # dispatcher.send('modified object',
-                                        # obj=node.link)
+                    event.ignore()
                 else:
-                    # case 2: drop target is normal product -> add new Acu
-                    if not 'modify' in get_perms(drop_target):
-                        popup = QMessageBox(
-                              QMessageBox.Critical,
-                              "Unauthorized Operation",
-                              "User's roles do not permit this operation",
-                              QMessageBox.Ok, self.parent)
-                        popup.show()
-                    else:
-                        orb.log.debug('      creating Acu ...')
-                        # generate a new reference_designator
-                        ref_des = orb.get_next_ref_des(drop_target,
-                                                       dropped_item)
-                        new_acu = clone('Acu',
-                            id=get_acu_id(drop_target.id, ref_des),
-                            name=get_acu_name(drop_target.name, ref_des),
-                            assembly=drop_target,
-                            component=dropped_item,
-                            product_type_hint=dropped_item.product_type,
-                            reference_designator=ref_des)
-                        orb.save([new_acu])
-                        orb.log.debug('      Acu created: {}'.format(
-                                      new_acu.name))
-                        self.scene().create_item(ObjectBlock, usage=new_acu)
-                        dispatcher.send('new object', obj=new_acu)
+                    # add new Acu
+                    orb.log.debug('      creating Acu ...')
+                    # generate a new reference_designator
+                    ref_des = orb.get_next_ref_des(drop_target,
+                                                   dropped_item)
+                    new_acu = clone('Acu',
+                        id=get_acu_id(drop_target.id, ref_des),
+                        name=get_acu_name(drop_target.name, ref_des),
+                        assembly=drop_target,
+                        component=dropped_item,
+                        product_type_hint=dropped_item.product_type,
+                        reference_designator=ref_des)
+                    orb.save([new_acu])
+                    orb.log.debug('      Acu created: {}'.format(
+                                  new_acu.name))
+                    self.scene().create_block(ObjectBlock, usage=new_acu)
+                    dispatcher.send('new object', obj=new_acu)
             elif target_cname == 'Project':
                 # case 3: drop target is a project
                 log_txt = '+ target is a Project -- creating PSU ...'
@@ -644,7 +630,7 @@ class SubjectBlock(Block):
                     orb.save([new_psu])
                     orb.log.debug('      ProjectSystemUsage created: %s'
                                   % psu_name)
-                    self.scene().create_item(ObjectBlock, usage=new_psu)
+                    self.scene().create_block(ObjectBlock, usage=new_psu)
                     dispatcher.send('new object', obj=new_psu)
 
         elif event.mimeData().hasFormat("application/x-pgef-port-type"):
