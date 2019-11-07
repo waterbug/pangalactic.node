@@ -376,7 +376,7 @@ class ObjectBlock(Block):
                     hint = self.usage.system_role
                 if hint and (ptname != hint or not ptname):
                     QMessageBox.critical(
-                                self.parent, "Product Type Check",
+                                self.parentWidget(), "Product Type Check",
                                 "The product you dropped is not a "
                                 "{}.".format(hint or "[unspecified type]"),
                                 QMessageBox.Cancel)
@@ -391,6 +391,8 @@ class ObjectBlock(Block):
                         self.usage.system = dropped_item
                         self.usage.system_role = pt.name
                     orb.save([self.usage])
+                    # TODO: refactor name/desc. label rewrites into a "refresh"
+                    # method for ObjectBlock ...
                     self.name_label.set_text(self.obj.name)
                     self.description_label.set_text('[{}]'.format(
                                 self.obj.product_type.abbreviation))
@@ -533,7 +535,7 @@ class SubjectBlock(Block):
                   QMessageBox.Critical,
                   "Unauthorized Operation",
                   "User's roles do not permit this operation",
-                  QMessageBox.Ok, self.parent)
+                  QMessageBox.Ok, self.parentWidget())
             popup.show()
         elif event.mimeData().hasFormat("application/x-pgef-hardware-product"):
             data = extract_mime_data(event,
@@ -564,7 +566,7 @@ class SubjectBlock(Block):
                                 QMessageBox.Critical,
                                 "Assembly same as Component",
                                 "A product cannot be a component of itself.",
-                                QMessageBox.Ok, self.parent)
+                                QMessageBox.Ok, self.parentWidget())
                     popup.show()
                     event.ignore()
                 elif (drop_target.oid in bom_oids and
@@ -574,7 +576,7 @@ class SubjectBlock(Block):
                             QMessageBox.Critical,
                             "Prohibited Operation",
                             "Product cannot be used in its own assembly.",
-                            QMessageBox.Ok, self.parent)
+                            QMessageBox.Ok, self.parentWidget())
                     popup.show()
                     event.ignore()
                 else:
@@ -602,7 +604,7 @@ class SubjectBlock(Block):
                                        project=drop_target,
                                        system=dropped_item)
                 if psu:
-                    QMessageBox.warning(self.parent,
+                    QMessageBox.warning(self.parentWidget(),
                                     'Already exists',
                                     'System "{0}" already exists on '
                                     'project {1}'.format(
