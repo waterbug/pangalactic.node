@@ -270,25 +270,15 @@ class ObjectBlock(Block):
         # self.connectors = []
         self.setPos(position)
         self.name_label = BlockLabel(name, self)
-        self.description_label = BlockLabel(description, self,
-                                            color='darkMagenta')
+        self.description_label = TextLabel(description, self,
+                                           color='darkMagenta')
         self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
         scene.clearSelection()
         self.setSelected(True)
         self.setFocus()
-        # NOTE: actually, z-value is not very relevant ...
-        # make sure the ObjectBlock has higher z-value than its SubjectBlock
+        # ObjectBlocks get a higher z-value SubjectBlocks
+        # (so they can receive mouse events)
         z_value = 1.0
-        # overlap_items = self.collidingItems()
-        # if overlap_items:
-            # for item in overlap_items:
-                # if (item.zValue() >= z_value and
-                    # isinstance(item, SubjectBlock)):
-                    # z_value = item.zValue() + 0.1
-                    # orb.log.debug('* SubjectBlock z-value is {}'.format(
-                                  # item.zValue()))
-        orb.log.debug('  setting ObjectBlock z-value to {}'.format(
-                      z_value))
         self.setZValue(z_value)
         self.rebuild_port_blocks()
         self.update()
@@ -401,6 +391,9 @@ class ObjectBlock(Block):
                         self.usage.system = dropped_item
                         self.usage.system_role = pt.name
                     orb.save([self.usage])
+                    self.name_label.set_text(self.obj.name)
+                    self.description_label.set_text('[{}]'.format(
+                                self.obj.product_type.abbreviation))
                     orb.log.debug('   self.usage modified: {}'.format(
                                   self.usage.name))
                     dispatcher.send('modified object', obj=self.usage)
@@ -464,8 +457,8 @@ class SubjectBlock(Block):
         description = '[{}]'.format(desc)
         # self.connectors = []
         self.setPos(position)
-        self.description_label = BlockLabel(description, self,
-                                            color='darkMagenta')
+        self.description_label = TextLabel(description, self,
+                                           color='darkMagenta')
         self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
         name_x = 20
         name_y = self.description_label.boundingRect().height() + 5
@@ -473,9 +466,9 @@ class SubjectBlock(Block):
                                      y=name_y)
         self.rebuild_port_blocks()
         self.update()
+        # SubjectBlocks get a z-value of 0 (lower than ObjectBlocks, so
+        # ObjectBlocks can receive mouse events)
         z_value = 0.0
-        orb.log.debug('  setting SubjectBlock z-value to {}'.format(
-                      z_value))
         self.setZValue(z_value)
         global Dirty
         Dirty = True
@@ -1470,22 +1463,35 @@ class TextLabel(QGraphicsTextItem):
     """
     # TODO:  add scrolling capability
     def __init__(self, text, parent, font=QFont("Arial", POINT_SIZE),
-                 color=None, editable=False, nowrap=False):
-        if nowrap:
-            textw = text
-        else:
-            textw = '\n'.join(wrap(text, width=25, break_long_words=False))
-        super(TextLabel, self).__init__(textw, parent=parent)
-        if not nowrap:
-            text_option = QTextOption()
-            text_option.setWrapMode(QTextOption.WordWrap)
-            self.document().setDefaultTextOption(text_option)
-            self.setTextWidth(parent.boundingRect().width() - 50)
+                 color=None, editable=False):
+        # if nowrap:
+            # textw = text
+        # else:
+            # textw = '\n'.join(wrap(text, width=25, break_long_words=False))
+        super(TextLabel, self).__init__(parent=parent)
+        # if not nowrap:
+        self.text_option = QTextOption()
+        self.text_option.setWrapMode(QTextOption.WordWrap)
+        self.document().setDefaultTextOption(self.text_option)
+        self.setTextWidth(parent.boundingRect().width() - 50)
         self.setFont(font)
         if color in QTCOLORS:
             self.setDefaultTextColor(getattr(Qt, color))
         if editable:
             self.setFlags(QGraphicsItem.ItemIsSelectable)
+        self.set_text(text)
+
+    def set_text(self, text, font_name=None, point_size=None,
+                 weight=None, color=None):
+        self.setHtml('<h2>{}</h2>'.format(text))
+        if color in QTCOLORS:
+            self.setDefaultTextColor(getattr(Qt, color))
+        self.font_name = font_name or getattr(self, 'font_name', "Arial")
+        self.point_size = point_size or getattr(self, 'point_size', POINT_SIZE)
+        self.weight = weight or getattr(self, 'weight', 75)
+        font = QFont(self.font_name, self.point_size, weight=self.weight)
+        self.setFont(font)
+        self.document().setDefaultTextOption(self.text_option)
 
     def itemChange(self, change, variant):
         if change != QGraphicsItem.ItemSelectedChange:

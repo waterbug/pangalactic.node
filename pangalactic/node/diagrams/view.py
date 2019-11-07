@@ -106,37 +106,37 @@ class DiagramScene(QGraphicsScene):
     def create_block(self, block_type, usage=None, obj=None, pos=None,
                      width=None, height=None, right_ports=False):
         """
-        Create a new graphics item.
+        Create a new block (SubjectBlock or ObjectBlock).
 
         Args:
             block_type (class): SubjectBlock or ObjectBlock
 
         Keyword Args:
             usage (Acu or ProjectSystemUsage):  the relationship between the
-                created item's 'obj' and its parent item's 'obj'.
+                created block's 'obj' and its SubjectBlock's 'obj'.
             obj (Project or Product):  the object whose usage is represented by
-                the created item
-            pos (QPointF):  position of the item in parent coordinates (or
+                the created block
+            pos (QPointF):  position of the block in parent coordinates (or
                 scene coordinates if it has no parent)
-            width (int):  width of the item in pixels
-            height (int):  height of the item in pixels
-            right_ports (bool):  flag; if True, any ports the item has will be
+            width (int):  width of the block in pixels
+            height (int):  height of the block in pixels
+            right_ports (bool):  flag; if True, any ports the block has will be
                 on its right side, else they will be on the left side
         """
         if not pos:
             # NOTE:  for now, new_position() selects a random position ...
             pos = self.new_position()
         if not block_type or block_type is ObjectBlock:
-            item = ObjectBlock(pos, scene=self, usage=usage,
+            block = ObjectBlock(pos, scene=self, usage=usage,
                                right_ports=right_ports)
-            self.item_inserted.emit(item)
+            self.item_inserted.emit(block)
         elif block_type is SubjectBlock:
             w = width or 100
             h = height or 50
             # ports, if any, are on the right by default for SubjectBlock
-            item = SubjectBlock(pos, scene=self, obj=obj, width=w, height=h)
+            block = SubjectBlock(pos, scene=self, obj=obj, width=w, height=h)
         self.clearSelection()
-        return item
+        return block
 
     def delete_item(self):
         for item in self.selectedItems():
