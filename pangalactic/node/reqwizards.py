@@ -372,7 +372,8 @@ class RequirementIDPage(QWizardPage):
             self.level_cb.setDisabled(True)
             return False
         else:
-            self.pgxn_obj.edit_button.clicked.connect(self.update_levels)
+            if hasattr(self.pgxn_obj, 'edit_button'):
+                self.pgxn_obj.edit_button.clicked.connect(self.update_levels)
             self.level_cb.setDisabled(False)
             # self.update_levels
             self.req.req_level = self.req.req_level or 0
