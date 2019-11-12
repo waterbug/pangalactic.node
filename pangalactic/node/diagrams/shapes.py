@@ -132,6 +132,9 @@ class Block(QGraphicsItem):
         return self.rect.adjusted(-2, -2, 2, 2)
 
     def paint(self, painter, option, widget):
+        """
+        Paint the item.
+        """
         pen = QPen(self.style)
         pen.setColor(Qt.black)
         pen.setWidth(2)
@@ -142,6 +145,14 @@ class Block(QGraphicsItem):
             pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRect(self.rect)
+
+    def set_dashed_border(self):
+        self.style = Qt.DashLine
+        self.refresh()
+
+    def set_solid_border(self):
+        self.style = Qt.SolidLine
+        self.refresh()
 
     def itemChange(self, change, value):
         return value
@@ -193,8 +204,8 @@ class Block(QGraphicsItem):
         # place initial port at 2 * port_spacing from top of block
         next_port_y = 2 * self.port_spacing
         for port in self.ordered_ports:
-            orb.log.debug('  - creating a PortBlock for {} ...'.format(
-                                                                    port.id))
+            # orb.log.debug('  - creating a PortBlock for {} ...'.format(
+                                                                    # port.id))
             pb = PortBlock(self, port, right=right)
             if right:
                 x = self.rect.width() - pb.rect.width()/2
@@ -204,8 +215,8 @@ class Block(QGraphicsItem):
             next_port_y += PORT_SIZE + self.port_spacing
             # populate `port_blocks` dict, used in restoring diagrams
             self.port_blocks[port.oid] = pb
-            orb.log.debug('    position: {!r}'.format(pb.pos()))
-            orb.log.debug('    scene coords: {!r}'.format(pb.scenePos()))
+            # orb.log.debug('    position: {!r}'.format(pb.pos()))
+            # orb.log.debug('    scene coords: {!r}'.format(pb.scenePos()))
         # once all port blocks are created, resize if necessary to fit them
         comfy_height = self.childrenBoundingRect().height() + 50
         if comfy_height > self.rect.height():
@@ -227,7 +238,7 @@ class ObjectBlock(Block):
         obj (Product):  the 'component' attribute of the block's 'usage'
     """
     def __init__(self, position, scene=None, usage=None, style=None,
-                 editable=False, right_ports=False):
+                 color=Qt.black, editable=False, right_ports=False):
         """
         Initialize ObjectBlock.
 
@@ -252,27 +263,11 @@ class ObjectBlock(Block):
         self.setAcceptDrops(True)
         self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
         self.style = style or Qt.SolidLine
+        self.color = color or Qt.black
         self.right_ports = right_ports
         self.usage = usage
-        name = getattr(self.obj, 'name', None) or self.obj.id
-        version = getattr(self.obj, 'version', '')
-        if version:
-            name += '<br>v.' + version
-        hint = ''
-        if hasattr(self.usage, 'product_type_hint'):
-            hint = getattr(self.usage.product_type_hint, 'abbreviation',
-                           '[Unspecified Type]')
-        if hasattr(self.usage, 'system_role'):
-            hint = self.usage.system_role or '[Unspecified Type]'
-        hint = hint or '[Unspecified Type]'
-        description = '[{}]'.format(getattr(self.obj.product_type,
-                                    'abbreviation', hint))
         # self.connectors = []
         self.setPos(position)
-        self.name_label = BlockLabel(name, self)
-        self.description_label = TextLabel(description, self,
-                                           color='darkMagenta')
-        self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
         scene.clearSelection()
         self.setSelected(True)
         self.setFocus()
@@ -295,6 +290,58 @@ class ObjectBlock(Block):
         return bool(hasattr(self.obj, 'components')
                     and len(self.obj.components))
 
+    def get_usage(self):
+        return self.__usage
+
+    def set_usage(self, link):
+        if not isinstance(link,
+            (orb.classes['Acu'], orb.classes['ProjectSystemUsage'])):
+            msg = '"usage" must be either an Acu or a ProjectSystemUsage.'
+            raise TypeError(msg)
+        obj = (getattr(link, 'component', None) or
+               getattr(link, 'system', None))
+        hint = ''
+        if hasattr(link, 'product_type_hint'):
+            hint = getattr(link.product_type_hint, 'abbreviation',
+                           '[Unspecified Type]')
+        if hasattr(link, 'system_role'):
+            hint = link.system_role or '[Unspecified Type]'
+        hint = hint or '[Unspecified Type]'
+        if getattr(self, 'name_label', None):
+            self.scene().removeItem(self.name_label)
+        if getattr(self, 'description_label', None):
+            self.scene().removeItem(self.description_label)
+        tbd = orb.get('pgefobjects:TBD')
+        if obj is tbd:
+            name = "TBD"
+            version = ''
+            description = hint
+            self.style = Qt.DashLine
+            self.color = Qt.darkGreen
+        else:
+            name = (getattr(obj, 'name', None) or
+                    getattr(obj, 'id', 'unknown'))
+            version = getattr(obj, 'version', '')
+            if version:
+                name += '<br>v.' + version
+            if hasattr(obj, 'product_type'):
+                description = '[{}]'.format(getattr(obj.product_type,
+                                                    'abbreviation', hint))
+            self.style = Qt.SolidLine
+            self.color = Qt.black
+        self.name_label = BlockLabel(name, self)
+        self.description_label = TextLabel(description, self,
+                                           color='darkMagenta')
+        self.description_label.setPos(2.0 * POINT_SIZE,
+                                      0.0 * POINT_SIZE)
+        self.__usage = link
+        self.update()
+
+    def del_usage(self):
+        pass
+
+    usage = property(get_usage, set_usage, del_usage, 'usage property')
+
     # def contextMenuEvent(self, event):
         # self.scene().clearSelection()
         # self.setSelected(True)
@@ -313,7 +360,8 @@ class ObjectBlock(Block):
 
     def paint(self, painter, option, widget):
         pen = QPen(self.style)
-        pen.setColor(Qt.black)
+        color = self.color or Qt.black
+        pen.setColor(color)
         pen.setWidth(2)
         if self.isUnderMouse() and self.has_sub_diagram:
             pen.setColor(Qt.green)
@@ -367,13 +415,14 @@ class ObjectBlock(Block):
                 ptname = getattr(dropped_item.product_type,
                                  'name', '')
                 hint = ''
-                if getattr(self.usage, 'product_type_hint', None):
+                usage = self.usage
+                if getattr(usage, 'product_type_hint', None):
                     # NOTE: 'product_type_hint' is a ProductType
-                    hint = getattr(self.usage.product_type_hint,
+                    hint = getattr(usage.product_type_hint,
                                    'name', '')
-                elif getattr(self.usage, 'system_role', None):
+                elif getattr(usage, 'system_role', None):
                     # NOTE: 'system_role' the *name* of a ProductType
-                    hint = self.usage.system_role
+                    hint = usage.system_role
                 if hint and (ptname != hint or not ptname):
                     QMessageBox.critical(
                                 self.parentWidget(), "Product Type Check",
@@ -383,19 +432,18 @@ class ObjectBlock(Block):
                     event.accept()
                 else:
                     pt = dropped_item.product_type
-                    if isinstance(self.usage, orb.classes['Acu']):
-                        self.usage.component = dropped_item
-                        self.usage.product_type_hint = pt
-                    elif isinstance(self.usage,
-                                    orb.classes['ProjectSystemUsage']):
-                        self.usage.system = dropped_item
-                        self.usage.system_role = pt.name
-                    orb.save([self.usage])
-                    # TODO: refactor name/desc. label rewrites into a "refresh"
-                    # method for ObjectBlock ...
-                    self.name_label.set_text(self.obj.name)
-                    self.description_label.set_text('[{}]'.format(
-                                self.obj.product_type.abbreviation))
+                    if isinstance(usage, orb.classes['Acu']):
+                        usage.component = dropped_item
+                        usage.product_type_hint = pt
+                    elif isinstance(usage, orb.classes['ProjectSystemUsage']):
+                        usage.system = dropped_item
+                        usage.system_role = pt.name
+                    orb.save([usage])
+                    # NOTE:  setting 'usage' triggers name/desc label rewrites
+                    self.usage = usage
+                    # self.name_label.set_text(self.obj.name)
+                    # self.description_label.set_text('[{}]'.format(
+                                # self.obj.product_type.abbreviation))
                     orb.log.debug('   self.usage modified: {}'.format(
                                   self.usage.name))
                     dispatcher.send('modified object', obj=self.usage)
@@ -1026,10 +1074,10 @@ class RoutedConnector(QGraphicsItem):
                 start_port=start_item.port, end_port=end_item.port,
                 flow_context=context)
             orb.db.commit()
-        orb.log.debug("* RoutedConnector created:")
-        orb.log.debug("  - start port id: {}".format(self.start_item.port.id))
-        orb.log.debug("  - end port id: {}".format(self.end_item.port.id))
-        orb.log.debug("  - context id: {}".format(self.context.id))
+        # orb.log.debug("* RoutedConnector created:")
+        # orb.log.debug("  - start port id: {}".format(self.start_item.port.id))
+        # orb.log.debug("  - end port id: {}".format(self.end_item.port.id))
+        # orb.log.debug("  - context id: {}".format(self.context.id))
 
     def contextMenuEvent(self, event):
         self.scene().clearSelection()

@@ -280,7 +280,7 @@ class DiagramScene(QGraphicsScene):
         # NOTE:  drill-down so far only applies to ObjectBlock, and *not* to
         # SubjectBlock (a subclass)
         orb.log.debug('* DiagramScene: item_doubleclick()')
-        orb.log.debug('  item: {}'.format(str(item)))
+        # orb.log.debug('  item: {}'.format(str(item)))
         if platform.platform().startswith('Darwin'):
             # drill-down currently crashes on OSX
             orb.log.info('  - Mac not like drill-down -- ignoring!')
