@@ -581,7 +581,6 @@ class TimelineWidget(QWidget):
         self.plot_action = self.create_action(
                                     "plot",
                                     slot=self.plot,
-                                    icon="back",
                                     tip="plot")
         self.toolbar.addAction(self.plot_action)
         #create and add scene scale menu
@@ -722,16 +721,20 @@ class TimelineWidget(QWidget):
         s_time = min(start_times)
         generated_x = []
         generated_power = []
-        for count, d in enumerate(act_durations, start = int(s_time)):
-            generated_x.extend(list(range(int(start_times[count]), int(start_times[count]+int(d))+1)))
+        for count, d in enumerate(act_durations):
+            start = start_times[count]
+            end = start_times[count] + d
+            generated_x.append(start)
+            generated_x.append(end)
         for c, y in enumerate(act_durations):
-            generated_power.extend([power[c]]*(int(act_durations[c])+1))
+            generated_power.extend([power[c], power[c]])
+            #.extend([power[c]]*(int(act_durations[c])+1))
         plt1.plot(generated_x, generated_power, brush=(0,0,255,150))
 
         plt2 = win.addPlot(title="Data Rate")
         generated_dr = []
         for d_index, d in enumerate(act_durations):
-            generated_dr.extend([d_r[d_index]]*(int(act_durations[d_index])+1))
+           generated_dr.extend([d_r[d_index], d_r[d_index]])
         plt2.plot(generated_x, generated_dr, brush=(0,0,255,150))
 
     def create_action(self, text, slot=None, icon=None, tip=None,
