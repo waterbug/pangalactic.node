@@ -301,21 +301,33 @@ class ObjectBlock(Block):
         obj = (getattr(link, 'component', None) or
                getattr(link, 'system', None))
         hint = ''
-        if hasattr(link, 'product_type_hint'):
-            hint = getattr(link.product_type_hint, 'abbreviation',
-                           '[Unspecified Type]')
-        if hasattr(link, 'system_role'):
-            hint = link.system_role or '[Unspecified Type]'
-        hint = hint or '[Unspecified Type]'
+        refdes = ''
+        description = ''
+        if isinstance(link, orb.classes['Acu']):
+            pt = getattr(obj, 'product_type', None)
+            if pt and pt.abbreviation:
+                hint = pt.abbreviation
+            else:
+                hint = getattr(link.product_type_hint, 'abbreviation',
+                               'Unspecified Type')
+            refdes = link.reference_designator or ''
+        else:
+            hint = getattr(link.system.product_type, 'abbreviation',
+                           'Unspecified Type')
+            refdes = link.system_role or ''
+        hint = hint or 'Unspecified Type'
         if getattr(self, 'name_label', None):
             self.scene().removeItem(self.name_label)
         if getattr(self, 'description_label', None):
             self.scene().removeItem(self.description_label)
+        if len(refdes) < 20:
+            description = refdes
+        else:
+            description = '[{}]'.format(hint)
         tbd = orb.get('pgefobjects:TBD')
         if obj is tbd:
             name = "TBD"
             version = ''
-            description = hint
             self.style = Qt.DashLine
             self.color = Qt.darkGreen
         else:
@@ -324,9 +336,6 @@ class ObjectBlock(Block):
             version = getattr(obj, 'version', '')
             if version:
                 name += '<br>v.' + version
-            if hasattr(obj, 'product_type'):
-                description = '[{}]'.format(getattr(obj.product_type,
-                                                    'abbreviation', hint))
             self.style = Qt.SolidLine
             self.color = Qt.black
         self.name_label = BlockLabel(name, self)

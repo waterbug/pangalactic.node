@@ -60,11 +60,11 @@ class DiagramScene(QGraphicsScene):
         """
         Handle local "new object" and "modified object" signals.
         """
-        orb.log.info('* [diagram] on_mod_object_signal()')
+        orb.log.info('* DiagramScene: on_mod_object_signal()')
         if msg == 'new':
-            orb.log.info('  - local "new object" signal')
+            orb.log.info('  - local "new object"')
         else:
-            orb.log.info('  - local "modified object" signal')
+            orb.log.info('  - local "modified object"')
         if obj:
             cname = obj.__class__.__name__
             orb.log.debug('  cname: "{}"'.format(str(cname)))
@@ -81,7 +81,7 @@ class DiagramScene(QGraphicsScene):
                     # add a new block to the diagram
                     # WORKING HERE
                     pass
-            else:
+            else:   # "modified"
                 # check if modified object is in the diagram
                 if isinstance(self.subject, orb.classes['Project']):
                     links = self.subject.systems
@@ -185,17 +185,17 @@ class DiagramScene(QGraphicsScene):
                            if hasattr(i, 'add_connector')]
         if candidate_items:
             self.current_mode = self.insert_connector
-            # NOTE:  in connector-drawing mode ("insert_connector"), if the
-            # selected item does not support connectors (e.g. ObjectBlock),
-            # discard the event (otherwise, item will be moved rather than
-            # having a connector drawn -- probably not what the user wants)
+            # NOTE:  if the selected item does not support connectors (e.g.
+            # ObjectBlock), discard the event (otherwise, item will be moved
+            # rather than having a connector drawn -- probably not what the
+            # user wants)
             self.line = QGraphicsLineItem(QLineF(mouseEvent.scenePos(),
                                                  mouseEvent.scenePos()))
             # self.line.setPen(QPen(self.default_line_color, 2))
             # self.clearSelection()
             self.addItem(self.line)
         else:
-            # if NOT in connector-drawing mode, re-issue the event
+            # if item does NOT have 'add_connector' method, re-issue the event
             super(DiagramScene, self).mousePressEvent(mouseEvent)
 
     def mouseMoveEvent(self, mouseEvent):
@@ -382,15 +382,7 @@ class DiagramScene(QGraphicsScene):
         port_blocks.update(subj_block.port_blocks)
         # if Flows exist, create RoutedConnectors for them ...
         # subject might be a Project, so need getattr here ...
-        all_ports += getattr(self.subject, 'ports', [])
-        # FIXME: finding the flows by getting ALL Flows from the db and going
-        # through them is ok if db is small but will not scale!  Create an
-        # optimized db query for this ...
-        known_flows = orb.get_by_type('Flow')
-        all_flows = [flow for flow in known_flows
-                     if (flow.start_port in all_ports and
-                         flow.end_port in all_ports and
-                         flow.flow_context == self.subject)]
+        all_flows = orb.search_exact(cname='Flow', flow_context=self.subject)
         if all_flows:
             orb.log.debug('  - flows found: {}'.format(
                                     str([f.id for f in all_flows])))
