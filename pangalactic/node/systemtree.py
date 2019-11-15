@@ -1170,6 +1170,14 @@ class SystemTreeView(QTreeView):
                 self.source_model.setData(mapped_i, tbd)
                 dispatcher.send('modified object', obj=node.link)
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
+                if not 'modify' in get_perms(node.link):
+                    ret = QMessageBox.critical(
+                              self,
+                              "Unauthorized Operation",
+                              "User's roles do not permit this operation",
+                              QMessageBox.Ok)
+                    if ret == QMessageBox.Ok:
+                        return False
                 orb.log.debug('  deleting system usage "{}" ...'.format(
                               node.obj.id))
                 # replace system with special "TBD" product
