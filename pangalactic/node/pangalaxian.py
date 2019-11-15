@@ -396,8 +396,8 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_sync_library_result)
         rpc.addErrback(self.on_failure)
         # syncing of current project is now done by adding a callback of
-        # sync_current_project() when the last chunk of library data is
-        # being requested by on_get_library_objects_result()
+        # on_set_current_project_signal() when the last chunk of library data
+        # is being requested by on_get_library_objects_result()
 
     def on_get_user_roles_result(self, data):
         """
@@ -864,13 +864,13 @@ class Main(QtWidgets.QMainWindow):
             rpc = self.mbus.session.call('vger.get_objects', chunk)
             rpc.addCallback(self.on_get_library_objects_result)
             rpc.addErrback(self.on_failure)
-            # if this was the last chunk, add callback to sync current project
+            # if this was the last chunk, sync current project
             if not state['chunks_to_get']:
-                rpc.addCallback(self.sync_current_project)
-                rpc.addErrback(self.on_failure)
-                rpc.addCallback(self.on_project_sync_result)
-                rpc.addCallback(self.on_result)
-                rpc.addErrback(self.on_failure)
+                rpc.addCallback(self.on_set_current_project_signal)
+                # rpc.addErrback(self.on_failure)
+                # rpc.addCallback(self.on_project_sync_result)
+                # rpc.addCallback(self.on_result)
+                # rpc.addErrback(self.on_failure)
 
     def on_pubsub_msg(self, msg):
         """
