@@ -2185,6 +2185,12 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  oid not found in local db; ignoring.')
 
     def on_remote_get_mod_object(self, serialized_objects):
+        """
+        Get a list of remote objects that have been modified.
+
+        Args:
+            serialized_objects (list of dict):  a list of serialized objects
+        """
         orb.log.info('* on_remote_get_mod_object()')
         objs =  deserialize(orb, serialized_objects)
         if not objs:

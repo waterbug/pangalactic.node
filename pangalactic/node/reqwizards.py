@@ -275,6 +275,7 @@ class RequirementIDPage(QWizardPage):
             self.req = clone("Requirement", id=req_id, owner=self.project,
                              public=True)
             orb.save([self.req])
+            dispatcher.send(signal='new object', obj=self.req)
             new = True
         req_wizard_state['req_oid'] = self.req.oid
         # Where the performance and functional differ
@@ -383,6 +384,7 @@ class RequirementIDPage(QWizardPage):
             else:
                 self.req.req_type = 'performance'
             orb.save([self.req])
+            dispatcher.send(signal='modified object', obj=self.req)
             return True
 
 
@@ -812,6 +814,7 @@ class PerformanceDefineParmPage(QWizardPage):
             req_wizard_state['computable_form_oid'] = rel.oid
             req_wizard_state['req_parameter'] = pd.id
             orb.save([self.req])  # also commits the rel and pr objects to db
+            dispatcher.send(signal='modified object', obj=self.req)
             # display the selected ParameterDefinition...
             main_view = ['id', 'name', 'description']
             panels = ['main']
