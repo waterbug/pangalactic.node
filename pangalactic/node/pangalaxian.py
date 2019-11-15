@@ -2086,6 +2086,7 @@ class Main(QtWidgets.QMainWindow):
             if dts == obj.mod_datetime:
                 orb.log.debug('  local and remote objects have')
                 orb.log.debug('  same mod_datetime, ignoring.')
+                self.statusbar.showMessage('synced.')
             elif dts > obj.mod_datetime:
                 # get the remote object
                 orb.log.debug('  remote object is newer, getting...')
@@ -2095,6 +2096,7 @@ class Main(QtWidgets.QMainWindow):
                 rpc.addErrback(self.on_failure)
             else:
                 orb.log.debug('  local object is newer, ignoring remote.')
+                self.statusbar.showMessage('synced.')
         else:
             orb.log.debug('  ')
             orb.log.debug('  object not found in local db, getting ...')
