@@ -927,12 +927,14 @@ class Main(QtWidgets.QMainWindow):
                 obj_oid = content['oid']
                 obj_id = content['id']
                 msg += obj_id
-            self.statusbar.showMessage(msg)
             if subject == 'decloaked':
+                self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: decloaked", content=content)
             elif subject == 'modified':
+                # don't show msg in statusbar -- may not be relevant
                 dispatcher.send(signal="remote: modified", content=content)
             elif subject == 'deleted':
+                self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: deleted", content=content)
 
     def get_cloaking_status(self, oid=''):
