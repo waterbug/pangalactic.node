@@ -391,20 +391,13 @@ class Main(QtWidgets.QMainWindow):
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_user_objs_sync_result)
         rpc.addErrback(self.on_failure)
-        # sync_library_objs() requires callback on_sync_result()
         rpc.addCallback(self.sync_library_objs)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_sync_library_result)
         rpc.addErrback(self.on_failure)
-        # NOTE: sync_projects_with_roles() not needed in new admin paradigm
-        # sync_projects_with_roles() does not require callback on_sync_result()
-        # rpc.addCallback(self.sync_projects_with_roles)
-        # rpc.addErrback(self.on_failure)
-        # rpc.addCallback(self.sync_current_project)
-        # rpc.addErrback(self.on_failure)
-        # rpc.addCallback(self.on_project_sync_result)
-        # rpc.addCallback(self.on_result)
-        # rpc.addErrback(self.on_failure)
+        # syncing of current project is now done by adding a callback of
+        # sync_current_project() when the last chunk of library data is
+        # being requested by on_get_library_objects_result()
 
     def on_get_user_roles_result(self, data):
         """
@@ -871,12 +864,13 @@ class Main(QtWidgets.QMainWindow):
             rpc = self.mbus.session.call('vger.get_objects', chunk)
             rpc.addCallback(self.on_get_library_objects_result)
             rpc.addErrback(self.on_failure)
-        else:
-            # sync_current_project() requires callback on_project_sync_result()
-            # NOTE: call to on_set_current_project_signal which calls
-            # 'sync_current_project()' and incorporates its own callback and
-            # errback ...
-            self.on_set_current_project_signal()
+            # if this was the last chunk, add callback to sync current project
+            if not state['chunks_to_get']:
+                rpc.addCallback(self.sync_current_project)
+                rpc.addErrback(self.on_failure)
+                rpc.addCallback(self.on_project_sync_result)
+                rpc.addCallback(self.on_result)
+                rpc.addErrback(self.on_failure)
 
     def on_pubsub_msg(self, msg):
         """
@@ -3604,7 +3598,7 @@ class Main(QtWidgets.QMainWindow):
                 projid = byclass['Project'][0].get('id', '')
                 if projid:
                     start_msg = '{} data for {} ...'.format(begin, projid)
-                    message = "Success: project {} .".format(projid, end)
+                    message = "Success: project {} synced.".format(projid, end)
                 else:
                     start_msg = '{} data for your project ...'.format(begin)
                     message = "Your data has been {}.".format(end)
