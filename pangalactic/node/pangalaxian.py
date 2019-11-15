@@ -396,7 +396,7 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_sync_library_result)
         rpc.addErrback(self.on_failure)
         # syncing of current project is now done by adding a callback of
-        # on_set_current_project_signal() when the last chunk of library data
+        # resync_current_project() when the last chunk of library data
         # is being requested by on_get_library_objects_result()
 
     def on_get_user_roles_result(self, data):
@@ -864,13 +864,9 @@ class Main(QtWidgets.QMainWindow):
             rpc = self.mbus.session.call('vger.get_objects', chunk)
             rpc.addCallback(self.on_get_library_objects_result)
             rpc.addErrback(self.on_failure)
+        else:
             # if this was the last chunk, sync current project
-            if not state['chunks_to_get']:
-                rpc.addCallback(self.on_set_current_project_signal)
-                # rpc.addErrback(self.on_failure)
-                # rpc.addCallback(self.on_project_sync_result)
-                # rpc.addCallback(self.on_result)
-                # rpc.addErrback(self.on_failure)
+            self.resync_current_project()
 
     def on_pubsub_msg(self, msg):
         """
@@ -2333,6 +2329,9 @@ class Main(QtWidgets.QMainWindow):
                 state['synced_oids'].remove(oid)
 
     def resync_current_project(self):
+        """
+        Resync current project with repository.
+        """
         self.on_set_current_project_signal(resync=True)
 
     def on_set_current_project_signal(self, resync=False):
@@ -2349,6 +2348,7 @@ class Main(QtWidgets.QMainWindow):
              or resync)
              and state.get('connected')):
             # TODO: if project is "local", activate "enable collab" action
+            orb.log.debug('  calling sync_current_project()')
             rpc = self.sync_current_project(None)
             rpc.addCallback(self.on_project_sync_result)
             rpc.addErrback(self.on_failure)
