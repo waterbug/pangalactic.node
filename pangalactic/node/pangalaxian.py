@@ -624,7 +624,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('[pgxn] sync_current_project()')
         proj_oid = state.get('project')
         project = orb.get(proj_oid)
-        data = {}
+        oid_dts = {}
         if (proj_oid != 'pgefobjects:SANDBOX') and project:
             orb.log.debug('       current project is: {}'.format(project.id))
             self.statusbar.showMessage('syncing project {} ...'.format(
@@ -633,10 +633,10 @@ class Main(QtWidgets.QMainWindow):
             if local_objs:
                 for obj in local_objs:
                     dts = str(obj.mod_datetime)
-                    data[obj.oid] = dts
+                    oid_dts[obj.oid] = dts
         else:
             self.statusbar.showMessage('synced.')
-        return self.mbus.session.call('vger.sync_project', proj_oid, data)
+        return self.mbus.session.call('vger.sync_project', proj_oid, oid_dts)
 
     # def update_sync_progress(self, txt='syncing...'):
         # try:
