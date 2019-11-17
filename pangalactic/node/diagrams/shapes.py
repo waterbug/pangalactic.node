@@ -311,6 +311,11 @@ class ObjectBlock(Block):
                 hint = getattr(link.product_type_hint, 'abbreviation',
                                'Unspecified Type')
             refdes = link.reference_designator or ''
+            if link.quantity:
+                refdes = '{} ({})'.format(refdes, link.quantity)
+                hint = '[{}] ({})'.format(hint, link.quantity)
+            else:
+                hint = '[{}]'.format(hint)
         else:
             hint = getattr(link.system.product_type, 'abbreviation',
                            'Unspecified Type')
@@ -323,7 +328,7 @@ class ObjectBlock(Block):
         if len(refdes) < 20:
             description = refdes
         else:
-            description = '[{}]'.format(hint)
+            description = hint
         tbd = orb.get('pgefobjects:TBD')
         if obj is tbd:
             name = "TBD"
@@ -509,7 +514,7 @@ class SubjectBlock(Block):
             name += ' v.' + version
         if hasattr(obj, 'product_type'):
             desc = getattr(obj.product_type, 'abbreviation',
-                           '[Unspecified Type]')
+                           'Unspecified Type')
         else:
             # for now, if it doesn't have a product_type, it's a project ...
             desc = 'Project'

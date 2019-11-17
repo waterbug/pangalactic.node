@@ -1,7 +1,6 @@
 """
 A diagram scene and view
 """
-from builtins import range
 import platform, random
 from PyQt5.QtGui     import QFont
 from PyQt5.QtWidgets import (QGraphicsItem, QGraphicsLineItem, QGraphicsScene,
@@ -19,9 +18,15 @@ from pangalactic.node.diagrams.shapes import (ObjectBlock, PortBlock,
 class DiagramScene(QGraphicsScene):
     """
     The scene of a diagram
+
+    Attributes:
+        blocks (dict): mapping of "usage" (Acu or ProjectSystemUsage) oids to
+            ObjectBlock instances for an "IBD" (internal block diagram).
+        subject (ManagedObject):  Project or Product that is the subject of the
+            IBD, of which the "blocks" are systems (of a Project) or components
+            (of a Product)
     """
-    insert_item, insert_connector, move_item  = list(range(3))
-    item_inserted = pyqtSignal(ObjectBlock)
+    # item_inserted = pyqtSignal(ObjectBlock)
     item_selected = pyqtSignal(QGraphicsItem)
     default_item_color = Qt.white
     default_text_color = Qt.black
@@ -40,11 +45,9 @@ class DiagramScene(QGraphicsScene):
         h = 2400
         self.setSceneRect(QRectF(0, 0, w, h))
         self.subject = subject
-        self.moves = 0
-        self.current_mode = self.move_item
         self.line = None
         self.prev_point = QPoint()
-        self.item_inserted.connect(self.process_item_inserted)
+        # self.item_inserted.connect(self.process_item_inserted)
         self.item_selected.connect(self.process_item_selected)
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
@@ -129,7 +132,7 @@ class DiagramScene(QGraphicsScene):
         if not block_type or block_type is ObjectBlock:
             block = ObjectBlock(pos, scene=self, usage=usage,
                                right_ports=right_ports)
-            self.item_inserted.emit(block)
+            # self.item_inserted.emit(block)
         elif block_type is SubjectBlock:
             w = width or 100
             h = height or 50
@@ -145,12 +148,13 @@ class DiagramScene(QGraphicsScene):
             self.removeItem(item)
 
     def process_item_selected(self, item):
-        # TODO:  figure out appropriate highlighting of item, etc.
+        # NOTE:  not currently used
+        # TODO:  what to do (highlight item, etc.)
         pass
 
-    def process_item_inserted(self, item):
+    # def process_item_inserted(self, item):
+        # NOTE:  not currently used
         # TODO:  what to do about item being inserted
-        self.current_mode = self.move_item
 
     def setLineColor(self, color):
         self.default_line_color = color
@@ -165,8 +169,8 @@ class DiagramScene(QGraphicsScene):
             item = self.selectedItems()[0]
             item.setBrush(color)
 
-    def setMode(self, mode):
-        self.current_mode = mode
+    # def setMode(self, mode):
+        # self.current_mode = mode
 
     def editorLostFocus(self, item):
         cursor = item.textCursor()
@@ -184,7 +188,6 @@ class DiagramScene(QGraphicsScene):
         candidate_items = [i for i in down_items
                            if hasattr(i, 'add_connector')]
         if candidate_items:
-            self.current_mode = self.insert_connector
             # NOTE:  if the selected item does not support connectors (e.g.
             # ObjectBlock), discard the event (otherwise, item will be moved
             # rather than having a connector drawn -- probably not what the
@@ -199,8 +202,7 @@ class DiagramScene(QGraphicsScene):
             super(DiagramScene, self).mousePressEvent(mouseEvent)
 
     def mouseMoveEvent(self, mouseEvent):
-        self.moves += 1
-        if self.current_mode == self.insert_connector and self.line:
+        if self.line:
             newLine = QLineF(self.line.line().p1(), mouseEvent.scenePos())
             self.line.setLine(newLine)
             self.update()
@@ -263,7 +265,6 @@ class DiagramScene(QGraphicsScene):
                 dispatcher.send('diagram connector added',
                                 start_item=start_item, end_item=end_item)
                 self.update()
-            self.current_mode = self.move_item
         self.line = None
         super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
 
@@ -277,8 +278,8 @@ class DiagramScene(QGraphicsScene):
         """
         Drill down to next level block diagram
         """
-        # NOTE:  drill-down so far only applies to ObjectBlock, and *not* to
-        # SubjectBlock (a subclass)
+        # NOTE:  drill-down only applies to a populated ObjectBlock (not a TBD
+        # ObjectBlock), and not to SubjectBlock (a subclass)
         orb.log.debug('* DiagramScene: item_doubleclick()')
         # orb.log.debug('  item: {}'.format(str(item)))
         if platform.platform().startswith('Darwin'):
@@ -286,8 +287,8 @@ class DiagramScene(QGraphicsScene):
             orb.log.info('  - Mac not like drill-down -- ignoring!')
             return
         if isinstance(item, ObjectBlock):
-            obj = item.obj
-            dispatcher.send('diagram object drill down', obj=obj)
+            if item.obj.oid != 'pgefobjects:TBD':
+                dispatcher.send('diagram object drill down', obj=item.obj)
 
     def get_routing_channel(self):
         """
@@ -342,7 +343,7 @@ class DiagramScene(QGraphicsScene):
             usages (list of (Acu or ProjectSystemUsage): usages to create
                 blocks for
         """
-        # orb.log.debug('* DiagramScene: create_ibd()')
+        orb.log.debug('* DiagramScene: create_ibd()')
         # TODO:  use actual block widths/heights in placement algorithm ... for
         # now, use some defaults for simplification
         w = 100
@@ -442,7 +443,7 @@ class DiagramScene(QGraphicsScene):
             usages (list of Acu or ProjectSystemUsage): usages to create
                 object blocks for
         """
-        # orb.log.debug('* DiagramScene: restore_diagram()')
+        orb.log.debug('* DiagramScene: restore_diagram()')
         port_blocks = {}   # maps Port oids to PortBlock instances
         object_blocks = []
         y_left_last = y_right_last = 0  # y coord of tops of last blocks
