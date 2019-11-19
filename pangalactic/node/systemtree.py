@@ -93,7 +93,7 @@ class Node(object):
             # created or modified by a local action (a drop)
         else:
             # orb.log.debug('  - ERROR: node has no link.')
-            pass
+            return
 
     @property
     def name(self):
@@ -761,32 +761,26 @@ class SystemTreeModel(QAbstractItemModel):
                                       QMessageBox.Ok)
                             if ret == QMessageBox.Ok:
                                 return False
-                        # use dropped item if its product_type is the same as
-                        # acu's "product_type_hint"
-                        ptname = getattr(dropped_item.product_type,
-                                         'name', '')
-                        hint = ''
-                        if getattr(node.link, 'product_type_hint', None):
-                            # NOTE: 'product_type_hint' is a ProductType
-                            hint = getattr(node.link.product_type_hint,
-                                           'name', '')
-                        elif getattr(node.link, 'system_role', None):
-                            # NOTE: 'system_role' the *name* of a ProductType
-                            hint = node.link.system_role
-                        if hint and ptname != hint:
+                        # use dropped item if (1) its product_type is the same as
+                        # acu's "product_type_hint" or (2) position is any
+                        # project-level system usage
+                        pt = dropped_item.product_type
+                        # NOTE that hint will be None for a PSU
+                        hint = getattr(node.link, 'product_type_hint', None)
+                        # TODO:  check for "Generic" hint
+                        if hint and pt != hint:
                             # ret = QMessageBox.warning(
                             ret = QMessageBox.critical(
                                         self.parent, "Product Type Check",
                                         "The product you dropped is not a "
-                                        "{}.".format(hint),
+                                        "{}.".format(hint.name),
                                         QMessageBox.Cancel)
-                                        # " Add it anyway?".format(hint),
-                                        # QMessageBox.Yes | QMessageBox.No)
                             if ret == QMessageBox.Cancel:
                                 return False
                         else:
-                            if not getattr(node.link, 'product_type_hint',
-                                           None):
+                            if hasattr(node.link, 'product_type_hint'):
+                                # if target is a TBD and its Acu didn't have a
+                                # product_type_hint, to does now!
                                 pt = dropped_item.product_type
                                 node.link.product_type_hint = pt
                             # NOTE: orb.save([node.link]) is called by Node
@@ -798,6 +792,14 @@ class SystemTreeModel(QAbstractItemModel):
                                           # node.link.name))
                             dispatcher.send('modified object',
                                             obj=node.link)
+                            if hasattr(node.link, 'assembly'):
+                                # Acu modified -> assembly is modified
+                                node.link.assembly.mod_datetime = dtstamp()
+                                node.link.assembly.modifier = orb.get(state.get(
+                                                                'local_user_oid'))
+                                orb.save([node.link.assembly])
+                                dispatcher.send('modified object',
+                                                obj=node.link.assembly)
                             return True
                     else:
                         # case 2: drop target is normal product -> add new Acu
@@ -831,6 +833,12 @@ class SystemTreeModel(QAbstractItemModel):
                             self.successful_drop_index = parent
                             self.successful_drop.emit()
                             dispatcher.send('new object', obj=new_acu)
+                            # new Acu -> assembly is modified
+                            drop_target.mod_datetime = dtstamp()
+                            drop_target.modifier = orb.get(state.get(
+                                                            'local_user_oid'))
+                            orb.save([drop_target])
+                            dispatcher.send('modified object', obj=drop_target)
                             return True
                 elif target_cname == 'Project':
                     # case 3: drop target is a project
@@ -903,6 +911,9 @@ class SystemTreeModel(QAbstractItemModel):
             links_to_delete.append(node_being_removed.link)
         acus = [l.oid for l in links_to_delete
                 if isinstance(l, orb.classes['Acu'])]
+        assembly = None
+        if acus:
+            assembly = acus[0].assembly
         # if acus:
             # orb.log.debug('  + acus to be deleted: {}'.format(
                           # [l.id for l in links_to_delete
@@ -917,11 +928,20 @@ class SystemTreeModel(QAbstractItemModel):
         success = parent_node.remove_children(position, count)
         self.endRemoveRows()
         self.dataChanged.emit(parent, parent)
-        for acu_oid in acus:
-            dispatcher.send(signal="deleted object", oid=acu_oid, cname='Acu')
-        for psu_oid in psus:
-            dispatcher.send(signal="deleted object", oid=psu_oid,
-                            cname='ProjectSystemUsage')
+        if acus:
+            for acu_oid in acus:
+                dispatcher.send(signal="deleted object", oid=acu_oid,
+                                cname='Acu')
+        # Acu deleted -> assembly is modified
+        if assembly:
+            assembly.mod_datetime = dtstamp()
+            assembly.modifier = orb.get(state.get('local_user_oid'))
+            orb.save([assembly])
+            dispatcher.send('modified object', obj=assembly)
+        if psus:
+            for psu_oid in psus:
+                dispatcher.send(signal="deleted object", oid=psu_oid,
+                                cname='ProjectSystemUsage')
         return success
 
     def add_nodes(self, nodes, parent=QModelIndex()):
@@ -1114,11 +1134,13 @@ class SystemTreeView(QTreeView):
             mapped_i = self.proxy_model.mapToSource(i)
             node = self.source_model.get_node(mapped_i)
             rel_obj = node.link
+            assembly = None
             if rel_obj.__class__.__name__ == 'Acu':
                 # orb.log.debug('  editing assembly node ...')
                 ref_des = rel_obj.reference_designator
                 quantity = rel_obj.quantity
                 system = False
+                assembly = rel_obj.assembly
             elif rel_obj.__class__.__name__ == 'ProjectSystemUsage':
                 # orb.log.debug('  editing project system node ...')
                 ref_des = rel_obj.system_role
@@ -1135,6 +1157,13 @@ class SystemTreeView(QTreeView):
                     rel_obj.system_role = dlg.ref_des
                 orb.save([rel_obj])
                 dispatcher.send('modified object', obj=rel_obj)
+                # Acu modified -> assembly is modified
+                if assembly:
+                    assembly.mod_datetime = dtstamp()
+                    assembly.modifier = orb.get(state.get(
+                                                    'local_user_oid'))
+                    orb.save([assembly])
+                    dispatcher.send('modified object', obj=assembly)
 
     def del_component(self):
         """
@@ -1168,7 +1197,14 @@ class SystemTreeView(QTreeView):
                     node.link.product_type_hint = pt
                 tbd = orb.get('pgefobjects:TBD')
                 self.source_model.setData(mapped_i, tbd)
+                orb.save([node.link])
                 dispatcher.send('modified object', obj=node.link)
+                # Acu modified -> assembly is modified
+                node.link.assembly.mod_datetime = dtstamp()
+                node.link.assembly.modifier = orb.get(state.get(
+                                                'local_user_oid'))
+                orb.save([node.link.assembly])
+                dispatcher.send('modified object', obj=node.link.assembly)
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
                 if not 'modify' in get_perms(node.link):
                     ret = QMessageBox.critical(
@@ -1183,6 +1219,7 @@ class SystemTreeView(QTreeView):
                 # replace system with special "TBD" product
                 orb.log.debug('  removing system "{}" ...'.format(
                               node.link.system.id))
+                orb.save([node.link])
                 tbd = orb.get('pgefobjects:TBD')
                 self.source_model.setData(mapped_i, tbd)
                 dispatcher.send('modified object', obj=node.link)
@@ -1204,6 +1241,7 @@ class SystemTreeView(QTreeView):
             # removeRow() / removeRows()
             # collapse the node before removing it
             # self.collapse(mapped_i)
+            assembly = None
             if node.link.__class__.__name__ == 'Acu':
                 # permissions are determined from the assembly and user's roles
                 if not 'delete' in get_perms(node.link):
@@ -1216,6 +1254,7 @@ class SystemTreeView(QTreeView):
                         return False
                 ref_des = getattr(node.link, 'reference_designator',
                                   '(No reference designator)')
+                assembly = node.link.assembly
                 orb.log.debug('  deleting position and component "{}"'.format(
                               ref_des))
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
@@ -1236,6 +1275,12 @@ class SystemTreeView(QTreeView):
             # NOTE:  removeRow() dispatches the "deleted object" signal,
             # which triggers the "deleted" remote message to be published
             self.source_model.removeRow(pos, row_parent)
+            # Acu deleted -> assembly is modified
+            if assembly:
+                assembly.mod_datetime = dtstamp()
+                assembly.modifier = orb.get(state.get('local_user_oid'))
+                orb.save([assembly])
+                dispatcher.send('modified object', obj=assembly)
 
     def setup_context_menu(self):
         self.addAction(self.pgxnobj_action)

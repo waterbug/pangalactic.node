@@ -445,14 +445,21 @@ class ObjectBlock(Block):
                                 QMessageBox.Cancel)
                     event.accept()
                 else:
+                    mod_objs = []
                     pt = dropped_item.product_type
                     if isinstance(usage, orb.classes['Acu']):
                         usage.component = dropped_item
                         usage.product_type_hint = pt
+                        # Acu is modified -> assembly is modified
+                        mod_objs.append(usage.assembly)
                     elif isinstance(usage, orb.classes['ProjectSystemUsage']):
                         usage.system = dropped_item
                         usage.system_role = pt.name
-                    orb.save([usage])
+                    mod_objs.append(usage)
+                    for obj in mod_objs:
+                        obj.mod_datetime = dtstamp()
+                        obj.modifier = orb.get(state.get('local_user_oid'))
+                    orb.save([mod_objs])
                     # NOTE:  setting 'usage' triggers name/desc label rewrites
                     self.usage = usage
                     # self.name_label.set_text(self.obj.name)
@@ -460,7 +467,8 @@ class ObjectBlock(Block):
                                 # self.obj.product_type.abbreviation))
                     orb.log.debug('   self.usage modified: {}'.format(
                                   self.usage.name))
-                    dispatcher.send('modified object', obj=self.usage)
+                    for obj in mod_objs:
+                        dispatcher.send('modified object', obj=obj)
                     event.accept()
             else:
                 orb.log.info("  - dropped product not in db; nothing done.")
@@ -646,6 +654,7 @@ class SubjectBlock(Block):
                     orb.log.debug('      creating Acu ...')
                     # generate a new reference_designator
                     ref_des = get_next_ref_des(drop_target, dropped_item)
+                    # NOTE: clone() adds create/mod_datetime & creator/modifier
                     new_acu = clone('Acu',
                         id=get_acu_id(drop_target.id, ref_des),
                         name=get_acu_name(drop_target.name, ref_des),
@@ -653,11 +662,16 @@ class SubjectBlock(Block):
                         component=dropped_item,
                         product_type_hint=dropped_item.product_type,
                         reference_designator=ref_des)
-                    orb.save([new_acu])
+                    # new Acu -> drop target is modified (any computed
+                    # parameters must be recomputed, etc.)
+                    drop_target.mod_datetime = dtstamp()
+                    drop_target.modifier = orb.get(state.get('local_user_oid'))
+                    orb.save([new_acu, drop_target])
                     orb.log.debug('      Acu created: {}'.format(
                                   new_acu.name))
                     self.scene().create_block(ObjectBlock, usage=new_acu)
                     dispatcher.send('new object', obj=new_acu)
+                    dispatcher.send('modified object', obj=drop_target)
             elif target_cname == 'Project':
                 # case 3: drop target is a project
                 log_txt = '+ target is a Project -- creating PSU ...'
@@ -685,6 +699,8 @@ class SubjectBlock(Block):
                                     project=drop_target,
                                     system=dropped_item)
                     orb.save([new_psu])
+                    # NOTE:  addition of a ProjectSystemUsage does not imply
+                    # that the Project is "modified" (maybe it should??)
                     orb.log.debug('      ProjectSystemUsage created: %s'
                                   % psu_name)
                     self.scene().create_block(ObjectBlock, usage=new_psu)
@@ -702,18 +718,20 @@ class SubjectBlock(Block):
             elif port_type:
                 orb.log.info('  - orb found {} "{}"'.format(cname, name))
                 orb.log.info('    creating Port ...')
-                NOW = dtstamp()
-                user_obj = orb.get(state.get('local_user_oid'))
                 seq = get_next_port_seq(self.obj, port_type)
                 port_id = get_port_id(port_type.id, seq)
                 port_name = get_port_name(port_type.name, seq)
                 new_port = clone('Port', id=port_id, name=port_name,
                                  abbreviation=port_name,
-                                 type_of_port=port_type, of_product=self.obj,
-                                 creator=user_obj, modifier=user_obj,
-                                 create_datetime=NOW, mod_datetime=NOW)
+                                 type_of_port=port_type, of_product=self.obj)
                 orb.db.commit()
                 dispatcher.send('new object', obj=new_port)
+                # new Port -> self.obj is modified (parameters may need to
+                # be recomputed, etc.)
+                self.obj.mod_datetime = dtstamp()
+                self.obj.modifier = orb.get(state.get('local_user_oid'))
+                orb.save([self.obj])
+                dispatcher.send('modified object', obj=self.obj)
                 # mark existing diagrams containing that object as "dirty" (the
                 # block will draw itself correctly but saved diagrams need to
                 # be redrawn to accommodate the block if it is larger) ... the
@@ -752,6 +770,10 @@ class SubjectBlock(Block):
                     new_parameters = parameterz[port_template.oid].copy()
                     parameterz[new_port.oid] = new_parameters
                 dispatcher.send('new object', obj=new_port)
+                self.obj.mod_datetime = dtstamp()
+                self.obj.modifier = orb.get(state.get('local_user_oid'))
+                orb.save([self.obj])
+                dispatcher.send('modified object', obj=self.obj)
                 self.rebuild_port_blocks()
             else:
                 orb.log.info("  - dropped port template oid not in db.")
@@ -1088,6 +1110,11 @@ class RoutedConnector(QGraphicsItem):
                 start_port=start_item.port, end_port=end_item.port,
                 flow_context=context)
             orb.db.commit()
+            # new Flow -> context object is modified
+            context.mod_datetime = dtstamp()
+            context.modifier = orb.get(state.get('local_user_oid'))
+            orb.save([context])
+            dispatcher.send('modified object', obj=context)
         # orb.log.debug("* RoutedConnector created:")
         # orb.log.debug("  - start port id: {}".format(self.start_item.port.id))
         # orb.log.debug("  - end port id: {}".format(self.end_item.port.id))
