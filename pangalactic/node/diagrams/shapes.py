@@ -456,10 +456,12 @@ class ObjectBlock(Block):
                         usage.system = dropped_item
                         usage.system_role = pt.name
                     mod_objs.append(usage)
+                    # NOTE: if the usage is an Acu, this will set mod_datetime
+                    # and modifier for both the Acu and its assembly
                     for obj in mod_objs:
                         obj.mod_datetime = dtstamp()
                         obj.modifier = orb.get(state.get('local_user_oid'))
-                    orb.save([mod_objs])
+                    orb.save(mod_objs)
                     # NOTE:  setting 'usage' triggers name/desc label rewrites
                     self.usage = usage
                     # self.name_label.set_text(self.obj.name)
