@@ -432,14 +432,14 @@ class ModelWindow(QMainWindow):
         # NOTE:  do not write to a file -- orb._save_diagramz() does that
         # TODO: also send the serialized "model" to vger to be saved there ...
         # TODO: need to define a Model, Representation, and RepresentationFile
+        orb.log.debug('* Modeler: caching diagram geometry ...')
         try:
             scene = self.diagram_view.scene()
-            m = scene.save_diagram()
-            # cache the saved diagram
-            diagramz[self.obj.oid] = m
-            # orb.log.debug('  ... block model cached.')
+            # cache the diagram geometry (layout of blocks)
+            diagramz[self.obj.oid] = scene.get_diagram_geometry()
+            orb.log.debug('  ... cached.')
         except:
-            # orb.log.debug('  ... could not cache model (C++ obj deleted?)')
+            orb.log.debug('  ... could not cache (C++ obj deleted?)')
             pass
 
     # DEPRECATED:  now using diagramz cache, not block model files

@@ -2,6 +2,7 @@
 A diagram scene and view
 """
 import platform, random
+
 from PyQt5.QtGui     import QFont
 from PyQt5.QtWidgets import (QGraphicsItem, QGraphicsLineItem, QGraphicsScene,
                              QGraphicsView, QMessageBox, QSizePolicy)
@@ -20,11 +21,22 @@ class DiagramScene(QGraphicsScene):
     The scene of a diagram
 
     Attributes:
-        blocks (dict): mapping of "usage" (Acu or ProjectSystemUsage) oids to
-            ObjectBlock instances for an "IBD" (internal block diagram).
         subject (ManagedObject):  Project or Product that is the subject of the
             IBD, of which the "blocks" are systems (of a Project) or components
             (of a Product)
+        blocks (dict): mapping of "usage" (Acu or ProjectSystemUsage) oids to
+            ObjectBlock instances for an "IBD" (internal block diagram).
+        diagram_geometry (dict): the current geometric metadata of the diagram
+            in the form of a dict.  Note that flows (connectors) are not
+            included: since they are auto-routed, it is not desirable to
+            specify their geometry independently of the blocks.  The 'geometry'
+            attribute is implemented as a read-only property, with the
+            following structure:
+
+                {usage.oid: {x: x-position,
+                             y: y-position,
+                             rp: bool (True if ports on right; else False},
+                 ...}
     """
     # item_inserted = pyqtSignal(ObjectBlock)
     item_selected = pyqtSignal(QGraphicsItem)
@@ -51,6 +63,18 @@ class DiagramScene(QGraphicsScene):
         self.item_selected.connect(self.process_item_selected)
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+
+    @property
+    def blocks(self):
+        """
+        Return a mapping of "usage" (Acu or ProjectSystemUsage) oids to
+        ObjectBlock instances for the diagram.
+        """
+        block_dict = {}
+        for shape in self.items():
+            if isinstance(shape, ObjectBlock):
+                block_dict[shape.usage.oid] = shape
+        return block_dict
 
     def on_new_object_signal(self, obj=None, cname=''):
         """
@@ -180,6 +204,24 @@ class DiagramScene(QGraphicsScene):
         if item.toPlainText():
             self.removeItem(item)
             item.deleteLater()
+
+    def mimeTypes(self):
+        return ["application/x-pgef-hardware-product",
+                "application/x-pgef-port-type",
+                "application/x-pgef-port-template"]
+
+    def dragEnterEvent(self, event):
+        if (event.mimeData().hasFormat(
+                                "application/x-pgef-hardware-product")
+            or event.mimeData().hasFormat(
+                                "application/x-pgef-port-type")
+            or event.mimeData().hasFormat(
+                                "application/x-pgef-port-template")):
+            # self.dragOver = True
+            # self.update()
+            event.accept()
+        else:
+            event.ignore()
 
     def mousePressEvent(self, mouseEvent):
         if (mouseEvent.button() != Qt.LeftButton):
@@ -403,35 +445,27 @@ class DiagramScene(QGraphicsScene):
         diag_view = self.views()[0]
         diag_view.centerOn(0, 0)
 
-    def save_diagram(self):
+    def get_diagram_geometry(self):
         """
-        Return a serialization of the current block diagram (in the form of a
-        structured dict).  Note that flows are not part of the diagram
-        serialization, since they are saved as objects and then retrieved when
-        the diagram is deserialized (flows are auto-routed, so it is not
-        necessary to save their geometry).
+        Return the current geometric metadata of the diagram in the form of a
+        dict.  Note that flows (connectors) are not included: since they are
+        auto-routed, it is not desirable to specify their geometry
+        independently of the blocks.
+
+                {usage.oid: {x: x-position,
+                             y: y-position,
+                             rp: bool (True if ports on right; else False},
+                 ...}
         """
-        # orb.log.debug('* DiagramScene: save_diagram()')
-        object_blocks = {}
-        subject_block = {}
+        geom_dict = {}
         for shape in self.items():
             if isinstance(shape, ObjectBlock):
                 x = shape.x()
                 y = shape.y()
                 rp = getattr(shape, 'right_ports', False)
-                # orb.log.debug('* ObjectBlock at {}, {}'.format(x, y))
-                object_blocks[shape.usage.oid] = dict(x=x, y=y, right_ports=rp)
-            ## Instantiating the ObjectBlock will recreate its PortBlocks
-            ## automatically, and RoutedConnectors (Flows) will know their
-            ## start/end ## PortBlocks' associated Port oids.
-            ## TODO: specify positions of PortBlocks (if positions will
-            ## be modifiable by preference or for routing)
-        # check on routing channel ...
-        # orb.log.debug('* routing channel: {}'.format(
-                                                # self.get_routing_channel()))
-        return dict(object_blocks=object_blocks,
-                    subject_block=subject_block,
-                    dirty=False)
+                orb.log.debug('* ObjectBlock at {}, {}'.format(x, y))
+                geom_dict[shape.usage.oid] = dict(x=x, y=y, right_ports=rp)
+        return geom_dict
 
     def restore_diagram(self, model, usages):
         """
@@ -452,10 +486,12 @@ class DiagramScene(QGraphicsScene):
         w = 100
         if usages:
             usages_by_oid = {o.oid : o for o in usages}
-            if model.get('object_blocks'):
-                for oid, item in model['object_blocks'].items():
-                    # first restore ObjectBlocks -- ports created automatically
-                    # if the "obj" has a non-null "ports" attribute
+            if model:
+                for oid, item in model.items():
+                    # this restores ObjectBlocks -- ports are created
+                    # automatically if the "obj" has a non-null "ports"
+                    # attribute, and any RoutedConnectors (Flows) will know
+                    # their start/end PortBlocks' associated Port oids.
                     if oid in usages_by_oid:
                         # if in usages, get the usage and remove it
                         usage = usages_by_oid[oid]
@@ -533,24 +569,6 @@ class DiagramScene(QGraphicsScene):
         # center the view on the upper left of the scene ...
         diag_view = self.views()[0]
         diag_view.centerOn(0, 0)
-
-    def mimeTypes(self):
-        return ["application/x-pgef-hardware-product",
-                "application/x-pgef-port-type",
-                "application/x-pgef-port-template"]
-
-    def dragEnterEvent(self, event):
-        if (event.mimeData().hasFormat(
-                                "application/x-pgef-hardware-product")
-            or event.mimeData().hasFormat(
-                                "application/x-pgef-port-type")
-            or event.mimeData().hasFormat(
-                                "application/x-pgef-port-template")):
-            # self.dragOver = True
-            # self.update()
-            event.accept()
-        else:
-            event.ignore()
 
 
 class DiagramView(QGraphicsView):
