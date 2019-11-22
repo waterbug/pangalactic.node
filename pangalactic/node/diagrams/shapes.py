@@ -395,7 +395,7 @@ class ObjectBlock(Block):
         Dirty = True
 
     def mouseDoubleClickEvent(self, event):
-        super(ObjectBlock, self).mouseDoubleClickEvent(self, event)
+        QGraphicsItem.mouseDoubleClickEvent(self, event)
         self.scene().item_doubleclick(self)
 
     def mousePressEvent(self, event):
