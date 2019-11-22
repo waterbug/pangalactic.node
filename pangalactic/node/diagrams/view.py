@@ -11,6 +11,7 @@ from PyQt5.QtCore    import Qt, QLineF, QPoint, QPointF, QRectF, pyqtSignal
 from louie import dispatcher
 
 # pangalactic
+from pangalactic.core import diagramz
 from pangalactic.core.uberorb import orb
 from pangalactic.node.diagrams.shapes import (ObjectBlock, PortBlock,
                                               RoutedConnector, SubjectBlock)
@@ -227,17 +228,12 @@ class DiagramScene(QGraphicsScene):
         if (mouseEvent.button() != Qt.LeftButton):
             return
         down_items = self.items(mouseEvent.scenePos())
-        candidate_items = [i for i in down_items
-                           if hasattr(i, 'add_connector')]
-        if candidate_items:
-            # NOTE:  if the selected item does not support connectors (e.g.
-            # ObjectBlock), discard the event (otherwise, item will be moved
-            # rather than having a connector drawn -- probably not what the
-            # user wants)
+        connectable_items = [i for i in down_items
+                             if hasattr(i, 'add_connector')]
+        if connectable_items:
             self.line = QGraphicsLineItem(QLineF(mouseEvent.scenePos(),
                                                  mouseEvent.scenePos()))
             # self.line.setPen(QPen(self.default_line_color, 2))
-            # self.clearSelection()
             self.addItem(self.line)
         else:
             # if item does NOT have 'add_connector' method, re-issue the event
@@ -251,29 +247,29 @@ class DiagramScene(QGraphicsScene):
         else:
             super(DiagramScene, self).mouseMoveEvent(mouseEvent)
             # AHA!!!!!  doing self.update() forces the refresh!! :D
-            self.update()
+            # self.update()
 
     def mouseReleaseEvent(self, mouseEvent):
         if self.line:
-            orb.log.debug(' - mouseReleaseEvent ...')
+            # orb.log.debug(' - mouseReleaseEvent ...')
             down_items = self.items(self.line.line().p1())
             start_items = [i for i in down_items if isinstance(i, PortBlock)]
-            if start_items:
-                orb.log.debug('   start_items: %s' % start_items[0].obj.id)
+            # if start_items:
+                # orb.log.debug('   start_items: %s' % start_items[0].obj.id)
             up_items = self.items(self.line.line().p2())
             end_items = [i for i in up_items if isinstance(i, PortBlock)]
-            if end_items:
-                orb.log.debug('   end_items: %s' % end_items[0].obj.id)
+            # if end_items:
+                # orb.log.debug('   end_items: %s' % end_items[0].obj.id)
             self.removeItem(self.line)
             self.line = None
             if (len(start_items) and len(end_items)
                 and start_items[0] != end_items[0]):
                 start_item = start_items[0]
                 end_item = end_items[0]
-                orb.log.debug("  - start port type: {}".format(
-                                            start_item.port.type_of_port.id))
-                orb.log.debug("  - end port type: {}".format(
-                                            end_item.port.type_of_port.id))
+                # orb.log.debug("  - start port type: {}".format(
+                                            # start_item.port.type_of_port.id))
+                # orb.log.debug("  - end port type: {}".format(
+                                            # end_item.port.type_of_port.id))
                 if start_item.port.type_of_port.id != end_item.port.type_of_port.id:
                     txt = 'Cannot connect ports of different types.'
                     notice = QMessageBox()
@@ -297,7 +293,9 @@ class DiagramScene(QGraphicsScene):
                     side = 'left'
                 orb.log.debug('     ({} side)'.format(side))
                 # TODO:  color will be determined by the type of the Port(s)
+                routing_channel = self.get_routing_channel()
                 connector = RoutedConnector(start_item, end_item,
+                                            routing_channel,
                                             context=self.subject, pen_width=3)
                 start_item.add_connector(connector)
                 end_item.add_connector(connector)
@@ -307,8 +305,22 @@ class DiagramScene(QGraphicsScene):
                 dispatcher.send('diagram connector added',
                                 start_item=start_item, end_item=end_item)
                 self.update()
-        self.line = None
-        super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
+            self.line = None
+            super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
+        else:
+            # this action is not to connect ports, so presumably it is just a
+            # regular "move" of a block, and the diagram should be re-generated
+            # *** NOTE NOTE NOTE !!! ***
+            # THE SUPERCLASS'S mouseReleaseEvent MUST BE CALLED **HERE**,
+            # (*BEFORE* RE-GENERATING THE DIAGRAM) OR ELSE THE NEXT MOVE EVENT
+            # WILL MALFUNCTION (ITEM WILL JUMP TO UPPER LEFT CORNER OF SCENE)
+            super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
+            if isinstance(self.subject, orb.classes['Project']):
+                usages = self.subject.systems
+            elif isinstance(self.subject, orb.classes['Product']):
+                usages = self.subject.components
+            self.generate_ibd(usages)
+            diagramz[self.subject.oid] = self.get_block_ordering()
 
     def isItemChange(self, type):
         for item in self.selectedItems():
@@ -322,7 +334,7 @@ class DiagramScene(QGraphicsScene):
         """
         # NOTE:  drill-down only applies to a populated ObjectBlock (not a TBD
         # ObjectBlock), and not to SubjectBlock (a subclass)
-        orb.log.debug('* DiagramScene: item_doubleclick()')
+        # orb.log.debug('* DiagramScene: item_doubleclick()')
         # orb.log.debug('  item: {}'.format(str(item)))
         if platform.platform().startswith('Darwin'):
             # drill-down currently crashes on OSX
@@ -338,6 +350,8 @@ class DiagramScene(QGraphicsScene):
         segments of connectors are to be drawn.
         """
         # find all the object blocks and group them by left and right
+        if not self.blocks:
+            return 300, 400
         left_xs = []
         right_xs = []
         for shape in self.items():
@@ -376,74 +390,175 @@ class DiagramScene(QGraphicsScene):
                                  pos=QPointF(20, 20),
                                  width=sb_width, height=sb_height)
 
-    def create_ibd(self, usages):
+    def generate_ibd(self, usages, ordering=None):
         """
         Create an Internal Block Diagram (IBD) for a list of usages (Acu or
-        ProjectSystemUsage instances).
+        ProjectSystemUsage instances).  If an ordering is specified, use the
+        ordering.
 
         Args:
             usages (list of (Acu or ProjectSystemUsage): usages to create
                 blocks for
+
+        Keyword Args:
+            ordering (list):  a list containing 2 lists: [0] oids of usages of
+                blocks in order of appearance in the left column, [1] same for
+                the right column (this ordering is returned by
+                get_block_ordering()).
         """
-        orb.log.debug('* DiagramScene: create_ibd()')
+        orb.log.debug('* DiagramScene: generate_ibd()')
         # TODO:  use actual block widths/heights in placement algorithm ... for
         # now, use some defaults for simplification
         w = 100
         h = 150
         i = 1.0
+        x_left = w
+        x_right = 7*w
         y_left_next = y_right_next = h
         spacing = 20
         items = []
         all_ports = []
         port_blocks = {}   # maps Port oids to PortBlock instances
-        # create component blocks in 2 vertical columns
-        for usage in usages:
-            obj = (getattr(usage, 'component', None)
-                   or getattr(usage, 'system', None))
-            all_ports += getattr(obj, 'ports', [])
-            # orb.log.debug('  - creating block for "%s" ...' % obj.name)
-            if i == 2.0:
-                left_col = right_ports = False
-                p = QPointF(7*w, y_right_next)
-                i = 1.0
-            else:
-                left_col = right_ports = True
-                p = QPointF(w, y_left_next)
-                i += 1.0
-            # orb.log.debug('    ... at position ({}, {}) ...'.format(p.x(),
-                                                                   # p.y()))
-            new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
-                                         right_ports=right_ports)
-            items.append(new_item)
-            if left_col:
+        ordering = ordering or self.get_block_ordering()
+        # remove current items before generating ...
+        if self.items():
+            for shape in self.items():
+                self.removeItem(shape)
+        if ordering:
+            left_oids, right_oids = ordering
+            # exclude any oids that don't appear in the provided 'usages'
+            usage_dict = {u.oid : u for u in usages}
+            left_good_oids = [oid for oid in left_oids if oid in usage_dict]
+            right_good_oids = [oid for oid in right_oids if oid in usage_dict]
+            new_oids = set(usage_dict) - set(left_good_oids + right_good_oids)
+            # create left blocks from supplied ordering (left_oids)
+            for oid in left_good_oids:
+                # place blocks on the left side
+                usage = usage_dict[oid]
+                obj = (getattr(usage, 'component', None)
+                       or getattr(usage, 'system', None))
+                all_ports += getattr(obj, 'ports', [])
+                p = QPointF(x_left, y_left_next)
+                new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
+                                             right_ports=True)
+                port_blocks.update(new_item.port_blocks)
+                items.append(new_item)
                 y_left_next += new_item.rect.height() + spacing
-            else:
+            for oid in right_good_oids:
+                # place blocks on the right side
+                usage = usage_dict[oid]
+                obj = (getattr(usage, 'component', None)
+                       or getattr(usage, 'system', None))
+                all_ports += getattr(obj, 'ports', [])
+                p = QPointF(x_right, y_right_next)
+                new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
+                                             right_ports=False)
+                port_blocks.update(new_item.port_blocks)
+                items.append(new_item)
                 y_right_next += new_item.rect.height() + spacing
-            port_blocks.update(new_item.port_blocks)
+            for oid in new_oids:
+                # place blocks for any items in 'usages' but not in 'ordering'
+                usage = usage_dict[oid]
+                obj = (getattr(usage, 'component', None)
+                       or getattr(usage, 'system', None))
+                all_ports += getattr(obj, 'ports', [])
+                if y_left_next <= y_right_next:
+                    # if left column is shorter, put new block there ...
+                    p = QPointF(x_left, y_left_next)
+                    new_item = self.create_block(ObjectBlock, usage=usage,
+                                                 pos=p, right_ports=True)
+                    port_blocks.update(new_item.port_blocks)
+                    items.append(new_item)
+                    y_left_next += new_item.rect.height() + spacing
+                else:
+                    # otherwise, put new block in right column ...
+                    p = QPointF(x_right, y_right_next)
+                    new_item = self.create_block(ObjectBlock, usage=usage,
+                                                 pos=p, right_ports=False)
+                    port_blocks.update(new_item.port_blocks)
+                    items.append(new_item)
+                    y_right_next += new_item.rect.height() + spacing
+        else:
+            # no ordering is provided and the diagram currently has no blocks
+            # -> place blocks in arbitrary order
+            for usage in usages:
+                obj = (getattr(usage, 'component', None)
+                       or getattr(usage, 'system', None))
+                all_ports += getattr(obj, 'ports', [])
+                # orb.log.debug('  - creating block for "%s" ...' % obj.name)
+                if i == 2.0:
+                    left_col = right_ports = False
+                    p = QPointF(x_right, y_right_next)
+                    i = 1.0
+                else:
+                    left_col = right_ports = True
+                    p = QPointF(x_left, y_left_next)
+                    i += 1.0
+                # orb.log.debug('    ... at position ({}, {}) ...'.format(
+                                                            # p.x(), p.y()))
+                new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
+                                             right_ports=right_ports)
+                port_blocks.update(new_item.port_blocks)
+                items.append(new_item)
+                if left_col:
+                    y_left_next += new_item.rect.height() + spacing
+                else:
+                    y_right_next += new_item.rect.height() + spacing
         # create subject block ...
         subj_block = self.create_ibd_subject_block(items)
         port_blocks.update(subj_block.port_blocks)
         # if Flows exist, create RoutedConnectors for them ...
         # subject might be a Project, so need getattr here ...
-        all_flows = orb.search_exact(cname='Flow', flow_context=self.subject)
-        if all_flows:
+        flows = orb.search_exact(cname='Flow', flow_context=self.subject)
+        if flows:
             orb.log.debug('  - flows found: {}'.format(
-                                    str([f.id for f in all_flows])))
+                                    str([f.id for f in flows])))
+            routing_channel = self.get_routing_channel()
+            for flow in flows:
+                start_item = port_blocks[flow.start_port.oid]
+                end_item = port_blocks[flow.end_port.oid]
+                connector = RoutedConnector(start_item, end_item,
+                                            routing_channel,
+                                            context=self.subject, pen_width=3)
+                start_item.add_connector(connector)
+                end_item.add_connector(connector)
+                connector.setZValue(-1000.0)
+                self.addItem(connector)
+                connector.updatePosition()
         else:
             orb.log.debug('  - no flows found')
-        for flow in all_flows:
-            start_item = port_blocks[flow.start_port.oid]
-            end_item = port_blocks[flow.end_port.oid]
-            connector = RoutedConnector(start_item, end_item,
-                                        context=self.subject, pen_width=3)
-            start_item.add_connector(connector)
-            end_item.add_connector(connector)
-            connector.setZValue(-1000.0)
-            self.addItem(connector)
-            connector.updatePosition()
         # set the upper left corner scene ...
         diag_view = self.views()[0]
         diag_view.centerOn(0, 0)
+
+    def get_block_ordering(self):
+        """
+        Return the current ordering of the blocks in the diagram in the form of
+        a list containing two lists: [0] oids of usages for blocks on the left
+        side of the diagram from top to bottom, [1] same for blocks on the
+        right side.
+
+        Return:  list of oids
+        """
+        orb.log.debug('* get_block_ordering')
+        if not self.blocks:
+            return []
+        w = 100
+        x_left = w
+        x_right = 7*w
+        x_middle = (x_left + x_right) / 2.0
+        left_blocks = []
+        right_blocks = []
+        for block in self.blocks.values():
+            if block.x() > x_middle:
+                right_blocks.append(block)
+            else:
+                left_blocks.append(block)
+        left_blocks.sort(key=lambda x: x.y())
+        right_blocks.sort(key=lambda x: x.y())
+        left_oids = [b.usage.oid for b in left_blocks]
+        right_oids = [b.usage.oid for b in right_blocks]
+        return left_oids, right_oids
 
     def get_diagram_geometry(self):
         """
@@ -463,31 +578,33 @@ class DiagramScene(QGraphicsScene):
                 x = shape.x()
                 y = shape.y()
                 rp = getattr(shape, 'right_ports', False)
-                orb.log.debug('* ObjectBlock at {}, {}'.format(x, y))
+                # orb.log.debug('* ObjectBlock at {}, {}'.format(x, y))
                 geom_dict[shape.usage.oid] = dict(x=x, y=y, right_ports=rp)
         return geom_dict
 
-    def restore_diagram(self, model, usages):
+    def restore_diagram(self, diagram_geometry, usages):
         """
-        Recreate a block diagram from a saved model, ensuring that blocks for
-        all usages are included.
+        Recreate a block diagram from a saved diagram_geometry, ensuring that
+        blocks for all usages are included.
 
         Args:
-            model (dict): a serialized block model
+            diagram_geometry (dict): a serialized block diagram geometry
             usages (list of Acu or ProjectSystemUsage): usages to create
                 object blocks for
         """
-        orb.log.debug('* DiagramScene: restore_diagram()')
+        # orb.log.debug('* DiagramScene: restore_diagram()')
         port_blocks = {}   # maps Port oids to PortBlock instances
         object_blocks = []
         y_left_last = y_right_last = 0  # y coord of tops of last blocks
         y_left_next = y_right_next = 150 # y of top of next blocks
         spacing = 20
         w = 100
+        x_left = w
+        x_right = 7*w
         if usages:
             usages_by_oid = {o.oid : o for o in usages}
-            if model:
-                for oid, item in model.items():
+            if diagram_geometry:
+                for oid, item in diagram_geometry.items():
                     # this restores ObjectBlocks -- ports are created
                     # automatically if the "obj" has a non-null "ports"
                     # attribute, and any RoutedConnectors (Flows) will know
@@ -525,11 +642,11 @@ class DiagramScene(QGraphicsScene):
                                                                     # obj.name))
                 if y_left_next <= y_right_next:
                     # left col is shorter or same so add next block there ...
-                    p = QPointF(w, y_left_next)
+                    p = QPointF(x_left, y_left_next)
                     rp = True
                 else:
                     # right col is shorter ...
-                    p = QPointF(7*w, y_right_next)
+                    p = QPointF(x_right, y_right_next)
                     rp = False
                 obj_block = self.create_block(ObjectBlock, usage=usage, pos=p,
                                               right_ports=rp)
@@ -545,27 +662,29 @@ class DiagramScene(QGraphicsScene):
         # NOTE:  flows are only restored from the Flow objects saved in the db
         # and are auto-routed (diagrams do not provide handles for routing
         # flows anyway!)
-        known_flows = orb.get_by_type('Flow')
-        all_ports = [pb.port for pb in port_blocks.values()]
-        all_flows = [flow for flow in known_flows
-                     if (flow.start_port in all_ports and
-                         flow.end_port in all_ports and
-                         flow.flow_context == self.subject)]
-        for flow in all_flows:
+        flows = orb.search_exact(cname='Flow', flow_context=self.subject)
+        # NOTE: the following "validation" step should not be necessary ...
+        # all_ports = [pb.port for pb in port_blocks.values()]
+        # all_flows = [flow for flow in known_flows
+                     # if (flow.start_port in all_ports and
+                         # flow.end_port in all_ports and
+                         # flow.flow_context == self.subject)]
+        # get routing channel ...
+        routing_channel = self.get_routing_channel()
+        # orb.log.debug('* routing channel: {}'.format(routing_channel))
+        for flow in flows:
             start_item = port_blocks.get(flow.start_port.oid)
             end_item = port_blocks.get(flow.end_port.oid)
             if start_item and end_item:
                 # TODO:  color will be determined by the type of the Port(s)
                 connector = RoutedConnector(start_item, end_item,
+                                            routing_channel,
                                             context=self.subject, pen_width=3)
                 start_item.add_connector(connector)
                 end_item.add_connector(connector)
                 connector.setZValue(-1000.0)
                 self.addItem(connector)
                 connector.updatePosition()
-        # check on routing channel ...
-        # orb.log.debug('* routing channel: {}'.format(
-                                                # self.get_routing_channel()))
         # center the view on the upper left of the scene ...
         diag_view = self.views()[0]
         diag_view.centerOn(0, 0)

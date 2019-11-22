@@ -179,13 +179,14 @@ class ModelWindow(QMainWindow):
                                     icon="view_16",
                                     tip="View CAD Model (from STEP File)")
         self.toolbar.addAction(self.view_cad_action)
-        self.external_window_action = self.create_action(
-                                    "Display external diagram window ...",
-                                    slot=self.display_external_window,
-                                    icon="system",
-                                    tip="Display External Diagram Window")
-        if not self.external:
-            self.toolbar.addAction(self.external_window_action)
+        # self.external_window_action = self.create_action(
+                                    # "Display external diagram window ...",
+                                    # slot=self.display_external_window,
+                                    # icon="system",
+                                    # tip="Display External Diagram Window")
+        # TODO:  fix bug that crashes the external window ...
+        # if not self.external:
+            # self.toolbar.addAction(self.external_window_action)
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
                                           "100%"])
@@ -375,24 +376,20 @@ class ModelWindow(QMainWindow):
             return
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
-        model = diagramz.get(self.obj.oid)
+        block_ordering = diagramz.get(self.obj.oid)
         usages = []
         if hasattr(self.obj, 'components') and self.obj.components:
             usages = self.obj.components
         elif hasattr(self.obj, 'systems') and len(self.obj.systems):
             # self.obj is a Project
             usages = self.obj.systems
-        if model and not model.get('dirty'):
-            # orb.log.debug('  - restoring saved block diagram ...')
-            scene.restore_diagram(model, usages)
+        if block_ordering:
+            # orb.log.debug('  - generating diagram with ordering ...')
+            scene.generate_ibd(usages, ordering=block_ordering)
         else:
-            # if model and model.get('dirty'):
-                # orb.log.debug('  - block diagram found needed redrawing,')
-            # elif not model:
-                # orb.log.debug('  - no block diagram found in cache or files ')
-            # orb.log.debug('    generating new block diagram ...')
+            # orb.log.debug('  - generating new block diagram ...')
             # orb.log.debug('  - generating diagram (cache disabled for testing)')
-            scene.create_ibd(usages)
+            scene.generate_ibd(usages)
             # create a block Model object if self.obj doesn't have one
             block_model_type = orb.get(BLOCK_OID)
             if self.obj.has_models:
@@ -432,14 +429,18 @@ class ModelWindow(QMainWindow):
         # NOTE:  do not write to a file -- orb._save_diagramz() does that
         # TODO: also send the serialized "model" to vger to be saved there ...
         # TODO: need to define a Model, Representation, and RepresentationFile
-        orb.log.debug('* Modeler: caching diagram geometry ...')
+        # orb.log.debug('* Modeler: caching diagram geometry ...')
         try:
             scene = self.diagram_view.scene()
             # cache the diagram geometry (layout of blocks)
-            diagramz[self.obj.oid] = scene.get_diagram_geometry()
-            orb.log.debug('  ... cached.')
+            # NOTE: get_diagram_geometry() got arbitrary block positions --
+            # this is deprecated in favor of using the ordering of the blocks
+            # to generate the diagram with 2 uniform columns of blocks
+            # diagramz[self.obj.oid] = scene.get_diagram_geometry()
+            diagramz[self.obj.oid] = scene.get_block_ordering()
+            # orb.log.debug('  ... cached.')
         except:
-            orb.log.debug('  ... could not cache (C++ obj deleted?)')
+            # orb.log.debug('  ... could not cache (C++ obj deleted?)')
             pass
 
     # DEPRECATED:  now using diagramz cache, not block model files

@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFontComboBox,
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core             import diagramz, state
+from pangalactic.core             import state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import parameterz
 from pangalactic.core.uberorb     import orb
@@ -268,9 +268,9 @@ class ObjectBlock(Block):
         self.usage = usage
         # self.connectors = []
         self.setPos(position)
-        scene.clearSelection()
-        self.setSelected(True)
-        self.setFocus()
+        # scene.clearSelection()
+        # self.setSelected(True)
+        # self.setFocus()
         # ObjectBlocks get a higher z-value SubjectBlocks
         # (so they can receive mouse events)
         z_value = 1.0
@@ -395,8 +395,20 @@ class ObjectBlock(Block):
         Dirty = True
 
     def mouseDoubleClickEvent(self, event):
-        super(ObjectBlock, self).mouseDoubleClickEvent(event)
+        super(ObjectBlock, self).mouseDoubleClickEvent(self, event)
         self.scene().item_doubleclick(self)
+
+    def mousePressEvent(self, event):
+        self.setSelected(True)
+        QGraphicsItem.mousePressEvent(self, event)
+
+    def mouseMoveEvent(self, event):
+        QGraphicsItem.mouseMoveEvent(self, event)
+
+    def mouseReleaseEvent(self, event):
+        # deselect so another object can be selected
+        self.setSelected(False)
+        QGraphicsItem.mouseReleaseEvent(self, event)
 
     def mimeTypes(self):
         return ["application/x-pgef-hardware-product"]
@@ -734,14 +746,6 @@ class SubjectBlock(Block):
                 self.obj.modifier = orb.get(state.get('local_user_oid'))
                 orb.save([self.obj])
                 dispatcher.send('modified object', obj=self.obj)
-                # mark existing diagrams containing that object as "dirty" (the
-                # block will draw itself correctly but saved diagrams need to
-                # be redrawn to accommodate the block if it is larger) ... the
-                # "dirty" flag will be reset by the 'save_diagram' function
-                # when the new diagram is saved.
-                for diagram in diagramz.values():
-                    if self.obj.oid in diagram['object_blocks']:
-                        diagram['dirty'] = True
                 self.rebuild_port_blocks()
             else:
                 orb.log.info("  - dropped port type oid not in db.")
@@ -1067,14 +1071,16 @@ class RoutedConnector(QGraphicsItem):
     # * brown ......... actuator signal (e.g. launch dock actuator drive)
     # * black ......... gas lines (e.g. N2 or O2)
 
-    def __init__(self, start_item, end_item, context=None, arrow=False,
-                 pen_width=2):
+    def __init__(self, start_item, end_item, routing_channel, context=None,
+                 arrow=False, pen_width=2):
         """
         Initialize RoutedConnector.
 
         Args:
             start_item (PortBlock):  start port of connection
             end_item (PortBlock):  end port of connection
+            routing_channel (list):  the left and right x-coordinates within
+                which all flows should be routed
 
         Keyword Args:
             context (ManagedObject):  object that is the subject of the diagram
@@ -1083,6 +1089,7 @@ class RoutedConnector(QGraphicsItem):
         """
         super(RoutedConnector, self).__init__()
         self.segments = []
+        self.routing_channel = routing_channel
         # default is Electrical Power (red)
         self.type_of_flow = getattr(start_item.port.type_of_port, 'id',
                                     'electrical_power')
@@ -1238,11 +1245,14 @@ class RoutedConnector(QGraphicsItem):
             # self.pen.setWidth(6)
         # else:
         painter.setBrush(self.color)
-        # get the routing channel and use it together with the port type and
-        # the "SEPARATION" factor (spacing between flows) to calculate the
+        # routing channel is used together with the port type and the
+        # "SEPARATION" factor (spacing between flows) to calculate the
         # x-position of the vertical segment, vertical_x (formerly known as
         # seg1p2x)
-        rc_left_x, rc_right_x = self.scene().get_routing_channel()
+        if self.routing_channel:
+            rc_left_x, rc_right_x = self.routing_channel
+        else:
+            rc_left_x, rc_right_x = 300, 400
         vertical_x = ((rc_left_x + rc_right_x)/2  # center of channel (?)
                       + SEPARATION * PORT_TYPES.index(self.type_of_flow))
         if start_right and not end_right:
