@@ -1101,6 +1101,12 @@ class RoutedConnector(QGraphicsItem):
         self.type_of_flow = getattr(start_item.port.type_of_port, 'id',
                                     'electrical_power')
         self.color = PORT_TYPE_COLORS[self.type_of_flow]
+        self.arrow = arrow
+        self.pen_width = pen_width
+        self.normal_pen_width = pen_width
+        self.wide_pen_width = pen_width + 5
+        if arrow:
+            self.arrow_head = QPolygonF()
         self.pen = QPen(self.color, pen_width, Qt.SolidLine, Qt.RoundCap,
                         Qt.RoundJoin)
         self.start_item = start_item
@@ -1116,12 +1122,6 @@ class RoutedConnector(QGraphicsItem):
             popup.show()
             return
         self.setAcceptHoverEvents(True)
-        self.arrow = arrow
-        self.pen_width = pen_width
-        self.normal_pen_width = pen_width
-        self.wide_pen_width = pen_width + 5
-        if arrow:
-            self.arrow_head = QPolygonF()
         # 'paints' is for dev analysis -- number of calls to paint()
         # self.paints = 0
         flows = orb.search_exact(start_port=start_item.port,
