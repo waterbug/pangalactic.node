@@ -135,6 +135,12 @@ class ModelWindow(QMainWindow):
                            'diagram object drill down')
         dispatcher.connect(self.save_diagram_connector,
                            'diagram connector added')
+        dispatcher.connect(self.display_block_diagram, 'refresh diagram')
+        dispatcher.connect(self.display_block_diagram, 'new object')
+        dispatcher.connect(self.display_block_diagram, 'modified object')
+        dispatcher.connect(self.display_block_diagram, 'remote: decloaked')
+        dispatcher.connect(self.display_block_diagram, 'remote: modified')
+        dispatcher.connect(self.display_block_diagram, 'remote: deleted')
         self.set_subject(obj=obj, msg='(setting to selected object)')
 
     def sizeHint(self):

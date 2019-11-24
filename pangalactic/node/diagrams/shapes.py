@@ -271,7 +271,7 @@ class ObjectBlock(Block):
         # scene.clearSelection()
         # self.setSelected(True)
         # self.setFocus()
-        # ObjectBlocks get a higher z-value SubjectBlocks
+        # ObjectBlocks get a higher z-value than SubjectBlocks
         # (so they can receive mouse events)
         z_value = 1.0
         self.setZValue(z_value)
@@ -322,8 +322,10 @@ class ObjectBlock(Block):
             refdes = link.system_role or ''
         hint = hint or 'Unspecified Type'
         if getattr(self, 'name_label', None):
+            self.name_label.prepareGeometryChange()
             self.scene().removeItem(self.name_label)
         if getattr(self, 'description_label', None):
+            self.description_label.prepareGeometryChange()
             self.scene().removeItem(self.description_label)
         if len(refdes) < 20:
             description = refdes
@@ -364,6 +366,7 @@ class ObjectBlock(Block):
         # menu.exec_(event.screenPos())
 
     # def something(self):
+        # orb.log.info('* doing something ...')
         # pass
 
     def parentWidget(self):
@@ -406,6 +409,7 @@ class ObjectBlock(Block):
         QGraphicsItem.mouseMoveEvent(self, event)
 
     def mouseReleaseEvent(self, event):
+        # orb.log.debug("* ObjectBlock: mouseReleaseEvent()")
         # deselect so another object can be selected
         self.setSelected(False)
         QGraphicsItem.mouseReleaseEvent(self, event)
@@ -431,7 +435,7 @@ class ObjectBlock(Block):
             icon, oid, _id, name, cname = data
             dropped_item = orb.get(oid)
             if dropped_item:
-                orb.log.info('  - dropped_item: "{}"'.format(name))
+                # orb.log.info('  - dropped_item: "{}"'.format(name))
                 dispatcher.send('product dropped on object block',
                                 p=dropped_item)
                 # drop target is "TBD" product -> replace it with the dropped
@@ -625,16 +629,16 @@ class SubjectBlock(Block):
             data = extract_mime_data(event,
                                      "application/x-pgef-hardware-product")
             icon, obj_oid, obj_id, obj_name, obj_cname = data
-            orb.log.info("  - it is a {} ...".format(obj_cname))
+            # orb.log.info("  - it is a {} ...".format(obj_cname))
             dropped_item = orb.get(obj_oid)
             if dropped_item:
-                orb.log.info('  - found in db: "{}"'.format(obj_name))
-                orb.log.info(
-                    '    sending message "product dropped on subject block"')
+                # orb.log.info('  - found in db: "{}"'.format(obj_name))
+                # orb.log.info(
+                    # '    sending message "product dropped on subject block"')
                 dispatcher.send('product dropped on subject block',
                                 p=dropped_item)
             else:
-                orb.log.info("  - dropped product oid not in db.")
+                # orb.log.info("  - dropped product oid not in db.")
                 event.ignore()
             target_cname = drop_target.__class__.__name__
             if issubclass(orb.classes[target_cname],
@@ -665,7 +669,7 @@ class SubjectBlock(Block):
                     event.ignore()
                 else:
                     # add new Acu
-                    orb.log.debug('      creating Acu ...')
+                    # orb.log.debug('      creating Acu ...')
                     # generate a new reference_designator
                     ref_des = get_next_ref_des(drop_target, dropped_item)
                     # NOTE: clone() adds create/mod_datetime & creator/modifier
@@ -681,15 +685,15 @@ class SubjectBlock(Block):
                     drop_target.mod_datetime = dtstamp()
                     drop_target.modifier = orb.get(state.get('local_user_oid'))
                     orb.save([new_acu, drop_target])
-                    orb.log.debug('      Acu created: {}'.format(
-                                  new_acu.name))
+                    # orb.log.debug('      Acu created: {}'.format(
+                                  # new_acu.name))
                     self.scene().create_block(ObjectBlock, usage=new_acu)
                     dispatcher.send('new object', obj=new_acu)
                     dispatcher.send('modified object', obj=drop_target)
             elif target_cname == 'Project':
                 # case 3: drop target is a project
-                log_txt = '+ target is a Project -- creating PSU ...'
-                orb.log.debug('    {}'.format(log_txt))
+                # log_txt = '+ target is a Project -- creating PSU ...'
+                # orb.log.debug('    {}'.format(log_txt))
                 psu = orb.search_exact(cname='ProjectSystemUsage',
                                        project=drop_target,
                                        system=dropped_item)
@@ -715,23 +719,23 @@ class SubjectBlock(Block):
                     orb.save([new_psu])
                     # NOTE:  addition of a ProjectSystemUsage does not imply
                     # that the Project is "modified" (maybe it should??)
-                    orb.log.debug('      ProjectSystemUsage created: %s'
-                                  % psu_name)
+                    # orb.log.debug('      ProjectSystemUsage created: %s'
+                                  # % psu_name)
                     self.scene().create_block(ObjectBlock, usage=new_psu)
                     dispatcher.send('new object', obj=new_psu)
 
         elif event.mimeData().hasFormat("application/x-pgef-port-type"):
             data = extract_mime_data(event, "application/x-pgef-port-type")
             icon, oid, _id, name, cname = data
-            orb.log.info("  - it is a {} ...".format(cname))
+            # orb.log.info("  - it is a {} ...".format(cname))
             port_type = orb.get(oid)
             if not hasattr(self.obj, 'ports'):
-                orb.log.info("  - {} cannot have ports.".format(
-                                                self.obj.__class__.__name__))
+                # orb.log.info("  - {} cannot have ports.".format(
+                                                # self.obj.__class__.__name__))
                 event.ignore()
             elif port_type:
-                orb.log.info('  - orb found {} "{}"'.format(cname, name))
-                orb.log.info('    creating Port ...')
+                # orb.log.info('  - orb found {} "{}"'.format(cname, name))
+                # orb.log.info('    creating Port ...')
                 seq = get_next_port_seq(self.obj, port_type)
                 port_id = get_port_id(port_type.id, seq)
                 port_name = get_port_name(port_type.name, seq)
@@ -748,20 +752,20 @@ class SubjectBlock(Block):
                 dispatcher.send('modified object', obj=self.obj)
                 self.rebuild_port_blocks()
             else:
-                orb.log.info("  - dropped port type oid not in db.")
+                # orb.log.info("  - dropped port type oid not in db.")
                 event.ignore()
         elif event.mimeData().hasFormat("application/x-pgef-port-template"):
             data = extract_mime_data(event, "application/x-pgef-port-template")
             icon, oid, _id, name, cname = data
-            orb.log.info("  - it is a {} ...".format(cname))
+            # orb.log.info("  - it is a {} ...".format(cname))
             port_template = orb.get(oid)
             if not hasattr(self.obj, 'ports'):
-                orb.log.info("  - {} cannot have ports.".format(
-                                                self.obj.__class__.__name__))
+                # orb.log.info("  - {} cannot have ports.".format(
+                                                # self.obj.__class__.__name__))
                 event.ignore()
             elif port_template:
-                orb.log.info('  - orb found {} "{}"'.format(cname, name))
-                orb.log.info('    creating Port ...')
+                # orb.log.info('  - orb found {} "{}"'.format(cname, name))
+                # orb.log.info('    creating Port ...')
                 port_type = port_template.type_of_port
                 seq = get_next_port_seq(self.obj, port_type)
                 port_id = get_port_id(port_type.id, seq)
@@ -861,12 +865,14 @@ class PortBlock(QGraphicsItem):
                 if (isinstance(shape, RoutedConnector) and
                     (shape.start_item is self or shape.end_item is self)):
                     orb.delete([shape.flow])
+                    self.shape.prepareGeometryChange()
                     self.scene().removeItem(shape)
             # the PortBlock must have a Port, but check just to be sure ...
             if getattr(self, 'port', None):
                 orb.delete([self.port])
             # finally, delete the PortBlock itself ...
             parent_block = self.parent_block
+            self.prepareGeometryChange()
             self.scene().removeItem(self)
             parent_block.rebuild_port_blocks()
 
@@ -910,6 +916,7 @@ class PortBlock(QGraphicsItem):
         for connector in self.connectors[:]:
             connector.start_item.remove_connector(connector)
             connector.end_item.remove_connector(connector)
+            connector.prepareGeometryChange()
             self.scene().removeItem(connector)
 
 
