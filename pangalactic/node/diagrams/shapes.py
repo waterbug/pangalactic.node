@@ -1106,6 +1106,15 @@ class RoutedConnector(QGraphicsItem):
         self.start_item = start_item
         self.end_item = end_item
         self.context = context
+        # check whether user has permission to modify the 'context' object
+        if not 'modify' in get_perms(context):
+            popup = QMessageBox(
+                  QMessageBox.Critical,
+                  "Unauthorized Operation",
+                  "User's roles do not permit this operation",
+                  QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            return
         self.setAcceptHoverEvents(True)
         self.arrow = arrow
         self.pen_width = pen_width
@@ -1118,6 +1127,7 @@ class RoutedConnector(QGraphicsItem):
         flows = orb.search_exact(start_port=start_item.port,
                                  end_port=end_item.port)
         if flows:
+            # TODO:  check for errors (e.g. multiple flows)
             self.flow = flows[0]  # *should* only be one ...
         else:
             self.flow = clone('Flow',
@@ -1144,6 +1154,15 @@ class RoutedConnector(QGraphicsItem):
         menu.exec_(event.screenPos())
 
     def delete(self):
+        # check whether user has permission to modify the 'context' object
+        if not 'modify' in get_perms(self.context):
+            popup = QMessageBox(
+                  QMessageBox.Critical,
+                  "Unauthorized Operation",
+                  "User's roles do not permit this operation",
+                  QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            return
         txt = 'This will delete the {}'.format(self.flow.name)
         txt += ' -- are you sure?'
         confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Connector?',
@@ -1154,10 +1173,17 @@ class RoutedConnector(QGraphicsItem):
             orb.log.debug("  - start id: {}".format(self.start_item.obj.id))
             orb.log.debug("  - end id: {}".format(self.end_item.obj.id))
             if getattr(self, 'flow', None):
+                dispatcher.send('deleted object', obj=self.flow.oid,
+                                cname='Flow')
                 orb.delete([self.flow])
             self.start_item.remove_connector(self)
             self.end_item.remove_connector(self)
             self.scene().removeItem(self)
+            # deleted Flow -> context object is modified
+            self.context.mod_datetime = dtstamp()
+            self.context.modifier = orb.get(state.get('local_user_oid'))
+            orb.save([self.context])
+            dispatcher.send('modified object', obj=self.context)
 
     def set_color(self, color):
         self._color = color
