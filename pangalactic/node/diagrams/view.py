@@ -440,8 +440,16 @@ class DiagramScene(QGraphicsScene):
             routing_channel = self.get_routing_channel()
             # orb.log.debug('  - creating routed connectors ...')
             for flow in flows:
-                start_item = port_blocks[flow.start_port.oid]
-                end_item = port_blocks[flow.end_port.oid]
+                # check in case flows in db out of sync with diagram
+                start_item = port_blocks.get(flow.start_port.oid)
+                end_item = port_blocks.get(flow.end_port.oid)
+                if not (start_item and end_item):
+                    # NOTE: this indicates db/diagram out of sync ... delete
+                    # flow from local db and let sync with repo handle it
+                    # TODO: maybe set mod_datetime of flow_context object
+                    # earlier so it will be updated by sync ...?
+                    orb.delete([flow])
+                    continue
                 # orb.log.debug('    + {}'.format(flow.id))
                 connector = RoutedConnector(start_item, end_item,
                                             routing_channel,
