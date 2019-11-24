@@ -1245,7 +1245,7 @@ class RoutedConnector(QGraphicsItem):
                 path.addRect(segment_bounding_rect(segment))
         else:
             path = super(RoutedConnector, self).shape()
-        if self.arrow:
+        if getattr(self, 'arrow', None):
             path.addPolygon(self.arrow_head)
         return path
 
