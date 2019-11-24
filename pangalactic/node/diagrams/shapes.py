@@ -1112,15 +1112,6 @@ class RoutedConnector(QGraphicsItem):
         self.start_item = start_item
         self.end_item = end_item
         self.context = context
-        # check whether user has permission to modify the 'context' object
-        if not 'modify' in get_perms(context):
-            popup = QMessageBox(
-                  QMessageBox.Critical,
-                  "Unauthorized Operation",
-                  "User's roles do not permit this operation",
-                  QMessageBox.Ok, self.parentWidget())
-            popup.show()
-            return
         self.setAcceptHoverEvents(True)
         # 'paints' is for dev analysis -- number of calls to paint()
         # self.paints = 0
@@ -1147,22 +1138,22 @@ class RoutedConnector(QGraphicsItem):
         # orb.log.debug("  - context id: {}".format(self.context.id))
 
     def contextMenuEvent(self, event):
+        # check whether user has permission to modify the 'context' object --
+        # if not, they don't get the option
         self.scene().clearSelection()
         self.setSelected(True)
         menu = QMenu()
-        menu.addAction('delete connector', self.delete)
-        menu.exec_(event.screenPos())
+        if 'modify' in get_perms(self.context):
+            menu.addAction('delete connector', self.delete)
+            menu.exec_(event.screenPos())
+        else:
+            menu.addAction('user has no modify permissions', self.noop)
+            menu.exec_(event.screenPos())
+
+    def noop(self):
+        pass
 
     def delete(self):
-        # check whether user has permission to modify the 'context' object
-        if not 'modify' in get_perms(self.context):
-            popup = QMessageBox(
-                  QMessageBox.Critical,
-                  "Unauthorized Operation",
-                  "User's roles do not permit this operation",
-                  QMessageBox.Ok, self.parentWidget())
-            popup.show()
-            return
         txt = 'This will delete the {}'.format(self.flow.name)
         txt += ' -- are you sure?'
         confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Connector?',

@@ -11,7 +11,8 @@ from PyQt5.QtCore    import Qt, QLineF, QPoint, QPointF, QRectF
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core import diagramz
+from pangalactic.core         import diagramz
+from pangalactic.core.access  import get_perms
 from pangalactic.core.uberorb import orb
 from pangalactic.node.diagrams.shapes import (ObjectBlock, PortBlock,
                                               RoutedConnector, SubjectBlock)
@@ -106,60 +107,78 @@ class DiagramScene(QGraphicsScene):
 
     def mouseReleaseEvent(self, mouseEvent):
         if self.line:
-            # orb.log.debug(' - mouseReleaseEvent ...')
-            down_items = self.items(self.line.line().p1())
-            start_items = [i for i in down_items if isinstance(i, PortBlock)]
-            # if start_items:
-                # orb.log.debug('   start_items: %s' % start_items[0].obj.id)
-            up_items = self.items(self.line.line().p2())
-            end_items = [i for i in up_items if isinstance(i, PortBlock)]
-            # if end_items:
-                # orb.log.debug('   end_items: %s' % end_items[0].obj.id)
-            self.removeItem(self.line)
-            self.line = None
-            if (len(start_items) and len(end_items)
-                and start_items[0] != end_items[0]):
-                start_item = start_items[0]
-                end_item = end_items[0]
-                # orb.log.debug("  - start port type: {}".format(
+            # first check in user has perms to modify subject
+            if not 'modify' in get_perms(self.subject):
+                popup = QMessageBox(
+                      QMessageBox.Critical,
+                      "Unauthorized Operation",
+                      "User's roles do not permit this operation",
+                      QMessageBox.Ok, self.parentWidget())
+                popup.show()
+            else:
+                # orb.log.debug(' - mouseReleaseEvent ...')
+                down_items = self.items(self.line.line().p1())
+                start_items = [i for i in down_items
+                               if isinstance(i, PortBlock)]
+                # if start_items:
+                    # orb.log.debug('   start_items: %s'.format(
+                                        # start_items[0].obj.id))
+                up_items = self.items(self.line.line().p2())
+                end_items = [i for i in up_items if isinstance(i, PortBlock)]
+                # if end_items:
+                    # orb.log.debug('   end_items: %s' % end_items[0].obj.id)
+                self.removeItem(self.line)
+                self.line = None
+                if (len(start_items) and len(end_items)
+                    and start_items[0] != end_items[0]):
+                    start_item = start_items[0]
+                    end_item = end_items[0]
+                    # orb.log.debug("  - start port type: {}".format(
                                             # start_item.port.type_of_port.id))
-                # orb.log.debug("  - end port type: {}".format(
+                    # orb.log.debug("  - end port type: {}".format(
                                             # end_item.port.type_of_port.id))
-                if start_item.port.type_of_port.id != end_item.port.type_of_port.id:
-                    txt = 'Cannot connect ports of different types.'
-                    notice = QMessageBox()
-                    notice.setText(txt)
-                    notice.exec_()
-                    return
-                # orb.log.debug('   drawing RoutedConnector ...')
-                # orb.log.debug('   * start item:')
-                # orb.log.debug('     - object id: {}'.format(start_item.obj.id))
-                # orb.log.debug('     - port id: {}'.format(start_item.port.id))
-                # side = 'right'
-                # if start_item.right_port:
-                    # side = 'left'
-                # orb.log.debug('     ({} side)'.format(side))
-                # orb.log.debug('   * end item:')
-                # orb.log.debug('     - object id: {}'.format(end_item.obj.id))
-                # orb.log.debug('     - port id: {}'.format(end_item.port.id))
-                # orb.log.debug('   * context id:  {}'.format(self.subject.id))
-                # side = 'right'
-                # if end_item.right_port:
-                    # side = 'left'
-                # orb.log.debug('     ({} side)'.format(side))
-                # TODO:  color will be determined by the type of the Port(s)
-                routing_channel = self.get_routing_channel()
-                connector = RoutedConnector(start_item, end_item,
-                                            routing_channel,
-                                            context=self.subject, pen_width=3)
-                start_item.add_connector(connector)
-                end_item.add_connector(connector)
-                connector.setZValue(-1000.0)
-                self.addItem(connector)
-                connector.updatePosition()
-                dispatcher.send('diagram connector added',
-                                start_item=start_item, end_item=end_item)
-                self.update()
+                    if (start_item.port.type_of_port.id !=
+                        end_item.port.type_of_port.id):
+                        txt = 'Cannot connect ports of different types.'
+                        notice = QMessageBox()
+                        notice.setText(txt)
+                        notice.exec_()
+                        return
+                    # orb.log.debug('   drawing RoutedConnector ...')
+                    # orb.log.debug('   * start item:')
+                    # orb.log.debug('     - object id: {}'.format(
+                                    # start_item.obj.id))
+                    # orb.log.debug('     - port id: {}'.format(
+                                    # start_item.port.id))
+                    # side = 'right'
+                    # if start_item.right_port:
+                        # side = 'left'
+                    # orb.log.debug('     ({} side)'.format(side))
+                    # orb.log.debug('   * end item:')
+                    # orb.log.debug('     - object id: {}'.format(
+                                    # end_item.obj.id))
+                    # orb.log.debug('     - port id: {}'.format(
+                                    # end_item.port.id))
+                    # orb.log.debug('   * context id:  {}'.format(
+                                    # self.subject.id))
+                    # side = 'right'
+                    # if end_item.right_port:
+                        # side = 'left'
+                    # orb.log.debug('     ({} side)'.format(side))
+                    # TODO:  color will be determined by type of Port(s)
+                    routing_channel = self.get_routing_channel()
+                    connector = RoutedConnector(start_item, end_item,
+                                                routing_channel,
+                                                context=self.subject,
+                                                pen_width=3)
+                    start_item.add_connector(connector)
+                    end_item.add_connector(connector)
+                    connector.setZValue(-1000.0)
+                    self.addItem(connector)
+                    connector.updatePosition()
+                    dispatcher.send('diagram connector added',
+                                    start_item=start_item, end_item=end_item)
+                    self.update()
             self.line = None
             super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
         else:
