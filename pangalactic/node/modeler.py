@@ -247,7 +247,7 @@ class ModelWindow(QMainWindow):
         mw.show()
 
     def set_new_diagram_view(self):
-        new_diagram_view = DiagramView(self.obj, embedded=True)
+        new_diagram_view = DiagramView(self.obj, embedded=True, parent=self)
         new_diagram_view.setSizePolicy(QSizePolicy.Preferred,
                                        QSizePolicy.Preferred)
         layout = QVBoxLayout()

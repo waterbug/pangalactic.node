@@ -1143,6 +1143,7 @@ class RoutedConnector(QGraphicsItem):
         self.scene().clearSelection()
         self.setSelected(True)
         menu = QMenu()
+        # perms on flow could be checked but does the same and this is quicker
         if 'modify' in get_perms(self.context):
             menu.addAction('delete connector', self.delete)
             menu.exec_(event.screenPos())

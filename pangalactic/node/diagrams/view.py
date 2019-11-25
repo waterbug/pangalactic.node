@@ -109,12 +109,10 @@ class DiagramScene(QGraphicsScene):
         if self.line:
             # first check in user has perms to modify subject
             if not 'modify' in get_perms(self.subject):
-                popup = QMessageBox(
-                      QMessageBox.Critical,
-                      "Unauthorized Operation",
-                      "User's roles do not permit this operation",
-                      QMessageBox.Ok, self.parentWidget())
-                popup.show()
+                txt = "User's roles do not permit this operation",
+                notice = QMessageBox()
+                notice.setText(txt)
+                notice.exec_()
             else:
                 # orb.log.debug(' - mouseReleaseEvent ...')
                 down_items = self.items(self.line.line().p1())
