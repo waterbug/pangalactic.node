@@ -772,6 +772,7 @@ class Main(QtWidgets.QMainWindow):
             txt = '{} sync: saving objects ...'.format(sync_type,
                                                          len(sobjs_to_save))
             dispatcher.send('sync progress', txt=txt)
+            rpc = self.mbus.session.call('vger.save', sobjs_to_save)
         else:
             self.statusbar.showMessage('synced.')
             # if project_sync:
@@ -782,7 +783,10 @@ class Main(QtWidgets.QMainWindow):
                 # self.progress_value = 0
                 # state['done_with_progress'] = True
             state['synced_projects'].append(state.get('project'))
-        return self.mbus.session.call('vger.save', sobjs_to_save)
+            rpc = self.mbus.session.call('vger.save', [])
+        rpc.addCallback(self.on_result)
+        rpc.addErrback(self.on_failure)
+        return rpc
 
     def on_sync_library_result(self, data, project_sync=False):
         """
