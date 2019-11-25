@@ -138,9 +138,10 @@ class ModelWindow(QMainWindow):
         dispatcher.connect(self.display_block_diagram, 'refresh diagram')
         dispatcher.connect(self.display_block_diagram, 'new object')
         dispatcher.connect(self.display_block_diagram, 'modified object')
-        dispatcher.connect(self.display_block_diagram, 'remote: decloaked')
-        dispatcher.connect(self.display_block_diagram, 'remote: modified')
-        dispatcher.connect(self.display_block_diagram, 'remote: deleted')
+        # NOTE: 'deleted object' signal will be triggered by "remote: deleted"
+        # signal handling in pangalaxian after object is deleted, so it is a
+        # port or flow, diagram should be regenerated properly
+        dispatcher.connect(self.display_block_diagram, 'deleted object')
         self.set_subject(obj=obj, msg='(setting to selected object)')
 
     def sizeHint(self):

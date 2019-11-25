@@ -2212,7 +2212,11 @@ class Main(QtWidgets.QMainWindow):
                                      orb.classes['Acu'],
                                      orb.classes['ProjectSystemUsage']))):
                 self.update_object_in_trees(obj)
-            elif self.mode == 'db':
+            if getattr(self, 'system_model_window', None):
+                # rebuild diagram in case object corresponded to a block or
+                # flow in the current diagram
+                self.system_model_window.display_block_diagram()
+            if self.mode == 'db':
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
             self.update_project_role_labels()

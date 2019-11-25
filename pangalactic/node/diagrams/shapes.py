@@ -1115,12 +1115,9 @@ class RoutedConnector(QGraphicsItem):
         self.setAcceptHoverEvents(True)
         # 'paints' is for dev analysis -- number of calls to paint()
         # self.paints = 0
-        flows = orb.search_exact(start_port=start_item.port,
-                                 end_port=end_item.port)
-        if flows:
-            # TODO:  check for errors (e.g. multiple flows)
-            self.flow = flows[0]  # *should* only be one ...
-        else:
+        self.flow = orb.select('Flow', start_port=start_item.port,
+                               end_port=end_item.port, flow_context=context)
+        if not self.flow:
             self.flow = clone('Flow',
                 id=get_flow_id(start_item.port.id, end_item.port.id),
                 name=get_flow_name(start_item.port.name, end_item.port.name),
@@ -1165,7 +1162,7 @@ class RoutedConnector(QGraphicsItem):
             orb.log.debug("  - start id: {}".format(self.start_item.obj.id))
             orb.log.debug("  - end id: {}".format(self.end_item.obj.id))
             if getattr(self, 'flow', None):
-                dispatcher.send('deleted object', obj=self.flow.oid,
+                dispatcher.send('deleted object', oid=self.flow.oid,
                                 cname='Flow')
                 orb.delete([self.flow])
             self.start_item.remove_connector(self)
