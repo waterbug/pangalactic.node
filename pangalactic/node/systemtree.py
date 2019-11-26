@@ -909,18 +909,19 @@ class SystemTreeModel(QAbstractItemModel):
             i = self.index(position, 0, parent)
             node_being_removed = self.get_node(i)
             links_to_delete.append(node_being_removed.link)
-        acus = [l.oid for l in links_to_delete
-                if isinstance(l, orb.classes['Acu'])]
+        acus_by_oid = {l.oid: l for l in links_to_delete
+                       if isinstance(l, orb.classes['Acu'])}
         assembly = None
-        if acus:
+        if acus_by_oid:
+            acus = list(acus_by_oid.values())
             assembly = acus[0].assembly
-        # if acus:
+        # if acus_by_oid:
             # orb.log.debug('  + acus to be deleted: {}'.format(
                           # [l.id for l in links_to_delete
                            # if isinstance(l, orb.classes['Acu'])]))
-        psus = [l.oid for l in links_to_delete
+        psu_oids = [l.oid for l in links_to_delete
                 if isinstance(l, orb.classes['ProjectSystemUsage'])]
-        # if psus:
+        # if psu_oids:
             # orb.log.debug('  + psus to be deleted: {}'.format(
                           # [l.oid for l in links_to_delete
                 # if isinstance(l, orb.classes['ProjectSystemUsage'])]))
@@ -928,8 +929,8 @@ class SystemTreeModel(QAbstractItemModel):
         success = parent_node.remove_children(position, count)
         self.endRemoveRows()
         self.dataChanged.emit(parent, parent)
-        if acus:
-            for acu_oid in acus:
+        if acus_by_oid:
+            for acu_oid in acus_by_oid:
                 dispatcher.send(signal="deleted object", oid=acu_oid,
                                 cname='Acu')
         # Acu deleted -> assembly is modified
@@ -938,8 +939,8 @@ class SystemTreeModel(QAbstractItemModel):
             assembly.modifier = orb.get(state.get('local_user_oid'))
             orb.save([assembly])
             dispatcher.send('modified object', obj=assembly)
-        if psus:
-            for psu_oid in psus:
+        if psu_oids:
+            for psu_oid in psu_oids:
                 dispatcher.send(signal="deleted object", oid=psu_oid,
                                 cname='ProjectSystemUsage')
         return success
