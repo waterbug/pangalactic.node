@@ -267,10 +267,10 @@ class ModelWindow(QMainWindow):
         self.diagram_view = new_diagram_view
         self.sceneScaleChanged("50%")
 
-    def set_subject_from_diagram_drill_down(self, obj=None):
+    def set_subject_from_diagram_drill_down(self, usage=None):
         """
         Respond to a double-clicked diagram block by setting the corresponding
-        object as the subject of the model window.
+        component usage as the subject of the model window.
 
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
@@ -279,6 +279,12 @@ class ModelWindow(QMainWindow):
         self.cache_block_model()
         self.history.append(ModelerState._make((self.obj, self.idx)))
         self.idx = None
+        if isinstance(usage, orb.classes['Acu']):
+            obj = usage.component
+        elif isinstance(usage, orb.classes['ProjectSystemUsage']):
+            obj = usage.system
+        else:
+            return
         self.set_subject(obj=obj, msg='(setting from diagram drill-down)')
 
     def set_subject_from_node(self, index=None, obj=None):

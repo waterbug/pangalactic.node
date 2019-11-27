@@ -280,7 +280,7 @@ class DiagramScene(QGraphicsScene):
             return
         if isinstance(item, ObjectBlock):
             if item.obj.oid != 'pgefobjects:TBD':
-                dispatcher.send('diagram object drill down', obj=item.obj)
+                dispatcher.send('diagram object drill down', usage=item.usage)
 
     def get_routing_channel(self):
         """

@@ -1300,7 +1300,7 @@ class SystemTreeView(QTreeView):
             link (Acu or ProjectSystemUsage):  specified link object
         """
         # orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
-        model = self.source_model
+        model = self.proxy_model.sourceModel()
         project_index = model.index(0, 0, QModelIndex())
         # project_node = model.get_node(project_index)
         # orb.log.debug('  for project {}'.format(project_node.obj.oid))
@@ -1340,7 +1340,7 @@ class SystemTreeView(QTreeView):
             return link_idxs
         else:
             # orb.log.debug('  - link not found in tree.')
-            pass
+            return []
         return []
 
     def object_indexes_in_tree(self, obj):
@@ -1353,7 +1353,7 @@ class SystemTreeView(QTreeView):
             obj (Product):  specified object
         """
         # orb.log.debug('* object_indexes_in_tree({})'.format(obj.id))
-        model = self.source_model
+        model = self.proxy_model.sourceModel()
         project_index = model.index(0, 0, QModelIndex())
         # project_node = model.get_node(project_index)
         # orb.log.debug('  for project {}'.format(project_node.obj.oid))

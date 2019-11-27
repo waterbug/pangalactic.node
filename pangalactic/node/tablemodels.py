@@ -246,7 +246,7 @@ class ObjectTableModel(ODTableModel):
             if name == 'id':
                 val = display_id(obj)
             else:
-                val = getattr(obj, name)
+                val = getattr(obj, name, None)
             if self.schema['fields'][name]['field_type'] == ForeignKey:
                 odict[name] = getattr(val, 'id', '[no id]')
             elif name in TEXT_PROPERTIES:
