@@ -325,6 +325,23 @@ def get_icon_path(obj):
     """
     # first, check whether object is cloaked
     icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+    # check for a special icon for this specific object
+    if getattr(obj, 'id', None):
+        special_icon_path = os.path.join(icon_dir, obj.id + state['icon_type'])
+        if os.path.exists(special_icon_path):
+            return special_icon_path
+    if isinstance(obj, orb.classes['PortType']):
+        # special icons for PortTypes
+        prefix = 'PortType_' + obj.id
+        icon_path = os.path.join(icon_dir, prefix + state['icon_type'])
+        if os.path.exists(icon_path):
+            return icon_path
+    if isinstance(obj, orb.classes['PortTemplate']):
+        # special icons for PortTemplates
+        prefix = 'PortTemplate_' + obj.type_of_port.id
+        icon_path = os.path.join(icon_dir, prefix + state['icon_type'])
+        if os.path.exists(icon_path):
+            return icon_path
     # Products are the only class that should be "cloakable" ... this may
     # require schema change in future (move "public" attr from ManagedObject to
     # Product), but for now just use 'isinstance' ...
@@ -332,11 +349,6 @@ def get_icon_path(obj):
         and not isinstance(obj, orb.classes['Template'])):
         # if obj is not public, use the 'cloakable' icon
         return os.path.join(icon_dir, 'cloakable' + state['icon_type'])
-    # check for a special icon for this specific object
-    if getattr(obj, 'id', None):
-        special_icon_path = os.path.join(icon_dir, obj.id + state['icon_type'])
-        if os.path.exists(special_icon_path):
-            return special_icon_path
     cname = obj.__class__.__name__
     # check for a special icon for this class
     class_icon_path = os.path.join(icon_dir, cname + state['icon_type'])
