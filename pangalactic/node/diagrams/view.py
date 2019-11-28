@@ -109,6 +109,8 @@ class DiagramScene(QGraphicsScene):
         if self.line:
             # first check in user has perms to modify subject
             if not 'modify' in get_perms(self.subject):
+                self.removeItem(self.line)
+                self.line = None
                 txt = "User's roles do not permit this operation"
                 notice = QMessageBox()
                 notice.setText(txt)
