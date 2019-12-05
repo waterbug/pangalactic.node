@@ -385,6 +385,7 @@ class ModelWindow(QMainWindow):
         Display a block diagram for the currently selected product or project.
         """
         orb.log.debug('* Modeler:  display_block_diagram()')
+        obj = None
         if state.get('mode') == 'system':
             orb.log.debug('  mode is "system"')
             obj = orb.get(state.get('system')) or orb.get(state.get('project'))
