@@ -1717,6 +1717,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('* set_project(None)')
             orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
+        state['system'] = ''
         orb.log.debug('  dispatching "set current project" signal ...')
         dispatcher.send(signal="set current project")
 
@@ -1798,34 +1799,6 @@ class Main(QtWidgets.QMainWindow):
 
     product = property(get_product, set_product, del_product,
                        "product property")
-
-    # 'system' property reflects the system selected in the system
-    # modeler; state['system'] is set to its oid
-    def get_system(self):
-        """
-        Get the current system.
-        """
-        return orb.get(state.get('system'))
-
-    def set_system(self, p):
-        """
-        Set the current system.
-
-        Args:
-            p (Product):  the system to be set.
-        """
-        oid = getattr(p, 'oid', None)
-        orb.log.debug('* setting system: {}'.format(oid))
-        state['system'] = str(oid)
-        orb.log.debug('  - dispatching "set current system" ...')
-        dispatcher.send(signal="set current system",
-                        sender='set_system', system=p)
-
-    def del_system(self):
-        pass
-
-    system = property(get_system, set_system, del_system,
-                      "system property")
 
     def create_lib_list_widget(self, cnames=None, include_subtypes=True):
         """
@@ -2878,7 +2851,11 @@ class Main(QtWidgets.QMainWindow):
     def set_product_modeler_interface(self):
         orb.log.debug('* setting product modeler interface')
         # update the model window
-        self.set_system_model_window(system=self.product)
+        if state.get('mode') == 'system':
+            system = orb.get(state.get('system')) or self.project
+            self.set_system_model_window(system=system)
+        elif state.get('mode') == 'component':
+            self.set_system_model_window(system=self.product)
         self.top_dock_widget.setFloating(False)
         self.top_dock_widget.setFeatures(
                                 QtWidgets.QDockWidget.NoDockWidgetFeatures)
@@ -2927,7 +2904,10 @@ class Main(QtWidgets.QMainWindow):
             # orb.log.debug('  - using specified system {} ...'.format(
                                                                 # system.id))
             if isinstance(system, orb.classes['Product']):
-                self.system = system
+                if state.get('mode') == 'system':
+                    state['system'] = system.oid
+                elif state.get('mode') == 'component':
+                    state['product'] = system.oid
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.setCentralWidget(self.system_model_window)

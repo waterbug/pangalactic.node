@@ -386,8 +386,10 @@ class ModelWindow(QMainWindow):
         """
         orb.log.debug('* Modeler:  display_block_diagram()')
         if state.get('mode') == 'system':
+            orb.log.debug('  mode is "system"')
             obj = orb.get(state.get('system')) or orb.get(state.get('project'))
         elif state.get('mode') == 'component':
+            orb.log.debug('  mode is "component"')
             obj = orb.get(state.get('product'))
         if not obj:
             orb.log.debug('  no object selected.')
