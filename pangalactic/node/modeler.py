@@ -116,6 +116,7 @@ class ModelWindow(QMainWindow):
         super(ModelWindow, self).__init__(parent=parent)
         # orb.log.debug('* ModelWindow initializing with:')
         # orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        self.obj = obj
         self.logo = logo
         self.external = external
         self.idx = idx
@@ -139,7 +140,7 @@ class ModelWindow(QMainWindow):
         dispatcher.connect(self.display_block_diagram, 'new object')
         dispatcher.connect(self.display_block_diagram, 'modified object')
         # NOTE: 'deleted object' signal will be triggered by "remote: deleted"
-        # signal handling in pangalaxian after object is deleted, so it is a
+        # signal handling in pangalaxian after object is deleted, so if it is a
         # port or flow, diagram should be regenerated properly
         dispatcher.connect(self.display_block_diagram, 'deleted object')
         self.set_subject(obj=obj, msg='(setting to selected object)')
@@ -287,7 +288,7 @@ class ModelWindow(QMainWindow):
             return
         self.set_subject(obj=obj, msg='(setting from diagram drill-down)')
 
-    def set_subject_from_node(self, index=None, obj=None):
+    def set_subject_from_node(self, index=None, obj=None, link=None):
         """
         Respond to a node selection in the system tree or dashboard by setting
         the corresponding object as the subject of the model window.
@@ -381,12 +382,19 @@ class ModelWindow(QMainWindow):
 
     def display_block_diagram(self):
         """
-        Display a block diagram for the current object.
+        Display a block diagram for the currently selected product or project.
         """
-        # orb.log.debug('* Modeler:  display_block_diagram()')
-        if not getattr(self, 'obj', None):
-            # orb.log.debug('  no object selected.')
+        orb.log.debug('* Modeler:  display_block_diagram()')
+        if state.get('mode') == 'system':
+            obj = orb.get(state.get('system')) or orb.get(state.get('project'))
+        elif state.get('mode') == 'component':
+            obj = orb.get(state.get('product'))
+        if not obj:
+            orb.log.debug('  no object selected.')
             return
+        else:
+            orb.log.debug('  object selected: {}.'.format(obj.id))
+        self.obj = obj
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
         block_ordering = diagramz.get(self.obj.oid)
@@ -422,9 +430,13 @@ class ModelWindow(QMainWindow):
         if self.history:
             hist = self.history.pop()
             obj, self.idx = hist.obj, hist.idx
-            self.set_subject(obj=obj)
+            if state.get('mode') == 'system':
+                state['system'] = obj.oid
+            elif state.get('mode') == 'component':
+                state['product'] = obj.oid
             if not self.history:
                 self.back_action.setEnabled(False)
+            self.set_subject(obj=obj)
             dispatcher.send('diagram go back', index=self.idx)
         else:
             self.back_action.setEnabled(False)

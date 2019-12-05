@@ -247,6 +247,7 @@ class SystemDashboard(QTreeView):
         # map to source model index
         mapped_i = self.model().mapToSource(index)
         node = self.model().sourceModel().get_node(mapped_i)
+        state['system'] = node.obj.oid
         dispatcher.send(signal='dash node selected', index=index, obj=node.obj)
 
     def dash_node_expand(self, index=None):

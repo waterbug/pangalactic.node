@@ -1799,6 +1799,34 @@ class Main(QtWidgets.QMainWindow):
     product = property(get_product, set_product, del_product,
                        "product property")
 
+    # 'system' property reflects the system selected in the system
+    # modeler; state['system'] is set to its oid
+    def get_system(self):
+        """
+        Get the current system.
+        """
+        return orb.get(state.get('system'))
+
+    def set_system(self, p):
+        """
+        Set the current system.
+
+        Args:
+            p (Product):  the system to be set.
+        """
+        oid = getattr(p, 'oid', None)
+        orb.log.debug('* setting system: {}'.format(oid))
+        state['system'] = str(oid)
+        orb.log.debug('  - dispatching "set current system" ...')
+        dispatcher.send(signal="set current system",
+                        sender='set_system', system=p)
+
+    def del_system(self):
+        pass
+
+    system = property(get_system, set_system, del_system,
+                      "system property")
+
     def create_lib_list_widget(self, cnames=None, include_subtypes=True):
         """
         Creates an instance of 'LibraryListWidget' to be assigned to
@@ -2362,10 +2390,6 @@ class Main(QtWidgets.QMainWindow):
             rpc = self.sync_current_project(None)
             rpc.addCallback(self.on_project_sync_result)
             rpc.addErrback(self.on_failure)
-            # NOTE:  this callback was unnecessary because
-            # on_project_sync_result() already calls _update_views()
-            # rpc.addCallback(self._update_views)
-            # rpc.addErrback(self.on_failure)
         else:
             self.sys_tree_rebuilt = False
             self.dashboard_rebuilt = False
@@ -2692,11 +2716,9 @@ class Main(QtWidgets.QMainWindow):
 
         # node_count() gets # of nodes in sys tree for later use in setting max
         # for progress bar
-        systems = [psu.system for psu in self.project.systems]
         nodes = 0
-        if systems:
-            for system in systems:
-                nodes += node_count(system.oid) + 1
+        for system in self.systems:
+            nodes += node_count(system.oid) + 1
         state['sys_trees'][self.project.id]['nodes'] = nodes
         # orb.log.debug('    and {} nodes.'.format(str(nodes)))
         # NB:  rebuild dashboard before expanding sys_tree, because their
@@ -2856,7 +2878,7 @@ class Main(QtWidgets.QMainWindow):
     def set_product_modeler_interface(self):
         orb.log.debug('* setting product modeler interface')
         # update the model window
-        self.set_system_model_window(self.product)
+        self.set_system_model_window(system=self.product)
         self.top_dock_widget.setFloating(False)
         self.top_dock_widget.setFeatures(
                                 QtWidgets.QDockWidget.NoDockWidgetFeatures)
@@ -2904,6 +2926,8 @@ class Main(QtWidgets.QMainWindow):
         if system:
             # orb.log.debug('  - using specified system {} ...'.format(
                                                                 # system.id))
+            if isinstance(system, orb.classes['Product']):
+                self.system = system
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.setCentralWidget(self.system_model_window)

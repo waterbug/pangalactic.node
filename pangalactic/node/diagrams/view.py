@@ -11,9 +11,10 @@ from PyQt5.QtCore    import Qt, QLineF, QPoint, QPointF, QRectF
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core         import diagramz
-from pangalactic.core.access  import get_perms
-from pangalactic.core.uberorb import orb
+from pangalactic.core                 import diagramz, state
+from pangalactic.core.access          import get_perms
+from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.uberorb         import orb
 from pangalactic.node.diagrams.shapes import (ObjectBlock, PortBlock,
                                               RoutedConnector, SubjectBlock)
 
@@ -282,6 +283,18 @@ class DiagramScene(QGraphicsScene):
             return
         if isinstance(item, ObjectBlock):
             if item.obj.oid != 'pgefobjects:TBD':
+                if state.get('mode') == 'system':
+                    if isinstance(item.usage, orb.classes['Acu']):
+                        state['system'] = item.usage.component.oid
+                    elif isinstance(item.usage,
+                                    orb.classes['ProjectSystemUsage']):
+                        state['system'] = item.usage.system.oid
+                elif state.get('mode') == 'component':
+                    if isinstance(item.usage, orb.classes['Acu']):
+                        state['product'] = item.usage.component.oid
+                    elif isinstance(item.usage,
+                                    orb.classes['ProjectSystemUsage']):
+                        state['product'] = item.usage.system.oid
                 dispatcher.send('diagram object drill down', usage=item.usage)
 
     def get_routing_channel(self):
@@ -460,14 +473,18 @@ class DiagramScene(QGraphicsScene):
             # orb.log.debug('  - creating routed connectors ...')
             for flow in flows:
                 # check in case flows in db out of sync with diagram
-                start_item = port_blocks.get(flow.start_port.oid)
-                end_item = port_blocks.get(flow.end_port.oid)
+                start_item = port_blocks.get(getattr(
+                                             flow.start_port, 'oid', None))
+                end_item = port_blocks.get(getattr(flow.end_port, 'oid', None))
                 if not (start_item and end_item):
                     # NOTE: this indicates db/diagram out of sync ... delete
                     # flow from local db and let sync with repo handle it
-                    # TODO: maybe set mod_datetime of flow_context object
-                    # earlier so it will be updated by sync ...?
+                    assembly = flow.flow_context
                     orb.delete([flow])
+                    assembly.mod_datetime = dtstamp()
+                    assembly.modifier = orb.get(state.get('local_user_oid'))
+                    orb.save([assembly])
+                    dispatcher.send('modified object', obj=assembly)
                     continue
                 # orb.log.debug('    + {}'.format(flow.id))
                 connector = RoutedConnector(start_item, end_item,

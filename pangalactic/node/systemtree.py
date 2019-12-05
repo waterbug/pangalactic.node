@@ -1050,6 +1050,7 @@ class SystemTreeView(QTreeView):
             mapped_i = self.proxy_model.mapToSource(i)
             obj = self.source_model.get_node(mapped_i).obj
             link = self.source_model.get_node(mapped_i).link
+            state['system'] = obj.oid
             dispatcher.send(signal='sys node selected', index=index, obj=obj,
                             link=link)
 

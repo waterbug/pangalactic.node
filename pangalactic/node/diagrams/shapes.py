@@ -18,7 +18,7 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.parametrics import parameterz
+from pangalactic.core.parametrics import get_pval, parameterz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
@@ -827,6 +827,7 @@ class PortBlock(QGraphicsItem):
         tooltip_text = port.abbreviation or port.name
         self.setToolTip(tooltip_text)
         self.rect = QRectF(0, -POINT_SIZE, PORT_SIZE, PORT_SIZE)
+        self.triangle = QPolygonF()
         self.right_port = right
         self.style = style or Qt.SolidLine
         self.parent_block = parent_block
@@ -895,7 +896,30 @@ class PortBlock(QGraphicsItem):
         port_type_id = getattr(self.port.type_of_port, 'id')
         # if port type is not found, set white as port color
         painter.setBrush(PORT_TYPE_COLORS.get(port_type_id, Qt.white))
-        painter.drawRect(self.rect)
+        if (not get_pval(orb, self.port.oid, 'input') and
+            not get_pval(orb, self.port.oid, 'output')):
+            # not input or output port -- bidirectional: draw a rectangle
+            painter.drawRect(self.rect)
+        else:
+            if ((get_pval(orb, self.port.oid, 'input') and self.right_port) or
+                (get_pval(orb, self.port.oid, 'output') and self.left_port)):
+                # left-pointing triangle
+                p1 = self.rect.topRight()
+                p2 = self.rect.bottomRight()
+                p3 = QPointF(self.rect.topLeft().x(),
+                             (self.rect.topLeft().y() +
+                              self.rect.bottomLeft().y())/2.0)
+            else:
+                # right-pointing triangle
+                p1 = self.rect.topLeft()
+                p2 = self.rect.bottomLeft()
+                p3 = QPointF(self.rect.topRight().x(),
+                             (self.rect.topRight().y() +
+                              self.rect.bottomRight().y())/2.0)
+            self.triangle.clear()
+            for point in [p1, p2, p3]:
+                self.triangle.append(point)
+            painter.drawPolygon(self.triangle)
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.ItemPositionChange:
