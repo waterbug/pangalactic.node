@@ -436,8 +436,6 @@ class ObjectBlock(Block):
             dropped_item = orb.get(oid)
             if dropped_item:
                 # orb.log.info('  - dropped_item: "{}"'.format(name))
-                dispatcher.send('product dropped on object block',
-                                p=dropped_item)
                 # drop target is "TBD" product -> replace it with the dropped
                 # item if it has the right product_type
                 # use dropped item if its product_type is the same as
@@ -454,6 +452,8 @@ class ObjectBlock(Block):
                     # NOTE: 'system_role' the *name* of a ProductType
                     hint = usage.system_role
                 if hint and (ptname != hint or not ptname):
+                    msg = "dropped product is not a valid type; nothing done."
+                    orb.log.info("  - {}".format(msg))
                     QMessageBox.critical(
                                 self.parentWidget(), "Product Type Check",
                                 "The product you dropped is not a "
@@ -480,6 +480,7 @@ class ObjectBlock(Block):
                     orb.save(mod_objs)
                     # NOTE:  setting 'usage' triggers name/desc label rewrites
                     self.usage = usage
+                    event.accept()
                     # self.name_label.set_text(self.obj.name)
                     # self.description_label.set_text('[{}]'.format(
                                 # self.obj.product_type.abbreviation))
@@ -487,7 +488,8 @@ class ObjectBlock(Block):
                                   self.usage.name))
                     for obj in mod_objs:
                         dispatcher.send('modified object', obj=obj)
-                    event.accept()
+                    dispatcher.send('product dropped on object block',
+                                    p=dropped_item)
             else:
                 orb.log.info("  - dropped product not in db; nothing done.")
                 event.accept()
