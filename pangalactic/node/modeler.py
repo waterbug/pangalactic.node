@@ -5,7 +5,7 @@ from urllib.parse    import urlparse
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QModelIndex, QSize
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
                              QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
                              QWidget)
@@ -108,8 +108,9 @@ class ModelWindow(QMainWindow):
                 one will be created)
             logo (str):  relative path to an image file to be used as the
                 "placeholder" image when object is not provided
-            idx (QModelIndex):  index in the system tree's proxy model
-                corresponding to the object being modeled
+            idx (QModelIndex):  for "system" mode:  index in the system tree's
+                proxy model corresponding to the object whose model is
+                being displayed
             external (bool):  initialize as an external window
             preferred_size (tuple):  size to set -- (width, height)
         """
@@ -276,10 +277,10 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        # orb.log.debug('* set_subject_from_diagram_drill_down')
+        orb.log.debug('* set_subject_from_diagram_drill_down')
         self.cache_block_model()
+        previous_obj = self.obj
         self.history.append(ModelerState._make((self.obj, self.idx)))
-        self.idx = None
         if isinstance(usage, orb.classes['Acu']):
             obj = usage.component
         elif isinstance(usage, orb.classes['ProjectSystemUsage']):
@@ -287,6 +288,37 @@ class ModelWindow(QMainWindow):
         else:
             return
         self.set_subject(obj=obj, msg='(setting from diagram drill-down)')
+        self.idx = None
+        if state.get('mode') == 'system':
+            state['system'] = obj.oid
+            # if in "system" mode, attempt to find index of obj in tree
+            sys_tree = getattr(self.parent(), 'sys_tree', None)
+            if sys_tree:
+                idxs = sys_tree.object_indexes_in_tree(obj)
+                orb.log.debug('  + found {} indexes in tree'.format(len(idxs)))
+                target_idx = None
+                if len(idxs) == 1:
+                    target_idx = idxs[0]
+                elif len(idxs) > 1:
+                    for idx in idxs:
+                        node = sys_tree.source_model.get_node(idx)
+                        assembly = getattr(node.link, 'assembly', None)
+                        orb.log.debug('  + obj found in assembly {}'.format(
+                                                                assembly.id))
+                        if assembly is previous_obj:
+                            orb.log.debug("    that's the one!")
+                            target_idx = idx
+                            break
+                if target_idx:
+                    orb.log.debug('  + found index of object')
+                    self.idx = sys_tree.proxy_model.mapFromSource(
+                                                            target_idx)
+                else:
+                    # if not found in tree, set self.idx to root node index
+                    idx = sys_tree.source_model.index(0, 0, QModelIndex())
+                    self.idx = sys_tree.proxy_model.mapFromSource(idx)
+                    orb.log.debug('  + object not in tree; setting root index')
+        dispatcher.send('diagram tree index', index=self.idx)
 
     def set_subject_from_node(self, index=None, obj=None, link=None):
         """
@@ -387,8 +419,15 @@ class ModelWindow(QMainWindow):
         orb.log.debug('* Modeler:  display_block_diagram()')
         obj = None
         if state.get('mode') == 'system':
-            orb.log.debug('  mode is "system"')
-            obj = orb.get(state.get('system')) or orb.get(state.get('project'))
+            # in "system" mode, sync with tree selection
+            # sys_tree = getattr(self.parent(), 'sys_tree', None)
+            # if (sys_tree and len(sys_tree.selectedIndexes()) > 0):
+                # i = sys_tree.selectedIndexes()[0]
+                # mapped_i = sys_tree.proxy_model.mapToSource(i)
+                # obj = sys_tree.source_model.get_node(mapped_i).obj
+            # else:
+                # obj = orb.get(state.get('project'))
+            obj = orb.get(state.get('system') or state.get('project'))
         elif state.get('mode') == 'component':
             orb.log.debug('  mode is "component"')
             obj = orb.get(state.get('product'))
@@ -439,6 +478,12 @@ class ModelWindow(QMainWindow):
                 state['product'] = obj.oid
             if not self.history:
                 self.back_action.setEnabled(False)
+                # if that was the last history item and we are in "system" mode
+                # and the history item didn't specify a tree index, use the
+                # project as the "system" state
+                if not self.idx:
+                    state['system'] = state.get('project')
+                    obj = orb.get(state.get('project'))
             self.set_subject(obj=obj)
             dispatcher.send('diagram go back', index=self.idx)
         else:

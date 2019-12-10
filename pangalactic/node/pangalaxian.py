@@ -1708,7 +1708,8 @@ class Main(QtWidgets.QMainWindow):
         # and dispatches the 'set current project' signal
         if p:
             orb.log.debug('* set_project({})'.format(p.id))
-            state['project'] = str(p.oid)
+            state['project'] = p.oid
+            state['system'] = p.oid
             if state['connected']:
                 self.role_label.setText('online: syncing project data ...')
             else:
@@ -1717,7 +1718,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('* set_project(None)')
             orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
-        state['system'] = ''
+            state['system'] = 'pgefobjects:SANDBOX'
         orb.log.debug('  dispatching "set current project" signal ...')
         dispatcher.send(signal="set current project")
 
@@ -2851,11 +2852,7 @@ class Main(QtWidgets.QMainWindow):
     def set_product_modeler_interface(self):
         orb.log.debug('* setting product modeler interface')
         # update the model window
-        if state.get('mode') == 'system':
-            system = orb.get(state.get('system')) or self.project
-            self.set_system_model_window(system=system)
-        elif state.get('mode') == 'component':
-            self.set_system_model_window(system=self.product)
+        self.set_system_model_window(system=self.product)
         self.top_dock_widget.setFloating(False)
         self.top_dock_widget.setFeatures(
                                 QtWidgets.QDockWidget.NoDockWidgetFeatures)
@@ -2903,11 +2900,10 @@ class Main(QtWidgets.QMainWindow):
         if system:
             # orb.log.debug('  - using specified system {} ...'.format(
                                                                 # system.id))
-            if isinstance(system, orb.classes['Product']):
-                if state.get('mode') == 'system':
-                    state['system'] = system.oid
-                elif state.get('mode') == 'component':
-                    state['product'] = system.oid
+            if state.get('mode') == 'system':
+                state['system'] = system.oid
+            elif state.get('mode') == 'component':
+                state['product'] = system.oid
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.setCentralWidget(self.system_model_window)

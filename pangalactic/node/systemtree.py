@@ -1009,6 +1009,7 @@ class SystemTreeView(QTreeView):
             dispatcher.connect(self.sys_node_collapse, 'dash node collapsed')
             dispatcher.connect(self.sys_node_select, 'dash node selected')
             dispatcher.connect(self.sys_node_select, 'diagram go back')
+            dispatcher.connect(self.sys_node_select, 'diagram tree index')
         self.setStyleSheet('font-weight: normal; font-size: 12px')
         self.proxy_model.sort(0)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
@@ -1021,6 +1022,10 @@ class SystemTreeView(QTreeView):
             state['sys_trees'][self.project.id] = {}
         if not state['sys_trees'][self.project.id].get('expanded'):
             state['sys_trees'][self.project.id]['expanded'] = []
+        # set the initial selection to the base index
+        initial_index = self.proxy_model.mapFromSource(
+                                self.source_model.index(0, 0, QModelIndex()))
+        self.sys_node_select(initial_index)
 
     @property
     def req(self):
@@ -1051,6 +1056,12 @@ class SystemTreeView(QTreeView):
             obj = self.source_model.get_node(mapped_i).obj
             link = self.source_model.get_node(mapped_i).link
             state['system'] = obj.oid
+            orb.log.debug('- node selected ...')
+            orb.log.debug('  + row: {}'.format(mapped_i.row()))
+            orb.log.debug('  + col: {}'.format(mapped_i.column()))
+            orb.log.debug('  + parent node obj: {}'.format(
+                getattr(self.source_model.get_node(mapped_i.parent()).obj,
+                                                         'id', 'fake root')))
             dispatcher.send(signal='sys node selected', index=index, obj=obj,
                             link=link)
 
@@ -1071,6 +1082,13 @@ class SystemTreeView(QTreeView):
             pass
 
     def sys_node_select(self, index=None):
+        """
+        Set the selected node from the specified proxy model index or the
+        project node if no index is specified.
+
+        Keyword Args:
+            index (QModelIndex):  the proxy model index
+        """
         try:
             if index:
                 self.selectionModel().setCurrentIndex(index,
@@ -1079,7 +1097,7 @@ class SystemTreeView(QTreeView):
                 # if no index, assume we want the project to be selected
                 self.selectionModel().setCurrentIndex(
                     self.proxy_model.mapFromSource(
-                    self.source_model.index(0, 0, QModelIndex())),
+                        self.source_model.index(0, 0, QModelIndex())),
                     QItemSelectionModel.ClearAndSelect)
         except:
             # oops -- my C++ object probably got deleted
