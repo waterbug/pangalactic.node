@@ -76,6 +76,7 @@ class SystemDashboard(QTreeView):
         dispatcher.connect(self.dash_node_collapse, 'sys node collapsed')
         dispatcher.connect(self.dash_node_select, 'sys node selected')
         dispatcher.connect(self.dash_node_select, 'diagram go back')
+        dispatcher.connect(self.dash_node_select, 'diagram tree index')
         self.expanded.connect(self.dash_node_expanded)
         self.collapsed.connect(self.dash_node_collapsed)
         self.clicked.connect(self.dash_node_selected)

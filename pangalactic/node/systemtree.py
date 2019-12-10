@@ -1052,6 +1052,9 @@ class SystemTreeView(QTreeView):
     def sys_node_selected(self, index):
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0]
+            # need to expand when selected so its children are visible in the
+            # tree and can be located if there is a diagram drill-down
+            self.setExpanded(i, True)
             mapped_i = self.proxy_model.mapToSource(i)
             obj = self.source_model.get_node(mapped_i).obj
             link = self.source_model.get_node(mapped_i).link

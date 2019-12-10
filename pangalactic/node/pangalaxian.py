@@ -3848,6 +3848,8 @@ class Main(QtWidgets.QMainWindow):
         # things to do when window is closed
         # TODO:  save more MainWindow state (see p. 190 in PyQt book)
         state['mode'] = str(self.mode)
+        # don't save system state; set to project
+        state['system'] = state.get('project')
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
         # NOTE:  orb.data_store deactivated for reimplementation -- currently
