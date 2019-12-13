@@ -3,7 +3,8 @@ Widgets based on QTableView
 """
 # PyQt
 from builtins import str
-from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import (QAction, QDialog, QDialogButtonBox, QSizePolicy,
+                             QTableView, QVBoxLayout)
 from PyQt5.QtCore import Qt, QTimer
 
 # Louie
@@ -11,15 +12,16 @@ from louie import dispatcher
 
 # pangalactic
 from pangalactic.core             import prefs
-from pangalactic.core.meta        import PGEF_COL_WIDTHS
+from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.tablemodels import (ObjectTableModel,
                                           MatrixTableModel,
                                           SpecialSortModel)
+from pangalactic.node.dialogs     import SelectColsDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 
 
-class ObjectTableView(QtWidgets.QTableView):
+class ObjectTableView(QTableView):
     """
     A table view for a specified class, with special sorting capabilities.
     """
@@ -32,22 +34,31 @@ class ObjectTableView(QtWidgets.QTableView):
         """
         super(ObjectTableView, self).__init__(parent=parent)
         orb.log.info('* [ObjectTableView] initializing ...')
-        if objs:
-            self.cname = objs[0].__class__.__name__
+        self.objs = objs
+        self.view = view
+        self.setup_table()
+        self.add_context_menu() 
+
+    def setup_table(self):
+        self.cname = None
+        if self.objs:
+            self.cname = self.objs[0].__class__.__name__
             orb.log.info('  - for class: "{}"'.format(self.cname))
             if prefs.get('db_views', {}).get(self.cname):
                 # if there is a preferred view, ignore the provided view
-                view = prefs['db_views'][self.cname]
+                self.view = prefs['db_views'][self.cname]
         else:
             orb.log.info('  - no objects provided.')
-        self.main_table_model = ObjectTableModel(objs, view=view, parent=self)
+        view = self.view or MAIN_VIEWS.get(self.cname, IDENTITY)
+        self.main_table_model = ObjectTableModel(self.objs, view=view,
+                                                 parent=self)
         self.view = self.main_table_model.view
         self.main_table_proxy = SpecialSortModel(parent=self)
         self.main_table_proxy.setSourceModel(self.main_table_model)
         self.setStyleSheet('font-size: 12px')
         # disable sorting while loading data
         self.setSortingEnabled(False)
-        self.setSelectionBehavior(QtWidgets.QTableView.SelectRows)
+        self.setSelectionBehavior(QTableView.SelectRows)
         self.setModel(self.main_table_proxy)
         column_header = self.horizontalHeader()
         column_header.setStyleSheet('font-weight: bold')
@@ -77,8 +88,15 @@ class ObjectTableView(QtWidgets.QTableView):
         self.main_table_proxy.sort(-1, Qt.AscendingOrder)
         self.doubleClicked.connect(self.main_table_row_double_clicked)
         self.setMinimumSize(300, 200)
-        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
-                           QtWidgets.QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
+
+    def add_context_menu(self):
+        column_header = self.horizontalHeader()
+        select_columns_action = QAction('select columns', column_header)
+        select_columns_action.triggered.connect(self.select_columns)
+        column_header.addAction(select_columns_action)
+        column_header.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def main_table_row_double_clicked(self, clicked_index):
         # NOTE: maybe not the most elegant way to do this ... look again later
@@ -101,9 +119,35 @@ class ObjectTableView(QtWidgets.QTableView):
         if not prefs.get('db_views'):
             prefs['db_views'] = {}
         prefs['db_views'][self.cname] = self.view[:]
+        self.setup_table()
+
+    def select_columns(self):
+        """
+        Dialog displayed in response to 'select columns' context menu item.
+        """
+        # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
+        # original schema!!!
+        all_cols = orb.schemas.get(self.cname, {}).get('field_names', [])[:]
+        dlg = SelectColsDialog(all_cols, self.view, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            # rebuild custom view from the selected columns
+            old_view = self.view[:]
+            new_view = []
+            # add any columns from old_view first
+            for col in old_view:
+                if col in dlg.checkboxes and dlg.checkboxes[col].isChecked():
+                    new_view.append(col)
+                    all_cols.remove(col)
+            # then append any newly selected columns
+            for col in all_cols:
+                if dlg.checkboxes[col].isChecked():
+                    new_view.append(col)
+            orb.log.debug('  new view: {}'.format(new_view))
+            prefs['db_views'][self.cname] = new_view
+            self.setup_table()
 
 
-class MatrixWidget(QtWidgets.QDialog):
+class MatrixWidget(QDialog):
     """
     A table for comparing objects side-by-side by parameter values.
     """
@@ -118,12 +162,11 @@ class MatrixWidget(QtWidgets.QDialog):
         self.objs = objs
         self.parameters = parameters
         tablemodel = MatrixTableModel(objs, parameters, parent=self)
-        self.tableview = QtWidgets.QTableView()
+        self.tableview = QTableView()
         self.tableview.setModel(tablemodel)
-        self.layout = QtWidgets.QVBoxLayout(self)
+        self.layout = QVBoxLayout(self)
         self.layout.addWidget(self.tableview)
-        self.bbox = QtWidgets.QDialogButtonBox(
-                                        QtWidgets.QDialogButtonBox.Cancel)
+        self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
         self.bbox.rejected.connect(self.reject)
         self.layout.addWidget(self.bbox)
         self.setLayout(self.layout)
@@ -139,7 +182,7 @@ class MatrixWidget(QtWidgets.QDialog):
             self.layout.removeWidget(self.tableview)
             tablemodel = MatrixTableModel(self.objs, self.parameters,
                                           parent=self)
-            self.tableview = QtWidgets.QTableView()
+            self.tableview = QTableView()
             self.tableview.setModel(tablemodel)
             self.layout.addWidget(self.tableview)
             self.layout.addWidget(self.bbox)

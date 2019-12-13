@@ -22,7 +22,7 @@ from louie import dispatcher
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
                                           SELECTION_VIEWS)
-from pangalactic.core.parametrics import parmz_by_dimz
+from pangalactic.core.parametrics import parm_defz, parmz_by_dimz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import get_external_name_plural
@@ -486,6 +486,36 @@ class PrefsDialog(QDialog):
         dlg.show()
 
 
+class SelectColsDialog(QDialog):
+    """
+    Dialog for selecting from columns to customize a view.
+
+    Args:
+        columns (list of str):  the list of column names to select from
+        view (list of str):  the current view to be customized
+    """
+    def __init__(self, columns, view, parent=None):
+        super(SelectColsDialog, self).__init__(parent)
+        self.setWindowTitle("Select Columns")
+        form = QFormLayout(self)
+        self.checkboxes = {}
+        for col in columns:
+            label = QLabel(col, self)
+            self.checkboxes[col] = QCheckBox(self)
+            if col in view:
+                self.checkboxes[col].setChecked(True)
+            else:
+                self.checkboxes[col].setChecked(False)
+            form.addRow(self.checkboxes[col], label)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+
 class DeleteColsDialog(QDialog):
     """
     Dialog for deleting columns from the dashboard.
@@ -496,7 +526,7 @@ class DeleteColsDialog(QDialog):
         form = QFormLayout(self)
         self.checkboxes = {}
         pids = prefs['dashboards'][state['dashboard_name']]
-        names = [orb.select('ParameterDefinition', id=p).name for p in pids]
+        names = [parm_defz[p]['name'] for p in pids]
         for i, pid in enumerate(pids):
             label = QLabel(names[i], self)
             self.checkboxes[pid] = QCheckBox(self)
