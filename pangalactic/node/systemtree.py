@@ -1096,6 +1096,7 @@ class SystemTreeView(QTreeView):
             if index:
                 self.selectionModel().setCurrentIndex(index,
                                           QItemSelectionModel.ClearAndSelect)
+                self.expand(index)
             else:
                 # if no index, assume we want the project to be selected
                 self.selectionModel().setCurrentIndex(

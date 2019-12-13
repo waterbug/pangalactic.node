@@ -129,7 +129,7 @@ class PgxnForm(QWidget):
             # special case for parameters panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            orb.log.info('* [pgxnobj] building "parameters" form ...')
+            # orb.log.info('* [pgxnobj] building "parameters" form ...')
             # Special case for parameters form ...
             idvs = orb.get_idvs(cname='ParameterDefinition')
             variables = [idv[0] for idv in idvs]
@@ -137,8 +137,8 @@ class PgxnForm(QWidget):
             parmz = parameterz.get(obj.oid, {})
             pids = [p for p in parmz if p in variables or p in contingencies]
             if pids:
-                orb.log.info('* [pgxnobj] parameters found: {}'.format(
-                                                            str(pids)))
+                # orb.log.info('* [pgxnobj] parameters found: {}'.format(
+                                                            # str(pids)))
                 computed_note = False
                 # order parameters -- editable (non-computed) parameters first
                 pref_editables = [pid for pid in PGXN_PARAMETERS
@@ -170,17 +170,17 @@ class PgxnForm(QWidget):
                 orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
                                                             str(p_ordering)))
                 if seq is None:
-                    orb.log.debug('  seq is None; all parameters on one page.')
+                    # orb.log.debug('  seq is None; all parameters on one page.')
                     pids_on_panel = p_ordering
                 else:
-                    orb.log.debug('  seq is {}'.format(str(seq)))
+                    # orb.log.debug('  seq is {}'.format(str(seq)))
                     # NOTE:  'seq' is a 1-based sequence
-                    orb.log.debug('  parameters found: {}'.format(
-                                                        str(pids)))
+                    # orb.log.debug('  parameters found: {}'.format(
+                                                        # str(pids)))
                     pids_on_panel = p_ordering[
                                             (seq-1)*PARMS_NBR : seq*PARMS_NBR]
-                    orb.log.debug('  parameters on this panel: {}'.format(
-                                                          str(pids_on_panel)))
+                    # orb.log.debug('  parameters on this panel: {}'.format(
+                                                          # str(pids_on_panel)))
                 for pid in pids_on_panel:
                     field_name = pid
                     parm = parmz[pid] or {}
@@ -290,7 +290,7 @@ class PgxnForm(QWidget):
                     cnote.setStyleSheet('font-weight: bold;color: purple')
                     form.addRow(cnote)
             else:
-                orb.log.info('* [pgxnobj] no parameters found.')
+                # orb.log.info('* [pgxnobj] no parameters found.')
                 label = QLabel('No parameters have been specified yet.')
                 label.setStyleSheet('font-weight: bold')
                 form.addRow(label)
@@ -392,10 +392,10 @@ class PgxnForm(QWidget):
         self.setLayout(form)
 
     def on_set_units(self):
-        orb.log.info('* [pgxnobj] setting units ...')
+        # orb.log.info('* [pgxnobj] setting units ...')
         units_widget = self.sender()
         new_units = units_widget.get_value()
-        orb.log.debug('            new units: "{}"'.format(new_units))
+        # orb.log.debug('            new units: "{}"'.format(new_units))
         pid = units_widget.field_name
         parm_widget = self.p_widgets.get(pid)
         if self.edit_mode and hasattr(parm_widget, 'get_value'):
@@ -418,11 +418,11 @@ class PgxnForm(QWidget):
         self.previous_units[pid] = new_units
 
     def on_select_related(self):
-        orb.log.info('* [pgxnobj] select related object ...')
+        # orb.log.info('* [pgxnobj] select related object ...')
         widget = self.sender()
-        obj = widget.get_value()
+        # obj = widget.get_value()
         # TODO:  if None, give option to create a new object (with pgxnobject)
-        orb.log.debug('  [pgxnobj] current object: %s' % str(obj))
+        # orb.log.debug('  [pgxnobj] current object: %s' % str(obj))
         cname = widget.related_cname
         field_name = widget.field_name
         # SELECTION_FILTERS define the set of valid objects for this field
@@ -437,11 +437,11 @@ class PgxnForm(QWidget):
         else:
             objs = orb.get_all_subtypes(cname)
         if objs:
-            orb.log.debug('  [pgxnobj] object being edited: {}'.format(
-                                                            self.obj.oid))
+            # orb.log.debug('  [pgxnobj] object being edited: {}'.format(
+                                                            # self.obj.oid))
             if self.obj in objs:
                 # exclude the object being edited from the selections
-                orb.log.debug('            removing it from selectables ...')
+                # orb.log.debug('            removing it from selectables ...')
                 objs.remove(self.obj)
             required_fields = PGXN_REQD.get(cname) or []
             with_none = not (field_name in required_fields)
@@ -456,12 +456,12 @@ class PgxnForm(QWidget):
             pass
 
     def on_view_related(self):
-        orb.log.info('* [pgxnobj] view related object ...')
+        # orb.log.info('* [pgxnobj] view related object ...')
         widget = self.sender()
         # TODO: handle get_value() for M2M and ONE2M relationships
         # (InstrumentedList)
         obj = widget.get_value()
-        orb.log.debug('* [pgxnobj]   object: %s' % str(obj))
+        # orb.log.debug('* [pgxnobj]   object: %s' % str(obj))
         # TODO:  if editable, bring up selection list of possible values
         # or, if none, give option to create a new object (with pgxnobject)
         # NOTE: get_value() may return a sqlalchemy "InstrumentedList" -- in
@@ -534,8 +534,9 @@ class ParameterForm(PgxnForm):
         self.setAcceptDrops(True)
 
     def dragEnterEvent(self, event):
-        mime_formats = list(event.mimeData().formats())
-        orb.log.info("* dragEnterEvent: mime types {}".format(str(mime_formats)))
+        # mime_formats = list(event.mimeData().formats())
+        # orb.log.info("* dragEnterEvent: mime types {}".format(
+                     # str(mime_formats)))
         if event.mimeData().hasFormat(
                                 "application/x-pgef-parameter-definition"):
             event.accept()
@@ -723,7 +724,7 @@ class PgxnObject(QDialog):
             self.toolbar.addAction(self.thaw_action)
             self.toolbar.addAction(self.where_used_action)
             perms = get_perms(self.obj)
-            orb.log.debug('            user perms: {}'.format(str(perms)))
+            # orb.log.debug('            user perms: {}'.format(str(perms)))
             if self.obj.frozen:
                 orb.log.debug('            object is frozen.')
                 self.frozen_action.setVisible(True)
@@ -909,7 +910,7 @@ class PgxnObject(QDialog):
             self.u_widgets.update(this_tab.u_widgets)
             self.u_widget_values.update(this_tab.u_widget_values)
             self.previous_units.update(this_tab.previous_units)
-            orb.log.debug('* [pgxnobj] adding tab: %s' % tab_name)
+            # orb.log.debug('* [pgxnobj] adding tab: %s' % tab_name)
             self.tabs.addTab(this_tab, tab_name)
         if self.embedded:
             if self.edit_mode:
@@ -942,9 +943,9 @@ class PgxnObject(QDialog):
         else:
             # not embedded -> external dialog
             self.modal_mode = True
-            orb.log.debug('* [pgxnobj] external window: always modal mode)')
+            # orb.log.debug('* [pgxnobj] external window: always modal mode)')
             if self.edit_mode:
-                orb.log.debug('            setting up edit mode ...')
+                # orb.log.debug('            setting up edit mode ...')
                 # Cancel button cancels edits and switches to view mode
                 self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
                 self.save_button = self.bbox.addButton('Save',
@@ -963,13 +964,13 @@ class PgxnObject(QDialog):
                         # # C++ object went away?
                         # pass
             else:
-                orb.log.debug('            setting up view mode ...')
+                # orb.log.debug('            setting up view mode ...')
                 self.bbox = QDialogButtonBox()
-                orb.log.debug('            checking perms ...')
+                # orb.log.debug('            checking perms ...')
                 if (not self.view_only and 'modify' in perms
                     and not getattr(self.obj, 'frozen', False)):
-                    orb.log.debug('            "modify" in perms --')
-                    orb.log.debug('            adding "edit" button ...')
+                    # orb.log.debug('            "modify" in perms --')
+                    # orb.log.debug('            adding "edit" button ...')
                     self.edit_button = self.bbox.addButton('Edit',
                                                QDialogButtonBox.ActionRole)
                 if (state.get('connected') and
@@ -1013,13 +1014,13 @@ class PgxnObject(QDialog):
         self.bbox.rejected.connect(self.cancel)
 
     def on_edit(self):
-        orb.log.info('* [pgxnobj] switching to edit mode ...')
+        # orb.log.info('* [pgxnobj] switching to edit mode ...')
         self.go_to_tab = self.tabs.currentIndex()
         self.edit_mode = True
         self.build_from_object()
 
     def on_delete(self):
-        orb.log.info('* [pgxnobj] delete action selected ...')
+        # orb.log.info('* [pgxnobj] delete action selected ...')
         if getattr(self.obj, 'where_used', None):
             txt = 'This Product cannot be deleted:\n'
             txt += 'it is a component in the following assemblies:'
@@ -1154,14 +1155,14 @@ class PgxnObject(QDialog):
             parent = self.parent()
             if parent:
                 parent.setFocus()
-            orb.log.debug('  [pgxnobj] sending "new object" signal')
+            # orb.log.debug('  [pgxnobj] sending "new object" signal')
             dispatcher.send(signal="new object", obj=self.obj,
                             cname=cname)
         else:
             for name, val in fields_dict.items():
                 setattr(self.obj, name, val)
-                orb.log.debug('  [pgxnobj] - {}: {}'.format(
-                              name, val.__repr__()))
+                # orb.log.debug('  [pgxnobj] - {}: {}'.format(
+                              # name, val.__repr__()))
             # NOTE:  for new objects, save *ALL* parameters (they are new
             # also); for existing objects, save only modified parameters
             # if parameterz.get(self.obj.oid) and self.new:
@@ -1209,11 +1210,11 @@ class PgxnObject(QDialog):
             orb.save([self.obj])
             if self.new:
                 if cname == 'Project':
-                    orb.log.debug('  [pgxnobj] send "new project" signal')
+                    # orb.log.debug('  [pgxnobj] send "new project" signal')
                     dispatcher.send(signal="new project", obj=self.obj)
                 else:
                     # generic new object signal
-                    orb.log.debug('  [pgxnobj] sending "new object" signal')
+                    # orb.log.debug('  [pgxnobj] sending "new object" signal')
                     dispatcher.send(signal="new object", obj=self.obj,
                                     cname=cname)
                 # for new ProductType instances, create a
@@ -1249,7 +1250,7 @@ class PgxnObject(QDialog):
             self.closing = False
             self.close()
         else:
-            orb.log.debug('  [pgxnobj] saved -- rebuilding ...')
+            # orb.log.debug('  [pgxnobj] saved -- rebuilding ...')
             self.edit_mode = False
             self.build_from_object()
         if state.get('mode') in ['system', 'component']:
@@ -1258,9 +1259,9 @@ class PgxnObject(QDialog):
     def on_select_related(self):
         orb.log.info('* [pgxnobj] select related object ...')
         widget = self.sender()
-        obj = widget.get_value()
+        # obj = widget.get_value()
         # TODO:  if None, give option to create a new object (with pgxnobject)
-        orb.log.debug('  [pgxnobj] current object: {}'.format(obj.oid))
+        # orb.log.debug('  [pgxnobj] current object: {}'.format(obj.oid))
         cname = widget.related_cname
         field_name = widget.field_name
         # SELECTION_FILTERS define the set of valid objects for this field
