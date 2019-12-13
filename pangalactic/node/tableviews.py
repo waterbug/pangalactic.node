@@ -10,6 +10,7 @@ from PyQt5.QtCore import Qt, QTimer
 from louie import dispatcher
 
 # pangalactic
+from pangalactic.core             import prefs
 from pangalactic.core.meta        import PGEF_COL_WIDTHS
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.tablemodels import (ObjectTableModel,
@@ -20,7 +21,7 @@ from pangalactic.node.pgxnobject  import PgxnObject
 
 class ObjectTableView(QtWidgets.QTableView):
     """
-    A table view with special sorting capabilities.
+    A table view for a specified class, with special sorting capabilities.
     """
     def __init__(self, objs, view=None, parent=None):
         """
@@ -32,8 +33,11 @@ class ObjectTableView(QtWidgets.QTableView):
         super(ObjectTableView, self).__init__(parent=parent)
         orb.log.info('* [ObjectTableView] initializing ...')
         if objs:
-            cname = objs[0].__class__.__name__
-            orb.log.info('  - for class: "{}"'.format(cname))
+            self.cname = objs[0].__class__.__name__
+            orb.log.info('  - for class: "{}"'.format(self.cname))
+            if prefs.get('db_views', {}).get(self.cname):
+                # if there is a preferred view, ignore the provided view
+                view = prefs['db_views'][self.cname]
         else:
             orb.log.info('  - no objects provided.')
         self.main_table_model = ObjectTableModel(objs, view=view, parent=self)
@@ -49,6 +53,7 @@ class ObjectTableView(QtWidgets.QTableView):
         column_header.setStyleSheet('font-weight: bold')
         # TODO:  try setting header colors using Qt functions ...
         column_header.setSectionsMovable(True)
+        column_header.sectionMoved.connect(self.on_section_moved)
         # NOTE:  the following line will make table width fit into window
         #        ... but it also makes column widths non-adjustable
         # column_header.setSectionResizeMode(column_header.Stretch)
@@ -85,6 +90,17 @@ class ObjectTableView(QtWidgets.QTableView):
         obj = orb.get(oid)
         dlg = PgxnObject(obj, parent=self)
         dlg.show()
+
+    def on_section_moved(self, logical_index, old_index, new_index):
+        orb.log.debug('* ObjectTableView: on_section_moved() ...')
+        orb.log.debug('  logical index: {}'.format(logical_index))
+        orb.log.debug('  old index: {}'.format(old_index))
+        orb.log.debug('  new index: {}'.format(new_index))
+        item = self.view.pop(old_index)
+        self.view.insert(new_index, item)
+        if not prefs.get('db_views'):
+            prefs['db_views'] = {}
+        prefs['db_views'][self.cname] = self.view[:]
 
 
 class MatrixWidget(QtWidgets.QDialog):
