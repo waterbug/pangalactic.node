@@ -271,11 +271,13 @@ class ModelWindow(QMainWindow):
 
     def set_subject_from_diagram_drill_down(self, usage=None):
         """
-        Respond to a double-clicked diagram block by setting the corresponding
-        component usage as the subject of the model window.
+        Respond to a double-clicked diagram block by "drilling down" (setting
+        the corresponding component or system as the subject of the model
+        window).
 
         Keyword Args:
-            obj (Identifiable): if no model is provided, find models of obj
+            usage (Acu or ProjectSystemUsage):  the usage represented by the
+                block
         """
         orb.log.debug('* set_subject_from_diagram_drill_down')
         self.cache_block_model()
@@ -303,16 +305,15 @@ class ModelWindow(QMainWindow):
                     for idx in idxs:
                         node = sys_tree.source_model.get_node(idx)
                         assembly = getattr(node.link, 'assembly', None)
-                        orb.log.debug('  + obj found in assembly {}'.format(
-                                                                assembly.id))
+                        orb.log.debug('  + obj found in assembly "{}"'.format(
+                                                                 assembly.id))
                         if assembly is previous_obj:
                             orb.log.debug("    that's the one!")
                             target_idx = idx
                             break
                 if target_idx:
                     orb.log.debug('  + found index of object')
-                    self.idx = sys_tree.proxy_model.mapFromSource(
-                                                            target_idx)
+                    self.idx = sys_tree.proxy_model.mapFromSource(target_idx)
                 else:
                     # if not found in tree, set self.idx to root node index
                     idx = sys_tree.source_model.index(0, 0, QModelIndex())

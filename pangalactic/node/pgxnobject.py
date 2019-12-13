@@ -167,8 +167,8 @@ class PgxnForm(QWidget):
                 # computeds = []
                 p_ordering = [pid for pid in editables + computeds
                               if pid not in contingencies]
-                orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
-                                                            str(p_ordering)))
+                # orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
+                                                            # str(p_ordering)))
                 if seq is None:
                     # orb.log.debug('  seq is None; all parameters on one page.')
                     pids_on_panel = p_ordering
@@ -186,20 +186,24 @@ class PgxnForm(QWidget):
                     parm = parmz[pid] or {}
                     pd = parm_defz[pid]
                     ext_name = pd.get('name', '') or '[unknown]'
-                    units = parm.get('units', '')
-                    dimensions = pd.get('dimensions', '')
-                    unit_choices = alt_units.get(dimensions)
-                    if unit_choices:
-                        units_widget = UnitsWidget(field_name, units,
-                                                   unit_choices)
-                        units_widget.currentTextChanged.connect(
-                                                            self.on_set_units)
-                    else:
-                        units_widget = QLabel(units)
-                    # field_type 'parameter' -> StringFieldWidget for edit mode
-                    field_type = 'parameter'
                     # parm types are 'float', 'int', 'bool', or 'text'
                     parm_type = pd.get('range_datatype', 'float')
+                    if parm_type in ['int', 'float']:
+                        # units only apply to numeric types
+                        units = parm.get('units', '')
+                        dimensions = pd.get('dimensions', '')
+                        unit_choices = alt_units.get(dimensions)
+                        if unit_choices:
+                            units_widget = UnitsWidget(field_name, units,
+                                                       unit_choices)
+                            units_widget.currentTextChanged.connect(
+                                                                self.on_set_units)
+                        else:
+                            units_widget = QLabel(units)
+                    else:
+                        units_widget = None
+                    # field_type 'parameter' -> StringFieldWidget for edit mode
+                    field_type = 'parameter'
                     # if 'computed', p is not editable
                     editable = (edit_mode and not pd.get('computed'))
                     definition = (pd.get('description', '')
@@ -267,7 +271,9 @@ class PgxnForm(QWidget):
                             label.setContextMenuPolicy(Qt.ActionsContextMenu)
                         value_layout = QHBoxLayout()
                         value_layout.addWidget(widget)
-                        value_layout.addWidget(units_widget)
+                        # units_widget is None for non-numeric parameters
+                        if units_widget:
+                            value_layout.addWidget(units_widget)
                         if c_widget:
                             self.p_widgets[c_pid] = c_widget
                             self.u_widgets[c_pid] = c_units_widget
@@ -842,18 +848,20 @@ class PgxnObject(QDialog):
             # All subclasses of Modelable except the ones in PGXN_HIDE_PARMS
             # get a 'parameters' panel
             # First find the parameters to be displayed for this object ...
-            idvs = orb.get_idvs(cname='ParameterDefinition')
-            # variables = [idv[0] for idv in idvs]
-            contingencies = [get_parameter_id(idv[0], 'Contingency') for idv in idvs]
+            contingencies = [p for p in parm_defz
+                             if parm_defz[p]['context'] == 'Ctgcy']
             parmz = parameterz.get(self.obj.oid, {})
             # contingencies are not used in calculating the number of
             # parameters on the panel, since they do not have separate rows
             pids = [p for p in parmz if p not in contingencies]
+            orb.log.debug('  [pgxnobj] parameters: {}'.format(str(pids)))
             if len(pids) > PARMS_NBR:
                 n_of_parms = len(pids)
                 # allow PARMS_NBR parameters to a panel ...
                 n_of_parm_panels = int(math.ceil(
                                        float(n_of_parms)/float(PARMS_NBR)))
+                orb.log.debug('  [pgxnobj] parm panels: {}'.format(
+                                                        n_of_parm_panels))
                 for i in range(n_of_parm_panels):
                     tab_names.insert(i, 'parms_{}'.format(i+1))
             else:
