@@ -2,6 +2,10 @@
 # NOTE: fixed div's so old_div is not needed.
 # from past.utils import old_div
 import pyqtgraph as pg
+import pyqtgraph.parametertree.parameterTypes as pTypes
+from pyqtgraph.parametertree import Parameter, ParameterTree, ParameterItem, registerParameterType
+from pyqtgraph.dockarea import *
+from pyqtgraph import CheckTable
 import os
 from collections import namedtuple
 from urllib.parse    import urlparse
@@ -9,13 +13,13 @@ from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
 
-from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
+from PyQt5.QtWidgets import (QTreeWidgetItem,QTreeWidget, QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
                              QGraphicsView, QGridLayout, QMenu, QToolBox,
                              QPushButton, QGraphicsPathItem, QVBoxLayout,
                              QToolBar, QWidgetAction, QStatusBar, QMessageBox)
-from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
+from PyQt5.QtGui import (QGraphicsProxyWidget, QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
                          QPixmap, QCursor, QPainterPath, QPolygonF)
 
 # pangalactic
@@ -712,11 +716,51 @@ class TimelineWidget(QWidget):
             start_times.append(get_pval(orb, oid, 't_start'))
             power.append(get_pval(orb, oid, 'P'))
             d_r.append(get_pval(orb, oid, 'R_D'))
-        win = pg.GraphicsWindow()
+
+
+        win = QMainWindow()
+        combo = pg.ComboBox()
+        combo.addItem("Data Rate")
+        # win.addWidget(combo)
+        # proxy = QGraphicsProxyWidget()
+        # # tree = QTreeWidget()
+        # # i1  = QTreeWidgetItem(["Item 1"])
+        # # tree.addTopLevelItem(i1)
+        # proxy.setWidget(combo)
+        area = DockArea()
+        win.setCentralWidget(area)
+        win.resize(1000,1000)
+        win.setWindowTitle('pyqtgraph example: dockarea')
+        d4 = Dock("Power", size=(500,500))
+        d6 = Dock("Data Rate", size=(500,500))
+        d7 = Dock("Subsystems", size=(500,200))
+        # p3 = win.addLayout(row=1, col=3)
+        # p3.addItem(proxy,row=1,col=1)
+        #layout.addItem(tree)
+        #win.addItem(tree)
+        area.addDock(d4, 'left')
+        area.addDock(d6, 'above', d4)
+        area.addDock(d7, 'right')
+        w6 = pg.PlotWidget()
+        w4 = pg.PlotWidget()
+        d6.addWidget(w6)
+        d4.addWidget(w4)
         win.resize(800,350)
         win.setWindowTitle(' ')
         self.plot_win = win
-        plt1 = win.addPlot(title="Power")
+        t = pg.parametertree.ParameterTree()
+        d7.addWidget(t)
+        #p = pg.parametertree.parameterTypes.ActionParameter("parent")
+        lst = []
+        for system in self.possible_systems:
+            pair = {'name': system}
+            lst.append(pair)
+        params = [{'name': self.subject_activity.id, 'children': lst}]
+        p = Parameter.create(name='params', type='group', children=params)
+        t.addParameters(p)
+
+
+
         duration = sum(act_durations)
         s_time = min(start_times)
         generated_x = []
@@ -729,14 +773,14 @@ class TimelineWidget(QWidget):
         for c, y in enumerate(act_durations):
             generated_power.extend([power[c], power[c]])
             #.extend([power[c]]*(int(act_durations[c])+1))
-        plt1.plot(generated_x, generated_power, brush=(0,0,255,150))
+        w4.plot(generated_x, generated_power, brush=(0,0,255,150))
 
-        plt2 = win.addPlot(title="Data Rate")
+        #plt2 = win.addPlot(title="Data Rate")
         generated_dr = []
         for d_index, d in enumerate(act_durations):
            generated_dr.extend([d_r[d_index], d_r[d_index]])
-        plt2.plot(generated_x, generated_dr, brush=(0,0,255,150))
-
+        w6.plot(generated_x, generated_dr, brush=(0,0,255,150))
+        win.show()
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
