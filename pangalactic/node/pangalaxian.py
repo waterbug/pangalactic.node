@@ -3838,11 +3838,29 @@ class Main(QtWidgets.QMainWindow):
             state['last_path'] = orb.test_data_dir
 
     def dump_database(self):
-        self.statusbar.showMessage('Exporting DB ...')
+        self.statusbar.showMessage('Exporting DB to file ...')
         orb.log.debug('* dump_database()')
-        orb.dump_db()
-        txt = 'Exporting DB ... done. [File: ~/cattens_home/vault/db.yaml]'
-        self.statusbar.showMessage(txt)
+        dtstr = date2str(dtstamp())
+        fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
+                                    self, 'Export DB to File',
+                                    'DB-' + dtstr + '.yaml')
+        if fpath:
+            orb.log.debug('  - file selected: "%s"' % fpath)
+            fpath = str(fpath)    # QFileDialog fpath is unicode; make str
+            state['last_path'] = os.path.dirname(fpath)
+            # serialize all database objects
+            s_objs = serialize(orb, orb.get_all_subtypes('Identifiable'))
+            f = open(fpath, 'w')
+            f.write(yaml.safe_dump(s_objs, default_flow_style=False))
+            f.close()
+            orb.log.debug('    {} db objects written.'.format(len(s_objs)))
+            txt = '... all {} DB objects exported to file: {}'.format(
+                                                            len(s_objs), fpath)
+            self.statusbar.showMessage(txt)
+        else:
+            orb.log.debug('  db export cancelled.')
+            self.statusbar.showMessage('DB export cancelled.')
+            return
 
     def closeEvent(self, event):
         # things to do when window is closed

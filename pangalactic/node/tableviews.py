@@ -1,19 +1,21 @@
 """
 Widgets based on QTableView
 """
+import os
 # PyQt
-from builtins import str
-from PyQt5.QtWidgets import (QAction, QDialog, QDialogButtonBox, QSizePolicy,
-                             QTableView, QVBoxLayout)
+from PyQt5.QtWidgets import (QAction, QDialog, QDialogButtonBox, QFileDialog,
+                             QSizePolicy, QTableView, QVBoxLayout)
 from PyQt5.QtCore import Qt, QTimer
 
 # Louie
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core             import prefs
+from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.datetimes import dtstamp, date2str
+from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.tablemodels import (ObjectTableModel,
                                           MatrixTableModel,
                                           SpecialSortModel)
@@ -96,6 +98,9 @@ class ObjectTableView(QTableView):
         select_columns_action = QAction('select columns', column_header)
         select_columns_action.triggered.connect(self.select_columns)
         column_header.addAction(select_columns_action)
+        export_tsv_action = QAction('export table to tsv file', column_header)
+        export_tsv_action.triggered.connect(self.export_tsv)
+        column_header.addAction(export_tsv_action)
         column_header.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def main_table_row_double_clicked(self, clicked_index):
@@ -145,6 +150,36 @@ class ObjectTableView(QTableView):
             orb.log.debug('  new view: {}'.format(new_view))
             prefs['db_views'][self.cname] = new_view
             self.setup_table()
+
+    def export_tsv(self):
+        """
+        Write the table content to a tsv (tab-separated-values) file.
+        """
+        orb.log.debug('* export_tsv()')
+        dtstr = date2str(dtstamp())
+        objs_name = '-'.join(get_external_name_plural(self.cname).split(' '))
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to tsv File',
+                                    objs_name + '-' + dtstr + '.tsv')
+        if fpath:
+            orb.log.debug('  - file selected: "%s"' % fpath)
+            fpath = str(fpath)    # QFileDialog fpath is unicode; UTF-8 (?)
+            state['last_path'] = os.path.dirname(fpath)
+            f = open(fpath, 'w')
+            table = self.main_table_proxy
+            header = '\t'.join(self.view[:])
+            rows = [header]
+            for row in range(table.rowCount()):
+                rows.append('\t'.join([table.data(table.index(row, col))
+                                       for col in range(len(self.view))]))
+            content = '\n'.join(rows)
+            f.write(content)
+            f.close()
+            # TODO:  add a "success" notification
+            # txt = '... table exported to file: {}'.format(fpath)
+        else:
+            orb.log.debug('  ... export to tsv cancelled.')
+            return
 
 
 class MatrixWidget(QDialog):

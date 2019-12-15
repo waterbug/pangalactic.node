@@ -29,6 +29,7 @@ from pangalactic.core             import state
 from pangalactic.core.meta        import MAIN_VIEWS, TEXT_PROPERTIES
 from pangalactic.core.parametrics import get_pval_as_str
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.datetimes import dt2local_tz_str
 from pangalactic.core.utils.meta  import (display_id, pname_to_header_label,
                                           to_media_name)
 # from pangalactic.core.test.utils import create_test_users, create_test_project
@@ -243,17 +244,19 @@ class ObjectTableModel(ODTableModel):
         """
         odict = OrderedDict()
         for name in view:
-            if name == 'id':
+            if name not in self.schema['fields']:
+                val = '-'
+            elif name == 'id':
                 val = display_id(obj)
-            else:
-                val = getattr(obj, name, None)
-            if (name in self.schema['fields'] and
-                self.schema['fields'][name]['field_type'] == ForeignKey):
-                odict[name] = getattr(val, 'id', '[no id]')
             elif name in TEXT_PROPERTIES:
-                odict[name] = (val or ' ').replace('\n', ' ')
+                val = (getattr(obj, name) or ' ').replace('\n', ' ')
+            elif self.schema['fields'][name]['range'] == 'datetime':
+                val = dt2local_tz_str(getattr(obj, name))
+            elif self.schema['fields'][name]['field_type'] == ForeignKey:
+                val = getattr(getattr(obj, name), 'id', '[no id]')
             else:
-                odict[name] = val
+                val = str(getattr(obj, name))
+            odict[name] = val
         return odict
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
