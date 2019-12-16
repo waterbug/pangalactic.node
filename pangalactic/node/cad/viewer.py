@@ -26,14 +26,14 @@ from OCC.Display import OCCViewer
 # from OCC.STEPControl import STEPControl_Reader
 ######################################
 # new stuff for colorized viewer ...
-from OCC.Core.TDocStd import Handle_TDocStd_Document
+from OCC.Core.TDocStd import TDocStd_Document
 from OCC.Core.XCAFApp import XCAFApp_Application
 from OCC.Core.XCAFDoc import (XCAFDoc_DocumentTool_ShapeTool,
                               XCAFDoc_DocumentTool_ColorTool)
 from OCC.Core.STEPCAFControl import STEPCAFControl_Reader
 from OCC.Core.IFSelect import IFSelect_RetDone
 from OCC.Core.TDF import TDF_LabelSequence, TDF_Label, TDF_Tool
-from OCC.Core.TDataStd import Handle_TDataStd_Name, TDataStd_Name_GetID
+from OCC.Core.TDataStd import TDataStd_Name, TDataStd_Name_GetID
 from OCC.Core.TCollection import TCollection_ExtendedString, TCollection_AsciiString
 from OCC.Core.Quantity import Quantity_Color
 from OCC.Core.TopLoc import TopLoc_Location
@@ -114,7 +114,7 @@ class QtViewer3DColor(QtBaseViewer):
         #########################
         # new stuff for XCAF ...
         # create a handle to a document
-        doc = Handle_TDocStd_Document()
+        doc = TDocStd_Document(TCollection_ExtendedString("pythonocc-doc"))
         # Create the application
         app = XCAFApp_Application.GetApplication()
         app.NewDocument(TCollection_ExtendedString("MDTV-CAF"), doc)
@@ -170,7 +170,7 @@ class QtViewer3DColor(QtBaseViewer):
     def get_label_name(self, label):
         entry = TCollection_AsciiString()
         TDF_Tool.Entry(label, entry)
-        N = Handle_TDataStd_Name()
+        N = TDataStd_Name()
         label.FindAttribute(TDataStd_Name_GetID(), N)
         # n = N.GetObject()
         if N:
