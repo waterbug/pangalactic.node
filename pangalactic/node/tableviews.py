@@ -43,14 +43,18 @@ class ObjectTableView(QTableView):
 
     def setup_table(self):
         self.cname = None
+        # if a main_table_proxy exists, remove it so gui doesn't get confused
         if self.objs:
             self.cname = self.objs[0].__class__.__name__
             orb.log.info('  - for class: "{}"'.format(self.cname))
-            if prefs.get('db_views', {}).get(self.cname):
-                # if there is a preferred view, ignore the provided view
-                self.view = prefs['db_views'][self.cname]
+            if not self.view:
+                # if no view is specified, use the preferred view, if any
+                if prefs.get('db_views', {}).get(self.cname):
+                    self.view = prefs['db_views'][self.cname][:]
         else:
             orb.log.info('  - no objects provided.')
+        # if there is neither a specified view nor a preferred view, use the
+        # default view
         view = self.view or MAIN_VIEWS.get(self.cname, IDENTITY)
         self.main_table_model = ObjectTableModel(self.objs, view=view,
                                                  parent=self)
@@ -119,17 +123,24 @@ class ObjectTableView(QTableView):
         orb.log.debug('  logical index: {}'.format(logical_index))
         orb.log.debug('  old index: {}'.format(old_index))
         orb.log.debug('  new index: {}'.format(new_index))
-        item = self.view.pop(old_index)
-        self.view.insert(new_index, item)
+        orb.log.debug('  self.view: {}'.format(str(self.view)))
+        new_view = self.view[:]
+        moved_item = new_view.pop(old_index)
+        if new_index > len(new_view) - 1:
+            new_view.append(moved_item)
+        else:
+            new_view.insert(new_index, moved_item)
+        orb.log.debug('  new view: {}'.format(str(new_view)))
         if not prefs.get('db_views'):
             prefs['db_views'] = {}
-        prefs['db_views'][self.cname] = self.view[:]
-        self.setup_table()
+        prefs['db_views'][self.cname] = new_view[:]
+        dispatcher.send('new object table view pref', cname=self.cname)
 
     def select_columns(self):
         """
         Dialog displayed in response to 'select columns' context menu item.
         """
+        orb.log.debug('* ObjectTableView: select_columns() ...')
         # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
         # original schema!!!
         all_cols = orb.schemas.get(self.cname, {}).get('field_names', [])[:]
@@ -151,6 +162,8 @@ class ObjectTableView(QTableView):
             if not prefs.get('db_views'):
                 prefs['db_views'] = {}
             prefs['db_views'][self.cname] = new_view[:]
+            self.view = new_view[:]
+            orb.log.debug('  self.view: {}'.format(str(self.view)))
             self.setup_table()
 
     def export_tsv(self):

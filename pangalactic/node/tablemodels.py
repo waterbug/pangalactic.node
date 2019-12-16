@@ -2,8 +2,6 @@
 A set of custom TableModels for use with QTableView.
 """
 # stdlib
-from builtins import str
-from builtins import object
 import os, re
 # import sys  # only needed for testing stuff
 from collections import OrderedDict
@@ -165,6 +163,10 @@ class NullObject(object):
 class ObjectTableModel(ODTableModel):
     """
     A ODTableModel subclass based on a list of objects.
+
+    Attributes:
+        cname (str): class name of the objects
+        column_labels (list):  list of column header labels (strings)
     """
 
     def __init__(self, objs, view=None, with_none=False, as_library=False,
@@ -188,7 +190,7 @@ class ObjectTableModel(ODTableModel):
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
         # orb.log.debug("  ... with {} objects.".format(len(objs)))
         self.column_labels = ['No Data']
-        self.view = view or []
+        self.view = view or ['']
         self.cname = ''
         if self.objs:
             self.cname = objs[0].__class__.__name__
@@ -215,11 +217,7 @@ class ObjectTableModel(ODTableModel):
             # NOTE:  this works but may need performance optimization when
             # the table holds a large number of objects
             ods = [self.get_odict_for_obj(o, self.view) for o in self.objs]
-            if self.view:
-                self.column_labels = [pname_to_header_label(x)
-                                      for x in self.view]
-            else:
-                self.column_labels = list(ods[0].keys())
+            self.column_labels = [pname_to_header_label(x) for x in self.view]
         else:
             ods = [{0:'no data'}]
             self.view = ['id']

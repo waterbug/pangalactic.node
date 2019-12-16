@@ -193,6 +193,8 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')
         dispatcher.connect(self.on_get_people, 'get people')
+        dispatcher.connect(self.set_new_object_table_view,
+                                               'new object table view pref')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., RoleAssignment instances)
@@ -3088,12 +3090,30 @@ class Main(QtWidgets.QMainWindow):
                           # % cname)
 
     def set_object_table_for(self, cname):
-        # TODO:  let view and sort_field be parameters
-        orb.log.debug('* setting object table for "%s"' % cname)
+        orb.log.debug('* setting object table for {}'.format(cname))
+        if not cname:
+            orb.log.debug('  no class specified, ignoring.')
+            return
         objs = list(orb.get_by_type(cname))
         tableview = ObjectTableView(objs)
         self.setCentralWidget(tableview)
         self.object_tableview = tableview
+
+    def set_new_object_table_view(self, cname=None):
+        """
+        Handler for dispatcher signal "new object table view pref", sent when
+        a column in an ObjectTableView is moved; rebuilds the table.
+
+        Keyword Args:
+            cname (str):  class name of the table objects
+        """
+        orb.log.debug('* resetting object table view to pref')
+        if hasattr(self, 'object_tableview'):
+            self.object_tableview.setAttribute(Qt.WA_DeleteOnClose)
+            self.object_tableview.parent = None
+            self.object_tableview.close()
+            self.object_tableview = None
+        self.set_object_table_for(cname)
 
     def show_about(self):
         # if app version is provided, use it; otherwise use ours
