@@ -148,7 +148,9 @@ class ObjectTableView(QTableView):
                 if dlg.checkboxes[col].isChecked():
                     new_view.append(col)
             orb.log.debug('  new view: {}'.format(new_view))
-            prefs['db_views'][self.cname] = new_view
+            if not prefs.get('db_views'):
+                prefs['db_views'] = {}
+            prefs['db_views'][self.cname] = new_view[:]
             self.setup_table()
 
     def export_tsv(self):
