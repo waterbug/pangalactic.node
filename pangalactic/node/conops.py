@@ -714,8 +714,8 @@ class TimelineWidget(QWidget):
             oid = getattr(act, "oid", None)
             act_durations.append(get_pval(orb, oid, 'duration'))
             start_times.append(get_pval(orb, oid, 't_start'))
-            power.append(get_pval(orb, oid, 'P'))
-            d_r.append(get_pval(orb, oid, 'R_D'))
+            power.append(get_pval(orb, oid, 'P[CBE]'))
+            d_r.append(get_pval(orb, oid, 'R_D[CBE]'))
 
 
         win = QMainWindow()
@@ -748,7 +748,7 @@ class TimelineWidget(QWidget):
         win.resize(800,350)
         win.setWindowTitle(' ')
         self.plot_win = win
-        t = pg.parametertree.ParameterTree()
+        t = pg.parametertree.ParameterTree(showHeader=False)
         d7.addWidget(t)
         #p = pg.parametertree.parameterTypes.ActionParameter("parent")
         lst = []
@@ -757,7 +757,7 @@ class TimelineWidget(QWidget):
             lst.append(pair)
         params = [{'name': self.subject_activity.id, 'children': lst}]
         p = Parameter.create(name='params', type='group', children=params)
-        t.addParameters(p)
+        t.addParameters(p, showTop=False)
 
 
 
