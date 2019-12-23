@@ -2075,22 +2075,21 @@ class Main(QtWidgets.QMainWindow):
         """
         Handle louie signal "remote: modified".
         """
-        orb.log.info('* received "remote: modified" signal on:')
+        orb.log.debug('* received "remote: modified" signal on:')
         # content is a tuple:  (obj.oid, str(obj.mod_datetime))
         obj_oid, obj_id, dts_str = content
-        orb.log.info('  oid: {}'.format(obj_oid))
-        orb.log.info('  id: {}'.format(obj_id))
+        orb.log.debug('  oid: {}'.format(obj_oid))
+        orb.log.debug('  id: {}'.format(obj_id))
         # first check if we have the object
         obj = orb.get(obj_oid)
         if obj:
-            orb.log.info('  ')
             # if the mod_datetime of the repo object is later, get it
             dts = None
             if dts_str:
                 dts = uncook_datetime(dts_str)
-            orb.log.debug('  remote object mod_datetime: {}'.format(dts_str))
-            orb.log.debug('  local  object mod_datetime: {}'.format(
-                                            str(obj.mod_datetime)))
+            # orb.log.debug('  remote object mod_datetime: {}'.format(dts_str))
+            # orb.log.debug('  local  object mod_datetime: {}'.format(
+                                            # str(obj.mod_datetime)))
             if dts == obj.mod_datetime:
                 orb.log.debug('  local and remote objects have')
                 orb.log.debug('  same mod_datetime, ignoring.')
@@ -2328,8 +2327,7 @@ class Main(QtWidgets.QMainWindow):
         # NOTE:  libraries are now subscribed to the 'deleted object' signal
         # and update themselves, so no need to call them.
         if self.mode == 'db':
-            if str(state['current_cname']) == str(cname):
-                self.set_object_table_for(cname)
+            self.set_db_interface()
         elif self.mode == 'component':
             self.set_product_modeler_interface()
         if not remote and state.get('connected'):
