@@ -90,7 +90,7 @@ class Main(QtWidgets.QMainWindow):
             (persistent in the `state` module)
         project (Project):  currently selected project
             (its oid is persisted as `project` in the `state` dict)
-        projects (list of Project):  current Projects in db
+        projects (list of Project):  current authorized Projects in db
             (a read-only property linked to the local db)
         dataset (str):  name of currently selected dataset
             (persistent in the `state` module)
@@ -1734,7 +1734,8 @@ class Main(QtWidgets.QMainWindow):
     @property
     def projects(self):
         """
-        The current list of project objects.
+        The current list of project objects on which the user has a role
+        assignment.
         """
         admin_role = orb.get('pgefobjects:Role.Administrator')
         global_admin = orb.select('RoleAssignment',
@@ -3170,7 +3171,8 @@ class Main(QtWidgets.QMainWindow):
 
     def new_project(self):
         orb.log.info('* new_project()')
-        proj = clone('Project')
+        # Projects (and Organizations in general) should always be "public"
+        proj = clone('Project', public=True)
         # NOTE:  use 'view' to restrict the fields in the interface; this
         # overrides the preconfigured default set of fields specified in
         # p.meta.meta.MAIN_VIEWS
