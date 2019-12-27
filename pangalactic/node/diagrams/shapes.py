@@ -8,10 +8,8 @@ from textwrap import wrap
 from PyQt5.QtCore import Qt, QLineF, QPointF, QRectF, QSizeF
 from PyQt5.QtGui import (QColor, QFont, QPainterPath, QPen, QPolygonF,
                          QTextOption)
-from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFontComboBox,
-                             QGraphicsItem, QGraphicsLineItem,
-                             QGraphicsTextItem, QGridLayout, QLabel, QMenu,
-                             QMessageBox, QSpinBox, QStyle, QTextEdit)
+from PyQt5.QtWidgets import (QGraphicsItem, QGraphicsLineItem,
+                             QGraphicsTextItem, QMenu, QMessageBox, QStyle)
 
 from louie import dispatcher
 
@@ -1633,10 +1631,6 @@ class TextLabel(QGraphicsTextItem):
             Dirty = True
         return QGraphicsTextItem.itemChange(self, change, variant)
 
-    def mouseDoubleClickEvent(self, event):
-        dialog = TextItemDlg(self, self.parentWidget())
-        dialog.exec_()
-
 
 class TextItem(QGraphicsTextItem):
     """
@@ -1679,85 +1673,3 @@ class TextItem(QGraphicsTextItem):
             Dirty = True
         return QGraphicsTextItem.itemChange(self, change, variant)
 
-    def mouseDoubleClickEvent(self, event):
-        dialog = TextItemDlg(self, self.parentWidget())
-        dialog.exec_()
-
-
-class TextItemDlg(QDialog):
-
-    def __init__(self, item=None, position=None, scene=None, parent=None):
-        super(QDialog, self).__init__(parent)
-        self.item = item
-        self.position = position
-        self.scene = scene
-        self.create_widgets()
-        self.layout_widgets()
-        self.create_connections()
-        self.setWindowTitle("Page Designer - {0} Text Item".format(
-                "Add" if self.item is None else "Edit"))
-        self.updateUi()
-
-    def create_widgets(self):
-        self.editor = QTextEdit()
-        self.editor.setAcceptRichText(False)
-        self.editor.setTabChangesFocus(True)
-        self.editorLabel = QLabel("&Text:")
-        self.editorLabel.setBuddy(self.editor)
-        self.fontComboBox = QFontComboBox()
-        self.fontComboBox.setCurrentFont(QFont("Arial", POINT_SIZE))
-        self.fontLabel = QLabel("&Font:")
-        self.fontLabel.setBuddy(self.fontComboBox)
-        self.fontSpinBox = QSpinBox()
-        self.fontSpinBox.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
-        self.fontSpinBox.setRange(6, 280)
-        self.fontSpinBox.setValue(POINT_SIZE)
-        self.fontSizeLabel = QLabel("&Size:")
-        self.fontSizeLabel.setBuddy(self.fontSpinBox)
-        self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok |
-                                          QDialogButtonBox.Cancel)
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
-
-        if self.item is not None:
-            self.editor.setPlainText(self.item.toPlainText())
-            self.fontComboBox.setCurrentFont(self.item.font())
-            self.fontSpinBox.setValue(self.item.font().pointSize())
-
-    def layout_widgets(self):
-        layout = QGridLayout()
-        layout.addWidget(self.editorLabel, 0, 0)
-        layout.addWidget(self.editor, 1, 0, 1, 6)
-        layout.addWidget(self.fontLabel, 2, 0)
-        layout.addWidget(self.fontComboBox, 2, 1, 1, 2)
-        layout.addWidget(self.fontSizeLabel, 2, 3)
-        layout.addWidget(self.fontSpinBox, 2, 4, 1, 2)
-        layout.addWidget(self.buttonBox, 3, 0, 1, 6)
-        self.setLayout(layout)
-
-    def create_connections(self):
-        self.fontComboBox.currentFontChanged.connect(self.updateUi)
-        self.fontSpinBox.valueChanged.connect(self.updateUi)
-        self.editor.textChanged.connect(self.updateUi)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-
-    def updateUi(self):
-        font = self.fontComboBox.currentFont()
-        font.setPointSize(self.fontSpinBox.value())
-        self.editor.document().setDefaultFont(font)
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(
-                              bool(self.editor.toPlainText()))
-
-    def accept(self):
-        if self.item is None:
-            self.item = TextItem("", self.position, self.scene)
-        font = self.fontComboBox.currentFont()
-        font.setPointSize(self.fontSpinBox.value())
-        self.item.setFont(font)
-        textw = '\n'.join(wrap(self.editor.toPlainText(), width=25,
-                                 break_long_words=False))
-        self.item.setPlainText(textw)
-        self.item.update()
-        global Dirty
-        Dirty = True
-        QDialog.accept(self)
