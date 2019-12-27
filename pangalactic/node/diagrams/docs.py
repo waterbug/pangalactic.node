@@ -12,7 +12,7 @@ from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 # pangalactic
 from pangalactic.core.uberorb         import orb
 from pangalactic.core.utils.meta      import asciify
-from pangalactic.node.diagrams.shapes import TextItem, TextItemDlg
+from pangalactic.node.diagrams.shapes import TextItem
 
 # NOTE: not using native Mac menus ...
 # MAC = True
@@ -193,7 +193,6 @@ class DocForm(QtWidgets.QDialog):
                      ("Quit", self.accept)]
         if self.edit_mode:
             functions += [
-                ("Add &Text", self.addText),
                 ("Add &Box", self.addBox),
                 ("Add &Object", self.add_object),
                 ("Add Pi&xmap", self.addPixmap),
@@ -265,11 +264,6 @@ class DocForm(QtWidgets.QDialog):
                 self.addOffset = 5
                 self.prev_point = point
         return self.view.mapToScene(point)
-
-    def addText(self):
-        dialog = TextItemDlg(position=self.position(),
-                             scene=self.scene, parent=self)
-        dialog.exec_()
 
     def addBox(self):
         BoxItem(self.position(), self.scene)
