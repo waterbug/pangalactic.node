@@ -942,12 +942,6 @@ class PgxnObject(QDialog):
                     and not getattr(self.obj, 'frozen', False)):
                         self.edit_button = self.bbox.addButton('Edit',
                                                    QDialogButtonBox.ActionRole)
-                if (state.get('connected') and
-                    isinstance(self.obj, orb.classes['ManagedObject']) and
-                    not isinstance(self.obj,
-                                   orb.classes['ParameterDefinition'])):
-                    self.cloaking_button = self.bbox.addButton('Cloaking',
-                                                   QDialogButtonBox.ActionRole)
         else:
             # not embedded -> external dialog
             self.modal_mode = True
@@ -981,12 +975,6 @@ class PgxnObject(QDialog):
                     # orb.log.debug('            adding "edit" button ...')
                     self.edit_button = self.bbox.addButton('Edit',
                                                QDialogButtonBox.ActionRole)
-                if (state.get('connected') and
-                    isinstance(self.obj, orb.classes['ManagedObject']) and
-                    not isinstance(self.obj,
-                               orb.classes['ParameterDefinition'])):
-                    self.cloaking_button = self.bbox.addButton('Cloaking',
-                                               QDialogButtonBox.ActionRole)
             self.close_button = self.bbox.addButton(QDialogButtonBox.Close)
             self.close_button.clicked.connect(self.on_close)
         self.vbox.addWidget(self.tabs)
@@ -1017,8 +1005,6 @@ class PgxnObject(QDialog):
             self.save_and_close_button.clicked.connect(self.on_save_and_close)
         if hasattr(self, 'delete_button'):
             self.delete_button.clicked.connect(self.on_delete)
-        if hasattr(self, 'cloaking_button'):
-            self.cloaking_button.clicked.connect(self.on_cloaking)
         self.bbox.rejected.connect(self.cancel)
 
     def on_edit(self):
@@ -1077,10 +1063,6 @@ class PgxnObject(QDialog):
         orb.save([self.obj])
         dispatcher.send(signal='modified object', obj=self.obj)
         self.build_from_object()
-
-    def on_cloaking(self):
-        orb.log.info('* [pgxnobj] sending "cloaking" signal ...')
-        dispatcher.send(signal='cloaking', oid=self.obj.oid)
 
     def cancel(self):
         if self.edit_mode:

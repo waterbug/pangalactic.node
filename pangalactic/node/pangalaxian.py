@@ -49,15 +49,10 @@ from pangalactic.node.admin           import AdminDialog
 from pangalactic.node.buttons         import ButtonLabel, MenuButton
 from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dashboards      import SystemDashboard
-from pangalactic.node.dialogs         import (CloakingDialog,
-                                              # CondaDialog, ## deprecated
-                                              LoginDialog,
-                                              # CircleWidget,
+from pangalactic.node.dialogs         import (LoginDialog,
                                               NotificationDialog,
                                               ObjectSelectionDialog,
-                                              # OptionNotification,
                                               PrefsDialog)
-                                              # ProgressDialog)
 # from pangalactic.node.filters         import FilterDialog
 from pangalactic.node.helpwidget      import HelpWidget
 from pangalactic.node.libraries       import LibraryDialog, LibraryListWidget
@@ -188,8 +183,6 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.refresh_tree_and_dashboard, 'dashboard mod')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
-        dispatcher.connect(self.get_cloaking_status, 'cloaking')
-        dispatcher.connect(self.decloak, 'decloaking')
         dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')
         dispatcher.connect(self.on_get_people, 'get people')
@@ -345,17 +338,6 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
         orb.log.debug('  with arg: "{}"'.format(userid))
-        # NOTE: progress dialog deprecated because doesn't work on OSX
-        # progress_max = 4
-        # txt = 'Syncing with repository ... please be patient! :)'
-        # if not state.get('done_with_progress'):
-            # self.progress_dialog = ProgressDialog(title='Sync',
-                                              # label=txt,
-                                              # maximum=progress_max,
-                                              # parent=self)
-            # self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
-            # self.progress_dialog.setValue(1)
-            # self.progress_dialog.show()
         QtWidgets.QApplication.processEvents()
         data = orb.get_mod_dts(cname='Person')
         data.update(orb.get_mod_dts(cname='Organization'))
@@ -932,140 +914,6 @@ class Main(QtWidgets.QMainWindow):
             elif subject == 'deleted':
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: deleted", content=content)
-
-    def get_cloaking_status(self, oid=''):
-        """
-        Get cloaking information on the specified object and display dialog
-        with cloaking state and options to decloak.
-
-        Keyword Args:
-            obj (Identifiable):  object whose cloaking info is to be shown
-        """
-        orb.log.debug('[pgxn] get_cloaking_status("{}")'.format(oid))
-        orb.log.debug('       (local "cloaking" signal received ...)')
-        # TODO:  if not connected, show a warning to that effect ...
-        if oid:
-            rpc = self.mbus.session.call('vger.get_cloaking_status', oid)
-            rpc.addCallback(self.on_get_cloaking_status)
-            rpc.addErrback(self.on_failure)
-
-    def decloak(self, oid=''):
-        """
-        Call 'vger.decloak' with the specified arguments, in response to a
-        local 'decloaking' signal.  This decloaks the object to its "owner"
-        project or organization.
-
-        Keyword Args:
-            oid (str):  oid of the object to be decloaked
-            actor_oid (str):  oid of the actor to which the object is to be
-                decloaked
-        """
-        orb.log.info('[pgxn] local "decloaking" signal received:')
-        orb.log.info('       decloak("{}")'.format(oid))
-        obj = orb.get(oid)
-        if not obj:
-            message = "Object not found; could not decloak."
-            popup = QtWidgets.QMessageBox(
-                        QtWidgets.QMessageBox.Warning,
-                        "No object", message,
-                        QtWidgets.QMessageBox.Ok, self)
-            popup.show()
-            orb.log.info('  object not found; could not decloak.')
-            return
-        if 'decloak' not in get_perms(obj):
-            message = "User's permissions do not allow this."
-            popup = QtWidgets.QMessageBox(
-                        QtWidgets.QMessageBox.Warning,
-                        "Not authorized", message,
-                        QtWidgets.QMessageBox.Ok, self)
-            popup.show()
-            orb.log.info('  not authorized; could not decloak.')
-            return
-        owner = getattr(obj, 'owner', None)
-        if not owner:
-            message = "Object has no owner; could not decloak."
-            popup = QtWidgets.QMessageBox(
-                        QtWidgets.QMessageBox.Warning,
-                        "No owner", message,
-                        QtWidgets.QMessageBox.Ok, self)
-            popup.show()
-            orb.log.info('  no owner org; could not decloak.')
-            return
-        if oid and owner:
-            orb.log.info('       sending vger.decloak("{}", "{}")'.format(oid,
-                                                                    owner.oid))
-            # check for mbus session, in case we lost connection ...
-            if getattr(self.mbus, 'session', None):
-                rpc = self.mbus.session.call('vger.decloak', oid, owner.oid)
-                rpc.addCallback(self.on_get_cloaking_status)
-                rpc.addErrback(self.on_failure)
-            else:
-                message = "Not connected; could not decloak."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
-                            "Not connected", message,
-                            QtWidgets.QMessageBox.Ok, self)
-                popup.show()
-                return
-
-    def on_get_cloaking_status(self, result):
-        """
-        Display a dialog with the result of a request for cloaking status of an
-        object.  The format of the result is a 3-tuple consisting of:
-
-        (1) a list of the oids of any actors the object has been decloaked to
-        (2) a status message (text)
-        (3) the oid of the object whose cloaking status was returned
-        """
-        orb.log.debug('[pgxn] get_cloaking_status() returned:')
-        orb.log.debug('       {}'.format(str(result)))
-        decloak_button = True
-        if result:
-            actor_oids, msg, obj_oid = result
-            obj = orb.get(obj_oid)
-            if obj:
-                actors = []
-                # if 'public' is explicitly included, the object is public
-                if 'public' in actor_oids:
-                    actors = ['public']
-                else:
-                    for ao in actor_oids:
-                        if ao:
-                            actor = orb.get(ao)
-                            if actor:
-                                actors.append(actor)
-                orb.log.debug('       calling CloakingDialog() with:')
-                orb.log.debug('       - obj = {}'.format(obj.oid))
-                orb.log.debug('       - msg = {}'.format(msg))
-                orb.log.debug('       - actors = {}'.format(str(actors)))
-                # if object has already been decloaked to the current project,
-                # show the status dialog without the Decloak button
-                if state.get('project') in actor_oids:
-                    decloak_button = False
-                # check whether this is a locally cloaked object that has just
-                # been decloaked
-                cloaked_oids = state.get('cloaked', [])
-                if actors and (obj.oid in cloaked_oids):
-                    # if just decloaked local object, update state['cloaked']
-                    cloaked_oids.remove(obj.oid)
-                    state['cloaked'] = cloaked_oids
-                    # refresh the relevant views of the object
-                    cname = obj.__class__.__name__
-                    if hasattr(self, 'library_widget'):
-                        self.library_widget.refresh(cname=cname)
-                    if hasattr(self, 'sys_tree'):
-                        self.update_object_in_trees(obj)
-                dlg = CloakingDialog(obj, msg, actors,
-                                     decloak_button=decloak_button,
-                                     parent=self)
-                if dlg.exec_():
-                    pass
-            else:
-                txt = '       received cloaking status but could not '
-                txt += 'find object'
-                orb.log.debug(txt)
-        else:
-            orb.log.debug('       cloaking status request failed.')
 
     def on_remote_decloaked_signal(self, content=None):
         """
@@ -2243,16 +2091,6 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('* [pgxn] on_mod_object_signal()')
         if msg == 'new':
             orb.log.info('* received local "new object" signal')
-            # currently, only HardwareProduct and its subclasses are cloaked
-            if (not getattr(obj, 'public', True) and
-                ((obj and isinstance(obj, orb.classes['HardwareProduct'])) or
-                 (cname and issubclass(orb.classes.get(cname),
-                                      orb.classes['HardwareProduct'])))):
-                if state.get('cloaked'):
-                    state['cloaked'].append(obj.oid)
-                else:
-                    state['cloaked'] = [obj.oid]
-                orb.log.debug('  - new object added to state["cloaked"]')
         else:
             orb.log.info('* received local "modified object" signal')
         if obj:

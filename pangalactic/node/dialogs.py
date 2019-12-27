@@ -29,7 +29,7 @@ from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.buttons     import SizedButton
 # from pangalactic.node.cad.viewer  import QtViewer3DColor
 from pangalactic.node.tablemodels import ObjectTableModel
-from pangalactic.node.widgets     import NameLabel, UnitsWidget, ValueLabel
+from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import StringFieldWidget, IntegerFieldWidget
 
 if not platform.platform().startswith('Darwin'):
@@ -290,65 +290,6 @@ class ObjectSelectionDialog(QDialog, PopupDialogMixin):
         row = clicked_index.row()
         self.oid = self.oids[row]
         self.accept()
-
-
-class CloakingDialog(QDialog):
-    """
-    Dialog for displaying the current cloaking status of an object and, if the
-    user is the creator of the object, offering decloaking options.
-    """
-    def __init__(self, obj, msg, actors, decloak_button=True, parent=None):
-        """
-        Args:
-            obj (Identifiable):  the object whose status is to be displayed
-            msg (str):  message returned from 'get_cloaking_status'
-            actors (list of Actor):  list of Actors to which the object has
-                been decloaked
-
-        Keyword Args:
-            decloak_button (bool):  include the 'Decloak' button if True and
-                the user has 'decloak' permission (only set to False if the
-                dialog is being used to show the status as a result of a
-                'decloak' operation)
-        """
-        super(CloakingDialog, self).__init__(parent)
-        self.setWindowTitle('Cloaking')
-        # self.setSizePolicy(QSizePolicy.MinimumExpanding,
-                           # QSizePolicy.MinimumExpanding)
-        layout = QVBoxLayout(self)
-        form = QFormLayout()
-        self.obj = obj
-        cloaked = False
-        if msg == 'cloaked':
-            cloaked = True
-            form.addRow(NameLabel("Object is cloaked"))
-        elif 'public' in actors:
-            form.addRow(NameLabel(msg))
-        elif not msg and actors:
-            form.addRow(NameLabel("Object is decloaked to:"))
-            actor_labels = [ValueLabel('{} ({})'.format(a.id, a.name))
-                            for a in actors]
-            for label in actor_labels:
-                form.addRow(label)
-        else:
-            form.addRow(NameLabel("Object not found"))
-        # OK button
-        self.bbox = QDialogButtonBox(
-            QDialogButtonBox.Close, Qt.Horizontal, self)
-        form.addRow(self.bbox)
-        self.bbox.rejected.connect(self.reject)
-        # Add 'Decloak' button if object is cloaked and user is creator
-        if cloaked and hasattr(obj, 'creator'):
-            creator_oid = getattr(obj.creator, 'oid', None)
-            if creator_oid and creator_oid == state.get('local_user_oid'):
-                self.decloak_button = self.bbox.addButton('Decloak',
-                                                   QDialogButtonBox.ActionRole)
-                self.decloak_button.clicked.connect(self.on_decloak)
-        layout.addLayout(form)
-
-    def on_decloak(self):
-        dispatcher.send(signal='decloaking', oid=self.obj.oid)
-        self.reject()
 
 
 class UnitPrefsDialog(QDialog):

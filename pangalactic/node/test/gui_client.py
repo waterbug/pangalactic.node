@@ -24,7 +24,7 @@ from OpenSSL import crypto
 
 from pangalactic.core                 import state
 from pangalactic.core.refdata         import core
-from pangalactic.core.serializers     import deserialize
+from pangalactic.core.serializers     import deserialize, serialize
 from pangalactic.core.test.utils      import (create_test_project,
                                               create_test_users,
                                               gen_test_pvals, test_parms)
@@ -247,9 +247,6 @@ class MainWindow(QMainWindow):
         self.remove_comp_button = QPushButton('Remove Component (leave position)')
         self.remove_comp_button.setVisible(False)
         self.remove_comp_button.clicked.connect(self.on_remove_component)
-        self.gcs_button = QPushButton('Get Cloaking Status')
-        self.gcs_button.setVisible(False)
-        self.gcs_button.clicked.connect(self.get_cloaking_status)
         self.get_object_button = QPushButton('Get Object')
         self.get_object_button.setVisible(False)
         self.get_object_button.clicked.connect(self.on_get_object)
@@ -287,7 +284,6 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.add_psu_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_acu_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.remove_comp_button, alignment=Qt.AlignVCenter)
-        vbox.addWidget(self.gcs_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.get_object_button, alignment=Qt.AlignVCenter)
         # vbox.addWidget(self.sync_project_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.logout_button, alignment=Qt.AlignVCenter)
@@ -332,7 +328,6 @@ class MainWindow(QMainWindow):
         self.add_psu_button.setVisible(False)
         self.add_acu_button.setVisible(False)
         self.remove_comp_button.setVisible(False)
-        self.gcs_button.setVisible(True)
         self.get_object_button.setVisible(True)
         # self.sync_project_button.setVisible(True)
         self.log('  - getting roles from repo ...')
@@ -477,17 +472,18 @@ class MainWindow(QMainWindow):
 
     def on_cloaked_selected(self, item):
         self.log('* on_cloaked_selected()')
-        self.log('  calling rpc "vger.decloak()" ...')
+        self.log('  setting "public" and saving object ...')
         obj_oid = self.cloaked[self.cloaked_list.currentRow()]
-        actor_oid = 'H2G2'
-        # for testing "public" decloak:
-        # actor_oid = ''
-        rpc = message_bus.session.call('vger.decloak', obj_oid, actor_oid)
+        obj = orb.get(obj_oid)
+        obj.public = True
+        orb.save([obj])
+        sobjs = serialize(orb, [obj])
+        rpc = message_bus.session.call('vger.save', sobjs)
         rpc.addCallback(self.on_decloak_result)
         rpc.addErrback(self.on_failure)
 
     def on_decloak_result(self, stuff):
-        self.log('* result received from rpc vger.decloak:  %s' % str(stuff))
+        self.log('* result received from rpc vger.save:  %s' % str(stuff))
         actor_oids, msg, obj_oid = stuff
         if not msg:
             if obj_oid in self.cloaked:
@@ -499,31 +495,10 @@ class MainWindow(QMainWindow):
                 self.log('  - adding to decloaked...')
                 self.decloaked.append(obj_oid)
                 self.decloaked_list.addItem(obj_oid)
-            self.log('* decloak succeeded.')
+            self.log('* save succeeded.')
         else:
-            self.log('* decloak was unsuccessful:')
+            self.log('* save was unsuccessful:')
             self.log('  status: {}'.format(msg))
-
-    def get_cloaking_status(self, obj=None):
-        """
-        Get cloaking information on the specified object and display dialog
-        with cloaking state and options to decloak.
-
-        Keyword Args:
-            obj (Identifiable):  object whose cloaking info is to be shown
-        """
-        rpc = message_bus.session.call('vger.get_cloaking_status',
-                                       self.test_oid)
-        rpc.addCallback(self.on_get_cloaking_status)
-        rpc.addErrback(self.on_failure)
-
-    def on_get_cloaking_status(self, result):
-        """
-        Display a dialog with the result of a request for cloaking status of an
-        object.
-        """
-        self.log('* cloaking status:')
-        self.log(str(result))
 
     def on_remote_decloaked_signal(self, content=None):
         """
@@ -886,7 +861,6 @@ class MainWindow(QMainWindow):
         self.ldap_result_button.setVisible(False)
         self.save_object_button.setVisible(False)
         self.add_psu_button.setVisible(False)
-        self.gcs_button.setVisible(False)
         self.get_object_button.setVisible(False)
         # self.sync_project_button.setVisible(False)
         self.role_label.setText('')
