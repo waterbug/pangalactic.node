@@ -87,7 +87,7 @@ class Block(QGraphicsItem):
         * if connectors are needed, implement them in a subclass
     """
     def __init__(self, position, scene=None, obj=None, style=None,
-                 editable=False, port_spacing=0):
+                 port_spacing=0):
         """
         Initialize Block.
 
@@ -98,8 +98,6 @@ class Block(QGraphicsItem):
         Keyword Args:
             obj (Product):  object (Product instance) the block represents
             style (Qt.PenStyle):  style of block border
-            editable (bool):  flag indicating whether block properties can be
-                edited in place
         """
         super(Block, self).__init__()
         self.setFlags(QGraphicsItem.ItemIsSelectable |
@@ -238,7 +236,7 @@ class ObjectBlock(Block):
         obj (Product):  the 'component' attribute of the block's 'usage'
     """
     def __init__(self, position, scene=None, usage=None, style=None,
-                 color=Qt.black, editable=False, right_ports=False):
+                 color=Qt.black, right_ports=False):
         """
         Initialize ObjectBlock.
 
@@ -249,14 +247,11 @@ class ObjectBlock(Block):
         Keyword Args:
             usage (Acu or ProjectSystemUsage):  usage the block represents
             style (Qt.PenStyle):  style of block border
-            editable (bool):  flag indicating whether block properties can be
-                edited in place
         """
         component = (getattr(usage, 'component', None) or
                      getattr(usage, 'system', None))
         super(ObjectBlock, self).__init__(position, scene=scene,
-                                          obj=component, style=style,
-                                          editable=editable)
+                                          obj=component, style=style)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
@@ -508,7 +503,7 @@ class SubjectBlock(Block):
         obj (Identifiable):  object the block represents
     """
     def __init__(self, position, scene=None, obj=None, style=None,
-                 editable=False, width=1000, height=500, right_ports=True):
+                 width=1000, height=500, right_ports=True):
         """
         Initialize SubjectBlock.
 
@@ -519,15 +514,13 @@ class SubjectBlock(Block):
         Keyword Args:
             obj (Identifiable):  object the block represents
             style (Qt.PenStyle):  style of block border
-            editable (bool):  flag indicating whether block properties can be
-                edited in place
             width (int):  width of block
             height (int):  height of block
             right_ports (bool):  flag indicating whether to place ports on
                 right (if True) or left
         """
         super(SubjectBlock, self).__init__(position, scene=scene, obj=obj,
-                                          style=style, editable=editable)
+                                          style=style)
         self.setFlags(QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
         # this apparently does work, but not what I wanted
@@ -803,8 +796,7 @@ class PortBlock(QGraphicsItem):
     water), which is represented by a RoutedConnector attached to the
     PortBlock.
     """
-    def __init__(self, parent_block, port, style=None, editable=False,
-                 right=False):
+    def __init__(self, parent_block, port, style=None, right=False):
         """
         Initialize a PortBlock.
 
@@ -816,8 +808,6 @@ class PortBlock(QGraphicsItem):
             parent_block (Block):  Block on which the PortBlock is created
             port (Port):  Port instance represented by the PortBlock
             style (Qt.PenStyle):  style of block border
-            editable (bool):  flag indicating whether block properties can be
-                edited in place
             right (bool):  flag telling the PortBlock which side of its parent
                 block it is on (used for routing connectors)
         """
@@ -951,8 +941,7 @@ class EntityBlock(Block):
     A block that represents an Entity, similar to the entity in an
     Entity-Relationship (ER) diagram.
     """
-    def __init__(self, position, scene=None, obj=None, style=None,
-                 editable=False):
+    def __init__(self, position, scene=None, obj=None, style=None):
         """
         Initialize EntityBlock.
 
@@ -963,11 +952,9 @@ class EntityBlock(Block):
         Keyword Args:
             obj (Identifiable):  object the block represents
             style (Qt.PenStyle):  style of block border
-            editable (bool):  flag indicating whether block properties can be
-                edited in place
         """
         super(EntityBlock, self).__init__(position, scene=None, obj=obj,
-                                          style=style, editable=editable)
+                                          style=style)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
@@ -984,7 +971,7 @@ class EntityBlock(Block):
         description = getattr(obj, 'name', '[text]')
         self.connectors = []
         self.setPos(position)
-        self.name_label = BlockLabel(name, self, editable=editable)
+        self.name_label = BlockLabel(name, self)
         self.title_separator = QGraphicsLineItem(
                                         0.0, 2.0 * POINT_SIZE,
                                         20.0 * POINT_SIZE, 2.0 * POINT_SIZE,
@@ -1547,7 +1534,7 @@ class BlockLabel(QGraphicsTextItem):
     """
     Label for a block "name", which may contain spaces (and therefore may be
     wrapped).  It is not editable through the UI but can be programmatically
-    changed (using setHtml()).
+    changed using setHtml().
 
     Args:
         text (str):  text of label
@@ -1558,7 +1545,6 @@ class BlockLabel(QGraphicsTextItem):
         x (int):  x location in local coordinates
         y (int):  y location in local coordinates
         color (str):  color of font (see QTCOLORS)
-        editable (bool):  whether the text should be editable
     """
     def __init__(self, text, parent, font_name=None, point_size=None,
                  weight=None, color=None, centered=True, x=None, y=None):
@@ -1610,11 +1596,10 @@ class TextLabel(QGraphicsTextItem):
     Keyword Args:
         font (QFont):  style of font
         color (str):  color of font (see QTCOLORS)
-        editable (bool):  whether the text should be editable
     """
     # TODO:  add scrolling capability
     def __init__(self, text, parent, font=QFont("Arial", POINT_SIZE),
-                 color=None, editable=False):
+                 color=None):
         # if nowrap:
             # textw = text
         # else:
@@ -1628,8 +1613,6 @@ class TextLabel(QGraphicsTextItem):
         self.setFont(font)
         if color in QTCOLORS:
             self.setDefaultTextColor(getattr(Qt, color))
-        if editable:
-            self.setFlags(QGraphicsItem.ItemIsSelectable)
         self.set_text(text)
 
     def set_text(self, text, font_name=None, point_size=None,
@@ -1668,7 +1651,6 @@ class TextItem(QGraphicsTextItem):
     Keyword Args:
         font (QFont):  style of font
         color (str):  color of font (see QTCOLORS)
-        editable (bool):  whether the text should be editable
     """
     # TODO:  add scrolling capability
     def __init__(self, text, position, scene,
