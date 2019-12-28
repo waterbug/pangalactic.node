@@ -58,6 +58,8 @@ class PgxnForm(QWidget):
         view (list):  names of the fields to be shown (a subset of
             self.schema['field_names'])
         mask (list of str):  list of fields to be displayed as read-only
+        all_idvs (list of tuples):  list of current (`id`, `version`) values to
+            avoid
     """
     def __init__(self, obj, form_type, edit_mode=False, view=None,
                  main_view=None, mask=None, unmask=None, seq=None, idvs=None,
@@ -670,7 +672,7 @@ class PgxnObject(QDialog):
         self.tabs         = QTabWidget()
         self.cname        = obj.__class__.__name__
         self.schema       = orb.schemas.get(self.cname)
-        # all_idvs is for use in validating 'id' + 'version' for uniqueness ...
+        # all_idvs is used in validating 'id' + 'version' uniqueness ...
         self.all_idvs = orb.get_idvs(cname=self.cname)
         obj_idv = (self.obj.id, getattr(obj, 'version', ''))
         if not self.new and obj_idv in self.all_idvs:
@@ -1100,6 +1102,8 @@ class PgxnObject(QDialog):
         for name in self.editable_widgets:
             fields_dict[name] = self.editable_widgets[name].get_value()
         required = self.required or PGXN_REQD.get(cname)
+        # orb.log.info('  validating against idvs:')
+        # orb.log.info('  {}'.format(str(self.all_idvs)))
         msg_dict = validate_all(fields_dict, cname, self.schema, self.view,
                                 required=required, idvs=self.all_idvs,
                                 html=True)

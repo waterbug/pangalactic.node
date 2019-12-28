@@ -3008,11 +3008,8 @@ class Main(QtWidgets.QMainWindow):
 
     def new_project(self):
         orb.log.info('* new_project()')
-        # Projects (and Organizations in general) should always be "public"
+        # Projects and Organizations are always "public"
         proj = clone('Project', public=True)
-        # NOTE:  use 'view' to restrict the fields in the interface; this
-        # overrides the preconfigured default set of fields specified in
-        # p.meta.meta.MAIN_VIEWS
         view = ['id', 'name', 'description']
         panels = ['main']
         pxo = PgxnObject(proj, edit_mode=True, new=True, view=view,

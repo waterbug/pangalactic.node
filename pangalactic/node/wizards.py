@@ -602,7 +602,8 @@ class IdentificationPage(QtWidgets.QWizardPage):
         project = orb.get(proj_oid)
         product = clone('HardwareProduct', owner=project, public=True)
         wizard_state['product_oid'] = product.oid
-        view = ['id', 'name', 'owner', 'description', 'public']
+        # include version -- but it's allowed to be empty (blank)
+        view = ['id', 'name', 'version', 'owner', 'description', 'public']
         panels = ['main']
         self.pgxn_obj = PgxnObject(product, embedded=True, panels=panels,
                                    view=view, edit_mode=True, new=True,
