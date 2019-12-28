@@ -2536,12 +2536,11 @@ class Main(QtWidgets.QMainWindow):
         self.sys_tree.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
                                     QtWidgets.QSizePolicy.Expanding)
         self.sys_tree_rebuilt = True
-
-        # node_count() gets # of nodes in sys tree for later use in setting max
-        # for progress bar
+        # node_count() uses componentz cache to get # of nodes in sys tree for
+        # later use in setting max for progress bar
         nodes = 0
-        for system in self.systems:
-            nodes += node_count(system.oid) + 1
+        for psu in self.project.systems:
+            nodes += node_count(psu.system.oid) + 1
         state['sys_trees'][self.project.id]['nodes'] = nodes
         # orb.log.debug('    and {} nodes.'.format(str(nodes)))
         # NB:  rebuild dashboard before expanding sys_tree, because their
