@@ -351,13 +351,6 @@ class ObjectBlock(Block):
 
     usage = property(get_usage, set_usage, del_usage, 'usage property')
 
-    # def contextMenuEvent(self, event):
-        # self.scene().clearSelection()
-        # self.setSelected(True)
-        # menu = QMenu()
-        # menu.addAction('do something blockish', self.something)
-        # menu.exec_(event.screenPos())
-
     # def something(self):
         # orb.log.info('* doing something ...')
         # pass
@@ -389,6 +382,38 @@ class ObjectBlock(Block):
         self.update()
         global Dirty
         Dirty = True
+
+    def contextMenuEvent(self, event):
+        orb.log.debug("* ObjectBlock: context menu evt")
+        self.scene().clearSelection()
+        self.setSelected(True)
+        menu = QMenu()
+        perms = get_perms(self.usage)
+        obj = None
+        if isinstance(self.usage, orb.classes['Acu']):
+            obj = self.usage.component
+        if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+            obj = self.usage.system
+        orb.log.debug("  permissions on usage: {}".format(str(perms)))
+        if 'view' in perms and getattr(obj, 'id', 'TBD') != 'TBD':
+            menu.addAction('view this object', self.delete_component)
+        if 'modify' in perms and getattr(obj, 'id', 'TBD') != 'TBD':
+            menu.addAction('remove this component', self.delete_component)
+        if 'delete' in perms:
+            menu.addAction('remove this assembly position',
+                           self.delete_position)
+        else:
+            menu.addAction('user has no modify permissions', self.noop)
+        menu.exec_(event.screenPos())
+
+    def delete_position(self):
+        pass
+
+    def delete_component(self):
+        pass
+
+    def noop(self):
+        pass
 
     def mouseDoubleClickEvent(self, event):
         QGraphicsItem.mouseDoubleClickEvent(self, event)
