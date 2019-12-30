@@ -8,7 +8,7 @@ from textwrap import wrap
 from PyQt5.QtCore import Qt, QLineF, QPointF, QRectF, QSizeF
 from PyQt5.QtGui import (QColor, QFont, QPainterPath, QPen, QPolygonF,
                          QTextOption)
-from PyQt5.QtWidgets import (QGraphicsItem, QGraphicsLineItem,
+from PyQt5.QtWidgets import (QDialog, QGraphicsItem, QGraphicsLineItem,
                              QGraphicsTextItem, QMenu, QMessageBox, QStyle)
 
 from louie import dispatcher
@@ -25,6 +25,7 @@ from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
                                           get_next_ref_des, 
                                           get_port_name)
 from pangalactic.core.validation  import get_bom_oids
+from pangalactic.node.dialogs     import AssemblyNodeDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, extract_mime_data
 
@@ -291,8 +292,10 @@ class ObjectBlock(Block):
             (orb.classes['Acu'], orb.classes['ProjectSystemUsage'])):
             msg = '"usage" must be either an Acu or a ProjectSystemUsage.'
             raise TypeError(msg)
-        obj = (getattr(link, 'component', None) or
-               getattr(link, 'system', None))
+        if isinstance(link, orb.classes['Acu']):
+            obj = link.component
+        else:
+            obj = link.system
         hint = ''
         refdes = ''
         description = ''
@@ -304,7 +307,7 @@ class ObjectBlock(Block):
                 hint = getattr(link.product_type_hint, 'abbreviation',
                                'Unspecified Type')
             refdes = link.reference_designator or ''
-            if link.quantity:
+            if link.quantity and link.quantity > 1:
                 refdes = '{} ({})'.format(refdes, link.quantity)
                 hint = '[{}] ({})'.format(hint, link.quantity)
             else:
@@ -395,22 +398,97 @@ class ObjectBlock(Block):
         if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
             obj = self.usage.system
         orb.log.debug("  permissions on usage: {}".format(str(perms)))
-        if 'view' in perms and getattr(obj, 'id', 'TBD') != 'TBD':
-            menu.addAction('view this object', self.delete_component)
+        items = False
+        if getattr(obj, 'id', 'TBD') != 'TBD':
+            menu.addAction('view this object', self.display_object)
+            items = True
         if 'modify' in perms and getattr(obj, 'id', 'TBD') != 'TBD':
-            menu.addAction('remove this component', self.delete_component)
+            mod_usage_txt = 'Modify quantity and/or reference designator'
+            menu.addAction(mod_usage_txt, self.mod_usage)
+            if isinstance(self.usage, orb.classes['Acu']):
+                menu.addAction('remove this component', self.del_component)
+            items = True
         if 'delete' in perms:
-            menu.addAction('remove this assembly position',
-                           self.delete_position)
+            if isinstance(self.usage, orb.classes['Acu']):
+                menu.addAction('remove this assembly position',
+                               self.del_position)
+                items = True
+            if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+                menu.addAction('remove this system', self.del_system)
+                items = True
+        if items:
+            menu.exec_(event.screenPos())
+
+    def display_object(self):
+        if isinstance(self.usage, orb.classes['Acu']):
+            obj = self.usage.component
+        if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+            obj = self.usage.system
+        dlg = PgxnObject(obj, modal_mode=True, parent=self.parentWidget())
+        dlg.show()
+
+    def del_position(self):
+        """
+        Remove a position (i.e. an Acu) from a assembly.
+        """
+        oid = self.usage.oid
+        orb.delete([self.usage])
+        dispatcher.send(signal='deleted object', oid=oid, cname='Acu')
+
+    def del_system(self):
+        """
+        Remove a system (i.e. a ProjectSystemUsage) from a project.
+        """
+        oid = self.usage.oid
+        orb.delete([self.usage])
+        dispatcher.send(signal='deleted object', oid=oid,
+                        cname='ProjectSystemUsage')
+
+    def del_component(self):
+        """
+        Remove a component from an assembly position, replacing it with the
+        `TBD` object.
+        """
+        orb.log.debug('* ObjectBlock: del_component() ...')
+        tbd = orb.get('pgefobjects:TBD')
+        self.usage.component = tbd
+        orb.save([self.usage])
+        dispatcher.send(signal='modified object', obj=self.usage)
+
+    def mod_usage(self):
+        """
+        If usage is an Acu, edit the 'quantity' and 'reference_designator', or
+        if a ProjectSystemUsage, the 'system_role'.
+        """
+        if isinstance(self.usage, orb.classes['Acu']):
+            orb.log.debug('  editing assembly node ...')
+            ref_des = self.usage.reference_designator
+            quantity = self.usage.quantity
+            system = False
+            assembly = self.usage.assembly
+        elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+            orb.log.debug('  editing project system node ...')
+            ref_des = self.usage.system_role
+            quantity = None
+            system = True
         else:
-            menu.addAction('user has no modify permissions', self.noop)
-        menu.exec_(event.screenPos())
-
-    def delete_position(self):
-        pass
-
-    def delete_component(self):
-        pass
+            return
+        dlg = AssemblyNodeDialog(ref_des, quantity, system=system)
+        if dlg.exec_() == QDialog.Accepted:
+            if isinstance(self.usage, orb.classes['Acu']):
+                self.usage.reference_designator = dlg.ref_des
+                self.usage.quantity = dlg.quantity
+            else:
+                self.usage.system_role = dlg.ref_des
+            orb.save([self.usage])
+            dispatcher.send('modified object', obj=self.usage)
+            # Acu modified -> assembly is modified
+            if assembly:
+                assembly.mod_datetime = dtstamp()
+                assembly.modifier = orb.get(state.get(
+                                                'local_user_oid'))
+                orb.save([assembly])
+                dispatcher.send('modified object', obj=assembly)
 
     def noop(self):
         pass
@@ -850,6 +928,10 @@ class PortBlock(QGraphicsItem):
         self.port = port
         self.connectors = []
         self.setOpacity(1.0)
+        # PortBlocks get a higher z-value than ObjectBlocks or SubjectBlocks
+        # (so they get precedence for mouse events)
+        z_value = 2.0
+        self.setZValue(z_value)
         global Dirty
         Dirty = True
 
@@ -857,7 +939,7 @@ class PortBlock(QGraphicsItem):
         return self.parent_block.parentWidget()
 
     def contextMenuEvent(self, event):
-        if isinstance(self.parent_block, SubjectBlock):
+        if isinstance(self.parent_block, (SubjectBlock, ObjectBlock)):
             perms = get_perms(self.port)
             self.scene().clearSelection()
             # self.setSelected(True)

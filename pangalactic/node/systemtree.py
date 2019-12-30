@@ -1149,9 +1149,8 @@ class SystemTreeView(QTreeView):
 
     def modify_node(self):
         """
-        For the selected node, edit the 'quantity' and [1] if an Acu object,
-        the 'reference_designator' attribute or [2] if a ProjectSystemUsage
-        object, the 'system_role' attribute.
+        For the selected node, if an Acu, edit the 'quantity' and
+        'reference_designator', or if a ProjectSystemUsage, the 'system_role'.
         """
         orb.log.debug('* SystemTreeView: modify_node() ...')
         for i in self.selectedIndexes():
