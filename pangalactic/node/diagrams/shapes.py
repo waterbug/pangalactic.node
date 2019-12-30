@@ -26,6 +26,7 @@ from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
                                           get_port_name)
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.dialogs     import AssemblyNodeDialog
+from pangalactic.node.filters     import FilterDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, extract_mime_data
 
@@ -393,31 +394,34 @@ class ObjectBlock(Block):
         menu = QMenu()
         perms = get_perms(self.usage)
         obj = None
+        self.allocs = None
         if isinstance(self.usage, orb.classes['Acu']):
             obj = self.usage.component
+            self.allocs = self.usage.allocated_requirements
         if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
             obj = self.usage.system
+            self.allocs = self.usage.system_requirements
         orb.log.debug("  permissions on usage: {}".format(str(perms)))
-        items = False
         if getattr(obj, 'id', 'TBD') != 'TBD':
-            menu.addAction('view this object', self.display_object)
-            items = True
+            menu.addAction('View this object', self.display_object)
+        if self.allocs:
+            menu.addAction('Show allocated requirements', self.display_reqts)
+        else:
+            txt = '[No requirements are allocated here]'
+            a = menu.addAction(txt, self.noop)
+            a.setEnabled(False)
         if 'modify' in perms and getattr(obj, 'id', 'TBD') != 'TBD':
             mod_usage_txt = 'Modify quantity and/or reference designator'
             menu.addAction(mod_usage_txt, self.mod_usage)
             if isinstance(self.usage, orb.classes['Acu']):
-                menu.addAction('remove this component', self.del_component)
-            items = True
+                menu.addAction('Remove this component', self.del_component)
         if 'delete' in perms:
             if isinstance(self.usage, orb.classes['Acu']):
-                menu.addAction('remove this assembly position',
+                menu.addAction('Remove this assembly position',
                                self.del_position)
-                items = True
             if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
-                menu.addAction('remove this system', self.del_system)
-                items = True
-        if items:
-            menu.exec_(event.screenPos())
+                menu.addAction('Remove this system', self.del_system)
+        menu.exec_(event.screenPos())
 
     def display_object(self):
         if isinstance(self.usage, orb.classes['Acu']):
@@ -425,6 +429,13 @@ class ObjectBlock(Block):
         if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
             obj = self.usage.system
         dlg = PgxnObject(obj, modal_mode=True, parent=self.parentWidget())
+        dlg.show()
+
+    def display_reqts(self):
+        h = state.get('height') or 700
+        w = 2 * (state.get('width') or 1000) // 3
+        dlg = FilterDialog(self.allocs, label='Allocated Requirements',
+                           height=h, width=w, parent=self.parentWidget())
         dlg.show()
 
     def del_position(self):

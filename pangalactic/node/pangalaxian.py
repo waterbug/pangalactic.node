@@ -3009,9 +3009,13 @@ class Main(QtWidgets.QMainWindow):
     def new_project(self):
         orb.log.info('* new_project()')
         # Projects and Organizations are always "public"
-        proj = clone('Project', public=True)
         view = ['id', 'name', 'description']
         panels = ['main']
+        if self.project and not self.project.oid == 'pgefobjects:SANDBOX':
+            org_parent = self.project
+        else:
+            org_parent = orb.get('pgefobjects:PGANA')
+        proj = clone('Project', public=True, parent_organization=org_parent)
         pxo = PgxnObject(proj, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self)
         pxo.show()
