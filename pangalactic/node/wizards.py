@@ -2,10 +2,6 @@
 """
 Wizards
 """
-from builtins import zip
-from builtins import str
-from builtins import range
-from builtins import object
 import os
 from collections import OrderedDict as OD
 

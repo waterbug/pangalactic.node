@@ -2,8 +2,6 @@
 """
 Requirements Wizards
 """
-from builtins import str
-from builtins import range
 import os
 from PyQt5 import QtGui
 from PyQt5.QtCore import Qt

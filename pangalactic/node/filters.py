@@ -1,5 +1,3 @@
-from builtins import str
-from builtins import range
 from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
                           QSortFilterProxyModel, QVariant)
 from PyQt5.QtGui import QDrag, QIcon

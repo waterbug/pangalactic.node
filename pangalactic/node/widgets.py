@@ -1,4 +1,3 @@
-from builtins import str
 from PyQt5.QtCore import Qt, QMimeData, QSize
 from PyQt5.QtGui  import (QDoubleValidator, QDrag, QIntValidator, QPainter,
                           QPixmap, QTextOption)

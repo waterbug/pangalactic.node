@@ -1,9 +1,6 @@
 """
 System Tree view and models
 """
-from builtins import str
-from builtins import range
-from builtins import object
 import re, traceback
 # import sys
 from textwrap import wrap
