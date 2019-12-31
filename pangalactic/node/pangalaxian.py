@@ -178,6 +178,7 @@ class Main(QtWidgets.QMainWindow):
         state['height'] = height
         # self.create_timer()
         # register various signals ...
+        dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_new_project_signal, 'new project')
@@ -3075,6 +3076,11 @@ class Main(QtWidgets.QMainWindow):
         """
         # TODO: implement this!
         pass
+
+    def on_display_object_signal(self, obj=None):
+        if obj:
+            pxo = PgxnObject(obj, parent=self)
+            pxo.show()
 
     def new_parameter(self):
         # Parameter Definitions are *always* "public"

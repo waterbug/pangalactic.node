@@ -27,7 +27,6 @@ from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.dialogs     import AssemblyNodeDialog
 from pangalactic.node.filters     import FilterDialog
-from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, extract_mime_data
 
 # constants
@@ -428,8 +427,7 @@ class ObjectBlock(Block):
             obj = self.usage.component
         if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
             obj = self.usage.system
-        dlg = PgxnObject(obj, modal_mode=True, parent=self.parentWidget())
-        dlg.show()
+        dispatcher.send(signal='display object', obj=obj)
 
     def display_reqts(self):
         h = state.get('height') or 700
@@ -955,7 +953,7 @@ class PortBlock(QGraphicsItem):
             self.scene().clearSelection()
             # self.setSelected(True)
             menu = QMenu()
-            menu.addAction('inspect port object', self.open_pxo)
+            menu.addAction('inspect port object', self.display_port)
             if 'delete' in perms:
                 menu.addAction('delete port', self.delete)
             menu.exec_(event.screenPos())
@@ -985,10 +983,8 @@ class PortBlock(QGraphicsItem):
             self.scene().removeItem(self)
             parent_block.rebuild_port_blocks()
 
-    def open_pxo(self):
-        dlg = PgxnObject(self.port, modal_mode=True,
-                         parent=self.parentWidget())
-        dlg.show()
+    def display_port(self):
+        dispatcher.send(signal='display object', obj=self.port)
 
     def boundingRect(self):
         return self.rect.adjusted(-1, -1, 1, 1)
