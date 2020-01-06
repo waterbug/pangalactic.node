@@ -182,20 +182,7 @@ class ModelWindow(QMainWindow):
                                     # icon="save",
                                     # tip="Save Model to a File")
         # self.toolbar.addAction(self.save_action)
-        self.view_cad_action = self.create_action(
-                                    "View CAD Model...",
-                                    slot=self.display_cad_model,
-                                    icon="view_16",
-                                    tip="View CAD Model (from STEP File)")
-        self.toolbar.addAction(self.view_cad_action)
-        # self.external_window_action = self.create_action(
-                                    # "Display external diagram window ...",
-                                    # slot=self.display_external_window,
-                                    # icon="system",
-                                    # tip="Display External Diagram Window")
         # TODO:  fix bug that crashes the external window ...
-        # if not self.external:
-            # self.toolbar.addAction(self.external_window_action)
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
                                           "100%"])
@@ -209,6 +196,19 @@ class ModelWindow(QMainWindow):
                                                icon="printer",
                                                tip="Save as Image / Print")
         self.toolbar.addAction(self.print_action)
+        self.view_cad_action = self.create_action(
+                                    "View CAD Model...",
+                                    slot=self.display_cad_model,
+                                    icon="view_16",
+                                    tip="View CAD Model (from STEP File)")
+        self.toolbar.addAction(self.view_cad_action)
+        self.external_window_action = self.create_action(
+                                    "Display external diagram window ...",
+                                    slot=self.display_external_window,
+                                    icon="system",
+                                    tip="Display External Diagram Window")
+        if not self.external:
+            self.toolbar.addAction(self.external_window_action)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -243,7 +243,7 @@ class ModelWindow(QMainWindow):
         self.placeholder = new_placeholder
 
     def display_external_window(self):
-        # orb.log.debug('* ModelWindow.display_external_window() ...')
+        orb.log.debug('* ModelWindow.display_external_window() ...')
         mw = ModelWindow(obj=self.obj, scene=self.diagram_view.scene(),
                          logo=self.logo, external=True,
                          parent=self.parent())
