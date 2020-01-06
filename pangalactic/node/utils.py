@@ -124,13 +124,26 @@ def clone(what, include_ports=True, include_components=True,
     if not new and orb.is_versioned(obj):
         # TODO:  add interface functions for "clone to create new version"
         # current clone "copies" (i.e. creates a new object, not a version)
-        newkw['version_sequence'] = 0
+        ver_seq = kw.get('version_sequence')
+        if isinstance(ver_seq, int):
+            # if an integer version_sequence is specified, use it (this will be
+            # the case if clone() is being used to create a new version)
+            newkw['version_sequence'] = ver_seq
+        else:
+            # otherwise, assume this is a distinct object, not a new version of
+            # the cloned object, and set to 0
+            newkw['version_sequence'] = 0
         newkw['version'] = None
         newkw['frozen'] = False
         newkw['iteration'] = 0
     if issubclass(orb.classes[cname], orb.classes['ManagedObject']):
         owner = orb.get(state.get('project'))  # None if not set
-        newkw['owner'] = owner
+        if owner:
+            newkw['owner'] = owner
+        else:
+            # use PGANA
+            pgana = orb.get('pgefobjects:PGANA')
+            newkw['owner'] = pgana
     new_obj = cls(**newkw)
     orb.db.add(new_obj)
     if not new and parameterz.get(getattr(obj, 'oid', None)):

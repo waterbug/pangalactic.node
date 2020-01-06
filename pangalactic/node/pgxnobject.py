@@ -752,6 +752,13 @@ class PgxnObject(QDialog):
                                 tip='Clone this object',
                                 modes=['edit', 'view'])
         self.toolbar.addAction(self.clone_action)
+        if isinstance(self.obj, orb.classes['Product']):
+            # only display "new version" option for Products ...
+            self.new_version_action = self.create_action('new version',
+                                slot=self.on_new_version, icon='new_part',
+                                tip='Create new version of object by cloning',
+                                modes=['edit', 'view'])
+            self.toolbar.addAction(self.new_version_action)
         # NOTE: viewer may be reactivated later ...
         # self.viewer_action = self.create_action('viewer',
                                 # slot=self.open_viewer, icon='view_16',
@@ -826,8 +833,34 @@ class PgxnObject(QDialog):
         """
         Respond to 'clone' action by cloning the current object.
         """
-        # TODO:  dialog with choice of: (1) clone to version or (2) clone to cp
-        new_obj = clone(self.obj, id='new-id', derived_from=self.obj)
+        if isinstance(self.obj, orb.classes['Product']):
+            new_obj = clone(self.obj, id='new-id', derived_from=self.obj,
+                            version='1', version_sequence=1)
+        else:
+            new_obj = clone(self.obj, id='new-id')
+        orb.save([new_obj])
+        self.obj = new_obj
+        self.go_to_tab = 2
+        self.build_from_object()
+        self.on_edit()
+
+    def on_new_version(self):
+        """
+        Respond to 'new version' action by cloning the current object using the
+        same 'id' and incremented version.  NOTE: only applicable to subclasses
+        of 'Product' -- "new version" menu option will not be displayed
+        otherwise.
+        """
+        if not isinstance(self.obj, orb.classes['Product']):
+            msg = '"{}" is not a Product -> not versionable.'.format(
+                                                            self.obj.id)
+            orb.log.debug('* pgxn.on_new_version(): {}'.format(msg))
+            return
+        if not isinstance(self.obj.version_sequence, int):
+            self.obj.version_sequence = 1
+        ver_seq = self.obj.version_sequence + 1
+        new_obj = clone(self.obj, id=self.obj.id, derived_from=self.obj,
+                        version_sequence=ver_seq)
         orb.save([new_obj])
         self.obj = new_obj
         self.go_to_tab = 2

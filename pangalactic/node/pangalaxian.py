@@ -1341,7 +1341,7 @@ class Main(QtWidgets.QMainWindow):
         self.db_mode_action = self.create_action(
                                     "Local DB",
                                     slot=self._set_db_mode,
-                                    icon="cache_16",
+                                    icon="db",
                                     checkable=True,
                                     tip="Local DB")
         self.data_mode_action = self.create_action(
