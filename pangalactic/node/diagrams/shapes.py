@@ -461,6 +461,7 @@ class ObjectBlock(Block):
         orb.log.debug('* ObjectBlock: del_component() ...')
         tbd = orb.get('pgefobjects:TBD')
         self.usage.component = tbd
+        self.usage.quantity = 1
         orb.save([self.usage])
         dispatcher.send(signal='modified object', obj=self.usage)
 

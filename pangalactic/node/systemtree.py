@@ -35,7 +35,7 @@ from pangalactic.node.utils       import (clone, create_mime_data,
 
 class Node(object):
 
-    def __init__(self, obj, link=None, refdes=False, parent=None, *args,
+    def __init__(self, obj, link=None, refdes=True, parent=None, *args,
                  **kwargs):
         """
         Initialize a Node.  NOTE:  a Node must be identified by an object and
@@ -51,7 +51,7 @@ class Node(object):
             link (Acu or ProjectSystemUsage):  relationship between the
                 Node's object and its parent Node's object
             refdes (bool):  flag indicating whether to display the reference
-                designator or the component name as the node name
+                designator or the component type in the node name
             parent (Node):  the Node's parent Node
         """
         super(Node, self).__init__(*args, **kwargs)
@@ -94,47 +94,52 @@ class Node(object):
 
     @property
     def name(self):
+        """
+        Return the node "name" (displayed as its label in the tree).
+        """
         obj_name = display_name(self.obj)
         pth_name = ''
         pth_abbr = ''
         pt_name = ''
         pt_abbr = ''
-        if getattr(self.link, 'product_type_hint', None):
-            if getattr(self.link.product_type_hint, 'abbreviation', ''):
-                pth_abbr = self.link.product_type_hint.abbreviation
-            if getattr(self.link.product_type_hint, 'name', ''):
-                pth_name = self.link.product_type_hint.name
+        link = self.link
+        if getattr(link, 'product_type_hint', None):
+            pth_abbr = getattr(link.product_type_hint, 'abbreviation', '')
+            pth_name = getattr(link.product_type_hint, 'name', '')
         if obj_name == 'TBD':
-            pth = pth_abbr or pth_name
-            if isinstance(self.link, orb.classes['Acu']):
-                if pth:
-                    return '[{}] [TBD]'.format(pth)
-                elif getattr(self.link, 'reference_designator', None):
-                    return self.link.reference_designator + ': [TBD]' 
+            if isinstance(link, orb.classes['Acu']):
+                if self.refdes and link.reference_designator:
+                    return '[{}] [TBD]'.format(link.reference_designator)
                 else:
-                    return '[unknown type] [TBD]'
-        if getattr(self.link, 'system_role', None):
+                    pth = pth_abbr or pth_name or '[unknown type]'
+                    return '[{}] [TBD]'.format(pth)
+        if getattr(link, 'system_role', None):
             # link is ProjectSystemUsage ...
-            return '[{}] {}'.format(self.link.system_role, obj_name)
+            return '[{}] {}'.format(link.system_role, obj_name)
         else:
             if getattr(self.obj, 'product_type', None):
                 pt_abbr = self.obj.product_type.abbreviation
                 pt_name = self.obj.product_type.name
             pt = pth_abbr or pt_abbr or pth_name or pt_name
-            if getattr(self.link, 'component', None) == self.obj:
-                if (hasattr(self.link, 'quantity')
-                    and self.link.quantity is not None
-                    and self.link.quantity > 1):
-                    if pt:
+            refdes = getattr(link, 'reference_designator', None)
+            if getattr(link, 'component', None) == self.obj:
+                if (hasattr(link, 'quantity')
+                    and link.quantity is not None
+                    and link.quantity > 1):
+                    if refdes and self.refdes:
+                        return '[{}] {} ({})'.format(refdes, obj_name,
+                                                str(link.quantity))
+                    elif pt:
                         return '[{}] {} ({})'.format(pt, obj_name,
-                                                str(self.link.quantity))
+                                                str(link.quantity))
                     else:
                         return '{} ({})'.format(obj_name,
-                                                str(self.link.quantity))
-                elif pt:
-                    return '[{}] {}'.format(pt, obj_name)
-                elif getattr(self.link, 'reference_designator', None):
-                    return self.link.reference_designator + ': [TBD]' 
+                                                str(link.quantity))
+                else:
+                    if refdes and self.refdes:
+                        return '[{}] {}'.format(refdes, obj_name)
+                    elif pt:
+                        return '[{}] {}'.format(pt, obj_name)
             return obj_name
 
     @property
@@ -1215,6 +1220,7 @@ class SystemTreeView(QTreeView):
                     node.link.component.product_type):
                     pt = node.link.component.product_type
                     node.link.product_type_hint = pt
+                    node.link.quantity = 1
                 tbd = orb.get('pgefobjects:TBD')
                 self.source_model.setData(mapped_i, tbd)
                 orb.save([node.link])
