@@ -1000,7 +1000,7 @@ class SystemTreeView(QTreeView):
         self.create_actions()
         self.setup_context_menu()
         # only use louie messages for assembly tree and dashboard tree
-        # (i.e., a shared model); ignore them when instantiated in reqt
+        # (i.e., a shared model); ignore them when instantiated in req
         # allocation mode (different models -> the indexes are not valid
         # anyway!!)
         if not show_allocs:

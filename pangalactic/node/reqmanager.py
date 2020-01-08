@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
                              QSizePolicy, QVBoxLayout)
 
 from pangalactic.core.uberorb     import orb
+from pangalactic.node.dialogs     import ReqParmDialog
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.systemtree  import SystemTreeView
 from pangalactic.node.reqwizards  import ReqWizard
@@ -57,7 +58,7 @@ class RequirementManager(QDialog):
         self.bbox.rejected.connect(self.reject)
         self.fpanel = FilterPanel(objs, view=view, parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.fpanel.proxy_view.clicked.connect(self.on_select_reqt)
+        self.fpanel.proxy_view.clicked.connect(self.on_select_req)
         fpanel_layout = QVBoxLayout()
         fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(fpanel_layout, stretch=1)
@@ -65,7 +66,8 @@ class RequirementManager(QDialog):
         # that opens the "allocation panel" (tree)
         if project:
             self.display_allocation_panel(project)
-        dispatcher.connect(self.on_edit_reqt_signal, 'edit requirement')
+        dispatcher.connect(self.on_edit_req_signal, 'edit requirement')
+        dispatcher.connect(self.on_edit_req_parm_signal, 'edit req parm')
         width = width or 600
         height = height or 500
         self.resize(width, height)
@@ -92,46 +94,52 @@ class RequirementManager(QDialog):
     def on_select_node(self, index):
         # TODO:  filter requirements by selected PSU/Acu
         # TODO:  enable allocation/deallocation as in wizard if user has
-        # edit permission for selected reqt. (in which case there should appear
+        # edit permission for selected req. (in which case there should appear
         # a checkbox for "enable allocation/deallocation" above the tree;
         # otherwise, filtering behavior (as above) is in effect.
         pass
 
-    def on_edit_reqt_signal(self, obj=None):
-        orb.log.info('* RequirementManager: on_edit_reqt_signal()')
+    def on_edit_req_signal(self, obj=None):
+        orb.log.info('* RequirementManager: on_edit_req_signal()')
         if obj:
             is_perf = (obj.req_type == 'performance')
             wizard = ReqWizard(parent=self, req=obj, performance=is_perf)
             if wizard.exec_() == QDialog.Accepted:
-                orb.log.info('* reqt wizard completed.')
+                orb.log.info('* req wizard completed.')
                 if getattr(wizard, 'pgxn_obj', None):
                     wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                     wizard.pgxn_obj.parent = None
                     wizard.pgxn_obj.close()
                     wizard.pgxn_obj = None
             else:
-                orb.log.info('* reqt wizard cancelled...')
+                orb.log.info('* req wizard cancelled...')
                 if getattr(wizard, 'pgxn_obj', None):
                     wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                     wizard.pgxn_obj.parent = None
                     wizard.pgxn_obj.close()
                     wizard.pgxn_obj = None
 
-    def set_reqt(self, r):
+    def on_edit_req_parm_signal(self, req=None, parm=None):
+        orb.log.info('* RequirementManager: on_edit_req_parm_signal()')
+        if req and parm:
+            dlg = ReqParmDialog(req, parm, parent=self)
+            dlg.show()
+
+    def set_req(self, r):
         self.sys_tree.req = r
 
-    def on_select_reqt(self):
-        orb.log.debug('* RequirementManager: on_select_reqt() ...')
+    def on_select_req(self):
+        orb.log.debug('* RequirementManager: on_select_req() ...')
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
             orb.log.debug('  selected row: {}'.format(i))
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
                           'oid', '')
-            reqt = orb.get(oid)
-            if reqt:
-                self.set_reqt(reqt)
+            req = orb.get(oid)
+            if req:
+                self.set_req(req)
             else:
-                orb.log.debug('  reqt with oid "{}" not found.'.format(oid))
+                orb.log.debug('  req with oid "{}" not found.'.format(oid))
 
 

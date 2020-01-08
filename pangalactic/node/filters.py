@@ -597,7 +597,11 @@ class FilterPanel(QWidget):
     def create_actions(self):
         self.pgxnobj_action = QAction('View this object', self)
         self.pgxnobj_action.triggered.connect(self.display_object)
-        self.reqwizard_action = QAction('Edit this requirement', self)
+        txt = 'Edit parameters of this requirement'
+        self.req_parms_action = QAction(txt, self)
+        self.req_parms_action.triggered.connect(self.edit_req_parms)
+        txt = 'Edit this requirement in the wizard'
+        self.reqwizard_action = QAction(txt, self)
         self.reqwizard_action.triggered.connect(self.edit_requirement)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
         self.template_action = QAction('Create template from object', self)
@@ -607,6 +611,7 @@ class FilterPanel(QWidget):
         if self.cname == 'Requirement':
             # for Requirements, use ReqWizard to edit ...
             # TODO:  only offer this action if user is authorized to edit
+            self.addAction(self.req_parms_action)
             self.addAction(self.reqwizard_action)
         else:
             # for all objs other than Requirements, use PgxnObject
@@ -632,12 +637,33 @@ class FilterPanel(QWidget):
         if len(self.proxy_view.selectedIndexes()) >= 1:
             i = self.proxy_model.mapToSource(
                 self.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('  at selected row: {}'.format(i))
+            # orb.log.debug('  at selected row: {}'.format(i))
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             if oid:
                 req = orb.get(oid)
                 if req:
                     dispatcher.send('edit requirement', obj=req)
+
+    def edit_req_parms(self):
+        orb.log.debug('* edit_req_parms()')
+        req = None
+        if len(self.proxy_view.selectedIndexes()) >= 1:
+            i = self.proxy_model.mapToSource(
+                self.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
+            if oid:
+                req = orb.get(oid)
+        if req and req.req_type == 'performance':
+            parm = None
+            if req.req_constraint_type == 'maximum':
+                parm = 'req_maximum_value'
+            elif req.req_constraint_type == 'minimum':
+                parm = 'req_minimum_value'
+            elif req.req_constraint_type == 'single_value':
+                parm = 'req_target_value'
+            if parm:
+                dispatcher.send('edit req parm', req=req, parm=parm)
 
     def create_template(self):
         """

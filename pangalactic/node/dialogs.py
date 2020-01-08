@@ -25,12 +25,14 @@ from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
 from pangalactic.core.parametrics import parm_defz, parmz_by_dimz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
-from pangalactic.core.utils.meta  import get_external_name_plural
+from pangalactic.core.utils.meta  import (get_attr_ext_name,
+                                          get_external_name_plural)
 from pangalactic.node.buttons     import SizedButton
 # from pangalactic.node.cad.viewer  import QtViewer3DColor
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.widgets     import UnitsWidget
-from pangalactic.node.widgets     import StringFieldWidget, IntegerFieldWidget
+from pangalactic.node.widgets     import (FloatFieldWidget, StringFieldWidget,
+                                          IntegerFieldWidget)
 
 if not platform.platform().startswith('Darwin'):
     from pangalactic.node.cad.viewer  import QtViewer3DColor
@@ -176,6 +178,36 @@ class Viewer3DDialog(QDialog):
 
     def view_cad(self, file_path):
         self.cad_viewer.init_shape_from_STEP(file_path)
+
+
+class ReqParmDialog(QDialog):
+    """
+    A dialog to edit the value of performance requirement parameters.
+    """
+    def __init__(self, req, parm, parent=None):
+        super(ReqParmDialog, self).__init__(parent)
+        self.setWindowTitle("Requirement Parameters")
+        self.req = req
+        self.parm = parm
+        parm_name = get_attr_ext_name('Requirement', parm)
+        parm_label = QLabel(parm_name, self)
+        parm_val = getattr(req, parm, 0.0)
+        self.parm_field = FloatFieldWidget(parent=self, value=parm_val)
+        units_label = QLabel(req.req_units, self)
+        form = QFormLayout(self)
+        # TODO: add units label (needs hbox)
+        form.addRow(parm_label, self.parm_field)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.on_save)
+        self.buttons.rejected.connect(self.reject)
+
+    def on_save(self):
+        setattr(self.req, self.parm, float(self.parm_field.get_value()))
+        self.accept()
 
 
 class AssemblyNodeDialog(QDialog):

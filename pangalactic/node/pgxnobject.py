@@ -756,7 +756,7 @@ class PgxnObject(QDialog):
             # only display "new version" option for Products ...
             self.new_version_action = self.create_action('new version',
                                 slot=self.on_new_version, icon='new_part',
-                                tip='Create new version of object by cloning',
+                                tip='Create new version by cloning',
                                 modes=['edit', 'view'])
             self.toolbar.addAction(self.new_version_action)
         # NOTE: viewer may be reactivated later ...
