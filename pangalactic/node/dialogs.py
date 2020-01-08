@@ -207,6 +207,10 @@ class ReqParmDialog(QDialog):
 
     def on_save(self):
         setattr(self.req, self.parm, float(self.parm_field.get_value()))
+        # TODO: re-generate text of requirement
+        orb.save([self.req])
+        dispatcher.send(signal='modified object', obj=self.req,
+                        cname='Requirement')
         self.accept()
 
 
