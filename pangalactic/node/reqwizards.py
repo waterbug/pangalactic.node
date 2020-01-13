@@ -1228,7 +1228,7 @@ class PerformReqBuildShallPage(QWizardPage):
         self.shall_hbox_middle.addWidget(self.predicate_field)
         # if self.min_max_cb tests True, then it is a maximum or a minumum;
         # otherwise it is a single value or a range
-        if self.min_max_cb:
+        if getattr(self, 'min_max_cb', None):
             self.shall_hbox_middle.addWidget(self.min_max_cb)
             if self.minimum_value:
                 self.shall_hbox_middle.addWidget(self.minimum_value)
@@ -1461,8 +1461,6 @@ class PerformReqBuildShallPage(QWizardPage):
         """
         # numbers are saved to state as they are typed ... text fields are
         # saved to state here (to avoid impact on user feel)
-        req_wizard_state['req_subject'] = self.subject_field.text()
-        req_wizard_state['req_predicate'] = self.predicate_field.text()
         req_wizard_state['req_epilog'] = self.epilog_field.text()
         description = ''
         items = []
@@ -1492,6 +1490,18 @@ class PerformReqBuildShallPage(QWizardPage):
             return False
         description = ' '.join(description.split()) + '.'
         req_wizard_state['description'] = description
+        req_wizard_state['req_subject'] = self.allocation_label.text()
+        quantifier = ''
+        if getattr(self, 'min_max_cb', None):
+            quantifier = self.min_max_cb.currentText()
+        # predicate excludes the value + units, so that if description needs to
+        # be regenerated, it can be assembled as
+        #     req_subject + req_predicate
+        #     + str(req_maximum_value or req_minimum_value or req_target_value)
+        #     + units
+        req_wizard_state['req_predicate'] = ' '.join([
+                            req_wizard_state.get('req_shall_phrase'),
+                            quantifier])
         req_wizard_state['rationale'] = self.rationale_field.toPlainText()
         if not req_wizard_state.get('rationale'):
             return False
