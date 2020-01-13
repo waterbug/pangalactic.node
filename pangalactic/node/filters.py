@@ -3,13 +3,14 @@ from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
         QCheckBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel,
-        QLineEdit, QSizePolicy, QTableView, QVBoxLayout, QWidget)
+        QLineEdit, QMessageBox, QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
 import re
 from textwrap import wrap
 from louie import dispatcher
 
 from pangalactic.core             import prefs, state
+from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.uberorb     import orb
@@ -634,6 +635,7 @@ class FilterPanel(QWidget):
 
     def edit_requirement(self):
         orb.log.debug('* edit_requirement()')
+        req = None
         if len(self.proxy_view.selectedIndexes()) >= 1:
             i = self.proxy_model.mapToSource(
                 self.proxy_view.selectedIndexes()[0]).row()
@@ -641,8 +643,14 @@ class FilterPanel(QWidget):
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             if oid:
                 req = orb.get(oid)
-                if req:
-                    dispatcher.send('edit requirement', obj=req)
+        if req:
+            if 'modify' in get_perms(req):
+                dispatcher.send('edit requirement', obj=req)
+            else:
+                message = "Not Authorized"
+                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
+                                    message, QMessageBox.Ok, self)
+                popup.show()
 
     def edit_req_parms(self):
         orb.log.debug('* edit_req_parms()')
@@ -655,15 +663,21 @@ class FilterPanel(QWidget):
             if oid:
                 req = orb.get(oid)
         if req and req.req_type == 'performance':
-            parm = None
-            if req.req_constraint_type == 'maximum':
-                parm = 'req_maximum_value'
-            elif req.req_constraint_type == 'minimum':
-                parm = 'req_minimum_value'
-            elif req.req_constraint_type == 'single_value':
-                parm = 'req_target_value'
-            if parm:
-                dispatcher.send('edit req parm', req=req, parm=parm)
+            if 'modify' in get_perms(req):
+                parm = None
+                if req.req_constraint_type == 'maximum':
+                    parm = 'req_maximum_value'
+                elif req.req_constraint_type == 'minimum':
+                    parm = 'req_minimum_value'
+                elif req.req_constraint_type == 'single_value':
+                    parm = 'req_target_value'
+                if parm:
+                    dispatcher.send('edit req parm', req=req, parm=parm)
+            else:
+                message = "Not Authorized"
+                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
+                                    message, QMessageBox.Ok, self)
+                popup.show()
 
     def create_template(self):
         """

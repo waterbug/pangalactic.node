@@ -623,6 +623,7 @@ class ReqSummaryPage(QWizardPage):
         self.req.req_tolerance_type = req_wizard_state.get('req_tolerance_type')
         self.req.verification_method = req_wizard_state.get('verification_method')
         self.req.req_target_value = req_wizard_state.get('req_target_value')
+        self.req.req_units = req_wizard_state.get('req_units')
         self.req.req_maximum_value = req_wizard_state.get('req_maximum_value')
         self.req.req_minimum_value = req_wizard_state.get('req_minimum_value')
         self.req.req_tolerance = req_wizard_state.get('req_tolerance')
@@ -1164,6 +1165,9 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.units.addItem(unit)
         else:
             self.units.addItem('No units found.')
+        current_units = req_wizard_state.get('req_units')
+        if current_units and current_units in units_list:
+            self.units.setCurrentText(current_units)
         self.units.currentTextChanged.connect(self.on_set_units)
         # labels for the overall groups for organization of the page
         shall_label = QLabel('Shall Statement:')
@@ -1346,12 +1350,13 @@ class PerformReqBuildShallPage(QWizardPage):
         orb.log.info('* [reqwizard] setting units ...')
         units_widget = self.sender()
         new_units = str(units_widget.currentText())
-        orb.log.debug('            new units: "{}"'.format(new_units))
+        orb.log.debug('              new units: "{}"'.format(new_units))
         req_wizard_state['req_units'] = new_units
         # parm_id = units_widget.field_name
         # parm_widget = self.p_widgets.get(parm_id)
         # if self.edit_mode and hasattr(parm_widget, 'get_value'):
-            # # in edit mode, get value (str) from editable field and convert it
+            # # in edit mode, get value (str) from editable field and convert
+            # # it
             # str_val = parm_widget.get_value()
             # pval = get_pval_from_str(orb, self.obj.oid, parm_id, str_val)
             # applicable_units = self.previous_units[parm_id]
