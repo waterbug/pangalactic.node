@@ -727,28 +727,33 @@ class PgxnObject(QDialog):
                                     slot=self.show_where_used, icon='system',
                                     tip='Show where this object is used ...',
                                     modes=['edit', 'view'])
+            # only users who can modify an object can 'freeze' it
             self.toolbar.addAction(self.freeze_action)
+            self.freeze_action.setVisible(False)
             self.toolbar.addAction(self.frozen_action)
-            self.toolbar.addAction(self.thaw_action)
-            self.toolbar.addAction(self.where_used_action)
-            perms = get_perms(self.obj)
-            # orb.log.debug('            user perms: {}'.format(str(perms)))
             if self.obj.frozen:
                 orb.log.debug('            object is frozen.')
                 self.frozen_action.setVisible(True)
-                self.freeze_action.setVisible(False)
-                if is_global_admin(orb.get(state.get('local_user_oid'))):
-                    # only a global admin can "thaw"
-                    self.thaw_action.setVisible(True)
             else:
                 orb.log.debug('            object is NOT frozen.')
                 self.frozen_action.setVisible(False)
-                self.thaw_action.setVisible(False)
-                if 'delete' in perms:
-                    # if perms include "delete", can also "freeze"
-                    self.freeze_action.setVisible(True)
+            # only global admins can 'thaw' an object -- see below
+            self.toolbar.addAction(self.thaw_action)
+            self.thaw_action.setVisible(False)
+            self.toolbar.addAction(self.where_used_action)
+            perms = get_perms(self.obj)
+            # orb.log.debug('            user perms: {}'.format(str(perms)))
             if 'modify' in perms:
-                # only display "new version" option if user can modify ...
+                if self.obj.frozen:
+                    self.freeze_action.setVisible(False)
+                    if is_global_admin(orb.get(state.get('local_user_oid'))):
+                        # only a global admin can "thaw"
+                        self.thaw_action.setVisible(True)
+                else:
+                    orb.log.debug('            object is NOT frozen.')
+                    self.frozen_action.setVisible(False)
+                    self.freeze_action.setVisible(True)
+                # only users who can modify an object can create a new version
                 self.new_version_action = self.create_action('new version',
                                     slot=self.on_new_version, icon='new_part',
                                     tip='Create new version by cloning',
@@ -791,12 +796,18 @@ class PgxnObject(QDialog):
         return action
 
     def freeze(self):
+        """
+        Freeze an object, making it read-only.  NOTE: this action should only
+        be accessible to users who have 'modify' permission on the object.
+        """
         if (isinstance(self.obj, orb.classes['Product'])
             and not self.obj.frozen):
             self.freeze_action.setVisible(False)
             self.frozen_action.setVisible(True)
-            self.thaw_action.setVisible(True)
             self.obj.frozen = True
+            if is_global_admin(orb.get(state.get('local_user_oid'))):
+                # only a global admin can "thaw"
+                self.thaw_action.setVisible(True)
             orb.save([self.obj])
             self.build_from_object()
 
@@ -804,6 +815,10 @@ class PgxnObject(QDialog):
         pass
 
     def thaw(self):
+        """
+        Thaw a frozen object.  NOTE: this action should only be accessible to
+        global admins.
+        """
         if (isinstance(self.obj, orb.classes['Product'])
             and self.obj.frozen):
             if getattr(self.obj, 'where_used', None):
