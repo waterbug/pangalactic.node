@@ -19,7 +19,7 @@ from sqlalchemy.orm.collections import InstrumentedList
 
 # pangalactic
 from pangalactic.core import state
-from pangalactic.core.access import get_perms
+from pangalactic.core.access import get_perms, is_global_admin
 from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
                                    PGXN_MASK, PGXN_PARAMETERS,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
@@ -737,8 +737,8 @@ class PgxnObject(QDialog):
                 orb.log.debug('            object is frozen.')
                 self.frozen_action.setVisible(True)
                 self.freeze_action.setVisible(False)
-                if 'delete' in perms:
-                    # if perms include "delete", can also "thaw"
+                if is_global_admin(orb.get(state.get('local_user_oid'))):
+                    # only a global admin can "thaw"
                     self.thaw_action.setVisible(True)
             else:
                 orb.log.debug('            object is NOT frozen.')
@@ -747,18 +747,18 @@ class PgxnObject(QDialog):
                 if 'delete' in perms:
                     # if perms include "delete", can also "freeze"
                     self.freeze_action.setVisible(True)
+            if 'modify' in perms:
+                # only display "new version" option if user can modify ...
+                self.new_version_action = self.create_action('new version',
+                                    slot=self.on_new_version, icon='new_part',
+                                    tip='Create new version by cloning',
+                                    modes=['edit', 'view'])
+                self.toolbar.addAction(self.new_version_action)
         self.clone_action = self.create_action('clone',
                                 slot=self.on_clone, icon='clone_16',
                                 tip='Clone this object',
                                 modes=['edit', 'view'])
         self.toolbar.addAction(self.clone_action)
-        if isinstance(self.obj, orb.classes['Product']):
-            # only display "new version" option for Products ...
-            self.new_version_action = self.create_action('new version',
-                                slot=self.on_new_version, icon='new_part',
-                                tip='Create new version by cloning',
-                                modes=['edit', 'view'])
-            self.toolbar.addAction(self.new_version_action)
         # NOTE: viewer may be reactivated later ...
         # self.viewer_action = self.create_action('viewer',
                                 # slot=self.open_viewer, icon='view_16',
@@ -806,6 +806,27 @@ class PgxnObject(QDialog):
     def thaw(self):
         if (isinstance(self.obj, orb.classes['Product'])
             and self.obj.frozen):
+            if getattr(self.obj, 'where_used', None):
+                txt = 'Thawing this Product may violate CM --\n'
+                txt += 'it is a component in the following assemblies:'
+                notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
+                                     QMessageBox.Ok, self)
+                assemblies = [acu.assembly for acu in self.obj.where_used]
+                text = '<p><ul>{}</ul></p>'.format('\n'.join(
+                               ['<li><b>{}</b><br>(id: {})</li>'.format(
+                               a.name, a.id, a.oid) for a in assemblies]))
+                notice.setInformativeText(text)
+                notice.show()
+            elif getattr(self.obj, 'projects_using_system', None):
+                txt = 'Thawing this Product may violate CM --\n'
+                txt += 'it is being used as a system in the following project(s):'
+                notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
+                                     QMessageBox.Ok, self)
+                p_ids = [psu.project.id for psu in self.obj.projects_using_system]
+                notice.setInformativeText('<p><ul>{}</ul></p>'.format('\n'.join(
+                                          ['<li><b>{}</b></li>'.format(p_id) for
+                                          p_id in p_ids])))
+                notice.show()
             self.freeze_action.setVisible(True)
             self.frozen_action.setVisible(False)
             self.thaw_action.setVisible(False)

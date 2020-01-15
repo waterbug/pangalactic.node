@@ -15,11 +15,6 @@ from pangalactic.node.reqwizards  import ReqWizard
 # Louie
 from louie import dispatcher
 
-# TODO:  put this into 'core.meta' module ...
-all_req_fields=['id', 'name', 'description', 'rationale', 'id_ns', 'version',
-                'iteration', 'version_sequence','owner', 'abbreviation',
-                'frozen', 'derived_from' ,'public', 'level', 'validated']
-
 
 class RequirementManager(QDialog):
     """

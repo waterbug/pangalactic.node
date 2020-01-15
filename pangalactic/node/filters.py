@@ -15,7 +15,8 @@ from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import (get_external_name_plural,
-                                          get_attr_ext_name)
+                                          get_attr_ext_name,
+                                          pname_to_header_label)
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ObjectTableModel
@@ -406,9 +407,9 @@ class ProxyView(QTableView):
 
 
 class FilterPanel(QWidget):
-    def __init__(self, objs, view=None, label='', width=None, height=None,
-                 as_library=False, cname=None, external_filters=False,
-                 parent=None):
+    def __init__(self, objs, schema=None, view=None, label='', width=None,
+                 height=None, as_library=False, cname=None,
+                 external_filters=False, parent=None):
         """
         Initialize.
 
@@ -417,6 +418,10 @@ class FilterPanel(QWidget):
 
         Keyword Args:
             view (iterable):  attributes of object to be shown
+            schema (dict):  metadata for non-Identifiable objects; schema must
+                contain the keys 'field_names' (a list of strings) and
+                'fields', a dict that maps each field name to a dict that
+                contains 'definition' and 'range' (str of the field type).
             label (str):  string to use for title
             width (int):  width of dialog widget
             as_library (bool):  (default: False) flag whether to act as library
@@ -436,32 +441,59 @@ class FilterPanel(QWidget):
                                                                     # cname))
             self.cname = cname
             self.objs = orb.get_by_type(cname) or [orb.get('pgefobjects:TBD')]
+        elif (objs and isinstance(objs[0], dict) and
+              isinstance(schema, dict) and 'fields' in schema):
+            # if objs are just dicts and a schema is provided, use it ...
+            self.objs = objs
+            self.view = view or list(objs[0].keys())
         else:
-            # orb.log.debug('* Create FilterPanel ...')
-            self.objs = objs or [orb.get('pgefobjects:TBD')]
-            self.cname = self.objs[0].__class__.__name__
-        schema = orb.schemas[self.cname]
-        if prefs.get('views', {}).get(self.cname):
-            # if there is a preferred view, ignore the provided view
-            view = prefs['views'][self.cname]
-        view = view or MAIN_VIEWS.get(self.cname, ['id', 'name', 'description'])
-        self.view = [a for a in view if a in schema['field_names']]
-        # if col name, use that; otherwise, use external name
-        col_labels = [PGEF_COL_NAMES.get(a, get_attr_ext_name(self.cname, a))
-                      for a in self.view]
-        col_defs = []
-        col_dtypes = []
-        for a in self.view:
-            col_defs.append('\n'.join(wrap(
-                            schema['fields'][a]['definition'],
-                            width=30, break_long_words=False)))
-            col_dtypes.append(schema['fields'][a]['range'])
-        self.proxy_model = ObjectSortFilterProxyModel(
-                                                ncols=len(self.view),
-                                                col_labels=col_labels,
-                                                col_defs=col_defs,
-                                                col_dtypes=col_dtypes,
-                                                parent=self)
+            if objs and isinstance(objs[0], orb.classes['Identifiable']):
+                self.objs = objs
+                self.cname = self.objs[0].__class__.__name__
+            else:
+                # empty table -- schema doesn't matter ...
+                self.objs = [orb.get('pgefobjects:TBD')]
+                self.cname = 'Product'
+        if self.cname:
+            schema = orb.schemas[self.cname]
+            view = view or MAIN_VIEWS.get(self.cname,
+                                          ['id', 'name', 'description'])
+            self.view = [a for a in view if a in schema['field_names']]
+            if prefs.get('views', {}).get(self.cname):
+                # if there is a preferred view, ignore the provided view
+                view = prefs['views'][self.cname]
+            # if col name, use that; otherwise, use external name
+            col_labels = [PGEF_COL_NAMES.get(a, get_attr_ext_name(self.cname, a))
+                          for a in self.view]
+            col_defs = []
+            col_dtypes = []
+            for a in self.view:
+                col_defs.append('\n'.join(wrap(
+                                schema['fields'][a]['definition'],
+                                width=30, break_long_words=False)))
+                col_dtypes.append(schema['fields'][a]['range'])
+            self.proxy_model = ObjectSortFilterProxyModel(
+                                                    ncols=len(self.view),
+                                                    col_labels=col_labels,
+                                                    col_defs=col_defs,
+                                                    col_dtypes=col_dtypes,
+                                                    parent=self)
+        else:
+            self.view = [a for a in view if a in schema['field_names']]
+            col_labels = [pname_to_header_label(a) for a in self.view]
+            col_defs = []
+            col_dtypes = []
+            for a in self.view:
+                col_defs.append('\n'.join(wrap(
+                                schema['fields'][a]['definition'],
+                                width=30, break_long_words=False)))
+                col_dtypes.append(schema['fields'][a]['range'])
+            self.proxy_model = ObjectSortFilterProxyModel(
+                                                    ncols=len(self.view),
+                                                    col_labels=col_labels,
+                                                    col_defs=col_defs,
+                                                    col_dtypes=col_dtypes,
+                                                    parent=self)
         self.proxy_model.setDynamicSortFilter(True)
         if external_filters:
             self.ext_filters = SizedButton("Filters")

@@ -27,11 +27,6 @@ from pangalactic.node.systemtree  import SystemTreeView
 
 req_wizard_state = {}
 
-all_req_fields=['id', 'name', 'description', 'rationale', 'id_ns', 'version',
-                'iteration', 'version_sequence','owner', 'abbreviation',
-                'frozen', 'derived_from' ,'public', 'req_level', 'validated']
-
-
 def gen_req_id(project, version=None, ancestor_reqt=None):
     """
     Generate the `id` attribute for a new requirement. (NOTE:  this function
