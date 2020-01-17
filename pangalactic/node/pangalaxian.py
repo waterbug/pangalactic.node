@@ -20,6 +20,9 @@ from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
+# fix qt import error
+from pangalactic.node import fix_qt_import_error
+
 # pyqt
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QModelIndex, QPoint, QVariant

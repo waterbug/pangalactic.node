@@ -94,4 +94,3 @@ class MelManager(QDialog):
                 orb.log.debug('  subsystem with oid "{}" not found.'.format(
                                                                         oid))
 
-
