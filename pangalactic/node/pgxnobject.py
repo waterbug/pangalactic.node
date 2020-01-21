@@ -1377,9 +1377,9 @@ if __name__ == '__main__':
     Cmd line invocation for testing / prototyping
     """
     import sys
-    from pangalactic.node.serializers import deserialize
-    from pangalactic.test.utils4test import create_test_project
-    from pangalactic.test.utils4test import create_test_users
+    from pangalactic.core.serializers import deserialize
+    from pangalactic.core.test.utils import create_test_project
+    from pangalactic.core.test.utils import create_test_users
     app = QApplication(sys.argv)
     # ***************************************
     # Test using ref and test data
