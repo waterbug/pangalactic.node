@@ -157,6 +157,9 @@ class Main(QtWidgets.QMainWindow):
         self.auto_update = not config.get('no_auto_update', False)
         state['last_path'] = ""
         state['synced_projects'] = []
+        if not prefs.get('dashboard_names'):
+            prefs['dashboard_names'] = ['MEL']
+        state['dashboard_name'] = prefs['dashboard_names'][0]
         # set path to server cert
         self.cert_path = os.path.join(orb.home, 'server_cert.pem')
         if os.path.exists(self.cert_path):
@@ -2605,7 +2608,7 @@ class Main(QtWidgets.QMainWindow):
         for dash_name in prefs['dashboard_names']:
             self.dash_select.addItem(dash_name, QVariant)
         dash_idx = 0
-        dash_name = state.get('dashboard_name') or prefs['dashboard_names'][0]
+        dash_name = state.get('dashboard_name', 'MEL')
         if dash_name in prefs['dashboard_names']:
             dash_idx = prefs['dashboard_names'].index(dash_name)
         self.dash_select.setCurrentIndex(dash_idx)

@@ -231,11 +231,17 @@ class SystemTreeProxyModel(QSortFilterProxyModel):
     """
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
 
+    @property
+    def cols(self):
+        return self.sourceModel().cols
+
+    @property
+    def col_defs(self):
+        return self.sourceModel().col_defs
+
     def __init__(self, source_model, parent=None):
         super(SystemTreeProxyModel, self).__init__(parent=parent)
         self.setSourceModel(source_model)
-        self.cols = self.sourceModel().cols
-        self.col_defs = self.sourceModel().col_defs
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         idxs = []
@@ -302,43 +308,6 @@ class SystemTreeModel(QAbstractItemModel):
         self.refdes = refdes
         self.show_allocs = show_allocs
         self.req = req
-        self.cols = []
-        self.col_defs = []
-        dash_name = state.get('dashboard_name')
-        if not dash_name:
-            if prefs.get('dashboard_names'):
-                dash_name = prefs['dashboard_names'][0]
-                if not prefs['dashboards'].get(dash_name):
-                    prefs['dashboards'][dash_name] = []
-            else:
-                dash_name = 'TBD'
-                prefs['dashboard_names'] = [dash_name]
-                prefs['dashboards'][dash_name] = []
-        state['dashboard_name'] = dash_name
-        self.cols = prefs['dashboards'][dash_name]
-        header_labels = []
-        cols = self.cols[:]
-        for p_id in cols:
-            # New paradigm: pd is a dict in parm_defz
-            # pd = orb.select('ParameterDefinition', id=p_id)
-            pd = parm_defz.get(p_id)
-            if not pd:
-                # if this parameter definition is not in parm_defz,
-                # ignore it
-                self.cols.remove(p_id)
-                continue
-            # no preference (i.e., is set to None) -> use base units
-            units = prefs['units'].get(pd['dimensions']) or in_si.get(
-                                                 pd['dimensions'], '')
-            if units:
-                units = '(' + units + ')'
-            header_labels.append('   \n   '.join(wrap(
-                                 pd['name'], width=7,
-                                 break_long_words=False) + [units]))
-            self.col_defs.append('\n'.join(wrap(
-                                 pd['description'], width=30,
-                                 break_long_words=False))) 
-        self.headers = ['   {}   '.format(n) for n in header_labels]
         fake_root = FakeRoot()
         self.root = Node(fake_root)
         self.root.parent = None
@@ -351,6 +320,35 @@ class SystemTreeModel(QAbstractItemModel):
         top_node = self.node_for_object(obj, self.root)
         self.root.children = [top_node]
         self.successful_drop_index = None
+        dispatcher.connect(self.delete_columns, 'delete dashboard columns')
+
+    @property
+    def dash_name(self):
+        return state.get('dashboard_name', 'MEL')
+
+    @property
+    def cols(self):
+        return prefs.get('dashboards', {}).get(self.dash_name, [])
+
+    def col_def(self, pid):
+        pd = parm_defz.get(pid)
+        if not pd:
+            return ''
+        return '\n'.join(wrap(pd['description'], width=30,
+                              break_long_words=False))
+
+    @property
+    def col_defs(self):
+        return [self.col_def(pid) for pid in self.cols]
+
+    def get_header(self, pid):
+        pd = parm_defz.get(pid, '')
+        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                pd['dimensions'], '')
+        if units:
+            units = '(' + units + ')'
+        return '   \n   '.join(wrap(pd['name'], width=7,
+                                    break_long_words=False) + [units])
 
     @property
     def req(self):
@@ -553,7 +551,7 @@ class SystemTreeModel(QAbstractItemModel):
                 else:
                     if index.column() == 0:
                         return node.name
-                    else:
+                    elif len(self.cols) >= index.column() > 0:
                         pid = self.cols[index.column()-1]
                         pd = parm_defz[pid]
                         units = prefs['units'].get(pd['dimensions'])
@@ -579,10 +577,14 @@ class SystemTreeModel(QAbstractItemModel):
                             # base parameter (no context)
                             return get_pval_as_str(orb, node.obj.oid,
                                                    self.cols[index.column()-1])
+                    else:
+                        return node.name
             else:
                 return node.name
         if role == Qt.ForegroundRole:
-            if self.cols and index.column() > 0:
+            if index.column() == 0:
+                return self.BRUSH
+            elif self.cols and len(self.cols) >= index.column() > 0:
                 pid = self.cols[index.column()-1]
                 pd = parm_defz[pid]
                 if pd['context_type'] == 'descriptive':
@@ -603,6 +605,8 @@ class SystemTreeModel(QAbstractItemModel):
                     return self.RED_BRUSH
                 else:
                     return self.BRUSH
+            else:
+                return self.BRUSH
         if role == Qt.BackgroundRole and self.req and self.show_allocs:
             # in case node.link is an Acu:
             allocs = getattr(node.link, 'allocated_requirements', [])
@@ -648,12 +652,11 @@ class SystemTreeModel(QAbstractItemModel):
     def headerData(self, section, orientation, role):
         if (orientation == Qt.Horizontal and
             role == Qt.DisplayRole):
-            if self.cols:
-                # assert 0 <= section <= len(self.headers)
+            if self.cols and len(self.cols) > section-1:
                 if section == 0:
                     return QVariant('System')
                 else:
-                    return QVariant(self.headers[section-1])
+                    return QVariant(self.get_header(self.cols[section-1]))
             else:
                 return self.root.name
         elif role == Qt.ToolTipRole:
@@ -946,6 +949,25 @@ class SystemTreeModel(QAbstractItemModel):
                 dispatcher.send(signal="deleted object", oid=psu_oid,
                                 cname='ProjectSystemUsage')
         return success
+
+    def delete_columns(self, cols=None):
+        """
+        Remove columns from the dashboard.
+
+        Args:
+            pids (list of str): pids of columns to delete
+        """
+        pids = cols or []
+        for pid in pids:
+            if pid in self.cols:
+                idx = self.cols.index(pid)
+                prefs['dashboards'][state['dashboard_name']].remove(pid)
+                # try:
+                    # self.removeColumn(idx, parent=QModelIndex())
+                # except:
+                    # # oops -- my C++ object probably got deleted
+                    # pass
+        dispatcher.send(signal='dashboard mod')
 
     def add_nodes(self, nodes, parent=QModelIndex()):
         node = self.get_node(parent)

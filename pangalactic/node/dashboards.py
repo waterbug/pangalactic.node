@@ -159,14 +159,15 @@ class SystemDashboard(QTreeView):
         """
         dlg = DeleteColsDialog(parent=self)
         if dlg.exec_() == QDialog.Accepted:
-            cols_deleted = False
+            cols_to_delete = []
             pids = prefs['dashboards'][state['dashboard_name']][:]
             for pid in pids:
                 if dlg.checkboxes[pid].isChecked():
-                    prefs['dashboards'][state['dashboard_name']].remove(pid)
-                    cols_deleted = True
-            if cols_deleted:
-                dispatcher.send(signal='dashboard mod')
+                    # prefs['dashboards'][state['dashboard_name']].remove(pid)
+                    cols_to_delete.append(pid)
+            if cols_to_delete:
+                dispatcher.send(signal='delete dashboard columns',
+                                cols=cols_to_delete)
 
     def create_dashboard(self):
         """
