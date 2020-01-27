@@ -39,7 +39,7 @@ class ObjectTableView(QTableView):
         self.objs = objs
         self.view = view
         self.setup_table()
-        self.add_context_menu() 
+        self.add_context_menu()
 
     def setup_table(self):
         self.cname = None
@@ -96,6 +96,7 @@ class ObjectTableView(QTableView):
         self.setMinimumSize(300, 200)
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
+        dispatcher.connect(self.on_mod_object_signal, 'modified object')
 
     def add_context_menu(self):
         column_header = self.horizontalHeader()
@@ -135,6 +136,15 @@ class ObjectTableView(QTableView):
             prefs['db_views'] = {}
         prefs['db_views'][self.cname] = new_view[:]
         dispatcher.send('new object table view pref', cname=self.cname)
+
+    def on_mod_object_signal(self, obj=None, cname=''):
+        """
+        Handle 'modified object' dispatcher signal.
+        """
+        orb.log.debug('* ObjectTableView: on_mod_object_signal()')
+        idx = self.main_table_model.mod_object(obj)
+        if idx is not None:
+            self.selectRow(idx.row())
 
     def select_columns(self):
         """

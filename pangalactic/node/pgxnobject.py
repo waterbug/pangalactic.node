@@ -1144,9 +1144,9 @@ class PgxnObject(QDialog):
             self.build_from_object()
 
     def closeEvent(self, event):
-        txt = '* [pgxnobj] unsaved edits cancelled, rolling back...'
+        txt = '* [pgxnobj] closing.'
         orb.log.info(txt)
-        orb.db.rollback()
+        # orb.db.rollback()
         self.close()
 
     def update_save_progress(self, name=''):

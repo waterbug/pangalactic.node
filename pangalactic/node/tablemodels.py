@@ -115,10 +115,9 @@ class ODTableModel(QAbstractTableModel):
         """
         if index.isValid():
             if index.row() < len(self.ods):
-                self.ods.insert(index.row(), value)
+                self.ods[index.row()] = value
             else:
-                self.ods.append(value)
-            self.dirty = True
+                orb.log.debug('* setData(): index is out of range')
             # NOTE the 3rd arg is an empty list -- reqd for pyqt5
             # (or the actual role(s) that changed, e.g. [Qt.EditRole])
             self.dataChanged.emit(index, index, [])
@@ -132,7 +131,6 @@ class ODTableModel(QAbstractTableModel):
             del self.ods[row]
             # self.endRemoveRows()
             self.endResetModel()
-            self.dirty = True
             # NOTE the 3rd arg is an empty list -- reqd for pyqt5
             # (or the actual role(s) that changed, e.g. [Qt.EditRole])
             idx = self.createIndex(row, 0)
@@ -273,7 +271,7 @@ class ObjectTableModel(ODTableModel):
                                 index, self.get_odict_for_obj(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
-            # super(ObjectTableModel, self).dataChanged.emit(index, index)
+            super(ObjectTableModel, self).dataChanged.emit(index, index)
             return True
         except:
             return False
@@ -286,28 +284,22 @@ class ObjectTableModel(ODTableModel):
         self.beginResetModel()
         self.setData(idx, obj)
         self.endResetModel()
-        self.dirty = True
         return True
 
     def mod_object(self, obj):
         # orb.log.debug("  ObjectTableModel.mod_object() ...")
-        try:
-            row = self.objs.index(obj)  # raises ValueError if problem
-            # orb.log.debug("    object found at row {}".format(row))
-            idx = self.index(row, 0, index=QModelIndex())
-            self.beginResetModel()
-            self.setData(idx, obj)
-            self.endResetModel()
-            self.dirty = True
-            return True
-        except:
-            return False
+        row = self.objs.index(obj)  # raises ValueError if problem
+        # orb.log.debug("    object found at row {}".format(row))
+        idx = self.index(row, 0, parent=QModelIndex())
+        self.beginResetModel()
+        self.setData(idx, obj)
+        self.endResetModel()
+        return idx
 
     def removeRow(self, row, index=QModelIndex()):
         if row < len(self.objs):
             self.objs = self.objs[:row] + self.objs[row+1:]
             self.removeRows(row, 1, index)
-            self.dirty = True
             return True
         else:
             return False

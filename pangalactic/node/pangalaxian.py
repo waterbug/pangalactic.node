@@ -97,6 +97,7 @@ class Main(QtWidgets.QMainWindow):
         library_widget (LibraryListWidget):  a panel widget containing library
             views for specified classes and a selector (combo box)
         app_version (str):  version of calling app (if any)
+        app_test_data (list):  list of test data objects for self-testing
         reactor (qt5reactor):  twisted event loop
         roles (list of dicts):  actually, role assignments -- a list of dicts
             of the form {org oid : role name}
@@ -2116,9 +2117,11 @@ class Main(QtWidgets.QMainWindow):
                 self.update_object_in_trees(obj)
                 # NOTE: the diagram will listen for "new | modified object"
                 # signals -- i.e., DiagramScene (in view.py)
-            elif self.mode == 'db':
-                self.refresh_cname_list()
-                self.set_object_table_for(cname)
+            # NOTE: no need to do anything in 'db' mode -- the object table now
+            # listens for the 'mod object' signal and handles it ...
+            # elif self.mode == 'db':
+                # self.refresh_cname_list()
+                # self.set_object_table_for(cname)
             if state['connected']:
                 serialized_objs = serialize(orb, [obj])
                 if isinstance(obj, orb.classes['RoleAssignment']):
