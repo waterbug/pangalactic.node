@@ -43,10 +43,11 @@ class SystemDashboard(QTreeView):
                            'QToolTip { font-weight: normal; '
                            'font-size: 12px; border: 2px solid; };')
         dash_header = self.header()
+        # DO NOT add "padding-left" or "padding-right" attrs to this
+        # stylesheet -- that will mess up the alignment of headers w/columns!!
         dash_header.setStyleSheet(
                            'QHeaderView { font-weight: bold; '
-                           'font-size: 14px; border: 1px; '
-                           'padding-left: 10px; padding-right: 10px; } '
+                           'font-size: 14px; border: 1px; } '
                            'QToolTip { font-weight: normal; '
                            'font-size: 12px; border: 2px solid; };')
         dash_header.setDefaultAlignment(Qt.AlignHCenter)

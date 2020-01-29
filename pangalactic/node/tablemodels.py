@@ -316,7 +316,7 @@ class ObjectTableModel(ODTableModel):
         return Qt.CopyAction
 
 
-class MatrixTableModel(ODTableModel):
+class CompareTableModel(ODTableModel):
     """
     A table model for the side-by-side comparison of a set of objects (columns)
     by a set of parameters (rows).
@@ -350,7 +350,7 @@ class MatrixTableModel(ODTableModel):
                 self.column_labels = list(self.ods[0].keys())
         else:
             self.ods = [{0:'no data'}]
-        super(MatrixTableModel, self).__init__(self.ods, parent=parent,
+        super(CompareTableModel, self).__init__(self.ods, parent=parent,
                                                **kwargs)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -514,7 +514,7 @@ class SpecialSortModel(QSortFilterProxyModel):
             # deserialize(orb, create_test_users() + create_test_project())
         # objs = orb.search_exact(id='HOG')
         # parameters = ['m', 'P', 'TRL']
-        # tablemodel = MatrixTableModel(objs, parameters, parent=self)
+        # tablemodel = CompareTableModel(objs, parameters, parent=self)
         # # tablemodel = ODTableModel(test_od)
         # # tablemodel = ODTableModel(None)
         # tableview = QTableView()

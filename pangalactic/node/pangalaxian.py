@@ -5,7 +5,6 @@ Pangalaxian (the PanGalactic GUI client) main window
 """
 import argparse, atexit, os, platform, shutil, six, sys, time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
-from collections import OrderedDict
 
 from binaryornot.check import is_binary
 
@@ -28,55 +27,56 @@ from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import Qt, QModelIndex, QPoint, QVariant
 
 # pangalactic
-from pangalactic.core                 import __version__
-from pangalactic.core                 import diagramz
-from pangalactic.core                 import config, write_config
-from pangalactic.core                 import prefs, write_prefs
-from pangalactic.core                 import state, write_state
-from pangalactic.core                 import trash, write_trash
-from pangalactic.core.access          import get_perms
-from pangalactic.core.datastructures  import chunkify
-from pangalactic.core.log             import get_loggers
-from pangalactic.core.parametrics     import node_count
-from pangalactic.core.refdata         import ref_pd_oids
-from pangalactic.core.serializers     import (DESERIALIZATION_ORDER,
-                                              deserialize, serialize)
-from pangalactic.core.test.utils      import (create_test_project,
-                                              create_test_users)
-from pangalactic.core.uberorb         import orb
-from pangalactic.core.utils.meta      import (asciify,
-                                              uncook_datetime)
-from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.utils.reports   import write_mel_xlsx
-from pangalactic.node.admin           import AdminDialog
-from pangalactic.node.buttons         import ButtonLabel, MenuButton
-from pangalactic.node.conops          import ConOpsModeler
-from pangalactic.node.dashboards      import SystemDashboard
-from pangalactic.node.dialogs         import (LoginDialog,
-                                              NotificationDialog,
-                                              ObjectSelectionDialog,
-                                              PrefsDialog)
-# from pangalactic.node.filters         import FilterDialog
-from pangalactic.node.helpwidget      import HelpWidget
-from pangalactic.node.libraries       import LibraryDialog, LibraryListWidget
-from pangalactic.node.message_bus     import PgxnMessageBus
-from pangalactic.node.modeler         import ModelWindow, ProductInfoPanel
-from pangalactic.node.pgxnobject      import PgxnObject
-from pangalactic.node.startup         import setup_dirs_and_state
-from pangalactic.node.systemtree      import SystemTreeView
-from pangalactic.node.tablemodels     import ODTableModel, NumericSortModel
-# MatrixWidget is only used in compare_items(), which is temporarily removed
-# from pangalactic.node.tableviews  import MatrixWidget
-from pangalactic.node.tableviews      import ObjectTableView
-from pangalactic.node.utils           import clone
-from pangalactic.node.widgets         import (AutosizingListWidget,
-                                              ModeLabel, PlaceHolder)
-from pangalactic.node.wizards         import (NewProductWizard,
-                                              DataImportWizard,
-                                              wizard_state)
-from pangalactic.node.reqmanager      import RequirementManager
-from pangalactic.node.reqwizards      import ReqWizard, req_wizard_state
-from pangalactic.node.splash          import SplashScreen
+from pangalactic.core                  import __version__
+from pangalactic.core                  import diagramz
+from pangalactic.core                  import config, write_config
+from pangalactic.core                  import prefs, write_prefs
+from pangalactic.core                  import state, write_state
+from pangalactic.core                  import trash, write_trash
+from pangalactic.core.access           import get_perms
+from pangalactic.core.datastructures   import chunkify
+from pangalactic.core.log              import get_loggers
+from pangalactic.core.parametrics      import node_count
+from pangalactic.core.refdata          import ref_pd_oids
+from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
+                                               deserialize, serialize)
+from pangalactic.core.test.utils       import (create_test_project,
+                                               create_test_users)
+from pangalactic.core.uberorb          import orb
+from pangalactic.core.utils.meta       import (asciify,
+                                               uncook_datetime)
+from pangalactic.core.utils.datamatrix import DataMatrix
+from pangalactic.core.utils.datetimes  import dtstamp, date2str
+from pangalactic.core.utils.reports    import write_mel_xlsx
+from pangalactic.node.admin            import AdminDialog
+from pangalactic.node.buttons          import ButtonLabel, MenuButton
+from pangalactic.node.conops           import ConOpsModeler
+from pangalactic.node.dashboards       import SystemDashboard
+from pangalactic.node.datawidget       import DataMatrixWidget
+from pangalactic.node.dialogs          import (LoginDialog,
+                                               NotificationDialog,
+                                               ObjectSelectionDialog,
+                                               PrefsDialog)
+# from pangalactic.node.filters          import FilterDialog
+from pangalactic.node.helpwidget       import HelpWidget
+from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
+from pangalactic.node.message_bus      import PgxnMessageBus
+from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
+from pangalactic.node.pgxnobject       import PgxnObject
+from pangalactic.node.startup          import setup_dirs_and_state
+from pangalactic.node.systemtree       import SystemTreeView
+# CompareWidget is only used in compare_items(), which is temporarily removed
+# from pangalactic.node.tableviews  import CompareWidget
+from pangalactic.node.tableviews       import ObjectTableView
+from pangalactic.node.utils            import clone
+from pangalactic.node.widgets          import (AutosizingListWidget,
+                                               ModeLabel, PlaceHolder)
+from pangalactic.node.wizards          import (NewProductWizard,
+                                               DataImportWizard,
+                                               wizard_state)
+from pangalactic.node.reqmanager       import RequirementManager
+from pangalactic.node.reqwizards       import ReqWizard, req_wizard_state
+from pangalactic.node.splash           import SplashScreen
 
 
 class Main(QtWidgets.QMainWindow):
@@ -1357,7 +1357,6 @@ class Main(QtWidgets.QMainWindow):
                                     icon="data",
                                     checkable=True,
                                     tip="Data Mode")
-        self.data_mode_action.setEnabled(False)
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
@@ -2765,6 +2764,7 @@ class Main(QtWidgets.QMainWindow):
         self.top_dock_widget.setVisible(True)
         self.top_dock_widget.setWidget(self.dashboard_panel)
         # TODO:  right dock contains libraries
+        self.left_dock.setVisible(True)
         self.right_dock.setVisible(True)
 
     def set_system_model_window(self, system=None):
@@ -2793,107 +2793,25 @@ class Main(QtWidgets.QMainWindow):
             self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
                                               parent=self))
 
-    ### SET UP 'data' mode (currently deactivated ...)
+    ### SET UP 'data' mode
 
     def set_data_interface(self):
         """
-        Show data sets.  [Currently deactivated for re-implementation of data
-        store without pandas/pytables/hdf5.]
+        Data Matrix interface.
         """
         orb.log.debug('* setting data mode interface ...')
         # hide the top and right dock widgets
         self.top_dock_widget.setVisible(False)
         self.right_dock.setVisible(False)
-        # ********************************************************
-        # data view:  dataset_list (for selecting datasets)
-        # ********************************************************
-        self.dataset_list = AutosizingListWidget(parent=self)
-        # size policy is set in the class AutosizingListWidget, so this is
-        # unnecessary:
-        # self.dataset_list.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
-                                        # QtWidgets.QSizePolicy.Expanding)
-        self.dataset_list.currentRowChanged.connect(self.on_dataset_selected)
-        # if there is a current left dock widget, destroy it
-        ld_widget = self.left_dock.widget()
-        if ld_widget:
-            ld_widget.setAttribute(Qt.WA_DeleteOnClose)
-            ld_widget.parent = None
-            ld_widget.close()
-        self.left_dock.setWidget(self.dataset_list)
-        self.dataset_list.show()
-        self.dataset_list.clear()
-        # if orb.data_store.keys():
-            # target_row = 0
-            # # if hdf5 store has data, sync it up with self.datasets ...
-            # # first, preserve the order of existing datasets
-            # current_datasets = [n for n in self.datasets
-                                # if '/'+n in orb.data_store.keys()]
-            # for name in orb.data_store.keys():
-                # if name[1:] not in current_datasets:
-                    # # remove the leading '/' from hdf5 store key names
-                    # # FIXME:  potential unicode whoopdeedoo
-                    # current_datasets.append(str(name)[1:])
-            # self.datasets = current_datasets
-            # for name in self.datasets:
-                # self.dataset_list.addItem(name)
-            # if self.dataset and (self.dataset in self.datasets):
-                # orb.log.debug('  - current dataset: {}'.format(self.dataset))
-                # target_row = self.datasets.index(self.dataset)
-            # elif self.datasets:
-                # target_row = len(self.datasets) - 1
-            # self.dataset_list.setCurrentRow(target_row)
-        # else:
-        self.datasets = []
-        self.dataset_list.addItem('No Data')
-        self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
-                                              parent=self))
-
-    def on_dataset_selected(self, row):
-        orb.log.debug('* dataset selected')
-        orb.log.debug('  - mode: "{}"'.format(self.mode))
-        orb.log.debug('  - selected row: %i' % row)
-        orb.log.debug('  - current dataset: {}'.format(self.dataset))
-        orb.log.debug('  - current datasets: {}'.format(str(self.datasets)))
-        if self.datasets and row >= 0:
-            dataset_name = str(self.dataset_list.item(row).text())
-            orb.log.debug('  - dataset: "%s"' % dataset_name)
-            orb.log.debug(
-                '  - calling select_dataset("%s")...' % dataset_name)
-            self.select_dataset(dataset_name)
+        self.left_dock.setVisible(False)
+        if config.get('dm_schemas') and config['dm_schemas'].get('mel'):
+            mel_schema = config['dm_schemas']['mel']
+            if mel_schema:
+                datamatrix = DataMatrix(schema=mel_schema)
+                self.data_widget = DataMatrixWidget(datamatrix)
         else:
-            orb.log.debug('    -> selected row < 0: selection aborted.')
-
-    def select_dataset(self, dataset_name):
-        orb.log.debug('* selecting dataset "%s"' % dataset_name)
-        # currently inactive -- orb.data_store is an empty dict
-        df = orb.data_store.get(dataset_name)
-        if df is not None:
-            # set state to selected dataset
-            self.dataset = dataset_name
-            # TODO: if df is huge, use a generator form ...
-            data = [OrderedDict(row) for i, row in df.iterrows()]
-            tablemodel = ODTableModel(data, parent=self)
-            proxy = NumericSortModel(parent=self)
-            proxy.setSourceModel(tablemodel)
-            tableview = QtWidgets.QTableView()
-            tableview.setMinimumSize(300, 200)
-            # disable sorting while loading data (which is in proxy)
-            tableview.setSortingEnabled(False)
-            tableview.setModel(proxy)
-            tableview.setSortingEnabled(True)
-            column_header = tableview.horizontalHeader()
-            column_header.setSectionsMovable(True)
-            cols = tablemodel.columns()
-            # as a first cut, set col widths to header widths (use hints)
-            for i, n in enumerate(cols):
-                tableview.setColumnWidth(i, column_header.sectionSizeHint(i))
-            # TODO:  use "field type" metadata to set specified col widths
-            # if 'Category' in cols:
-                # tableview.resizeColumnToContents(cols.index('Category'))
-            tableview.resizeColumnsToContents()
-            tableview.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
-                                    QtWidgets.QSizePolicy.Expanding)
-            self.setCentralWidget(tableview)
+            self.data_widget = QtWidgets.QTableWidget(30, 20, parent=self)
+        self.setCentralWidget(self.data_widget)
 
     ### SET UP 'db' mode
 
@@ -2926,6 +2844,7 @@ class Main(QtWidgets.QMainWindow):
             self.cname_list.currentRowChanged.connect(self.on_cname_selected)
         self.refresh_cname_list()
         self.left_dock.setWidget(self.cname_list)
+        self.left_dock.setVisible(True)
         self.cname_list.show()
 
     def refresh_cname_list(self):
@@ -3725,7 +3644,7 @@ class Main(QtWidgets.QMainWindow):
         # if state.get('test_objects_loaded'):
             # objs = orb.search_exact(id='HOG')
             # parms = state.get('dashboard', ['m[CBE]', 'P[CBE]', 'R_D[CBE]'])
-            # widget = MatrixWidget(objs, parms, parent=self)
+            # widget = CompareWidget(objs, parms, parent=self)
             # widget.show()
 
     def load_requirements(self):

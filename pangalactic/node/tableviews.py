@@ -17,7 +17,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.tablemodels import (ObjectTableModel,
-                                          MatrixTableModel,
+                                          CompareTableModel,
                                           SpecialSortModel)
 from pangalactic.node.dialogs     import SelectColsDialog
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -207,9 +207,9 @@ class ObjectTableView(QTableView):
             return
 
 
-class MatrixWidget(QDialog):
+class CompareWidget(QDialog):
     """
-    A table for comparing objects side-by-side by parameter values.
+    A table for comparing objects side-by-side by their parameter values.
     """
     def __init__(self, objs, parameters, parent=None):
         """
@@ -218,10 +218,10 @@ class MatrixWidget(QDialog):
         objs (Identifiable):  objects to be compared
         parameters (list of str):  ids of parameters to compare by
         """
-        super(MatrixWidget, self).__init__(parent=parent)
+        super(CompareWidget, self).__init__(parent=parent)
         self.objs = objs
         self.parameters = parameters
-        tablemodel = MatrixTableModel(objs, parameters, parent=self)
+        tablemodel = CompareTableModel(objs, parameters, parent=self)
         self.tableview = QTableView()
         self.tableview.setModel(tablemodel)
         self.layout = QVBoxLayout(self)
@@ -240,8 +240,8 @@ class MatrixWidget(QDialog):
             and obj.assembly in self.objs):
             self.layout.removeWidget(self.bbox)
             self.layout.removeWidget(self.tableview)
-            tablemodel = MatrixTableModel(self.objs, self.parameters,
-                                          parent=self)
+            tablemodel = CompareTableModel(self.objs, self.parameters,
+                                           parent=self)
             self.tableview = QTableView()
             self.tableview.setModel(tablemodel)
             self.layout.addWidget(self.tableview)
