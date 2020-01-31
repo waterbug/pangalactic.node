@@ -52,7 +52,7 @@ from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
-from pangalactic.node.datawidget       import DataMatrixWidget
+from pangalactic.node.datagrid         import DataGrid
 from pangalactic.node.dialogs          import (LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
@@ -2808,10 +2808,10 @@ class Main(QtWidgets.QMainWindow):
             mel_schema = config['dm_schemas']['mel']
             if mel_schema:
                 datamatrix = DataMatrix(schema=mel_schema)
-                self.data_widget = DataMatrixWidget(datamatrix)
+                self.datagrid = DataGrid(datamatrix, parent=self)
         else:
-            self.data_widget = QtWidgets.QTableWidget(30, 20, parent=self)
-        self.setCentralWidget(self.data_widget)
+            self.datagrid = DataGrid(parent=self)
+        self.setCentralWidget(self.datagrid)
 
     ### SET UP 'db' mode
 
