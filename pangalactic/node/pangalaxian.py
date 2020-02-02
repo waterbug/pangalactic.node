@@ -49,7 +49,8 @@ from pangalactic.core.utils.datamatrix import DataMatrix
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx
 from pangalactic.node.admin            import AdminDialog
-from pangalactic.node.buttons          import ButtonLabel, MenuButton
+from pangalactic.node.buttons          import (ButtonLabel, MenuButton,
+                                               SizedButton)
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
@@ -167,10 +168,10 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('    server cert found.')
         else:
             orb.log.debug('    server cert NOT found.')
-        # self.mode_widgets is a mapping from modes (see below) to the widgets
-        # that are visible in each mode
-        self.mode_widgets = dict((mode, set()) for mode in self.modes)
-        self.mode_widgets['all'] = set()  # for actions visible in all modes
+        # self.mode_widget_actions is a mapping from modes (see below) to the
+        # actions of toolbar widgets that are visible in each mode
+        self.mode_widget_actions = dict((mode, set()) for mode in self.modes)
+        self.mode_widget_actions['all'] = set()  # for actions visible in all modes
         # NOTE: the following function calls are *very* order-dependent!
         self._create_actions()
         orb.log.debug('*** projects:  %s' % str([p.id for p in self.projects]))
@@ -1402,9 +1403,9 @@ class Main(QtWidgets.QMainWindow):
             action.setCheckable(True)
         if modes:
             for mode in modes:
-                self.mode_widgets[mode].add(action)
+                self.mode_widget_actions[mode].add(action)
         else:
-            self.mode_widgets['all'].add(action)
+            self.mode_widget_actions['all'].add(action)
         return action
 
     # 'mode' property (linked to state['mode'])
@@ -1421,7 +1422,8 @@ class Main(QtWidgets.QMainWindow):
         initial_size = self.size()
         if hasattr(orb, 'store'):
             orb.db.commit()
-        modal_actions = set.union(*[a for a in self.mode_widgets.values()])
+        modal_actions = set.union(*[a for a in
+                                    self.mode_widget_actions.values()])
         if mode in self.modes:
             current_mode = state.get('mode')
             if current_mode in self.modes:
@@ -1430,8 +1432,8 @@ class Main(QtWidgets.QMainWindow):
             state['mode'] = mode
             for action in modal_actions:
                 action.setVisible(False)
-            for action in set.union(self.mode_widgets[mode],
-                                    self.mode_widgets['all']):
+            for action in set.union(self.mode_widget_actions[mode],
+                                    self.mode_widget_actions['all']):
                 action.setVisible(True)
             if mode == 'component':
                 self.mode_label.setText('Component Modeler')
@@ -1779,7 +1781,7 @@ class Main(QtWidgets.QMainWindow):
 
         project_label = QtWidgets.QLabel('Project:  ')
         project_label.setStyleSheet('font-weight: bold')
-        self.toolbar.addWidget(project_label)
+        self.project_label_action = self.toolbar.addWidget(project_label)
         self.project_selection = ButtonLabel(
                                     self.project.id,
                                     actions=[
@@ -1793,21 +1795,15 @@ class Main(QtWidgets.QMainWindow):
         # self.enable_collab_action.setVisible(False)
         # self.enable_collab_action.setEnabled(False)
         self.project_selection.clicked.connect(self.set_current_project)
-        self.toolbar.addWidget(self.project_selection)
+        self.project_selection_action = self.toolbar.addWidget(
+                                                    self.project_selection)
         # project_selection and its label will only be visible in 'data',
         # 'system', and 'component' modes
-        self.mode_widgets['data'].add(self.project_selection)
-        self.mode_widgets['data'].add(project_label)
-        self.mode_widgets['system'].add(self.project_selection)
-        self.mode_widgets['system'].add(project_label)
-        self.mode_widgets['component'].add(self.project_selection)
-        self.mode_widgets['component'].add(project_label)
         self.toolbar.addSeparator()
-
         spacer = QtWidgets.QWidget(parent=self)
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                              QtWidgets.QSizePolicy.Expanding)
-        self.toolbar.addWidget(spacer)
+        spacer_action = self.toolbar.addWidget(spacer)
         self.toolbar.addAction(self.connect_to_bus_action)
         # self.circle_widget = CircleWidget()
         # self.toolbar.addWidget(self.circle_widget)
@@ -1819,6 +1815,18 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addAction(self.component_mode_action)
         # Makes the next toolbar appear underneath this one
         self.addToolBarBreak()
+        self.new_row_button = SizedButton('New Row')
+        self.new_row_action = self.toolbar.insertWidget(spacer_action,
+                                                        self.new_row_button)
+        self.new_row_button.clicked.connect(self.new_row)
+        self.mode_widget_actions['data'].add(self.project_selection_action)
+        self.mode_widget_actions['data'].add(self.project_label_action)
+        self.mode_widget_actions['data'].add(self.new_row_action)
+        self.mode_widget_actions['system'].add(self.project_selection_action)
+        self.mode_widget_actions['system'].add(self.project_label_action)
+        self.mode_widget_actions['component'].add(
+                                              self.project_selection_action)
+        self.mode_widget_actions['component'].add(self.project_label_action)
 
     # def create_timer(self):
         # self.circle_timer = QTimer(self)
@@ -2847,6 +2855,12 @@ class Main(QtWidgets.QMainWindow):
         self.left_dock.setVisible(True)
         self.cname_list.show()
 
+    def new_row(self):
+        """
+        Send 'dm new row' signal to the current datagrid widget.
+        """
+        dispatcher.send('dm new row')
+
     def refresh_cname_list(self):
         self.cname_list.clear()
         for cname in self.cnames:
@@ -2953,9 +2967,9 @@ class Main(QtWidgets.QMainWindow):
         """
         Delete a Project, removing it wherever it is referenced.
         """
-        # TODO:  also remove ObjectAccess and RoleAssignment instances that
-        # reference it -- or perhaps refuse to remove it if it has them?
-        # TODO:  also remove it from the repository
+        # TODO:  also remove RoleAssignment instances that reference it -- or
+        # perhaps refuse to remove it if it has them?
+        # TODO:  and remove it from the repository
         orb.log.info('* delete_project()')
         # first delete any ProjectSystemUsage relationships
         project_oid = self.project.oid

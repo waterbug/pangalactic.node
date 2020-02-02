@@ -6,8 +6,10 @@ from PyQt5.QtGui import QColor, QIcon, QKeySequence, QPainter, QPixmap
 from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QColorDialog,
         QComboBox, QDateTimeEdit, QDialog, QFontDialog, QGroupBox, QHBoxLayout,
         QLabel, QStyledItemDelegate, QLineEdit, QMessageBox, QPushButton,
-        QTableWidget, QTableWidgetItem, QToolBar, QVBoxLayout)
+        QTableWidget, QTableWidgetItem, QVBoxLayout)
 from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog
+
+from uuid import uuid4
 
 from pangalactic.core.uberorb import orb
 
@@ -29,9 +31,7 @@ class DataGrid(QTableWidget):
         rows = len(self.dm) or 0
         cols = len(self.dm.schema) or 1
         super(DataGrid, self).__init__(rows, cols, parent)
-        # self.toolbar = QToolBar()
-        # self.addToolBar(self.toolbar)
-        self.setItemDelegate(DataGridDelegate(self))
+        self.setItemDelegate(DGDelegate(self))
         self.setSelectionBehavior(self.SelectRows)
         self.setSortingEnabled(False)
         header = self.horizontalHeader()
@@ -40,25 +40,47 @@ class DataGrid(QTableWidget):
                            'font-size: 14px; border: 1px; } '
                            'QToolTip { font-weight: normal; '
                            'font-size: 12px; border: 2px solid; };')
-        labels = [col['label'] or col['name']
-                  for col in self.dm.schema.values()]
+        # TODO: create 'dedz' cache and look up col label/name there ...
+        # labels = [col['label'] or col['name'] for col in self.dm.schema]
+        labels = self.dm.schema
         for i, label in enumerate(labels):
             self.setHorizontalHeaderItem(i, QTableWidgetItem(label))
         for col in range(cols):
             self.resizeColumnToContents(col)
+        dispatcher.connect(self.new_row, 'dm new row')
 
-class DataGridItem(QTableWidgetItem):
+    def new_row(self):
+        orb.log.debug('new_row()')
+        new_row = len(self.dm)
+        self.insertRow(new_row)
+        row_oid = str(uuid4())
+        row = dict(oid=row_oid)
+        self.dm[row['oid']] = row
+        orb.log.debug(' - self.dm is now {}'.format(str(self.dm)))
+        # self.setItem(new_row, 3, DGItem(text='Hi, I am a new row!'))
+
+    def add_row(self, row):
+        new_row = len(self.dm)
+        self.insertRow(new_row)
+        # if row doesn't have an oid, give it one
+        if not row.get('oid'):
+            row['oid'] = str(uuid4())
+        self.dm[row['oid']] = row
+        for elem_id, val in enumerate(row.items()):
+            if elem_id in self.dm.schema:
+                # TODO: put value into appropriate cell ...
+                pass
+
+class DGItem(QTableWidgetItem):
 
     def __init__(self, text=None):
         if text is not None:
-            super(DataGridItem, self).__init__(text)
+            super(DGItem, self).__init__(text)
         else:
-            super(DataGridItem, self).__init__()
+            super(DGItem, self).__init__()
 
     def data(self, role):
-        if role in (Qt.EditRole, Qt.StatusTipRole):
-            return self.text()
-        if role == Qt.DisplayRole:
+        if role in (Qt.EditRole, Qt.StatusTipRole, Qt.DisplayRole): 
             return self.text()
         t = str(self.text())
         try:
@@ -74,17 +96,17 @@ class DataGridItem(QTableWidgetItem):
         if role == Qt.TextAlignmentRole:
             if t and (t[0].isdigit() or t[0] == '-'):
                 return Qt.AlignRight | Qt.AlignVCenter
-        return super(DataGridItem, self).data(role)
+        return super(DGItem, self).data(role)
 
     def setData(self, role, value):
-        super(DataGridItem, self).setData(role, value)
+        super(DGItem, self).setData(role, value)
         if self.tableWidget():
             self.tableWidget().viewport().update()
 
-class DataGridDelegate(QStyledItemDelegate):
+class DGDelegate(QStyledItemDelegate):
 
     def __init__(self, parent=None):
-        super(DataGridDelegate, self).__init__(parent)
+        super(DGDelegate, self).__init__(parent)
 
     def createEditor(self, parent, style, index):
         # TODO: check permission ...
@@ -111,15 +133,20 @@ class DataGridDelegate(QStyledItemDelegate):
                 index.model().data(index, Qt.EditRole), 'yyyy/MM/dd'))
 
     def setModelData(self, editor, model, index):
+        orb.log.debug('setModelData()')
         if isinstance(editor, QLineEdit):
             model.setData(index, editor.text())
-            col = index.column()
-            row = index.row()
-            row_oid = self.parent().dm[row]['oid']
-            colnames = list(self.parent().dm.schema)
-            orb.log.debug('setModelData: ({}, {}): "{}"'.format(
-                                colnames[col], row, editor.text()))
-            dispatcher.send('item updated', oid=self.parent().oid,
+            colnum = index.column()
+            rownum = index.row()
+            dm = self.parent().dm
+            col_id = dm.schema[colnum]
+            row_oid = dm[list(dm.keys())[rownum]]['oid']
+            # TODO: cast editor.text() to column datatype ...
+            dm[row_oid][col_id] = editor.text()
+            orb.log.debug(' - ({}, {}): "{}"'.format(
+                                rownum, col_id, editor.text()))
+            orb.log.debug('datamatrix is now: {}'.format(str(dm)))
+            dispatcher.send('item updated', oid=dm.id,
                             row_oid=row_oid, value=editor.text())
         elif isinstance(editor, QDateTimeEdit):
             model.setData(index, editor.date().toString('yyyy/MM/dd'))
