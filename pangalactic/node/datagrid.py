@@ -11,6 +11,7 @@ from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog
 
 from uuid import uuid4
 
+from pangalactic.core         import config
 from pangalactic.core.uberorb import orb
 
 from louie import dispatcher
@@ -42,7 +43,12 @@ class DataGrid(QTableWidget):
                            'font-size: 12px; border: 2px solid; };')
         # TODO: create 'dedz' cache and look up col label/name there ...
         # labels = [col['label'] or col['name'] for col in self.dm.schema]
-        labels = self.dm.schema
+        if config.get('deds') and config['deds'].get('mel_deds'):
+            mel_deds = config['deds']['mel_deds']
+            labels = [mel_deds[deid].get('label', deid)
+                      for deid in mel_deds]
+        else:
+            labels = self.dm.schema
         for i, label in enumerate(labels):
             self.setHorizontalHeaderItem(i, QTableWidgetItem(label))
         for col in range(cols):
