@@ -28,14 +28,11 @@ from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.node.buttons     import SizedButton
-# from pangalactic.node.cad.viewer  import QtViewer3DColor
+from pangalactic.node.cad.viewer  import QtViewer3DColor
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, StringFieldWidget,
                                           IntegerFieldWidget)
-
-if not platform.platform().startswith('Darwin'):
-    from pangalactic.node.cad.viewer  import QtViewer3DColor
 
 COLORS = {True: 'green', False: 'red'}
 

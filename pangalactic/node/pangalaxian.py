@@ -1762,12 +1762,7 @@ class Main(QtWidgets.QMainWindow):
                                    tooltip='Tools',
                                    actions=system_tools_actions, parent=self)
         self.toolbar.addWidget(system_tools_button)
-
-        # pythonocc CAD library not working on OSX ("Darwin") because of
-        # fatal error: "PyThreadState_Get: no current thread"
-        if not platform.platform().startswith('Darwin'):
-            self.toolbar.addAction(self.view_cad_action)
-
+        self.toolbar.addAction(self.view_cad_action)
         help_icon_file = 'tardis' + state['icon_type']
         help_icon_path = os.path.join(icon_dir, help_icon_file)
         help_actions = [self.help_action,
@@ -2815,7 +2810,8 @@ class Main(QtWidgets.QMainWindow):
         if config.get('dm_schemas') and config['dm_schemas'].get('mel'):
             mel_schema = config['dm_schemas']['mel']
             if mel_schema:
-                datamatrix = DataMatrix(schema=mel_schema)
+                datamatrix = DataMatrix(schema=mel_schema,
+                                        dmid=self.project.id+'_mel')
                 self.datagrid = DataGrid(datamatrix, parent=self)
         else:
             self.datagrid = DataGrid(parent=self)
