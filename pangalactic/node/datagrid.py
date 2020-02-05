@@ -153,7 +153,7 @@ class DGDelegate(QStyledItemDelegate):
                                 rownum, col_id, editor.text()))
             orb.log.debug('datamatrix is now: {}'.format(str(dm)))
             dm.save()
-            dispatcher.send('item updated', oid=dm.id,
+            dispatcher.send('item updated', oid=dm.oid,
                             row_oid=row_oid, value=editor.text())
         elif isinstance(editor, QDateTimeEdit):
             model.setData(index, editor.date().toString('yyyy/MM/dd'))

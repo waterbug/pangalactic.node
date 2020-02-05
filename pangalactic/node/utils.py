@@ -65,7 +65,8 @@ def clone(what, include_ports=True, include_components=True,
             clone the same ports
         include_components (bool): if an object with components is being
             cloned, give the clone the same components
-        generate_id (bool): if True, an opaque id will be auto-generated
+        generate_id (bool): if True, an id will be auto-generated -- always
+            True if obj is a subclass of Product
         kw (dict):  attributes for the clone
     """
     orb.log.info('* clone({})'.format(what))
@@ -107,9 +108,11 @@ def clone(what, include_ports=True, include_components=True,
     if not newkw.get('oid'):
         newkw['oid'] = str(uuid4())
     orb.new_oids.append(newkw['oid'])
-    if generate_id and not newkw.get('id'):
-        # this is only needed for objects whose 'id' does not need to be
-        # significant and/or human-intelligible, but should still exist
+    if ((generate_id and not newkw.get('id')) or
+         issubclass(cls, orb.classes['Product'])):
+        # this is only needed for [1] Products (for which an id will be
+        # generated when saved) and [2] objects for which an 'id' is required
+        # but does not need to be significant and/or human-intelligible
         newkw['id'] = '_'.join([cname, newkw['oid']])
     orb.log.info('  new %s oid: %s)' % (cname, newkw['oid']))
     NOW = dtstamp()
