@@ -79,7 +79,7 @@ class DataGrid(QTableWidget):
         dispatcher.connect(self.on_remote_data_item_updated,
                            'remote: data item updated')
 
-    def new_row(self, row_oid=row_oid, local=True):
+    def new_row(self, row_oid=None, local=True):
         orb.log.debug('new_row()')
         row_nbr = len(self.dm)
         self.insertRow(row_nbr)
