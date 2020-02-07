@@ -45,7 +45,6 @@ from pangalactic.core.test.utils       import (create_test_project,
 from pangalactic.core.uberorb          import orb
 from pangalactic.core.utils.meta       import (asciify,
                                                uncook_datetime)
-from pangalactic.core.utils.datamatrix import DataMatrix
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx
 from pangalactic.node.admin            import AdminDialog
@@ -2803,54 +2802,12 @@ class Main(QtWidgets.QMainWindow):
         Data Matrix interface.
         """
         orb.log.debug('* setting data mode interface ...')
-        # hide the top and right dock widgets
+        # hide the top, right, and left dock widgets
         self.top_dock_widget.setVisible(False)
         self.right_dock.setVisible(False)
         self.left_dock.setVisible(False)
-        # load DataMatrix instances from data_store into self.data dict
-        data_files = os.listdir(orb.data_store)
-        if data_files:
-            for df in data_files:
-                prefix = df[:-4]   # cut off the '.tsv'
-                try:
-                    proj_id, ds_id = prefix.split('-')
-                except:
-                    orb.log.debug('- bad data file: "{}"'.format(df))
-                    continue
-                # look for a corresponding DataSet instance
-                project = orb.select('Project', id=proj_id)
-                dataset = orb.select('DataSet', id=prefix,
-                                     owner=project)
-                if dataset:
-                    schema = config['dm_schemas'].get(ds_id)
-                    if schema:
-                        dm = DataMatrix(schema=schema, dataset=dataset)
-                        orb.data[ds_id] = dm
-        # TODO: (?) remove orphaned data files from data_store
-        # (i.e. ones that have no corresponding DataSet)
-
-        # for prototyping, use "MEL" schema
-        schema_name = 'MEL'
-        if config.get('dm_schemas') and config['dm_schemas'].get(schema_name):
-            schema = config['dm_schemas'][schema_name]
-            if schema:
-                # retrieve the DataSet or create it
-                ds_id = self.project.id + '-' + schema_name
-                ds = orb.select('DataSet', id=ds_id, owner=self.project)
-                if not ds:
-                    ds = clone('DataSet', owner=self.project)
-                    ds.id = ds_id
-                    orb.save([ds])
-                # instantiate the corresponding DataMatrix
-                datamatrix = DataMatrix(schema=schema, dataset=ds)
-                # look for a corresponding file in the data_store and load its
-                # data into the datamatrix ...
-
-                self.datagrid = DataGrid(datamatrix, parent=self)
-        else:
-            datamatrix = DataMatrix()
-            self.datagrid = DataGrid(datamatrix, parent=self)
-        self.setCentralWidget(self.datagrid)
+        self.data_widget = DataGrid(self.project, schema_name="MEL")
+        self.setCentralWidget(self.data_widget)
 
     ### SET UP 'db' mode
 
@@ -3765,10 +3722,12 @@ class Main(QtWidgets.QMainWindow):
         sys.exit()
 
 def cleanup_and_save():
-    # save all cached datasets (DataMatrix instances)
+    # save all cached DataMatrix instances
     if orb.data:
+        orb.log.debug('* data matrix objects found; saving ...')
         for dm in orb.data.values():
             dm.save()
+            orb.log.debug('  - saved dm "{}"'.format(dm.oid))
     write_config(os.path.join(orb.home, 'config'))
     write_prefs(os.path.join(orb.home, 'prefs'))
     write_state(os.path.join(orb.home, 'state'))
