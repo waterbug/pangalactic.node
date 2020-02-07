@@ -892,14 +892,15 @@ class Main(QtWidgets.QMainWindow):
                 # TODO:  when proj_id does not refer to current project, update
                 # the datamatrix in orb.data ...
                 proj_id, dm_oid, row_oid = content
-                dispatcher.send("remote: data new row",
-                                dm_oid, row_oid)
+                dispatcher.send(signal="remote: data new row", dm_oid=dm_oid,
+                                row_oid=row_oid)
             elif subject == 'data item updated':
                 # TODO:  when proj_id does not refer to current project, update
                 # the datamatrix in orb.data ...
                 proj_id, dm_oid, row_oid, col_id, value = content
-                dispatcher.send("remote: data item updated",
-                                dm_oid, row_oid, col_id, value)
+                dispatcher.send(signal="remote: data item updated",
+                                dm_oid=dm_oid, row_oid=row_oid, col_id=col_id,
+                                value=value)
             elif subject == 'modified':
                 obj_oid, obj_id, obj_mod_datetime = content
                 obj = orb.get(obj_oid)

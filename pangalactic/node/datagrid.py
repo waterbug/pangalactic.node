@@ -114,11 +114,12 @@ class DataGrid(QTableWidget):
                 self.setItem(row_nbr, col_nbr,
                              QTableWidgetItem(str(value)))
 
-    def on_remote_new_row(self, dm_oid, row_oid):
+    def on_remote_new_row(self, dm_oid=None, row_oid=None):
         if self.dm.oid == dm_oid:
             self.new_row(row_oid=row_oid, local=False)
 
-    def on_remote_data_item_updated(self, dm_oid, row_oid, col_id, value):
+    def on_remote_data_item_updated(self, dm_oid=None, row_oid=None,
+                                    col_id=None, value=None):
         if self.dm.oid == dm_oid:
             self.set_item_value(row_oid, col_id, value)
 
