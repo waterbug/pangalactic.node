@@ -188,6 +188,8 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        dispatcher.connect(self.on_data_item_updated, 'dm item updated')
+        dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.refresh_tree_and_dashboard, 'dashboard mod')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
@@ -195,7 +197,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_add_person, 'add person')
         dispatcher.connect(self.on_get_people, 'get people')
         dispatcher.connect(self.set_new_object_table_view,
-                                               'new object table view pref')
+                                                'new object table view pref')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., RoleAssignment instances)
@@ -886,6 +888,18 @@ class Main(QtWidgets.QMainWindow):
                 # been decloaked (usually an Organization or Project)
                 obj_oid, obj_id, actor_oid, actor_id = content
                 msg += obj_id
+            elif subject == 'data new row':
+                # TODO:  when proj_id does not refer to current project, update
+                # the datamatrix in orb.data ...
+                proj_id, dm_oid, row_oid = content
+                dispatcher.send(signal="remote: data new row",
+                                dm_oid, row_oid)
+            elif subject == 'data item updated':
+                # TODO:  when proj_id does not refer to current project, update
+                # the datamatrix in orb.data ...
+                proj_id, dm_oid, row_oid, col_id, value = content
+                dispatcher.send(signal="remote: data item updated",
+                                dm_oid, row_oid, col_id, value)
             elif subject == 'modified':
                 obj_oid, obj_id, obj_mod_datetime = content
                 obj = orb.get(obj_oid)
@@ -2088,7 +2102,7 @@ class Main(QtWidgets.QMainWindow):
 
     def on_new_object_signal(self, obj=None, cname=''):
         """
-        Handle (local) dispatcher signal for "new object".
+        Handle local dispatcher signal for "new object".
         """
         # for now, use on_mod_object_signal (may change in the future)
         self.on_mod_object_signal(obj=obj, cname=cname, msg='new')
@@ -2151,6 +2165,34 @@ class Main(QtWidgets.QMainWindow):
 
     def on_failure(self, f):
         orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
+
+    def on_data_item_updated(self, proj_id=None, dm_oid=None, row_oid=None,
+                             col_id=None, value=None):
+        """
+        Handle local dispatcher signal for "dm item updated".
+        """
+        orb.log.info('* received local "item updated" signal')
+        if state.get('connected'):
+            orb.log.info('  - calling "vger.data_update_item"')
+            rpc = self.mbus.session.call('vger.data_update_item',
+                                         proj_id=proj_id, dm_oid=dm_oid,
+                                         row_oid=row_oid, col_id=col_id,
+                                         value=value)
+            rpc.addCallback(self.on_result)
+            rpc.addErrback(self.on_failure)
+
+    def on_data_new_row_added(self, proj_id=None, dm_oid=None, row_oid=None):
+        """
+        Handle local dispatcher signal for "dm new row added".
+        """
+        orb.log.info('* received local "dm new row added" signal')
+        if state.get('connected'):
+            orb.log.info('  - calling "vger.data_new_row"')
+            rpc = self.mbus.session.call('vger.data_new_row',
+                                         proj_id=proj_id, dm_oid=dm_oid,
+                                         row_oid=row_oid)
+            rpc.addCallback(self.on_result)
+            rpc.addErrback(self.on_failure)
 
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """

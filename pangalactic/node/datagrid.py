@@ -35,13 +35,13 @@ class DataGrid(QTableWidget):
         """
         super(QTableWidget, self).__init__(parent)
         # first check for a cached datamatrix:
-        project = project or orb.get('pgefobjects:SANDBOX')
+        self.project = project or orb.get('pgefobjects:SANDBOX')
         schema_name = schema_name or "MEL"
-        dm_oid = project.id + '-' + schema_name
+        dm_oid = self.project.id + '-' + schema_name
         self.dm = orb.data.get(dm_oid)
         if not self.dm:
             # if no cached datamatrix is found, create a new one:
-            self.dm = DataMatrix(project=project, schema_name=schema_name)
+            self.dm = DataMatrix(project=self.project, schema_name=schema_name)
         rows = len(self.dm) or 0
         cols = len(self.dm.schema) or 1
         super(DataGrid, self).__init__(rows, cols, parent)
@@ -74,15 +74,24 @@ class DataGrid(QTableWidget):
                         self.set_item_value(row.get('oid'), col_id,
                                             row[col_id])
         dispatcher.connect(self.new_row, 'dm new row')
+        dispatcher.connect(self.on_remote_new_row,
+                           'remote: data new row')
+        dispatcher.connect(self.on_remote_data_item_updated,
+                           'remote: data item updated')
 
-    def new_row(self):
+    def new_row(self, row_oid=row_oid, local=True):
         orb.log.debug('new_row()')
         row_nbr = len(self.dm)
         self.insertRow(row_nbr)
-        row_oid = str(uuid4())
+        if not row_oid:
+            row_oid = str(uuid4())
         row = dict(oid=row_oid)
         self.dm[row['oid']] = row
         orb.log.debug(' - self.dm is now {}'.format(str(self.dm)))
+        proj_id = self.project.id
+        if local:
+            dispatcher.send('dm new row added', proj_id=proj_id,
+                            dm_oid=self.dm.oid, row_oid=row_oid)
 
     def add_row(self, row):
         new_row = len(self.dm)
@@ -104,6 +113,15 @@ class DataGrid(QTableWidget):
                 col_nbr = self.dm.schema.index(col_id)
                 self.setItem(row_nbr, col_nbr,
                              QTableWidgetItem(str(value)))
+
+    def on_remote_new_row(self, dm_oid, row_oid):
+        if self.dm.oid == dm_oid:
+            self.new_row(row_oid=row_oid, local=False)
+
+    def on_remote_data_item_updated(self, dm_oid, row_oid, col_id, value):
+        if self.dm.oid == dm_oid:
+            self.set_item_value(row_oid, col_id, value)
+
 
 class DGItem(QTableWidgetItem):
 
@@ -196,8 +214,10 @@ class DGDelegate(QStyledItemDelegate):
             orb.log.debug(' - ({}, {}): "{}"'.format(
                                 rownum, col_id, editor.text()))
             orb.log.debug('datamatrix is now: {}'.format(str(dm)))
-            dispatcher.send('item updated', oid=dm.oid,
-                            row_oid=row_oid, value=editor.text())
+            proj_id = self.parent().project.id
+            dispatcher.send('dm item updated', proj_id=proj_id, dm_oid=dm.oid,
+                            row_oid=row_oid, col_id=col_id,
+                            value=editor.text())
         elif isinstance(editor, QDateTimeEdit):
             model.setData(index, editor.date().toString('yyyy/MM/dd'))
 
