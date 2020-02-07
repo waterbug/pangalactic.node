@@ -206,7 +206,15 @@ class DGDelegate(QStyledItemDelegate):
             rownum = index.row()
             dm = self.parent().dm
             col_id = dm.schema[colnum]
-            row_oid = dm[list(dm.keys())[rownum]]['oid']
+            try:
+                row_oid = dm[list(dm.keys())[rownum]]['oid']
+            except:
+                dm_rows = len(dm)
+                orb.log.debug('* error: dm rows = {}; row # = {}'.format(
+                              dm_rows, rownum))
+                orb.log.debug('         dm keys:')
+                for k in dm.keys():
+                    orb.log.debug('         {}'.format(k))
             # TODO: cast editor.text() to column datatype ...
             dm[row_oid][col_id] = editor.text()
             # NOTE: should not need to save() every time! dm is cached in
