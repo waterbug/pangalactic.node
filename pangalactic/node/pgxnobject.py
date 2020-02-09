@@ -31,8 +31,7 @@ from pangalactic.core.parametrics import (add_parameter, delete_parameter,
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, ureg
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
-                                          get_parameter_definition_oid,
-                                          gen_product_id)
+                                          get_parameter_definition_oid)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import validate_all
 from pangalactic.node.utils       import (clone, get_object_title,
@@ -1276,9 +1275,10 @@ class PgxnObject(QDialog):
             # depending on its 'owner' and 'product_type' ...
             if isinstance(self.obj, orb.classes['HardwareProduct']):
                 # NOTE: if no obj.owner.id is found or if it is None,
-                # gen_product_id will use 'Vendor'
+                # orb.gen_product_id() will use 'Vendor'
                 owner_id = getattr(self.obj.owner, 'id', None)
-                self.obj.id = gen_product_id(owner_id, self.obj.product_type)
+                self.obj.id = orb.gen_product_id(owner_id,
+                                                 self.obj.product_type)
             orb.save([self.obj])
             if self.new:
                 if cname == 'Project':

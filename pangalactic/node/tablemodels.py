@@ -287,14 +287,20 @@ class ObjectTableModel(ODTableModel):
         return True
 
     def mod_object(self, obj):
-        # orb.log.debug("  ObjectTableModel.mod_object() ...")
-        row = self.objs.index(obj)  # raises ValueError if problem
-        # orb.log.debug("    object found at row {}".format(row))
-        idx = self.index(row, 0, parent=QModelIndex())
-        self.beginResetModel()
-        self.setData(idx, obj)
-        self.endResetModel()
-        return idx
+        orb.log.debug("  ObjectTableModel.mod_object() ...")
+        try:
+            row = self.objs.index(obj)  # raises ValueError if problem
+            orb.log.debug("    object found at row {}".format(row))
+            idx = self.index(row, 0, parent=QModelIndex())
+            self.beginResetModel()
+            self.setData(idx, obj)
+            self.endResetModel()
+            return idx
+        except:
+            # possibly because my C++ object has been deleted ...
+            txt = 'object "{}" (oid {}) not in list.'.format(obj.id, obj.oid)
+            orb.log.debug("    {}".format(txt))
+        return QModelIndex()
 
     def removeRow(self, row, index=QModelIndex()):
         if row < len(self.objs):

@@ -25,7 +25,8 @@ from pangalactic.node.pgxnobject  import PgxnObject
 
 class ObjectTableView(QTableView):
     """
-    A table view for a specified class, with special sorting capabilities.
+    For a list of objects with the same class, a table view with sorting
+    capabilities.
     """
     def __init__(self, objs, view=None, parent=None):
         """
@@ -144,7 +145,11 @@ class ObjectTableView(QTableView):
         orb.log.debug('* ObjectTableView: on_mod_object_signal()')
         idx = self.main_table_model.mod_object(obj)
         if idx is not None:
-            self.selectRow(idx.row())
+            try:
+                self.selectRow(idx.row())
+            except:
+                # oops, my C++ object went away ...
+                orb.log.debug('  - obj not found (table possibly recreated).')
 
     def select_columns(self):
         """
@@ -186,6 +191,192 @@ class ObjectTableView(QTableView):
         fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Write to tsv File',
                                     objs_name + '-' + dtstr + '.tsv')
+        if fpath:
+            orb.log.debug('  - file selected: "%s"' % fpath)
+            fpath = str(fpath)    # QFileDialog fpath is unicode; UTF-8 (?)
+            state['last_path'] = os.path.dirname(fpath)
+            f = open(fpath, 'w')
+            table = self.main_table_proxy
+            header = '\t'.join(self.view[:])
+            rows = [header]
+            for row in range(table.rowCount()):
+                rows.append('\t'.join([table.data(table.index(row, col))
+                                       for col in range(len(self.view))]))
+            content = '\n'.join(rows)
+            f.write(content)
+            f.close()
+            # TODO:  add a "success" notification
+            # txt = '... table exported to file: {}'.format(fpath)
+        else:
+            orb.log.debug('  ... export to tsv cancelled.')
+            return
+
+
+# WORK IN PROGRESS!  not working yet ...
+class ODTableView(QTableView):
+    """
+    For a list of OrderedDict (ordered dictionary) instances, a table view with
+    sorting capabilities.
+    """
+    def __init__(self, ods, view=None, parent=None):
+        """
+        Initialize
+
+        ods (Identifiable):  objects (rows)
+        view (list of str):  specified attributes (columns)
+        """
+        super(ODTableView, self).__init__(parent=parent)
+        orb.log.info('* [ObjectTableView] initializing ...')
+        self.ods = ods
+        self.view = view
+        self.setup_table()
+        self.add_context_menu()
+
+    def setup_table(self):
+        self.cname = None
+        # if a main_table_proxy exists, remove it so gui doesn't get confused
+        if self.ods:
+            self.cname = self.ods[0].__class__.__name__
+            orb.log.info('  - for class: "{}"'.format(self.cname))
+            if not self.view:
+                # if no view is specified, use the preferred view, if any
+                if prefs.get('db_views', {}).get(self.cname):
+                    self.view = prefs['db_views'][self.cname][:]
+        else:
+            orb.log.info('  - no objects provided.')
+        # if there is neither a specified view nor a preferred view, use the
+        # default view
+        view = self.view or MAIN_VIEWS.get(self.cname, IDENTITY)
+        self.main_table_model = ObjectTableModel(self.ods, view=view,
+                                                 parent=self)
+        self.view = self.main_table_model.view
+        self.main_table_proxy = SpecialSortModel(parent=self)
+        self.main_table_proxy.setSourceModel(self.main_table_model)
+        self.setStyleSheet('font-size: 12px')
+        # disable sorting while loading data
+        self.setSortingEnabled(False)
+        self.setSelectionBehavior(QTableView.SelectRows)
+        self.setModel(self.main_table_proxy)
+        column_header = self.horizontalHeader()
+        column_header.setStyleSheet('font-weight: bold')
+        # TODO:  try setting header colors using Qt functions ...
+        column_header.setSectionsMovable(True)
+        column_header.sectionMoved.connect(self.on_section_moved)
+        # NOTE:  the following line will make table width fit into window
+        #        ... but it also makes column widths non-adjustable
+        # column_header.setSectionResizeMode(column_header.Stretch)
+        # row_header = self.verticalHeader()
+        # NOTE:  enable sorting *after* setting model but *before* resizing to
+        # contents (so column sizing includes sort indicators)
+        self.setSortingEnabled(True)
+        # wrap columns that hold TEXT_PROPERTIES
+        self.setTextElideMode(Qt.ElideNone)
+        for i, a in enumerate(self.view):
+            self.setColumnWidth(i, PGEF_COL_WIDTHS.get(a, 100))
+        # self.resizeRowsToContents()
+        # QTimer trick ...
+        QTimer.singleShot(0, self.resizeRowsToContents)
+        # IMPORTANT:  after a sort, rows retain the heights they had before
+        # the sort (i.e. wrong) unless this is done:
+        self.main_table_proxy.layoutChanged.connect(
+                                    self.resizeRowsToContents)
+        # sort by underlying model intrinsic order
+        # ("row numbers" [aka vertical header] are column -1)
+        self.main_table_proxy.sort(-1, Qt.AscendingOrder)
+        self.doubleClicked.connect(self.main_table_row_double_clicked)
+        self.setMinimumSize(300, 200)
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
+        dispatcher.connect(self.on_mod_object_signal, 'modified object')
+
+    def add_context_menu(self):
+        column_header = self.horizontalHeader()
+        select_columns_action = QAction('select columns', column_header)
+        select_columns_action.triggered.connect(self.select_columns)
+        column_header.addAction(select_columns_action)
+        export_tsv_action = QAction('export table to tsv file', column_header)
+        export_tsv_action.triggered.connect(self.export_tsv)
+        column_header.addAction(export_tsv_action)
+        column_header.setContextMenuPolicy(Qt.ActionsContextMenu)
+
+    def main_table_row_double_clicked(self, clicked_index):
+        # NOTE: maybe not the most elegant way to do this ... look again later
+        mapped_row = self.main_table_proxy.mapToSource(clicked_index).row()
+        orb.log.debug(
+            '* [ObjectTableView] row double-clicked [mapped row: {}]'.format(
+                                                            str(mapped_row)))
+        oid = getattr(self.main_table_model.ods[mapped_row], 'oid')
+        obj = orb.get(oid)
+        dlg = PgxnObject(obj, parent=self)
+        dlg.show()
+
+    def on_section_moved(self, logical_index, old_index, new_index):
+        orb.log.debug('* ObjectTableView: on_section_moved() ...')
+        orb.log.debug('  logical index: {}'.format(logical_index))
+        orb.log.debug('  old index: {}'.format(old_index))
+        orb.log.debug('  new index: {}'.format(new_index))
+        orb.log.debug('  self.view: {}'.format(str(self.view)))
+        new_view = self.view[:]
+        moved_item = new_view.pop(old_index)
+        if new_index > len(new_view) - 1:
+            new_view.append(moved_item)
+        else:
+            new_view.insert(new_index, moved_item)
+        orb.log.debug('  new view: {}'.format(str(new_view)))
+        if not prefs.get('db_views'):
+            prefs['db_views'] = {}
+        prefs['db_views'][self.cname] = new_view[:]
+        dispatcher.send('new object table view pref', cname=self.cname)
+
+    def on_mod_object_signal(self, obj=None, cname=''):
+        """
+        Handle 'modified object' dispatcher signal.
+        """
+        orb.log.debug('* ObjectTableView: on_mod_object_signal()')
+        idx = self.main_table_model.mod_object(obj)
+        if idx is not None:
+            self.selectRow(idx.row())
+
+    def select_columns(self):
+        """
+        Dialog displayed in response to 'select columns' context menu item.
+        """
+        orb.log.debug('* ObjectTableView: select_columns() ...')
+        # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
+        # original schema!!!
+        all_cols = orb.schemas.get(self.cname, {}).get('field_names', [])[:]
+        dlg = SelectColsDialog(all_cols, self.view, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            # rebuild custom view from the selected columns
+            old_view = self.view[:]
+            new_view = []
+            # add any columns from old_view first
+            for col in old_view:
+                if col in dlg.checkboxes and dlg.checkboxes[col].isChecked():
+                    new_view.append(col)
+                    all_cols.remove(col)
+            # then append any newly selected columns
+            for col in all_cols:
+                if dlg.checkboxes[col].isChecked():
+                    new_view.append(col)
+            orb.log.debug('  new view: {}'.format(new_view))
+            if not prefs.get('db_views'):
+                prefs['db_views'] = {}
+            prefs['db_views'][self.cname] = new_view[:]
+            self.view = new_view[:]
+            orb.log.debug('  self.view: {}'.format(str(self.view)))
+            self.setup_table()
+
+    def export_tsv(self):
+        """
+        Write the table content to a tsv (tab-separated-values) file.
+        """
+        orb.log.debug('* export_tsv()')
+        dtstr = date2str(dtstamp())
+        ods_name = '-'.join(get_external_name_plural(self.cname).split(' '))
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to tsv File',
+                                    ods_name + '-' + dtstr + '.tsv')
         if fpath:
             orb.log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; UTF-8 (?)

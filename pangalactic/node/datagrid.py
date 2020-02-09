@@ -81,6 +81,11 @@ class DataGrid(QTableWidget):
 
     def new_row(self, row_oid=None, local=True):
         orb.log.debug('new_row()')
+        # to avoid cycles ...
+        if not local:
+            if row_oid in self.dm:
+                orb.log.debug("  - we already got one, it's verra nahss!")
+                return
         row_nbr = len(self.dm)
         self.insertRow(row_nbr)
         if not row_oid:
