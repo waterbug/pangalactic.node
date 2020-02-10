@@ -3767,8 +3767,10 @@ class Main(QtWidgets.QMainWindow):
 def cleanup_and_save():
     # save all cached DataMatrix instances
     if orb.data:
+        dm_oids = list(orb.data.keys())[:]
         orb.log.debug('* data matrix objects found; saving ...')
-        for dm in orb.data.values():
+        for dm_oid in dm_oids :
+            dm = orb.data[dm_oid]
             dm.save()
             orb.log.debug('  - saved dm "{}"'.format(dm.oid))
     write_config(os.path.join(orb.home, 'config'))
