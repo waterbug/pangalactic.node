@@ -1272,13 +1272,14 @@ class PgxnObject(QDialog):
                 self.progress_dialog.setValue(self.progress_value)
             # for instances of HardwareProduct, the last step is to generate
             # an 'id': even if it is an existing object, its 'id' might change
-            # depending on its 'owner' and 'product_type' ...
+            # depending on its 'owner' and 'product_type' ... if the
+            # current id incorporates the owner.id and
+            # product_type.abbreviation in the correct format and is unique,
+            # gen_product_id will simply return it unaltered.
             if isinstance(self.obj, orb.classes['HardwareProduct']):
-                # NOTE: if no obj.owner.id is found or if it is None,
-                # orb.gen_product_id() will use 'Vendor'
-                owner_id = getattr(self.obj.owner, 'id', None)
-                self.obj.id = orb.gen_product_id(owner_id,
-                                                 self.obj.product_type)
+                generated_id = orb.gen_product_id(self.obj)
+                if not self.obj.id == generated_id:
+                    self.obj.id = generated_id
             orb.save([self.obj])
             if self.new:
                 if cname == 'Project':
