@@ -16,7 +16,8 @@ from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.meta  import get_external_name_plural
-from pangalactic.node.tablemodels import (ObjectTableModel,
+from pangalactic.node.tablemodels import (DMTableModel,
+                                          ObjectTableModel,
                                           CompareTableModel,
                                           SpecialSortModel)
 from pangalactic.node.dialogs     import SelectColsDialog
@@ -213,43 +214,35 @@ class ObjectTableView(QTableView):
 
 
 # WORK IN PROGRESS!  not working yet ...
-class ODTableView(QTableView):
+class DMTableView(QTableView):
     """
-    For a list of OrderedDict (ordered dictionary) instances, a table view with
-    sorting capabilities.
+    For a DataMatrix, a table view with sorting capabilities.
     """
-    def __init__(self, ods, view=None, parent=None):
+    def __init__(self, dm=None, project=None, schema_name=None, schema=None,
+                 view=None, parent=None):
         """
-        Initialize
+        Initialize.
 
-        ods (Identifiable):  objects (rows)
-        view (list of str):  specified attributes (columns)
+        dm (DataMatrix):  a DataMatrix instance, i.e. an OrderedDict whose keys
+            are row oids and whose values are rows (dicts). If a DataMatrix
+            instance is provided, it will determine the schema and schema_name,
+            so those arguments will be ignored
+        view (list of str):  specified data elements (column id's)
+        schema_name (str):  name of a stored schema or 'generic' for an ad hoc
+            schema
         """
-        super(ODTableView, self).__init__(parent=parent)
+        super(DMTableView, self).__init__(parent=parent)
         orb.log.info('* [ObjectTableView] initializing ...')
-        self.ods = ods
+        self.dm = dm
+        self.schema_name = schema_name or 'generic'
         self.view = view
         self.setup_table()
         self.add_context_menu()
 
     def setup_table(self):
-        self.cname = None
-        # if a main_table_proxy exists, remove it so gui doesn't get confused
-        if self.ods:
-            self.cname = self.ods[0].__class__.__name__
-            orb.log.info('  - for class: "{}"'.format(self.cname))
-            if not self.view:
-                # if no view is specified, use the preferred view, if any
-                if prefs.get('db_views', {}).get(self.cname):
-                    self.view = prefs['db_views'][self.cname][:]
-        else:
-            orb.log.info('  - no objects provided.')
-        # if there is neither a specified view nor a preferred view, use the
-        # default view
-        view = self.view or MAIN_VIEWS.get(self.cname, IDENTITY)
-        self.main_table_model = ObjectTableModel(self.ods, view=view,
-                                                 parent=self)
-        self.view = self.main_table_model.view
+        # TODO:  set up "view"; for now, use the schema
+        self.main_table_model = DMTableModel(self.dm, parent=self)
+        self.view = self.view or self.dm.schema
         self.main_table_proxy = SpecialSortModel(parent=self)
         self.main_table_proxy.setSourceModel(self.main_table_model)
         self.setStyleSheet('font-size: 12px')
@@ -271,8 +264,9 @@ class ODTableView(QTableView):
         self.setSortingEnabled(True)
         # wrap columns that hold TEXT_PROPERTIES
         self.setTextElideMode(Qt.ElideNone)
-        for i, a in enumerate(self.view):
-            self.setColumnWidth(i, PGEF_COL_WIDTHS.get(a, 100))
+        # TODO: look up preferred col widths by data element ...
+        # for i, a in enumerate(self.view):
+            # self.setColumnWidth(i, PGEF_COL_WIDTHS.get(a, 100))
         # self.resizeRowsToContents()
         # QTimer trick ...
         QTimer.singleShot(0, self.resizeRowsToContents)
@@ -287,7 +281,6 @@ class ODTableView(QTableView):
         self.setMinimumSize(300, 200)
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-        dispatcher.connect(self.on_mod_object_signal, 'modified object')
 
     def add_context_menu(self):
         column_header = self.horizontalHeader()
@@ -300,18 +293,14 @@ class ODTableView(QTableView):
         column_header.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def main_table_row_double_clicked(self, clicked_index):
-        # NOTE: maybe not the most elegant way to do this ... look again later
+        # TODO:  use double-click event for something ...
         mapped_row = self.main_table_proxy.mapToSource(clicked_index).row()
         orb.log.debug(
             '* [ObjectTableView] row double-clicked [mapped row: {}]'.format(
                                                             str(mapped_row)))
-        oid = getattr(self.main_table_model.ods[mapped_row], 'oid')
-        obj = orb.get(oid)
-        dlg = PgxnObject(obj, parent=self)
-        dlg.show()
 
     def on_section_moved(self, logical_index, old_index, new_index):
-        orb.log.debug('* ObjectTableView: on_section_moved() ...')
+        orb.log.debug('* DMTableView: on_section_moved() ...')
         orb.log.debug('  logical index: {}'.format(logical_index))
         orb.log.debug('  old index: {}'.format(old_index))
         orb.log.debug('  new index: {}'.format(new_index))
@@ -323,28 +312,20 @@ class ODTableView(QTableView):
         else:
             new_view.insert(new_index, moved_item)
         orb.log.debug('  new view: {}'.format(str(new_view)))
-        if not prefs.get('db_views'):
-            prefs['db_views'] = {}
-        prefs['db_views'][self.cname] = new_view[:]
-        dispatcher.send('new object table view pref', cname=self.cname)
-
-    def on_mod_object_signal(self, obj=None, cname=''):
-        """
-        Handle 'modified object' dispatcher signal.
-        """
-        orb.log.debug('* ObjectTableView: on_mod_object_signal()')
-        idx = self.main_table_model.mod_object(obj)
-        if idx is not None:
-            self.selectRow(idx.row())
+        if not prefs.get('dm_views'):
+            prefs['dm_views'] = {}
+        prefs['dm_views'][self.schema_name] = new_view[:]
+        dispatcher.send('new data matrix view pref',
+                        schema_name=self.schema_name)
 
     def select_columns(self):
         """
         Dialog displayed in response to 'select columns' context menu item.
         """
-        orb.log.debug('* ObjectTableView: select_columns() ...')
+        orb.log.debug('* DMTableView: select_columns() ...')
         # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
         # original schema!!!
-        all_cols = orb.schemas.get(self.cname, {}).get('field_names', [])[:]
+        all_cols = list(self.schema.keys())[:]
         dlg = SelectColsDialog(all_cols, self.view, parent=self)
         if dlg.exec_() == QDialog.Accepted:
             # rebuild custom view from the selected columns

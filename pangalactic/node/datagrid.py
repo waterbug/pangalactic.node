@@ -12,18 +12,19 @@ from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog
 
 from uuid import uuid4
 
-from pangalactic.core                  import config
 from pangalactic.core.utils.datamatrix import DataMatrix
 from pangalactic.core.uberorb          import orb
+from pangalactic.node.tableviews       import DMTableView
 
 from louie import dispatcher
 
 
-class DataGrid(QTableWidget):
+class DataGrid(DMTableView):
     """
     A collaborative data table widget.
     """
-    def __init__(self, project, schema_name=None, parent=None):
+    def __init__(self, project, schema_name=None, schema=None, view=None,
+        parent=None):
         """
         Initialize.
 
@@ -32,41 +33,32 @@ class DataGrid(QTableWidget):
 
         Keyword Args:
             schema_name (str): name of a stored schema
+            schema (list of str): list of ids of data elements in the
+                underlying model
+            view (list of str): list of ids of specified columns to be
+                displayed
         """
-        super(QTableWidget, self).__init__(parent)
-        # first check for a cached datamatrix:
         self.project = project or orb.get('pgefobjects:SANDBOX')
-        schema_name = schema_name or "MEL"
+        schema_name = schema_name or "generic"
         dm_oid = self.project.id + '-' + schema_name
+        # check for a cached datamatrix with that oid:
         self.dm = orb.data.get(dm_oid)
         if not self.dm:
-            # if no cached datamatrix is found, create a new one:
-            self.dm = DataMatrix(project=self.project, schema_name=schema_name)
-        rows = len(self.dm) or 0
-        cols = len(self.dm.schema) or 1
-        super(DataGrid, self).__init__(rows, cols, parent)
+            # if no datamatrix found in the orb's cache, pass the args to
+            # DataMatrix, which will check for a stored one or create a new
+            # one based on the input:
+            self.dm = DataMatrix(project=self.project, schema_name=schema_name,
+                                 schema=schema)
+        super(DataGrid, self).__init__(dm=self.dm, view=view, parent=parent)
         self.setItemDelegate(DGDelegate(self))
         self.setSelectionBehavior(self.SelectRows)
         self.setSortingEnabled(False)
         header = self.horizontalHeader()
-        header.setStyleSheet(
-                           'QHeaderView { font-weight: bold; '
-                           'font-size: 14px; border: 1px; } '
-                           'QToolTip { font-weight: normal; '
-                           'font-size: 12px; border: 2px solid; };')
-        # TODO: create 'dedz' cache and look up col label/name there ...
-        #       the stuff below is for prototyping ...
-        # labels = [col['label'] or col['name'] for col in self.dm.schema]
-        if config.get('deds') and config['deds'].get('mel_deds'):
-            mel_deds = config['deds']['mel_deds']
-            labels = [mel_deds[deid].get('label', deid)
-                      for deid in mel_deds]
-        else:
-            labels = self.dm.schema or ['Data']
-        for i, label in enumerate(labels):
-            self.setHorizontalHeaderItem(i, QTableWidgetItem(label))
-        for col in range(cols):
-            self.resizeColumnToContents(col)
+        header.setStyleSheet('QHeaderView { font-weight: bold; '
+                             'font-size: 14px; border: 1px; } '
+                             'QToolTip { font-weight: normal; '
+                             'font-size: 12px; border: 2px solid; };')
+        self.resizeColumnsToContents()
         if self.dm:
             for row in self.dm.values():
                 for col_id in self.dm.schema:
@@ -86,21 +78,20 @@ class DataGrid(QTableWidget):
             if row_oid in self.dm:
                 orb.log.debug("  - we already got one, it's verra nahss!")
                 return
+        # appends a new blank row, with oid
         row_nbr = len(self.dm)
-        self.insertRow(row_nbr)
-        if not row_oid:
-            row_oid = str(uuid4())
-        row = dict(oid=row_oid)
-        self.dm[row['oid']] = row
+        self.main_table_model.insertRow(row_nbr)
+        row_oid = self.dm.row(row_nbr)
         orb.log.debug(' - self.dm is now {}'.format(str(self.dm)))
         proj_id = self.project.id
         if local:
             dispatcher.send('dm new row added', proj_id=proj_id,
                             dm_oid=self.dm.oid, row_oid=row_oid)
 
+    # NEEDS WORK, UNTESTED!
     def add_row(self, row):
         new_row = len(self.dm)
-        self.insertRow(new_row)
+        self.main_table_model.insertRow(new_row)
         # if row doesn't have an oid, give it one
         if not row.get('oid'):
             row['oid'] = str(uuid4())

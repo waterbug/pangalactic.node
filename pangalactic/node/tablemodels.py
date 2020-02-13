@@ -23,11 +23,12 @@ from PyQt5.QtGui import QIcon, QPixmap
 # from PyQt5.QtWidgets import QApplication, QWidget, QTableView, QVBoxLayout
 
 # pangalactic
-from pangalactic.core             import state
+from pangalactic.core             import config, state
 from pangalactic.core.meta        import MAIN_VIEWS, TEXT_PROPERTIES
 from pangalactic.core.parametrics import get_pval_as_str
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dt2local_tz_str
+from pangalactic.core.utils.datamatrix import DataMatrix
 from pangalactic.core.utils.meta  import (display_id, pname_to_header_label,
                                           to_media_name)
 # from pangalactic.core.test.utils import create_test_users, create_test_project
@@ -151,6 +152,107 @@ class ODTableModel(QAbstractTableModel):
         elif role != Qt.DisplayRole:
             return QVariant()
         return self.ods[index.row()].get(
+                       self.columns()[index.column()], '')
+
+
+class DMTableModel(QAbstractTableModel):
+    """
+    A table model based on a DataMatrix -- an OrderedDict containing rows that
+    are dicts.
+    """
+    def __init__(self, dm, parent=None, **kwargs):
+        """
+        Args:
+            dm (DataMatrix):  a DataMatrix instance
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        super(DMTableModel, self).__init__(parent=parent, **kwargs)
+        # TODO: some validity checking on the data ...
+        if isinstance(dm, DataMatrix):
+            self.dm = dm
+        else:
+            self.dm = DataMatrix(foo=dict(oid='foo', a='no data'))
+        # TODO: create 'dedz' cache and look up col label/name there ...
+        #       the MEL-specific stuff below is for prototyping ...
+        # labels = [col['label'] or col['name'] for col in self.dm.schema]
+        if config.get('deds') and config['deds'].get('mel_deds'):
+            mel_deds = config['deds']['mel_deds']
+            self.column_labels = [mel_deds[deid].get('label', deid)
+                                  for deid in mel_deds]
+        else:
+            self.column_labels = self.dm.schema or ['Data']
+
+    def flags(self, index):
+        if not index.isValid():
+            return 0
+        # return Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled
+        return Qt.ItemIsEditable | super(DMTableModel, self).flags(index)
+
+    def columns(self):
+        return self.dm.schema
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            return self.column_labels[section]
+        return QAbstractTableModel.headerData(self, section, orientation, role)
+
+    def rowCount(self, parent=QModelIndex()):
+        return len(self.dm)
+
+    def columnCount(self, parent):
+        try:
+            return len(self.dm.row(0))
+        except:
+            return 1
+
+    def setData(self, index, value, role=Qt.UserRole):
+        """
+        Reimplementation in which 'value' is an OrderedDict.
+        """
+        if index.isValid():
+            if index.row() < len(self.dm):
+                self.dm[index.row()] = value
+            else:
+                orb.log.debug('* setData(): index is out of range')
+            # NOTE the 3rd arg is an empty list -- reqd for pyqt5
+            # (or the actual role(s) that changed, e.g. [Qt.EditRole])
+            self.dataChanged.emit(index, index, [])
+            return True
+        return False
+
+    def insertRow(self, row, index=QModelIndex()):
+        """
+        Inserts a blank row.  (Currently only used for appending a blank row.)
+        """
+        self.beginInsertRows(QModelIndex(), row, row)
+        self.dm.append_new_row()
+        self.endInsertRows()
+        self.dirty = True
+        return True
+
+    def removeRows(self, row, count, parent=QModelIndex()):
+        if row < len(self.dm):
+            # self.beginRemoveRows()
+            self.beginResetModel()
+            del self.dm[row]
+            # self.endRemoveRows()
+            self.endResetModel()
+            # NOTE the 3rd arg is an empty list -- reqd for pyqt5
+            # (or the actual role(s) that changed, e.g. [Qt.EditRole])
+            idx = self.createIndex(row, 0)
+            self.dataChanged.emit(idx, idx, [])
+            return True
+        else:
+            return False
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return QVariant()
+        elif role != Qt.DisplayRole:
+            return QVariant()
+        return self.dm.row(index.row()).get(
                        self.columns()[index.column()], '')
 
 
