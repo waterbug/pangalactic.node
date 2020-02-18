@@ -213,7 +213,8 @@ class ObjectTableView(QTableView):
             return
 
 
-# WORK IN PROGRESS!  not working yet ...
+# First attempt (work in progress, not working ...)
+# THIS CODE WAS COPIED FROM ObjectTableView and modified ...
 class DMTableView(QTableView):
     """
     For a DataMatrix, a table view with sorting capabilities.

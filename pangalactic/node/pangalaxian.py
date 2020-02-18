@@ -2065,6 +2065,7 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.info('* on_remote_get_mod_object()')
         objs =  deserialize(orb, serialized_objects)
+        rebuild_diagram = False
         if not objs:
             orb.log.debug('  deserialize() returned nothing --')
             orb.log.debug('  the objs received were already in the local db.')
@@ -2084,22 +2085,26 @@ class Main(QtWidgets.QMainWindow):
                     self.w = NotificationDialog(html, parent=self)
                     self.w.show()
             elif cname == 'Activity':
+                # TODO: first check whether ConOps modeler is open
                 dispatcher.send("modified activity", activity=obj)
             elif hasattr(self, 'library_widget'):
                 self.library_widget.refresh(cname=cname)
             if (getattr(self, 'sys_tree', None)
-                and isinstance(obj, (orb.classes['Product'],
+                and isinstance(obj, (orb.classes['HardwareProduct'],
                                      orb.classes['Acu'],
                                      orb.classes['ProjectSystemUsage']))):
                 self.update_object_in_trees(obj)
-            if getattr(self, 'system_model_window', None):
-                # rebuild diagram in case object corresponded to a block or
-                # flow in the current diagram
-                self.system_model_window.display_block_diagram()
-            if self.mode == 'db':
+                rebuild_diagram = True
+            # NOTE: no need to do anything in 'db' mode -- the object table now
+            # listens for the 'mod object' signal and handles it ...
+            elif self.mode == 'db' and cname == state.get('current_cname'):
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
-            self.update_project_role_labels()
+        if getattr(self, 'system_model_window', None) and rebuild_diagram:
+            # rebuild diagram in case object corresponded to a block or
+            # flow in the current diagram
+            self.system_model_window.display_block_diagram()
+        self.update_project_role_labels()
 
     def on_new_object_signal(self, obj=None, cname=''):
         """

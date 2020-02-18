@@ -19,14 +19,19 @@ from pangalactic.node.dialogs import (DeleteColsDialog, NewDashboardDialog,
 
 class SystemDashboard(QTreeView):
 
-    def __init__(self, model, parent=None):
+    def __init__(self, model, row_colors=True, grid_lines=False, parent=None):
         super(SystemDashboard, self).__init__(parent)
         self.setSelectionMode(self.SingleSelection)
         self.setUniformRowHeights(True)
-        if prefs.get('dash_no_row_colors'):
-            self.setAlternatingRowColors(False)
+        if 'dash_grid_lines' in prefs:
+            self.grid_lines = prefs['dash_grid_lines']
         else:
-            self.setAlternatingRowColors(True)
+            self.grid_lines = grid_lines
+        if 'dash_row_colors' in prefs:
+            self.row_colors = prefs['dash_row_colors']
+        else:
+            self.row_colors = row_colors
+        self.setAlternatingRowColors(self.row_colors)
         self.setModel(model)
         # *********************************************************************
         # NOTE:  the following functions are HORRIBLY SENSITIVE to the order in
@@ -57,6 +62,18 @@ class SystemDashboard(QTreeView):
         set_units_action = QAction('set preferred units', dash_header)
         set_units_action.triggered.connect(self.set_units)
         dash_header.addAction(set_units_action)
+        show_grid_action = QAction('show grid lines', dash_header)
+        show_grid_action.triggered.connect(self.show_grid)
+        dash_header.addAction(show_grid_action)
+        hide_grid_action = QAction('hide grid lines', dash_header)
+        hide_grid_action.triggered.connect(self.hide_grid)
+        dash_header.addAction(hide_grid_action)
+        row_colors_action = QAction('set alternating row colors', dash_header)
+        row_colors_action.triggered.connect(self.set_alt_colors)
+        dash_header.addAction(row_colors_action)
+        no_row_colors_action = QAction('clear row colors', dash_header)
+        no_row_colors_action.triggered.connect(self.set_no_colors)
+        dash_header.addAction(no_row_colors_action)
         delete_columns_action = QAction('delete columns', dash_header)
         delete_columns_action.triggered.connect(self.delete_columns)
         dash_header.addAction(delete_columns_action)
@@ -86,6 +103,24 @@ class SystemDashboard(QTreeView):
             self.resizeColumnToContents(column)
         # DO NOT use `setMinimumSize()` here -- it breaks the slider that
         # appears when window size is too small to display the full width
+
+    def drawRow(self, painter, option, index):
+        QTreeView.drawRow(self, painter, option, index)
+        if self.grid_lines:
+            painter.setPen(Qt.lightGray)
+            y = option.rect.y()
+            # saving is mandatory to keep alignment throughout the row painting
+            painter.save()
+            painter.translate(self.visualRect(
+                self.model().index(0, 0)).x() - self.indentation() - .5, -.5)
+            for sectionId in range(self.header().count() - 1):
+                painter.translate(self.header().sectionSize(sectionId), 0)
+                painter.drawLine(0, y, 0, y + option.rect.height())
+            painter.restore()
+            # don't draw the line before the root index
+            if index == self.model().index(0, 0):
+                return
+            painter.drawLine(0, y, option.rect.width(), y)
 
     def on_section_moved(self, logical, old, new):
         orb.log.info('[Dashboard] section moved')
@@ -153,6 +188,24 @@ class SystemDashboard(QTreeView):
     def set_units(self):
         dlg = UnitPrefsDialog(self)
         dlg.show()
+
+    def show_grid(self):
+        self.grid_lines = True
+        prefs['dash_grid_lines'] = True
+        self.repaint()
+
+    def hide_grid(self):
+        self.grid_lines = False
+        prefs['dash_grid_lines'] = False
+        self.repaint()
+
+    def set_alt_colors(self):
+        self.setAlternatingRowColors(True)
+        prefs['dash_row_colors'] = True
+
+    def set_no_colors(self):
+        self.setAlternatingRowColors(False)
+        prefs['dash_row_colors'] = False
 
     def delete_columns(self):
         """

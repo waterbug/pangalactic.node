@@ -2,29 +2,25 @@
 """
 A DataMatrix-based collaborative data table widget.
 """
-from PyQt5.QtCore import QDate, QPoint, Qt
-from PyQt5.QtGui import QColor, QIcon, QKeySequence, QPainter, QPixmap
-from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QColorDialog,
-        QComboBox, QDateTimeEdit, QDialog, QFontDialog, QGroupBox, QHBoxLayout,
-        QLabel, QStyledItemDelegate, QLineEdit, QMessageBox, QPushButton,
-        QTableWidget, QTableWidgetItem, QVBoxLayout)
-from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog
+from PyQt5.QtCore import QDate, Qt
+from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import (QApplication, QDateTimeEdit, QStyledItemDelegate,
+                             QLineEdit, QTableWidgetItem, QTreeView)
 
 from uuid import uuid4
 
 from pangalactic.core.utils.datamatrix import DataMatrix
 from pangalactic.core.uberorb          import orb
-from pangalactic.node.tableviews       import DMTableView
 
 from louie import dispatcher
 
 
-class DataGrid(DMTableView):
+class DataGrid(QTreeView):
     """
-    A collaborative data table widget.
+    A collaborative data table/tree widget.
     """
     def __init__(self, project, schema_name=None, schema=None, view=None,
-        parent=None):
+                 parent=None):
         """
         Initialize.
 
@@ -228,4 +224,14 @@ class DGDelegate(QStyledItemDelegate):
                             value=editor.text())
         elif isinstance(editor, QDateTimeEdit):
             model.setData(index, editor.date().toString('yyyy/MM/dd'))
+
+
+if __name__ == '__main__':
+
+    import sys
+
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
 
