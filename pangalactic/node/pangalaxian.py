@@ -2854,6 +2854,7 @@ class Main(QtWidgets.QMainWindow):
         self.top_dock_widget.setVisible(False)
         self.right_dock.setVisible(False)
         self.left_dock.setVisible(False)
+        # for now, use "MEL" as the default schema name
         self.data_widget = DataGrid(self.project, schema_name="MEL")
         self.setCentralWidget(self.data_widget)
 
@@ -3774,7 +3775,7 @@ def cleanup_and_save():
     if orb.data:
         dm_oids = list(orb.data.keys())[:]
         orb.log.debug('* data matrix objects found; saving ...')
-        for dm_oid in dm_oids :
+        for dm_oid in dm_oids:
             dm = orb.data[dm_oid]
             dm.save()
             orb.log.debug('  - saved dm "{}"'.format(dm.oid))

@@ -160,7 +160,7 @@ class DMTableModel(QAbstractTableModel):
     A table model based on a DataMatrix -- an OrderedDict containing rows that
     are dicts.
     """
-    def __init__(self, dm, parent=None, **kwargs):
+    def __init__(self, dm=None, parent=None):
         """
         Args:
             dm (DataMatrix):  a DataMatrix instance
@@ -168,7 +168,7 @@ class DMTableModel(QAbstractTableModel):
         Keyword Args:
             parent (QWidget):  parent widget
         """
-        super(DMTableModel, self).__init__(parent=parent, **kwargs)
+        super(DMTableModel, self).__init__(parent=parent)
         # TODO: some validity checking on the data ...
         if isinstance(dm, DataMatrix):
             self.dm = dm
