@@ -2701,7 +2701,7 @@ class Main(QtWidgets.QMainWindow):
 
     def refresh_dashboard(self):
         # orb.log.debug('* refreshing dashboard ...')
-        if hasattr(self, 'dashboard'):
+        if hasattr(self, 'dashboard') and self.dashboard.model():
             self.dashboard.setFocus()
             for column in range(self.dashboard.model().columnCount(
                                                     QModelIndex())):

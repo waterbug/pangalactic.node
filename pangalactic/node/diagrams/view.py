@@ -49,6 +49,7 @@ class DiagramScene(QGraphicsScene):
         self.subject = subject
         self.line = None
         self.prev_point = QPoint()
+        self.refresh_required = False
 
     @property
     def blocks(self):
@@ -193,8 +194,9 @@ class DiagramScene(QGraphicsScene):
             # diagram' signal blows the whole diagram away and starts over!
             super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
             ordering = self.get_block_ordering()
-            diagramz[self.subject.oid] = ordering
-            dispatcher.send('refresh diagram')
+            if diagramz.get(self.subject.oid) != ordering:
+                diagramz[self.subject.oid] = ordering
+                dispatcher.send('refresh diagram')
 
     ##########################################################################
     #  End of QGraphicsScene API methods
@@ -279,7 +281,7 @@ class DiagramScene(QGraphicsScene):
         # orb.log.debug('  item: {}'.format(str(item)))
         if platform.platform().startswith('Darwin'):
             # drill-down currently crashes on OSX
-            # orb.log.info('  - Mac not like drill-down -- ignoring!')
+            orb.log.info('  - Mac not like drill-down -- ignoring!')
             return
         if isinstance(item, ObjectBlock):
             if item.obj.oid != 'pgefobjects:TBD':
