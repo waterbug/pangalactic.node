@@ -279,10 +279,11 @@ class DiagramScene(QGraphicsScene):
         # ObjectBlock), and not to SubjectBlock (a subclass)
         # orb.log.debug('* DiagramScene: item_doubleclick()')
         # orb.log.debug('  item: {}'.format(str(item)))
-        if platform.platform().startswith('Darwin'):
+        # if platform.platform().startswith('Darwin'):
+            # NOTE:  currently, Mac seems to be fine with drill-down! :)
             # drill-down currently crashes on OSX
-            orb.log.info('  - Mac not like drill-down -- ignoring!')
-            return
+            # orb.log.info('  - Mac not like drill-down -- ignoring!')
+            # return
         if isinstance(item, ObjectBlock):
             if item.obj.oid != 'pgefobjects:TBD':
                 if state.get('mode') == 'system':
