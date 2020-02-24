@@ -219,12 +219,7 @@ class DiagramScene(QGraphicsScene):
         Return:  dict mapping oids to positions
         """
         # orb.log.debug('* get_block_positions')
-        if not self.blocks:
-            return {}
-        d = {}
-        for block in self.blocks.values():
-            d[block.usage.oid] = (block.x(), block.y())
-        return d
+        return {b.usage.oid: (b.x(), b.y()) for b in self.blocks.values()}
 
     def get_block_ordering(self):
         """
