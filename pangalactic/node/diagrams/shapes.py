@@ -508,7 +508,10 @@ class ObjectBlock(Block):
         self.scene().item_doubleclick(self)
 
     def mousePressEvent(self, event):
+        if self.scene():
+            self.scene().clearSelection()
         self.setSelected(True)
+        self.color = Qt.blue
         QGraphicsItem.mousePressEvent(self, event)
 
     def mouseMoveEvent(self, event):
@@ -518,6 +521,7 @@ class ObjectBlock(Block):
         # orb.log.debug("* ObjectBlock: mouseReleaseEvent()")
         # deselect so another object can be selected
         self.setSelected(False)
+        self.color = Qt.black
         QGraphicsItem.mouseReleaseEvent(self, event)
 
     def mimeTypes(self):
