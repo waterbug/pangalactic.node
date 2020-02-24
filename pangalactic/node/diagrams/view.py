@@ -50,6 +50,7 @@ class DiagramScene(QGraphicsScene):
         self.line = None
         self.prev_point = QPoint()
         self.refresh_required = False
+        self.positions = {}
 
     @property
     def blocks(self):
@@ -194,7 +195,7 @@ class DiagramScene(QGraphicsScene):
             # diagram' signal blows the whole diagram away and starts over!
             super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
             ordering = self.get_block_ordering()
-            if diagramz.get(self.subject.oid) != ordering:
+            if self.positions != self.get_block_positions():
                 diagramz[self.subject.oid] = ordering
                 dispatcher.send('refresh diagram')
 
@@ -206,6 +207,24 @@ class DiagramScene(QGraphicsScene):
         coord = random.randint(36, 144)
         point = QPoint(coord, coord)
         return self.parent().mapToScene(point)
+
+    def get_block_positions(self):
+        """
+        Return the current positions of the blocks in the diagram in the form
+        of a dict that maps oids of usages for blocks to their positions.
+        NOTE:  this is used to set self.positions, which is used in
+        mouseReleaseEvent() to determine whether any block has been moved
+        (i.e., whether diagram needs to be regenerated).
+
+        Return:  dict mapping oids to positions
+        """
+        # orb.log.debug('* get_block_positions')
+        if not self.blocks:
+            return {}
+        d = {}
+        for block in self.blocks.values():
+            d[block.usage.oid] = (block.x(), block.y())
+        return d
 
     def get_block_ordering(self):
         """
@@ -512,6 +531,8 @@ class DiagramScene(QGraphicsScene):
             view.centerOn(0, 0)
         diagramz[self.subject.oid] = ordering
         orb._save_diagramz()
+        # self.positions is used to test whether any block has been moved
+        self.positions = self.get_block_positions()
 
 
 class DiagramView(QGraphicsView):
