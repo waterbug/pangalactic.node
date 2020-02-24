@@ -2526,6 +2526,7 @@ class Main(QtWidgets.QMainWindow):
         Tree / dashboard refresh.  Can be user-activated by menu item.
         """
         # orb.log.debug('* [pgxn] refresh_tree_and_dashboard()')
+        orb.recompute_parmz()
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.refresh_tree_views()

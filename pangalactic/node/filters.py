@@ -456,12 +456,13 @@ class FilterPanel(QWidget):
                 self.cname = 'Product'
         if self.cname:
             schema = orb.schemas[self.cname]
-            view = view or MAIN_VIEWS.get(self.cname,
-                                          ['id', 'name', 'description'])
-            self.view = [a for a in view if a in schema['field_names']]
             if prefs.get('views', {}).get(self.cname):
                 # if there is a preferred view, ignore the provided view
                 view = prefs['views'][self.cname]
+            else:
+                view = view or MAIN_VIEWS.get(self.cname,
+                                          ['id', 'name', 'description'])
+            self.view = [a for a in view if a in schema['field_names']]
             # if col name, use that; otherwise, use external name
             col_labels = [PGEF_COL_NAMES.get(a, get_attr_ext_name(self.cname, a))
                           for a in self.view]
