@@ -50,6 +50,7 @@ from pangalactic.core.utils.reports    import write_mel_xlsx
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import (ButtonLabel, MenuButton,
                                                SizedButton)
+from pangalactic.node.cad.viewer       import STEP3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
@@ -57,7 +58,7 @@ from pangalactic.node.dialogs          import (LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
                                                PrefsDialog)
-# from pangalactic.node.filters          import FilterDialog
+                                               # Viewer3DDialog)
 from pangalactic.node.helpwidget       import HelpWidget
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus
@@ -1296,9 +1297,10 @@ class Main(QtWidgets.QMainWindow):
                                     modes=['system', 'component', 'db'])
         self.view_cad_action = self.create_action(
                                     "View a CAD Model...",
-                                    slot=self.open_step_file,
+                                    # slot=self.open_step_file,
+                                    slot=self.view_cad,
                                     icon="view_16",
-                                    tip="View a CAD Model (from a STEP File)",
+                                    tip="View a CAD model from a STEP file",
                                     modes=['system', 'component'])
         self.export_project_to_file_action = self.create_action(
                                     "Export Project to a File...",
@@ -2969,13 +2971,12 @@ class Main(QtWidgets.QMainWindow):
         help_widget = HelpWidget(help_url, parent=self)
         help_widget.show()
 
-    def view_cad(self, file_path):
-        from pangalactic.node.dialogs import Viewer3DDialog
+    def view_cad(self, file_path=None):
         orb.log.info('* view_cad({})'.format(file_path))
-        viewer = Viewer3DDialog(self)
-        viewer.show()
-        viewer.view_cad(file_path)
+        # viewer = Viewer3DDialog(self)
+        viewer = STEP3DViewer(step_file=file_path, parent=self)
         orb.log.info('  - displaying CAD model ...')
+        viewer.show()
 
     def on_db_selected(self, selected, deselected):
         orb.log.debug('* db selected [item: %i]' % selected.row())
@@ -3202,13 +3203,6 @@ class Main(QtWidgets.QMainWindow):
     def display_conops_modeler(self):
         win = ConOpsModeler(parent=self)
         win.show()
-
-    # def display_disciplines(self):
-        # cname = 'Discipline'
-        # objs = orb.get_by_type(cname)
-        # dlg = FilterDialog(objs, label=get_external_name_plural(cname),
-                           # height=self.geometry().height(), parent=self)
-        # dlg.show()
 
     def display_product_types(self):
         dlg = LibraryDialog('ProductType',

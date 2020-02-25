@@ -17,7 +17,11 @@
 ##You should have received a copy of the GNU Lesser General Public License
 ##along with pythonOCC.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
+import os, sys
+
+from pangalactic.core         import state
+from pangalactic.core.uberorb import orb
+from pangalactic.node.buttons import MenuButton
 
 from OCC.Display import OCCViewer
 ######################################
@@ -39,7 +43,7 @@ from OCC.Core.Quantity import Quantity_Color
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 
-from PyQt5 import QtCore, QtOpenGL, QtWidgets
+from PyQt5 import QtCore, QtGui, QtOpenGL, QtWidgets
 
 
 class point(object):
@@ -381,47 +385,50 @@ class QtViewer3DColor(QtBaseViewer):
         self.setupViewport(width, height)
 
     def ZoomAll(self, evt):
-        self._display.FitAll()
+        if self._inited:
+            self._display.FitAll()
 
     def wheelEvent(self, event):
-        delta = event.angleDelta().y()
-        if delta > 0:
-            zoom_factor = 1.1
-        else:
-            zoom_factor = 0.9
-        self._display.Repaint()
-        self._display.ZoomFactor(zoom_factor)
+        if self._inited:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                zoom_factor = 1.1
+            else:
+                zoom_factor = 0.9
+            self._display.Repaint()
+            self._display.ZoomFactor(zoom_factor)
 
     def dragMoveEvent(self, event):
         pass
 
     def mousePressEvent(self, event):
-        self.setFocus()
-        self.dragStartPos = point(event.pos())
-        self._display.StartRotation(self.dragStartPos.x, self.dragStartPos.y)
+        if self._inited:
+            self.setFocus()
+            self.dragStartPos = point(event.pos())
+            self._display.StartRotation(self.dragStartPos.x, self.dragStartPos.y)
 
     def mouseReleaseEvent(self, event):
-        pt = point(event.pos())
-        modifiers = event.modifiers()
-
-        if event.button() == QtCore.Qt.LeftButton:
+        if self._inited:
             pt = point(event.pos())
-            if self._select_area:
-                [Xmin, Ymin, dx, dy] = self._drawbox
-                self._display.SelectArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
-                self._select_area = False
-            else:
-                # multiple select if shift is pressed
-                if modifiers == QtCore.Qt.ShiftModifier:
-                    self._display.ShiftSelect(pt.x, pt.y)
+            modifiers = event.modifiers()
+            if event.button() == QtCore.Qt.LeftButton:
+                pt = point(event.pos())
+                if self._select_area:
+                    [Xmin, Ymin, dx, dy] = self._drawbox
+                    self._display.SelectArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
+                    self._select_area = False
                 else:
-                    # single select otherwise
-                    self._display.Select(pt.x, pt.y)
-        elif event.button() == QtCore.Qt.RightButton:
-            if self._zoom_area:
-                [Xmin, Ymin, dx, dy] = self._drawbox
-                self._display.ZoomArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
-                self._zoom_area = False
+                    # multiple select if shift is pressed
+                    if modifiers == QtCore.Qt.ShiftModifier:
+                        self._display.ShiftSelect(pt.x, pt.y)
+                    else:
+                        # single select otherwise
+                        self._display.Select(pt.x, pt.y)
+            elif event.button() == QtCore.Qt.RightButton:
+                if self._zoom_area:
+                    [Xmin, Ymin, dx, dy] = self._drawbox
+                    self._display.ZoomArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
+                    self._zoom_area = False
 
     def DrawBox(self, event):
         tolerance = 2
@@ -434,66 +441,119 @@ class QtViewer3DColor(QtBaseViewer):
         self.update()
 
     def mouseMoveEvent(self, evt):
-        pt = point(evt.pos())
-        buttons = int(evt.buttons())
-        modifiers = evt.modifiers()
-        # ROTATE
-        if (buttons == QtCore.Qt.LeftButton
-            and not modifiers == QtCore.Qt.ShiftModifier):
-            dx = pt.x - self.dragStartPos.x
-            dy = pt.y - self.dragStartPos.y
-            self._display.Rotation(pt.x, pt.y)
-            self._drawbox = False
-        # DYNAMIC ZOOM
-        elif (buttons == QtCore.Qt.RightButton
-              and not modifiers == QtCore.Qt.ShiftModifier):
-            self._display.Repaint()
-            self._display.DynamicZoom(abs(self.dragStartPos.x),
-                                      abs(self.dragStartPos.y),
-                                      abs(pt.x), abs(pt.y))
-            self.dragStartPos.x = pt.x
-            self.dragStartPos.y = pt.y
-            self._drawbox = False
-        # PAN
-        elif buttons == QtCore.Qt.MidButton:
-            dx = pt.x - self.dragStartPos.x
-            dy = pt.y - self.dragStartPos.y
-            self.dragStartPos.x = pt.x
-            self.dragStartPos.y = pt.y
-            self._display.Pan(dx, -dy)
-            self._drawbox = False
-        # DRAW BOX
-        # ZOOM WINDOW
-        elif (buttons == QtCore.Qt.RightButton
-              and modifiers == QtCore.Qt.ShiftModifier):
-            self._zoom_area = True
-            self.DrawBox(evt)
-        # SELECT AREA
-        elif (buttons == QtCore.Qt.LeftButton
-              and modifiers == QtCore.Qt.ShiftModifier):
-            self._select_area = True
-            self.DrawBox(evt)
+        if self._inited:
+            pt = point(evt.pos())
+            buttons = int(evt.buttons())
+            modifiers = evt.modifiers()
+            # ROTATE
+            if (buttons == QtCore.Qt.LeftButton
+                and not modifiers == QtCore.Qt.ShiftModifier):
+                dx = pt.x - self.dragStartPos.x
+                dy = pt.y - self.dragStartPos.y
+                self._display.Rotation(pt.x, pt.y)
+                self._drawbox = False
+            # DYNAMIC ZOOM
+            elif (buttons == QtCore.Qt.RightButton
+                  and not modifiers == QtCore.Qt.ShiftModifier):
+                self._display.Repaint()
+                self._display.DynamicZoom(abs(self.dragStartPos.x),
+                                          abs(self.dragStartPos.y),
+                                          abs(pt.x), abs(pt.y))
+                self.dragStartPos.x = pt.x
+                self.dragStartPos.y = pt.y
+                self._drawbox = False
+            # PAN
+            elif buttons == QtCore.Qt.MidButton:
+                dx = pt.x - self.dragStartPos.x
+                dy = pt.y - self.dragStartPos.y
+                self.dragStartPos.x = pt.x
+                self.dragStartPos.y = pt.y
+                self._display.Pan(dx, -dy)
+                self._drawbox = False
+            # DRAW BOX
+            # ZOOM WINDOW
+            elif (buttons == QtCore.Qt.RightButton
+                  and modifiers == QtCore.Qt.ShiftModifier):
+                self._zoom_area = True
+                self.DrawBox(evt)
+            # SELECT AREA
+            elif (buttons == QtCore.Qt.LeftButton
+                  and modifiers == QtCore.Qt.ShiftModifier):
+                self._select_area = True
+                self.DrawBox(evt)
+            else:
+                self._drawbox = False
+                self._display.MoveTo(pt.x, pt.y)
         else:
-            self._drawbox = False
-            self._display.MoveTo(pt.x, pt.y)
+            evt.ignore()
 
 
-class STEP3DViewer(QtWidgets.QWidget):
+class STEP3DViewer(QtWidgets.QMainWindow):
     def __init__(self, step_file=None, parent=None):
-        QtWidgets.QWidget.__init__(self, parent)
+        QtWidgets.QMainWindow.__init__(self, parent)
         self.setWindowTitle(self.tr("STEP 3D viewer"))
         self.canva = QtViewer3DColor(self)
-        mainLayout = QtWidgets.QHBoxLayout()
-        mainLayout.addWidget(self.canva)
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(mainLayout)
+        canva_layout = QtWidgets.QHBoxLayout()
+        canva_layout.setContentsMargins(0, 0, 0, 0)
+        canva_layout.setSpacing(0)
+        self.canva.setLayout(canva_layout)
+        self.setCentralWidget(self.canva)
         self.resize(800, 600)
-        self.show()
+        open_step_file_action = self.create_action("Open a STEP file...",
+                                   slot=self.open_step_file,
+                                   tip="View a CAD model from a STEP file")
+        self.toolbar = self.addToolBar("Actions")
+        self.toolbar.setObjectName('ActionsToolBar')
+        import_icon_file = 'open' + state['icon_type']
+        icon_dir = state.get('icon_dir',
+                             os.path.join(getattr(orb, 'home', ''), 'icons'))
+        import_icon_path = os.path.join(icon_dir, import_icon_file)
+        import_actions = [open_step_file_action]
+        import_button = MenuButton(QtGui.QIcon(import_icon_path),
+                                   tooltip='Import Data or Objects',
+                                   actions=import_actions, parent=self)
+        self.toolbar.addWidget(import_button)
         if step_file:
             self.load_file(step_file)
 
+    def create_action(self, text, icon=None, slot=None, tip=None):
+        action = QtWidgets.QAction(text, self)
+        if icon is not None:
+            icon_file = icon + state.get('icon_type', '.png')
+            icon_dir = state.get('icon_dir',
+                                 os.path.join(getattr(orb, 'home', ''),
+                                              'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
+            action.setIcon(QtGui.QIcon(icon_path))
+        if tip is not None:
+            action.setToolTip(tip)
+            action.setStatusTip(tip)
+        if slot is not None:
+            action.triggered.connect(slot)
+        return action
+
     def load_file(self, fpath):
         self.canva.init_shape_from_STEP(fpath)
+
+    def open_step_file(self):
+        if orb.started:
+            orb.log.debug('* opening a STEP file')
+            if not state.get('last_path'):
+                state['last_path'] = orb.test_data_dir
+        fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
+                                    self, 'Open STEP File',
+                                    state.get('last_path', ''),
+                                    'STEP Files (*.stp *.step *.p21)')
+        if fpath:
+            # TODO: exception handling in case data import fails ...
+            # TODO: add an "index" column for sorting, or else figure out how
+            # to sort on the left header column ...
+            state['last_path'] = os.path.dirname(fpath)
+            if orb.started:
+                orb.log.debug('  - opening STEP file "{}" ...'.format(fpath))
+            self.canva.init_shape_from_STEP(fpath)
+        else:
+            return
 
 
 if __name__ == "__main__":
@@ -506,7 +566,7 @@ if __name__ == "__main__":
     # CAX-IF test file "bracket" copied into current dir.
     fpath = 'as1-oc-214.stp'
     app = QtWidgets.QApplication(sys.argv)
-    frame = STEP3DViewer(fpath)
+    frame = STEP3DViewer()
     frame.show()
     sys.exit(app.exec_())
 
