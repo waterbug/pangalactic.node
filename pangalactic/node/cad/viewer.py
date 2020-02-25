@@ -492,12 +492,12 @@ class STEP3DViewer(QtWidgets.QMainWindow):
     def __init__(self, step_file=None, parent=None):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.setWindowTitle(self.tr("STEP 3D viewer"))
-        self.canva = QtViewer3DColor(self)
-        canva_layout = QtWidgets.QHBoxLayout()
-        canva_layout.setContentsMargins(0, 0, 0, 0)
-        canva_layout.setSpacing(0)
-        self.canva.setLayout(canva_layout)
-        self.setCentralWidget(self.canva)
+        self.qt_viewer_3d = QtViewer3DColor(self)
+        viewer_layout = QtWidgets.QHBoxLayout()
+        viewer_layout.setContentsMargins(0, 0, 0, 0)
+        viewer_layout.setSpacing(0)
+        self.qt_viewer_3d.setLayout(viewer_layout)
+        self.setCentralWidget(self.qt_viewer_3d)
         self.resize(800, 600)
         open_step_file_action = self.create_action("Open a STEP file...",
                                    slot=self.open_step_file,
@@ -533,7 +533,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         return action
 
     def load_file(self, fpath):
-        self.canva.init_shape_from_STEP(fpath)
+        self.qt_viewer_3d.init_shape_from_STEP(fpath)
 
     def open_step_file(self):
         if orb.started:
@@ -551,7 +551,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
             state['last_path'] = os.path.dirname(fpath)
             if orb.started:
                 orb.log.debug('  - opening STEP file "{}" ...'.format(fpath))
-            self.canva.init_shape_from_STEP(fpath)
+            self.qt_viewer_3d.init_shape_from_STEP(fpath)
         else:
             return
 
