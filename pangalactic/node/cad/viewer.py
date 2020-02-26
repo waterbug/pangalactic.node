@@ -43,7 +43,7 @@ from OCC.Core.Quantity import Quantity_Color
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 
-from PyQt5 import QtCore, QtGui, QtOpenGL, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 
 class point(object):
@@ -58,11 +58,11 @@ class point(object):
         self.y = obj.y()
 
 
-class QtBaseViewer(QtOpenGL.QGLWidget):
+class QtBaseViewer(QtWidgets.QOpenGLWidget):
     ''' The base Qt Widget for an OCC viewer
     '''
     def __init__(self, parent=None):
-        QtOpenGL.QGLWidget.__init__(self, parent)
+        QtWidgets.QOpenGLWidget.__init__(self, parent)
         self._display = None
         self._inited = False
 
@@ -165,7 +165,8 @@ class QtViewer3DColor(QtBaseViewer):
         self.getShapes()
         # self._display.DisplayShape(step_shape, update=True)
         self._display.SetModeShaded()
-        self._display.EnableAntiAliasing()
+        # NOTE: "EnableAntiAliasing" raises a warning ...
+        # self._display.EnableAntiAliasing()
         self._display.FitAll()
         self._inited = True
         # dict mapping keys to functions
