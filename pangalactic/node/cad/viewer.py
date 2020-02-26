@@ -58,6 +58,11 @@ class point(object):
         self.y = obj.y()
 
 
+# TODO: figure out what's going on with:
+# "TKOpenGl | Type: Other | ID: 0 | Severity: Medium | Message:
+#  OpenGl_Window::CreateWindow: window Visual is incomplete: no stencil buffer"
+#  ... and:
+# "QWidget::paintEngine: Should no longer be called"
 class QtBaseViewer(QtWidgets.QOpenGLWidget):
     ''' The base Qt Widget for an OCC viewer
     '''
@@ -370,14 +375,17 @@ class QtViewer3DColor(QtBaseViewer):
 
     def focusInEvent(self, event):
         if self._inited:
+            self.makeCurrent()
             self._display.Repaint()
 
     def focusOutEvent(self, event):
         if self._inited:
+            self.makeCurrent()
             self._display.Repaint()
 
     def paintEvent(self, event):
         if self._inited:
+            self.makeCurrent()
             self._display.Context.UpdateCurrentViewer()
             # important to allow overpainting of the OCC OpenGL context in Qt
             self.swapBuffers()
@@ -396,6 +404,7 @@ class QtViewer3DColor(QtBaseViewer):
                 zoom_factor = 1.1
             else:
                 zoom_factor = 0.9
+            self.makeCurrent()
             self._display.Repaint()
             self._display.ZoomFactor(zoom_factor)
 
@@ -456,6 +465,7 @@ class QtViewer3DColor(QtBaseViewer):
             # DYNAMIC ZOOM
             elif (buttons == QtCore.Qt.RightButton
                   and not modifiers == QtCore.Qt.ShiftModifier):
+                self.makeCurrent()
                 self._display.Repaint()
                 self._display.DynamicZoom(abs(self.dragStartPos.x),
                                           abs(self.dragStartPos.y),
