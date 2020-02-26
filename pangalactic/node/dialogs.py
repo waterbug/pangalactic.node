@@ -155,25 +155,22 @@ class Viewer3DDialog(QDialog):
     """
     A Dialog for CAD viewer.
     """
-    def __init__(self, parent=None):
+    def __init__(self, file_path, parent=None):
         super(Viewer3DDialog, self).__init__(parent)
         self.setWindowTitle("CAD Viewer")
         self.cad_viewer = QtViewer3DColor(self)
+        self.cad_viewer.setAttribute(Qt.WA_DeleteOnClose)
         self.cad_viewer.setSizePolicy(QSizePolicy.Expanding,
                                       QSizePolicy.Expanding)
         self.resize(800, 600)
         layout = QVBoxLayout()
         layout.addWidget(self.cad_viewer)
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok |
-                                        QDialogButtonBox.Cancel,
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Cancel,
                                         Qt.Horizontal, self)
         layout.addWidget(self.buttons)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
-        self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
-
-    def view_cad(self, file_path):
         self.cad_viewer.init_shape_from_STEP(file_path)
 
 

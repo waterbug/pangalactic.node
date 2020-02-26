@@ -507,21 +507,20 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         self.init_viewer_3d()
         self.viewer_in_use = False
         self.resize(800, 600)
-        if not platform.platform().startswith('Darwin'):
-            open_step_file_action = self.create_action("Open a STEP file...",
-                                       slot=self.open_step_file,
-                                       tip="View a CAD model from a STEP file")
-            self.toolbar = self.addToolBar("Actions")
-            self.toolbar.setObjectName('ActionsToolBar')
-            import_icon_file = 'open' + state['icon_type']
-            icon_dir = state.get('icon_dir',
-                                 os.path.join(getattr(orb, 'home', ''), 'icons'))
-            import_icon_path = os.path.join(icon_dir, import_icon_file)
-            import_actions = [open_step_file_action]
-            import_button = MenuButton(QtGui.QIcon(import_icon_path),
-                                       tooltip='Import Data or Objects',
-                                       actions=import_actions, parent=self)
-            self.toolbar.addWidget(import_button)
+        open_step_file_action = self.create_action("Open a STEP file...",
+                                   slot=self.open_step_file,
+                                   tip="View a CAD model from a STEP file")
+        self.toolbar = self.addToolBar("Actions")
+        self.toolbar.setObjectName('ActionsToolBar')
+        import_icon_file = 'open' + state['icon_type']
+        icon_dir = state.get('icon_dir',
+                             os.path.join(getattr(orb, 'home', ''), 'icons'))
+        import_icon_path = os.path.join(icon_dir, import_icon_file)
+        import_actions = [open_step_file_action]
+        import_button = MenuButton(QtGui.QIcon(import_icon_path),
+                                   tooltip='Import Data or Objects',
+                                   actions=import_actions, parent=self)
+        self.toolbar.addWidget(import_button)
         if step_file:
             self.load_file(step_file)
 
