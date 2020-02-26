@@ -17,6 +17,10 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                              QHBoxLayout, QLabel, QLineEdit, QProgressDialog,
                              QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
+from OCC.Extend.DataExchange import read_step_file_with_names_colors
+from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
+from OCC.Display.SimpleGui import init_display
+
 from louie import dispatcher
 
 from pangalactic.core             import prefs, state
@@ -28,7 +32,7 @@ from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.cad.viewer  import QtViewer3DColor
+# from pangalactic.node.cad.viewer  import QtViewer3DColor
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, StringFieldWidget,
@@ -157,21 +161,32 @@ class Viewer3DDialog(QDialog):
     """
     def __init__(self, file_path, parent=None):
         super(Viewer3DDialog, self).__init__(parent)
-        self.setWindowTitle("CAD Viewer")
-        self.cad_viewer = QtViewer3DColor(self)
-        self.cad_viewer.setAttribute(Qt.WA_DeleteOnClose)
-        self.cad_viewer.setSizePolicy(QSizePolicy.Expanding,
-                                      QSizePolicy.Expanding)
+        # self.setWindowTitle("CAD Viewer")
+        # self.cad_viewer = QtViewer3DColor(self)
+        # self.cad_viewer.setAttribute(Qt.WA_DeleteOnClose)
+        # self.cad_viewer.setSizePolicy(QSizePolicy.Expanding,
+                                      # QSizePolicy.Expanding)
+
+        shapes_labels_colors = read_step_file_with_names_colors(file_path)
+        # init graphic display
+        display, start_display, add_menu, add_function_to_menu = init_display()
+        for shpt_lbl_color in shapes_labels_colors:
+            label, c = shapes_labels_colors[shpt_lbl_color]
+            display.DisplayColoredShape(shpt_lbl_color,
+                                        color=Quantity_Color(c.Red(),
+                                                             c.Green(),
+                                                             c.Blue(),
+                                                             Quantity_TOC_RGB))
         self.resize(800, 600)
         layout = QVBoxLayout()
-        layout.addWidget(self.cad_viewer)
+        layout.addWidget(display)
         self.buttons = QDialogButtonBox(QDialogButtonBox.Cancel,
                                         Qt.Horizontal, self)
         layout.addWidget(self.buttons)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
         self.buttons.rejected.connect(self.reject)
-        self.cad_viewer.init_shape_from_STEP(file_path)
+        start_display()
 
 
 class ReqParmDialog(QDialog):
