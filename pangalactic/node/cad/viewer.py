@@ -43,7 +43,8 @@ from OCC.Core.Quantity import Quantity_Color
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtGui, QtWidgets
+from PyQt5.QtCore import Qt
 
 
 class point(object):
@@ -74,11 +75,11 @@ class QtBaseViewer(QtWidgets.QOpenGLWidget):
         # enable Mouse Tracking
         self.setMouseTracking(True)
         # Strong focus
-        self.setFocusPolicy(QtCore.Qt.WheelFocus)
+        self.setFocusPolicy(Qt.WheelFocus)
 
         # required for overpainting the widget
-        self.setAttribute(QtCore.Qt.WA_PaintOnScreen)
-        self.setAttribute(QtCore.Qt.WA_NoSystemBackground)
+        self.setAttribute(Qt.WA_PaintOnScreen)
+        self.setAttribute(Qt.WA_NoSystemBackground)
         self.setAutoFillBackground(False)
 
     def GetHandle(self):
@@ -421,7 +422,7 @@ class QtViewer3DColor(QtBaseViewer):
         if self._inited:
             pt = point(event.pos())
             modifiers = event.modifiers()
-            if event.button() == QtCore.Qt.LeftButton:
+            if event.button() == Qt.LeftButton:
                 pt = point(event.pos())
                 if self._select_area:
                     [Xmin, Ymin, dx, dy] = self._drawbox
@@ -429,12 +430,12 @@ class QtViewer3DColor(QtBaseViewer):
                     self._select_area = False
                 else:
                     # multiple select if shift is pressed
-                    if modifiers == QtCore.Qt.ShiftModifier:
+                    if modifiers == Qt.ShiftModifier:
                         self._display.ShiftSelect(pt.x, pt.y)
                     else:
                         # single select otherwise
                         self._display.Select(pt.x, pt.y)
-            elif event.button() == QtCore.Qt.RightButton:
+            elif event.button() == Qt.RightButton:
                 if self._zoom_area:
                     [Xmin, Ymin, dx, dy] = self._drawbox
                     self._display.ZoomArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
@@ -456,15 +457,15 @@ class QtViewer3DColor(QtBaseViewer):
             buttons = int(evt.buttons())
             modifiers = evt.modifiers()
             # ROTATE
-            if (buttons == QtCore.Qt.LeftButton
-                and not modifiers == QtCore.Qt.ShiftModifier):
+            if (buttons == Qt.LeftButton
+                and not modifiers == Qt.ShiftModifier):
                 dx = pt.x - self.dragStartPos.x
                 dy = pt.y - self.dragStartPos.y
                 self._display.Rotation(pt.x, pt.y)
                 self._drawbox = False
             # DYNAMIC ZOOM
-            elif (buttons == QtCore.Qt.RightButton
-                  and not modifiers == QtCore.Qt.ShiftModifier):
+            elif (buttons == Qt.RightButton
+                  and not modifiers == Qt.ShiftModifier):
                 self.makeCurrent()
                 self._display.Repaint()
                 self._display.DynamicZoom(abs(self.dragStartPos.x),
@@ -474,7 +475,7 @@ class QtViewer3DColor(QtBaseViewer):
                 self.dragStartPos.y = pt.y
                 self._drawbox = False
             # PAN
-            elif buttons == QtCore.Qt.MidButton:
+            elif buttons == Qt.MidButton:
                 dx = pt.x - self.dragStartPos.x
                 dy = pt.y - self.dragStartPos.y
                 self.dragStartPos.x = pt.x
@@ -483,13 +484,13 @@ class QtViewer3DColor(QtBaseViewer):
                 self._drawbox = False
             # DRAW BOX
             # ZOOM WINDOW
-            elif (buttons == QtCore.Qt.RightButton
-                  and modifiers == QtCore.Qt.ShiftModifier):
+            elif (buttons == Qt.RightButton
+                  and modifiers == Qt.ShiftModifier):
                 self._zoom_area = True
                 self.DrawBox(evt)
             # SELECT AREA
-            elif (buttons == QtCore.Qt.LeftButton
-                  and modifiers == QtCore.Qt.ShiftModifier):
+            elif (buttons == Qt.LeftButton
+                  and modifiers == Qt.ShiftModifier):
                 self._select_area = True
                 self.DrawBox(evt)
             else:
@@ -503,12 +504,8 @@ class STEP3DViewer(QtWidgets.QMainWindow):
     def __init__(self, step_file=None, parent=None):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.setWindowTitle(self.tr("STEP 3D viewer"))
-        self.qt_viewer_3d = QtViewer3DColor(self)
-        viewer_layout = QtWidgets.QHBoxLayout()
-        viewer_layout.setContentsMargins(0, 0, 0, 0)
-        viewer_layout.setSpacing(0)
-        self.qt_viewer_3d.setLayout(viewer_layout)
-        self.setCentralWidget(self.qt_viewer_3d)
+        self.init_viewer_3d()
+        self.viewer_in_use = False
         self.resize(800, 600)
         open_step_file_action = self.create_action("Open a STEP file...",
                                    slot=self.open_step_file,
@@ -543,7 +540,23 @@ class STEP3DViewer(QtWidgets.QMainWindow):
             action.triggered.connect(slot)
         return action
 
+    def init_viewer_3d(self):
+        if getattr(self, 'qt_viewer_3d', None):
+            # close existing viewer, if any
+            self.qt_viewer_3d.setAttribute(Qt.WA_DeleteOnClose)
+            self.qt_viewer_3d.parent = None
+            self.qt_viewer_3d.close()
+            self.qt_viewer_3d = None
+        self.qt_viewer_3d = QtViewer3DColor(self)
+        viewer_layout = QtWidgets.QHBoxLayout()
+        viewer_layout.setContentsMargins(0, 0, 0, 0)
+        viewer_layout.setSpacing(0)
+        self.qt_viewer_3d.setLayout(viewer_layout)
+        self.setCentralWidget(self.qt_viewer_3d)
+
     def load_file(self, fpath):
+        if self.viewer_in_use:
+            self.init_viewer_3d()
         self.qt_viewer_3d.init_shape_from_STEP(fpath)
 
     def open_step_file(self):
@@ -562,6 +575,8 @@ class STEP3DViewer(QtWidgets.QMainWindow):
             state['last_path'] = os.path.dirname(fpath)
             if orb.started:
                 orb.log.debug('  - opening STEP file "{}" ...'.format(fpath))
+            if self.viewer_in_use:
+                self.init_viewer_3d()
             self.qt_viewer_3d.init_shape_from_STEP(fpath)
         else:
             return
