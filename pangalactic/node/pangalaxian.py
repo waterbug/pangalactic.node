@@ -57,8 +57,7 @@ from pangalactic.node.datagrid         import DataGrid
 from pangalactic.node.dialogs          import (LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
-                                               PrefsDialog,
-                                               Viewer3DDialog)
+                                               PrefsDialog)
 from pangalactic.node.helpwidget       import HelpWidget
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus
@@ -3653,7 +3652,7 @@ class Main(QtWidgets.QMainWindow):
             state['last_path'] = os.path.dirname(fpath)
             orb.log.debug('  - calling view_cad({})'.format(fpath))
             orb.log.debug('    fpath type: {}'.format(type(fpath)))
-            dlg = Viewer3DDialog(fpath, parent=self)
+            dlg = STEP3DViewer(fpath, parent=self)
             dlg.show()
         else:
             return
