@@ -556,8 +556,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         self.setCentralWidget(self.qt_viewer_3d)
 
     def load_file(self, fpath):
-        if self.viewer_in_use:
-            self.init_viewer_3d()
+        self.init_viewer_3d()
         self.qt_viewer_3d.init_shape_from_STEP(fpath)
 
     def open_step_file(self):
