@@ -17,7 +17,7 @@
 ##You should have received a copy of the GNU Lesser General Public License
 ##along with pythonOCC.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, sys
+import os, platform, sys
 
 from pangalactic.core         import state
 from pangalactic.core.uberorb import orb
@@ -507,20 +507,21 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         self.init_viewer_3d()
         self.viewer_in_use = False
         self.resize(800, 600)
-        open_step_file_action = self.create_action("Open a STEP file...",
-                                   slot=self.open_step_file,
-                                   tip="View a CAD model from a STEP file")
-        self.toolbar = self.addToolBar("Actions")
-        self.toolbar.setObjectName('ActionsToolBar')
-        import_icon_file = 'open' + state['icon_type']
-        icon_dir = state.get('icon_dir',
-                             os.path.join(getattr(orb, 'home', ''), 'icons'))
-        import_icon_path = os.path.join(icon_dir, import_icon_file)
-        import_actions = [open_step_file_action]
-        import_button = MenuButton(QtGui.QIcon(import_icon_path),
-                                   tooltip='Import Data or Objects',
-                                   actions=import_actions, parent=self)
-        self.toolbar.addWidget(import_button)
+        if not platform.platform().startswith('Darwin'):
+            open_step_file_action = self.create_action("Open a STEP file...",
+                                       slot=self.open_step_file,
+                                       tip="View a CAD model from a STEP file")
+            self.toolbar = self.addToolBar("Actions")
+            self.toolbar.setObjectName('ActionsToolBar')
+            import_icon_file = 'open' + state['icon_type']
+            icon_dir = state.get('icon_dir',
+                                 os.path.join(getattr(orb, 'home', ''), 'icons'))
+            import_icon_path = os.path.join(icon_dir, import_icon_file)
+            import_actions = [open_step_file_action]
+            import_button = MenuButton(QtGui.QIcon(import_icon_path),
+                                       tooltip='Import Data or Objects',
+                                       actions=import_actions, parent=self)
+            self.toolbar.addWidget(import_button)
         if step_file:
             self.load_file(step_file)
 
@@ -542,7 +543,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
 
     def init_viewer_3d(self):
         if getattr(self, 'qt_viewer_3d', None):
-            # close existing viewer, if any
+            # close existing viewer
             self.qt_viewer_3d.setAttribute(Qt.WA_DeleteOnClose)
             self.qt_viewer_3d.parent = None
             self.qt_viewer_3d.close()

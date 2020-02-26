@@ -1295,10 +1295,13 @@ class Main(QtWidgets.QMainWindow):
                                     icon="new_doc",
                                     tip="Create a New Test",
                                     modes=['system', 'component', 'db'])
+        if platform.platform().startswith('Darwin'):
+            cad_action_slot = self.open_step_file
+        else:
+            cad_action_slot = self.view_cad
         self.view_cad_action = self.create_action(
                                     "View a CAD Model...",
-                                    # slot=self.open_step_file,
-                                    slot=self.view_cad,
+                                    slot=cad_action_slot,
                                     icon="view_16",
                                     tip="View a CAD model from a STEP file",
                                     modes=['system', 'component'])
@@ -2973,7 +2976,6 @@ class Main(QtWidgets.QMainWindow):
 
     def view_cad(self, file_path=None):
         orb.log.info('* view_cad({})'.format(file_path))
-        # viewer = Viewer3DDialog(self)
         viewer = STEP3DViewer(step_file=file_path, parent=self)
         orb.log.info('  - displaying CAD model ...')
         viewer.show()
@@ -3651,7 +3653,7 @@ class Main(QtWidgets.QMainWindow):
             state['last_path'] = os.path.dirname(fpath)
             orb.log.debug('  - calling view_cad({})'.format(fpath))
             orb.log.debug('    fpath type: {}'.format(type(fpath)))
-            self.view_cad(fpath)
+            self.view_cad(file_path=fpath)
         else:
             return
 
