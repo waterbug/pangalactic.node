@@ -88,13 +88,13 @@ def build_req_id(project, seq, version):
 
 class QHLine(QFrame):
     def __init__(self):
-        super(QHLine, self).__init__()
+        super().__init__()
         self.setFrameShape(QFrame.HLine)
 
 
 class QVLine(QFrame):
     def __init__(self):
-        super(QVLine, self).__init__()
+        super().__init__()
         self.setFrameShape(QFrame.VLine)
 
 
@@ -110,7 +110,7 @@ class ReqWizard(QWizard):
             req (Requirement): a Requirement object (provided only when wizard
                 is being invoked in order to edit an existing requirement.
         """
-        super(ReqWizard, self).__init__(parent)
+        super().__init__(parent)
         self.setWizardStyle(QWizard.ClassicStyle)
         self.setTitleFormat(Qt.RichText)
         self.setSubTitleFormat(Qt.RichText)
@@ -239,7 +239,7 @@ class ReqWizard(QWizard):
 class RequirementIDPage(QWizardPage):
 
     def __init__(self, parent=None):
-        super(RequirementIDPage, self).__init__(parent)
+        super().__init__(parent)
         self.setTitle("Requirement Identification")
         self.setSubTitle("Identify the requirement you are creating...")
         layout = QHBoxLayout()
@@ -386,7 +386,7 @@ class ReqVerificationPage(QWizardPage):
     Page for selecting the verification method for the requirement.
     """
     def __init__(self, parent=None):
-        super(ReqVerificationPage, self).__init__(parent)
+        super().__init__(parent)
         layout = QVBoxLayout()
         self.setLayout(layout)
 
@@ -445,7 +445,7 @@ class ReqAllocPage(QWizardPage):
     """
 
     def __init__(self, parent=None):
-        super(ReqAllocPage, self).__init__(parent)
+        super().__init__(parent)
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
@@ -562,7 +562,7 @@ class ReqSummaryPage(QWizardPage):
     Page to view a summary before saving the Requirement.
     """
     def __init__(self, parent=None):
-        super(ReqSummaryPage, self).__init__(parent)
+        super().__init__(parent)
         layout = QVBoxLayout()
         form = QFormLayout()
         self.labels = {}
@@ -649,7 +649,7 @@ class PerformanceDefineParmPage(QWizardPage):
     """
 
     def __init__(self, parent=None):
-        super(PerformanceDefineParmPage, self).__init__(parent)
+        super().__init__(parent)
         layout = QHBoxLayout()
         self.setLayout(layout)
 
@@ -857,7 +857,7 @@ class PerformReqBuildShallPage(QWizardPage):
     """
 
     def __init__(self, parent=None):
-        super(PerformReqBuildShallPage, self).__init__(parent)
+        super().__init__(parent)
         layout = QVBoxLayout()
         self.setLayout(layout)
 
@@ -1510,7 +1510,7 @@ class PerformanceMarginCalcPage(QWizardPage):
     """
 
     def __init__(self, parent=None):
-        super(PerformanceMarginCalcPage, self).__init__(parent)
+        super().__init__(parent)
         layout = QVBoxLayout()
         self.setLayout(layout)
 

@@ -114,7 +114,7 @@ class ModelWindow(QMainWindow):
             external (bool):  initialize as an external window
             preferred_size (tuple):  size to set -- (width, height)
         """
-        super(ModelWindow, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         # orb.log.debug('* ModelWindow initializing with:')
         # orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         self.obj = obj
@@ -610,7 +610,7 @@ class ModelWindow(QMainWindow):
 class ProductInfoPanel(QWidget):
 
     def __init__(self, parent=None):
-        super(ProductInfoPanel, self).__init__(parent)
+        super().__init__(parent)
         orb.log.debug('* ProductInfoPanel initializing ...')
         self.setAcceptDrops(True)
         # product frame

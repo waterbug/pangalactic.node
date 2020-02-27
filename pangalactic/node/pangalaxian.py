@@ -122,7 +122,7 @@ class Main(QtWidgets.QMainWindow):
                               else: send stdout and stderr to the logger
             debug (bool):     set log level to DEBUG
         """
-        super(Main, self).__init__(parent=None)
+        super().__init__(parent=None)
         ###################################################
         self.splash_msg = ''
         self.add_splash_msg('Starting ...')
@@ -1294,10 +1294,10 @@ class Main(QtWidgets.QMainWindow):
                                     icon="new_doc",
                                     tip="Create a New Test",
                                     modes=['system', 'component', 'db'])
-        if platform.platform().startswith('Darwin'):
-            cad_action_slot = self.open_step_file
-        else:
-            cad_action_slot = self.view_cad
+        # if platform.platform().startswith('Darwin'):
+            # cad_action_slot = self.open_step_file
+        # else:
+        cad_action_slot = self.view_cad
         self.view_cad_action = self.create_action(
                                     "View a CAD Model...",
                                     slot=cad_action_slot,
@@ -2974,20 +2974,9 @@ class Main(QtWidgets.QMainWindow):
         help_widget.show()
 
     def view_cad(self, file_path=None):
-        orb.log.info('* view_cad({})'.format(file_path))
+        orb.log.info('* view_cad(fila_path="{}")'.format(file_path))
         viewer = STEP3DViewer(step_file=file_path, parent=self)
-        orb.log.info('  - displaying CAD model ...')
         viewer.show()
-
-    def on_db_selected(self, selected, deselected):
-        orb.log.debug('* db selected [item: %i]' % selected.row())
-        if deselected:
-            orb.log.debug('  - [deselected item: %i]' % deselected.row())
-
-    def on_model_selected(self, selected, deselected):
-        orb.log.debug('* model selected [item: %i]' % selected.row())
-        if deselected:
-            orb.log.debug('  - [deselected item: %i]' % deselected.row())
 
     def new_project(self):
         orb.log.info('* new_project()')
@@ -3650,10 +3639,9 @@ class Main(QtWidgets.QMainWindow):
             # TODO: add an "index" column for sorting, or else figure out how
             # to sort on the left header column ...
             state['last_path'] = os.path.dirname(fpath)
-            orb.log.debug('  - calling view_cad({})'.format(fpath))
-            orb.log.debug('    fpath type: {}'.format(type(fpath)))
-            dlg = STEP3DViewer(fpath, parent=self)
-            dlg.show()
+            orb.log.debug('  - STEP3DViewer(step_file="{}")'.format(fpath))
+            viewer = STEP3DViewer(step_file=fpath, parent=self)
+            viewer.show()
         else:
             return
 

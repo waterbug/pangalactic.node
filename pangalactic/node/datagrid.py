@@ -118,7 +118,7 @@ class DMTreeModel(QAbstractItemModel):
             schema (list): list of data element ids (column "names")
             parent (QWidget):  parent widget
         """
-        super(DMTreeModel, self).__init__(parent)
+        super().__init__(parent)
         # cell_to_index maps DM (row_oid, col_id) to the model index of a cell
         self.cell_to_index = {}
         # index_to_cell goes the other way
@@ -169,7 +169,7 @@ class DMTreeModel(QAbstractItemModel):
     def flags(self, index):
         if not index.isValid():
             return 0
-        return Qt.ItemIsEditable | super(DMTreeModel, self).flags(index)
+        return Qt.ItemIsEditable | super().flags(index)
 
     def getItem(self, index):
         if index.isValid():
@@ -304,7 +304,7 @@ class GridTreeView(QTreeView):
         """
         Initialize.
         """
-        super(GridTreeView, self).__init__(parent)
+        super().__init__(parent)
         self.setItemDelegate(DGDelegate(self))
         self.setSelectionBehavior(self.SelectRows)
         self.setSortingEnabled(False)
@@ -387,7 +387,7 @@ class GridTreeView(QTreeView):
 class DGDelegate(QStyledItemDelegate):
 
     def __init__(self, parent=None):
-        super(DGDelegate, self).__init__(parent)
+        super().__init__(parent)
 
     def createEditor(self, parent, style, index):
         # TODO: check for edit permission ...
@@ -447,7 +447,7 @@ class DGDelegate(QStyledItemDelegate):
 class DataGrid(QMainWindow):
     def __init__(self, project=None, schema_name=None, schema=None,
                  parent=None):
-        super(DataGrid, self).__init__(parent)
+        super().__init__(parent)
         self.setup_ui()
         # ---- stuff for informal testing ------------------------------------
         # headers = ("Title", "Description")

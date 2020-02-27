@@ -67,7 +67,7 @@ product_types = [d for d in core if d.get('_cname') == 'ProductType' and
 
 class NotificationDialog(QDialog):
     def __init__(self, something, parent=None):
-        super(NotificationDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Hey!")
         form = QFormLayout(self)
         something_happened_label = QLabel('woo!', self)
@@ -84,7 +84,7 @@ class NotificationDialog(QDialog):
 
 class CircleWidget(QWidget):
     def __init__(self, parent=None):
-        super(CircleWidget, self).__init__(parent)
+        super().__init__(parent)
         self.nframe = 0
         self.setBackgroundRole(QPalette.Base)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -117,7 +117,7 @@ class CircleWidget(QWidget):
 
 class LogWidget(QTextBrowser):
     def __init__(self, parent=None):
-        super(LogWidget, self).__init__(parent)
+        super().__init__(parent)
         palette = QPalette()
         palette.setColor(QPalette.Base, QColor("#ddddfd"))
         self.setPalette(palette)
@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
     MOD_COUNT = 0
 
     def __init__(self, host, port, reactor=None, parent=None):
-        super(MainWindow, self).__init__(parent)
+        super().__init__(parent)
         self.host = host
         self.port = port
         self.reactor = reactor

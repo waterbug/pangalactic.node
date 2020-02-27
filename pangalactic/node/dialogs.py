@@ -49,7 +49,7 @@ class LoginDialog(QDialog):
             userid (list of str):  default userid
             parent (QWidget):  parent widget
         """
-        super(LoginDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Login")
         userid_label = QLabel('userid:', self)
         self.userid_field = QLineEdit(self)
@@ -77,7 +77,7 @@ class LoginDialog(QDialog):
 
 class NotificationDialog(QDialog):
     def __init__(self, something, parent=None):
-        super(NotificationDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Notification")
         form = QFormLayout(self)
         something_happened_label = QLabel('News:', self)
@@ -94,7 +94,7 @@ class NotificationDialog(QDialog):
 
 class OptionNotification(QDialog):
     def __init__(self, title, message, parent=None):
-        super(OptionNotification, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle(title)
         form = QFormLayout(self)
         note_label = QLabel('Note:', self)
@@ -120,7 +120,7 @@ class ValidationDialog(QDialog):
         Args:
             msg_dict (dict):  maps field names to validation error messages
         """
-        super(ValidationDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Validation Error")
         form = QFormLayout(self)
         for fname, msg in msg_dict.items():
@@ -139,7 +139,7 @@ class ValidationDialog(QDialog):
 class ProgressDialog(QProgressDialog):
     def __init__(self, title='Progress', label='In progress...', maximum=10,
                  parent=None):
-        super(ProgressDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setModal(True)
         self.setWindowTitle(title)
         self.setLabelText(label)
@@ -156,7 +156,7 @@ class Viewer3DDialog(QDialog):
     A Dialog for CAD viewer.
     """
     def __init__(self, file_path, parent=None):
-        super(Viewer3DDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("CAD Viewer")
         self.cad_viewer = QtViewer3DColor(self)
         self.cad_viewer.setAttribute(Qt.WA_DeleteOnClose)
@@ -179,7 +179,7 @@ class ReqParmDialog(QDialog):
     A dialog to edit the value of performance requirement parameters.
     """
     def __init__(self, req, parm, parent=None):
-        super(ReqParmDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Requirement Parameters")
         self.req = req
         self.parm = parm
@@ -221,7 +221,7 @@ class AssemblyNodeDialog(QDialog):
     system assembly tree node Acu (or ProjectSystemUsage).
     """
     def __init__(self, ref_des, quantity, system=False, parent=None):
-        super(AssemblyNodeDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Edit System Tree Node")
         self.ref_des = ref_des or ''
         self.quantity = quantity or 1
@@ -284,7 +284,7 @@ class ObjectSelectionDialog(QDialog, PopupDialogMixin):
             view (list):  list of strings (field names)
             parent (QWidget):  parent widget
         """
-        super(ObjectSelectionDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
         self.objs = objs
@@ -338,7 +338,7 @@ class UnitPrefsDialog(QDialog):
         {dimensions (str) : preferred units (str)}
     """
     def __init__(self, parent=None):
-        super(UnitPrefsDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Units Preferences")
         form = QFormLayout(self)
         dim_labels = {}
@@ -372,7 +372,7 @@ class UnitPrefsDialog(QDialog):
 
 class PrefsDialog(QDialog):
     def __init__(self, parent=None):
-        super(PrefsDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Preferences")
         form = QFormLayout(self)
         clear_rows_label = QLabel('Delete empty rows in imported data', self)
@@ -473,7 +473,7 @@ class SelectColsDialog(QDialog):
         view (list of str):  the current view to be customized
     """
     def __init__(self, columns, view, parent=None):
-        super(SelectColsDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Select Columns")
         form = QFormLayout(self)
         self.checkboxes = {}
@@ -499,7 +499,7 @@ class DeleteColsDialog(QDialog):
     Dialog for deleting columns from the dashboard.
     """
     def __init__(self, parent=None):
-        super(DeleteColsDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Delete Columns")
         form = QFormLayout(self)
         self.checkboxes = {}
@@ -524,7 +524,7 @@ class NewDashboardDialog(QDialog):
     Dialog for deleting columns from the dashboard.
     """
     def __init__(self, parent=None):
-        super(NewDashboardDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("New Dashboard")
         form = QFormLayout(self)
         dash_name_label = QLabel('Name of new dashboard:', self)
@@ -549,7 +549,7 @@ class CircleWidget(QWidget):
     A hypnotic widget of concentrically cycling circles.
     """
     def __init__(self, parent=None):
-        super(CircleWidget, self).__init__(parent)
+        super().__init__(parent)
         self.nframe = 0
         self.setBackgroundRole(QPalette.Base)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

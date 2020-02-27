@@ -54,7 +54,7 @@ class Node(object):
                 designator or the component type in the node name
             parent (Node):  the Node's parent Node
         """
-        super(Node, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._obj = obj
         self.link = link
         self.refdes = refdes
@@ -240,7 +240,7 @@ class SystemTreeProxyModel(QSortFilterProxyModel):
         return self.sourceModel().col_defs
 
     def __init__(self, source_model, parent=None):
-        super(SystemTreeProxyModel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setSourceModel(source_model)
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
@@ -303,7 +303,7 @@ class SystemTreeModel(QAbstractItemModel):
                 highlighted if 'show_allocs' is True
             parent (QWidget): parent widget of the SystemTreeModel
         """
-        super(SystemTreeModel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.parent = parent
         self.refdes = refdes
         self.show_allocs = show_allocs
@@ -463,7 +463,7 @@ class SystemTreeModel(QAbstractItemModel):
         node = self.get_node(index)
         if node.is_branch_node:
             return True
-        return super(SystemTreeModel, self).hasChildren(index)
+        return super().hasChildren(index)
 
     def rowCount(self, index):
         """
@@ -996,7 +996,7 @@ class SystemTreeView(QTreeView):
             req (Requirement):  the requirement whose allocations should be
                 highlighted if 'show_allocs' is True
         """
-        super(SystemTreeView, self).__init__(parent)
+        super().__init__(parent)
         self.show_allocs = show_allocs
         tree_model = SystemTreeModel(obj, refdes=refdes,
                                      show_allocs=show_allocs,
@@ -1515,7 +1515,7 @@ class SystemTreeView(QTreeView):
 
 # class MainForm(QMainWindow):
     # def __init__(self, obj, parent=None):
-        # super(MainForm, self).__init__(parent)
+        # super().__init__(parent)
         # self.view = SystemTreeView(obj, parent=self)
         # self.setCentralWidget(self.view)
 

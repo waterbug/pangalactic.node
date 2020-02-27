@@ -1,26 +1,29 @@
 #!/usr/bin/env python
-# NOTE: fixed div's so old_div is not needed.
-# from past.utils import old_div
+
+import os
+from collections  import namedtuple
+from urllib.parse import urlparse
+
 import pyqtgraph as pg
 import pyqtgraph.parametertree.parameterTypes as pTypes
-from pyqtgraph.parametertree import Parameter, ParameterTree, ParameterItem, registerParameterType
-from pyqtgraph.dockarea import *
+from pyqtgraph.parametertree import (Parameter, ParameterTree, ParameterItem,
+                                     registerParameterType)
+from pyqtgraph.dockarea import Dock, DockArea
 from pyqtgraph import CheckTable
-import os
-from collections import namedtuple
-from urllib.parse    import urlparse
+
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
-
-from PyQt5.QtWidgets import (QTreeWidgetItem,QTreeWidget, QAction, QApplication, QComboBox, QDockWidget,
+from PyQt5.QtWidgets import (QTreeWidgetItem,QTreeWidget, QAction,
+                             QApplication, QComboBox, QDockWidget,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
                              QGraphicsView, QGridLayout, QMenu, QToolBox,
                              QPushButton, QGraphicsPathItem, QVBoxLayout,
                              QToolBar, QWidgetAction, QStatusBar, QMessageBox)
-from PyQt5.QtGui import (QGraphicsProxyWidget, QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
-                         QPixmap, QCursor, QPainterPath, QPolygonF)
+from PyQt5.QtGui import (QGraphicsProxyWidget, QIcon, QTransform, QBrush,
+                         QDrag, QPainter, QPen, QPixmap, QCursor, QPainterPath,
+                         QPolygonF)
 
 # pangalactic
 from pangalactic.core             import state
@@ -97,8 +100,7 @@ def get_model_path(model):
 class EventBlock(QGraphicsPolygonItem):
 
     def __init__(self, activity=None, parent_activity=None, style=None,
-                 editable=False, port_spacing=0,parent=None):
-        super(EventBlock, self).__init__(parent)
+                 editable=False, port_spacing=0, parent=None):
         """
         Initialize Block.
 
@@ -113,6 +115,7 @@ class EventBlock(QGraphicsPolygonItem):
             editable (bool):  flag indicating whether block properties can be
                 edited in place
         """
+        super().__init__(parent)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable|
@@ -155,7 +158,7 @@ class EventBlock(QGraphicsPolygonItem):
             pass
 
     def mouseDoubleClickEvent(self, event):
-        super(EventBlock, self).mouseDoubleClickEvent(event)
+        super().mouseDoubleClickEvent(event)
         dispatcher.send("double clicked", act=self.activity)
 
     def contextMenuEvent(self, event):
@@ -182,16 +185,16 @@ class EventBlock(QGraphicsPolygonItem):
         return value
 
     def mousePressEvent(self, event):
-        super(EventBlock, self).mousePressEvent(event)
+        super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        super(EventBlock, self).mouseMoveEvent(event)
+        super().mouseMoveEvent(event)
 
 
 
 class TimelineView(QGraphicsView):
     def __init__(self, parent=None):
-        super(TimelineView, self).__init__(parent)
+        super().__init__(parent)
 
     def dragEnterEvent(self, event):
         try:
@@ -209,7 +212,7 @@ class TimelineView(QGraphicsView):
 class Timeline(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
-        super(Timeline, self).__init__(parent)
+        super().__init__(parent)
 
         self.item_list = []
         self.path_length = 1500
@@ -295,7 +298,7 @@ class Timeline(QGraphicsPathItem):
 class TimelineScene(QGraphicsScene):
     def __init__(self, parent, current_activity=None, act_of=None,
                  position=None):
-        super(TimelineScene, self).__init__(parent)
+        super().__init__(parent)
         self.position = position
         self.current_activity = current_activity
         self.timeline = Timeline(self)
@@ -312,14 +315,14 @@ class TimelineScene(QGraphicsScene):
                                 obj=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
-        super(TimelineScene, self).mousePressEvent(mouseEvent)
+        super().mousePressEvent(mouseEvent)
 
     def mouseMoveEvent(self, event):
-        super(TimelineScene, self).mouseMoveEvent(event)
+        super().mouseMoveEvent(event)
         self.grabbed_item = self.mouseGrabberItem()
 
     def mouseReleaseEvent(self, event):
-        super(TimelineScene, self).mouseReleaseEvent(event)
+        super().mouseReleaseEvent(event)
         if self.grabbed_item != None:
             self.grabbed_item.setPos(event.scenePos().x(), 250)
             self.timeline.reposition()
@@ -362,11 +365,11 @@ class TimelineScene(QGraphicsScene):
                          panels=panels, modal_mode=True, parent=self.parent())
         pxo.show()
     def mouseDoubleClickEvent(self, event):
-        super(TimelineScene, self).mouseDoubleClickEvent(event)
+        super().mouseDoubleClickEvent(event)
 
 class ToolButton(QPushButton):
     def __init__(self, text, parent=None):
-        super(ToolButton, self).__init__(text, parent)
+        super().__init__(text, parent)
 
     def boundingRect(self):
         return QRectF(-5 , -5, 20, 20)
@@ -403,15 +406,16 @@ class ToolButton(QPushButton):
     def dragMoveEvent(self, event):
         event.setAccepted(True)
 
+
 class ToolbarAction(QWidgetAction):
     def __init__(self, scene, view, toolbar, visible, parent=None):
-        super(ToolbarAction, self).__init__(parent=parent)
+        super().__init__(parent=parent)
 
 
 class TimelineWidget(QWidget):
     def __init__(self, spacecraft, subject_activity=None,
                  act_of=None,parent=None, position=None):
-        super(TimelineWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.possible_systems = []
         self.position = position
         ds = config.get('discipline_subsystems')
@@ -896,7 +900,7 @@ class ConOpsModeler(QMainWindow):
                 corresponding to the object being modeled
             preferred_size (tuple):  size to set -- (width, height)
         """
-        super(ConOpsModeler, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         orb.log.info('* ConOpsModeler initializing')
         # self.logo = logo
         # self.idx = idx

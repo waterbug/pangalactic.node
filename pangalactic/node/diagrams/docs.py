@@ -35,7 +35,7 @@ class BoxItem(QtWidgets.QGraphicsItem):
 
     def __init__(self, position, scene, style=Qt.SolidLine,
                  rect=None):
-        super(BoxItem, self).__init__()
+        super().__init__()
         self.setFlags(QtWidgets.QGraphicsItem.ItemIsSelectable |
                       QtWidgets.QGraphicsItem.ItemIsMovable |
                       QtWidgets.QGraphicsItem.ItemIsFocusable)
@@ -120,7 +120,7 @@ class BoxItem(QtWidgets.QGraphicsItem):
 class GraphicsView(QtWidgets.QGraphicsView):
 
     def __init__(self, edit_mode=True, parent=None):
-        super(GraphicsView, self).__init__(parent)
+        super().__init__(parent)
         self.setDragMode(QtWidgets.QGraphicsView.RubberBandDrag)
         self.setRenderHint(QtGui.QPainter.Antialiasing)
         self.setRenderHint(QtGui.QPainter.TextAntialiasing)
@@ -133,7 +133,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 class ReadOnlyGraphicsView(QtWidgets.QGraphicsView):
 
     def __init__(self, edit_mode=True, parent=None):
-        super(ReadOnlyGraphicsView, self).__init__(parent)
+        super().__init__(parent)
         self.setDragMode(QtWidgets.QGraphicsView.RubberBandDrag)
         self.setRenderHint(QtGui.QPainter.Antialiasing)
         self.setRenderHint(QtGui.QPainter.TextAntialiasing)
@@ -155,7 +155,7 @@ class ReadOnlyGraphicsView(QtWidgets.QGraphicsView):
 class DocForm(QtWidgets.QDialog):
 
     def __init__(self, scene=None, edit_mode=True, parent=None):
-        super(DocForm, self).__init__(parent)
+        super().__init__(parent)
         self.scene = scene
         self.edit_mode = edit_mode
         self.filename = ''

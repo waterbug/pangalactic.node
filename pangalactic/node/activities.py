@@ -21,7 +21,7 @@ from pangalactic.node.widgets     import NameLabel
 
 class EditableTableModel(QAbstractTableModel):
     def __init__(self, obj_list, param, parent=None):
-        super(EditableTableModel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.obj = obj_list
         self.param = param
 
@@ -49,7 +49,7 @@ class EditableTableModel(QAbstractTableModel):
         if not index.isValid():
             return 0
         # return Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled
-        return Qt.ItemIsEditable | super(EditableTableModel, self).flags(index)
+        return Qt.ItemIsEditable | super().flags(index)
 
     def setData(self, index, value, role):
         self.obj[index.row()][index.column()] = value
@@ -105,7 +105,7 @@ class ActivityTable(QWidget):
                 as the "top" or "middle" table, which will determine its
                 response to signals
         """
-        super(ActivityTable, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         orb.log.info('* ActivityTable initializing for "{}" ...'.format(
                                                             subject.name))
         self.subject = subject
@@ -319,7 +319,7 @@ class ParameterTable(QWidget):
             act_of (Product):  Product of which the subject is an Activity
             initial_param (str):  id of initial parameter setting
         """
-        super(ParameterTable, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         orb.log.info('* ParameterTable initializing for "{}" ...'.format(
                                                             subject.name))
         self.subject = subject

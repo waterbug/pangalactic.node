@@ -16,7 +16,7 @@ from pangalactic.core.uberorb import orb
 class HelpWidget(QDialog):
 
     def __init__(self, page, parent=None):
-        super(HelpWidget, self).__init__(parent)
+        super().__init__(parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setAttribute(Qt.WA_GroupLeader)
         self.create_widgets()

@@ -592,9 +592,6 @@ class HTMLDelegate(QStyledItemDelegate):
 
 class ReqAllocDelegate(QStyledItemDelegate):
 
-    # def __init__(self, parent=None):
-        # super(ReqAllocDelegate, self).__init__(parent)
-
     def paint(self, painter, option, index):
         if option.state & QStyle.State_Selected:
             option.backgroundBrush = index.data(Qt.BackgroundRole)
@@ -615,5 +612,5 @@ class ReqAllocDelegate(QStyledItemDelegate):
                                                index.data(Qt.DisplayRole))
             # QStyledItemDelegate.paint(self, painter, option, index)
         else:
-            super(ReqAllocDelegate, self).paint(painter, option, index)
+            super().paint(painter, option, index)
 

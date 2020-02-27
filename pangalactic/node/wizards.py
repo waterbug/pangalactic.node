@@ -53,7 +53,7 @@ class DataImportWizard(QtWidgets.QWizard):
     """
 
     def __init__(self, file_path='', parent=None): 
-        super(DataImportWizard, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         if not hasattr(orb, 'log'):
             orb.log = PrintLogger()
         orb.log.info('* [data import wizard]')
@@ -90,7 +90,7 @@ class NewProductWizard(QtWidgets.QWizard):
     """
 
     def __init__(self, parent=None): 
-        super(NewProductWizard, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         orb.log.info('* [new product wizard]')
         self.setWizardStyle(QtWidgets.QWizard.ClassicStyle)
         # the included buttons must be specified using setButtonLayout in order
@@ -141,7 +141,7 @@ class NewProductTypeWizard(QtWidgets.QWizard):
     """
 
     def __init__(self, parent=None): 
-        super(NewProductTypeWizard, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         intro_label = QtWidgets.QLabel(
                 "<h2>Product Type Wizard</h2>"
                 "This wizard will assist you in creating new product "
@@ -178,7 +178,7 @@ class ConceptWizard(QtWidgets.QWizard):
     """
 
     def __init__(self, parent=None): 
-        super(ConceptWizard, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         intro_label = QtWidgets.QLabel(
                 "<p/>Blah blah blah."
                 "<br>This wizard will assist in blah!")
@@ -197,7 +197,7 @@ class IntroPage(QtWidgets.QWizardPage):
     Generic wizard intro page.
     """
     def __init__(self, intro_label, parent=None):
-        super(IntroPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         # TODO:  this page will identify the file type and ask the user what
         # type of data it is (semantic, numeric, etc.) and what the purpose of
         # the data is -- that will determine what type of container to use for
@@ -218,7 +218,7 @@ class IntroPage(QtWidgets.QWizardPage):
 
 class DataSetPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
-        super(DataSetPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         # only file type currently supported is 'excel' ...
         file_path = wizard_state['file_path']
         # TODO: test for file type ...
@@ -295,7 +295,7 @@ class DataSetPage(QtWidgets.QWizardPage):
 
 class ObjectTypePage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
-        super(ObjectTypePage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
                            QtWidgets.QSizePolicy.MinimumExpanding)
         self.vbox = QtWidgets.QVBoxLayout()
@@ -315,7 +315,7 @@ class ObjectTypePage(QtWidgets.QWizardPage):
 
 class HeaderPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
-        super(HeaderPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.candidate_column_names = [] 
         wizard_state['heading_row'] = 0
         wizard_state['column_names'] = []
@@ -447,7 +447,7 @@ class HeaderPage(QtWidgets.QWizardPage):
 
 class MetaDataPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
-        super(MetaDataPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         # TODO:  this page will:
         # [1]  provide a form for metadata about the dataset
         # [2]  offer to map the dataset to a standard schema
@@ -526,7 +526,7 @@ class MetaDataPage(QtWidgets.QWizardPage):
 
 class DataImportConclusionPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
-        super(DataImportConclusionPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
 
     def initializePage(self):
         # finishText = self.wizard().buttonText(QtWidgets.QWizard.FinishButton)
@@ -581,7 +581,7 @@ class IdentificationPage(QtWidgets.QWizardPage):
     0. Identify Product
     """
     def __init__(self, intro_label, parent=None):
-        super(IdentificationPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setTitle("Product Identification")
         self.setSubTitle("Identify the product you are creating ...")
         layout = QtWidgets.QHBoxLayout()
@@ -654,7 +654,7 @@ class ProductTypePage(QtWidgets.QWizardPage):
     1. Select Product Type
     """
     def __init__(self, parent=None):
-        super(ProductTypePage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.show_all_disciplines = False
 
     def initializePage(self):
@@ -811,7 +811,7 @@ class MaturityLevelPage(QtWidgets.QWizardPage):
     2. Select Maturity Level (TRL)
     """
     def __init__(self, parent=None):
-        super(MaturityLevelPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setTitle("Maturity Level / Technology Readiness Level (TRL)")
         self.setSubTitle("Select the TRL of the product by clicking on a row "
                          "in the TRL table ...")
@@ -896,7 +896,7 @@ class ParametersPage(QtWidgets.QWizardPage):
        * CAD Model
     """
     def __init__(self, parent=None):
-        super(ParametersPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
 
     def initializePage(self):
         pass
@@ -904,7 +904,7 @@ class ParametersPage(QtWidgets.QWizardPage):
 
 class NewProductWizardConclusionPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
-        super(NewProductWizardConclusionPage, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         main_layout = QtWidgets.QVBoxLayout()
         form = QtWidgets.QFormLayout()
         self.id_label = NameLabel('Product ID:')

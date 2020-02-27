@@ -47,7 +47,7 @@ class ListTableModel(QAbstractTableModel):
     A table model based on a list of lists.
     """
     def __init__(self, datain, parent=None, **kwargs):
-        super(ListTableModel, self).__init__(parent=parent, **kwargs)
+        super().__init__(parent=parent, **kwargs)
         # TODO: some validity checking on the data ...
         self.datain = datain or [{0:'no data'}]
 
@@ -84,7 +84,7 @@ class ODTableModel(QAbstractTableModel):
             as_library (bool): (default: False) if True, provide icons, etc.
             parent (QWidget):  parent widget
         """
-        super(ODTableModel, self).__init__(parent=parent, **kwargs)
+        super().__init__(parent=parent, **kwargs)
         # TODO: some validity checking on the data ...
         self.icons = icons or []
         self.as_library = as_library
@@ -168,7 +168,7 @@ class DMTableModel(QAbstractTableModel):
         Keyword Args:
             parent (QWidget):  parent widget
         """
-        super(DMTableModel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         # TODO: some validity checking on the data ...
         if isinstance(dm, DataMatrix):
             self.dm = dm
@@ -188,7 +188,7 @@ class DMTableModel(QAbstractTableModel):
         if not index.isValid():
             return 0
         # return Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled
-        return Qt.ItemIsEditable | super(DMTableModel, self).flags(index)
+        return Qt.ItemIsEditable | super().flags(index)
 
     def columns(self):
         return self.dm.schema
@@ -332,9 +332,8 @@ class ObjectTableModel(ODTableModel):
                 odict = OrderedDict()
                 odict['id'] = 'None'
                 ods = [odict]
-        super(ObjectTableModel, self).__init__(ods, as_library=as_library,
-                                               icons=icons, parent=parent,
-                                               **kwargs)
+        super().__init__(ods, as_library=as_library, icons=icons,
+                         parent=parent, **kwargs)
 
     def get_odict_for_obj(self, obj, view):
         """
@@ -369,11 +368,10 @@ class ObjectTableModel(ODTableModel):
         """
         try:
             # apply ODTableModel.setData, which takes an OrderedDict as value
-            super(ObjectTableModel, self).setData(
-                                index, self.get_odict_for_obj(obj, self.view))
+            super().setData(index, self.get_odict_for_obj(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
-            super(ObjectTableModel, self).dataChanged.emit(index, index)
+            super().dataChanged.emit(index, index)
             return True
         except:
             return False
@@ -458,8 +456,7 @@ class CompareTableModel(ODTableModel):
                 self.column_labels = list(self.ods[0].keys())
         else:
             self.ods = [{0:'no data'}]
-        super(CompareTableModel, self).__init__(self.ods, parent=parent,
-                                               **kwargs)
+        super().__init__(self.ods, parent=parent, **kwargs)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -472,7 +469,7 @@ class CompareTableModel(ODTableModel):
     # A table model based on a Pandas `DataFrame`.
     # """
     # def __init__(self, df, parent=None, **kwargs):
-        # super(DFTableModel, self).__init__(parent=parent, **kwargs)
+        # super().__init__(parent=parent, **kwargs)
         # # TODO: some validity checking on the data ...
         # self.df = df or pandas.DataFrame([{0:'no data'}])
 
@@ -539,7 +536,7 @@ class SpecialSortModel(QSortFilterProxyModel):
     reqpat = r'[a-zA-Z][a-zA-Z0-9]*(\.[0-9][0-9]*)(\.[a-zA-Z0-9][a-zA-Z0-9]*)'
 
     def __init__(self, parent=None):
-        super(SpecialSortModel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
 
     def is_version(self, s):

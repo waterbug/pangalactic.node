@@ -36,7 +36,7 @@ class ObjectTableView(QTableView):
         objs (Identifiable):  objects (rows)
         view (list of str):  specified attributes (columns)
         """
-        super(ObjectTableView, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         orb.log.info('* [ObjectTableView] initializing ...')
         self.objs = objs
         self.view = view
@@ -232,7 +232,7 @@ class DMTableView(QTableView):
         schema_name (str):  name of a stored schema or 'generic' for an ad hoc
             schema
         """
-        super(DMTableView, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         orb.log.info('* [ObjectTableView] initializing ...')
         self.dm = dm
         self.schema_name = schema_name or 'generic'
@@ -391,7 +391,7 @@ class CompareWidget(QDialog):
         objs (Identifiable):  objects to be compared
         parameters (list of str):  ids of parameters to compare by
         """
-        super(CompareWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.objs = objs
         self.parameters = parameters
         tablemodel = CompareTableModel(objs, parameters, parent=self)

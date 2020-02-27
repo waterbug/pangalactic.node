@@ -98,7 +98,7 @@ class Block(QGraphicsItem):
             obj (Product):  object (Product instance) the block represents
             style (Qt.PenStyle):  style of block border
         """
-        super(Block, self).__init__()
+        super().__init__()
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
@@ -249,7 +249,7 @@ class ObjectBlock(Block):
         """
         component = (getattr(usage, 'component', None) or
                      getattr(usage, 'system', None))
-        super(ObjectBlock, self).__init__(position, scene=scene,
+        super().__init__(position, scene=scene,
                                           obj=component, style=style)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
@@ -634,7 +634,7 @@ class SubjectBlock(Block):
             right_ports (bool):  flag indicating whether to place ports on
                 right (if True) or left
         """
-        super(SubjectBlock, self).__init__(position, scene=scene, obj=obj,
+        super().__init__(position, scene=scene, obj=obj,
                                           style=style)
         self.setFlags(QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
@@ -926,7 +926,7 @@ class PortBlock(QGraphicsItem):
             right (bool):  flag telling the PortBlock which side of its parent
                 block it is on (used for routing connectors)
         """
-        super(PortBlock, self).__init__(parent=parent_block)
+        super().__init__(parent=parent_block)
         self.setFlags(
                       # QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsFocusable)
@@ -1070,8 +1070,7 @@ class EntityBlock(Block):
             obj (Identifiable):  object the block represents
             style (Qt.PenStyle):  style of block border
         """
-        super(EntityBlock, self).__init__(position, scene=None, obj=obj,
-                                          style=style)
+        super().__init__(position, scene=None, obj=obj, style=style)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
@@ -1224,7 +1223,7 @@ class RoutedConnector(QGraphicsItem):
             arrow (bool):  flag indicating whether connector gets an arrow
             pen_width (int):  width of pen
         """
-        super(RoutedConnector, self).__init__()
+        super().__init__()
         self.segments = []
         self.routing_channel = routing_channel
         # default is Electrical Power (red)
@@ -1363,7 +1362,7 @@ class RoutedConnector(QGraphicsItem):
             for segment in self.segments:
                 path.addRect(segment_bounding_rect(segment))
         else:
-            path = super(RoutedConnector, self).shape()
+            path = super().shape()
         if getattr(self, 'arrow', None):
             path.addPolygon(self.arrow_head)
         return path
@@ -1635,13 +1634,13 @@ class RoutedConnector(QGraphicsItem):
             # painter.drawLine(myLine)
 
     # def hoverEnterEvent(self, event):
-        # super(RoutedConnector, self).hoverEnterEvent(event)
+        # super().hoverEnterEvent(event)
         # orb.log.debug("RoutedConnector hover enter...")
         # self.pen_width = self.wide_pen_width
         # self.update()
 
     # def hoverLeaveEvent(self, event):
-        # super(RoutedConnector, self).hoverLeaveEvent(event)
+        # super().hoverLeaveEvent(event)
         # orb.log.debug("RoutedConnector hover leave ...")
         # self.pen_width = self.normal_pen_width
         # self.update()
@@ -1665,7 +1664,7 @@ class BlockLabel(QGraphicsTextItem):
     """
     def __init__(self, text, parent, font_name=None, point_size=None,
                  weight=None, color=None, centered=True, x=None, y=None):
-        super(BlockLabel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.parent = parent
         self.centered = centered
         self.text_option = QTextOption()
@@ -1721,7 +1720,7 @@ class TextLabel(QGraphicsTextItem):
             # textw = text
         # else:
             # textw = '\n'.join(wrap(text, width=25, break_long_words=False))
-        super(TextLabel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         # if not nowrap:
         self.text_option = QTextOption()
         self.text_option.setWrapMode(QTextOption.WordWrap)
@@ -1770,7 +1769,7 @@ class TextItem(QGraphicsTextItem):
                  font=QFont("Arial", POINT_SIZE),
                  color=None):
         textw = '\n'.join(wrap(text, width=25, break_long_words=False))
-        super(TextItem, self).__init__(textw)
+        super().__init__(textw)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable)
         self.setFont(font)

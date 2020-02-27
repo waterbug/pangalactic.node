@@ -44,7 +44,7 @@ class LibraryListModel(QAbstractListModel):
         """
         self.subtypes = include_subtypes
         # orb.log.debug("* LibraryListModel for class %s initializing" % cname)
-        super(LibraryListModel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.cname = cname
         self.refresh()
 
@@ -160,7 +160,7 @@ class LibraryListView(QListView):
             icon_size (Qsize):  size of the icons to be used for library items
             parent (QWidget):  the library view's parent widget
         """
-        super(LibraryListView, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         model = LibraryListModel(cname, include_subtypes=include_subtypes,
                                  parent=self)
         self.cname = cname
@@ -334,7 +334,7 @@ class LibraryListWidget(QWidget):
             title (str):  optional text for widget title; default is 'Libraries'
             parent (QWidget):  the library view's parent widget
         """
-        super(LibraryListWidget, self).__init__(parent)
+        super().__init__(parent)
         layout = QVBoxLayout(self)
         # layout.setSizeConstraint(layout.SetMinimumSize)
         title = title or 'Libraries'
@@ -506,7 +506,7 @@ class LibraryDialog(QDialog):
             view (list):  list of attributes/parameters to be used for columns
             parent (QWidget):  the library view's parent widget
         """
-        super(LibraryDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle(get_external_name_plural(cname))
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.msg = 'All Product Types'

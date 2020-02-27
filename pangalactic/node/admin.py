@@ -51,7 +51,7 @@ class RADropLabel(ColorLabel):
     """
     def __init__(self, name, ra, color=None, element=None, border=None,
                  margin=None, mime=None, parent=None, **kw):
-        super(RADropLabel, self).__init__(name, color=color, element=element,
+        super().__init__(name, color=color, element=element,
                                           border=border, margin=margin,
                                           parent=None)
         self.setStyleSheet('background-color: white')
@@ -229,7 +229,7 @@ class LdapSearchDialog(QDialog):
             parent (QWidget):  parent widget
         """
         orb.log.info('* LdapSearchDialog()')
-        super(LdapSearchDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("LDAP Search")
         outer_vbox = QVBoxLayout()
         self.setLayout(outer_vbox)
@@ -371,7 +371,7 @@ class AdminDialog(QDialog):
             parent (QWidget):  parent widget
         """
         orb.log.info('* AdminDialog()')
-        super(AdminDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setAcceptDrops(True)
         # this triggers an rpc that asynchronously updates the Person table
         dispatcher.send(signal='get people')

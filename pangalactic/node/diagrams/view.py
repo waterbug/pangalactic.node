@@ -42,7 +42,7 @@ class DiagramScene(QGraphicsScene):
         Args:
             subject (ManagedObject):  object that is the subject of the diagram
         """
-        super(DiagramScene, self).__init__(parent)
+        super().__init__(parent)
         w = 1600
         h = 2400
         self.setSceneRect(QRectF(0, 0, w, h))
@@ -96,7 +96,7 @@ class DiagramScene(QGraphicsScene):
             self.addItem(self.line)
         else:
             # if item does NOT have 'add_connector' method, re-issue the event
-            super(DiagramScene, self).mousePressEvent(mouseEvent)
+            super().mousePressEvent(mouseEvent)
 
     def mouseMoveEvent(self, mouseEvent):
         if self.line:
@@ -104,7 +104,7 @@ class DiagramScene(QGraphicsScene):
             self.line.setLine(newLine)
             self.update()
         else:
-            super(DiagramScene, self).mouseMoveEvent(mouseEvent)
+            super().mouseMoveEvent(mouseEvent)
             # AHA!!!!!  doing self.update() forces the refresh!! :D
             self.update()
 
@@ -183,7 +183,7 @@ class DiagramScene(QGraphicsScene):
                                     start_item=start_item, end_item=end_item)
                     self.update()
             self.line = None
-            super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
+            super().mouseReleaseEvent(mouseEvent)
         else:
             # this action is not to connect ports, it is just a regular "move"
             # of a block
@@ -193,7 +193,7 @@ class DiagramScene(QGraphicsScene):
             # MALFUNCTION (ITEM WILL JUMP TO UPPER LEFT CORNER OF SCENE)
             # ... actually probably not important now, since the 'refresh
             # diagram' signal blows the whole diagram away and starts over!
-            super(DiagramScene, self).mouseReleaseEvent(mouseEvent)
+            super().mouseReleaseEvent(mouseEvent)
             ordering = self.get_block_ordering()
             if self.positions != self.get_block_positions():
                 diagramz[self.subject.oid] = ordering
@@ -546,7 +546,7 @@ class DiagramView(QGraphicsView):
                 not get an 'exit' menu item
             scene (DiagramScene): scene to be used
         """
-        super(DiagramView, self).__init__()
+        super().__init__()
         scene = scene or DiagramScene(subject, parent=self)
         self.setScene(scene)
         self.setSizePolicy(QSizePolicy.Expanding,

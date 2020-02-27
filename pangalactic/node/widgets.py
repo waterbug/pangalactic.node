@@ -46,7 +46,7 @@ class PlaceHolder(QLabel):
     # TODO:  make this a widget that contains the label
     # TODO:  add optional text ...
     def __init__(self, image=None, min_size=None, parent=None):
-        super(QLabel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setMaximumSize(400, 400)
         if min_size:
             self.setMinimumSize(min_size, min_size)
@@ -71,7 +71,7 @@ class PlaceHolder(QLabel):
                            QSizePolicy.Expanding, QSizePolicy.Expanding))
 
     def resizeEvent(self, event):
-        super(QLabel, self).resizeEvent(event)
+        super().resizeEvent(event)
         width = self.frameGeometry().width()
         height = self.frameGeometry().height()
         # NOTE:  have to load new pixmap on resize -- old one gets corrupted
@@ -91,7 +91,7 @@ class LeftPlaceHolder(QLabel):
     # TODO:  make this a widget that contains the label
     # TODO:  add optional text ...
     def __init__(self, text, parent=None):
-        super(QLabel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         # self.setMinimumSize(100, 400)
         self.setAlignment(Qt.AlignCenter)
         self.setText(text)
@@ -113,7 +113,7 @@ class ColorLabel(QLabel):
     """
     def __init__(self, name, color=None, element=None, border=None,
                  margin=0, parent=None):
-        super(ColorLabel, self).__init__(margin=margin, parent=parent)
+        super().__init__(margin=margin, parent=parent)
         self.set_content(name, color=color, element=element, border=border,
                          margin=margin)
 
@@ -146,7 +146,7 @@ class NameLabel(QLabel):
     Label for use in forms as the name in (name, value) pairs.
     """
     def __init__(self, name, parent=None, **kw):
-        super(NameLabel, self).__init__(margin=5, parent=parent)
+        super().__init__(margin=5, parent=parent)
         self.setText(name)
         hint = self.sizeHint()
         if hint.isValid():
@@ -159,7 +159,7 @@ class ValueLabel(QLabel):
     """
     def __init__(self, value, w=None, h=None, wrappable=False,
                  parent=None, **kw):
-        super(ValueLabel, self).__init__(margin=5, parent=parent)
+        super().__init__(margin=5, parent=parent)
         self.w = w or 250
         self.h = h or 25
         if wrappable:
@@ -183,7 +183,7 @@ class ModeLabel(QLabel):
     application.
     """
     def __init__(self, value, w=None, h=None, parent=None):
-        super(ModeLabel, self).__init__(value, parent=parent)
+        super().__init__(value, parent=parent)
         self.setWordWrap(True)
         self.setFrameStyle(QFrame.Box | QFrame.Plain)
         self.setLineWidth(1)
@@ -208,7 +208,7 @@ class ParameterLabel(QLabel):
         # 'x_y' will be interpreted as "x sub y".
         # 'x_y_z' will be interpreted as "x sub y-z", etc.
         html = make_parm_html(parameter_definition.id)
-        super(ParameterLabel, self).__init__(html)
+        super().__init__(html)
 
     def get_pixmap(self):
         pixmap = QPixmap(self.size())
@@ -354,7 +354,7 @@ class BooleanFieldWidget(QCheckBox):
     Widget for `BooleanField` and `NullBooleanField`.
     """
     def __init__(self, parent=None, value=None, editable=True, **kw):
-        super(BooleanFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.set_value(value)
         if not editable:
             self.setEnabled(False)
@@ -376,7 +376,7 @@ class StringFieldWidget(QLineEdit):
     unicode).
     """
     def __init__(self, parent=None, value=None, maxlen=None, **kw):
-        super(StringFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.parm_field = kw.get('parm_field')
         self.parm_type = kw.get('parm_type')
         if maxlen is not None:
@@ -409,7 +409,7 @@ class StringSelectWidget(QComboBox):
     Widget for `String` field with a specified set of valid values.
     """
     def __init__(self, parent=None, field_name=None, value=None, **kw):
-        super(StringSelectWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setMinimumWidth(120)
         self.setMaximumWidth(250)
         self.valid_values = list(SELECTABLE_VALUES[field_name].keys())
@@ -430,7 +430,7 @@ class UnicodeFieldWidget(QLineEdit):
     Widget for `Unicode` field.
     """
     def __init__(self, parent=None, value=None, maxlen=None, **kw):
-        super(UnicodeFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         if maxlen is not None:
             self.setMaxLength(maxlen)
         self.maxlen = maxlen
@@ -460,7 +460,7 @@ class IntegerFieldWidget(QLineEdit):
     and `SmallIntegerField`.
     """
     def __init__(self, parent=None, value=None, **kw):
-        super(IntegerFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         if kw.get('placeholder'):
             self.setPlaceholderText(kw['placeholder'])
         self.set_value(value)
@@ -489,7 +489,7 @@ class FloatFieldWidget(QLineEdit):
     Widget for `FloatField`.
     """
     def __init__(self, parent=None, value=None, **kw):
-        super(FloatFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         if kw.get('placeholder'):
             self.setPlaceholderText(kw['placeholder'])
         self.set_value(value)
@@ -518,7 +518,7 @@ class DateFieldWidget(QDateEdit):
     Widget for `DateField`.
     """
     def __init__(self, parent=None, value=None, **kw):
-        super(DateFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.set_value(value)
 
     def set_value(self, value):
@@ -538,7 +538,7 @@ class TimeFieldWidget(QDateEdit):
     Widget for `TimeField`.
     """
     def __init__(self, parent=None, value=None, **kw):
-        super(TimeFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.set_value(value)
 
     def set_value(self, value):
@@ -558,7 +558,7 @@ class DateTimeFieldWidget(QDateTimeEdit):
     Widget for `DateTimeField`.
     """
     def __init__(self, parent=None, value=None, **kw):
-        super(DateTimeFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.set_value(value)
 
     def set_value(self, value):
@@ -581,7 +581,7 @@ class TextFieldWidget(QTextEdit):
     the database will be expecting unicode.
     """
     def __init__(self, parent=None, value=None, maxlen=None, **kw):
-        super(TextFieldWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         # NOTE:  a TextField can have a 'max_length' attr, but it is not
         # enforced at the model level, only in the user interface (e.g., the
         # Textarea widget of an auto-generated form field).
@@ -629,7 +629,7 @@ class UnitsWidget(QComboBox):
             units (str):  for parm_field, its current "units" setting
             dimensions (str):  dimension of the parameter
         """
-        super(UnitsWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.field_name = field_name
         self.valid_units = choices
         self.addItems(choices)
@@ -678,7 +678,7 @@ select_widgets = {
 
 class AutosizingListWidget(QListWidget):
     def __init__(self, height=None, parent=None):
-        super(AutosizingListWidget, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Fixed,
                                        QSizePolicy.Expanding))
         self.setResizeMode(self.Adjust)
@@ -703,7 +703,7 @@ class AutosizingListWidget(QListWidget):
 
 class AutosizingListView(QListView):
     def __init__(self, parent=None):
-        super(AutosizingListView, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding,
                                        QSizePolicy.Expanding))
         self.setResizeMode(self.Adjust)

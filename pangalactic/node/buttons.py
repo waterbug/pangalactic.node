@@ -20,7 +20,7 @@ class MenuButton(QPushButton):
             tooltip (str):  text of tooltip
             actions (iterable of QAction):  items for the menu
         """
-        super(MenuButton, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setIcon(icon)
         if tooltip:
             self.setToolTip(tooltip)
@@ -45,7 +45,7 @@ class ButtonLabel(QPushButton):
         Keyword Args:
             actions (iterable of QAction):  items for the optional context menu
         """
-        super(ButtonLabel, self).__init__(value, parent=parent)
+        super().__init__(value, parent=parent)
         self.setFlat(True)
         width = w or 200
         height = h or 25
@@ -71,7 +71,7 @@ class ButtonLabel(QPushButton):
 class SizedButton(QPushButton):
 
     def __init__(self, text, parent=None):
-        super(SizedButton, self).__init__(text, parent=parent)
+        super().__init__(text, parent=parent)
         width = self.fontMetrics().boundingRect(text).width() + 30
         self.setMaximumWidth(width)
         self.setStyleSheet('color: white; background-color: purple;'

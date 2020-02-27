@@ -36,7 +36,7 @@ class ProductFilterDialog(QDialog):
         """
         Initialize.
         """
-        super(ProductFilterDialog, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Filters")
         self.engineering_discipline_selected = False
         # default is to show all discipline product types -- if
@@ -224,7 +224,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     def __init__(self, ncols=None, col_labels=None, col_defs=None,
                  col_dtypes=None, parent=None):
-        super(ObjectSortFilterProxyModel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
         self.ncols = ncols or 2
         self.col_labels = col_labels or []
@@ -324,8 +324,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
         elif (role == Qt.ToolTipRole
               and len(self.col_defs) > section):
             return self.col_defs[section]
-        return super(ObjectSortFilterProxyModel, self).headerData(
-                                                section, orientation, role)
+        return super().headerData(section, orientation, role)
 
 
 class ProxyView(QTableView):
@@ -333,7 +332,7 @@ class ProxyView(QTableView):
     Presentation table view for a filtered set of objects.
     """
     def __init__(self, proxy_model, as_library=False, parent=None):
-        super(ProxyView, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         col_header = self.horizontalHeader()
         # col_header.setSectionResizeMode(col_header.Stretch)
         # TODO:  add a handler to set column order pref when sections are moved
@@ -434,7 +433,7 @@ class FilterPanel(QWidget):
             height (int):  height of dialog widget
             parent (QWidget): parent widget
         """
-        super(FilterPanel, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.as_library = as_library
         if as_library and cname:
             # orb.log.debug('* Create FilterPanel as {} library ...'.format(
@@ -793,7 +792,7 @@ class FilterDialog(QDialog):
             height (int):  height of dialog widget
             parent (QWidget): parent widget
         """
-        super(FilterDialog, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         panel = FilterPanel(objs, view=view, label=label, parent=self)
         vbox = QVBoxLayout()
         vbox.addWidget(panel)

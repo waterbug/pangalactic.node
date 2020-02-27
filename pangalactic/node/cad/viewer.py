@@ -68,7 +68,7 @@ class QtBaseViewer(QtWidgets.QOpenGLWidget):
     ''' The base Qt Widget for an OCC viewer
     '''
     def __init__(self, parent=None):
-        QtWidgets.QOpenGLWidget.__init__(self, parent)
+        super().__init__(parent)
         self._display = None
         self._inited = False
 
@@ -97,8 +97,8 @@ class QtBaseViewer(QtWidgets.QOpenGLWidget):
 
 
 class QtViewer3DColor(QtBaseViewer):
-    def __init__(self, *kargs):
-        QtBaseViewer.__init__(self, *kargs)
+    def __init__(self, *args):
+        super().__init__(*args)
         self._drawbox = False
         self._zoom_area = False
         self._select_area = False
@@ -502,7 +502,7 @@ class QtViewer3DColor(QtBaseViewer):
 
 class STEP3DViewer(QtWidgets.QMainWindow):
     def __init__(self, step_file=None, parent=None):
-        QtWidgets.QMainWindow.__init__(self, parent)
+        super().__init__(parent=parent)
         self.setWindowTitle(self.tr("STEP 3D viewer"))
         self.init_viewer_3d()
         self.viewer_in_use = False

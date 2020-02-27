@@ -49,7 +49,7 @@ class Worker(QRunnable):
         Keyword Args:
             kwargs: Keyword args to pass to the callback function
         """
-        super(Worker, self).__init__()
+        super().__init__()
         # Store constructor arguments (re-used for processing)
         self.fn = fn
         self.args = args
@@ -81,7 +81,7 @@ class Worker(QRunnable):
 class MainWindow(QMainWindow):
 
     def __init__(self, *args, **kwargs):
-        super(MainWindow, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.counter = 0
         layout = QVBoxLayout()
         self.l = QLabel("Start")

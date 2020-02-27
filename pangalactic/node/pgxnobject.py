@@ -87,7 +87,7 @@ class PgxnForm(QWidget):
                 placeholder strings
             parent (QWidget): parent widget
         """
-        super(PgxnForm, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.edit_mode = edit_mode
         self.obj = obj
         self.all_idvs = idvs or []
@@ -534,8 +534,8 @@ class ParameterForm(PgxnForm):
                 (default: None)
             seq (int):  sequence number of parameter panel in pgxnobject
         """
-        super(ParameterForm, self).__init__(obj, 'parameters',
-            edit_mode=edit_mode, view=view, mask=mask, seq=seq, parent=parent)
+        super().__init__(obj, 'parameters', edit_mode=edit_mode, view=view,
+                         mask=mask, seq=seq, parent=parent)
         self.obj = obj
         self.pgxo = pgxo
         self.seq = seq
@@ -647,7 +647,7 @@ class PgxnObject(QDialog):
                 (default: False)
             parent (QWidget): parent widget of this dialog (default: None)
         """
-        super(PgxnObject, self).__init__(parent=parent)
+        super().__init__(parent=parent)
         self.obj          = obj
         self.new          = new
         self.embedded     = embedded

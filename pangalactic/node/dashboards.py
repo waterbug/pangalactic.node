@@ -20,7 +20,7 @@ from pangalactic.node.dialogs import (DeleteColsDialog, NewDashboardDialog,
 class SystemDashboard(QTreeView):
 
     def __init__(self, model, row_colors=True, grid_lines=False, parent=None):
-        super(SystemDashboard, self).__init__(parent)
+        super().__init__(parent)
         self.setSelectionMode(self.SingleSelection)
         self.setUniformRowHeights(True)
         if 'dash_grid_lines' in prefs:
