@@ -560,7 +560,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
     def open_step_file(self):
         if platform.platform().startswith('Darwin'):
             # on Mac, can only open one step file (next attempt will crash)
-            self.toolbar.setVisible(False)
+            self.removeToolBar(self.toolbar)
         if orb.started:
             orb.log.debug('* opening a STEP file')
             if not state.get('last_path'):
