@@ -42,6 +42,7 @@ from OCC.Core.TCollection import TCollection_ExtendedString, TCollection_AsciiSt
 from OCC.Core.Quantity import Quantity_Color
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+from OCC.Extend.DataExchange import read_step_file_with_names_colors
 
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import Qt
@@ -118,10 +119,8 @@ class QtViewer3DColor(QtBaseViewer):
         """
         self._display = OCCViewer.Viewer3d(self.GetHandle())
         self._display.Create()
-        # background gradient
-        # self._display.set_bg_gradient_color(206, 215, 222, 128, 128, 128)
-
-        #########################
+        self._display.set_bg_gradient_color([206, 215, 222],
+                                            [128, 128, 128])
         # new stuff for XCAF ...
         # create a handle to a document
         doc = TDocStd_Document(TCollection_ExtendedString("pythonocc-doc"))
@@ -309,7 +308,7 @@ class QtViewer3DColor(QtBaseViewer):
                           # c.Green(), c.Blue())
 
             # n = c.Name(c.Red(), c.Green(), c.Blue())
-            # print('    final color Name & RGB: ', c, n, c.Red(), c.Green(),
+            # print('    final color Name & RGB: ', n, c.Red(), c.Green(),
                   # c.Blue())
             # Display shape
             if c.Red() == 1.0 and c.Green() == 1.0 and c.Blue() == 0.0:

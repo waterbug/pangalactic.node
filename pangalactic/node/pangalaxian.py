@@ -629,7 +629,7 @@ class Main(QtWidgets.QMainWindow):
                     dts = str(obj.mod_datetime)
                     oid_dts[obj.oid] = dts
         else:
-            self.statusbar.showMessage('synced.')
+            self.statusbar.showMessage('project synced.')
         return self.mbus.session.call('vger.sync_project', proj_oid, oid_dts)
 
     # def update_sync_progress(self, txt='syncing...'):
@@ -768,7 +768,10 @@ class Main(QtWidgets.QMainWindow):
             dispatcher.send('sync progress', txt=txt)
             rpc = self.mbus.session.call('vger.save', sobjs_to_save)
         else:
-            self.statusbar.showMessage('synced.')
+            if user_objs_sync:
+                self.statusbar.showMessage('user objects synced.')
+            else:
+                self.statusbar.showMessage('project synced.')
             # if project_sync:
                 # QtWidgets.QApplication.processEvents()
                 # self.progress_dialog.setValue(self.progress_dialog.maximum())
@@ -1970,7 +1973,7 @@ class Main(QtWidgets.QMainWindow):
             if dts == obj.mod_datetime:
                 orb.log.debug('  local and remote objects have')
                 orb.log.debug('  same mod_datetime, ignoring.')
-                self.statusbar.showMessage('synced.')
+                self.statusbar.showMessage('modified objects synced.')
             elif dts > obj.mod_datetime:
                 # get the remote object
                 orb.log.debug('  remote object is newer, getting...')
@@ -1980,7 +1983,7 @@ class Main(QtWidgets.QMainWindow):
                 rpc.addErrback(self.on_failure)
             else:
                 orb.log.debug('  local object is newer, ignoring remote.')
-                self.statusbar.showMessage('synced.')
+                self.statusbar.showMessage('objects synced.')
         else:
             orb.log.debug('  ')
             orb.log.debug('  object not found in local db, getting ...')
