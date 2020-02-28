@@ -506,7 +506,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         self.init_viewer_3d()
         self.viewer_in_use = False
         self.resize(800, 600)
-        open_step_file_action = self.create_action("Open a STEP file...",
+        self.open_step_file_action = self.create_action("Open a STEP file...",
                                    slot=self.open_step_file,
                                    tip="View a CAD model from a STEP file")
         self.toolbar = self.addToolBar("Actions")
@@ -515,7 +515,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         icon_dir = state.get('icon_dir',
                              os.path.join(getattr(orb, 'home', ''), 'icons'))
         import_icon_path = os.path.join(icon_dir, import_icon_file)
-        import_actions = [open_step_file_action]
+        import_actions = [self.open_step_file_action]
         import_button = MenuButton(QtGui.QIcon(import_icon_path),
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)
@@ -561,6 +561,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         if platform.platform().startswith('Darwin'):
             # on Mac, can only open one step file (next attempt will crash)
             self.removeToolBar(self.toolbar)
+            self.open_step_file_action.setEnabled(False)
         if orb.started:
             orb.log.debug('* opening a STEP file')
             if not state.get('last_path'):
