@@ -558,6 +558,9 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         self.qt_viewer_3d.init_shape_from_STEP(fpath)
 
     def open_step_file(self):
+        if platform.platform().startswith('Darwin'):
+            # on Mac, can only open one step file (next attempt will crash)
+            self.toolbar.setVisible(False)
         if orb.started:
             orb.log.debug('* opening a STEP file')
             if not state.get('last_path'):
