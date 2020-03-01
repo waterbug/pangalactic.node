@@ -5,6 +5,7 @@ Pangalaxian (the PanGalactic GUI client) main window
 """
 import argparse, atexit, os, platform, shutil, six, sys, time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
+from multiprocessing import Pool
 
 from binaryornot.check import is_binary
 
@@ -50,7 +51,7 @@ from pangalactic.core.utils.reports    import write_mel_xlsx
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import (ButtonLabel, MenuButton,
                                                SizedButton)
-from pangalactic.node.cad.viewer       import STEP3DViewer
+from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
@@ -107,7 +108,7 @@ class Main(QtWidgets.QMainWindow):
 
     def __init__(self, home='', test_data=None, width=None, height=None,
                  use_tls=True, console=False, debug=False, reactor=None,
-                 app_version=None):
+                 app_version=None, pool=None):
         """
         Initialize main window.
 
@@ -121,6 +122,9 @@ class Main(QtWidgets.QMainWindow):
                                        (*and* log file)
                               else: send stdout and stderr to the logger
             debug (bool):     set log level to DEBUG
+            reactor (Reactor): twisted Reactor instance
+            app_version (str): version string
+            pool (Pool):      python multiprocessing Pool instance
         """
         super().__init__(parent=None)
         ###################################################
@@ -132,6 +136,7 @@ class Main(QtWidgets.QMainWindow):
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.progress_value = 0
+        self.proc_pool = pool
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
@@ -1298,9 +1303,10 @@ class Main(QtWidgets.QMainWindow):
                                     tip="Create a New Test",
                                     modes=['system', 'component', 'db'])
         # if platform.platform().startswith('Darwin'):
-            # cad_action_slot = self.open_step_file
+            # cad_action_slot = self.run_external_viewer
         # else:
-        cad_action_slot = self.view_cad
+        # cad_action_slot = self.view_cad
+        cad_action_slot = self.open_step_file
         self.view_cad_action = self.create_action(
                                     "View a CAD Model...",
                                     slot=cad_action_slot,
@@ -2977,9 +2983,22 @@ class Main(QtWidgets.QMainWindow):
         help_widget.show()
 
     def view_cad(self, file_path=None):
-        orb.log.info('* view_cad(fila_path="{}")'.format(file_path))
+        orb.log.info('* view_cad(file_path="{}")'.format(file_path))
         viewer = STEP3DViewer(step_file=file_path, parent=self)
         viewer.show()
+
+    def run_external_viewer(self, file_path):
+        if getattr(self, 'proc_pool', None):
+            self.proc_pool.apply_async(run_ext_3dviewer,
+                                       (file_path,), {},
+                                       self.view_cad_success,
+                                       self.view_cad_error)
+
+    def view_cad_success(self, result):
+        orb.log.info('  - view_cad_success; res: "{}"'.format(result))
+
+    def view_cad_error(self, e):
+        orb.log.info('  - view_cad_error: {}'.format(e))
 
     def new_project(self):
         orb.log.info('* new_project()')
@@ -3642,9 +3661,11 @@ class Main(QtWidgets.QMainWindow):
             # TODO: add an "index" column for sorting, or else figure out how
             # to sort on the left header column ...
             state['last_path'] = os.path.dirname(fpath)
-            orb.log.debug('  - STEP3DViewer(step_file="{}")'.format(fpath))
-            viewer = STEP3DViewer(step_file=fpath, parent=self)
-            viewer.show()
+            # orb.log.info('  - STEP3DViewer(step_file="{}")'.format(fpath))
+            # viewer = STEP3DViewer(step_file=fpath, parent=self)
+            # viewer.show()
+            orb.log.info('  - running external viewer ...')
+            self.run_external_viewer(file_path=fpath)
         else:
             return
 
@@ -3773,7 +3794,7 @@ def cleanup_and_save():
     write_trash(os.path.join(orb.home, 'trash'))
 
 def run(home='', splash_image=None, test_data=None, use_tls=True,
-        console=False, debug=False, app_version=None):
+        console=False, debug=False, app_version=None, pool=None):
     app = QtWidgets.QApplication(sys.argv)
     # app.setStyleSheet('QToolTip { border: 2px solid;}')
     app.setStyleSheet("QToolTip { color: #ffffff; "
@@ -3804,12 +3825,12 @@ def run(home='', splash_image=None, test_data=None, use_tls=True,
         # TODO:  updates to showMessage() using thread/slot+signal
         main = Main(home=home, test_data=test_data, use_tls=use_tls,
                     console=console, debug=debug, reactor=reactor,
-                    app_version=app_version)
+                    app_version=app_version, pool=pool)
         splash.finish(main)
     else:
         main = Main(home=home, test_data=test_data, use_tls=use_tls,
                     console=console, debug=debug, reactor=reactor,
-                    app_version=app_version)
+                    app_version=app_version, pool=pool)
     main.show()
     atexit.register(cleanup_and_save)
     # run the reactor after creating the main window but before starting the
@@ -3841,5 +3862,9 @@ if __name__ == "__main__":
     options = parser.parse_args()
     tls = not options.unencrypted
     admin = not options.noadmin
-    run(console=options.test, debug=options.debug, use_tls=tls)
+    # NOTE: if running from an app "run" module, the process pool needs to be
+    # started in that module, since this __name__ == "__main__" clause is not
+    # called in that case!
+    proc_pool = Pool(5)
+    run(console=options.test, debug=options.debug, use_tls=tls, pool=proc_pool)
 

@@ -39,9 +39,10 @@ from OCC.Core.IFSelect import IFSelect_RetDone
 from OCC.Core.TDF import TDF_LabelSequence, TDF_Label, TDF_Tool
 from OCC.Core.TDataStd import TDataStd_Name, TDataStd_Name_GetID
 from OCC.Core.TCollection import TCollection_ExtendedString, TCollection_AsciiString
-from OCC.Core.Quantity import Quantity_Color
+from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+from OCC.Display.SimpleGui import init_display
 from OCC.Extend.DataExchange import read_step_file_with_names_colors
 
 from PyQt5 import QtGui, QtWidgets
@@ -58,6 +59,20 @@ class point(object):
     def set(self, obj):
         self.x = obj.x()
         self.y = obj.y()
+
+
+def run_ext_3dviewer(file_path):
+    shapes_labels_colors = read_step_file_with_names_colors(file_path)
+    # init graphic display
+    display, start_display, add_menu, add_function_to_menu = init_display()
+    for shpt_lbl_color in shapes_labels_colors:
+        label, c = shapes_labels_colors[shpt_lbl_color]
+        display.DisplayColoredShape(shpt_lbl_color,
+                                    color=Quantity_Color(c.Red(),
+                                                         c.Green(),
+                                                         c.Blue(),
+                                                         Quantity_TOC_RGB))
+    start_display()
 
 
 # TODO: figure out what's going on with:
