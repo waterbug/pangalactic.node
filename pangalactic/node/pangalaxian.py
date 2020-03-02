@@ -669,7 +669,10 @@ class Main(QtWidgets.QMainWindow):
                 + self.sync_parameter_definitions()
 
             - `vger.sync_objects` -- which is called by:
+                on startup:
                 + self.sync_user_created_objs_to_repo()
+                in db mode:
+                + self.on_cname_selected()
 
             - `vger.sync_project` -- which is called by:
                 + self.sync_current_project()
@@ -1302,16 +1305,21 @@ class Main(QtWidgets.QMainWindow):
                                     icon="new_doc",
                                     tip="Create a New Test",
                                     modes=['system', 'component', 'db'])
-        # if platform.platform().startswith('Darwin'):
-            # cad_action_slot = self.run_external_viewer
-        # else:
-        # cad_action_slot = self.view_cad
-        cad_action_slot = self.open_step_file
-        self.view_cad_action = self.create_action(
-                                    "View a CAD Model...",
-                                    slot=cad_action_slot,
+        # the cad viewer runs in the same process (which does not work on Mac!)
+        if not platform.platform().startswith('Darwin'):
+            self.view_cad_action = self.create_action(
+                                        "View a CAD Model ...",
+                                        slot=self.view_cad,
+                                        icon="view_16",
+                                        tip="View a CAD model from a STEP file",
+                                        modes=['system', 'component'])
+        # "open_step_file" opens an external viewer in a separate process,
+        # which is *required* for Mac, optional on Linux & Windows
+        self.view_multi_cad_action = self.create_action(
+                                    "View CAD Model(s) ...",
+                                    slot=self.open_step_file,
                                     icon="view_16",
-                                    tip="View a CAD model from a STEP file",
+                                    tip="View CAD model(s) from STEP file(s)",
                                     modes=['system', 'component'])
         self.export_project_to_file_action = self.create_action(
                                     "Export Project to a File...",
@@ -1777,19 +1785,18 @@ class Main(QtWidgets.QMainWindow):
                                 self.conops_modeler_action,
                                 self.product_lib_action,
                                 self.port_template_lib_action,
-                                self.parameter_lib_action,
-                                # self.display_disciplines_action,
-                                self.display_product_types_action,
-                                self.edit_prefs_action
-                                # self.compare_items_action
-                                ]
+                                self.parameter_lib_action]
+        if not platform.platform().startswith('Darwin'):
+            system_tools_actions.append(self.view_cad_action)
+        system_tools_actions.append(self.view_multi_cad_action)
+        system_tools_actions.append(self.display_product_types_action)
+        system_tools_actions.append(self.edit_prefs_action)
         # disable sync project action until we are online
         self.sync_project_action.setEnabled(False)
         system_tools_button = MenuButton(QtGui.QIcon(system_tools_icon_path),
                                    tooltip='Tools',
                                    actions=system_tools_actions, parent=self)
         self.toolbar.addWidget(system_tools_button)
-        self.toolbar.addAction(self.view_cad_action)
         help_icon_file = 'tardis' + state['icon_type']
         help_icon_path = os.path.join(icon_dir, help_icon_file)
         help_actions = [self.help_action,
@@ -2942,6 +2949,14 @@ class Main(QtWidgets.QMainWindow):
         # except:
             # orb.log.debug('  - set_object_table_for("%s") had an exception.'
                           # % cname)
+        if state.get('connected'):
+            # if we are connected, check for updates to any instances of this
+            # class
+            data = orb.get_mod_dts(cname=cname)
+            orb.log.info('  - calling "vger.sync_objects"')
+            rpc = self.mbus.session.call('vger.sync_objects', data)
+            rpc.addCallback(self.on_sync_result)
+            rpc.addErrback(self.on_failure)
 
     def set_object_table_for(self, cname):
         orb.log.debug('* setting object table for {}'.format(cname))
