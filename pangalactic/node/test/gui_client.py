@@ -7,7 +7,7 @@ Based on:
     https://github.com/estan/gauges
   * crossbar examples "advanced" (CRA) auth example
 """
-import argparse, random, six, sys, time
+import argparse, pprint, random, six, sys, time
 from copy import deepcopy
 from uuid import uuid4
 from PyQt5.QtCore import QRectF, QSize, QTimer, Qt
@@ -426,22 +426,28 @@ class MainWindow(QMainWindow):
         Handle result of the rpc 'vger.get_user_roles'.  The returned data has
         the structure:
 
-            [serialized user (Person) object,
+            [serialized local user (Person) object,
+             serialized Organization/Project objects,
+             serialized Person objects,
              serialized RoleAssignment objects,
-             serialized Organization/Project objects]
+             oids unknown to the server]
         """
         if data:
-            user_data, ras_data, org_data = data
-            deserialize(orb, user_data)
-            deserialize(orb, ras_data)
-            deserialize(orb, org_data)
-            szd_user = user_data[0]
+            self.log('---- RAW DATA FROM "get_user_roles" ---------------')
+            self.log(pprint.pformat(data))
+            self.log('---- END OF RAW DATA ------------------------------')
+            szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
+            deserialize(orb, szd_user)
+            deserialize(orb, szd_orgs)
+            deserialize(orb, szd_people)
+            deserialize(orb, szd_ras)
+            user = orb.select('Person', id=self.userid)
             self.log('---- USER ROLES INFO ---------------')
-            self.log('* userid: {}'.format(szd_user['id']))
+            self.log('* userid: {}'.format(user.id))
             self.log('* roles assigned to this user:')
-            for so in ras_data:
+            for so in szd_ras:
                 if (so['_cname'] == 'RoleAssignment' and
-                    so['assigned_to'] == szd_user['oid']):
+                    so['assigned_to'] == user.oid):
                     self.log('    + assigned role oid: {}'.format(
                                                      so['assigned_role']))
                     self.log('    + assignment context oid: {}'.format(
