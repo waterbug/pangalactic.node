@@ -789,7 +789,7 @@ class Main(QtWidgets.QMainWindow):
                 # state['done_with_progress'] = True
             state['synced_projects'].append(state.get('project'))
             rpc = self.mbus.session.call('vger.save', [])
-        rpc.addCallback(self.on_result)
+        rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
         return rpc
 
@@ -814,7 +814,7 @@ class Main(QtWidgets.QMainWindow):
             data:  response from the server
 
         Return:
-            deferred:  result of `vger.save` rpc
+            deferred:  result of `vger.get_objects` rpc
         """
         orb.log.debug('[pgxn] on_sync_library_result()')
         orb.log.debug('       data: {}'.format(str(data)))
@@ -978,7 +978,7 @@ class Main(QtWidgets.QMainWindow):
             # get object from repository ...
             orb.log.debug('  - decloaked object unknown -- get from repo...')
             rpc = self.mbus.session.call('vger.get_object', obj_oid,
-                                           include_components=True)
+                                         include_components=True)
             rpc.addCallback(self.on_rpc_get_object)
             rpc.addErrback(self.on_failure)
 
@@ -1940,7 +1940,7 @@ class Main(QtWidgets.QMainWindow):
                                                                        obj.id))
                 rpc = self.mbus.session.call('vger.save',
                                              serialize(orb, [obj]))
-                rpc.addCallback(self.on_result)
+                rpc.addCallback(self.on_vger_save_result)
                 rpc.addErrback(self.on_failure)
 
     def on_collaborate(self):
@@ -2170,12 +2170,13 @@ class Main(QtWidgets.QMainWindow):
                     orb.log.debug('  - role assignment: {}'.format(obj.id))
                     rpc = self.mbus.session.call('vger.assign_role',
                                                    serialized_objs)
+                    rpc.addCallback(self.on_result)
                 else:
                     orb.log.debug('  calling rpc vger.save() ...')
                     orb.log.debug('  - saved obj id: {} | oid: {}'.format(
                                                           obj.id, obj.oid))
                     rpc = self.mbus.session.call('vger.save', serialized_objs)
-                rpc.addCallback(self.on_result)
+                    rpc.addCallback(self.on_vger_save_result)
                 rpc.addErrback(self.on_failure)
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
@@ -2184,8 +2185,31 @@ class Main(QtWidgets.QMainWindow):
         # orb.log.debug('  rpc success.')
         # self.statusbar.showMessage('synced.')
 
+    def on_vger_save_result(self, stuff):
+        orb.log.debug('- vger.save rpc result: {}'.format(str(stuff)))
+        try:
+            msg = ''
+            if stuff.get('new_obj_dts'):
+                msg += '{} new; '.format(len(stuff['new_obj_dts']))
+            if stuff.get('mod_obj_dts'):
+                msg += '{} modified; '.format(len(stuff['mod_obj_dts']))
+            if stuff.get('unauth'):
+                msg += '{} unauthorized (not saved); '.format(
+                                                    len(stuff['unauth']))
+            if stuff.get('no_owners'):
+                msg += '{} no owners (not saved); '.format(
+                                                    len(stuff['no_owners']))
+            if not msg:
+                msg = 'nothing saved; synced.'
+            else:
+                msg += 'synced.'
+            self.statusbar.showMessage('vger save: {}'.format(msg))
+        except:
+            orb.log.debug('  result format incorrect.')
+            self.statusbar.showMessage('synced.')
+
     def on_result(self, stuff):
-        orb.log.debug('  rpc result: %s' % str(stuff))
+        orb.log.debug('  rpc result: {}'.format(stuff))
         # TODO:  add more detailed status message ...
         self.statusbar.showMessage('synced.')
 

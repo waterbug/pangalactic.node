@@ -235,9 +235,13 @@ class MainWindow(QMainWindow):
         self.ldap_result_button = QPushButton('Test LDAP Result')
         self.ldap_result_button.setVisible(False)
         self.ldap_result_button.clicked.connect(self.on_test_ldap_result)
-        self.save_object_button = QPushButton('Save Object')
+        self.save_object_button = QPushButton('Save Cloaked Object')
         self.save_object_button.setVisible(False)
         self.save_object_button.clicked.connect(self.on_save_object)
+        self.save_public_object_button = QPushButton('Save Public Object')
+        self.save_public_object_button.setVisible(False)
+        self.save_public_object_button.clicked.connect(
+                                            self.on_save_public_object)
         self.add_psu_button = QPushButton('Add a Project System Usage')
         self.add_psu_button.setVisible(False)
         self.add_psu_button.clicked.connect(self.on_add_psu)
@@ -281,6 +285,8 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_result_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.save_object_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.save_public_object_button,
+                                                alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_psu_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_acu_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.remove_comp_button, alignment=Qt.AlignVCenter)
@@ -325,6 +331,7 @@ class MainWindow(QMainWindow):
         self.ldap_search_button.setVisible(True)
         self.ldap_result_button.setVisible(True)
         self.save_object_button.setVisible(True)
+        self.save_public_object_button.setVisible(True)
         self.add_psu_button.setVisible(False)
         self.add_acu_button.setVisible(False)
         self.remove_comp_button.setVisible(False)
@@ -343,64 +350,6 @@ class MainWindow(QMainWindow):
     def start_conops(self):
         mw = ConOpsModeler(parent=self)
         mw.show()
-
-    def on_get_admin_result(self, data):
-        """
-        Handle result of the rpc that got our role assignments, which comes in
-        one of two forms.  The data has the format:
-
-            {'organizations': [{oid, id, name, description,
-                                 parent_organization}, ...],
-             'users': [{oid, id, name}, ...],
-             'roles': [{oid, name}, ...],
-             'roleAssignments': [{assigned_role, assigned_to,
-                                   role_assignment_context}, ...]}
-
-        ... unless the 'no_filter' keyword arg is set to True, in which case
-        the full serialized objects are returned.
-        """
-        ra_txt = ''
-        if data:
-            self.log('* test role data from repo ...')
-            self.log('  Organizations:')
-            orgs = data['organizations']
-            for i, org in enumerate(orgs):
-                self.log('    [{}] oid: {}'.format(i, org['oid']))
-                self.log('         id: {}'.format(org['id']))
-                self.log('         name: {}'.format(org['name']))
-                self.log('         mod_datetime: {}'.format(
-                                org.get('mod_datetime', '[none]')))
-            self.log('  Users:')
-            users = data['users']
-            for i, user in enumerate(users):
-                self.log('    [{}] oid: {}'.format(i, user['oid']))
-                self.log('         id: {}'.format(user['id']))
-                self.log('         name: {}'.format(user['name']))
-            self.log('  Roles:')
-            roles = data['roles']
-            for i, role in enumerate(roles):
-                self.log('    [{}] oid: {}'.format(i, role['oid']))
-                self.log('         name: {}'.format(role['name']))
-            self.log('  Role Assignments:')
-            ras = data['roleAssignments']
-            if ras:
-                for i, rasgt in enumerate(ras):
-                    self.log('    [{}] assigned role: {}'.format(i,
-                                                    rasgt['assigned_role']))
-                    self.log('         assigned to: {}'.format(
-                                                    rasgt['assigned_to']))
-                    self.log('         assignment context: {}'.format(
-                                        rasgt['role_assignment_context']))
-                ra = ras[0]
-                roles = {r['oid']:r['name'] for r in data['roles']}
-                self.log('  - role data:  %s' % str(roles))
-                ra_txt = ': '.join([ra.get('role_assignment_context', 'Global'),
-                                    roles[ra['assigned_role']]])
-            if ra_txt:
-                self.role_label.setText(ra_txt)
-                self.role_label.setVisible(True)
-        else:
-            self.log('* no role assignments found.')
 
     def subscribe_to_channels(self, channels=None):
         channels = channels or []
@@ -441,13 +390,15 @@ class MainWindow(QMainWindow):
             deserialize(orb, szd_orgs)
             deserialize(orb, szd_people)
             deserialize(orb, szd_ras)
-            user = orb.select('Person', id=self.userid)
+            self.user = orb.select('Person', id=self.userid)
+            self.log('---- USER OBJECT ASSIGNED ----------')
+            self.log('* self.user.oid: "{}"'.format(self.user.oid))
+            self.log('* userid: "{}"'.format(self.user.id))
             self.log('---- USER ROLES INFO ---------------')
-            self.log('* userid: {}'.format(user.id))
             self.log('* roles assigned to this user:')
             for so in szd_ras:
                 if (so['_cname'] == 'RoleAssignment' and
-                    so['assigned_to'] == user.oid):
+                    so['assigned_to'] == self.user.oid):
                     self.log('    + assigned role oid: {}'.format(
                                                      so['assigned_role']))
                     self.log('    + assignment context oid: {}'.format(
@@ -485,26 +436,31 @@ class MainWindow(QMainWindow):
         orb.save([obj])
         sobjs = serialize(orb, [obj])
         rpc = message_bus.session.call('vger.save', sobjs)
-        rpc.addCallback(self.on_decloak_result)
+        rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
 
-    def on_decloak_result(self, stuff):
-        self.log('* result received from rpc vger.save:  %s' % str(stuff))
-        actor_oids, msg, obj_oid = stuff
-        if not msg:
-            if obj_oid in self.cloaked:
-                idx = self.cloaked.index(obj_oid)
-                self.log('  - removing item %i from cloaked...' % idx)
-                self.cloaked_list.takeItem(idx)
-                self.cloaked.remove(obj_oid)
-            if not obj_oid in self.decloaked:
-                self.log('  - adding to decloaked...')
-                self.decloaked.append(obj_oid)
-                self.decloaked_list.addItem(obj_oid)
-            self.log('* save succeeded.')
-        else:
-            self.log('* save was unsuccessful:')
-            self.log('  status: {}'.format(msg))
+    def on_vger_save_result(self, stuff):
+        orb.log.debug('  vger.save result: {}'.format(str(stuff)))
+        try:
+            msg = ''
+            if stuff.get('new_obj_dts'):
+                msg += '{} new'.format(len(stuff['new_obj_dts']))
+            if stuff.get('mod_obj_dts'):
+                msg += '{} modified'.format(len(stuff['mod_obj_dts']))
+            if stuff.get('unauth'):
+                msg += '{} unauthorized'.format(len(stuff['unauth']))
+            if stuff.get('no_owners'):
+                msg += '{} no owners (not saved); '.format(
+                                                    len(stuff['no_owners']))
+            self.log('- vger save: {}'.format(msg))
+            if stuff.get('new_obj_dts'):
+                self.log('  - adding new cloaked objects ...')
+                for oid in stuff['new_obj_dts']:
+                    if not oid in self.cloaked:
+                        self.cloaked.append(oid)
+                        self.cloaked_list.addItem(oid)
+        except:
+            orb.log.debug('  result format incorrect.')
 
     def on_remote_decloaked_signal(self, content=None):
         """
@@ -554,6 +510,19 @@ class MainWindow(QMainWindow):
             self.log('  result was empty!')
             return False
         objs = deserialize(orb, serialized_objects)
+        for obj in objs:
+            cname = obj.__class__.__name__
+            if cname == 'RoleAssignment':
+                if obj.assigned_to.oid == self.user.oid:
+                    html = '<h3>You have been assigned the role:</h3>'
+                    html += '<p><b><font color="green">{}</font></b>'.format(
+                                                        obj.assigned_role.id)
+                    html += ' in <b><font color="green">{}</font>'.format(
+                                    getattr(obj.role_assignment_context, 'id',
+                                            'global context'))
+                    html += '</b></p>'
+                    self.w = NotificationDialog(html, parent=self)
+                    self.w.show()
         if not objs:
             self.log('  deserialize() returned no objects --')
             self.log('  those received were already in the local db.')
@@ -609,8 +578,7 @@ class MainWindow(QMainWindow):
             # calls ...
             cname = obj.__class__.__name__
             if cname == 'RoleAssignment':
-                user_oid = 'test:' + self.userid
-                if obj.assigned_to.oid == user_oid:
+                if obj.assigned_to.oid == self.user.oid:
                     html = '<h3>You have been assigned the role:</h3>'
                     html += '<p><b><font color="green">{}</font></b>'.format(
                                                         obj.assigned_role.id)
@@ -658,8 +626,7 @@ class MainWindow(QMainWindow):
                 # resize dashboard columns if necessary
                 self.refresh_dashboard()
             elif cname == 'RoleAssignment':
-                user_oid = 'test:' + self.userid
-                if obj.assigned_to.oid == user_oid:
+                if obj.assigned_to.oid == self.user.oid:
                     # TODO: if removed role assignment was the last one for
                     # this user on the project, switch to SANDBOX project
                     html = '<h3>Your role:</h3>'
@@ -680,9 +647,9 @@ class MainWindow(QMainWindow):
 
     def on_save_object(self):
         """
-        Save a generated test object to the repo.  NOTE: this function will
-        only succeed of the client has logged in as one of the test users
-        (steve, buckaroo, zaphod).
+        Save a generated "non-public" (cloaked) test object to the repo.  NOTE:
+        this function will only succeed of the client has logged in as one of
+        the test users (steve, buckaroo, zaphod).
         """
         new_oid = str(uuid4())
         self.test_oid = new_oid
@@ -695,14 +662,49 @@ class MainWindow(QMainWindow):
         for pid, parm in test_parms.items():
             obj_parms[pid] = deepcopy(parm)
         gen_test_pvals(obj_parms)
-        user_oid = 'test:' + self.userid
         serialized_obj = dict(_cname='HardwareProduct', oid=new_oid, id=new_id,
-                              name=new_name, creator=user_oid,
-                              create_datetime=now, modifier=user_oid,
-                              mod_datetime=now, version='1', iteration=0,
+                              name=new_name, creator=self.user.oid,
+                              owner='H2G2', create_datetime=now,
+                              modifier=self.user.oid, mod_datetime=now,
+                              version='1', iteration=0, version_sequence=0,
+                              product_type=ptype['oid'], parameters=obj_parms)
+        self.log('* calling rpc "vger.save()" with serialized object:')
+        self.log('  {}'.format(str(serialized_obj)))
+        self.last_saved_obj = serialized_obj
+        if self.system_level_obj:
+            self.add_acu_button.setVisible(True)
+        else:
+            self.add_psu_button.setVisible(True)
+        rpc = message_bus.session.call('vger.save', [serialized_obj])
+        rpc.addCallback(self.on_save_result)
+        rpc.addErrback(self.on_failure)
+
+    def on_save_public_object(self):
+        """
+        Save a generated "public" (decloaked) test object to the repo.  NOTE:
+        this function will only succeed of the client has logged in as one of
+        the test users (steve, buckaroo, zaphod).
+        """
+        new_oid = str(uuid4())
+        self.test_oid = new_oid
+        suffix = new_oid[0:5]
+        ptype = product_types[random.randint(0, len(product_types) - 1)]
+        new_id = 'TEST_' + ptype['id'][0:5] + '_' + suffix
+        new_name = str(ptype['name']) + ' ' + str(suffix)
+        now = str(dtstamp())
+        obj_parms = {}
+        for pid, parm in test_parms.items():
+            obj_parms[pid] = deepcopy(parm)
+        gen_test_pvals(obj_parms)
+        serialized_obj = dict(_cname='HardwareProduct', oid=new_oid, id=new_id,
+                              name=new_name, creator=self.user.oid,
+                              owner='H2G2', create_datetime=now,
+                              modifier=self.user.oid, mod_datetime=now,
+                              public=True, version='1', iteration=0,
                               version_sequence=0, product_type=ptype['oid'],
                               parameters=obj_parms)
-        self.log('* calling rpc "vger.save()" ...')
+        self.log('* calling rpc "vger.save()" with serialized object:')
+        self.log('  {}'.format(str(serialized_obj)))
         self.last_saved_obj = serialized_obj
         if self.system_level_obj:
             self.add_acu_button.setVisible(True)
@@ -714,12 +716,6 @@ class MainWindow(QMainWindow):
 
     def on_save_result(self, stuff):
         self.log('* result received from rpc "vger.save":  %s' % str(stuff))
-        if stuff.get('new_obj_dts'):
-            self.log('  - adding new cloaked objects ...')
-            for oid in stuff['new_obj_dts']:
-                if not oid in self.cloaked:
-                    self.cloaked.append(oid)
-                    self.cloaked_list.addItem(oid)
 
     def on_null_result(self):
         self.log('* no result expected.')
@@ -735,11 +731,10 @@ class MainWindow(QMainWindow):
         new_id = 'psu-H2G2-' + self.last_saved_obj['id']
         new_name = 'Test ProjectSystemUsage ' + str(new_id)
         now = str(dtstamp())
-        user_oid = 'test:' + self.userid
         psu = dict(_cname='ProjectSystemUsage', oid=new_oid, id=new_id,
                    name=new_name, create_datetime=now, mod_datetime=now,
-                   creator=user_oid, modifier=user_oid, project='H2G2',
-                   system=self.last_saved_obj['oid'])
+                   creator=self.user.oid, modifier=self.user.oid,
+                   project='H2G2', system=self.last_saved_obj['oid'])
         self.system_level_obj = self.last_saved_obj
         self.last_saved_obj = None
         self.cloaked = []
@@ -762,10 +757,9 @@ class MainWindow(QMainWindow):
                            self.last_saved_obj['id']])
         new_name = 'Test Acu ' + str(new_id)
         now = str(dtstamp())
-        user_oid = 'test:' + self.userid
         acu = dict(_cname='Acu', oid=new_oid, id=new_id,
                    name=new_name, create_datetime=now, mod_datetime=now,
-                   creator=user_oid, modifier=user_oid,
+                   creator=self.user.oid, modifier=self.user.oid,
                    assembly=self.system_level_obj['oid'],
                    component=self.last_saved_obj['oid'],
                    product_type_hint=self.last_saved_obj['product_type'])
@@ -800,7 +794,7 @@ class MainWindow(QMainWindow):
     def on_get_object(self):
         self.log('* calling rpc "vger.get_object()" ...')
         rpc = message_bus.session.call('vger.get_object', 'H2G2')
-        rpc.addCallback(self.on_result)
+        rpc.addCallback(self.on_get_object_result)
         rpc.addErrback(self.on_failure)
 
     def on_sync_project(self, data=None):
@@ -848,9 +842,11 @@ class MainWindow(QMainWindow):
     def on_get_object_result(self, stuff):
         self.log('* result of get_object() received:')
         self.log('  {} serialized objects:'.format(len(stuff)))
+        self.log('  {}'.format(pprint.pformat(stuff)))
         for so in stuff:
             if str(so['_cname']) == 'HardwareProduct':
                 self.log('  - HardwareProduct "{}"'.format(so['oid']))
+        deserialize(orb, stuff)
 
     def logout(self):
         self.log('* logging out ...')
@@ -866,6 +862,7 @@ class MainWindow(QMainWindow):
         self.ldap_search_button.setVisible(False)
         self.ldap_result_button.setVisible(False)
         self.save_object_button.setVisible(False)
+        self.save_public_object_button.setVisible(False)
         self.add_psu_button.setVisible(False)
         self.get_object_button.setVisible(False)
         # self.sync_project_button.setVisible(False)
@@ -909,7 +906,7 @@ if __name__ == "__main__":
                         help='the port to connect to [default: 8080]')
     options = parser.parse_args()
     app = QApplication(sys.argv)
-    orb.start('junk_home', debug=True)
+    orb.start('junk_home', console=True, debug=True)
     # set project to oid 'H2G2' because ConOps will look it up and use it to
     # find spacecraft(s)
     state['project'] = 'H2G2'
