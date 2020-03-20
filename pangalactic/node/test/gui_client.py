@@ -31,7 +31,7 @@ from pangalactic.core.test.utils      import (create_test_project,
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import uncook_datetime
 from pangalactic.core.uberorb         import orb
-from pangalactic.node.conops          import ConOpsModeler
+# from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dialogs         import LoginDialog
 from pangalactic.node.widgets         import ModeLabel
 from pangalactic.node.widgets         import AutosizingListWidget
@@ -221,9 +221,9 @@ class MainWindow(QMainWindow):
         self.login_button = QPushButton('Log in')
         self.login_button.clicked.connect(self.login)
         # Con Ops Modeler --> opens a ConOpsModeler window
-        self.conops_button = QPushButton('Con Ops Modeler')
-        self.conops_button.clicked.connect(self.start_conops)
-        self.conops_button.setVisible(True)
+        # self.conops_button = QPushButton('Con Ops Modeler')
+        # self.conops_button.clicked.connect(self.start_conops)
+        # self.conops_button.setVisible(True)
         # check version -- just displays result
         self.check_version_button = QPushButton('Check Version')
         self.check_version_button.setVisible(False)
@@ -280,7 +280,7 @@ class MainWindow(QMainWindow):
                                 "No certificate", message,
                                 QMessageBox.Ok, self)
             popup.show()
-        vbox.addWidget(self.conops_button, alignment=Qt.AlignVCenter)
+        # vbox.addWidget(self.conops_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_result_button, alignment=Qt.AlignVCenter)
@@ -347,9 +347,9 @@ class MainWindow(QMainWindow):
         rpc.addCallback(self.on_sync_project)
         rpc.addErrback(self.on_failure)
 
-    def start_conops(self):
-        mw = ConOpsModeler(parent=self)
-        mw.show()
+    # def start_conops(self):
+        # mw = ConOpsModeler(parent=self)
+        # mw.show()
 
     def subscribe_to_channels(self, channels=None):
         channels = channels or []

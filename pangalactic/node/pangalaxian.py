@@ -3,10 +3,11 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, os, platform, shutil, six, sys, time, traceback
+import argparse, atexit, multiprocessing, os, platform, shutil, six, sys
+import time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
-from multiprocessing import Pool
 
+# binaryornot
 from binaryornot.check import is_binary
 
 # Louie (formerly known as PyDispatcher)
@@ -15,6 +16,7 @@ from louie import dispatcher
 # ruamel_yaml
 import ruamel_yaml as yaml
 
+# twisted
 from twisted.internet.defer import DeferredList
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
@@ -52,7 +54,9 @@ from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import (ButtonLabel, MenuButton,
                                                SizedButton)
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
-from pangalactic.node.conops           import ConOpsModeler
+# >>> NOTE: conops removed temporarily due to pyinstaller problem with
+# pyqtgraph (use of dynamic imports)
+# from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
 from pangalactic.node.dialogs          import (LoginDialog,
@@ -1241,13 +1245,13 @@ class Main(QtWidgets.QMainWindow):
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
-        conops_tip_text = "Model Concept of Operations for the Current Mission"
-        self.conops_modeler_action = self.create_action(
-                                "ConOps Modeler",
-                                slot=self.display_conops_modeler,
-                                icon='tools',
-                                tip=conops_tip_text,
-                                modes=['system'])
+        # conops_tip_text = "Model Concept of Operations for the Current Mission"
+        # self.conops_modeler_action = self.create_action(
+                                # "ConOps Modeler",
+                                # slot=self.display_conops_modeler,
+                                # icon='tools',
+                                # tip=conops_tip_text,
+                                # modes=['system'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         self.product_lib_action = self.create_action(
                                     hw_lib_title,
@@ -1783,7 +1787,7 @@ class Main(QtWidgets.QMainWindow):
         system_tools_actions = [self.sync_project_action,
                                 self.refresh_tree_action,
                                 self.reqts_manager_action,
-                                self.conops_modeler_action,
+                                # self.conops_modeler_action,
                                 self.product_lib_action,
                                 self.port_template_lib_action,
                                 self.parameter_lib_action]
@@ -3254,9 +3258,9 @@ class Main(QtWidgets.QMainWindow):
         dlg = RequirementManager(project=proj, width=w, height=h, parent=self)
         dlg.show()
 
-    def display_conops_modeler(self):
-        win = ConOpsModeler(parent=self)
-        win.show()
+    # def display_conops_modeler(self):
+        # win = ConOpsModeler(parent=self)
+        # win.show()
 
     def display_product_types(self):
         dlg = LibraryDialog('ProductType',
@@ -3894,6 +3898,10 @@ def run(home='', splash_image=None, test_data=None, use_tls=True,
 
 
 if __name__ == "__main__":
+    # multiprocessing.freeze_support is needed for multiprocessing to work with
+    # PyInstaller on Windows -- and it must be invoked *immediately* after
+    # if __name__ == "__main__":
+    multiprocessing.freeze_support()
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--test', action='store_true',
                         help='test mode (send log output to console)')
@@ -3907,6 +3915,6 @@ if __name__ == "__main__":
     # NOTE: if running from an app "run" module, the process pool needs to be
     # started in that module, since this __name__ == "__main__" clause is not
     # called in that case!
-    proc_pool = Pool(5)
+    proc_pool = multiprocessing.Pool(5)
     run(console=options.test, debug=options.debug, use_tls=tls, pool=proc_pool)
 
