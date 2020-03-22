@@ -1317,14 +1317,15 @@ class Main(QtWidgets.QMainWindow):
                                         icon="view_16",
                                         tip="View a CAD model from a STEP file",
                                         modes=['system', 'component'])
-        # "open_step_file" opens an external viewer in a separate process,
-        # which is *required* for Mac, optional on Linux & Windows
-        self.view_multi_cad_action = self.create_action(
-                                    "View CAD Model(s) ...",
-                                    slot=self.open_step_file,
-                                    icon="view_16",
-                                    tip="View CAD model(s) from STEP file(s)",
-                                    modes=['system', 'component'])
+        # "open_step_file" opens an external viewer in a separate process ...
+        # *required* on Mac, an option on Linux, and *does not work* on Windows
+        if not sys.platform == 'win32':
+            self.view_multi_cad_action = self.create_action(
+                                        "View CAD Model(s) ...",
+                                        slot=self.open_step_file,
+                                        icon="view_16",
+                                        tip="View CAD model(s) from STEP file(s)",
+                                        modes=['system', 'component'])
         self.export_project_to_file_action = self.create_action(
                                     "Export Project to a File...",
                                     slot=self.export_project_to_file,
@@ -1793,7 +1794,8 @@ class Main(QtWidgets.QMainWindow):
                                 self.parameter_lib_action]
         if not platform.platform().startswith('Darwin'):
             system_tools_actions.append(self.view_cad_action)
-        system_tools_actions.append(self.view_multi_cad_action)
+        if not sys.platform == 'win32':
+            system_tools_actions.append(self.view_multi_cad_action)
         system_tools_actions.append(self.display_product_types_action)
         system_tools_actions.append(self.edit_prefs_action)
         # disable sync project action until we are online
@@ -3898,10 +3900,6 @@ def run(home='', splash_image=None, test_data=None, use_tls=True,
 
 
 if __name__ == "__main__":
-    # multiprocessing.freeze_support is needed for multiprocessing to work with
-    # PyInstaller on Windows -- and it must be invoked *immediately* after
-    # if __name__ == "__main__":
-    multiprocessing.freeze_support()
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--test', action='store_true',
                         help='test mode (send log output to console)')
@@ -3915,6 +3913,10 @@ if __name__ == "__main__":
     # NOTE: if running from an app "run" module, the process pool needs to be
     # started in that module, since this __name__ == "__main__" clause is not
     # called in that case!
-    proc_pool = multiprocessing.Pool(5)
+    if sys.platform == 'win32':
+        # the multiprocessing pool cannot be used on Windows
+        proc_pool = None
+    else:
+        proc_pool = multiprocessing.Pool(5)
     run(console=options.test, debug=options.debug, use_tls=tls, pool=proc_pool)
 
