@@ -92,6 +92,12 @@ class PgxnForm(QWidget):
         self.obj = obj
         self.all_idvs = idvs or []
         cname = obj.__class__.__name__
+        if cname == 'HardwareProduct':
+            # id's are auto-generated for HardwareProduct instances
+            if mask and isinstance(mask, list):
+                mask.insert('id', 0)
+            else:
+                mask = ['id']
         schema = orb.schemas.get(cname)
         field_names = [n for n in schema.get('field_names')
                        if n not in PGXN_MASK.get(cname, PGXN_HIDE)]
@@ -190,6 +196,7 @@ class PgxnForm(QWidget):
                     ext_name = pd.get('name', '') or '[unknown]'
                     # parm types are 'float', 'int', 'bool', or 'text'
                     parm_type = pd.get('range_datatype', 'float')
+                    units = ''
                     if parm_type in ['int', 'float']:
                         # units only apply to numeric types
                         units = parm.get('units', '')

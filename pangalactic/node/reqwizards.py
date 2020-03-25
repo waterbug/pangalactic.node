@@ -1495,7 +1495,7 @@ class PerformReqBuildShallPage(QWizardPage):
         #     + str(req_maximum_value or req_minimum_value or req_target_value)
         #     + units
         req_wizard_state['req_predicate'] = ' '.join([
-                            req_wizard_state.get('req_shall_phrase'),
+                            req_wizard_state.get('req_shall_phrase', '') or '',
                             quantifier])
         req_wizard_state['rationale'] = self.rationale_field.toPlainText()
         if not req_wizard_state.get('rationale'):

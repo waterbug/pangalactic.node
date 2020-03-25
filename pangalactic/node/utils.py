@@ -108,12 +108,12 @@ def clone(what, include_ports=True, include_components=True,
     if not newkw.get('oid'):
         newkw['oid'] = str(uuid4())
     orb.new_oids.append(newkw['oid'])
-    if ((generate_id and not newkw.get('id')) or
-         issubclass(cls, orb.classes['Product'])):
+    if ((generate_id or issubclass(cls, orb.classes['Product']))
+        and not newkw.get('id')):
         # this is only needed for [1] Products (for which an id will be
         # generated when saved) and [2] objects for which an 'id' is required
         # but does not need to be significant and/or human-intelligible
-        newkw['id'] = '_'.join([cname, newkw['oid']])
+        newkw['id'] = '-'.join([cname, newkw['oid'][:5]])
     orb.log.info('  new %s oid: %s)' % (cname, newkw['oid']))
     NOW = dtstamp()
     newkw.update(dict([(dts, NOW) for dts in ['create_datetime',
