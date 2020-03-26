@@ -589,23 +589,6 @@ class Main(QtWidgets.QMainWindow):
         data.update(orb.get_mod_dts(cname='Template'))
         return self.mbus.session.call('vger.sync_library_objects', data)
 
-    # def sync_projects_with_roles(self, data):
-        # """
-        # Get the project/org objects corresponding to the current roles assigned
-        # to the local user and add them to the local db.
-
-        # Args:
-            # data:  parameter required for callback (ignored)
-        # """
-        # orb.log.debug('[pgxn] sync_projects_with_roles()')
-        # for org_oid in set(state['assigned_roles']).union(
-                       # set(state['admin_of'])):
-            # if org_oid and not orb.get(org_oid):
-                # rpc = self.mbus.session.call('vger.get_object', org_oid)
-                # rpc.addCallback(self.on_rpc_get_object)
-                # rpc.addErrback(self.on_failure)
-        # return True
-
     def sync_current_project(self, data):
         """
         Sync all objects for the current project into the local db.  If there
@@ -1126,6 +1109,9 @@ class Main(QtWidgets.QMainWindow):
                                                             # project_index)
                             # **********************************************
                         else:
+                            # PSU not for the current project ->
+                            # (1) not in the currently visible system tree
+                            # (2) not in the current block diagram
                             orb.log.debug('  new object is NOT a system for '
                                       'the current project ({}) ...'.format(
                                       state['project']))
@@ -1152,6 +1138,10 @@ class Main(QtWidgets.QMainWindow):
                                     parent=idx)
                             except Exception:
                                 orb.log.info(traceback.format_exc())
+                        if hasattr(self, 'system_model_window'):
+                            # rebuild diagram in case object corresponded to a
+                            # block in the current diagram
+                            self.system_model_window.display_block_diagram()
                     # resize dashboard columns if necessary
                     self.refresh_dashboard()
             elif (isinstance(obj, orb.classes['RoleAssignment'])

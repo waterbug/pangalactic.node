@@ -104,7 +104,6 @@ class NewProductWizard(QtWidgets.QWizard):
         self.setButtonLayout(included_buttons)
         self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
         wizard_state['product_oid'] = None
-        wizard_state['product_type'] = None
         intro_label = QtWidgets.QLabel(
                 "<h2>Component Wizard</h2>"
                 "This wizard will assist you in creating new components "
@@ -118,7 +117,8 @@ class NewProductWizard(QtWidgets.QWizard):
         # 0. Identify Product
         self.addPage(IdentificationPage(intro_label, parent=self))
         # 1. Select Product Type
-        self.addPage(ProductTypePage(parent=self))
+        ### NOTE:  now using pgxnobject to select the product type
+        # self.addPage(ProductTypePage(parent=self))
         # 2. Select Maturity Level (TRL)
         self.addPage(MaturityLevelPage(parent=self))
         # 3. Specify Interfaces and Parameter Values
@@ -599,10 +599,13 @@ class IdentificationPage(QtWidgets.QWizardPage):
         product = clone('HardwareProduct', owner=project, public=True)
         wizard_state['product_oid'] = product.oid
         # include version -- but it's allowed to be empty (blank)
-        view = ['id', 'name', 'version', 'owner', 'description', 'public']
+        view = ['id', 'name', 'product_type', 'version', 'owner',
+                'description', 'public']
+        required = ['name', 'product_type', 'owner', 'description']
         panels = ['main']
         self.pgxn_obj = PgxnObject(product, embedded=True, panels=panels,
-                                   view=view, edit_mode=True, new=True,
+                                   view=view, required=required,
+                                   edit_mode=True, new=True,
                                    enable_delete=False)
         # hide tool bar (clone etc.)
         self.pgxn_obj.toolbar.hide()
@@ -656,6 +659,7 @@ class ProductTypePage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.show_all_disciplines = False
+        self.pt = None
 
     def initializePage(self):
         if self.title():
@@ -785,13 +789,16 @@ class ProductTypePage(QtWidgets.QWizardPage):
         orb.log.debug('* clicked row is "{}"'.format(clicked_row))
         mapped_row = self.product_type_panel.proxy_model.mapToSource(
                                                         clicked_index).row()
-        wizard_state['product_type'] = self.product_type_panel.objs[mapped_row]
+        self.pt = self.product_type_panel.objs[mapped_row]
         orb.log.debug(
             '  product type selected [mapped row] is: {}'.format(mapped_row))
-        pt = wizard_state.get('product_type')
-        pt_name = getattr(pt, 'name', '[not set]')
+        pt_name = getattr(self.pt, 'name', '[not set]')
         orb.log.debug('  ... which is "{}"'.format(pt_name))
-        if pt:
+        if self.pt:
+            product = orb.get(wizard_state.get('product_oid'))
+            if product:
+                product.product_type = self.pt
+                orb.save([product])
             self.pt_label.setVisible(True)
             self.pt_value_label.setText(pt_name)
             self.pt_value_label.setVisible(True)
@@ -801,7 +808,7 @@ class ProductTypePage(QtWidgets.QWizardPage):
         Return `True` when the page is complete, which activates the `Next`
         button.
         """
-        if wizard_state.get('product_type'):
+        if self.pt:
             return True
         return False
 
@@ -929,11 +936,11 @@ class NewProductWizardConclusionPage(QtWidgets.QWizardPage):
 
     def initializePage(self):
         p = orb.get(wizard_state['product_oid'])
+        orb.log.info('  - product found: {}'.format(p.id))
         self.setTitle('New Product: <font color="blue">{}</font>'.format(
                                                                     p.name))
         self.setSubTitle("Click <b>Finish</b> to use these values<br>"
                          "or click <b>Back</b> to change them ...")
-        p.product_type = wizard_state.get('product_type')
         trl = wizard_state.get('trl')
         trl_value = int(trl['trl'])
         set_pval(orb, p.oid, 'TRL', trl_value)
