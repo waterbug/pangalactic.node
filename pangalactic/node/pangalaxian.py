@@ -209,7 +209,7 @@ class Main(QtWidgets.QMainWindow):
                                                 'new object table view pref')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
-        # THE TYPE OF OBJECT ANNOUNCED!  (E.g., RoleAssignment instances)
+        # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
         dispatcher.connect(self.on_remote_decloaked_signal,
                                                     'remote: decloaked')
         dispatcher.connect(self.on_remote_modified_signal,
@@ -899,9 +899,7 @@ class Main(QtWidgets.QMainWindow):
             # base msg
             msg = "remote {}: ".format(subject)
             if subject == 'decloaked':
-                # actor_oid is the oid of the Actor to which the object has
-                # been decloaked (usually an Organization or Project)
-                obj_oid, obj_id, actor_oid, actor_id = content
+                obj_oid, obj_id = content
                 msg += obj_id
             elif subject == 'data new row':
                 # TODO:  when proj_id does not refer to current project, update
@@ -969,7 +967,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug(' - content was empty.')
             return
         try:
-            obj_oid, obj_id, actor_oid, actor_id = content
+            obj_oid, obj_id = content
         except:
             # handle the error (pop up a notification dialog)
             orb.log.debug('  - content could not be parsed:')
