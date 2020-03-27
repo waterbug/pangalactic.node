@@ -2089,7 +2089,7 @@ class Main(QtWidgets.QMainWindow):
         if not objs:
             orb.log.debug('  (all objs received were already in the local db')
             orb.log.debug('   so deserialize() returned nothing)')
-        for obj, n in enumerate(objs):
+        for n, obj in enumerate(objs):
             # same as for local 'modified object' but without the remote
             # calls ...
             cname = obj.__class__.__name__
