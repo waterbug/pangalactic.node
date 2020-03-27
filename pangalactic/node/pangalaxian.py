@@ -1989,8 +1989,12 @@ class Main(QtWidgets.QMainWindow):
             elif dts > obj.mod_datetime:
                 # get the remote object
                 orb.log.debug('  remote object is newer, getting...')
+                # NOTE: use "include_components=False" to avoid side-effects,
+                # such as if the modified object had a new Acu which will be
+                # retrieved separately and processed by on_rpc_get_object,
+                # which will update the system tree properly if necessary ...
                 rpc = self.mbus.session.call('vger.get_object', obj.oid,
-                                               include_components=True)
+                                             include_components=False)
                 rpc.addCallback(self.on_remote_get_mod_object)
                 rpc.addErrback(self.on_failure)
             else:
@@ -2001,7 +2005,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  object not found in local db, getting ...')
             rpc = self.mbus.session.call('vger.get_object', obj.oid,
                                            include_components=True)
-            rpc.addCallback(self.on_remote_get_mod_object)
+            rpc.addCallback(self.on_rpc_get_object)
             rpc.addErrback(self.on_failure)
 
     def on_remote_deleted_signal(self, content=None):
