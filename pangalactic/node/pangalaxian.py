@@ -2110,12 +2110,22 @@ class Main(QtWidgets.QMainWindow):
                 dispatcher.send("modified activity", activity=obj)
             elif hasattr(self, 'library_widget'):
                 self.library_widget.refresh(cname=cname)
-            if (getattr(self, 'sys_tree', None)
-                and isinstance(obj, (orb.classes['HardwareProduct'],
-                                     orb.classes['Acu'],
-                                     orb.classes['ProjectSystemUsage']))):
-                self.update_object_in_trees(obj)
-                rebuild_diagram = True
+            if getattr(self, 'sys_tree', None):
+                if isinstance(obj, orb.classes['HardwareProduct']):
+                    self.update_object_in_trees(obj)
+                    if (getattr(self, 'system_model_window', None)
+                        and obj is self.system_model_window.obj):
+                        rebuild_diagram = True
+                elif isinstance(obj, orb.classes['Acu']):
+                    self.update_object_in_trees(obj.assembly)
+                    if (getattr(self, 'system_model_window', None)
+                        and obj.assembly is self.system_model_window.obj):
+                        rebuild_diagram = True
+                elif isinstance(obj, orb.classes['ProjectSystemUsage']):
+                    self.update_object_in_trees(obj.project)
+                    if (getattr(self, 'system_model_window', None)
+                        and obj.project is self.system_model_window.obj):
+                        rebuild_diagram = True
             # NOTE: no need to do anything in 'db' mode -- the object table now
             # listens for the 'mod object' signal and handles it ...
             elif self.mode == 'db' and cname == state.get('current_cname'):
