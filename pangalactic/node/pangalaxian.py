@@ -2206,7 +2206,7 @@ class Main(QtWidgets.QMainWindow):
                 msg += '{} no owners (not saved); '.format(
                                                     len(stuff['no_owners']))
             if not msg:
-                msg = 'nothing saved; synced.'
+                msg = 'nothing to save; synced.'
             else:
                 msg += 'synced.'
             self.statusbar.showMessage('vger save: {}'.format(msg))
@@ -2680,7 +2680,7 @@ class Main(QtWidgets.QMainWindow):
             if selected_link:
                 idxs = self.sys_tree.link_indexes_in_tree(selected_link)
                 if idxs:
-                    proxy_i = self.sys_tree.mapFromSource(idxs[0])
+                    proxy_i = self.sys_tree.proxy_model.mapFromSource(idxs[0])
                     self.sys_tree.setCurrentIndex(proxy_i)
         self.set_system_model_window()
 
