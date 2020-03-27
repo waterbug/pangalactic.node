@@ -1041,8 +1041,10 @@ class Main(QtWidgets.QMainWindow):
         if not serialized_objects:
             orb.log.debug('  result was empty!')
             return False
-        # objs = deserialize(orb, serialized_objects)
-        objs = self.load_serialized_objects(serialized_objects)
+        # NOTE:  using load_serialized_objects() here led to problematic
+        # behavior due to unordered asynchronous operations
+        # objs = self.load_serialized_objects(serialized_objects)
+        objs = deserialize(orb, serialized_objects)
         if objs:
             orb.log.debug('  deserialize() returned {} object(s):'.format(
                                                                     len(objs)))
