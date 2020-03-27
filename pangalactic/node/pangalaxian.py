@@ -1086,30 +1086,6 @@ class Main(QtWidgets.QMainWindow):
                             # Just adding a new system node did not work, so
                             # the whole tree is rebuilt (refreshed)
                             need_to_refresh_tree = True
-                            # **********************************************
-                            # DEACTIVATED stuff
-                            # (below was an unsuccessful attempt to just add a
-                            # system node to the tree ... abandoned for now --
-                            # just rebuilding the tree.)
-                            # **********************************************
-                            # root_index = sys_tree_model.index(0, 0,
-                                                              # QModelIndex())
-                            # project_index = sys_tree_model.index(0, 0,
-                                                                 # root_index)
-                            # project_node = sys_tree_model.node_for_object(
-                                              # obj.project, sys_tree_model.root)
-                            # orb.log.debug('  now try to add node ...')
-                            # try:
-                                # sys_tree_model.add_nodes(
-                                    # [sys_tree_model.node_for_object(
-                                        # obj.system, project_node, link=obj)],
-                                    # parent=project_index)
-                            # except Exception:
-                                # orb.log.debug(traceback.format_exc())
-                            # orb.log.debug('  dataChanged.emit()')
-                            # sys_tree_model.dataChanged.emit(project_index,
-                                                            # project_index)
-                            # **********************************************
                         else:
                             # PSU not for the current project ->
                             # (1) not in the currently visible system tree
@@ -2018,10 +1994,25 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('  oid: {}'.format(obj_oid))
         # first check if we have the object
         obj = orb.get(obj_oid)
+        selected_link_oid = None
         if obj:
             cname = obj.__class__.__name__
             if ((cname in ['Acu', 'ProjectSystemUsage'])
                    and hasattr(self, 'sys_tree')):
+                # (1) identify the current selection in the tree, so the
+                #     selection can be restored after the deletion (assuming
+                #     it's not the deleted object, of course)
+                i = self.sys_tree.selectedIndexes()[0]
+                if i:
+                    mapped_i = self.sys_tree.proxy_model.mapToSource(i)
+                    selected_link_oid = getattr(
+                                          self.sys_tree.source_model.get_node(
+                                          mapped_i).link, 'oid', None)
+                    if selected_link_oid == obj_oid:
+                        # if the selected link is the deleted object, don't
+                        # use it
+                        selected_link_oid = None
+                # (2) identify the index of the deleted Acu or PSU
                 idxs = self.sys_tree.link_indexes_in_tree(obj)
                 if len(idxs) == 1:
                     # if the link occurs exactly once in the tree, remove it
@@ -2048,7 +2039,8 @@ class Main(QtWidgets.QMainWindow):
                     # NOTE:  refreshing the whole tree is very disruptive but is
                     # necessary if the link occurs multiple times in the tree 
                     orb.delete([obj])
-                    self.refresh_tree_and_dashboard()
+                    self.refresh_tree_and_dashboard(
+                                            selected_link_oid=selected_link_oid)
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
@@ -2276,9 +2268,20 @@ class Main(QtWidgets.QMainWindow):
              issubclass(orb.classes[cname], orb.classes['Modelable']))
             or cname == 'Acu'):
             orb.recompute_parmz()
-            # TODO:  value might not be displayed until dashboard gets focus --
-            # may have to explicitly set focus to dashboard to force it
-            self.refresh_tree_and_dashboard()
+            # try to identify the selected tree node so it can be selected when
+            # the tree is refreshed ...
+            selected_link_oid = None
+            i = self.sys_tree.selectedIndexes()[0]
+            if i:
+                mapped_i = self.sys_tree.proxy_model.mapToSource(i)
+                selected_link_oid = getattr(
+                                      self.sys_tree.source_model.get_node(
+                                      mapped_i).link, 'oid', None)
+                if selected_link_oid == oid:
+                    # if the selected link is the deleted object, don't use it
+                    selected_link_oid = None
+            self.refresh_tree_and_dashboard(
+                                        selected_link_oid=selected_link_oid)
         # TODO:  other actions may be needed ...
         # NOTE:  libraries are now subscribed to the 'deleted object' signal
         # and update themselves, so no need to call them.
@@ -2579,7 +2582,7 @@ class Main(QtWidgets.QMainWindow):
                                           parent=self)
                 pgxn_panel_layout.addWidget(placeholder)
 
-    def refresh_tree_and_dashboard(self):
+    def refresh_tree_and_dashboard(self, selected_link_oid=None):
         """
         Tree / dashboard refresh.  Can be user-activated by menu item.
         """
@@ -2587,9 +2590,9 @@ class Main(QtWidgets.QMainWindow):
         orb.recompute_parmz()
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
-        self.refresh_tree_views()
+        self.refresh_tree_views(selected_link_oid=selected_link_oid)
 
-    def refresh_tree_views(self, rebuilding=False):
+    def refresh_tree_views(self, rebuilding=False, selected_link_oid=None):
         ######################################################################
         # TODO: possibly use get_bom() or get_assembly() when the current
         # project is set to get all sys tree items for the current project,
@@ -2671,6 +2674,14 @@ class Main(QtWidgets.QMainWindow):
             self.sys_tree.expandToDepth(1)
         self.left_dock.setWidget(self.sys_tree)
         self.end_progress()
+        # check if the selected object and selected link exist in the tree
+        if selected_link_oid:
+            selected_link = orb.get(selected_link_oid)
+            if selected_link:
+                idxs = self.sys_tree.link_indexes_in_tree(selected_link)
+                if idxs:
+                    proxy_i = self.sys_tree.mapFromSource(idxs[0])
+                    self.sys_tree.setCurrentIndex(proxy_i)
         self.set_system_model_window()
 
     def rebuild_dashboard(self):
