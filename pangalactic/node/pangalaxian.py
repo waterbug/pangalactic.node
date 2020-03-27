@@ -2083,15 +2083,17 @@ class Main(QtWidgets.QMainWindow):
             serialized_objects (list of dict):  a list of serialized objects
         """
         orb.log.info('* on_remote_get_mod_object()')
+        orb.log.info('  received:')
         objs =  deserialize(orb, serialized_objects)
         rebuild_diagram = False
         if not objs:
-            orb.log.debug('  deserialize() returned nothing --')
-            orb.log.debug('  the objs received were already in the local db.')
-        for obj in objs:
+            orb.log.debug('  (all objs received were already in the local db')
+            orb.log.debug('   so deserialize() returned nothing)')
+        for obj, n in enumerate(objs):
             # same as for local 'modified object' but without the remote
             # calls ...
             cname = obj.__class__.__name__
+            orb.log.debug('  ({}) [{}] "{}"'.format(n, cname, obj.id or 'no id'))
             if cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     html = '<h3>You have been assigned the role:</h3>'
