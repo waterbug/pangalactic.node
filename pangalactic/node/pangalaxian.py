@@ -2758,7 +2758,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Update the tree and dashboard in response to a modified object.
         """
-        # orb.log.debug('* update_object_in_trees() ...')
+        orb.log.debug('* update_object_in_trees() ...')
         if not obj:
             orb.log.debug('  no object provided; ignoring.')
             return
@@ -2773,19 +2773,19 @@ class Main(QtWidgets.QMainWindow):
                 # orb.log.debug('  - object is an acu/psu ...')
                 idxs = self.sys_tree.link_indexes_in_tree(obj)
                 if idxs:
-                    # log_msg = 'indexes found in tree, updating ...'
-                    # orb.log.debug('    {}'.format(log_msg))
+                    log_msg = 'indexes found in tree, updating ...'
+                    orb.log.debug('    {}'.format(log_msg))
                     if cname == 'Acu':
-                        # orb.log.debug('    [obj is Acu]')
+                        orb.log.debug('    [obj is Acu]')
                         node_obj = obj.component
                     elif cname == 'ProjectSystemUsage':
-                        # orb.log.debug('    [obj is PSU]')
+                        orb.log.debug('    [obj is PSU]')
                         node_obj = obj.system
                     for idx in idxs:
                         self.sys_tree.source_model.setData(idx, node_obj)
                 else:
-                    # log_msg = 'no indexes found in tree.'
-                    # orb.log.debug('    {}'.format(log_msg))
+                    log_msg = 'no indexes found in tree.'
+                    orb.log.debug('    {}'.format(log_msg))
                     if cname == 'ProjectSystemUsage':
                         # log_msg = 'but obj is psu -- update project node ...'
                         # orb.log.debug('    {}'.format(log_msg))
@@ -2795,23 +2795,23 @@ class Main(QtWidgets.QMainWindow):
                         source_model.dataChanged.emit(
                                             project_index, project_index)
             elif isinstance(obj, orb.classes['Product']):
-                # orb.log.debug('  - object is a product ...')
+                orb.log.debug('  - object is a product ...')
                 idxs = self.sys_tree.object_indexes_in_tree(obj)
                 if idxs:
-                    # log_msg = 'indexes found in tree, updating ...'
-                    # orb.log.debug('    {}'.format(log_msg))
+                    log_msg = 'indexes found in tree, updating ...'
+                    orb.log.debug('    {}'.format(log_msg))
                     for idx in idxs:
                         self.sys_tree.source_model.dataChanged.emit(idx, idx)
                 else:
-                    # log_msg = 'no indexes for this product found in tree.'
-                    # orb.log.debug('    {}'.format(log_msg))
-                    pass
+                    log_msg = 'no indexes for this product found in tree.'
+                    orb.log.debug('    {}'.format(log_msg))
+                    # pass
             # resize/refresh dashboard columns if necessary
             self.refresh_dashboard()
         except:
             # oops, sys_tree's C++ object got deleted
-            # orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
-                          # 'might have got deleted ... bailing out!')
+            orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
+                          'might have got deleted ... bailing out!')
             pass
 
     ### SET UP 'component' mode (product modeler interface)
