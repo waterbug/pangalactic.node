@@ -3916,6 +3916,9 @@ def run(home='', splash_image=None, test_data=None, use_tls=True,
 
 
 if __name__ == "__main__":
+    if platform.platform().startswith('Darwin'):
+        # required for PyInstaller to create osx app
+        multiprocessing.freeze_support()
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--test', action='store_true',
                         help='test mode (send log output to console)')
