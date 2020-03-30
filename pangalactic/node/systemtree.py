@@ -960,7 +960,7 @@ class SystemTreeModel(QAbstractItemModel):
         pids = cols or []
         for pid in pids:
             if pid in self.cols:
-                idx = self.cols.index(pid)
+                # idx = self.cols.index(pid)
                 prefs['dashboards'][state['dashboard_name']].remove(pid)
                 # try:
                     # self.removeColumn(idx, parent=QModelIndex())
@@ -982,8 +982,8 @@ class SystemTreeModel(QAbstractItemModel):
 
 
 class SystemTreeView(QTreeView):
-    def __init__(self, obj, refdes=True, show_allocs=False, req=None,
-                 parent=None):
+    def __init__(self, obj, selected_system=None, refdes=True,
+                 show_allocs=False, req=None, parent=None):
         """
         Args:
             obj (Project or Product): root object of the tree
@@ -997,6 +997,14 @@ class SystemTreeView(QTreeView):
                 highlighted if 'show_allocs' is True
         """
         super().__init__(parent)
+        # NOTE: this logging is only needed for deep debugging
+        # orb.log.debug('* SystemTreeView initializing with ...')
+        # orb.log.debug('  - root node: "{}"'.format(obj.id))
+        # if selected_system:
+            # sid = selected_system.id
+            # orb.log.debug('  - selected system: "{}"'.format(sid))
+        # else:
+            # orb.log.debug('  - no selection specified.')
         self.show_allocs = show_allocs
         tree_model = SystemTreeModel(obj, refdes=refdes,
                                      show_allocs=show_allocs,
@@ -1031,9 +1039,12 @@ class SystemTreeView(QTreeView):
             self.clicked.connect(self.sys_node_selected)
             dispatcher.connect(self.sys_node_expand, 'dash node expanded')
             dispatcher.connect(self.sys_node_collapse, 'dash node collapsed')
-            dispatcher.connect(self.sys_node_select, 'dash node selected')
-            dispatcher.connect(self.sys_node_select, 'diagram go back')
-            dispatcher.connect(self.sys_node_select, 'diagram tree index')
+            dispatcher.connect(self.on_dash_node_selected,
+                                                       'dash node selected')
+            dispatcher.connect(self.on_diagram_go_back,
+                                                       'diagram go back')
+            dispatcher.connect(self.on_diagram_tree_index,
+                                                       'diagram tree index')
         self.setStyleSheet('font-weight: normal; font-size: 12px')
         self.proxy_model.sort(0)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
@@ -1046,10 +1057,22 @@ class SystemTreeView(QTreeView):
             state['sys_trees'][self.project.id] = {}
         if not state['sys_trees'][self.project.id].get('expanded'):
             state['sys_trees'][self.project.id]['expanded'] = []
-        # set the initial selection to the base index
-        initial_index = self.proxy_model.mapFromSource(
+        # set initial node selection
+        if selected_system:
+            self.expandToDepth(3)
+            idxs = self.object_indexes_in_tree(selected_system)
+            if idxs:
+                idx_to_select = self.proxy_model.mapFromSource(idxs[0])
+            else:
+                # orb.log.debug('    selected system is not in tree.')
+                idx_to_select = self.proxy_model.mapFromSource(
+                            self.source_model.index(0, 0, QModelIndex()))
+        else:
+            # set the initial selection to the base node index
+            # orb.log.debug(' - no current selection; selecting project node.')
+            idx_to_select = self.proxy_model.mapFromSource(
                                 self.source_model.index(0, 0, QModelIndex()))
-        self.sys_node_select(initial_index)
+        self.select_initial_node(idx_to_select)
 
     @property
     def req(self):
@@ -1082,13 +1105,19 @@ class SystemTreeView(QTreeView):
             mapped_i = self.proxy_model.mapToSource(i)
             obj = self.source_model.get_node(mapped_i).obj
             link = self.source_model.get_node(mapped_i).link
-            state['system'] = obj.oid
-            orb.log.debug('- node selected ...')
-            orb.log.debug('  + row: {}'.format(mapped_i.row()))
-            orb.log.debug('  + col: {}'.format(mapped_i.column()))
-            orb.log.debug('  + parent node obj: {}'.format(
-                getattr(self.source_model.get_node(mapped_i.parent()).obj,
-                                                         'id', 'fake root')))
+            if link and not obj:
+                if isinstance(link, orb.classes['Acu']):
+                    obj = link.component
+                elif isinstance(link, orb.classes['ProjectSystemUsage']):
+                    obj = link.system
+            # orb.log.debug('- node selected ...')
+            # orb.log.debug('  + row: {}'.format(mapped_i.row()))
+            # orb.log.debug('  + col: {}'.format(mapped_i.column()))
+            # orb.log.debug('  + obj id: {}'.format(
+                          # getattr(obj, 'id', '') or 'id unknown'))
+            # orb.log.debug('  + parent node obj id: {}'.format(
+                # getattr(self.source_model.get_node(mapped_i.parent()).obj,
+                                                         # 'id', 'fake root')))
             dispatcher.send(signal='sys node selected', index=index, obj=obj,
                             link=link)
 
@@ -1108,28 +1137,56 @@ class SystemTreeView(QTreeView):
             # oops -- my C++ object probably got deleted
             pass
 
-    def sys_node_select(self, index=None):
+    def select_initial_node(self, index=None):
+        self.sys_node_select(index=index, origin='tree initialization')
+
+    def on_dash_node_selected(self, index=None):
+        self.sys_node_select(index=index, origin='dash node selected')
+
+    def on_diagram_go_back(self, index=None):
+        self.sys_node_select(index=index, origin='diagram go back')
+
+    def on_diagram_tree_index(self, index=None):
+        self.sys_node_select(index=index, origin='diagram tree index')
+
+    def sys_node_select(self, index=None, origin=''):
         """
         Set the selected node from the specified proxy model index or the
         project node if no index is specified.
 
         Keyword Args:
             index (QModelIndex):  the proxy model index
+            origin (str):  origin of the call
         """
-        try:
-            if index:
-                self.selectionModel().setCurrentIndex(index,
-                                          QItemSelectionModel.ClearAndSelect)
-                self.expand(index)
-            else:
-                # if no index, assume we want the project to be selected
-                self.selectionModel().setCurrentIndex(
-                    self.proxy_model.mapFromSource(
-                        self.source_model.index(0, 0, QModelIndex())),
-                    QItemSelectionModel.ClearAndSelect)
-        except:
+        # orb.log.debug('* sys_node_select() [{}]'.format(
+                                            # origin or "unknown origin"))
+        # try:
+        if index:
+            self.selectionModel().setCurrentIndex(index,
+                                      QItemSelectionModel.ClearAndSelect)
+            self.expand(index)
+            src_idx = self.proxy_model.mapToSource(index)
+            node = self.source_model.get_node(src_idx)
+            obj = node.obj
+            if obj:
+                # msg = '  - object selected: "{}".'.format(obj.id)
+                # orb.log.debug(msg)
+                dispatcher.send('system selected', system=obj)
+            # link = node.link
+            # if link:
+                # msg = '  - link selected: "{}".'.format(link.id)
+                # orb.log.debug(msg)
+        else:
+            # if no index, assume we want the project to be selected
+            self.selectionModel().setCurrentIndex(
+                self.proxy_model.mapFromSource(
+                    self.source_model.index(0, 0, QModelIndex())),
+                QItemSelectionModel.ClearAndSelect)
+            # orb.log.debug('  - index not found; project node selected.')
+        # except:
             # oops -- my C++ object probably got deleted
-            pass
+            # orb.log.debug('  - exception encountered; node not selected.')
+            # pass
 
     def on_successful_drop(self):
         """
@@ -1176,7 +1233,7 @@ class SystemTreeView(QTreeView):
         For the selected node, if an Acu, edit the 'quantity' and
         'reference_designator', or if a ProjectSystemUsage, the 'system_role'.
         """
-        orb.log.debug('* SystemTreeView: modify_node() ...')
+        # orb.log.debug('* SystemTreeView: modify_node() ...')
         for i in self.selectedIndexes():
             mapped_i = self.proxy_model.mapToSource(i)
             node = self.source_model.get_node(mapped_i)
@@ -1318,8 +1375,8 @@ class SystemTreeView(QTreeView):
                 orb.log.debug('  deleting system usage "%s" ...' % node.obj.id)
             pos = mapped_i.row()
             row_parent = mapped_i.parent()
-            parent_id = self.source_model.get_node(row_parent).obj.id
-            orb.log.debug('  at row {} of parent {}'.format(pos, parent_id))
+            # parent_id = self.source_model.get_node(row_parent).obj.id
+            # orb.log.debug('  at row {} of parent {}'.format(pos, parent_id))
             # NOTE:  removeRow() dispatches the "deleted object" signal,
             # which triggers the "deleted" remote message to be published
             self.source_model.removeRow(pos, row_parent)

@@ -297,7 +297,7 @@ class ModelWindow(QMainWindow):
             sys_tree = getattr(self.parent(), 'sys_tree', None)
             if sys_tree:
                 idxs = sys_tree.object_indexes_in_tree(obj)
-                orb.log.debug('  + found {} indexes in tree'.format(len(idxs)))
+                # orb.log.debug('  + found {} indexes in tree'.format(len(idxs)))
                 target_idx = None
                 if len(idxs) == 1:
                     target_idx = idxs[0]
@@ -305,20 +305,21 @@ class ModelWindow(QMainWindow):
                     for idx in idxs:
                         node = sys_tree.source_model.get_node(idx)
                         assembly = getattr(node.link, 'assembly', None)
-                        orb.log.debug('  + obj found in assembly "{}"'.format(
-                                                                 assembly.id))
+                        # msg = 'obj found in assembly "{}"'.format(
+                                                        # assembly.id)
+                        # orb.log.debug('  + {}'.format(msg))
                         if assembly is previous_obj:
-                            orb.log.debug("    that's the one!")
+                            # orb.log.debug("    that's the one!")
                             target_idx = idx
                             break
                 if target_idx:
-                    orb.log.debug('  + found index of object')
+                    # orb.log.debug('  + found index of object')
                     self.idx = sys_tree.proxy_model.mapFromSource(target_idx)
                 else:
                     # if not found in tree, set self.idx to root node index
                     idx = sys_tree.source_model.index(0, 0, QModelIndex())
                     self.idx = sys_tree.proxy_model.mapFromSource(idx)
-                    orb.log.debug('  + object not in tree; setting root index')
+                    # orb.log.debug('  + object not in tree; setting root index')
         dispatcher.send('diagram tree index', index=self.idx)
 
     def set_subject_from_node(self, index=None, obj=None, link=None):
@@ -417,9 +418,10 @@ class ModelWindow(QMainWindow):
         """
         Display a block diagram for the currently selected product or project.
         """
-        orb.log.debug('* Modeler:  display_block_diagram()')
+        # orb.log.debug('* Modeler:  display_block_diagram()')
         obj = None
         if state.get('mode') == 'system':
+            # orb.log.debug('  mode is "system" ...')
             # in "system" mode, sync with tree selection
             # sys_tree = getattr(self.parent(), 'sys_tree', None)
             # if (sys_tree and len(sys_tree.selectedIndexes()) > 0):
@@ -428,15 +430,24 @@ class ModelWindow(QMainWindow):
                 # obj = sys_tree.source_model.get_node(mapped_i).obj
             # else:
                 # obj = orb.get(state.get('project'))
-            obj = orb.get(state.get('system') or state.get('project'))
+            state_sys = orb.get(state.get('system'))
+            # project = orb.get(state.get('project'))
+            if state_sys:
+                # orb.log.debug('  - using state["system"]: {}'.format(
+                                                            # state_sys.id))
+                obj = state_sys
+            # elif project:
+                # msg = '  - no state["system"]; using project: {}'.format(
+                                                            # project.id)
+                # orb.log.debug(msg)
         elif state.get('mode') == 'component':
-            orb.log.debug('  mode is "component"')
+            # orb.log.debug('  mode is "component"')
             obj = orb.get(state.get('product'))
         if not obj:
             orb.log.debug('  no object selected.')
             return
-        else:
-            orb.log.debug('  object selected: {}.'.format(obj.id))
+        # else:
+            # orb.log.debug('  object selected: {}.'.format(obj.id))
         self.obj = obj
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
@@ -611,7 +622,7 @@ class ProductInfoPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        orb.log.debug('* ProductInfoPanel initializing ...')
+        # orb.log.debug('* ProductInfoPanel initializing ...')
         self.setAcceptDrops(True)
         # product frame
         product_frame_vbox = QVBoxLayout()

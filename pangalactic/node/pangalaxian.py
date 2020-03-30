@@ -101,6 +101,7 @@ class Main(QtWidgets.QMainWindow):
             (persistent in the `state` module)
         library_widget (LibraryListWidget):  a panel widget containing library
             views for specified classes and a selector (combo box)
+        sys_tree (SystemTreeView):  the system tree widget (in left dock)
         app_version (str):  version of calling app (if any)
         app_test_data (list):  list of test data objects for self-testing
         reactor (qt5reactor):  twisted event loop
@@ -194,6 +195,9 @@ class Main(QtWidgets.QMainWindow):
         state['height'] = height
         # self.create_timer()
         # register various signals ...
+        dispatcher.connect(self.on_system_selected_signal, 'system selected')
+        dispatcher.connect(self.on_sys_node_selected_signal,
+                                                         'sys node selected')
         dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
@@ -354,9 +358,9 @@ class Main(QtWidgets.QMainWindow):
     def sync_with_services(self):
         state['synced'] = True
         self.role_label.setText('syncing data ...')
-        orb.log.debug('* calling rpc "vger.get_user_roles"')
+        # orb.log.debug('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
-        orb.log.debug('  with arg: "{}"'.format(userid))
+        # orb.log.debug('  with arg: "{}"'.format(userid))
         QtWidgets.QApplication.processEvents()
         data = orb.get_mod_dts(cname='Person')
         data.update(orb.get_mod_dts(cname='Organization'))
@@ -413,9 +417,9 @@ class Main(QtWidgets.QMainWindow):
              serialized RoleAssignment objects,
              oids unknown to the server]
         """
-        log_msg = '* processing results of rpc "vger.get_user_roles" ...'
-        orb.log.debug(log_msg)
-        # orb.log.debug('  - data:  {}'.format(str(data)))
+        # log_msg = '* processing results of rpc "vger.get_user_roles" ...'
+        # orb.log.debug(log_msg)
+        # orb.log.debug(' - data:  {}'.format(str(data)))
         # data should be a list with 5 elements:
         szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
         channels = []
@@ -423,12 +427,12 @@ class Main(QtWidgets.QMainWindow):
             # deserialize local user's Person object
             deserialize(orb, szd_user)
             self.local_user = orb.select('Person', id=state['userid'])
-            orb.log.debug('  - local user returned: {}'.format(
-                                                  self.local_user.oid))
+            # orb.log.debug(' - local user returned: {}'.format(
+                                                  # self.local_user.oid))
             state['local_user_oid'] = str(self.local_user.oid)
             if str(state.get('local_user_oid')) == 'me':
                 # current local user is 'me' -- replace ...
-                orb.log.debug('    local user was "me", replacing ...')
+                orb.log.debug(' - local user was "me", replacing ...')
                 state['local_user_oid'] = str(self.local_user.oid)
                 me = orb.get('me')
                 if me and me.created_objects:
@@ -1078,35 +1082,35 @@ class Main(QtWidgets.QMainWindow):
                         # NOTE:  SANDBOX PSUs are not synced
                         if (obj.project.oid == state.get('project') and
                             obj.project.oid != 'pgefobjects:SANDBOX'):
-                            orb.log.debug('  this is a ProjectSystemUsage for '
-                                      'the current project ({}) ...'.format(
-                                      state['project']))
-                            orb.log.debug('  its system is: "{}"'.format(
-                                                                obj.system.id))
+                            # orb.log.debug('  this is a ProjectSystemUsage for '
+                                      # 'the current project ({}) ...'.format(
+                                      # state['project']))
+                            # orb.log.debug('  its system is: "{}"'.format(
+                                                                # obj.system.id))
                             # Just adding a new system node did not work, so
                             # the whole tree is rebuilt (refreshed)
                             need_to_refresh_tree = True
-                        else:
+                        # else:
                             # PSU not for the current project ->
                             # (1) not in the currently visible system tree
                             # (2) not in the current block diagram
-                            orb.log.debug('  new object is NOT a system for '
-                                      'the current project ({}) ...'.format(
-                                      state['project']))
-                            orb.log.debug('  no system node will be added.')
+                            # orb.log.debug('  new object is NOT a system for '
+                                      # 'the current project ({}) ...'.format(
+                                      # state['project']))
+                            # orb.log.debug('  no system node will be added.')
                     else:
-                        orb.log.debug('  this is an Acu ...')
-                        orb.log.debug('  - assembly:  {}'.format(
-                                                            obj.assembly.id))
+                        # orb.log.debug('  this is an Acu ...')
+                        # orb.log.debug('  - assembly:  {}'.format(
+                                                            # obj.assembly.id))
                         comp = obj.component
-                        orb.log.debug('  - component: {}'.format(comp.id))
+                        # orb.log.debug('  - component: {}'.format(comp.id))
                         idxs = self.sys_tree.object_indexes_in_tree(
                                                                 obj.assembly)
-                        orb.log.debug('  the assembly occurs {} times'.format(
-                                                                   len(idxs)))
-                        orb.log.debug('  in the system tree.')
-                        if idxs:
-                            orb.log.debug('  adding component nodes ...')
+                        # orb.log.debug('  the assembly occurs {} times'.format(
+                                                                   # len(idxs)))
+                        # orb.log.debug('  in the system tree.')
+                        # if idxs:
+                            # orb.log.debug('  adding component nodes ...')
                         for i, idx in enumerate(idxs):
                             try:
                                 assembly_node = sys_tree_model.get_node(idx)
@@ -1585,7 +1589,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
             state['system'] = 'pgefobjects:SANDBOX'
-        orb.log.debug('  dispatching "set current project" signal ...')
+        # orb.log.debug('  dispatching "set current project" signal ...')
         dispatcher.send(signal="set current project")
 
     def del_project(self):
@@ -1658,7 +1662,7 @@ class Main(QtWidgets.QMainWindow):
         oid = getattr(p, 'oid', None)
         orb.log.debug('* setting product: {}'.format(oid))
         state['product'] = str(oid)
-        orb.log.debug('  - dispatching "set current product" ...')
+        # orb.log.debug('  - dispatching "set current product" ...')
         dispatcher.send(signal="set current product",
                         sender='set_product', product=p)
 
@@ -1667,6 +1671,19 @@ class Main(QtWidgets.QMainWindow):
 
     product = property(get_product, set_product, del_product,
                        "product property")
+
+    def on_system_selected_signal(self, system=None):
+        """
+        Handle dispatcher signal for "system selected" (sent by system tree).
+        """
+        if system:
+            state['system'] = system.oid
+            # orb.log.debug('* state["system"]: "{}"'.format(state['system']))
+
+    def on_sys_node_selected_signal(self, index=None, obj=None, link=None):
+        if obj:
+            state['system'] = obj.oid
+            # orb.log.debug('* state["system"]: "{}"'.format(state['system']))
 
     def create_lib_list_widget(self, cnames=None, include_subtypes=True):
         """
@@ -1904,7 +1921,7 @@ class Main(QtWidgets.QMainWindow):
 
     def on_new_project_signal(self, obj=None):
         """
-        Handle louie signal for (local) "new project".
+        Handle dispatcher signal for (local) "new project".
         """
         orb.log.debug('* on_new_project_signal(obj: {})'.format(
                                                getattr(obj, 'id', 'None')))
@@ -2017,20 +2034,21 @@ class Main(QtWidgets.QMainWindow):
                 if len(idxs) == 1:
                     # if the link occurs exactly once in the tree, remove it
                     idx = idxs[0]
-                    node = self.sys_tree.source_model.get_node(idx)
-                    if cname == 'Acu':
-                        node_des = (getattr(node.link, 'reference_designator',
-                                    None) or '(No reference designator)')
-                    else:
-                        node_des = (getattr(node.link, 'system_role',
-                                    None) or '(No system role)')
-                    orb.log.debug('  deleting position "%s"'.format(node_des))
+                    # node = self.sys_tree.source_model.get_node(idx)
+                    # if cname == 'Acu':
+                        # node_des = (getattr(node.link, 'reference_designator',
+                                    # None) or '(No reference designator)')
+                    # else:
+                        # node_des = (getattr(node.link, 'system_role',
+                                    # None) or '(No system role)')
+                    # orb.log.debug('  deleting position "%s"'.format(
+                                                            # node_des))
                     pos = idx.row()
                     row_parent = idx.parent()
-                    parent_id = self.sys_tree.source_model.get_node(
-                                                            row_parent).obj.id
-                    orb.log.debug('  at row {} of parent {}'.format(pos,
-                                                                   parent_id))
+                    # parent_id = self.sys_tree.source_model.get_node(
+                                                        # row_parent).obj.id
+                    # orb.log.debug('  at row {} of parent {}'.format(pos,
+                                                               # parent_id))
                     # removeRow calls orb.delete on the object ...
                     self.sys_tree.source_model.removeRow(pos, row_parent)
                     # this will resize dashboard columns if necessary
@@ -2079,7 +2097,6 @@ class Main(QtWidgets.QMainWindow):
             serialized_objects (list of dict):  a list of serialized objects
         """
         orb.log.info('* on_remote_get_mod_object()')
-        orb.log.info('  received:')
         objs =  deserialize(orb, serialized_objects)
         rebuild_diagram = False
         if not objs:
@@ -2089,6 +2106,7 @@ class Main(QtWidgets.QMainWindow):
             # same as for local 'modified object' but without the remote
             # calls ...
             cname = obj.__class__.__name__
+            orb.log.debug('  received:')
             orb.log.debug('  ({}) [{}] "{}"'.format(n, cname, obj.id or 'no id'))
             if cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
@@ -2293,11 +2311,6 @@ class Main(QtWidgets.QMainWindow):
                 state['product'] = ''
             self.set_product_modeler_interface()
         elif self.mode == 'system':
-            current_system = orb.get(state.get('system'))
-            if current_system and current_system.oid == oid:
-                state['system'] = state['project']
-            elif cname in ['Acu', 'ProjectSystemUsage']:
-                state['system'] = state['project']
             self.set_system_modeler_interface()
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
@@ -2650,7 +2663,10 @@ class Main(QtWidgets.QMainWindow):
             ld_widget.setAttribute(Qt.WA_DeleteOnClose)
             ld_widget.parent = None
             ld_widget.close()
-        self.sys_tree = SystemTreeView(self.project)
+        sys = None
+        if not selected_link_oid:
+            sys = orb.get(state.get('system'))
+        self.sys_tree = SystemTreeView(self.project, selected_system=sys)
         # orb.log.debug('  + new self.sys_tree created ...')
         # model = self.sys_tree.source_model
         # orb.log.debug('    with source model: {}'.format(str(model)))
@@ -2675,14 +2691,40 @@ class Main(QtWidgets.QMainWindow):
         self.left_dock.setWidget(self.sys_tree)
         self.end_progress()
         # check if the selected object and selected link exist in the tree
+        selected_obj = None
+        msg = '* refresh_tree_views: attempting to restore selection ...'
+        orb.log.debug(msg)
         if selected_link_oid:
             selected_link = orb.get(selected_link_oid)
             if selected_link:
+                msg = '  - previously selected link found'
+                orb.log.debug(msg)
                 idxs = self.sys_tree.link_indexes_in_tree(selected_link)
                 if idxs:
+                    if isinstance(selected_link, orb.classes['Acu']):
+                        selected_obj = selected_link.component
+                    elif isinstance(selected_link,
+                                    orb.classes['ProjectSystemUsage']):
+                        selected_obj = selected_link.system
+                    if self.mode == 'system':
+                        state['system'] = getattr(selected_obj, 'oid', None)
+                    elif self.mode == 'component':
+                        state['product'] = getattr(selected_obj, 'oid', None)
+                    msg = '  - link index found in tree, setting ...'
+                    orb.log.debug(msg)
                     proxy_i = self.sys_tree.proxy_model.mapFromSource(idxs[0])
-                    self.sys_tree.setCurrentIndex(proxy_i)
-        self.set_system_model_window()
+                    self.sys_tree.sys_node_select(proxy_i)
+        elif state.get("system"):
+            system = orb.get(state["system"])
+            if system:
+                selected_obj = system
+                msg = '  - state["system"]: oid "{}", id "{}".'.format(
+                                                        system.oid, system.id)
+                orb.log.debug(msg)
+        else:
+            msg = 'found neither previously selected link nor state["system"]'
+            orb.log.debug('  - {}'.format(msg))
+        self.set_system_model_window(system=selected_obj)
 
     def rebuild_dashboard(self):
         # orb.log.debug('* [pgxn] rebuild_dashboard()')
@@ -2782,9 +2824,9 @@ class Main(QtWidgets.QMainWindow):
         """
         Update the tree and dashboard in response to a modified object.
         """
-        orb.log.debug('* update_object_in_trees() ...')
+        # orb.log.debug('* update_object_in_trees() ...')
         if not obj:
-            orb.log.debug('  no object provided; ignoring.')
+            # orb.log.debug('  no object provided; ignoring.')
             return
         try:
             cname = obj.__class__.__name__
@@ -2797,19 +2839,19 @@ class Main(QtWidgets.QMainWindow):
                 # orb.log.debug('  - object is an acu/psu ...')
                 idxs = self.sys_tree.link_indexes_in_tree(obj)
                 if idxs:
-                    log_msg = 'indexes found in tree, updating ...'
-                    orb.log.debug('    {}'.format(log_msg))
+                    # log_msg = 'indexes found in tree, updating ...'
+                    # orb.log.debug('    {}'.format(log_msg))
                     if cname == 'Acu':
-                        orb.log.debug('    [obj is Acu]')
+                        # orb.log.debug('    [obj is Acu]')
                         node_obj = obj.component
                     elif cname == 'ProjectSystemUsage':
-                        orb.log.debug('    [obj is PSU]')
+                        # orb.log.debug('    [obj is PSU]')
                         node_obj = obj.system
                     for idx in idxs:
                         self.sys_tree.source_model.setData(idx, node_obj)
                 else:
-                    log_msg = 'no indexes found in tree.'
-                    orb.log.debug('    {}'.format(log_msg))
+                    # log_msg = 'no indexes found in tree.'
+                    # orb.log.debug('    {}'.format(log_msg))
                     if cname == 'ProjectSystemUsage':
                         # log_msg = 'but obj is psu -- update project node ...'
                         # orb.log.debug('    {}'.format(log_msg))
@@ -2819,16 +2861,16 @@ class Main(QtWidgets.QMainWindow):
                         source_model.dataChanged.emit(
                                             project_index, project_index)
             elif isinstance(obj, orb.classes['Product']):
-                orb.log.debug('  - object is a product ...')
+                # orb.log.debug('  - object is a product ...')
                 idxs = self.sys_tree.object_indexes_in_tree(obj)
                 if idxs:
-                    log_msg = 'indexes found in tree, updating ...'
-                    orb.log.debug('    {}'.format(log_msg))
+                    # log_msg = 'indexes found in tree, updating ...'
+                    # orb.log.debug('    {}'.format(log_msg))
                     for idx in idxs:
                         self.sys_tree.source_model.dataChanged.emit(idx, idx)
-                else:
-                    log_msg = 'no indexes for this product found in tree.'
-                    orb.log.debug('    {}'.format(log_msg))
+                # else:
+                    # log_msg = 'no indexes for this product found in tree.'
+                    # orb.log.debug('    {}'.format(log_msg))
                     # pass
             # resize/refresh dashboard columns if necessary
             self.refresh_dashboard()
@@ -2870,7 +2912,7 @@ class Main(QtWidgets.QMainWindow):
     ### SET UP 'system' mode (system modeler interface)
 
     def set_system_modeler_interface(self):
-        # orb.log.debug('* setting system modeler interface')
+        orb.log.debug('* setting system modeler interface')
         # ********************************************************
         # system tree and dashboard
         # ********************************************************
@@ -2896,6 +2938,11 @@ class Main(QtWidgets.QMainWindow):
                 state['system'] = system.oid
             elif state.get('mode') == 'component':
                 state['product'] = system.oid
+            self.system_model_window = ModelWindow(obj=system,
+                                                   logo=self.logo)
+            self.setCentralWidget(self.system_model_window)
+        elif state.get('mode') == 'system' and orb.get(state.get('system')):
+            system = orb.get(state.get('system'))
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.setCentralWidget(self.system_model_window)
@@ -3002,7 +3049,7 @@ class Main(QtWidgets.QMainWindow):
             # if we are connected, check for updates to any instances of this
             # class
             data = orb.get_mod_dts(cname=cname)
-            orb.log.info('  - calling "vger.sync_objects"')
+            # orb.log.info('  - calling "vger.sync_objects"')
             rpc = self.mbus.session.call('vger.sync_objects', data)
             rpc.addCallback(self.on_sync_result)
             rpc.addErrback(self.on_failure)
@@ -3807,7 +3854,7 @@ class Main(QtWidgets.QMainWindow):
         # TODO:  save more MainWindow state (see p. 190 in PyQt book)
         state['mode'] = str(self.mode)
         # don't save system state; set to project
-        state['system'] = state.get('project')
+        # state['system'] = state.get('project')
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
         # NOTE:  orb.data_store deactivated for reimplementation -- currently
