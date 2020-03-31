@@ -1060,7 +1060,11 @@ class SystemTreeView(QTreeView):
             state['sys_trees'][self.project.id]['expanded'] = []
         # set initial node selection
         if selected_system:
-            self.expandToDepth(3)
+            # self.expandToDepth(3)
+            # NOTE: try calling expand() on the currently selected index
+            # instead of using expandToDepth() to reveal indexes
+            for idx in self.selectedIndexes():
+                self.expand(idx)
             idxs = self.object_indexes_in_tree(selected_system)
             if idxs:
                 idx_to_select = self.proxy_model.mapFromSource(idxs[0])
@@ -1551,7 +1555,12 @@ class SystemTreeView(QTreeView):
             idx (QModelIndex):  index of the assembly or project node
         """
         if link:
-            self.expandToDepth(3)
+            # NOTE: using expandToDepth in attempt to reveal indexes
+            # self.expandToDepth(3)
+            # NOTE: try calling expand() on the currently selected index
+            # instead of using expandToDepth() to reveal indexes
+            for idx in self.selectedIndexes():
+                self.expand(idx)
             model = self.source_model
             assembly_node = model.get_node(idx)
             if hasattr(assembly_node.link, 'component'):
