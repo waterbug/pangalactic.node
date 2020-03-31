@@ -38,7 +38,6 @@ from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms
 from pangalactic.core.datastructures   import chunkify
-from pangalactic.core.log              import get_loggers
 from pangalactic.core.parametrics      import node_count
 from pangalactic.core.refdata          import ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
@@ -154,7 +153,6 @@ class Main(QtWidgets.QMainWindow):
         setup_dirs_and_state()
         self.get_or_create_local_user()
         self.app_test_data = test_data
-        self.start_logging(console=console, debug=debug)
         self.add_splash_msg('... logging started ...')
         # NOTES ON `config` and `state`:
         # * config vars can be modified by the user locally (in the home dir),
@@ -1702,22 +1700,6 @@ class Main(QtWidgets.QMainWindow):
                                    include_subtypes=include_subtypes,
                                    parent=self)
         return widget
-
-    def start_logging(self, console=False, debug=False):
-        """
-        Create a pangalaxian client (`pgxn`) log and begin writing to it.
-
-        Keyword Args:
-            console (bool):  if True, sends log messages to stdout
-            debug (bool):  if True, sets level to debug
-        """
-        orb.log, self.error_log = get_loggers(orb.home, 'pgxn',
-                                              console=console, debug=debug)
-        orb.log.info('* pangalaxian client logging initialized ...')
-        # TODO:  ignoring mb_error_log for now but will need it in future ...
-        # mb_log, mb_error_log = get_loggers(orb.home, 'mbus',
-                                           # console=console, debug=debug)
-        # self.mbus.set_logger(mb_log)
 
     def init_toolbar(self):
         orb.log.debug('  - initializing toolbar ...')
@@ -3905,7 +3887,7 @@ def cleanup_and_save():
     write_trash(os.path.join(orb.home, 'trash'))
 
 def run(home='', splash_image=None, test_data=None, use_tls=True,
-        console=False, debug=False, app_version=None, pool=None):
+        console=True, debug=False, app_version=None, pool=None):
     app = QtWidgets.QApplication(sys.argv)
     # app.setStyleSheet('QToolTip { border: 2px solid;}')
     app.setStyleSheet("QToolTip { color: #ffffff; "
