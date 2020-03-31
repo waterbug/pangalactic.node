@@ -2264,9 +2264,11 @@ class Main(QtWidgets.QMainWindow):
         # cname is needed here because at this point the local object has
         # already been deleted
         orb.log.info('  cname="{}", oid = "{}"'.format(str(cname), str(oid)))
-        if ((cname in orb.classes and
-             issubclass(orb.classes[cname], orb.classes['Modelable']))
-            or cname == 'Acu'):
+        # only attempt to update tree and dashboard if in "system" mode ...
+        if ((self.mode == 'system') and
+            ((cname in orb.classes and
+              issubclass(orb.classes[cname], orb.classes['Modelable']))
+             or cname == 'Acu')):
             orb.recompute_parmz()
             # try to identify the selected tree node so it can be selected when
             # the tree is refreshed ...
