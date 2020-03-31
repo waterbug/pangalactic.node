@@ -383,13 +383,13 @@ class ProxyView(QTableView):
             self.startDrag(event)
 
     def startDrag(self, event):
-        orb.log.debug('* starting drag operation ...')
+        # orb.log.debug('* starting drag operation ...')
         index = self.indexAt(event.pos())
         if not index.isValid:
             return
         i = self.model().mapToSource(index).row()
         obj = self.model().sourceModel().objs[i]
-        orb.log.debug('  ... at object "{}"'.format(obj.id))
+        # orb.log.debug('  ... at object "{}"'.format(obj.id))
         if isinstance(obj, orb.classes['Identifiable']):
             pixmap = get_pixmap(obj)
             icon = QIcon(pixmap)

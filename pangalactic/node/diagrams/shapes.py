@@ -534,7 +534,7 @@ class ObjectBlock(Block):
             event.ignore()
 
     def dropEvent(self, event):
-        orb.log.debug("* ObjectBlock: something dropped on me ...")
+        orb.log.debug("* ObjectBlock: hm, something dropped on me ...")
         # only accept the drop if dropped item is a HardwareProduct and our
         # object is TBD
         drop_target = self.obj
@@ -545,7 +545,7 @@ class ObjectBlock(Block):
             icon, oid, _id, name, cname = data
             dropped_item = orb.get(oid)
             if dropped_item:
-                # orb.log.info('  - dropped_item: "{}"'.format(name))
+                orb.log.info('  - dropped_item: "{}"'.format(name))
                 # drop target is "TBD" product -> replace it with the dropped
                 # item if it has the right product_type
                 # use dropped item if its product_type is the same as
@@ -577,13 +577,11 @@ class ObjectBlock(Block):
                         usage.component = dropped_item
                         usage.product_type_hint = pt
                         # Acu is modified -> assembly is modified
-                        mod_objs.append(usage.assembly)
+                        # mod_objs.append(usage.assembly)
                     elif isinstance(usage, orb.classes['ProjectSystemUsage']):
                         usage.system = dropped_item
                         usage.system_role = pt.name
                     mod_objs.append(usage)
-                    # NOTE: if the usage is an Acu, this will set mod_datetime
-                    # and modifier for both the Acu and its assembly
                     for obj in mod_objs:
                         obj.mod_datetime = dtstamp()
                         obj.modifier = orb.get(state.get('local_user_oid'))
@@ -594,7 +592,7 @@ class ObjectBlock(Block):
                     # self.name_label.set_text(self.obj.name)
                     # self.description_label.set_text('[{}]'.format(
                                 # self.obj.product_type.abbreviation))
-                    orb.log.debug('   self.usage modified: {}'.format(
+                    orb.log.debug('   usage modified: {}'.format(
                                   self.usage.name))
                     for obj in mod_objs:
                         dispatcher.send('modified object', obj=obj)
@@ -724,9 +722,9 @@ class SubjectBlock(Block):
                if drop item is a Product *and* it is not already in use
                on the Project, use it to create a new ProjectSystemUsage
         """
-        orb.log.debug("* SubjectBlock: something dropped on me ...")
+        orb.log.debug("* SubjectBlock: hm, something dropped on me ...")
         drop_target = self.obj
-        # orb.log.debug('  - target name: {}'.format(drop_target.name))
+        orb.log.debug('  - target name: {}'.format(drop_target.name))
         # first, check that user has permission to modify the target
         if not 'modify' in get_perms(drop_target):
             popup = QMessageBox(
@@ -739,7 +737,7 @@ class SubjectBlock(Block):
             data = extract_mime_data(event,
                                      "application/x-pgef-hardware-product")
             icon, obj_oid, obj_id, obj_name, obj_cname = data
-            # orb.log.info("  - it is a {} ...".format(obj_cname))
+            orb.log.info("  - it is a {} ...".format(obj_cname))
             dropped_item = orb.get(obj_oid)
             if dropped_item:
                 # orb.log.info('  - found in db: "{}"'.format(obj_name))
@@ -753,13 +751,13 @@ class SubjectBlock(Block):
             target_cname = drop_target.__class__.__name__
             if issubclass(orb.classes[target_cname],
                           orb.classes['Product']):
-                # orb.log.debug('    + target is a subclass of Product ...')
+                orb.log.debug('    + target is a Product ...')
                 bom_oids = get_bom_oids(dropped_item)
                 # check if target is same as dropped object
                 # and check for cycles
                 if drop_target.oid == obj_oid:
-                    # orb.log.debug(
-                      # '    invalid: dropped object same as target object.')
+                    orb.log.debug(
+                      '    invalid: dropped object same as target object.')
                     popup = QMessageBox(
                                 QMessageBox.Critical,
                                 "Assembly same as Component",
@@ -779,6 +777,7 @@ class SubjectBlock(Block):
                     event.ignore()
                 else:
                     # add new Acu
+                    orb.log.info('      accepted as component ...')
                     # orb.log.debug('      creating Acu ...')
                     # generate a new reference_designator
                     ref_des = get_next_ref_des(drop_target, dropped_item)
@@ -802,8 +801,8 @@ class SubjectBlock(Block):
                     dispatcher.send('modified object', obj=drop_target)
             elif target_cname == 'Project':
                 # case 3: drop target is a project
-                # log_txt = '+ target is a Project -- creating PSU ...'
-                # orb.log.debug('    {}'.format(log_txt))
+                log_txt = '+ target is a Project -- creating new system ...'
+                orb.log.debug('    {}'.format(log_txt))
                 psu = orb.search_exact(cname='ProjectSystemUsage',
                                        project=drop_target,
                                        system=dropped_item)
@@ -837,15 +836,15 @@ class SubjectBlock(Block):
         elif event.mimeData().hasFormat("application/x-pgef-port-type"):
             data = extract_mime_data(event, "application/x-pgef-port-type")
             icon, oid, _id, name, cname = data
-            # orb.log.info("  - it is a {} ...".format(cname))
+            orb.log.info("  - it is a {} ...".format(cname))
             port_type = orb.get(oid)
             if not hasattr(self.obj, 'ports'):
-                # orb.log.info("  - {} cannot have ports.".format(
-                                                # self.obj.__class__.__name__))
+                orb.log.info("  - {} cannot have ports.".format(
+                                                self.obj.__class__.__name__))
                 event.ignore()
             elif port_type:
-                # orb.log.info('  - orb found {} "{}"'.format(cname, name))
-                # orb.log.info('    creating Port ...')
+                orb.log.info('  - orb found {} "{}"'.format(cname, name))
+                orb.log.info('    creating Port ...')
                 seq = get_next_port_seq(self.obj, port_type)
                 port_id = get_port_id(port_type.id, seq)
                 port_name = get_port_name(port_type.name, seq)
@@ -862,20 +861,20 @@ class SubjectBlock(Block):
                 dispatcher.send('modified object', obj=self.obj)
                 self.rebuild_port_blocks()
             else:
-                # orb.log.info("  - dropped port type oid not in db.")
+                orb.log.info("  - dropped port type oid not in db.")
                 event.ignore()
         elif event.mimeData().hasFormat("application/x-pgef-port-template"):
             data = extract_mime_data(event, "application/x-pgef-port-template")
             icon, oid, _id, name, cname = data
-            # orb.log.info("  - it is a {} ...".format(cname))
+            orb.log.info("  - it is a {} ...".format(cname))
             port_template = orb.get(oid)
             if not hasattr(self.obj, 'ports'):
-                # orb.log.info("  - {} cannot have ports.".format(
-                                                # self.obj.__class__.__name__))
+                orb.log.info("  - {} cannot have ports.".format(
+                                                self.obj.__class__.__name__))
                 event.ignore()
             elif port_template:
-                # orb.log.info('  - orb found {} "{}"'.format(cname, name))
-                # orb.log.info('    creating Port ...')
+                orb.log.info('  - orb found {} "{}"'.format(cname, name))
+                orb.log.info('    creating Port ...')
                 port_type = port_template.type_of_port
                 seq = get_next_port_seq(self.obj, port_type)
                 port_id = get_port_id(port_type.id, seq)
@@ -896,11 +895,11 @@ class SubjectBlock(Block):
                 dispatcher.send('modified object', obj=self.obj)
                 self.rebuild_port_blocks()
             else:
-                orb.log.info("  - dropped port template oid not in db.")
+                orb.log.info("  - dropped port template not in db.")
                 event.ignore()
         else:
             orb.log.info("  - dropped object is not an allowed type")
-            orb.log.info("    to drop on object block.")
+            orb.log.info("    to drop on an object block.")
 
 
 class PortBlock(QGraphicsItem):

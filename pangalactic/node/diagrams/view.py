@@ -376,7 +376,7 @@ class DiagramScene(QGraphicsScene):
                 the right column (this ordering is returned by
                 get_block_ordering()).
         """
-        orb.log.debug('* DiagramScene: generate_ibd()')
+        # orb.log.debug('* DiagramScene: generate_ibd()')
         w = 100
         h = 150
         i = 1.0

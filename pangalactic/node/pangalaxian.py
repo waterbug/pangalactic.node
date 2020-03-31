@@ -2875,9 +2875,9 @@ class Main(QtWidgets.QMainWindow):
             # resize/refresh dashboard columns if necessary
             self.refresh_dashboard()
         except:
-            # oops, sys_tree's C++ object got deleted
+            # sys_tree's C++ object had been deleted
             orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
-                          'might have got deleted ... bailing out!')
+                          'might have got deleted, cannot update.')
             pass
 
     ### SET UP 'component' mode (product modeler interface)

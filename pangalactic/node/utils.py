@@ -69,7 +69,7 @@ def clone(what, include_ports=True, include_components=True,
             True if obj is a subclass of Product
         kw (dict):  attributes for the clone
     """
-    orb.log.info('* clone({})'.format(what))
+    # orb.log.info('* clone({})'.format(what))
     new = False
     recompute_needed = False
     if what in orb.classes:
@@ -114,7 +114,7 @@ def clone(what, include_ports=True, include_components=True,
         # generated when saved) and [2] objects for which an 'id' is required
         # but does not need to be significant and/or human-intelligible
         newkw['id'] = '-'.join([cname, newkw['oid'][:5]])
-    orb.log.info('  new %s oid: %s)' % (cname, newkw['oid']))
+    # orb.log.info('  new %s oid: %s)' % (cname, newkw['oid']))
     NOW = dtstamp()
     newkw.update(dict([(dts, NOW) for dts in ['create_datetime',
                                               'mod_datetime']]))
@@ -219,7 +219,7 @@ def create_template_from_product(product):
     else:
         template_id = '_'.join([pt_id.lower(), 'template'])
         template_name = ' '.join([pt_name, 'Template'])
-    orb.log.info('* create_template_from_product')
+    orb.log.info('* creating template from product ...')
     template = clone('Template', id=template_id, name=template_name,
                      product_type=tmpl_product_type, public=True)
     tbd = orb.get('pgefobjects:TBD')
@@ -263,7 +263,7 @@ def create_product_from_template(template):
     product_desc = ' '.join([project_id, pt_name])
     # NOTE: get TBD product here to avoid a db commit()
     tbd = orb.get('pgefobjects:TBD')
-    orb.log.info('* create_product_from_template')
+    orb.log.info('* creating product from template ...')
     product = clone('HardwareProduct', id=product_id,
                     name=product_name, description=product_desc,
                     product_type=template.product_type,
@@ -295,7 +295,7 @@ def create_product_from_template(template):
     # NOTE: put product and acus all in one db commit so tree rebuild does not
     # get confused
     orb.db.commit()
-    orb.log.info('  created HardwareProduct instance with id "%s" ...'.format(
+    orb.log.info('  created HardwareProduct instance with id "{}" ...'.format(
                                                                    product.id))
     if new_comps:
         orb.log.info('  and {} components.'.format(new_comps))
