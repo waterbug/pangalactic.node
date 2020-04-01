@@ -2170,9 +2170,9 @@ class Main(QtWidgets.QMainWindow):
                 if isinstance(obj, orb.classes['Product']):
                     self.update_object_in_trees(obj)
                 elif isinstance(obj, orb.classes['Acu']):
-                    self.update_object_in_trees(obj.assembly)
+                    self.update_object_in_trees(obj.component)
                 elif isinstance(obj, orb.classes['ProjectSystemUsage']):
-                    self.update_object_in_trees(obj.project)
+                    self.update_object_in_trees(obj.system)
                 # NOTE: the diagram will listen for "new | modified object"
                 # signals -- i.e., DiagramScene (in view.py)
             # NOTE: no need to do anything in 'db' mode -- the object table now
