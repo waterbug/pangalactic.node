@@ -2527,7 +2527,7 @@ class Main(QtWidgets.QMainWindow):
         self.right_dock.setObjectName('RightDock')
         self.right_dock.setFeatures(QtWidgets.QDockWidget.DockWidgetFloatable)
         self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
-        self.right_dock.setFixedWidth(500)
+        self.right_dock.setFixedWidth(600)
         self.library_widget = self.create_lib_list_widget()
         self.right_dock.setWidget(self.library_widget)
         self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)

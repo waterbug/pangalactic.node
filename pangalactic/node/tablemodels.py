@@ -350,7 +350,8 @@ class ObjectTableModel(ODTableModel):
             elif self.schema['fields'][name]['range'] == 'datetime':
                 val = dt2local_tz_str(getattr(obj, name))
             elif self.schema['fields'][name]['field_type'] == ForeignKey:
-                val = getattr(getattr(obj, name), 'id', '[no id]')
+                val = (getattr(getattr(obj, name), 'name', '[None]')
+                       or '[Unknown]')
             else:
                 val = str(getattr(obj, name))
             odict[name] = val
