@@ -1996,51 +1996,57 @@ class Main(QtWidgets.QMainWindow):
         selected_link_oid = None
         if obj:
             cname = obj.__class__.__name__
-            if ((cname in ['Acu', 'ProjectSystemUsage'])
-                   and hasattr(self, 'sys_tree')):
-                # (1) identify the current selection in the tree, so the
-                #     selection can be restored after the deletion (assuming
-                #     it's not the deleted object, of course)
-                i = self.sys_tree.selectedIndexes()[0]
-                if i:
-                    mapped_i = self.sys_tree.proxy_model.mapToSource(i)
-                    selected_link_oid = getattr(
-                                          self.sys_tree.source_model.get_node(
-                                          mapped_i).link, 'oid', None)
-                    if selected_link_oid == obj_oid:
-                        # if the selected link is the deleted object, don't
-                        # use it
-                        selected_link_oid = None
-                # (2) identify the index of the deleted Acu or PSU
-                idxs = self.sys_tree.link_indexes_in_tree(obj)
-                if len(idxs) == 1:
-                    # if the link occurs exactly once in the tree, remove it
-                    idx = idxs[0]
-                    # node = self.sys_tree.source_model.get_node(idx)
-                    # if cname == 'Acu':
-                        # node_des = (getattr(node.link, 'reference_designator',
-                                    # None) or '(No reference designator)')
-                    # else:
-                        # node_des = (getattr(node.link, 'system_role',
-                                    # None) or '(No system role)')
-                    # orb.log.debug('  deleting position "%s"'.format(
-                                                            # node_des))
-                    pos = idx.row()
-                    row_parent = idx.parent()
-                    # parent_id = self.sys_tree.source_model.get_node(
-                                                        # row_parent).obj.id
-                    # orb.log.debug('  at row {} of parent {}'.format(pos,
-                                                               # parent_id))
-                    # removeRow calls orb.delete on the object ...
-                    self.sys_tree.source_model.removeRow(pos, row_parent)
-                    # this will resize dashboard columns if necessary
-                    # self.refresh_dashboard()
-                elif len(idxs) > 1:
-                    # NOTE:  refreshing the whole tree is very disruptive but is
-                    # necessary if the link occurs multiple times in the tree 
-                    orb.delete([obj])
-                    self.refresh_tree_and_dashboard(
+            if (cname in ['Acu', 'ProjectSystemUsage']):
+                if getattr(self, 'sys_tree', None):
+                    # (1) identify the current selection in the tree, so the
+                    #     selection can be restored after the deletion (assuming
+                    #     it's not the deleted object, of course)
+                    i = self.sys_tree.selectedIndexes()[0]
+                    if i:
+                        mapped_i = self.sys_tree.proxy_model.mapToSource(i)
+                        selected_link_oid = getattr(
+                                              self.sys_tree.source_model.get_node(
+                                              mapped_i).link, 'oid', None)
+                        if selected_link_oid == obj_oid:
+                            # if the selected link is the deleted object, don't
+                            # use it
+                            selected_link_oid = None
+                    # (2) identify the index of the deleted Acu or PSU
+                    idxs = self.sys_tree.link_indexes_in_tree(obj)
+                    if len(idxs) == 1:
+                        # if the link occurs exactly once in the tree, remove it
+                        idx = idxs[0]
+                        # node = self.sys_tree.source_model.get_node(idx)
+                        # if cname == 'Acu':
+                            # node_des = (getattr(node.link, 'reference_designator',
+                                        # None) or '(No reference designator)')
+                        # else:
+                            # node_des = (getattr(node.link, 'system_role',
+                                        # None) or '(No system role)')
+                        # orb.log.debug('  deleting position "%s"'.format(
+                                                                # node_des))
+                        pos = idx.row()
+                        row_parent = idx.parent()
+                        # parent_id = self.sys_tree.source_model.get_node(
+                                                            # row_parent).obj.id
+                        # orb.log.debug('  at row {} of parent {}'.format(pos,
+                                                                   # parent_id))
+                        # removeRow calls orb.delete on the object ...
+                        self.sys_tree.source_model.removeRow(pos, row_parent)
+                        # this will resize dashboard columns if necessary
+                        # self.refresh_dashboard()
+                    elif len(idxs) > 1:
+                        # NOTE:  refreshing the whole tree is very disruptive but is
+                        # necessary if the link occurs multiple times in the tree
+                        orb.delete([obj])
+                        self.refresh_tree_and_dashboard(
                                             selected_link_oid=selected_link_oid)
+                elif state.get('mode') == 'component':
+                    orb.delete([obj])
+                    if hasattr(self, 'system_model_window'):
+                        # rebuild diagram in case object corresponded to a
+                        # block in the current diagram
+                        self.system_model_window.display_block_diagram()
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
