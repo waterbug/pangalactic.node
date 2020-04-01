@@ -462,6 +462,8 @@ class ObjectBlock(Block):
         tbd = orb.get('pgefobjects:TBD')
         self.usage.component = tbd
         self.usage.quantity = 1
+        self.usage.mod_datetime = dtstamp()
+        self.usage.modifier = orb.get(state.get('local_user_oid'))
         orb.save([self.usage])
         dispatcher.send(signal='modified object', obj=self.usage)
 
@@ -470,6 +472,8 @@ class ObjectBlock(Block):
         If usage is an Acu, edit the 'quantity' and 'reference_designator', or
         if a ProjectSystemUsage, the 'system_role'.
         """
+        user = orb.get(state.get('local_user_oid'))
+        NOW = dtstamp()
         if isinstance(self.usage, orb.classes['Acu']):
             orb.log.debug('  editing assembly node ...')
             ref_des = self.usage.reference_designator
@@ -490,13 +494,14 @@ class ObjectBlock(Block):
                 self.usage.quantity = dlg.quantity
             else:
                 self.usage.system_role = dlg.ref_des
+            self.usage.mod_datetime = NOW
+            self.usage.modifier = user
             orb.save([self.usage])
             dispatcher.send('modified object', obj=self.usage)
             # Acu modified -> assembly is modified
             if assembly:
-                assembly.mod_datetime = dtstamp()
-                assembly.modifier = orb.get(state.get(
-                                                'local_user_oid'))
+                assembly.mod_datetime = NOW
+                assembly.modifier = user
                 orb.save([assembly])
                 dispatcher.send('modified object', obj=assembly)
 
@@ -723,6 +728,7 @@ class SubjectBlock(Block):
                on the Project, use it to create a new ProjectSystemUsage
         """
         orb.log.debug("* SubjectBlock: hm, something dropped on me ...")
+        user = orb.get(state.get('local_user_oid'))
         drop_target = self.obj
         orb.log.debug('  - target name: {}'.format(drop_target.name))
         # first, check that user has permission to modify the target
@@ -788,11 +794,15 @@ class SubjectBlock(Block):
                         assembly=drop_target,
                         component=dropped_item,
                         product_type_hint=dropped_item.product_type,
+                        creator=user,
+                        create_datetime=dtstamp(),
+                        modifier=user,
+                        mod_datetime=dtstamp(),
                         reference_designator=ref_des)
                     # new Acu -> drop target is modified (any computed
                     # parameters must be recomputed, etc.)
                     drop_target.mod_datetime = dtstamp()
-                    drop_target.modifier = orb.get(state.get('local_user_oid'))
+                    drop_target.modifier = user
                     orb.save([new_acu, drop_target])
                     # orb.log.debug('      Acu created: {}'.format(
                                   # new_acu.name))
@@ -822,6 +832,10 @@ class SubjectBlock(Block):
                     new_psu = clone('ProjectSystemUsage',
                                     id=psu_id,
                                     name=psu_name,
+                                    creator=user,
+                                    create_datetime=dtstamp(),
+                                    modifier=user,
+                                    mod_datetime=dtstamp(),
                                     system_role=psu_role,
                                     project=drop_target,
                                     system=dropped_item)
@@ -882,7 +896,11 @@ class SubjectBlock(Block):
                 port_desc = port_template.description
                 new_port = clone('Port', id=port_id, name=port_name,
                                  abbreviation=port_name, description=port_desc,
-                                 type_of_port=port_type, of_product=self.obj)
+                                 type_of_port=port_type, of_product=self.obj,
+                                 creator=user,
+                                 create_datetime=dtstamp(),
+                                 modifier=user,
+                                 mod_datetime=dtstamp())
                 orb.db.commit()
                 # if the port_template has parameters, add them to the new port
                 if parameterz.get(port_template.oid):
@@ -1246,15 +1264,17 @@ class RoutedConnector(QGraphicsItem):
         self.flow = orb.select('Flow', start_port=start_item.port,
                                end_port=end_item.port, flow_context=context)
         if not self.flow:
+            user = orb.get(state.get('local_user_oid'))
             self.flow = clone('Flow',
                 id=get_flow_id(start_item.port.id, end_item.port.id),
                 name=get_flow_name(start_item.port.name, end_item.port.name),
                 start_port=start_item.port, end_port=end_item.port,
-                flow_context=context)
+                flow_context=context, creator=user, create_datetime=dtstamp(),
+                modifier=user, mod_datetime=dtstamp())
             orb.db.commit()
             # new Flow -> context object is modified
             context.mod_datetime = dtstamp()
-            context.modifier = orb.get(state.get('local_user_oid'))
+            context.modifier = user
             orb.save([context])
             dispatcher.send('modified object', obj=context)
         # orb.log.debug("* RoutedConnector created:")
