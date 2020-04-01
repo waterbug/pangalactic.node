@@ -1060,7 +1060,7 @@ class SystemTreeView(QTreeView):
             state['sys_trees'][self.project.id]['expanded'] = []
         # set initial node selection
         if selected_system:
-            # self.expandToDepth(3)
+            self.expandToDepth(3)
             idxs = self.object_indexes_in_tree(selected_system)
             if idxs:
                 idx_to_select = self.proxy_model.mapFromSource(idxs[0])
@@ -1516,7 +1516,7 @@ class SystemTreeView(QTreeView):
                 node
         """
         # NOTE: ignore "TBD" objects
-        # self.expandToDepth(3)
+        self.expandToDepth(3)
         if getattr(obj, 'oid', '') == 'pgefobjects:TBD':
             return []
         model = self.source_model
@@ -1551,7 +1551,7 @@ class SystemTreeView(QTreeView):
             idx (QModelIndex):  index of the assembly or project node
         """
         if link:
-            # self.expandToDepth(3)
+            self.expandToDepth(3)
             model = self.source_model
             assembly_node = model.get_node(idx)
             if hasattr(assembly_node.link, 'component'):
