@@ -43,7 +43,7 @@ from pangalactic.node.dialogs     import (ObjectSelectionDialog,
 
 
 DATATYPES = SELECTABLE_VALUES['range_datatype']
-PARMS_NBR = 10
+PARMS_NBR = 9
 DEFAULT_PANELS = ['main', 'info', 'narrative', 'admin']
 
 
