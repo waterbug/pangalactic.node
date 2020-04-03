@@ -7,8 +7,8 @@ from PyQt5.QtCore import (Qt, QAbstractListModel, QMimeData, QModelIndex,
                           QPoint, QSize, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
-                             QComboBox, QDialog, QDialogButtonBox, QLabel,
-                             QListView, QScrollArea, QSizePolicy,
+                             QComboBox, QDialog, QDialogButtonBox, QHBoxLayout,
+                             QLabel, QListView, QScrollArea, QSizePolicy,
                              QStackedLayout, QVBoxLayout, QWidget)
 
 # pangalactic
@@ -17,6 +17,7 @@ from pangalactic.core.uberorb    import orb
 from pangalactic.core.utils.meta import (display_id, get_external_name,
                                          get_external_name_plural,
                                          to_media_name)
+from pangalactic.node.buttons    import SizedButton
 from pangalactic.node.filters    import FilterPanel, ProductFilterDialog
 from pangalactic.node.utils      import (create_mime_data,
                                          create_template_from_product,
@@ -336,11 +337,17 @@ class LibraryListWidget(QWidget):
         """
         super().__init__(parent)
         layout = QVBoxLayout(self)
+        hbox = QHBoxLayout(self)
         # layout.setSizeConstraint(layout.SetMinimumSize)
         title = title or 'Libraries'
         title = QLabel(title)
         title.setStyleSheet('font-weight: bold; font-size: 18px')
-        layout.addWidget(title)
+        hbox.addWidget(title, alignment=Qt.AlignLeft)
+        self.expanded = True
+        self.expand_button = SizedButton('Collapse', color='green')
+        self.expand_button.clicked.connect(self.toggle_size)
+        hbox.addWidget(self.expand_button)
+        layout.addLayout(hbox)
         self.library_select = QComboBox()
         self.library_select.setStyleSheet('font-weight: bold; font-size: 14px')
         self.library_select.activated.connect(self.set_library)
@@ -428,6 +435,15 @@ class LibraryListWidget(QWidget):
         Set the library view.
         """
         self.stack.setCurrentIndex(index)
+
+    def toggle_size(self, evt):
+        if self.expanded:
+            self.expand_button.setText('Expand')
+            expand = False
+        else:
+            self.expand_button.setText('Collapse')
+            expand = True
+        dispatcher.send('toggle library size', expand=expand)
 
     def refresh(self, cname=None, **kw):
         # orb.log.debug("* LibraryListWidget.refresh(cname={})".format(cname))

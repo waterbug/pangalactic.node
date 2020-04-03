@@ -193,6 +193,7 @@ class Main(QtWidgets.QMainWindow):
         state['height'] = height
         # self.create_timer()
         # register various signals ...
+        dispatcher.connect(self.on_toggle_library_size, 'toggle library size')
         dispatcher.connect(self.on_system_selected_signal, 'system selected')
         dispatcher.connect(self.on_sys_node_selected_signal,
                                                          'sys node selected')
@@ -865,6 +866,16 @@ class Main(QtWidgets.QMainWindow):
         else:
             # if this was the last chunk, sync current project
             self.resync_current_project()
+
+    def on_toggle_library_size(self, expand=False):
+        if getattr(self, 'library_widget', None):
+            if expand:
+                self.right_dock.setFixedWidth(600)
+                self.library_widget.expanded = True
+            else:
+                self.right_dock.setFixedWidth(200)
+                self.library_widget.expanded = False
+            self.update()
 
     def on_pubsub_msg(self, msg):
         """

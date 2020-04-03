@@ -24,7 +24,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.core.units       import in_si
-from pangalactic.core.utils.meta  import (display_name, get_acu_id,
+from pangalactic.core.utils.meta  import (get_display_name, get_acu_id,
                                           get_acu_name, get_next_ref_des)
 from pangalactic.node.dialogs     import AssemblyNodeDialog
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -97,7 +97,7 @@ class Node(object):
         """
         Return the node "name" (displayed as its label in the tree).
         """
-        obj_name = display_name(self.obj)
+        obj_name = get_display_name(self.obj)
         pth_name = ''
         pth_abbr = ''
         pt_name = ''
@@ -200,10 +200,9 @@ class Node(object):
         return True
 
     def child(self, row):
-        if row < len(self.children):
-            return self.children[row]
-        else:
+        if row < 0 or row >= len(self.children):
             return None
+        return self.children[row]
 
     def child_count(self):
         return len(self.children)
@@ -539,9 +538,10 @@ class SystemTreeModel(QAbstractItemModel):
             # MODIFIED 4/6/17:  make assembly tree display
             # Acu.reference_designator but dashboard display ref designator
             # *plus* product name (since it has more real estate)
-            # MODIFIED 4/3/19:  new parameter paradigm: "descriptive"
-            # parameters apply to components/subsystems; "prescriptive"
-            # parameters apply to assembly points/roles (node.link)
+            # MODIFIED 4/3/19:  new parameter paradigm .................
+            # "descriptive" parameters (specs) apply to components/subsystems;
+            # "prescriptive" parameters (requirements) apply to assembly
+            # points/roles (i.e. node.link)
             if self.cols:
                 if node.obj.__class__.__name__ == 'Project':
                     if index.column() == 0:
@@ -957,17 +957,32 @@ class SystemTreeModel(QAbstractItemModel):
         Args:
             pids (list of str): pids of columns to delete
         """
+        orb.log.debug('* delete_columns({})'.format(str(cols)))
+        orb.log.debug('  - column count: {}'.format(
+                                  self.columnCount(QModelIndex())))
         pids = cols or []
         for pid in pids:
             if pid in self.cols:
-                # idx = self.cols.index(pid)
+                column = self.cols.index(pid)
                 prefs['dashboards'][state['dashboard_name']].remove(pid)
-                # try:
-                    # self.removeColumn(idx, parent=QModelIndex())
-                # except:
-                    # # oops -- my C++ object probably got deleted
-                    # pass
-        dispatcher.send(signal='dashboard mod')
+                try:
+                    self.cols.remove(pid)
+                    log_msg = '  - column "{}" removed from self.cols'
+                    orb.log.debug(log_msg.format(pid))
+                    log_msg = '  - column count: {}'
+                    orb.log.debug(log_msg.format(
+                                  self.columnCount(QModelIndex())))
+                    # removed = self.removeColumn(column, parent=QModelIndex())
+                    removed = self.removeColumn(column)
+                    orb.log.debug('  - removeColumn({}) called'.format(column))
+                    log_msg = '  - column count: {}'
+                    orb.log.debug(log_msg.format(
+                                  self.columnCount(QModelIndex())))
+                    return removed
+                except:
+                    # oops -- my C++ object probably got deleted
+                    pass
+        # dispatcher.send(signal='dashboard mod')
 
     def add_nodes(self, nodes, parent=QModelIndex()):
         # orb.log.debug('* SystemTreeModel: add_nodes()')

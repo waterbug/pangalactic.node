@@ -70,12 +70,13 @@ class ButtonLabel(QPushButton):
 
 class SizedButton(QPushButton):
 
-    def __init__(self, text, parent=None):
+    def __init__(self, text, color='purple', parent=None):
         super().__init__(text, parent=parent)
         width = self.fontMetrics().boundingRect(text).width() + 30
         self.setMaximumWidth(width)
-        self.setStyleSheet('color: white; background-color: purple;'
-                           'font-weight: bold')
+        self.setStyleSheet(';'.join([
+            'color: white; background-color: {}'.format(color),
+            'font-weight: bold']))
 
 
 class FkButton(QPushButton):

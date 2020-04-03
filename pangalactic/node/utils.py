@@ -17,7 +17,7 @@ from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QIcon, QPalette,
 from sqlalchemy import ForeignKey
 
 from pangalactic.core             import state
-from pangalactic.core.utils.meta  import (display_name, get_acu_id,
+from pangalactic.core.utils.meta  import (get_display_name, get_acu_id,
                                           get_acu_name, get_external_name,
                                           get_next_port_seq, get_next_ref_des,
                                           get_port_id, get_port_name,
@@ -320,7 +320,7 @@ def get_object_title(obj, new=False):
     if new:
         title += '<font color="blue">New {}</font>'.format(cname_display)
     else:
-        title += display_name(obj) or '[no name]'
+        title += get_display_name(obj) or '[no name]'
     pt = ''
     if hasattr(obj, 'product_type'):
         pt = getattr(obj.product_type, 'name', cname_display)
