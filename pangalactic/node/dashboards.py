@@ -42,6 +42,9 @@ class SystemDashboard(QTreeView):
         # (2) setStyleSheet
         # (3) treeExpanded
         # *********************************************************************
+        # NOTE: don't expand by default -- very cumbersome for big trees, and
+        # anyway it is much better to use the "selected" state to determine the
+        # level of expansion ...
         # self.expandAll()
         self.setStyleSheet('font-weight: normal; '
                            'font-size: 12px; '
@@ -248,7 +251,8 @@ class SystemDashboard(QTreeView):
         dash_name = state['dashboard_name']
         prefs['dashboard_names'].remove(dash_name)
         prefs['dashboard_names'].insert(0, dash_name)
-        dispatcher.send(signal='dashboard mod')
+        state['dashboard_name'] = dash_name
+        dispatcher.send(signal='dash pref set')
 
     def delete_dashboard(self):
         """

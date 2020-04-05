@@ -69,7 +69,6 @@ from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
 from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.startup          import setup_dirs_and_state
 from pangalactic.node.systemtree       import SystemTreeView
-# from pangalactic.node.new_systemtree   import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews  import CompareWidget
 from pangalactic.node.tableviews       import ObjectTableView
@@ -204,7 +203,8 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_data_item_updated, 'dm item updated')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
-        # dispatcher.connect(self.refresh_tree_and_dashboard, 'dashboard mod')
+        dispatcher.connect(self.rebuild_dashboard, 'dashboard mod')
+        dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')
@@ -2728,6 +2728,27 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  - {}'.format(msg))
         self.set_system_model_window(system=selected_obj)
 
+    def rebuild_dash_selector(self):
+        orb.log.debug('* rebuild_dash_selector()')
+        if getattr(self, 'dashboard_title_layout', None):
+            orb.log.debug('  - dashboard_title_layout exists ...')
+            orb.log.debug('  - removing old dash selector ...')
+            self.dashboard_title_layout.removeWidget(self.dash_select)
+            self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
+            self.dash_select.close()
+            self.dash_select = None
+
+            orb.log.debug('  - creating new dash selector ...')
+            new_dash_select = QtWidgets.QComboBox()
+            new_dash_select.setStyleSheet(
+                                'font-weight: bold; font-size: 14px')
+            for dash_name in prefs['dashboard_names']:
+                new_dash_select.addItem(dash_name, QVariant)
+            new_dash_select.setCurrentIndex(0)
+            new_dash_select.activated.connect(self.set_dashboard)
+            self.dash_select = new_dash_select
+            self.dashboard_title_layout.addWidget(self.dash_select)
+
     def rebuild_dashboard(self):
         # orb.log.debug('* [pgxn] rebuild_dashboard()')
         if not self.sys_tree_rebuilt:
@@ -2745,9 +2766,9 @@ class Main(QtWidgets.QMainWindow):
             if dashboard_layout.layout():
                 # orb.log.debug('           dashboard_layout has a layout ...')
                 # orb.log.debug('           clearing out old stuff ...')
-                dashboard_title_layout = dashboard_layout.layout()
-                dashboard_title_layout.removeWidget(self.dashboard)
-                dashboard_title_layout.removeWidget(self.dash_select)
+                dashboard_layout_layout = dashboard_layout.layout()
+                dashboard_layout_layout.removeWidget(self.dashboard)
+                dashboard_layout_layout.removeWidget(self.dash_select)
             if getattr(self, 'dashboard', None):
                 self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
                 self.dashboard.close()
@@ -2765,10 +2786,10 @@ class Main(QtWidgets.QMainWindow):
                                     QtWidgets.QSizePolicy.Preferred,
                                     QtWidgets.QSizePolicy.MinimumExpanding)
         dashboard_layout = QtWidgets.QVBoxLayout()
-        dashboard_title_layout = QtWidgets.QHBoxLayout()
+        self.dashboard_title_layout = QtWidgets.QHBoxLayout()
         self.dash_title = QtWidgets.QLabel()
         # orb.log.debug('           adding title ...')
-        dashboard_title_layout.addWidget(self.dash_title)
+        self.dashboard_title_layout.addWidget(self.dash_title)
         self.dash_select = QtWidgets.QComboBox()
         self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
         for dash_name in prefs['dashboard_names']:
@@ -2780,8 +2801,8 @@ class Main(QtWidgets.QMainWindow):
         self.dash_select.setCurrentIndex(dash_idx)
         self.dash_select.activated.connect(self.set_dashboard)
         # orb.log.debug('           adding dashboard selector ...')
-        dashboard_title_layout.addWidget(self.dash_select)
-        dashboard_layout.addLayout(dashboard_title_layout)
+        self.dashboard_title_layout.addWidget(self.dash_select)
+        dashboard_layout.addLayout(self.dashboard_title_layout)
         self.dashboard_panel.setLayout(dashboard_layout)
         self.top_dock_widget.setWidget(self.dashboard_panel)
         if getattr(self, 'sys_tree', None):
