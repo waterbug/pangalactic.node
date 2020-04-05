@@ -8,7 +8,7 @@ Various dialogs.
 # from pangalactic.node.threads     import threadpool, Worker
 # from pangalactic.node.process     import run_conda
 
-import platform, sys
+import sys
 
 from PyQt5.QtCore import (Qt, QPoint, QRectF, QSize, QVariant)
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
@@ -347,18 +347,21 @@ class UnitPrefsDialog(QDialog):
             prefs['units'] = {}
         settables = [dims for dims in parmz_by_dimz if alt_units.get(dims)]
         for dims in settables:
-            dim_labels[dims] = QLabel(dims, self)
+            if dims:
+                dim_labels[dims] = QLabel(dims, self)
+            else:
+                # dims == '' -> angle
+                dim_labels[dims] = QLabel('angle', self)
             units = prefs['units'].get(dims, in_si[dims])
             choices = alt_units[dims]
             self.dim_widgets[dims] = UnitsWidget(dims, units, choices)
             self.dim_widgets[dims].setCurrentText(units)
+            self.dim_widgets[dims].currentIndexChanged.connect(self.set_units)
             form.addRow(dim_labels[dims], self.dim_widgets[dims])
-        # Apply and Close buttons
-        self.bbox = QDialogButtonBox(
-                                QDialogButtonBox.Close, Qt.Horizontal, self)
-        apply_btn = self.bbox.addButton(QDialogButtonBox.Apply)
-        apply_btn.clicked.connect(self.set_units)
-        self.bbox.rejected.connect(self.reject)
+        # Ok and Close buttons
+        self.bbox = QDialogButtonBox(Qt.Horizontal, self)
+        ok_btn = self.bbox.addButton(QDialogButtonBox.Ok)
+        ok_btn.clicked.connect(self.accept)
         form.addRow(self.bbox)
 
     def set_units(self):
@@ -367,7 +370,7 @@ class UnitPrefsDialog(QDialog):
             prefs['units'][dims] = widget.get_value()
             # msg += '<li>{}: {}</li>'
         # msg += '</ul>'
-        dispatcher.send('dashboard mod')
+        # dispatcher.send('dashboard mod')
 
 
 class PrefsDialog(QDialog):
