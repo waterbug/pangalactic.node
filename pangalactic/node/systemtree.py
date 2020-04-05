@@ -64,6 +64,19 @@ class Node(object):
         # if parent is not None:
             # parent.add_child(self)
 
+    def child(self, row):
+        if row < 0 or row >= len(self.children):
+            return None
+        return self.children[row]
+
+    def child_count(self):
+        return len(self.children)
+
+    def row(self):
+        if self.parent is not None and self in self.parent.children:
+            return self.parent.children.index(self)
+        return 0
+
     @property
     def cname(self):
         return self.obj.__class__.__name__
@@ -199,19 +212,6 @@ class Node(object):
             self.children.pop(position)
         return True
 
-    def child(self, row):
-        if row < 0 or row >= len(self.children):
-            return None
-        return self.children[row]
-
-    def child_count(self):
-        return len(self.children)
-
-    def row(self):
-        if self.parent is not None and self in self.parent.children:
-            return self.parent.children.index(self)
-        return 0
-
 
 class FakeRoot(object):
     oid = ''
@@ -311,6 +311,7 @@ class SystemTreeModel(QAbstractItemModel):
         self.root = Node(fake_root)
         self.root.parent = None
         self.object_nodes = {}
+        self._cols = []
         if obj is None:
             # create a "null" Project
             Project = orb.classes['Project']
@@ -319,15 +320,23 @@ class SystemTreeModel(QAbstractItemModel):
         top_node = self.node_for_object(obj, self.root)
         self.root.children = [top_node]
         self.successful_drop_index = None
-        dispatcher.connect(self.delete_columns, 'delete dashboard columns')
 
     @property
     def dash_name(self):
         return state.get('dashboard_name', 'MEL')
 
-    @property
-    def cols(self):
-        return prefs.get('dashboards', {}).get(self.dash_name, [])
+    def get_cols(self):
+        self._cols = prefs.get('dashboards', {}).get(self.dash_name, [])[:]
+        return self._cols
+
+    def set_cols(self, columns):
+        prefs['dashboards'][self.dash_name] = columns[:]
+        self._cols = prefs['dashboards'][self.dash_name]
+
+    def del_cols(self):
+        pass
+
+    cols = property(get_cols, set_cols, del_cols, 'cols')
 
     def col_def(self, pid):
         pd = parm_defz.get(pid)
@@ -475,13 +484,13 @@ class SystemTreeModel(QAbstractItemModel):
         else:
             return node.child_count()
 
-    def columnCount(self, index):
+    def columnCount(self, parent=QModelIndex()):
         """
         Return number of columns in the tree (for an assembly tree, it is 1;
         for a dashboard tree, the number of columns depends on the number of
         parameters being displayed).
 
-        Args:
+        Keyword Args:
             index (QModelIndex):  this argument is required by the
                 method in QAbstractItemView, but it is ignored in this
                 implementation because the number of columns is the same for
@@ -491,6 +500,22 @@ class SystemTreeModel(QAbstractItemModel):
             return len(self.cols) + 1
         else:
             return 1
+
+    def removeColumn(self, position, parent=QModelIndex()):
+        orb.log.debug('* removeColumn({})'.format(position))
+        self.beginRemoveColumns(parent, position, position)
+        success = True
+        if position < 0 or position >= len(self.cols):
+            success = False
+        dashboard_name = state.get('dashboard_name', 'MEL')
+        pid = self.cols[position]
+        prefs['dashboards'][dashboard_name].remove(pid)
+        s = 'prefs["dashboards"]["{}"]'.format(dashboard_name)
+        log_msg = '  - column "{}" removed from {}'
+        orb.log.debug(log_msg.format(pid, s))
+        orb.log.debug('    self.cols is now: "{}"'.format(str(self.cols)))
+        self.endRemoveColumns()
+        return success
 
     def parent(self, index):
         """
@@ -963,26 +988,13 @@ class SystemTreeModel(QAbstractItemModel):
         pids = cols or []
         for pid in pids:
             if pid in self.cols:
-                column = self.cols.index(pid)
-                prefs['dashboards'][state['dashboard_name']].remove(pid)
-                try:
-                    self.cols.remove(pid)
-                    log_msg = '  - column "{}" removed from self.cols'
-                    orb.log.debug(log_msg.format(pid))
-                    log_msg = '  - column count: {}'
-                    orb.log.debug(log_msg.format(
-                                  self.columnCount(QModelIndex())))
-                    # removed = self.removeColumn(column, parent=QModelIndex())
-                    removed = self.removeColumn(column)
-                    orb.log.debug('  - removeColumn({}) called'.format(column))
-                    log_msg = '  - column count: {}'
-                    orb.log.debug(log_msg.format(
-                                  self.columnCount(QModelIndex())))
-                    return removed
-                except:
-                    # oops -- my C++ object probably got deleted
-                    pass
-        # dispatcher.send(signal='dashboard mod')
+                position = self.cols.index(pid)
+                self.removeColumn(position)
+                log_msg = '  - column count: {}'
+                orb.log.debug(log_msg.format(
+                              self.columnCount(QModelIndex())))
+            else:
+                orb.log.debug('  - "{}" not in cols.'.format(pid))
 
     def add_nodes(self, nodes, parent=QModelIndex()):
         # orb.log.debug('* SystemTreeModel: add_nodes()')

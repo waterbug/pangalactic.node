@@ -69,6 +69,7 @@ from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
 from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.startup          import setup_dirs_and_state
 from pangalactic.node.systemtree       import SystemTreeView
+# from pangalactic.node.new_systemtree   import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews  import CompareWidget
 from pangalactic.node.tableviews       import ObjectTableView
@@ -203,7 +204,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_data_item_updated, 'dm item updated')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
-        dispatcher.connect(self.refresh_tree_and_dashboard, 'dashboard mod')
+        # dispatcher.connect(self.refresh_tree_and_dashboard, 'dashboard mod')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')

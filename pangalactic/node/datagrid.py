@@ -76,22 +76,17 @@ class GridTreeItem:
     def removeChildren(self, position, count):
         if position < 0 or position + count > len(self.childItems):
             return False
-
         for row in range(count):
             self.childItems.pop(position)
-
         return True
 
     def removeColumns(self, position, columns):
         if position < 0 or position + columns > len(self.itemData):
             return False
-
         for column in range(columns):
             self.itemData.pop(position)
-
         for child in self.childItems:
             child.removeColumns(position, columns)
-
         return True
 
     def setData(self, column, value):

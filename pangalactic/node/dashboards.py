@@ -99,7 +99,7 @@ class SystemDashboard(QTreeView):
         self.collapsed.connect(self.dash_node_collapsed)
         self.clicked.connect(self.dash_node_selected)
         self.expandToDepth(1)
-        for column in range(model.sourceModel().columnCount(QModelIndex())):
+        for column in range(model.sourceModel().columnCount()):
             self.resizeColumnToContents(column)
         # DO NOT use `setMinimumSize()` here -- it breaks the slider that
         # appears when window size is too small to display the full width
@@ -220,8 +220,10 @@ class SystemDashboard(QTreeView):
                     # prefs['dashboards'][state['dashboard_name']].remove(pid)
                     cols_to_delete.append(pid)
             if cols_to_delete:
-                dispatcher.send(signal='delete dashboard columns',
-                                cols=cols_to_delete)
+                model = self.model().sourceModel()
+                model.delete_columns(cols=cols_to_delete)
+                for column in range(model.columnCount()):
+                    self.resizeColumnToContents(column)
 
     def create_dashboard(self):
         """
@@ -281,21 +283,18 @@ class SystemDashboard(QTreeView):
             mapped_sdi = self.model().mapFromSource(sdi)
             if mapped_sdi:
                 self.expand(mapped_sdi)
-        for column in range(self.model().columnCount(
-                            QModelIndex())):
+        for column in range(self.model().columnCount()):
             self.resizeColumnToContents(column)
 
     def dash_node_expanded(self, index):
         if not self.model():
             return
-        for column in range(self.model().columnCount(
-                            QModelIndex())):
+        for column in range(self.model().columnCount()):
             self.resizeColumnToContents(column)
         dispatcher.send(signal='dash node expanded', index=index)
 
     def dash_node_collapsed(self, index):
-        # for column in range(self.model().columnCount(
-                            # QModelIndex())):
+        # for column in range(self.model().columnCount()):
             # self.resizeColumnToContents(column)
         dispatcher.send(signal='dash node collapsed', index=index)
 
@@ -312,8 +311,7 @@ class SystemDashboard(QTreeView):
             return
         if index and not self.isExpanded(index):
             self.expand(index)
-            for column in range(self.model().columnCount(
-                                QModelIndex())):
+            for column in range(self.model().columnCount()):
                 self.resizeColumnToContents(column)
 
     def dash_node_collapse(self, index=None):
