@@ -1378,7 +1378,7 @@ class Main(QtWidgets.QMainWindow):
                                     icon="data",
                                     checkable=True,
                                     tip="Data Mode")
-        self.data_mode_action.setEnabled(False)
+        # self.data_mode_action.setEnabled(False)
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
@@ -1824,7 +1824,7 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(self.mode_label)
         # NOTE: "data mode" button temporarily removed -- to be restored in
         # release 4.0 when data mode is fully implemented (MEL Manager)
-        # self.toolbar.addAction(self.data_mode_action)
+        self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
         self.toolbar.addAction(self.component_mode_action)

@@ -24,10 +24,13 @@ from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
                                    PGXN_MASK, PGXN_PARAMETERS,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
                                    SELECTABLE_VALUES, SELECTION_FILTERS)
-from pangalactic.core.parametrics import (add_parameter, delete_parameter,
-                                          get_parameter_id, get_pval_as_str,
+from pangalactic.core.parametrics import (add_data_element, add_parameter,
+                                          data_elementz, de_defz,
+                                          delete_parameter, get_parameter_id,
+                                          get_dval_as_str, get_pval_as_str,
                                           get_pval_from_str, parameterz,
-                                          parm_defz, set_pval_from_str)
+                                          parm_defz, set_dval_from_str,
+                                          set_pval_from_str)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, ureg
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
@@ -68,8 +71,8 @@ class PgxnForm(QWidget):
         Initialize.
 
         Args:
-            obj (Identifiable or subtype):  the object to be viewed or edited
-            form_type (str):  one of [parameters|main|info|narrative|admin]
+            obj (Identifiable or subtype): the object to be viewed or edited
+            form_type (str): one of [parameters|data|main|info|narrative|admin]
 
         Keyword Args:
             edit_mode (bool):  if True, open in edit mode; otherwise, view mode
@@ -107,6 +110,9 @@ class PgxnForm(QWidget):
         if placeholders:
             ph_defaults.update(placeholders)
         placeholders = ph_defaults
+        self.d_widgets = {}
+        self.d_widget_values = {}
+        self.d_widget_actions = {}
         self.p_widgets = {}
         self.p_widget_values = {}
         self.p_widget_actions = {}
@@ -138,12 +144,10 @@ class PgxnForm(QWidget):
             # population process implemented in the "for field_name" loop
             # used for the other panels
             # orb.log.info('* [pgxnobj] building "parameters" form ...')
-            # Special case for parameters form ...
-            idvs = orb.get_idvs(cname='ParameterDefinition')
-            variables = [idv[0] for idv in idvs]
-            contingencies = [get_parameter_id(idv[0], 'Ctgcy') for idv in idvs]
+            base_ids = orb.get_ids(cname='ParameterDefinition')
+            contingencies = [get_parameter_id(p, 'Ctgcy') for p in base_ids]
             parmz = parameterz.get(obj.oid, {})
-            pids = [p for p in parmz if p in variables or p in contingencies]
+            pids = [p for p in parmz if p in base_ids or p in contingencies]
             if pids:
                 # orb.log.info('* [pgxnobj] parameters found: {}'.format(
                                                             # str(pids)))
@@ -311,6 +315,83 @@ class PgxnForm(QWidget):
                 form.addRow(label)
             self.setLayout(form)
             # end of "parameters" form initialization
+            return
+        elif form_type == 'data':
+            # special case for data panel:  ignore the widget
+            # population process implemented in the "for field_name" loop
+            # used for the other panels
+            # orb.log.info('* [pgxnobj] building "data" form ...')
+            de_dict = data_elementz.get(obj.oid, {})
+            deids = list(de_dict)
+            if deids:
+                deids.sort()
+                orb.log.info('* [pgxnobj] data elements found: {}'.format(
+                                                            str(deids)))
+                if seq is None:
+                    # orb.log.debug('  seq is None; all parameters on one page.')
+                    deids_on_panel = deids
+                else:
+                    # orb.log.debug('  seq is {}'.format(str(seq)))
+                    # NOTE:  'seq' is a 1-based sequence
+                    # orb.log.debug('  data elements found: {}'.format(
+                                                        # str(deids)))
+                    deids_on_panel = deids[(seq-1)*PARMS_NBR : seq*PARMS_NBR]
+                    # orb.log.debug('  data elements on this panel: {}'.format(
+                                                          # str(pids_on_panel)))
+                for deid in deids_on_panel:
+                    field_name = deid
+                    de = de_dict[deid] or {}
+                    ded = de_defz[deid]
+                    ext_name = ded.get('name', '') or '[unknown]'
+                    # parm types are 'float', 'int', 'bool', or 'text'
+                    de_type = ded.get('range_datatype', 'str')
+                    # field_type 'parameter' -> StringFieldWidget for edit mode
+                    # NOTE: use 'parameter' field type for data elements too
+                    field_type = 'parameter'
+                    editable = edit_mode
+                    definition = (ded.get('description', '')
+                                  or 'unknown definition')
+                    # NOTE: get_pval_as_str will convert the stored value from
+                    # base units to the units specified (using get_pval)
+                    str_val = get_dval_as_str(orb, self.obj.oid, deid)
+                    widget, label = get_widget(field_name, field_type,
+                                               value=str_val,
+                                               external_name=ext_name,
+                                               editable=editable,
+                                               tooltip=definition,
+                                               parm_field=True,
+                                               parm_type=de_type)
+                    if widget:
+                        # *** this is EXTREMELY verbose, even for debugging!
+                        # orb.log.debug('  [pgxnobj]'
+                               # ' - got widget (%s) and label, "%s"' % (
+                                                 # str(widget),
+                                                 # str(label.text())))
+                        self.d_widgets[deid] = widget
+                        # use "stringified" values because that's what is in
+                        # the form field
+                        self.d_widget_values[deid] = str(de.get('value', ''))
+                        widget.setSizePolicy(QSizePolicy.Minimum,
+                                             QSizePolicy.Minimum)
+                        if edit_mode:
+                            # TODO: do data elements need a special delete?
+                            del_action = QAction('delete', label)
+                            del_action.triggered.connect(
+                                    partial(parent.on_del_parameter, pid=pid))
+                            label.addAction(del_action)
+                            label.setContextMenuPolicy(Qt.ActionsContextMenu)
+                        value_layout = QHBoxLayout()
+                        value_layout.addWidget(widget)
+                        form.addRow(label, value_layout)
+                        # orb.log.debug('* [pgxnobj] size hint: %s' % str(
+                                                    # widget.sizeHint()))
+            else:
+                # orb.log.info('* [pgxnobj] no data elements found.')
+                label = QLabel('No data elements have been specified yet.')
+                label.setStyleSheet('font-weight: bold')
+                form.addRow(label)
+            self.setLayout(form)
+            # end of "data" form initialization
             return
         elif form_type == 'main':
             form_view = pgxn_main_view
@@ -591,6 +672,28 @@ class ParameterForm(PgxnForm):
                 orb.log.info("* Parameter drop event: ignoring '%s' -- "
                              "we already got one, it's verra nahss!)"
                              % pd_name)
+        if self.pgxo.edit_mode and event.mimeData().hasFormat(
+            "application/x-pgef-data-element-definition"):
+            data = extract_mime_data(event,
+                             "application/x-pgef-data-element-definition")
+            icon, ded_oid, deid, de_name, ded_cname = data
+            obj_des = data_elementz.get(self.obj.oid) or {}
+            if deid not in obj_des:
+                orb.log.info("* Data Element drop event: got '{}'".format(
+                                                                 de_name))
+                event.setDropAction(Qt.CopyAction)
+                event.accept()
+                add_data_element(orb, self.obj.oid, deid)
+                self.obj.modifier = orb.get(state.get('local_user_oid'))
+                self.obj.mod_datetime = dtstamp()
+                orb.save([self.obj])
+                dispatcher.send(signal='modified object', obj=self.obj)
+                self.pgxo.build_from_object()
+            else:
+                event.ignore()
+                orb.log.info("* Data Element drop event: ignoring '{}' -- "
+                             "we already got one, it's verra nahss!)".format(
+                                                                    de_name))
         else:
             event.ignore()
 
@@ -920,6 +1023,8 @@ class PgxnObject(QDialog):
         if self.panels:
             tab_names = [n for n in tab_names if n in self.panels]
         cname = self.obj.__class__.__name__
+        # insert parameter panels if appropriate
+        n_of_parm_panels = 0
         if ((not self.panels or (self.panels and 'parameters' in self.panels))
             and isinstance(self.obj, orb.classes['Modelable'])
             and not cname in PGXN_HIDE_PARMS):
@@ -932,7 +1037,7 @@ class PgxnObject(QDialog):
             # contingencies are not used in calculating the number of
             # parameters on the panel, since they do not have separate rows
             pids = [p for p in parmz if p not in contingencies]
-            orb.log.debug('  [pgxnobj] parameters: {}'.format(str(pids)))
+            orb.log.debug('  [pgxnobj] parameters: {}'.format(pids))
             if len(pids) > PARMS_NBR:
                 n_of_parms = len(pids)
                 # allow PARMS_NBR parameters to a panel ...
@@ -944,6 +1049,28 @@ class PgxnObject(QDialog):
                     tab_names.insert(i, 'parms_{}'.format(i+1))
             else:
                 tab_names.insert(0, 'parms')
+        # insert data panels if appropriate
+        if ((not self.panels or (self.panels and 'data' in self.panels))
+            and isinstance(self.obj, orb.classes['Modelable'])
+            and not cname in PGXN_HIDE_PARMS):
+            # All subclasses of Modelable except the ones in PGXN_HIDE_PARMS
+            # get a 'data' panel
+            # First find the data elements to be displayed for this object ...
+            dataz = data_elementz.get(self.obj.oid, {})
+            deids = list(dataz)
+            orb.log.debug('  [pgxnobj] data elements: {}'.format(deids))
+            if len(deids) > PARMS_NBR:
+                n_of_des = len(deids)
+                # allow PARMS_NBR data elements to a panel ...
+                n_of_data_panels = int(math.ceil(
+                                       float(n_of_des)/float(PARMS_NBR)))
+                orb.log.debug('  [pgxnobj] data panels: {}'.format(
+                                                        n_of_data_panels))
+                for i in range(n_of_data_panels):
+                    i += n_of_parm_panels
+                    tab_names.insert(i, 'data_{}'.format(i+1))
+            else:
+                tab_names.insert(n_of_parm_panels, 'data')
         # destroy button box and current tab pages, if they exist
         if hasattr(self, 'bbox'):
             self.bbox.hide()
@@ -959,6 +1086,9 @@ class PgxnObject(QDialog):
         # create new tab pages
         # TODO:  make tab pages scrollable, just in case
         self.editable_widgets = {}
+        self.d_widgets = {}
+        self.d_widget_values = {}
+        self.d_widget_actions = {}
         self.p_widgets = {}
         self.p_widget_values = {}
         self.p_widget_actions = {}
@@ -990,6 +1120,9 @@ class PgxnObject(QDialog):
                                  parent=self))
             this_tab = getattr(self, tab_name+'_tab')
             self.editable_widgets.update(this_tab.editable_widgets)
+            self.d_widgets.update(this_tab.d_widgets)
+            self.d_widget_values.update(this_tab.d_widget_values)
+            self.d_widget_actions.update(this_tab.d_widget_actions)
             self.p_widgets.update(this_tab.p_widgets)
             self.p_widget_values.update(this_tab.p_widget_values)
             self.p_widget_actions.update(this_tab.p_widget_actions)
@@ -1242,9 +1375,18 @@ class PgxnObject(QDialog):
                     if hasattr(self.p_widgets[p_id], 'get_value'):
                         str_val = self.p_widgets[p_id].get_value()
                         set_pval_from_str(orb, self.obj.oid, p_id, str_val)
+                for deid in self.d_widgets:
+                    if hasattr(self.d_widgets[deid], 'get_value'):
+                        str_val = self.d_widgets[deid].get_value()
+                        set_dval_from_str(orb, self.obj.oid, deid, str_val)
             # elif parameterz.get(self.obj.oid):
             else:
-                # if object is *not* new, save any modified parameters
+                # if object is *not* new, save any modified data elements and
+                # parameters
+                for deid in self.d_widgets:
+                    if hasattr(self.d_widgets[deid], 'get_value'):
+                        str_val = self.d_widgets[deid].get_value()
+                        set_dval_from_str(orb, self.obj.oid, deid, str_val)
                 for p_id in self.p_widgets:
                     # if p is computed, its widget is a label (no 'get_value')
                     # DO NOT MODIFY units/values ... but:

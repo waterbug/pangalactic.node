@@ -22,7 +22,7 @@ from louie import dispatcher
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
                                           SELECTION_VIEWS)
-from pangalactic.core.parametrics import parm_defz, parmz_by_dimz
+from pangalactic.core.parametrics import de_defz, parm_defz, parmz_by_dimz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
@@ -507,7 +507,7 @@ class DeleteColsDialog(QDialog):
         form = QFormLayout(self)
         self.checkboxes = {}
         pids = prefs['dashboards'][state['dashboard_name']]
-        names = [parm_defz[p]['name'] for p in pids]
+        names = self.get_col_names(pids)
         for i, pid in enumerate(pids):
             label = QLabel(names[i], self)
             self.checkboxes[pid] = QCheckBox(self)
@@ -520,6 +520,17 @@ class DeleteColsDialog(QDialog):
         form.addRow(self.buttons)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
+
+    def get_col_names(self, pids):
+        col_names = []
+        for pid in pids:
+            if parm_defz.get(pid):
+                col_names.append(parm_defz[pid]['name'])
+            elif de_defz.get(pid):
+                col_names.append(de_defz[pid]['name'])
+            else:
+                col_names.append('Unknown')
+        return col_names
 
 
 class NewDashboardDialog(QDialog):

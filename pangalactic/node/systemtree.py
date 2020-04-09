@@ -19,7 +19,8 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMessageBox,
 # pangalactic
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.parametrics import get_pval, get_pval_as_str, parm_defz
+from pangalactic.core.parametrics import (de_defz, get_dval_as_str, get_pval,
+                                          get_pval_as_str, parm_defz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
@@ -302,6 +303,7 @@ class SystemTreeModel(QAbstractItemModel):
                 highlighted if 'show_allocs' is True
             parent (QWidget): parent widget of the SystemTreeModel
         """
+        orb.log.debug('* SystemTreeModel initializing ...')
         super().__init__(parent=parent)
         self.parent = parent
         self.refdes = refdes
@@ -340,9 +342,19 @@ class SystemTreeModel(QAbstractItemModel):
 
     def col_def(self, pid):
         pd = parm_defz.get(pid)
-        if not pd:
-            return ''
-        return '\n'.join(wrap(pd['description'], width=30,
+        if pd:
+            description = pd['description']
+        else:
+            # it's a data element (we hope)
+            de_def = de_defz.get(pid)
+            if de_def:
+                description = de_def['description']
+            else:
+                # oops, got nothin'
+                log_msg = 'nothing found for id "{}"'.format(pid)
+                orb.log.debug('* col_def: {}'.format(log_msg))
+                return ''
+        return '\n'.join(wrap(description, width=30,
                               break_long_words=False))
 
     @property
@@ -350,13 +362,23 @@ class SystemTreeModel(QAbstractItemModel):
         return [self.col_def(pid) for pid in self.cols]
 
     def get_header(self, pid):
-        pd = parm_defz.get(pid, '')
-        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
-                                                pd['dimensions'], '')
-        if units:
-            units = '(' + units + ')'
-        return '   \n   '.join(wrap(pd['name'], width=7,
-                                    break_long_words=False) + [units])
+        pd = parm_defz.get(pid)
+        if pd:
+            units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                    pd['dimensions'], '')
+            if units:
+                units = '(' + units + ')'
+            return '   \n   '.join(wrap(pd['name'], width=7,
+                                   break_long_words=False) + [units])
+        else:
+            de_def = de_defz.get(pid, '')
+            if de_def:
+                return '   \n   '.join(wrap(de_def['name'], width=7,
+                                       break_long_words=False))
+            else:
+                log_msg = 'nothing found for id "{}"'.format(pid)
+                orb.log.debug('  - get_header: {}'.format(log_msg))
+                return 'Unknown'
 
     @property
     def req(self):
@@ -567,6 +589,8 @@ class SystemTreeModel(QAbstractItemModel):
             # "descriptive" parameters (specs) apply to components/subsystems;
             # "prescriptive" parameters (requirements) apply to assembly
             # points/roles (i.e. node.link)
+            # MODIFIED 4/8/20:  new data element / parameter paradigm ......
+            # some columns are data elements, some are parameters ...
             if self.cols:
                 if node.obj.__class__.__name__ == 'Project':
                     if index.column() == 0:
@@ -577,31 +601,37 @@ class SystemTreeModel(QAbstractItemModel):
                     if index.column() == 0:
                         return node.name
                     elif len(self.cols) >= index.column() > 0:
-                        pid = self.cols[index.column()-1]
-                        pd = parm_defz[pid]
-                        units = prefs['units'].get(pd['dimensions'])
-                        # descriptive parameters apply to node objects
-                        # (components or subsystems)
-                        if pd['context_type'] == 'descriptive':
-                            oid = getattr(node.obj, 'oid', None)
-                            if oid and oid != 'pgefobjects:TBD':
-                                return get_pval_as_str(orb, node.obj.oid, pid,
-                                                       units=units)
+                        col_id = self.cols[index.column()-1]
+                        pd = parm_defz.get(col_id)
+                        if pd:
+                            # it's a parameter
+                            pid = col_id
+                            units = prefs['units'].get(pd['dimensions'])
+                            # descriptive parameters apply to node objects
+                            # (components or subsystems)
+                            if pd['context_type'] == 'descriptive':
+                                oid = getattr(node.obj, 'oid', None)
+                                if oid and oid != 'pgefobjects:TBD':
+                                    return get_pval_as_str(orb, node.obj.oid,
+                                                           pid, units=units)
+                                else:
+                                    return '-'
+                            # prescriptive parameters apply to node links
+                            # (assembly nodes -> component/subsystem roles)
+                            elif pd['context_type'] == 'prescriptive':
+                                oid = getattr(node.link, 'oid', None)
+                                if oid:
+                                    return get_pval_as_str(orb, oid, pid,
+                                                           units=units)
+                                else:
+                                    return '-'
                             else:
-                                return '-'
-                        # prescriptive parameters apply to node links (i.e.,
-                        # assembly points -> component/subsystem roles)
-                        elif pd['context_type'] == 'prescriptive':
-                            oid = getattr(node.link, 'oid', None)
-                            if oid:
-                                return get_pval_as_str(orb, oid, pid,
-                                                       units=units)
-                            else:
-                                return '-'
+                                # base parameter (no context)
+                                return get_pval_as_str(orb, node.obj.oid,
+                                               self.cols[index.column()-1])
                         else:
-                            # base parameter (no context)
-                            return get_pval_as_str(orb, node.obj.oid,
-                                                   self.cols[index.column()-1])
+                            # it's a data element (we hope :)
+                            return get_dval_as_str(orb, oid, col_id)
                     else:
                         return node.name
             else:
@@ -610,25 +640,29 @@ class SystemTreeModel(QAbstractItemModel):
             if index.column() == 0:
                 return self.BRUSH
             elif self.cols and len(self.cols) >= index.column() > 0:
-                pid = self.cols[index.column()-1]
-                pd = parm_defz[pid]
-                if pd['context_type'] == 'descriptive':
-                    pval = get_pval(orb, node.obj.oid,
-                                    self.cols[index.column()-1])
-                elif pd['context_type'] == 'prescriptive':
-                    oid = getattr(node.link, 'oid', None)
-                    if oid:
-                        pval = get_pval(orb, node.link.oid,
+                col_id = self.cols[index.column()-1]
+                pd = parm_defz.get(col_id)
+                if pd:
+                    if pd['context_type'] == 'descriptive':
+                        pval = get_pval(orb, node.obj.oid,
                                         self.cols[index.column()-1])
+                    elif pd['context_type'] == 'prescriptive':
+                        oid = getattr(node.link, 'oid', None)
+                        if oid:
+                            pval = get_pval(orb, node.link.oid,
+                                            self.cols[index.column()-1])
+                        else:
+                            pval = '-'
                     else:
-                        pval = '-'
+                        # base parameter (no context)
+                        pval = get_pval(orb, node.obj.oid,
+                                        self.cols[index.column()-1])
+                    if isinstance(pval, (int, float)) and pval <= 0:
+                        return self.RED_BRUSH
+                    else:
+                        return self.BRUSH
                 else:
-                    # base parameter (no context)
-                    pval = get_pval(orb, node.obj.oid,
-                                    self.cols[index.column()-1])
-                if isinstance(pval, (int, float)) and pval <= 0:
-                    return self.RED_BRUSH
-                else:
+                    # data element, not a parameter
                     return self.BRUSH
             else:
                 return self.BRUSH
