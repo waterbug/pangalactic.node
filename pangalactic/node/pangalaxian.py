@@ -3804,7 +3804,8 @@ class Main(QtWidgets.QMainWindow):
 
     def set_current_project(self):
         orb.log.debug('* set_current_project()')
-        # this is a good time to serialize the parameterz dict ...
+        # this is a good time to save data elements and parameters ...
+        orb._save_data_elementz()
         orb._save_parmz()
         dlg = ObjectSelectionDialog(self.projects, parent=self)
         dlg.make_popup(self.project_selection)
@@ -3882,7 +3883,8 @@ class Main(QtWidgets.QMainWindow):
         # NOTE:  orb.data_store deactivated for reimplementation -- currently
         # it is just set to an empty dict
         # orb.data_store.close()
-        self.statusbar.showMessage('saving parameters ...')
+        self.statusbar.showMessage('saving data elements and parameters ...')
+        orb._save_data_elementz()
         orb._save_parmz()
         if orb.db.dirty:
             orb.db.commit()

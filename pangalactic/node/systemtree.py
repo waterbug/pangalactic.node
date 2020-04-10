@@ -628,10 +628,10 @@ class SystemTreeModel(QAbstractItemModel):
                             else:
                                 # base parameter (no context)
                                 return get_pval_as_str(orb, node.obj.oid,
-                                               self.cols[index.column()-1])
+                                                       col_id)
                         else:
                             # it's a data element (we hope :)
-                            return get_dval_as_str(orb, oid, col_id)
+                            return get_dval_as_str(orb, node.obj.oid, col_id)
                     else:
                         return node.name
             else:
