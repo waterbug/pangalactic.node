@@ -22,7 +22,8 @@ from pangalactic.core.utils.meta  import (get_display_name, get_acu_id,
                                           get_next_port_seq, get_next_ref_des,
                                           get_port_id, get_port_name,
                                           to_media_name)
-from pangalactic.core.parametrics import (add_default_parameters, parameterz,
+from pangalactic.core.parametrics import (add_default_data_elements,
+                                          add_default_parameters, parameterz,
                                           refresh_componentz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
@@ -162,6 +163,7 @@ def clone(what, include_ports=True, include_components=True,
             # NOTE:  this will add both class-specific and ProductType-specific
             # default parameters, as well as any custom parameters specified in
             # "config" and "prefs" for HardwareProduct instances ...
+            add_default_data_elements(orb, new_obj)
             add_default_parameters(orb, new_obj)
         else:
             # the clone gets the product_type of the original object
