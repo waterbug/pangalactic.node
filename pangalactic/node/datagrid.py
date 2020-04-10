@@ -112,7 +112,7 @@ class GridTreeItem:
         if position < 0 or position > len(self.item_data):
             return False
         for column in range(columns):
-            self.item_data.insert(position, None)
+            self.item_data.insert(position, '')
         for child in self.children:
             child.insertColumns(position, columns)
         return True
@@ -218,7 +218,6 @@ class DMTreeModel(QAbstractItemModel):
 
         # TODO:  hook these up to the appropriate methods ...
         dispatcher.connect(self.on_local_new_items, 'dm new items')
-        # dispatcher.connect(self.new_row, 'dm new row')
         # dispatcher.connect(self.new_row, 'dm new row')
         # dispatcher.connect(self.on_remote_new_row,
                            # 'remote: data new row')
@@ -390,7 +389,7 @@ class DMTreeModel(QAbstractItemModel):
         row_dicts_in_order = [d for d in self.dm.values()]
         row_dicts_in_order.sort(key=lambda x: x.get('row', 0) or 0)
         for row_dict in row_dicts_in_order:
-            row = row_dict.get('row', 0)
+            row = int(row_dict.get('row', 0) or 0)
             orb.log.debug('  - row: {} ({})'.format(row, type(row)))
             self.insertRows(row, 1)
             self.dm[row_dict['oid']]['row'] = row
@@ -457,6 +456,7 @@ class GridTreeView(QTreeView):
                              'font-size: 14px; border: 1px; } '
                              'QToolTip { font-weight: normal; '
                              'font-size: 12px; border: 2px solid; };')
+        dispatcher.connect(self.new_row, 'dm new row')
 
     def drawRow(self, painter, option, index):
         # orb.log.debug('* GridTreeView.drawRow()')
@@ -477,22 +477,22 @@ class GridTreeView(QTreeView):
             return
         painter.drawLine(0, y, option.rect.width(), y)
 
-    # def new_row(self, row_oid=None, local=True):
-        # orb.log.debug('new_row()')
-        # # to avoid cycles ...
-        # if not local:
-            # if row_oid in self.dm:
-                # orb.log.debug("  - we already got one, it's verra nahss!")
-                # return
-        # # appends a new blank row, with oid
-        # row_nbr = len(self.dm)
-        # self.model().insertRow()
-        # row_oid = self.dm.row(row_nbr)
-        # orb.log.debug(' - self.dm is now {}'.format(str(self.dm)))
-        # proj_id = self.model().project.id
-        # if local:
-            # dispatcher.send('dm new row added', proj_id=proj_id,
-                            # dm_oid=self.dm.oid, row_oid=row_oid)
+    def new_row(self, row_oid=None, local=True):
+        orb.log.debug('new_row()')
+        # to avoid cycles ...
+        if not local:
+            if row_oid in self.model().dm:
+                orb.log.debug("  - we already got one, it's verra nahss!")
+                return
+        # appends a new blank row, with oid
+        row_nbr = len(self.model().dm)
+        self.model().insertRow(row_nbr)
+        row_oid = self.model().dm.row(row_nbr)
+        orb.log.debug(' - self.dm is now {}'.format(str(self.model().dm)))
+        proj_id = self.model().dm.project.id
+        if local:
+            dispatcher.send('dm new row added', proj_id=proj_id,
+                            dm_oid=self.model().dm.oid, row_oid=row_oid)
 
     # NEEDS WORK, UNTESTED!
     # NOTE:  also, probably better to use DataGrid.insertRow ...
@@ -606,6 +606,7 @@ class DataGrid(QMainWindow):
         orb.log.debug('           schema={}'.format(str(schema)))
         super().__init__(parent)
         self.setup_ui()
+        self.font().setPointSize(14)
         # ---- stuff for informal testing ------------------------------------
         # headers = ("Title", "Description")
         # file = QFile(':/default.txt')
