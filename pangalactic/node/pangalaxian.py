@@ -50,8 +50,7 @@ from pangalactic.core.utils.meta       import (asciify,
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx
 from pangalactic.node.admin            import AdminDialog
-from pangalactic.node.buttons          import (ButtonLabel, MenuButton,
-                                               SizedButton)
+from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
 # >>> NOTE: conops removed temporarily due to pyinstaller problem with
 # pyqtgraph (use of dynamic imports)
@@ -1816,7 +1815,7 @@ class Main(QtWidgets.QMainWindow):
         spacer = QtWidgets.QWidget(parent=self)
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                              QtWidgets.QSizePolicy.Expanding)
-        spacer_action = self.toolbar.addWidget(spacer)
+        self.toolbar.addWidget(spacer)
         self.toolbar.addAction(self.connect_to_bus_action)
         # self.circle_widget = CircleWidget()
         # self.toolbar.addWidget(self.circle_widget)
@@ -1830,13 +1829,8 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addAction(self.component_mode_action)
         # Makes the next toolbar appear underneath this one
         self.addToolBarBreak()
-        self.new_row_button = SizedButton('New Row')
-        self.new_row_action = self.toolbar.insertWidget(spacer_action,
-                                                        self.new_row_button)
-        self.new_row_button.clicked.connect(self.new_row)
         self.mode_widget_actions['data'].add(self.project_selection_action)
         self.mode_widget_actions['data'].add(self.project_label_action)
-        self.mode_widget_actions['data'].add(self.new_row_action)
         self.mode_widget_actions['system'].add(self.project_selection_action)
         self.mode_widget_actions['system'].add(self.project_label_action)
         self.mode_widget_actions['component'].add(
@@ -3031,12 +3025,6 @@ class Main(QtWidgets.QMainWindow):
         self.left_dock.setVisible(True)
         self.cname_list.show()
 
-    def new_row(self):
-        """
-        Send 'dm new row' signal to the current datagrid widget.
-        """
-        dispatcher.send('dm new row')
-
     def refresh_cname_list(self):
         self.cname_list.clear()
         for cname in self.cnames:
@@ -3917,7 +3905,7 @@ class Main(QtWidgets.QMainWindow):
 def cleanup_and_save():
     # save all cached DataMatrix instances
     if orb.data:
-        dm_oids = list(orb.data.keys())[:]
+        dm_oids = list(orb.data.keys())
         orb.log.debug('* data matrix objects found; saving ...')
         for dm_oid in dm_oids:
             dm = orb.data[dm_oid]

@@ -23,7 +23,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 # from PyQt5.QtWidgets import QApplication, QWidget, QTableView, QVBoxLayout
 
 # pangalactic
-from pangalactic.core             import config, state
+from pangalactic.core             import state
 from pangalactic.core.meta        import MAIN_VIEWS, TEXT_PROPERTIES
 from pangalactic.core.parametrics import get_pval_as_str
 from pangalactic.core.uberorb     import orb
@@ -174,15 +174,6 @@ class DMTableModel(QAbstractTableModel):
             self.dm = dm
         else:
             self.dm = DataMatrix(foo=dict(oid='foo', a='no data'))
-        # TODO: create 'dedz' cache and look up col label/name there ...
-        #       the MEL-specific stuff below is for prototyping ...
-        # labels = [col['label'] or col['name'] for col in self.dm.schema]
-        if config.get('deds') and config['deds'].get('mel_deds'):
-            mel_deds = config['deds']['mel_deds']
-            self.column_labels = [mel_deds[deid].get('label', deid)
-                                  for deid in mel_deds]
-        else:
-            self.column_labels = self.dm.schema or ['Data']
 
     def flags(self, index):
         if not index.isValid():
