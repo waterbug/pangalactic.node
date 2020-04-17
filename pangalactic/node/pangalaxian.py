@@ -240,8 +240,8 @@ class Main(QtWidgets.QMainWindow):
             self.system_mode_action.trigger()
         elif mode == 'db':
             self.db_mode_action.trigger()
-        else:
-            self.data_mode_action.trigger()
+        # else:
+            # self.data_mode_action.trigger()
         state['done_with_progress'] = False
         state['connected'] = False
         state['synced'] = False
@@ -1371,12 +1371,12 @@ class Main(QtWidgets.QMainWindow):
                                     icon="db",
                                     checkable=True,
                                     tip="Local DB")
-        self.data_mode_action = self.create_action(
-                                    "Data Mode",
-                                    slot=self._set_data_mode,
-                                    icon="data",
-                                    checkable=True,
-                                    tip="Data Mode")
+        # self.data_mode_action = self.create_action(
+                                    # "Data Mode",
+                                    # slot=self._set_data_mode,
+                                    # icon="data",
+                                    # checkable=True,
+                                    # tip="Data Mode")
         # self.data_mode_action.setEnabled(False)
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
@@ -1403,7 +1403,7 @@ class Main(QtWidgets.QMainWindow):
         self.component_mode_action.setActionGroup(mode_action_group)
         self.system_mode_action.setActionGroup(mode_action_group)
         self.db_mode_action.setActionGroup(mode_action_group)
-        self.data_mode_action.setActionGroup(mode_action_group)
+        # self.data_mode_action.setActionGroup(mode_action_group)
         orb.log.debug('  ... all actions created.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -1823,7 +1823,7 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(self.mode_label)
         # NOTE: "data mode" button temporarily removed -- to be restored in
         # release 4.0 when data mode is fully implemented (MEL Manager)
-        self.toolbar.addAction(self.data_mode_action)
+        # self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
         self.toolbar.addAction(self.component_mode_action)
@@ -3756,7 +3756,7 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.debug('* import_excel_data: dialog completed:')
                 orb.log.debug('  setting mode to "data" (which updates view)')
                 # set mode to "data"
-                self.data_mode_action.trigger()
+                # self.data_mode_action.trigger()
             except:
                 message = "Data in '%s' could not be imported." % fpath
                 popup = QtWidgets.QMessageBox(

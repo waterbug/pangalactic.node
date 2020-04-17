@@ -2,18 +2,18 @@
 """
 A DataMatrix-based collaborative data table/tree widget.
 """
-from PyQt5.QtCore import (Qt, QAbstractItemModel, QCoreApplication,
-                          QItemSelectionModel, QMetaObject, QModelIndex, QRect)
-# from PyQt5.QtGui import QColor
-from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication, QLineEdit,
-                             QMainWindow, QMenu, QMenuBar, QStatusBar,
-                             QStyledItemDelegate, QTreeView, QVBoxLayout, QWidget)
-# from PyQt5.QtWidgets import (QApplication, QStyledItemDelegate, QLineEdit,
-                             # QTableWidgetItem, QTreeView)
+from PyQt5.QtCore import (Qt, QAbstractItemModel, QItemSelectionModel,
+                          QMetaObject, QModelIndex)
+from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
+                             QLineEdit, QMainWindow, QStatusBar,
+                             QStyledItemDelegate, QTreeView, QVBoxLayout,
+                             QWidget)
 
-from uuid import uuid4
+# python std lib
+# from uuid import uuid4
 
-from pangalactic.core.utils.datamatrix import DataMatrix
+from pangalactic.core.parametrics      import entz, ent_histz
+from pangalactic.core.utils.datamatrix import DataMatrix, Entity
 from pangalactic.core.uberorb          import orb
 
 from louie import dispatcher
@@ -21,37 +21,59 @@ from louie import dispatcher
 
 class GridTreeItem:
     """
-    Node in a DMTreeModel.
+    Node in a DMTreeModel, which is associated with an Entity (an object whose
+    attributes are Data Elements and possibly Parameters).
 
     Attributes:
-        item_data (list):  list of values to be assigned to the item
-        oid (str):  oid of the associated DataMatrix row
-        row (int):  row number in the associated DataMatrix
+        oid (str):  oid of an Entity
+        schema_name (str):  lookup key to a 'schema' (a list of column names --
+            i.e. Data Element, Parameter, or metadata element ids)
+        item_data (list):  [property] list of values in the item
 
     Keyword Args:
         parent (GridTreeItem):  parent item of this item
     """
-    def __init__(self, data, oid='', row=0, parent=None):
+    def __init__(self, oid=None, schema=None, parent=None):
         """
-        Initialize a GridTreeItem, which corresponds to a row in the DataMatrix
-        of a DMTreeModel.
-
-        Args:
-            data (list):  list of values to be assigned to the item
+        Initialize a GridTreeItem, which corresponds to an Entity (row) in the
+        DataMatrix of a DMTreeModel.
 
         Keyword Args:
-            oid (str):  oid of the associated DataMatrix row
-            row (int):  row number in the associated DataMatrix
+            oid (str):  oid of an Entity
+            schema_name (str):  lookup key to a 'schema' (a list of column
+                names -- i.e. Data Element, Parameter, or metadata element ids)
             parent (GridTreeItem):  parent item of this item
         """
-        data_sum = str(data)[:30] + ' ...'
-        orb.log.debug('* GridTreeItem({}) initializing ...'.format(
-                                                              data_sum))
-        self.oid = oid
-        self.row = row
+        argstr = 'oid="{}", schema={}'.format(str(oid), str(schema))
+        orb.log.debug('* GridTreeItem({}) initializing ...'.format(argstr))
+        # the oid must either already exist in the entz cache or the item must
+        # update the entz cache with a new oid
+        # if oid:
+            # # non-null oid
+            # self.oid = oid
+            # if oid not in entz:
+                # # new oid, not in entz -- add it
+                # entz[oid] = dict(oid=oid, mod_datetime=str(dtstamp())
+        # else:
+            # self.oid = str(uuid4())
+            # entz[oid] = dict(oid=oid, mod_datetime=str(dtstamp())
+        # TODO:  schema should be passed in from DM, need a default??
+        #        ... MAYBE DM MUST BE IN A GLOBAL DICT TOO ???
+        #        ... OR DM **SCHEMA** MUST BE IN A GLOBAL DICT ???
+
+        # EXPERIMENTAL NEW STUFF:
+        # [1] use the oid to create an Entity (if the oid is already in
+        # entz, the Entity with use what's there; otherwise, it will register
+        # its oid and metadata in 'entz' ...
+        self.entity = Entity(oid=oid)
+        self.schema = schema
         self.parent_item = parent
-        self.item_data = data[:]
         self.children = []
+
+    def get_item_data(self):
+        # TODO:  need to cast data element values to strings, using cookers and
+        # de_defz cache
+        return [getattr(self.entity, deid, '') for deid in self.schema]
 
     def child(self, row):
         if row < 0 or row >= len(self.children):
@@ -89,11 +111,13 @@ class GridTreeItem:
             return False
         new_items = []
         for row in range(count):
-            data = [None for i in range(columns)]
+            data = ['' for i in range(columns)]
             item = GridTreeItem(data, parent=self)
             self.children.insert(position, item)
             new_items.append(item)
-        dispatcher.send(signal='dm new items', items=new_items)
+        orb.log.debug('    sending signal "dm insert children" ...')
+        dispatcher.send(signal='dm insert children', items=new_items,
+                        position=position, count=count, columns=columns)
         return True
 
     def insertColumns(self, position, columns):
@@ -185,9 +209,24 @@ class DMTreeModel(QAbstractItemModel):
             # one based on the input:
             self.dm = DataMatrix(project=project, schema_name=schema_name,
                                  schema=schema)
-        # TODO: create 'dedz' cache and look up col label/name there ...
+        # TODO: look up col label/name in the 'de_defz' cache ...
         #       the MEL-specific stuff below is for prototyping ...
         # labels = [col['label'] or col['name'] for col in self.dm.schema]
+        # --------------------------------------------------------------------
+        # NOTE:  'root_item' is the header row ... and this is the ONLY place
+        # where the Model explicitly calls GridTreeItem() -- in all other
+        # cases, new instances of GridTreeItem are created by calling methods
+        # on instances of GridTreeItem, such as insertChildren() ... so for our
+        # entity-based paradigm the DM needs to pass a 'schema_name' so that
+        # GridTreeItem can look up the schema and GridTreeItem needs to use it
+        # in future calls that create new GridTreeItem instances, using either
+        # root_item.schema_name or the dm.oid which can reference a schema in
+        # the 'schemaz' cache.  In the example code,
+        # self.rootItem.columnCount() is passed in instead of a schema since it
+        # is just creating blank cells, but presumably data could be passed in.
+        # In our case, a schema or schema_name should be passed in and
+        # optionally an oid, if an existing entity is to be referenced.
+        # --------------------------------------------------------------------
         self.root_item = GridTreeItem(self.dm.column_labels)
         self.load_initial_dm_data()
         # TODO:  leaving setupModelData for now as it provides example code for
@@ -195,7 +234,7 @@ class DMTreeModel(QAbstractItemModel):
         # self.setupModelData(data.split("\n"), self.root_item)
 
         # TODO:  hook these up to the appropriate methods ...
-        dispatcher.connect(self.on_local_new_items, 'dm new items')
+        dispatcher.connect(self.on_local_insert_children, 'dm insert children')
         # dispatcher.connect(self.new_row, 'dm new row')
         # dispatcher.connect(self.on_remote_new_row,
                            # 'remote: data new row')
@@ -274,24 +313,33 @@ class DMTreeModel(QAbstractItemModel):
         self.endInsertRows()
         return success
 
-    def on_local_new_items(self, items=None):
+    def on_local_insert_children(self, items=None, position=None, count=None,
+                                 columns=None):
         """
         Handle "local new items" signal sent by an item's 'insertChildren()'
         method:  add corresponding rows to the DataMatrix when new items are
         added to the DMTreeModel.
+
+        Keyword Args:
+            items (GridTreeItem): the items inserted by insertChildren()
+            position (int):  position at which items were inserted
+            count (int):  number of items inserted
+            columns (int):  number of columns in each item
         """
-        orb.log.debug('  - DMTreeModel.on_local_new_items()')
-        if not items:
+        orb.log.debug('  - DMTreeModel.on_local_insert_children()')
+        if items:
+            orb.log.debug('    + {} items sent.'.format(len(items)))
+        else:
             orb.log.debug('    + no items sent.')
             return
-        orb.log.debug('    + item oids:'.format(
+        orb.log.debug('      item oids:'.format(
                                     str([i.oid for i in items])))
-        for item in items:
-            row_dict = {}
+        for i, item in enumerate(items):
+            oid, row_dict = self.dm.insert_new_row(position + i)
+            item.oid = oid
             if item.item_data:
-                row_dict['oid'] = item.oid
-                for i, name in enumerate(self.dm.schema):
-                    row_dict[name] = item.item_data[i]
+                for j, name in enumerate(self.dm.schema):
+                    row_dict[name] = item.item_data[j]
                 self.dm[item.oid] = row_dict
 
     def parent(self, index):
@@ -355,7 +403,7 @@ class DMTreeModel(QAbstractItemModel):
         """
         Add initial DataMatrix data to the grid.
         """
-        orb.log.debug('  - DMTreeModel.load_initial_dm_data()')
+        orb.log.debug('* DMTreeModel.load_initial_dm_data()')
         if parent == None:
             parents = [self.root_item]
         else:
@@ -365,10 +413,11 @@ class DMTreeModel(QAbstractItemModel):
         # NOTE:  if a series of rows are on the same level, might call
         # 'insertRows()' with all of them (and their oids) ...
         # TODO: a more robust sort key (or make sure row is always int!)
-        for i, row_oid in enumerate(self.dm):
+        orb.log.debug('  - loading {} oids ...'.format(len(self.dm.oids)))
+        for i, row_oid in enumerate(self.dm.oids):
             row_dict = self.dm[row_oid]
             row = i
-            orb.log.debug('  - row: {}'.format(row))
+            orb.log.debug('    row {} (oid "{}")'.format(row, row_oid))
             self.insertRows(row, 1)
             idx = self.index(row, 0, parent=QModelIndex())
             item = self.getItem(idx)
@@ -440,9 +489,9 @@ class GridTreeView(QTreeView):
         # add context menu actions
         # NOT SURE IF THIS IS NEEDED:
         # self.actionsMenu.aboutToShow.connect(self.update_actions)
-        self.add_row_action = QAction('add row', self)
-        self.add_row_action.triggered.connect(self.add_row)
-        header.addAction(self.add_row_action)
+        self.insert_row_action = QAction('insert row', self)
+        self.insert_row_action.triggered.connect(self.insert_row)
+        header.addAction(self.insert_row_action)
         self.delete_row_action = QAction('delete row', self)
         self.delete_row_action.triggered.connect(self.delete_row)
         header.addAction(self.delete_row_action)
@@ -506,8 +555,8 @@ class GridTreeView(QTreeView):
             dispatcher.send("datagrid show msg", msg=msg)
 
     # was originally DataGrid.insertRow()
-    def add_row(self):
-        orb.log.debug('* GridTreeView.add_row()')
+    def insert_row(self):
+        orb.log.debug('* GridTreeView.insert_row()')
         index = self.selectionModel().currentIndex()
         model = self.model()
         if not index:
@@ -525,9 +574,8 @@ class GridTreeView(QTreeView):
             model.setData(child, "", Qt.EditRole)
             self.resizeColumnToContents(column)
         item = model.getItem(model.index(index.row()+1, 0))
-        oid, row_dict = model.dm.append_new_row()
+        oid, row_dict = model.dm.insert_new_row(index.row()+1)
         item.oid = oid
-        item.row = index.row()+1
         self.items_by_oid[oid] = item
 
     # was originally DataGrid.removeRow()
@@ -538,7 +586,7 @@ class GridTreeView(QTreeView):
         item = model.getItem(index)
         orb.log.debug('  - oid of row item: "{}"'.format(item.oid))
         if item.oid in model.dm:
-            del model.dm[item.oid]
+            model.dm.remove_oid(item.oid)
         if (model.removeRow(index.row(), index.parent())):
             self.update_actions()
 
@@ -589,6 +637,10 @@ class DGDelegate(QStyledItemDelegate):
             editor.setText(txt)
 
     def setModelData(self, editor, model, index):
+        """
+        Set the model data at the specified index to the edited value, and
+        update the model's associated DataMatrix.
+        """
         orb.log.debug('* setModelData()')
         if isinstance(editor, QLineEdit):
             model.setData(index, editor.text())
@@ -596,38 +648,20 @@ class DGDelegate(QStyledItemDelegate):
             rownum = index.row()
             dm = model.dm
             col_id = dm.schema[colnum]
-            row_oid = None
-            try:
-                row_oid = dm[list(dm.keys())[rownum - 1]]['oid']
-            except:
-                dm_rows = len(dm)
-                orb.log.debug('* error: dm rows = {}; row # = {}'.format(
-                              dm_rows, rownum))
-                orb.log.debug('         dm keys (known row oids):')
-                for k in dm.keys():
-                    orb.log.debug('         {}'.format(k))
-                orb.log.debug('  oopsie -- dm row not found, not updated.')
-                return
             # TODO: cast editor.text() to column datatype ...
-            dm[row_oid][col_id] = editor.text()
-            # NOTE: should not need to save() every time! dm is cached in
-            # memory in the orb.data dict and will be saved at exit.
-            # dm.save()
+            item = model.getItem(index)
+            dm[item.oid][col_id] = editor.text()
             orb.log.debug(' - ({}, "{}"): {}'.format(
                                 rownum, col_id, editor.text()))
-            # orb.log.debug('datamatrix is now: {}'.format(str(dm)))
-            proj_id = dm.project.id
-            dispatcher.send('dm item updated', proj_id=proj_id, dm_oid=dm.oid,
-                            row_oid=row_oid, col_id=col_id,
-                            value=editor.text())
+            orb.log.debug('   dm row is now: {}'.format(str(dm[item.oid])))
 
 
 class DataGrid(QMainWindow):
     def __init__(self, project=None, schema_name=None, schema=None,
                  parent=None):
         orb.log.debug('* DataGrid(project="{}", schema_name="{}",'.format(
-                                                        project, schema_name))
-        orb.log.debug('           schema={}'.format(str(schema)))
+                             getattr(project, 'id', '[None]'), schema_name))
+        orb.log.debug('           schema={})'.format(str(schema)))
         super().__init__(parent)
         self.setup_ui()
         self.font().setPointSize(14)
@@ -728,7 +762,7 @@ class DataGrid(QMainWindow):
         item = model.getItem(index)
         orb.log.debug('  - oid of row item: "{}"'.format(item.oid))
         if item.oid in model.dm:
-            del model.dm[item.oid]
+            model.dm.remove_oid(item.oid)
         # if (model.removeRow(index.row(), index.parent())):
             # self.updateActions()
 
