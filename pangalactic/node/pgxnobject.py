@@ -265,7 +265,7 @@ class PgxnForm(QWidget):
                         # the form field
                         self.u_widget_values[pid] = units
                         self.previous_units[pid] = units
-                        self.p_widget_values[pid] = str(parm.get('value', ''))
+                        self.p_widget_values[pid] = str_val
                         widget.setSizePolicy(QSizePolicy.Minimum,
                                              QSizePolicy.Minimum)
                         if pd.get('computed'):
@@ -326,8 +326,8 @@ class PgxnForm(QWidget):
             deids = list(de_dict)
             if deids:
                 deids.sort()
-                orb.log.info('* [pgxnobj] data elements found: {}'.format(
-                                                            str(deids)))
+                # orb.log.info('* [pgxnobj] data elements found: {}'.format(
+                                                            # str(deids)))
                 if seq is None:
                     # orb.log.debug('  seq is None; all parameters on one page.')
                     deids_on_panel = deids
@@ -340,8 +340,8 @@ class PgxnForm(QWidget):
                     # orb.log.debug('  data elements on this panel: {}'.format(
                                                           # str(pids_on_panel)))
                 for deid in deids_on_panel:
+                    # orb.log.debug('* getting data element "{}"'.format(deid))
                     field_name = deid
-                    de = de_dict[deid] or {}
                     ded = de_defz[deid]
                     ext_name = ded.get('name', '') or '[unknown]'
                     # parm types are 'float', 'int', 'bool', or 'text'
@@ -352,9 +352,8 @@ class PgxnForm(QWidget):
                     editable = edit_mode
                     definition = (ded.get('description', '')
                                   or 'unknown definition')
-                    # NOTE: get_pval_as_str will convert the stored value from
-                    # base units to the units specified (using get_pval)
                     str_val = get_dval_as_str(self.obj.oid, deid)
+                    # orb.log.debug('  value: "{}"'.format(str_val))
                     widget, label = get_widget(field_name, field_type,
                                                value=str_val,
                                                external_name=ext_name,
@@ -371,7 +370,7 @@ class PgxnForm(QWidget):
                         self.d_widgets[deid] = widget
                         # use "stringified" values because that's what is in
                         # the form field
-                        self.d_widget_values[deid] = str(de.get('value', ''))
+                        self.d_widget_values[deid] = str_val
                         widget.setSizePolicy(QSizePolicy.Minimum,
                                              QSizePolicy.Minimum)
                         if edit_mode:
@@ -1391,8 +1390,10 @@ class PgxnObject(QDialog):
                 # if object is *not* new, save any modified data elements and
                 # parameters
                 for deid in self.d_widgets:
+                    orb.log.debug('  - data element: "{}"'.format(deid))
                     if hasattr(self.d_widgets[deid], 'get_value'):
                         str_val = self.d_widgets[deid].get_value()
+                        orb.log.debug('    writing val: "{}"'.format(str_val))
                         set_dval_from_str(self.obj.oid, deid, str_val)
                 for p_id in self.p_widgets:
                     # if p is computed, its widget is a label (no 'get_value')

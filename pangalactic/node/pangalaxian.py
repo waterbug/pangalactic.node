@@ -195,6 +195,8 @@ class Main(QtWidgets.QMainWindow):
         state['height'] = height
         # self.create_timer()
         # register various signals ...
+        dispatcher.connect(self.on_log_info_msg, 'log info msg')
+        dispatcher.connect(self.on_log_debug_msg, 'log debug msg')
         dispatcher.connect(self.on_toggle_library_size, 'toggle library size')
         dispatcher.connect(self.on_system_selected_signal, 'system selected')
         dispatcher.connect(self.on_sys_node_selected_signal,
@@ -248,6 +250,12 @@ class Main(QtWidgets.QMainWindow):
         state['done_with_progress'] = False
         state['connected'] = False
         state['synced'] = False
+
+    def on_log_info_msg(self, msg=''):
+        orb.log.info(msg)
+
+    def on_log_debug_msg(self, msg=''):
+        orb.log.debug(msg)
 
     def add_splash_msg(self, msg):
         self.splash_msg += msg + '\n'
