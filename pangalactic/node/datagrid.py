@@ -12,9 +12,9 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 # python std lib
 # from uuid import uuid4
 
-from pangalactic.core.parametrics      import entz, ent_histz
-from pangalactic.core.utils.datamatrix import DataMatrix, Entity
-from pangalactic.core.uberorb          import orb
+from pangalactic.core         import config, prefs
+from pangalactic.core.entity  import DataMatrix, Entity, dmz, schemaz
+from pangalactic.core.uberorb import orb
 
 from louie import dispatcher
 
@@ -33,7 +33,8 @@ class GridTreeItem:
     Keyword Args:
         parent (GridTreeItem):  parent item of this item
     """
-    def __init__(self, oid=None, schema=None, parent=None):
+    def __init__(self, oid=None, schema_name=None, column_labels=None,
+                 root=False, parent=None):
         """
         Initialize a GridTreeItem, which corresponds to an Entity (row) in the
         DataMatrix of a DMTreeModel.
@@ -42,38 +43,32 @@ class GridTreeItem:
             oid (str):  oid of an Entity
             schema_name (str):  lookup key to a 'schema' (a list of column
                 names -- i.e. Data Element, Parameter, or metadata element ids)
+            root (bool):  if True, we are the root item (i.e. header row)
             parent (GridTreeItem):  parent item of this item
         """
-        argstr = 'oid="{}", schema={}'.format(str(oid), str(schema))
+        argstr = 'oid="{}"'.format(str(oid))
         orb.log.debug('* GridTreeItem({}) initializing ...'.format(argstr))
-        # the oid must either already exist in the entz cache or the item must
-        # update the entz cache with a new oid
-        # if oid:
-            # # non-null oid
-            # self.oid = oid
-            # if oid not in entz:
-                # # new oid, not in entz -- add it
-                # entz[oid] = dict(oid=oid, mod_datetime=str(dtstamp())
-        # else:
-            # self.oid = str(uuid4())
-            # entz[oid] = dict(oid=oid, mod_datetime=str(dtstamp())
-        # TODO:  schema should be passed in from DM, need a default??
-        #        ... MAYBE DM MUST BE IN A GLOBAL DICT TOO ???
-        #        ... OR DM **SCHEMA** MUST BE IN A GLOBAL DICT ???
-
-        # EXPERIMENTAL NEW STUFF:
-        # [1] use the oid to create an Entity (if the oid is already in
-        # entz, the Entity with use what's there; otherwise, it will register
-        # its oid and metadata in 'entz' ...
-        self.entity = Entity(oid=oid)
-        self.schema = schema
+        self.root = root
+        self.column_labels = column_labels
+        if self.root:
+            self.entity = None
+        else:
+            self.entity = Entity(oid=oid)
+        self.schema = schemaz.get(schema_name)
+        if not self.schema:
+            # if not schema is found, look for a configured or preferred
+            # default schema setting
+            schema_name = config.get('default_schema_name') or prefs.get(
+                                     'default_schema_name') or 'MEL'
+        self.schema = schemaz.get(schema_name)
+        self.schema_name = schema_name
         self.parent_item = parent
         self.children = []
 
-    def get_item_data(self):
-        # TODO:  need to cast data element values to strings, using cookers and
-        # de_defz cache
-        return [getattr(self.entity, deid, '') for deid in self.schema]
+    def item_data(self):
+        if self.root:
+            return self.column_labels
+        return [str(self.entity.get(col_id)) for col_id in self.schema]
 
     def child(self, row):
         if row < 0 or row >= len(self.children):
@@ -94,6 +89,14 @@ class GridTreeItem:
     def data(self, column):
         if column < 0 or column >= len(self.item_data):
             return None
+        if self.root:
+            try:
+                return self.column_labels[column]
+            except:
+                try:
+                    return self.schema[column]
+                except:
+                    return 'Unknown'
         return self.item_data[column]
 
     def insertChildren(self, position, count, columns):
@@ -167,13 +170,14 @@ class GridTreeItem:
 
 class DMTreeModel(QAbstractItemModel):
     """
-    A DataMatrix-based tree model.
+    A DataMatrix-based tree model.  Arguments for 'project', 'schema_name', and
+    'schema' are used to intialize the underlying DataMatrix object.
 
     Attributes:
-        items_by_oid (dict):  a dict that maps DataMatrix row oids to their
+        items_by_oid (dict):  a dict that maps Entity oids to their
             corresponding GridTreeItem instances in the DMTreeModel.
-        cell_to_index (dict): maps a DataMatrix (row_oid, col_id) tuple to the
-            model index of a cell
+        cell_to_index (dict): maps an (entity oid, col_id) tuple to the model
+            index of a cell
         index_to_cell (dict): maps the index of a cell to a (row_oid, col_id)
             tuple in the DataMatrix
     """
@@ -183,10 +187,11 @@ class DMTreeModel(QAbstractItemModel):
         Initialize.
 
         Keyword Args:
-            project (Project): associated project (becomes the owner of the DataSet
-                that is created when the DataMatrix is saved)
-            schema_name (str): name of the DataMatrix schema
-            schema (list): list of data element ids (column "names")
+            project (Project): associated project (effective owner of the
+                DataMatrix underlying the model)
+            schema_name (str): name of an initial schema (in 'schemaz' cache)
+                to be passed to the DataMatrix
+            schema (list): a list of data element ids ("column names")
             parent (QWidget):  parent widget
         """
         arguments = 'project={}, schema_name={}, schema={}'
@@ -202,12 +207,13 @@ class DMTreeModel(QAbstractItemModel):
         if isinstance(project, orb.classes['Project']) and schema_name:
             # check for a cached DataMatrix instance ...
             dm_oid = project.id + '-' + schema_name
-            self.dm = orb.data.get(dm_oid)
+            self.dm = dmz.get(dm_oid)
         if not self.dm:
             # if no datamatrix found in the orb's cache, pass the args to
             # DataMatrix, which will check for a stored one or create a new
             # one based on the input:
-            self.dm = DataMatrix(project=project, schema_name=schema_name,
+            project_id = getattr(project, 'id', 'SANDBOX')
+            self.dm = DataMatrix(project_id=project_id, schema_name=schema_name,
                                  schema=schema)
         # TODO: look up col label/name in the 'de_defz' cache ...
         #       the MEL-specific stuff below is for prototyping ...
@@ -227,7 +233,7 @@ class DMTreeModel(QAbstractItemModel):
         # In our case, a schema or schema_name should be passed in and
         # optionally an oid, if an existing entity is to be referenced.
         # --------------------------------------------------------------------
-        self.root_item = GridTreeItem(self.dm.column_labels)
+        self.root_item = GridTreeItem(self.dm.column_labels, root=True)
         self.load_initial_dm_data()
         # TODO:  leaving setupModelData for now as it provides example code for
         # how to add rows and populate them ...
@@ -335,7 +341,7 @@ class DMTreeModel(QAbstractItemModel):
         orb.log.debug('      item oids:'.format(
                                     str([i.oid for i in items])))
         for i, item in enumerate(items):
-            oid, row_dict = self.dm.insert_new_row(position + i)
+            oid, row_dict = self.dm.insert_new_row(position + i, child=True)
             item.oid = oid
             if item.item_data:
                 for j, name in enumerate(self.dm.schema):

@@ -163,8 +163,8 @@ def clone(what, include_ports=True, include_components=True,
             # NOTE:  this will add both class-specific and ProductType-specific
             # default parameters, as well as any custom parameters specified in
             # "config" and "prefs" for HardwareProduct instances ...
-            add_default_data_elements(orb, new_obj)
-            add_default_parameters(orb, new_obj)
+            add_default_data_elements(new_obj)
+            add_default_parameters(new_obj)
         else:
             # the clone gets the product_type of the original object
             new_obj.product_type = obj.product_type
@@ -193,7 +193,7 @@ def clone(what, include_ports=True, include_components=True,
                           reference_designator=ref_des,
                           creator=new_obj.creator, modifier=new_obj.creator,
                           create_datetime=NOW, mod_datetime=NOW)
-                refresh_componentz(orb, new_obj)
+                refresh_componentz(new_obj)
     if recompute_needed:
         orb.recompute_parmz()
     return new_obj

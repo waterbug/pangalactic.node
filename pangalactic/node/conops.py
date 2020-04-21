@@ -35,8 +35,7 @@
 # from pangalactic.node.utils       import clone
 # from pangalactic.node.widgets     import NameLabel
 # from pangalactic.core.serializers import serialize, deserialize
-# from pangalactic.core             import config
-# from pangalactic.core.parametrics import get_pval, get_pval_as_str, set_pval, set_pval_from_str
+# from pangalactic.core.parametrics import get_pval
 # supported_model_types = {
     # # CAD models get "eyes" icon, not a lable button
     # 'step:203' : None,
@@ -418,9 +417,9 @@
         # super().__init__(parent=parent)
         # self.possible_systems = []
         # self.position = position
-        # ds = config.get('discipline_subsystems')
+        # ds = state.get('discipline_subsystems')
         # if ds:
-            # self.possible_systems = list(config.get(
+            # self.possible_systems = list(state.get(
                                          # 'discipline_subsystems').values())
         # self.plot_win = None
         # self.spacecraft = spacecraft
@@ -716,10 +715,10 @@
         # for acu in self.subject_activity.components:
             # act=acu.component
             # oid = getattr(act, "oid", None)
-            # act_durations.append(get_pval(orb, oid, 'duration'))
-            # start_times.append(get_pval(orb, oid, 't_start'))
-            # power.append(get_pval(orb, oid, 'P[CBE]'))
-            # d_r.append(get_pval(orb, oid, 'R_D[CBE]'))
+            # act_durations.append(get_pval(oid, 'duration'))
+            # start_times.append(get_pval(oid, 't_start'))
+            # power.append(get_pval(oid, 'P[CBE]'))
+            # d_r.append(get_pval(oid, 'R_D[CBE]'))
 
 
         # win = QMainWindow()
@@ -1006,7 +1005,7 @@
         # oid = getattr(act, "oid", None)
         # try:
             # print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-            # print(get_pval(orb, oid, 'duration'))
+            # print(get_pval(oid, 'duration'))
         # except Exception as e:
             # print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
             # print(e)

@@ -41,7 +41,7 @@ class EditableTableModel(QAbstractTableModel):
 
         cur_obj = list(self.obj[0])[index.column()]
         oid = cur_obj.oid
-        return(get_pval_as_str(orb, oid, self.param))
+        return(get_pval_as_str(oid, self.param))
         # print(self.obj[index.row()].get(self.columns()[index.column()], ''))
         # return self.obj[index.row()].get(self.columns()[index.column()], '')
 
@@ -58,8 +58,8 @@ class EditableTableModel(QAbstractTableModel):
         oid = cur_obj.oid
         # print("VALUE", value)
         # print("parameter in table",self.param)
-        set_pval_from_str(orb, oid, self.param, value)
-        # print("HEYYYY",get_pval_as_str(orb, oid, self.param))
+        set_pval_from_str(oid, self.param, value)
+        # print("HEYYYY",get_pval_as_str(oid, self.param))
         return True
 
     def obj_cols(self):
@@ -186,7 +186,7 @@ class ActivityTable(QWidget):
                         attr_str = fill(attr_str, width=28)
                     obj_dict[table_headers[col]] = attr_str
                 else:
-                    val = get_pval_as_str(orb, obj.oid, col)
+                    val = get_pval_as_str(obj.oid, col)
                     obj_dict[table_headers[col]] = val
             od_list.append(obj_dict)
 
@@ -388,7 +388,7 @@ class ParameterTable(QWidget):
         od_list = []
         obj_dict = OrderedDict()
         for obj_name in obj_list:
-            val = get_pval_as_str(orb, obj.oid, param)
+            val = get_pval_as_str(obj.oid, param)
             obj_dict[obj_name] = val
         od_list.append(obj_dict)
 

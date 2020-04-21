@@ -612,7 +612,7 @@ class SystemTreeModel(QAbstractItemModel):
                             if pd['context_type'] == 'descriptive':
                                 oid = getattr(node.obj, 'oid', None)
                                 if oid and oid != 'pgefobjects:TBD':
-                                    return get_pval_as_str(orb, node.obj.oid,
+                                    return get_pval_as_str(node.obj.oid,
                                                            pid, units=units)
                                 else:
                                     return '-'
@@ -621,17 +621,17 @@ class SystemTreeModel(QAbstractItemModel):
                             elif pd['context_type'] == 'prescriptive':
                                 oid = getattr(node.link, 'oid', None)
                                 if oid:
-                                    return get_pval_as_str(orb, oid, pid,
+                                    return get_pval_as_str(oid, pid,
                                                            units=units)
                                 else:
                                     return '-'
                             else:
                                 # base parameter (no context)
-                                return get_pval_as_str(orb, node.obj.oid,
+                                return get_pval_as_str(node.obj.oid,
                                                        col_id)
                         else:
                             # it's a data element (we hope :)
-                            return get_dval_as_str(orb, node.obj.oid, col_id)
+                            return get_dval_as_str(node.obj.oid, col_id)
                     else:
                         return node.name
             else:
@@ -644,18 +644,18 @@ class SystemTreeModel(QAbstractItemModel):
                 pd = parm_defz.get(col_id)
                 if pd:
                     if pd['context_type'] == 'descriptive':
-                        pval = get_pval(orb, node.obj.oid,
+                        pval = get_pval(node.obj.oid,
                                         self.cols[index.column()-1])
                     elif pd['context_type'] == 'prescriptive':
                         oid = getattr(node.link, 'oid', None)
                         if oid:
-                            pval = get_pval(orb, node.link.oid,
+                            pval = get_pval(node.link.oid,
                                             self.cols[index.column()-1])
                         else:
                             pval = '-'
                     else:
                         # base parameter (no context)
-                        pval = get_pval(orb, node.obj.oid,
+                        pval = get_pval(node.obj.oid,
                                         self.cols[index.column()-1])
                     if isinstance(pval, (int, float)) and pval <= 0:
                         return self.RED_BRUSH

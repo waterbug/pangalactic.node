@@ -994,7 +994,7 @@ class PortBlock(QGraphicsItem):
                 if (isinstance(shape, RoutedConnector) and
                     (shape.start_item is self or shape.end_item is self)):
                     orb.delete([shape.flow])
-                    self.shape.prepareGeometryChange()
+                    shape.prepareGeometryChange()
                     self.scene().removeItem(shape)
             # the PortBlock must have a Port, but check just to be sure ...
             if getattr(self, 'port', None):
@@ -1022,13 +1022,13 @@ class PortBlock(QGraphicsItem):
         port_type_id = getattr(self.port.type_of_port, 'id')
         # if port type is not found, set white as port color
         painter.setBrush(PORT_TYPE_COLORS.get(port_type_id, Qt.white))
-        if (not get_pval(orb, self.port.oid, 'input') and
-            not get_pval(orb, self.port.oid, 'output')):
+        if (not get_pval(self.port.oid, 'input') and
+            not get_pval(self.port.oid, 'output')):
             # not input or output port -- bidirectional: draw a rectangle
             painter.drawRect(self.rect)
         else:
-            if ((get_pval(orb, self.port.oid, 'input') and self.right_port) or
-                (get_pval(orb, self.port.oid, 'output') and self.left_port)):
+            if ((get_pval(self.port.oid, 'input') and self.right_port) or
+                (get_pval(self.port.oid, 'output') and self.left_port)):
                 # left-pointing triangle
                 p1 = self.rect.topRight()
                 p2 = self.rect.bottomRight()

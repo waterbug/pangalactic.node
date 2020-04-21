@@ -38,7 +38,10 @@ from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms
 from pangalactic.core.datastructures   import chunkify
-from pangalactic.core.parametrics      import node_count
+from pangalactic.core.entity           import (save_dmz, save_entz,
+                                               save_ent_histz)
+from pangalactic.core.parametrics      import (node_count, save_data_elementz,
+                                               save_parmz)
 from pangalactic.core.refdata          import ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
                                                deserialize, serialize)
@@ -2273,6 +2276,8 @@ class Main(QtWidgets.QMainWindow):
             remote (bool):  whether the action originated remotely
         """
         orb.log.info('* received local "deleted object" signal on:')
+        # make sure db transaction has been committed
+        orb.db.commit()
         # cname is needed here because at this point the local object has
         # already been deleted
         orb.log.info('  cname="{}", oid = "{}"'.format(str(cname), str(oid)))
@@ -3793,8 +3798,8 @@ class Main(QtWidgets.QMainWindow):
     def set_current_project(self):
         orb.log.debug('* set_current_project()')
         # this is a good time to save data elements and parameters ...
-        orb._save_data_elementz()
-        orb._save_parmz()
+        save_data_elementz(os.path.join(orb.home, 'data_elements.json'))
+        save_parmz(os.path.join(orb.home, 'parameters.json'))
         dlg = ObjectSelectionDialog(self.projects, parent=self)
         dlg.make_popup(self.project_selection)
         # dlg.exec_() -> modal dialog
@@ -3872,8 +3877,16 @@ class Main(QtWidgets.QMainWindow):
         # it is just set to an empty dict
         # orb.data_store.close()
         self.statusbar.showMessage('saving data elements and parameters ...')
-        orb._save_data_elementz()
-        orb._save_parmz()
+        data_elements_path = os.path.join(orb.home, 'data_elements.json')
+        parameters_path = os.path.join(orb.home, 'parameters.json')
+        ents_path = os.path.join(orb.home, 'ents.json')
+        ent_hists_path = os.path.join(orb.home, 'ent_hists.json')
+        dms_path = os.path.join(orb.home, 'dms.json')
+        save_data_elementz(data_elements_path)
+        save_parmz(parameters_path)
+        save_entz(ents_path)
+        save_ent_histz(ent_hists_path)
+        save_dmz(dms_path)
         if orb.db.dirty:
             orb.db.commit()
         if state.get('connected'):

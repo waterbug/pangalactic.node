@@ -26,7 +26,9 @@ from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
                                    SELECTABLE_VALUES, SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           data_elementz, de_defz,
-                                          delete_parameter, get_parameter_id,
+                                          delete_parameter,
+                                          delete_data_element,
+                                          get_parameter_id,
                                           get_dval_as_str, get_pval_as_str,
                                           get_pval_from_str, parameterz,
                                           parm_defz, set_dval_from_str,
@@ -223,8 +225,7 @@ class PgxnForm(QWidget):
                                   or 'unknown definition')
                     # NOTE: get_pval_as_str will convert the stored value from
                     # base units to the units specified (using get_pval)
-                    str_val = get_pval_as_str(orb, self.obj.oid, pid,
-                                              units=units)
+                    str_val = get_pval_as_str(self.obj.oid, pid, units=units)
                     widget, label = get_widget(field_name, field_type,
                                                value=str_val,
                                                external_name=ext_name,
@@ -243,7 +244,7 @@ class PgxnForm(QWidget):
                         c_units_widget = QLabel(c_units)
                         c_definition = (c_pd.get('description', '')
                                         or 'unknown definition')
-                        c_str_val = get_pval_as_str(orb, self.obj.oid, c_pid,
+                        c_str_val = get_pval_as_str(self.obj.oid, c_pid,
                                                     units=units)
                         c_widget, c_label = get_widget(c_pid, 'parameter',
                                                       value=c_str_val,
@@ -353,7 +354,7 @@ class PgxnForm(QWidget):
                                   or 'unknown definition')
                     # NOTE: get_pval_as_str will convert the stored value from
                     # base units to the units specified (using get_pval)
-                    str_val = get_dval_as_str(orb, self.obj.oid, deid)
+                    str_val = get_dval_as_str(self.obj.oid, deid)
                     widget, label = get_widget(field_name, field_type,
                                                value=str_val,
                                                external_name=ext_name,
@@ -374,10 +375,9 @@ class PgxnForm(QWidget):
                         widget.setSizePolicy(QSizePolicy.Minimum,
                                              QSizePolicy.Minimum)
                         if edit_mode:
-                            # TODO: do data elements need a special delete?
                             del_action = QAction('delete', label)
                             del_action.triggered.connect(
-                                    partial(parent.on_del_parameter, pid=pid))
+                                partial(parent.on_del_data_elmt, deid=deid))
                             label.addAction(del_action)
                             label.setContextMenuPolicy(Qt.ActionsContextMenu)
                         value_layout = QHBoxLayout()
@@ -497,7 +497,7 @@ class PgxnForm(QWidget):
         if self.edit_mode and hasattr(parm_widget, 'get_value'):
             # in edit mode, get value (str) from editable field and convert it
             str_val = parm_widget.get_value()
-            pval = get_pval_from_str(orb, self.obj.oid, pid, str_val)
+            pval = get_pval_from_str(self.obj.oid, pid, str_val)
             applicable_units = self.previous_units[pid]
             quant = pval * ureg.parse_expression(applicable_units)
             new_quant = quant.to(new_units)
@@ -505,8 +505,7 @@ class PgxnForm(QWidget):
         else:
             # view mode or read-only parm -> get cached parameter value and
             # convert it to the requested units for display
-            new_str_val = get_pval_as_str(orb, self.obj.oid, pid,
-                                          units=new_units)
+            new_str_val = get_pval_as_str(self.obj.oid, pid, units=new_units)
         if hasattr(parm_widget, 'set_value'):
             parm_widget.set_value(new_str_val)
         elif hasattr(parm_widget, 'setText'):
@@ -661,7 +660,7 @@ class ParameterForm(PgxnForm):
                 orb.log.info("* Parameter drop event: got '%s'" % pd_name)
                 event.setDropAction(Qt.CopyAction)
                 event.accept()
-                add_parameter(orb, self.obj.oid, pd_id)
+                add_parameter(self.obj.oid, pd_id)
                 self.obj.modifier = orb.get(state.get('local_user_oid'))
                 self.obj.mod_datetime = dtstamp()
                 orb.save([self.obj])
@@ -683,7 +682,7 @@ class ParameterForm(PgxnForm):
                                                                  de_name))
                 event.setDropAction(Qt.CopyAction)
                 event.accept()
-                add_data_element(orb, self.obj.oid, deid)
+                add_data_element(self.obj.oid, deid)
                 self.obj.modifier = orb.get(state.get('local_user_oid'))
                 self.obj.mod_datetime = dtstamp()
                 orb.save([self.obj])
@@ -1268,7 +1267,15 @@ class PgxnObject(QDialog):
                 self.close()
 
     def on_del_parameter(self, pid=None):
-        delete_parameter(orb, self.obj.oid, pid)
+        delete_parameter(self.obj.oid, pid)
+        self.obj.modifier = orb.get(state.get('local_user_oid'))
+        self.obj.mod_datetime = dtstamp()
+        orb.save([self.obj])
+        dispatcher.send(signal='modified object', obj=self.obj)
+        self.build_from_object()
+
+    def on_del_data_elmt(self, deid=None):
+        delete_data_element(self.obj.oid, deid)
         self.obj.modifier = orb.get(state.get('local_user_oid'))
         self.obj.mod_datetime = dtstamp()
         orb.save([self.obj])
@@ -1374,11 +1381,11 @@ class PgxnObject(QDialog):
                     # only non-computed parm widgets have 'get_value'
                     if hasattr(self.p_widgets[p_id], 'get_value'):
                         str_val = self.p_widgets[p_id].get_value()
-                        set_pval_from_str(orb, self.obj.oid, p_id, str_val)
+                        set_pval_from_str(self.obj.oid, p_id, str_val)
                 for deid in self.d_widgets:
                     if hasattr(self.d_widgets[deid], 'get_value'):
                         str_val = self.d_widgets[deid].get_value()
-                        set_dval_from_str(orb, self.obj.oid, deid, str_val)
+                        set_dval_from_str(self.obj.oid, deid, str_val)
             # elif parameterz.get(self.obj.oid):
             else:
                 # if object is *not* new, save any modified data elements and
@@ -1386,7 +1393,7 @@ class PgxnObject(QDialog):
                 for deid in self.d_widgets:
                     if hasattr(self.d_widgets[deid], 'get_value'):
                         str_val = self.d_widgets[deid].get_value()
-                        set_dval_from_str(orb, self.obj.oid, deid, str_val)
+                        set_dval_from_str(self.obj.oid, deid, str_val)
                 for p_id in self.p_widgets:
                     # if p is computed, its widget is a label (no 'get_value')
                     # DO NOT MODIFY units/values ... but:
@@ -1406,7 +1413,7 @@ class PgxnObject(QDialog):
                         # parameters (faster/simpler than checking for mods)
                         # orb.log.debug('  - setting {} to {} {}'.format(
                                       # p_id, str_val, u_cur))
-                        set_pval_from_str(orb, self.obj.oid, p_id, str_val,
+                        set_pval_from_str(self.obj.oid, p_id, str_val,
                                           units=u_cur)
             if caching_parameters:
                 self.progress_dialog.setValue(2)

@@ -240,7 +240,7 @@ class LdapSearchDialog(QDialog):
         self.criteria_panel.setLayout(form_layout)
         form_label = ColorLabel('Search Criteria', element='h2', margin=10)
         form_layout.setWidget(0, QFormLayout.SpanningRole, form_label)
-        self.schema = config['ldap_schema']
+        self.schema = state['ldap_schema']
         self.form_widgets = {}
         for name in self.schema:
             self.form_widgets[name] = StringFieldWidget()
@@ -284,7 +284,7 @@ class LdapSearchDialog(QDialog):
         """
         orb.log.info('* LdapSearchDialog: on_search_result()')
         orb.log.info('  result: {}'.format(res))
-        self.ldap_schema = config['ldap_schema']
+        self.ldap_schema = state['ldap_schema']
         res_cols = list(self.ldap_schema.values())
         res_headers = {self.ldap_schema[a]:a for a in self.ldap_schema}
         self.ldap_data = []
@@ -400,7 +400,7 @@ class AdminDialog(QDialog):
         outer_vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
         # if we have an ldap_schema, add an LDAP search button
-        if config.get('ldap_schema'):
+        if state.get('ldap_schema'):
             self.ldap_search_button = SizedButton('LDAP Search for a Person')
             self.ldap_search_button.clicked.connect(self.do_ldap_search)
             self.right_vbox.addWidget(self.ldap_search_button)

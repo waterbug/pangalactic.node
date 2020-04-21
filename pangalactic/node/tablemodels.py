@@ -24,11 +24,11 @@ from PyQt5.QtGui import QIcon, QPixmap
 
 # pangalactic
 from pangalactic.core             import state
+from pangalactic.core.entity      import DataMatrix
 from pangalactic.core.meta        import MAIN_VIEWS, TEXT_PROPERTIES
 from pangalactic.core.parametrics import get_pval_as_str
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dt2local_tz_str
-from pangalactic.core.utils.datamatrix import DataMatrix
 from pangalactic.core.utils.meta  import (display_id, pname_to_header_label,
                                           to_media_name)
 # from pangalactic.core.test.utils import create_test_users, create_test_project
@@ -437,7 +437,7 @@ class CompareTableModel(ODTableModel):
                 pd = orb.select('ParameterDefinition', id=pid)
                 row_dict['Parameter'] = pd.name
                 for o in self.objs:
-                    val = get_pval_as_str(orb, o.oid, pid)
+                    val = get_pval_as_str(o.oid, pid)
                     row_dict[o.oid] = val
                 self.ods.append(row_dict)
             if self.objs:

@@ -14,7 +14,7 @@ from louie import dispatcher
 
 # pangalactic
 from pangalactic.core             import config, state
-from pangalactic.core.parametrics import set_pval
+from pangalactic.core.parametrics import set_dval
 from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
@@ -943,7 +943,7 @@ class NewProductWizardConclusionPage(QtWidgets.QWizardPage):
                          "or click <b>Back</b> to change them ...")
         trl = wizard_state.get('trl')
         trl_value = int(trl['trl'])
-        set_pval(orb, p.oid, 'TRL', trl_value)
+        set_dval(p.oid, 'TRL', trl_value)
         # populate value fields ...
         self.id_value_label.setText(p.id)
         self.name_value_label.setText(p.name)
