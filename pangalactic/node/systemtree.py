@@ -322,6 +322,9 @@ class SystemTreeModel(QAbstractItemModel):
         top_node = self.node_for_object(obj, self.root)
         self.root.children = [top_node]
         self.successful_drop_index = None
+        # set initial state for deletions as local (if remote,
+        # on_remote_deletion() will be called and will set this to True)
+        self.remote_deletion = False
 
     @property
     def dash_name(self):
@@ -950,6 +953,10 @@ class SystemTreeModel(QAbstractItemModel):
             orb.log.info('* OOPS! Something bad happened in a drop ...')
             orb.log.info(traceback.format_exc())
 
+    def on_remote_deletion(self, pos, row_parent):
+        self.remote_deletion = True
+        self.removeRow(pos, row_parent)
+
     def removeRows(self, position, count, parent=QModelIndex()):
         """
         Implementation of QAbstractItemModel method for SystemTreeModel.
@@ -995,8 +1002,7 @@ class SystemTreeModel(QAbstractItemModel):
         self.dataChanged.emit(parent, parent)
         if acus_by_oid:
             for acu_oid in acus_by_oid:
-                dispatcher.send(signal="deleted object", oid=acu_oid,
-                                cname='Acu')
+                self.signal_deleted_if_local(oid=acu_oid, cname='Acu')
         # Acu deleted -> assembly is modified
         if assembly:
             assembly.mod_datetime = dtstamp()
@@ -1005,9 +1011,17 @@ class SystemTreeModel(QAbstractItemModel):
             dispatcher.send('modified object', obj=assembly)
         if psu_oids:
             for psu_oid in psu_oids:
-                dispatcher.send(signal="deleted object", oid=psu_oid,
-                                cname='ProjectSystemUsage')
+                self.signal_deleted_if_local(oid=psu_oid,
+                                             cname='ProjectSystemUsage')
         return success
+
+    def signal_deleted_if_local(self, oid=None, cname=None):
+        if self.remote_deletion:
+            # if remote, DO NOT send "deleted object" signal, but set
+            # "remote_deletion" to False until next time ...
+            self.remote_deletion = False
+        else:
+            dispatcher.send(signal="deleted object", oid=oid, cname=cname)
 
     def delete_columns(self, cols=None):
         """

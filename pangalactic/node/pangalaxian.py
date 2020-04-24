@@ -2049,7 +2049,12 @@ class Main(QtWidgets.QMainWindow):
                         # orb.log.debug('  at row {} of parent {}'.format(pos,
                                                                    # parent_id))
                         # removeRow calls orb.delete on the object ...
-                        self.sys_tree.source_model.removeRow(pos, row_parent)
+                        # NOTE 2020-04-23:  new call 'on_remote_deletion()'
+                        # prevents the systree model sending the
+                        # "deleted object" signal, which triggers a vger.delete
+                        # rpc, causing a cycle!
+                        self.sys_tree.source_model.on_remote_deletion(pos,
+                                                               row_parent)
                         # this will resize dashboard columns if necessary
                         # self.refresh_dashboard()
                     elif len(idxs) > 1:
@@ -2700,40 +2705,40 @@ class Main(QtWidgets.QMainWindow):
         self.left_dock.setWidget(self.sys_tree)
         self.end_progress()
         # check if the selected object and selected link exist in the tree
-        selected_obj = None
-        msg = '* refresh_tree_views: attempting to restore selection ...'
-        orb.log.debug(msg)
-        if selected_link_oid:
-            selected_link = orb.get(selected_link_oid)
-            if selected_link:
-                msg = '  - previously selected link found'
-                orb.log.debug(msg)
-                idxs = self.sys_tree.link_indexes_in_tree(selected_link)
-                if idxs:
-                    if isinstance(selected_link, orb.classes['Acu']):
-                        selected_obj = selected_link.component
-                    elif isinstance(selected_link,
-                                    orb.classes['ProjectSystemUsage']):
-                        selected_obj = selected_link.system
-                    if self.mode == 'system':
-                        state['system'] = getattr(selected_obj, 'oid', None)
-                    elif self.mode == 'component':
-                        state['product'] = getattr(selected_obj, 'oid', None)
-                    msg = '  - link index found in tree, setting ...'
-                    orb.log.debug(msg)
-                    proxy_i = self.sys_tree.proxy_model.mapFromSource(idxs[0])
-                    self.sys_tree.sys_node_select(proxy_i)
-        elif state.get("system"):
-            system = orb.get(state["system"])
-            if system:
-                selected_obj = system
-                msg = '  - state["system"]: oid "{}", id "{}".'.format(
-                                                        system.oid, system.id)
-                orb.log.debug(msg)
-        else:
-            msg = 'found neither previously selected link nor state["system"]'
-            orb.log.debug('  - {}'.format(msg))
-        self.set_system_model_window(system=selected_obj)
+        # selected_obj = None
+        # msg = '* refresh_tree_views: attempting to restore selection ...'
+        # orb.log.debug(msg)
+        # if selected_link_oid:
+            # selected_link = orb.get(selected_link_oid)
+            # if selected_link:
+                # msg = '  - previously selected link found'
+                # orb.log.debug(msg)
+                # idxs = self.sys_tree.link_indexes_in_tree(selected_link)
+                # if idxs:
+                    # if isinstance(selected_link, orb.classes['Acu']):
+                        # selected_obj = selected_link.component
+                    # elif isinstance(selected_link,
+                                    # orb.classes['ProjectSystemUsage']):
+                        # selected_obj = selected_link.system
+                    # if self.mode == 'system':
+                        # state['system'] = getattr(selected_obj, 'oid', None)
+                    # elif self.mode == 'component':
+                        # state['product'] = getattr(selected_obj, 'oid', None)
+                    # msg = '  - link index found in tree, setting ...'
+                    # orb.log.debug(msg)
+                    # proxy_i = self.sys_tree.proxy_model.mapFromSource(idxs[0])
+                    # self.sys_tree.sys_node_select(proxy_i)
+        # elif state.get("system"):
+            # system = orb.get(state["system"])
+            # if system:
+                # selected_obj = system
+                # msg = '  - state["system"]: oid "{}", id "{}".'.format(
+                                                        # system.oid, system.id)
+                # orb.log.debug(msg)
+        # else:
+            # msg = 'found neither previously selected link nor state["system"]'
+            # orb.log.debug('  - {}'.format(msg))
+        self.set_system_model_window()
 
     def rebuild_dash_selector(self):
         orb.log.debug('* rebuild_dash_selector()')

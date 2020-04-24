@@ -446,7 +446,8 @@ class ObjectBlock(Block):
 
     def del_system(self):
         """
-        Remove a system (i.e. a ProjectSystemUsage) from a project.
+        Remove a system (i.e. a ProjectSystemUsage) from a project.  (User
+        permissions are checked before access is granted to this function.)
         """
         oid = self.usage.oid
         orb.delete([self.usage])
@@ -456,7 +457,8 @@ class ObjectBlock(Block):
     def del_component(self):
         """
         Remove a component from an assembly position, replacing it with the
-        `TBD` object.
+        `TBD` object.  (User permissions are checked before access is granted
+        to this function.)
         """
         orb.log.debug('* ObjectBlock: del_component() ...')
         tbd = orb.get('pgefobjects:TBD')
@@ -977,12 +979,26 @@ class PortBlock(QGraphicsItem):
             menu = QMenu()
             menu.addAction('inspect port object', self.display_port)
             if 'delete' in perms:
-                menu.addAction('delete port', self.delete)
+                menu.addAction('delete port', self.delete_local)
             menu.exec_(event.screenPos())
         else:
             event.ignore()
 
-    def delete(self):
+    def delete_local(self):
+        """
+        Do a locally-originated deletion.
+        """
+        self.delete(remote=False)
+
+    def delete(self, remote=False):
+        """
+        Delete this PortBlock, its Port object, and any associated Flows.  User
+        permissions are checked before access is provided to this function.
+
+        Keyword Args:
+            remote (bool):  if True, action originated remotely, so a local
+                "deleted object" signal should NOT be dispatched.
+        """
         txt = 'This will delete the {}'.format(self.port.name)
         txt += ' and any associated Flow(s) -- are you sure?'
         confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Port?', txt,
@@ -993,7 +1009,11 @@ class PortBlock(QGraphicsItem):
             for shape in self.scene().items():
                 if (isinstance(shape, RoutedConnector) and
                     (shape.start_item is self or shape.end_item is self)):
+                    flow_oid = shape.flow.oid
                     orb.delete([shape.flow])
+                    if not remote:
+                        dispatcher.send('deleted object', oid=flow_oid,
+                                        cname='Flow')
                     shape.prepareGeometryChange()
                     self.scene().removeItem(shape)
             # the PortBlock must have a Port, but check just to be sure ...
@@ -1290,7 +1310,7 @@ class RoutedConnector(QGraphicsItem):
         menu = QMenu()
         # perms on flow could be checked but does the same and this is quicker
         if 'modify' in get_perms(self.context):
-            menu.addAction('delete connector', self.delete)
+            menu.addAction('delete connector', self.delete_local)
             menu.exec_(event.screenPos())
         else:
             menu.addAction('user has no modify permissions', self.noop)
@@ -1299,7 +1319,13 @@ class RoutedConnector(QGraphicsItem):
     def noop(self):
         pass
 
-    def delete(self):
+    def delete_local(self):
+        """
+        Do a locally-originated delete.
+        """
+        self.delete(remote=False)
+
+    def delete(self, remote=False):
         txt = 'This will delete the {}'.format(self.flow.name)
         txt += ' -- are you sure?'
         confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Connector?',
@@ -1310,9 +1336,11 @@ class RoutedConnector(QGraphicsItem):
             orb.log.debug("  - start id: {}".format(self.start_item.obj.id))
             orb.log.debug("  - end id: {}".format(self.end_item.obj.id))
             if getattr(self, 'flow', None):
-                dispatcher.send('deleted object', oid=self.flow.oid,
-                                cname='Flow')
+                flow_oid = self.flow.oid
                 orb.delete([self.flow])
+                if not remote:
+                    dispatcher.send('deleted object', oid=flow_oid,
+                                    cname='Flow')
             self.start_item.remove_connector(self)
             self.end_item.remove_connector(self)
             self.scene().removeItem(self)
