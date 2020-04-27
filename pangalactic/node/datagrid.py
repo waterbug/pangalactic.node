@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 # from uuid import uuid4
 
 from pangalactic.core         import config, prefs
-from pangalactic.core.entity  import DataMatrix, Entity, dmz, schemaz
+from pangalactic.core.entity  import DataMatrix, Entity, dmz, entz, schemaz
 from pangalactic.core.uberorb import orb
 
 from louie import dispatcher
@@ -22,53 +22,45 @@ from louie import dispatcher
 class GridTreeItem:
     """
     Node in a DMTreeModel, which is associated with an Entity (an object whose
-    attributes are Data Elements and possibly Parameters).
+    attributes are Data Elements and Parameters).
 
     Attributes:
         oid (str):  oid of an Entity
-        schema_name (str):  lookup key to a 'schema' (a list of column names --
-            i.e. Data Element, Parameter, or metadata element ids)
-        item_data (list):  [property] list of values in the item
+        entity (Entity):  the corresponding Entity instance
+        dm (DataMatrix):  the DataMatrix of the DMTreeModel that has this item
 
     Keyword Args:
         parent (GridTreeItem):  parent item of this item
     """
-    def __init__(self, oid=None, schema_name=None, column_labels=None,
-                 root=False, parent=None):
+    def __init__(self, oid=None, dm=None, root=False, parent=None):
         """
         Initialize a GridTreeItem, which corresponds to an Entity (row) in the
         DataMatrix of a DMTreeModel.
 
         Keyword Args:
             oid (str):  oid of an Entity
-            schema_name (str):  lookup key to a 'schema' (a list of column
-                names -- i.e. Data Element, Parameter, or metadata element ids)
+            dm (DataMatrix):  the DataMatrix of the DMTreeModel that has this
+                item
             root (bool):  if True, we are the root item (i.e. header row)
             parent (GridTreeItem):  parent item of this item
         """
         argstr = 'oid="{}"'.format(str(oid))
         orb.log.debug('* GridTreeItem({}) initializing ...'.format(argstr))
         self.root = root
-        self.column_labels = column_labels
+        self.dm = dm
+        self.schema_name = getattr(dm, 'schema_name', 'generic')
+        self.schema = getattr(dm, 'schema', [])
+        self.column_labels = getattr(dm, 'column_labels', [])
         if self.root:
+            # the root item will not have an entity but will have the schema
             self.entity = None
         else:
-            self.entity = Entity(oid=oid)
-        self.schema = schemaz.get(schema_name)
-        if not self.schema:
-            # if not schema is found, look for a configured or preferred
-            # default schema setting
-            schema_name = config.get('default_schema_name') or prefs.get(
-                                     'default_schema_name') or 'MEL'
-        self.schema = schemaz.get(schema_name)
-        self.schema_name = schema_name
+            self.entity = entz.get(oid) or Entity(oid=oid)
         self.parent_item = parent
+        # "children" will depend on the DataMatrix in which the entity is
+        # embedded -- i.e., how many entities that immediately follow this one
+        # have a 'level' value that is exactly one higher
         self.children = []
-
-    def item_data(self):
-        if self.root:
-            return self.column_labels
-        return [str(self.entity.get(col_id)) for col_id in self.schema]
 
     def child(self, row):
         if row < 0 or row >= len(self.children):
@@ -84,10 +76,10 @@ class GridTreeItem:
         return 0
 
     def columnCount(self):
-        return len(self.item_data)
+        return len(self.schema)
 
     def data(self, column):
-        if column < 0 or column >= len(self.item_data):
+        if column < 0 or column >= len(self.schema):
             return None
         if self.root:
             try:
@@ -97,7 +89,7 @@ class GridTreeItem:
                     return self.schema[column]
                 except:
                     return 'Unknown'
-        return self.item_data[column]
+        return self.entity.get(column, '')
 
     def insertChildren(self, position, count, columns):
         """
@@ -170,8 +162,8 @@ class GridTreeItem:
 
 class DMTreeModel(QAbstractItemModel):
     """
-    A DataMatrix-based tree model.  Arguments for 'project', 'schema_name', and
-    'schema' are used to intialize the underlying DataMatrix object.
+    A DataMatrix-based tree model.  Arguments for 'project' and 'schema_name'
+    are used to intialize the underlying DataMatrix object.
 
     Attributes:
         items_by_oid (dict):  a dict that maps Entity oids to their
@@ -181,8 +173,7 @@ class DMTreeModel(QAbstractItemModel):
         index_to_cell (dict): maps the index of a cell to a (row_oid, col_id)
             tuple in the DataMatrix
     """
-    def __init__(self, project=None, schema_name=None, schema=None,
-                 parent=None):
+    def __init__(self, project=None, schema_name=None, parent=None):
         """
         Initialize.
 
@@ -191,14 +182,12 @@ class DMTreeModel(QAbstractItemModel):
                 DataMatrix underlying the model)
             schema_name (str): name of an initial schema (in 'schemaz' cache)
                 to be passed to the DataMatrix
-            schema (list): a list of data element ids ("column names")
             parent (QWidget):  parent widget
         """
-        arguments = 'project={}, schema_name={}, schema={}'
+        arguments = 'project={}, schema_name={}'
         orb.log.debug('* DMTreeModel({}) initializing ...'.format(
                       arguments.format(getattr(project, 'id', 'None'),
-                                       schema_name,
-                                       str(schema))))
+                                       schema_name)))
         super().__init__(parent)
         self.items_by_oid = {}
         self.cell_to_index = {}
@@ -213,8 +202,8 @@ class DMTreeModel(QAbstractItemModel):
             # DataMatrix, which will check for a stored one or create a new
             # one based on the input:
             project_id = getattr(project, 'id', 'SANDBOX')
-            self.dm = DataMatrix(project_id=project_id, schema_name=schema_name,
-                                 schema=schema)
+            self.dm = DataMatrix(project_id=project_id,
+                                 schema_name=schema_name)
         # TODO: look up col label/name in the 'de_defz' cache ...
         #       the MEL-specific stuff below is for prototyping ...
         # labels = [col['label'] or col['name'] for col in self.dm.schema]
@@ -233,7 +222,7 @@ class DMTreeModel(QAbstractItemModel):
         # In our case, a schema or schema_name should be passed in and
         # optionally an oid, if an existing entity is to be referenced.
         # --------------------------------------------------------------------
-        self.root_item = GridTreeItem(self.dm.column_labels, root=True)
+        self.root_item = GridTreeItem(dm=self.dm, root=True)
         self.load_initial_dm_data()
         # TODO:  leaving setupModelData for now as it provides example code for
         # how to add rows and populate them ...
@@ -419,17 +408,16 @@ class DMTreeModel(QAbstractItemModel):
         # NOTE:  if a series of rows are on the same level, might call
         # 'insertRows()' with all of them (and their oids) ...
         # TODO: a more robust sort key (or make sure row is always int!)
-        orb.log.debug('  - loading {} oids ...'.format(len(self.dm.oids)))
-        for i, row_oid in enumerate(self.dm.oids):
-            row_dict = self.dm[row_oid]
+        orb.log.debug('  - loading {} oids ...'.format(len(self.dm)))
+        for i, entity in enumerate(self.dm):
             row = i
-            orb.log.debug('    row {} (oid "{}")'.format(row, row_oid))
+            orb.log.debug('    row {} (oid "{}")'.format(row, entity.oid))
             self.insertRows(row, 1)
             idx = self.index(row, 0, parent=QModelIndex())
             item = self.getItem(idx)
-            self.items_by_oid[row_oid] = item
+            self.items_by_oid[entity.oid] = item
             for j, de in enumerate(self.dm.schema):
-                item.setData(j, row_dict.get(de))
+                item.setData(j, entity.get(de))
 
     def setupModelData(self, lines, parent):
         """
@@ -671,8 +659,7 @@ class DataGrid(QMainWindow):
         super().__init__(parent)
         self.setup_ui()
         self.font().setPointSize(14)
-        model = DMTreeModel(project=project, schema_name=schema_name,
-                            schema=schema)
+        model = DMTreeModel(project=project, schema_name=schema_name)
         orb.log.debug('  - setModel(DMTreeModel) ...')
         self.view.setModel(model)
         row_count = self.view.model().rowCount()
