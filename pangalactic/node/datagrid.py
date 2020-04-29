@@ -151,7 +151,6 @@ class GridTreeItem:
             return False
         for row in range(count):
             self.children.pop(position)
-            self.dm.remove_row(position)
         return True
 
     # FIXME:  this is OLD -- needs to be adapted to the Entity paradigm ...
@@ -487,10 +486,10 @@ class GridTreeView(QTreeView):
         # add context menu actions
         # NOT SURE IF THIS IS NEEDED:
         # self.actionsMenu.aboutToShow.connect(self.update_actions)
-        self.insert_row_action = QAction('insert row', self)
+        self.insert_row_action = QAction('Insert Row (same level)', self)
         self.insert_row_action.triggered.connect(self.insert_row)
         header.addAction(self.insert_row_action)
-        self.delete_row_action = QAction('delete row', self)
+        self.delete_row_action = QAction('Delete Row', self)
         self.delete_row_action.triggered.connect(self.delete_row)
         self.delete_row_action.triggered.connect(self.update_actions)
         header.addAction(self.delete_row_action)
@@ -586,8 +585,12 @@ class GridTreeView(QTreeView):
         model = self.model()
         item = model.getItem(index)
         orb.log.debug('  - oid of row being deleted: "{}"'.format(item.oid))
-        if (model.removeRow(index.row(), index.parent())):
-            self.update_actions()
+        success = model.dm.remove_row_by_oid(item.oid)
+        if success:
+            if (model.removeRow(index.row(), index.parent())):
+                self.update_actions()
+        else:
+            orb.log.debug('    unable to delete.')
 
     # EXPERIMENTAL!
     def on_remote_new_row(self, dm_oid=None, row_oid=None):

@@ -305,7 +305,11 @@ class ObjectSelectionDialog(QDialog, PopupDialogMixin):
         # self.table_view.horizontalHeader().hide()          
         self.table_view.verticalHeader().hide()
         self.table_view.setModel(self.table_model)
-        self.table_view.resizeColumnsToContents()
+        # self.table_view.resizeColumnsToContents()
+        # resize only the 'id' and 'name' columns to their contents; let
+        # 'description' column wrap (default behavior)
+        self.table_view.resizeColumnToContents(0)
+        self.table_view.resizeColumnToContents(1)
         self.table_view.clicked.connect(self.select_object)
         self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
         self.bbox.rejected.connect(self.reject)
