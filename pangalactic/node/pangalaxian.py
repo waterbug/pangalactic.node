@@ -39,7 +39,7 @@ from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.entity           import (save_dmz, save_entz,
-                                               save_ent_histz)
+                                               save_ent_histz, save_schemaz)
 from pangalactic.core.parametrics      import (node_count, save_data_elementz,
                                                save_parmz)
 from pangalactic.core.refdata          import ref_pd_oids
@@ -3776,7 +3776,7 @@ class Main(QtWidgets.QMainWindow):
                 # set mode to "data"
                 self.data_mode_action.trigger()
             except:
-                message = "Data in '%s' could not be imported." % fpath
+                message = f"Data in '{fpath}' could not be imported."
                 popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Warning,
                             "An error occurred.", message,
@@ -3895,11 +3895,13 @@ class Main(QtWidgets.QMainWindow):
         ents_path = os.path.join(orb.home, 'ents.json')
         ent_hists_path = os.path.join(orb.home, 'ent_hists.json')
         dms_path = os.path.join(orb.home, 'dms.json')
+        schemas_path = os.path.join(orb.home, 'schemas.json')
         save_data_elementz(data_elements_path)
         save_parmz(parameters_path)
         save_entz(ents_path)
         save_ent_histz(ent_hists_path)
         save_dmz(dms_path)
+        save_schemaz(schemas_path)
         if orb.db.dirty:
             orb.db.commit()
         if state.get('connected'):

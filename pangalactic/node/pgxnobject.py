@@ -20,8 +20,8 @@ from sqlalchemy.orm.collections import InstrumentedList
 # pangalactic
 from pangalactic.core import state
 from pangalactic.core.access import get_perms, is_global_admin
-from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
-                                   PGXN_MASK, PGXN_PARAMETERS,
+from pangalactic.core.meta import (MAIN_VIEWS, PGXN_DATA_VIEW, PGXN_HIDE,
+                                   PGXN_HIDE_PARMS, PGXN_MASK, PGXN_PARAMETERS,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
                                    SELECTABLE_VALUES, SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
@@ -323,7 +323,8 @@ class PgxnForm(QWidget):
             # used for the other panels
             # orb.log.info('* [pgxnobj] building "data" form ...')
             de_dict = data_elementz.get(obj.oid, {})
-            deids = list(de_dict)
+            all_deids = set(de_dict)
+            deids = list(all_deids.intersection(set(PGXN_DATA_VIEW)))
             if deids:
                 deids.sort()
                 # orb.log.info('* [pgxnobj] data elements found: {}'.format(
