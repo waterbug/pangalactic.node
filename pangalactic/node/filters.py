@@ -597,11 +597,15 @@ class FilterPanel(QWidget):
         self.set_source_model(self.create_model(objs=self.objs))
 
     def on_column_moved(self, old_index=None, new_index=None):
-        item = self.view.pop(old_index)
-        self.view.insert(new_index, item)
-        if not prefs.get('views'):
-            prefs['views'] = {}
-        prefs['views'][self.cname] = self.view[:]
+        orb.log.debug('* FilterPanel.on_column_moved()')
+        if 0 <= old_index < len(self.view):
+            item = self.view.pop(old_index)
+            self.view.insert(new_index, item)
+            if not prefs.get('views'):
+                prefs['views'] = {}
+            prefs['views'][self.cname] = self.view[:]
+        else:
+            orb.log.debug('  - could not move: old col out of range.')
 
     def clear_text(self):
         self.filter_pattern_line_edit.setText("")

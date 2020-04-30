@@ -422,45 +422,6 @@ class DMTreeModel(QAbstractItemModel):
             for j, col_id in enumerate(self.dm.schema):
                 item.setData(j, entity.get(col_id, ''))
 
-    # NOT IN USE (this is from the original code example)
-    def setupModelData(self, lines, parent):
-        """
-        Add data to the grid.
-        """
-        parents = [parent]
-        indentations = [0]
-        number = 0
-        while number < len(lines):
-            position = 0
-            while position < len(lines[number]):
-                if lines[number][position] != " ":
-                    break
-                position += 1
-            # lineData = lines[number][position:].trimmed()
-            lineData = lines[number][position:].strip()
-            if lineData:
-                # Read the column data from the rest of the line.
-                columnData = [s for s in lineData.split('\t') if s]
-                if position > indentations[-1]:
-                    # The last child of the current parent is now the new
-                    # parent unless the current parent has no children.
-                    if parents[-1].childCount() > 0:
-                        parents.append(parents[-1].child(
-                                            parents[-1].childCount() - 1))
-                        indentations.append(position)
-                else:
-                    while position < indentations[-1] and len(parents) > 0:
-                        parents.pop()
-                        indentations.pop()
-                # Append a new item to the current parent's list of children.
-                parent = parents[-1]
-                parent.insertChildren(parent.childCount(), 1,
-                                      self.root_item.columnCount())
-                for column in range(len(columnData)):
-                    parent.child(parent.childCount() -1).setData(
-                                                    column, columnData[column])
-            number += 1
-
 
 class GridTreeView(QTreeView):
     """
@@ -489,6 +450,9 @@ class GridTreeView(QTreeView):
         self.insert_row_action = QAction('Insert Row (same level)', self)
         self.insert_row_action.triggered.connect(self.insert_row)
         header.addAction(self.insert_row_action)
+        self.add_child_action = QAction('Add Child Row (level down)', self)
+        self.add_child_action.triggered.connect(self.add_child)
+        header.addAction(self.add_child_action)
         self.delete_row_action = QAction('Delete Row', self)
         self.delete_row_action.triggered.connect(self.delete_row)
         self.delete_row_action.triggered.connect(self.update_actions)
@@ -552,7 +516,6 @@ class GridTreeView(QTreeView):
             dispatcher.send("datagrid show msg", msg=msg)
 
 
-    # was originally DataGrid.insertRow()
     def insert_row(self):
         orb.log.debug('* GridTreeView.insert_row()')
         # the first time a row is inserted, we know there is a selectionModel,
@@ -578,7 +541,51 @@ class GridTreeView(QTreeView):
             model.setData(child, "", Qt.EditRole)
             self.resizeColumnToContents(column)
 
-    # was originally DataGrid.removeRow()
+    ### NOTE: currently, this is getting the wrong entity oid -- for it to work
+    ### properly, the model.insertRows must be modified to find the correct
+    ### entity ("child" of this entity, i.e. 1 level down) in the dm
+    def add_child(self):
+        orb.log.debug('* GridTreeView.add_child()')
+        index = self.selectionModel().currentIndex()
+        model = self.model()
+        item = model.getItem(index)
+        if not item:
+            orb.log.debug('  - no selected item, cannot add child.')
+            return
+        dm_oids = [e.oid for e in model.dm]
+        item_dm_position = dm_oids.index(item.entity.oid)
+        # NOTE:  dm.insert_new_row returns the new entity, if needed ...
+        model.dm.insert_new_row(item_dm_position + 1, child_of=item.entity)
+        # NOTE: is this needed???
+        # if model.columnCount(index) == 0:
+            # if not model.insertColumn(0, parent=index):
+                # return
+        new_child_row = item.childCount()
+        # if not model.insertRow(index.row()+1, parent=index):
+        if not model.insertRow(new_child_row, parent=index):
+            orb.log.debug('  - model.insertRow() failed, cannot add child.')
+            return
+        # set blank data for columns of new item
+        for column in range(model.columnCount(index)):
+            child_idx = model.index(new_child_row, column, index)
+            ## NOTE: not clear that these are needed either ...???
+            ## cell_to_index maps (oid, col_id) to the index of the cell
+            # model.cell_to_index[(new_entity.oid,
+                                 # model.dm.schema[column])] = child_idx
+            # model.index_to_cell[child_idx] = (row_dict['oid'],
+                                              # model.dm.schema[column])
+            model.setData(child_idx, "", Qt.EditRole)
+            ## NOTE:  this probably doesn't make sense now ...???
+            # if model.headerData(column, Qt.Horizontal) is None:
+                # model.setHeaderData(column, Qt.Horizontal, "[No header]",
+                        # Qt.EditRole)
+        ## NOTE: preferable to leave selection where it is??
+        self.selectionModel().setCurrentIndex(
+                        model.index(new_child_row, 0, parent=index),
+                        QItemSelectionModel.ClearAndSelect)
+        for column in range(model.columnCount()):
+            self.resizeColumnToContents(column)
+
     def delete_row(self):
         orb.log.debug('* DataGrid.delete_row()')
         index = self.selectionModel().currentIndex()
@@ -680,37 +687,6 @@ class DataGrid(QMainWindow):
 
     def display_status_msg(self, msg=''):
         self.statusBar().showMessage(msg)
-
-    # This works fine.  Triggered by the "Insert Child" action
-    def insertChild(self):
-        orb.log.debug('  - DataGrid.insertChild()')
-        index = self.view.selectionModel().currentIndex()
-        model = self.view.model()
-        item = model.getItem(index)
-        # TODO:  revise GridTreeItem so it updates DataMatrix & vice-versa
-        new_child_row = item.childCount()
-        if model.columnCount(index) == 0:
-            if not model.insertColumn(0, parent=index):
-                return
-        if not model.insertRow(new_child_row, parent=index):
-            return
-        row_dict = model.dm.append_new_row()
-        for column in range(model.columnCount(index)):
-            child_idx = model.index(new_child_row, column, index)
-            # cell_to_index maps (oid, col_id) to the index of the cell
-            model.cell_to_index[(row_dict['oid'],
-                                 model.dm.schema[column])] = child_idx
-            model.index_to_cell[child_idx] = (row_dict['oid'],
-                                              model.dm.schema[column])
-            model.setData(child_idx, "[No data]", Qt.EditRole)
-            if model.headerData(column, Qt.Horizontal) is None:
-                model.setHeaderData(column, Qt.Horizontal, "[No header]",
-                        Qt.EditRole)
-        self.view.selectionModel().setCurrentIndex(
-                        model.index(new_child_row, 0, parent=index),
-                        QItemSelectionModel.ClearAndSelect)
-        for column in range(model.columnCount()):
-            self.view.resizeColumnToContents(column)
 
     def insertColumn(self):
         orb.log.debug('* DataGrid.insertColumn()')
