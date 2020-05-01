@@ -697,14 +697,21 @@ class Main(QtWidgets.QMainWindow):
         Return:
             deferred:  result of `vger.save` rpc
         """
-        orb.log.info('[pgxn] on_sync_result()')
+        orb.log.info('* on_sync_result()')
         sync_type = ''
         if project_sync:
             sync_type = 'project'
         elif user_objs_sync:
             sync_type = 'user objs'
         # orb.log.debug('       data: {}'.format(str(data)))
-        sobjs, same_dts, to_update, local_only = data
+        try:
+            sobjs, same_dts, to_update, local_only = data
+        except:
+            orb.log.info('  unable to unpack "{}"'.format(data))
+            rpc = self.mbus.session.call('vger.save', [])
+            rpc.addCallback(self.on_vger_save_result)
+            rpc.addErrback(self.on_failure)
+            return rpc
         # TODO:  create a progress bar for this ...
         n = len(sobjs)
         if n:

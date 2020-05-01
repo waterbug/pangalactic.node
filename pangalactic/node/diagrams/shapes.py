@@ -25,7 +25,7 @@ from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
                                           get_next_ref_des, 
                                           get_port_name)
 from pangalactic.core.validation  import get_bom_oids
-from pangalactic.node.dialogs     import AssemblyNodeDialog
+from pangalactic.node.dialogs     import AssemblyNodeDialog, OptionNotification
 from pangalactic.node.filters     import FilterDialog
 from pangalactic.node.utils       import clone, extract_mime_data
 
@@ -401,14 +401,20 @@ class ObjectBlock(Block):
             obj = self.usage.system
             self.allocs = self.usage.system_requirements
         orb.log.debug("  permissions on usage: {}".format(str(perms)))
-        if getattr(obj, 'id', 'TBD') != 'TBD':
-            menu.addAction('View this object', self.display_object)
         if self.allocs:
             menu.addAction('Show allocated requirements', self.display_reqts)
         else:
             txt = '[No requirements are allocated here]'
             a = menu.addAction(txt, self.noop)
             a.setEnabled(False)
+        if getattr(obj, 'id', 'TBD') == 'TBD':
+            if isinstance(self.usage, orb.classes['Acu']):
+                # block is TBD and usage is Acu ...
+                menu.addAction('Display allowed product type',
+                               self.display_type_hint)
+        else:
+            # block is not TBD -- enable viewing of the object ...
+            menu.addAction('View this object', self.display_object)
         if 'modify' in perms and getattr(obj, 'id', 'TBD') != 'TBD':
             mod_usage_txt = 'Modify quantity and/or reference designator'
             menu.addAction(mod_usage_txt, self.mod_usage)
@@ -421,6 +427,13 @@ class ObjectBlock(Block):
             if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
                 menu.addAction('Remove this system', self.del_system)
         menu.exec_(event.screenPos())
+
+    def display_type_hint(self):
+        type_hint = getattr(self.usage.product_type_hint, 'name', '')
+        dlg = OptionNotification('Allowed Product Type',
+                             f'<font color="red"><b>{type_hint}</b></font>',
+                             parent=self.parentWidget())
+        dlg.show()
 
     def display_object(self):
         if isinstance(self.usage, orb.classes['Acu']):

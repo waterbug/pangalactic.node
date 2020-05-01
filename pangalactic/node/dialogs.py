@@ -84,12 +84,10 @@ class NotificationDialog(QDialog):
         something_happened = QLabel(something, self)
         form.addRow(something_happened_label, something_happened)
         # OK and Cancel buttons
-        self.buttons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
-            Qt.Horizontal, self)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok,
+                                        Qt.Horizontal, self)
         form.addRow(self.buttons)
         self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
 
 
 class OptionNotification(QDialog):
@@ -97,16 +95,14 @@ class OptionNotification(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title)
         form = QFormLayout(self)
-        note_label = QLabel('Note:', self)
+        note_label = QLabel(title + ':', self)
         message_label = QLabel(message, self)
         form.addRow(note_label, message_label)
         # OK and Cancel buttons
-        self.buttons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
-            Qt.Horizontal, self)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok,
+                                        Qt.Horizontal, self)
         form.addRow(self.buttons)
         self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
 
 
 class ValidationDialog(QDialog):
@@ -482,6 +478,9 @@ class SelectColsDialog(QDialog):
     def __init__(self, columns, view, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Select Columns")
+        if len(columns) > 20:
+            # create 2 form layouts side by side
+            pass
         form = QFormLayout(self)
         self.checkboxes = {}
         for col in columns:
