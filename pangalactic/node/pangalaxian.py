@@ -2363,6 +2363,10 @@ class Main(QtWidgets.QMainWindow):
                 state['system'] = ''
             # regenerate diagram
             dispatcher.send('refresh diagram')
+        if remote:
+            obj = orb.get(oid)
+            if obj:
+                orb.delete([obj])
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
