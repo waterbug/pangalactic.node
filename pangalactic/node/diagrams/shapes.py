@@ -1037,12 +1037,10 @@ class PortBlock(QGraphicsItem):
                     self.scene().removeItem(shape)
             # the PortBlock must have a Port, but check just to be sure ...
             if getattr(self, 'port', None):
+                port_oid = self.port.oid
                 orb.delete([self.port])
-            # finally, delete the PortBlock itself ...
-            parent_block = self.parent_block
-            self.prepareGeometryChange()
-            self.scene().removeItem(self)
-            parent_block.rebuild_port_blocks()
+            # regenerate the diagram
+            dispatcher.send('refresh diagram')
 
     def display_port(self):
         dispatcher.send(signal='display object', obj=self.port)

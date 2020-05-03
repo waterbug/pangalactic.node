@@ -1107,8 +1107,13 @@ class Main(QtWidgets.QMainWindow):
                 need_to_refresh_libraries.append('Template')
             elif isinstance(obj, orb.classes['PortTemplate']):
                 need_to_refresh_libraries.append('PortTemplate')
+            elif isinstance(obj, orb.classes['PortType']):
+                need_to_refresh_libraries.append('PortType')
+            elif isinstance(obj, (orb.classes['Port'], orb.classes['Flow'])):
+                need_to_refresh_diagram = True
             elif isinstance(obj, (orb.classes['Acu'],
                                   orb.classes['ProjectSystemUsage'])):
+                need_to_refresh_diagram = True
                 if hasattr(self, 'sys_tree'):
                     # sys_tree_model = self.sys_tree.model()
                     sys_tree_model = self.sys_tree.source_model
@@ -1184,11 +1189,10 @@ class Main(QtWidgets.QMainWindow):
         if (need_to_refresh_dashboard and
             getattr(self, 'dashboard', None)):
             self.refresh_dashboard()
-        if (need_to_refresh_diagram and
-            getattr(self, 'system_model_window', None)):
-            # rebuild diagram in case object corresponded to a
+        if need_to_refresh_diagram:
+            # rebuild diagram in case an object corresponded to a
             # block in the current diagram
-            self.system_model_window.display_block_diagram()
+            dispatcher.send('refresh diagram')
         return True
 
     def _create_actions(self):
@@ -2091,10 +2095,9 @@ class Main(QtWidgets.QMainWindow):
                                             selected_link_oid=selected_link_oid)
                 elif state.get('mode') == 'component':
                     orb.delete([obj])
-                    if hasattr(self, 'system_model_window'):
-                        # rebuild diagram in case object corresponded to a
-                        # block in the current diagram
-                        self.system_model_window.display_block_diagram()
+                    # rebuild diagram in case object corresponded to a
+                    # block in the current diagram
+                    dispatcher.send('refresh diagram')
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
@@ -2134,7 +2137,7 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.info('* on_remote_get_mod_object()')
         objs =  deserialize(orb, serialized_objects)
-        rebuild_diagram = False
+        refresh_diagram = False
         if not objs:
             orb.log.debug('  (all objs received were already in the local db')
             orb.log.debug('   so deserialize() returned nothing)')
@@ -2168,22 +2171,20 @@ class Main(QtWidgets.QMainWindow):
             if getattr(self, 'system_model_window', None):
                 if (isinstance(obj, orb.classes['HardwareProduct'])
                     and obj is self.system_model_window.obj):
-                    rebuild_diagram = True
+                    refresh_diagram = True
                 elif (isinstance(obj, orb.classes['Acu'])
                       and obj.assembly is self.system_model_window.obj):
-                    rebuild_diagram = True
+                    refresh_diagram = True
                 elif (isinstance(obj, orb.classes['ProjectSystemUsage'])
                       and obj.project is self.system_model_window.obj):
-                    rebuild_diagram = True
+                    refresh_diagram = True
             # NOTE: no need to do anything in 'db' mode -- the object table now
             # listens for the 'mod object' signal and handles it ...
             elif self.mode == 'db' and cname == state.get('current_cname'):
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
-        if getattr(self, 'system_model_window', None) and rebuild_diagram:
-            # rebuild diagram in case object corresponded to a block or
-            # flow in the current diagram
-            self.system_model_window.display_block_diagram()
+        if refresh_diagram:
+            dispatcher.send('refresh diagram')
         self.update_project_role_labels()
 
     def on_new_object_signal(self, obj=None, cname=''):
@@ -2307,7 +2308,7 @@ class Main(QtWidgets.QMainWindow):
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
         Call functions to update applicable widgets when an object has been
-        deleted.
+        deleted, either locally or remotely.
 
         Keyword Args:
             oid (str):  oid of the deleted object
@@ -2322,9 +2323,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('  cname="{}", oid = "{}"'.format(str(cname), str(oid)))
         # only attempt to update tree and dashboard if in "system" mode ...
         if ((self.mode == 'system') and
-            ((cname in orb.classes and
-              issubclass(orb.classes[cname], orb.classes['Modelable']))
-             or cname == 'Acu')):
+            cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
             orb.recompute_parmz()
             # try to identify the selected tree node so it can be selected when
             # the tree is refreshed ...
@@ -2345,13 +2344,25 @@ class Main(QtWidgets.QMainWindow):
         # and update themselves, so no need to call them.
         if self.mode == 'db':
             self.set_db_interface()
-        elif self.mode == 'component':
+        elif (self.mode == 'component' and
+              cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                        'Port', 'Flow']):
+            # DIAGRAM NEEDS UPDATING
+            # update state['product'] if needed, and regenerate diagram
             current_product = orb.get(state.get('product'))
             if current_product and current_product.oid == oid:
                 state['product'] = ''
-            self.set_product_modeler_interface()
-        elif self.mode == 'system':
-            self.set_system_modeler_interface()
+            dispatcher.send('refresh diagram')
+        elif (self.mode == 'system' and
+              cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                        'Port', 'Flow']):
+            # DIAGRAM NEEDS UPDATING
+            # update state['system'] if needed, and regenerate diagram
+            current_product = orb.get(state.get('system'))
+            if current_product and current_product.oid == oid:
+                state['system'] = ''
+            # regenerate diagram
+            dispatcher.send('refresh diagram')
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
