@@ -2318,6 +2318,10 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('* received local "deleted object" signal on:')
         # make sure db transaction has been committed
         orb.db.commit()
+        if remote:
+            obj = orb.get(oid)
+            if obj:
+                orb.delete([obj])
         # cname is needed here because at this point the local object has
         # already been deleted
         orb.log.info('  cname="{}", oid = "{}"'.format(str(cname), str(oid)))
@@ -2363,10 +2367,6 @@ class Main(QtWidgets.QMainWindow):
                 state['system'] = ''
             # regenerate diagram
             dispatcher.send('refresh diagram')
-        if remote:
-            obj = orb.get(oid)
-            if obj:
-                orb.delete([obj])
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest

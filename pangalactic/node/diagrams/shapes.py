@@ -1030,15 +1030,16 @@ class PortBlock(QGraphicsItem):
                     (shape.start_item is self or shape.end_item is self)):
                     flow_oid = shape.flow.oid
                     orb.delete([shape.flow])
-                    if not remote:
-                        dispatcher.send('deleted object', oid=flow_oid,
-                                        cname='Flow')
+                    dispatcher.send('deleted object', oid=flow_oid,
+                                    cname='Flow', remote=remote)
                     shape.prepareGeometryChange()
                     self.scene().removeItem(shape)
             # the PortBlock must have a Port, but check just to be sure ...
             if getattr(self, 'port', None):
                 port_oid = self.port.oid
                 orb.delete([self.port])
+                dispatcher.send('deleted object', oid=port_oid,
+                                cname='Port', remote=remote)
             # regenerate the diagram
             dispatcher.send('refresh diagram')
 
