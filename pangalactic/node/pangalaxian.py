@@ -1089,16 +1089,24 @@ class Main(QtWidgets.QMainWindow):
                            for obj in objs])
         orb.log.debug('  deserializes as:')
         orb.log.debug('  {}'.format(str(rep)))
+        need_to_refresh_libraries = []
         need_to_refresh_tree = False
+        need_to_refresh_dashboard = False
+        need_to_refresh_diagram = False
         for obj in objs:
+            # TODO: check whether object is actually being displayed in system
+            # tree and/or diagram before rebuilding them ...
             cname = obj.__class__.__name__
-            if isinstance(obj, (orb.classes['Product'],
-                                orb.classes['ParameterDefinition'])):
-                # refresh library widgets ...
-                orb.log.debug('  updating libraries with: "{}"'.format(obj.id))
-                if hasattr(self, 'library_widget'):
-                    # orb.log.debug('  - refreshing library_widget')
-                    self.library_widget.refresh(cname=cname)
+            if isinstance(obj, orb.classes['ParameterDefinition']):
+                need_to_refresh_libraries.append('ParameterDefinition')
+            elif isinstance(obj, orb.classes['HardwareProduct']):
+                need_to_refresh_libraries.append('HardwareProduct')
+                need_to_refresh_diagram = True
+                need_to_refresh_dashboard = True
+            elif isinstance(obj, orb.classes['Template']):
+                need_to_refresh_libraries.append('Template')
+            elif isinstance(obj, orb.classes['PortTemplate']):
+                need_to_refresh_libraries.append('PortTemplate')
             elif isinstance(obj, (orb.classes['Acu'],
                                   orb.classes['ProjectSystemUsage'])):
                 if hasattr(self, 'sys_tree'):
@@ -1147,12 +1155,8 @@ class Main(QtWidgets.QMainWindow):
                                     parent=idx)
                             except Exception:
                                 orb.log.info(traceback.format_exc())
-                        if hasattr(self, 'system_model_window'):
-                            # rebuild diagram in case object corresponded to a
-                            # block in the current diagram
-                            self.system_model_window.display_block_diagram()
                     # resize dashboard columns if necessary
-                    self.refresh_dashboard()
+                    need_to_refresh_dashboard = True
             elif (isinstance(obj, orb.classes['RoleAssignment'])
                   and getattr(obj, 'assigned_to', None) is self.local_user):
                 html = '<h3>You have been assigned the role:</h3>'
@@ -1168,8 +1172,23 @@ class Main(QtWidgets.QMainWindow):
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
             self.update_project_role_labels()
-        if need_to_refresh_tree:
+        for cname in need_to_refresh_libraries:
+            # refresh library widgets ...
+            orb.log.debug('  updating libraries with: "{}"'.format(obj.id))
+            if hasattr(self, 'library_widget'):
+                # orb.log.debug('  - refreshing library_widget')
+                self.library_widget.refresh(cname=cname)
+        if (need_to_refresh_tree and
+            getattr(self, 'sys_tree', None)):
             self.refresh_tree_views()
+        if (need_to_refresh_dashboard and
+            getattr(self, 'dashboard', None)):
+            self.refresh_dashboard()
+        if (need_to_refresh_diagram and
+            getattr(self, 'system_model_window', None)):
+            # rebuild diagram in case object corresponded to a
+            # block in the current diagram
+            self.system_model_window.display_block_diagram()
         return True
 
     def _create_actions(self):

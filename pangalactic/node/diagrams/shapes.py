@@ -195,7 +195,7 @@ class Block(QGraphicsItem):
         # remove any existing port blocks and re-initialize port_blocks dict
         if self.port_blocks:
             for pb in self.port_blocks.values():
-                self.scene().removeItem(pb)
+                pb.scene().removeItem(pb)
             self.port_blocks = {}
         right = getattr(self, 'right_ports', True)
         # place initial port at 2 * port_spacing from top of block
@@ -453,6 +453,8 @@ class ObjectBlock(Block):
         """
         Remove a position (i.e. an Acu) from a assembly.
         """
+        # NOTE: permissions are checked in the context menu that gives access
+        # to this function
         oid = self.usage.oid
         orb.delete([self.usage])
         dispatcher.send(signal='deleted object', oid=oid, cname='Acu')
@@ -462,6 +464,8 @@ class ObjectBlock(Block):
         Remove a system (i.e. a ProjectSystemUsage) from a project.  (User
         permissions are checked before access is granted to this function.)
         """
+        # NOTE: permissions are checked in the context menu that gives access
+        # to this function
         oid = self.usage.oid
         orb.delete([self.usage])
         dispatcher.send(signal='deleted object', oid=oid,
@@ -473,6 +477,8 @@ class ObjectBlock(Block):
         `TBD` object.  (User permissions are checked before access is granted
         to this function.)
         """
+        # NOTE: permissions are checked in the context menu that gives access
+        # to this function
         orb.log.debug('* ObjectBlock: del_component() ...')
         tbd = orb.get('pgefobjects:TBD')
         self.usage.component = tbd
@@ -1099,8 +1105,9 @@ class PortBlock(QGraphicsItem):
         for connector in self.connectors[:]:
             connector.start_item.remove_connector(connector)
             connector.end_item.remove_connector(connector)
-            connector.prepareGeometryChange()
-            self.scene().removeItem(connector)
+            # this removes the connector from its scene and removes its
+            # associated Flow object, etc.
+            connector.delete()
 
 
 class EntityBlock(Block):
@@ -1209,7 +1216,8 @@ class EntityBlock(Block):
         for connector in self.connectors[:]:
             connector.start_item.remove_connector(connector)
             connector.end_item.remove_connector(connector)
-            self.scene().removeItem(connector)
+            # this removes the connector from its scene
+            connector.delete()
 
     def mouseDoubleClickEvent(self, event):
         self.scene().item_doubleclick(self)
@@ -1356,6 +1364,7 @@ class RoutedConnector(QGraphicsItem):
                                     cname='Flow')
             self.start_item.remove_connector(self)
             self.end_item.remove_connector(self)
+            self.prepareGeometryChange()
             self.scene().removeItem(self)
             # deleted Flow -> context object is modified
             self.context.mod_datetime = dtstamp()

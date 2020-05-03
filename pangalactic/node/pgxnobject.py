@@ -988,6 +988,10 @@ class PgxnObject(QDialog):
         self.go_to_tab = 2
         self.build_from_object()
         self.on_edit()
+        # if in component mode, set state and refresh diagram
+        if state.get('mode') == 'component':
+            state['product'] = new_obj.oid
+            dispatcher.send('refresh diagram')
 
     def on_new_version(self):
         """
