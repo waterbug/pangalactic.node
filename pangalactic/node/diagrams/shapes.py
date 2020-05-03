@@ -179,7 +179,7 @@ class Block(QGraphicsItem):
         for port in self.obj.ports:
             port_type = getattr(port.type_of_port, 'id', 'unknown')
             port_order.append(((PORT_TYPES.index(port_type), port.id), port))
-        port_order.sort()
+        port_order.sort(key=lambda x: x[0])
         return [ptuple[1] for ptuple in port_order]
 
     def rebuild_port_blocks(self):
