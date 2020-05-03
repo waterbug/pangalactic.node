@@ -347,12 +347,18 @@ class Main(QtWidgets.QMainWindow):
                 state['done_with_progress'] = False
                 state['synced'] = False
                 state['synced_projects'] = []
+                state['synced_oids'] = []
             else:
                 orb.log.info('* already disconnected from message bus.')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
 
     def on_mbus_joined(self):
         orb.log.info('* on_mbus_joined:  message bus session joined.')
+        # first make sure state indicates that nothing is yet synced ...
+        state['done_with_progress'] = False
+        state['synced'] = False
+        state['synced_projects'] = []
+        state['synced_oids'] = []
         state['connected'] = True
         self.connect_to_bus_action.setToolTip(
                                         'Disconnect from the message bus')

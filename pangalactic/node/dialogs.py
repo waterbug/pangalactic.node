@@ -478,19 +478,29 @@ class SelectColsDialog(QDialog):
     def __init__(self, columns, view, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Select Columns")
-        if len(columns) > 20:
-            # create 2 form layouts side by side
-            pass
-        form = QFormLayout(self)
+        if len(columns) < 25:
+            form = QFormLayout(self)
+        elif len(columns) >= 25:
+            # create another form layout for the right side
+            form = QFormLayout()
+            r_form = QFormLayout()
+            hbox = QHBoxLayout(self)
+            hbox.addLayout(form)
+            hbox.addLayout(r_form)
+        # else:
+            # Hm, should we do more wrapping in case > 50 columns?
         self.checkboxes = {}
-        for col in columns:
+        for i, col in enumerate(columns):
             label = QLabel(col, self)
             self.checkboxes[col] = QCheckBox(self)
             if col in view:
                 self.checkboxes[col].setChecked(True)
             else:
                 self.checkboxes[col].setChecked(False)
-            form.addRow(self.checkboxes[col], label)
+            if i < 25:
+                form.addRow(self.checkboxes[col], label)
+            else:
+                r_form.addRow(self.checkboxes[col], label)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
