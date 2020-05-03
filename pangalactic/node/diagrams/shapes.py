@@ -1034,12 +1034,22 @@ class PortBlock(QGraphicsItem):
                                     cname='Flow', remote=remote)
                     shape.prepareGeometryChange()
                     self.scene().removeItem(shape)
-            # the PortBlock must have a Port, but check just to be sure ...
+            # the PortBlock must have a Port, but check just to be sure ... it
+            # might have already been deleted if this was a remote action
             if getattr(self, 'port', None):
+                obj = self.port.of_product
                 port_oid = self.port.oid
                 orb.delete([self.port])
                 dispatcher.send('deleted object', oid=port_oid,
                                 cname='Port', remote=remote)
+                # if local action, dispatch 'modified object' signal
+                if not remote:
+                    # set modifier / mod_datetime on port's object
+                    user = orb.get(state.get('local_user_oid'))
+                    obj.modifier = user
+                    obj.mod_datetime = dtstamp()
+                    orb.save([obj])
+                    dispatcher.send('modified object', obj=obj)
             # regenerate the diagram
             dispatcher.send('refresh diagram')
 
