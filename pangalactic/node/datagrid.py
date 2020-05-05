@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 from pangalactic.core             import prefs, state
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.entity      import DataMatrix, Entity, dmz
-from pangalactic.core.parametrics import de_defz
+from pangalactic.core.parametrics import de_defz, set_dval
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.dialogs     import SelectColsDialog
 
@@ -76,8 +76,8 @@ class GridTreeItem:
         return getattr(self.dm, 'schema', [])
 
     @property
-    def schema_name(self):
-        return getattr(self.dm, 'schema_name', '')
+    def name(self):
+        return getattr(self.dm, 'name', '')
 
     @property
     def column_labels(self):
@@ -204,7 +204,7 @@ class GridTreeItem:
 
 class DMTreeModel(QAbstractItemModel):
     """
-    A DataMatrix-based tree model.  Arguments for 'project' and 'schema_name'
+    A DataMatrix-based tree model.  Arguments for 'project' and 'name'
     are used to intialize the underlying DataMatrix object.
 
     Attributes:
@@ -213,28 +213,29 @@ class DMTreeModel(QAbstractItemModel):
         index_to_cell (dict): maps the index of a cell to a (row_oid, col_id)
             tuple in the DataMatrix
     """
-    def __init__(self, project=None, schema_name=None, parent=None):
+    def __init__(self, project=None, name=None, parent=None):
         """
         Initialize.
 
         Keyword Args:
             project (Project): associated project (effective owner of the
                 DataMatrix underlying the model)
-            schema_name (str): name of an initial schema (in 'schemaz' cache)
+            name (str): name of an initial schema (in 'schemaz' cache)
                 to be passed to the DataMatrix
             parent (QWidget):  parent widget
         """
-        arguments = 'project={}, schema_name="{}"'
+        arguments = 'project={}, name="{}"'
         orb.log.debug('* DMTreeModel({}) initializing ...'.format(
                       arguments.format(getattr(project, 'id', 'None'),
-                                       schema_name)))
+                                       name)))
         super().__init__(parent)
         self.cell_to_index = {}
         self.index_to_cell = {}
         self.dm = None
-        if isinstance(project, orb.classes['Project']) and schema_name:
+        self.project = project
+        if isinstance(project, orb.classes['Project']) and name:
             # check for a cached DataMatrix instance ...
-            dm_oid = project.id + '-' + schema_name
+            dm_oid = project.id + '-' + name
             orb.log.debug('  looking for DataMatrix "{}" ...'.format(dm_oid))
             orb.log.debug('  dmz cache is: {}'.format(str(dmz)))
             self.dm = dmz.get(dm_oid)
@@ -246,9 +247,13 @@ class DMTreeModel(QAbstractItemModel):
             # if no datamatrix found in the orb's cache, pass the args to
             # DataMatrix, which will check for a stored one or create a new
             # one based on the input:
-            project_id = getattr(project, 'id', 'SANDBOX')
-            self.dm = DataMatrix(project_id=project_id,
-                                 schema_name=schema_name)
+            self.project = project or orb.get('pgefobjects:SANDBOX')
+            self.dm = DataMatrix(project_id=project.id, name=name)
+        if name == 'MEL':
+            self.dm.clear()
+            self.dm.level_map = {}
+            self.populate_mel_dm()
+
         # TODO: look up col label/name in the 'de_defz' cache ...
         #       the MEL-specific stuff below is for prototyping ...
         # labels = [col['label'] or col['name'] for col in self.dm.schema]
@@ -257,23 +262,13 @@ class DMTreeModel(QAbstractItemModel):
         # where the Model explicitly calls GridTreeItem() -- in all other
         # cases, new instances of GridTreeItem are created by calling methods
         # on instances of GridTreeItem, such as insertChildren() ... so for our
-        # entity-based paradigm the DM needs to pass a 'schema_name' so that
-        # GridTreeItem can look up the schema and GridTreeItem needs to use it
-        # in future calls that create new GridTreeItem instances, using either
-        # root_item.schema_name or the dm.oid which can reference a schema in
-        # the 'schemaz' cache.  In the example code,
-        # self.rootItem.columnCount() is passed in instead of a schema since it
-        # is just creating blank cells, but presumably data could be passed in.
-        # In our case, a schema or schema_name should be passed in and
-        # optionally an oid, if an existing entity is to be referenced.
+        # entity-based paradigm a 'dm' (DataMatrix instance) needs to be passed
+        # to the GridTreeItem.  In the example code,
+        # self.rootItem.columnCount() is passed in since it is just creating
+        # blank cells.
         # --------------------------------------------------------------------
-
         self.root_item = GridTreeItem(dm=self.dm, root=True)
         self.load_initial_dm_data()
-        # TODO:  leaving setupModelData for now as it provides example code for
-        # how to add rows and populate them ...
-        # self.setupModelData(data.split("\n"), self.root_item)
-
         # TODO:  figure out if we need these ...
         # dispatcher.connect(self.new_row, 'dm new row')
         # dispatcher.connect(self.on_remote_new_row,
@@ -449,18 +444,49 @@ class DMTreeModel(QAbstractItemModel):
             for j, col_id in enumerate(self.dm.schema):
                 item.setData(j, entity.get(col_id, ''))
 
+    def populate_mel_dm(self):
+        # special case for MEL -- create Entity instances using the oids in
+        # the system assembly tree
+        if self.project.systems:
+            for psu in self.project.systems:
+                if psu.system and psu.system.oid != 'pgefobjects:TBD':
+                    set_dval(psu.system.oid, 'system_name', psu.system.name)
+                    set_dval(psu.system.oid, 'assembly_level', 1)
+                    self.dm.append(Entity(oid=psu.system.oid,
+                                          owner=psu.system.owner.oid,
+                                          creator=psu.system.creator.oid,
+                                          create_datetime=str(psu.system.create_datetime),
+                                          modifier=psu.system.modifier.oid,
+                                          mod_datetime=str(psu.system.mod_datetime)))
+                    self.dm.level_map[psu.system.oid] = 1
+                    for acu in psu.system.components:
+                        self.populate_mel_dm_subsystems(acu.component, 2)
+
+    def populate_mel_dm_subsystems(self, subsystem, level):
+        if subsystem.oid != 'pgefobjects:TBD':
+            set_dval(subsystem.oid, 'system_name', subsystem.name)
+            set_dval(subsystem.oid, 'assembly_level', level)
+            self.dm.append(Entity(oid=subsystem.oid,
+                                  owner=subsystem.owner.oid,
+                                  creator=subsystem.creator.oid,
+                                  create_datetime=str(subsystem.create_datetime),
+                                  modifier=subsystem.modifier.oid,
+                                  mod_datetime=str(subsystem.mod_datetime)))
+            self.dm.level_map[subsystem.oid] = level
+            for acu in subsystem.components:
+                self.populate_mel_dm_subsystems(acu.component, level + 1)
 
 class GridTreeView(QTreeView):
     """
     A collaborative data table/tree view.
     """
-    def __init__(self, project=None, schema_name=None, parent=None):
+    def __init__(self, project=None, name=None, parent=None):
         """
         Initialize.
         """
         orb.log.debug('* GridTreeView initializing ...')
         super().__init__(parent)
-        model = DMTreeModel(project=project, schema_name=schema_name)
+        model = DMTreeModel(project=project, name=name)
         self.setModel(model)
         self.selectionModel().selectionChanged.connect(self.update_actions)
         self.setItemDelegate(DGDelegate(self))
@@ -766,9 +792,9 @@ class DGDelegate(QStyledItemDelegate):
 
 
 class DataGrid(QMainWindow):
-    def __init__(self, project=None, schema_name=None, parent=None):
-        orb.log.debug('* DataGrid(project="{}", schema_name="{}",'.format(
-                             getattr(project, 'id', '[None]'), schema_name))
+    def __init__(self, project=None, name=None, parent=None):
+        orb.log.debug('* DataGrid(project="{}", name="{}",'.format(
+                             getattr(project, 'id', '[None]'), name))
         super().__init__(parent)
         self.centralwidget = QWidget(self)
         self.centralwidget.setObjectName("centralwidget")
@@ -776,7 +802,7 @@ class DataGrid(QMainWindow):
         self.vboxlayout.setContentsMargins(0, 0, 0, 0)
         self.vboxlayout.setSpacing(0)
         self.vboxlayout.setObjectName("vboxlayout")
-        self.view = GridTreeView(project=project, schema_name=schema_name,
+        self.view = GridTreeView(project=project, name=name,
                                  parent=self.centralwidget)
         self.view.setAlternatingRowColors(True)
         self.view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)

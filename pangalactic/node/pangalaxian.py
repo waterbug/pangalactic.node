@@ -3053,7 +3053,7 @@ class Main(QtWidgets.QMainWindow):
         self.right_dock.setVisible(False)
         self.left_dock.setVisible(False)
         # for now, use "MEL" as the default schema name
-        self.data_widget = DataGrid(self.project, schema_name="MEL")
+        self.data_widget = DataGrid(self.project, name="MEL")
         self.setCentralWidget(self.data_widget)
 
     ### SET UP 'db' mode
