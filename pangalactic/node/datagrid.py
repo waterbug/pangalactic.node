@@ -583,8 +583,8 @@ class GridTreeView(QTreeView):
         # if entity:
             # # FIXME:  what to use for parent index?
             # item = model.getItem(model.index(row_nbr, 0, QModelIndex()))
-            # if col_id in self.dm.schema:
-                # col_nbr = self.dm.schema.index(col_id)
+            # if col_id in self.model().dm.schema:
+                # col_nbr = self.model().dm.schema.index(col_id)
                 # item.setData(col_nbr, value)
         # for column in range(model.columnCount()):
             # self.resizeColumnToContents(column)
@@ -718,21 +718,23 @@ class GridTreeView(QTreeView):
         """
         orb.log.debug('* export_tsv()')
         dtstr = date2str(dtstamp())
-        dm_name = self.model().dm.oid
+        dm = self.model().dm
         fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Write to tsv File',
-                                    dm_name + '-' + dtstr + '.tsv')
+                                    dm.oid + '-' + dtstr + '.tsv')
         if fpath:
             orb.log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; UTF-8 (?)
             state['last_path'] = os.path.dirname(fpath)
             f = open(fpath, 'w')
-            table = self.main_table_proxy
-            header = '\t'.join(self.view[:])
+            header = '\t'.join(dm.schema)
             rows = [header]
-            for row in range(table.rowCount()):
-                rows.append('\t'.join([table.data(table.index(row, col))
-                                       for col in range(len(self.view))]))
+            orb.log.debug('  - rows to be written:')
+            for entity in dm:
+                row = '\t'.join([str(entity.get(col, ''))
+                                 for col in dm.schema])
+                orb.log.debug(f'    {row}')
+                rows.append(row)
             content = '\n'.join(rows)
             f.write(content)
             f.close()
