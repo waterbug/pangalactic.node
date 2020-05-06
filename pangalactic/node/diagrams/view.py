@@ -1,7 +1,7 @@
 """
 A diagram scene and view
 """
-import platform, random
+import random
 
 from PyQt5.QtGui     import QFont
 from PyQt5.QtWidgets import (QGraphicsLineItem, QGraphicsScene, QGraphicsView,
@@ -483,6 +483,7 @@ class DiagramScene(QGraphicsScene):
         # if Flows exist, create RoutedConnectors for them ...
         # subject might be a Project, so need getattr here ...
         flows = orb.search_exact(cname='Flow', flow_context=self.subject)
+        orphaned_flow_oids = []
         if flows:
             # orb.log.debug('  - Flow objects found: {}'.format(
                                     # str([f.id for f in flows])))
@@ -495,13 +496,8 @@ class DiagramScene(QGraphicsScene):
                 end_item = port_blocks.get(getattr(flow.end_port, 'oid', None))
                 if not (start_item and end_item):
                     # NOTE: this indicates db/diagram out of sync ... delete
-                    # flow from local db and let sync with repo handle it
-                    assembly = flow.flow_context
-                    orb.delete([flow])
-                    assembly.mod_datetime = dtstamp()
-                    assembly.modifier = orb.get(state.get('local_user_oid'))
-                    orb.save([assembly])
-                    dispatcher.send('modified object', obj=assembly)
+                    # this flow after finishing the diagram
+                    orphaned_flow_oids.append(flow.oid)
                     continue
                 # orb.log.debug('    + {}'.format(flow.id))
                 connector = RoutedConnector(start_item, end_item,
@@ -528,6 +524,17 @@ class DiagramScene(QGraphicsScene):
         orb._save_diagramz()
         # self.positions is used to test whether any block has been moved
         self.positions = self.get_block_positions()
+        # delete any orphaned flows that were discovered
+        for flow_oid in orphaned_flow_oids:
+            flow = orb.get(flow_oid)
+            if flow:
+                assembly = flow.flow_context
+                orb.delete([flow])
+                dispatcher.send('deleted object', oid=flow_oid)
+                assembly.mod_datetime = dtstamp()
+                assembly.modifier = orb.get(state.get('local_user_oid'))
+                orb.save([assembly])
+                dispatcher.send('modified object', obj=assembly)
 
 
 class DiagramView(QGraphicsView):
