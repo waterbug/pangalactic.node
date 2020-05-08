@@ -404,11 +404,6 @@ class Main(QtWidgets.QMainWindow):
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.subscribe_to_mbus_channels)
         rpc.addErrback(self.on_failure)
-        # NOTE: sync_parameter_definitions isn't needed (they are all refdata!)
-        # rpc.addCallback(self.sync_parameter_definitions)
-        # rpc.addErrback(self.on_failure)
-        # rpc.addCallback(self.on_sync_result)
-        # rpc.addErrback(self.on_failure)
         # sync_user_created_objs_to_repo() requires callback on_sync_result()
         rpc.addCallback(self.sync_user_created_objs_to_repo)
         rpc.addErrback(self.on_failure)
@@ -672,9 +667,6 @@ class Main(QtWidgets.QMainWindow):
         """
         Callback function to process the result of the following rpcs:
 
-            - `vger.sync_parameter_definitions` -- which is called by:
-                + self.sync_parameter_definitions()
-
             - `vger.sync_objects` -- which is called by:
                 on startup:
                 + self.sync_user_created_objs_to_repo()
@@ -743,7 +735,6 @@ class Main(QtWidgets.QMainWindow):
         sobjs_to_save = serialize(orb, orb.get(oids=to_update))
         if local_only:
             orb.log.debug('       objects unknown to server found ...')
-            # this will ignore objects in "trash", of course
             local_only_objs = orb.get(oids=local_only)
             created_objs = set()
             objs_to_delete = set()
@@ -839,7 +830,7 @@ class Main(QtWidgets.QMainWindow):
             objs_to_delete = set(orb.get(oids=local_only))
             for o in objs_to_delete:
                 if (hasattr(o, 'creator') and o.creator == self.local_user
-                    and o.oid not in list(trash.keys())):
+                    and o.oid not in list(trash)):
                     objs_to_delete.remove(o)
                 # NOTE: ProjectSystemUsages are not relevant to library sync
                 # elif (o.__class__.__name__ == 'ProjectSystemUsage' and
