@@ -52,6 +52,7 @@ from pangalactic.core.utils.meta       import (asciify,
                                                uncook_datetime)
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx
+from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
@@ -2658,6 +2659,18 @@ class Main(QtWidgets.QMainWindow):
         self.refresh_tree_views(selected_link_oid=selected_link_oid)
 
     def refresh_tree_views(self, rebuilding=False, selected_link_oid=None):
+        # first check for cycles in the current project systems
+        psus = orb.search_exact(cname='ProjectSystemUsage',
+                                project=self.project)
+        systems = [psu.system for psu in psus]
+        for system in systems:
+            cycles = check_for_cycles(system)
+            if cycles:
+                orb.log.info(f'  - {cycles}')
+                html = '<h3>Cycles Found</h3>'
+                html += '<p><b><font color="red">{cycles}</font></b></p>'
+                dlg = NotificationDialog(html, parent=self)
+                dlg.show()
         ######################################################################
         # TODO: possibly use get_bom() or get_assembly() when the current
         # project is set to get all sys tree items for the current project,
