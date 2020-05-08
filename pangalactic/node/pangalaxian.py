@@ -2668,7 +2668,7 @@ class Main(QtWidgets.QMainWindow):
             if cycles:
                 orb.log.info(f'  - {cycles}')
                 html = '<h3>Cycles Found</h3>'
-                html += '<p><b><font color="red">{cycles}</font></b></p>'
+                html += f'<p><b><font color="red">{cycles}</font></b></p>'
                 dlg = NotificationDialog(html, parent=self)
                 dlg.show()
                 return
