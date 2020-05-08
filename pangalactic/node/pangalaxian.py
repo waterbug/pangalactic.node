@@ -2671,6 +2671,7 @@ class Main(QtWidgets.QMainWindow):
                 html += '<p><b><font color="red">{cycles}</font></b></p>'
                 dlg = NotificationDialog(html, parent=self)
                 dlg.show()
+                return
         ######################################################################
         # TODO: possibly use get_bom() or get_assembly() when the current
         # project is set to get all sys tree items for the current project,
