@@ -2554,6 +2554,8 @@ class Main(QtWidgets.QMainWindow):
             # dashboard panel
             # ********************************************************
             self.refresh_tree_and_dashboard()
+            if not getattr(self, 'dashboard_panel', None):
+                self.rebuild_dashboard()
             self.top_dock_widget.setWidget(self.dashboard_panel)
         elif self.mode == 'component':
             # ********************************************************
