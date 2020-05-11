@@ -332,7 +332,7 @@ class ObjectBlock(Block):
             name = "TBD"
             version = ''
             self.style = Qt.DashLine
-            self.color = Qt.darkGreen
+            self.color = Qt.lightGray
         else:
             name = (getattr(obj, 'name', None) or
                     getattr(obj, 'id', 'unknown'))
