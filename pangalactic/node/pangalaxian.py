@@ -2635,7 +2635,8 @@ class Main(QtWidgets.QMainWindow):
             pgxn_panel_layout.setAlignment(self.pgxn_obj_panel,
                                          Qt.AlignLeft|Qt.AlignTop)
             if self.product:
-                self.pgxn_obj = PgxnObject(self.product, embedded=True)
+                self.pgxn_obj = PgxnObject(self.product, component=True,
+                                           embedded=True)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
                 pgxn_panel_layout.setAlignment(self.pgxn_obj,
                                              Qt.AlignLeft|Qt.AlignTop)

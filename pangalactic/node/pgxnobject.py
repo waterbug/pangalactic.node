@@ -706,6 +706,10 @@ class PgxnObject(QDialog):
         obj (Identifiable or subtype):  the object to be viewed or edited
         schema (dict):  the schema of the object to be viewed or edited
         edit_mode (bool):  if True, open in edit mode; otherwise, view mode
+        component (bool):  if True, embedded in component modeler window
+            (special behavior when deleting object, not used in other
+            embedded modes)
+        embedded (bool):  if True, PgxnObject is embedded in another widget
         enable_delete (bool):  flag indicating whether a "Delete" button
             should be displayed when in edit mode (deletes object)
         go_to_tab (int):  index of the tab to go to when rebuilding
@@ -717,11 +721,11 @@ class PgxnObject(QDialog):
         required (list of str):  list of fields that must not be null
         tabs (QTabWidget):  widget holding the interface's tabbed "pages"
     """
-    def __init__(self, obj, embedded=False, edit_mode=False,
-                 enable_delete=True, view=None, main_view=None, mask=None,
-                 required=None, panels=None, go_to_panel=None, new=False,
-                 test=False, modal_mode=False, view_only=False, parent=None,
-                 **kw):
+    def __init__(self, obj, component=False, embedded=False,
+                 edit_mode=False, enable_delete=True, view=None,
+                 main_view=None, mask=None, required=None, panels=None,
+                 go_to_panel=None, new=False, test=False, modal_mode=False,
+                 view_only=False, parent=None, **kw):
         """
         Initialize the dialog.
 
@@ -729,6 +733,9 @@ class PgxnObject(QDialog):
             obj (Identifiable or subtype):  the object to be viewed or edited
 
         Keyword Args:
+            component (bool):  if True, embedded in component modeler window
+                (special behavior for deleting object, not used in other
+                embedded modes)
             embedded (bool):  if True, PgxnObject is embedded in another widget
             edit_mode (bool):  if True, open in edit mode; otherwise, view mode
             enable_delete (bool):  flag indicating whether a "Delete" button
@@ -760,6 +767,7 @@ class PgxnObject(QDialog):
         super().__init__(parent=parent)
         self.obj          = obj
         self.new          = new
+        self.component    = component
         self.embedded     = embedded
         self.edit_mode    = edit_mode
         self.view_only    = view_only
@@ -1265,6 +1273,11 @@ class PgxnObject(QDialog):
             cname = self.obj.__class__.__name__
             # orb.delete will add serialized object to trash
             orb.delete([self.obj])
+            # if embedded in the component modeler, set the 'product' state
+            # (oid) to empty string so modeler window will reset to
+            # placeholders
+            if self.component:
+                state['product'] = ''
             # the 'deleted object' signal will notify the repository to delete
             # the object from the repository and pangalaxian will remove it
             # from the state['syced_oids'] list.

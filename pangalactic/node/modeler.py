@@ -445,6 +445,7 @@ class ModelWindow(QMainWindow):
             obj = orb.get(state.get('product'))
         if not obj:
             orb.log.debug('  no object selected.')
+            self.set_subject(None)
             return
         # else:
             # orb.log.debug('  object selected: {}.'.format(obj.id))
