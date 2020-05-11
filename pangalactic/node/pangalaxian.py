@@ -914,18 +914,13 @@ class Main(QtWidgets.QMainWindow):
                 obj_oid, obj_id = content
                 msg += obj_id
             elif subject == 'data new row':
-                # TODO:  when proj_id does not refer to current project, update
-                # the datamatrix in orb.data ...
-                proj_id, dm_oid, row_oid = content
-                dispatcher.send(signal="remote: data new row", dm_oid=dm_oid,
-                                row_oid=row_oid)
+                # TODO:  needs to be re-implemented with "Entity" paradigm --
+                # should be 'new entity'
+                pass
             elif subject == 'data item updated':
-                # TODO:  when proj_id does not refer to current project, update
-                # the datamatrix in orb.data ...
-                proj_id, dm_oid, row_oid, col_id, value = content
-                dispatcher.send(signal="remote: data item updated",
-                                dm_oid=dm_oid, row_oid=row_oid, col_id=col_id,
-                                value=value)
+                # TODO:  needs to be re-implemented with "Entity" paradigm --
+                # should be 'entity update'
+                pass
             elif subject == 'modified':
                 obj_oid, obj_id, obj_mod_datetime = content
                 obj = orb.get(obj_oid)
@@ -3940,9 +3935,6 @@ class Main(QtWidgets.QMainWindow):
         # state['system'] = state.get('project')
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
-        # NOTE:  orb.data_store deactivated for reimplementation -- currently
-        # it is just set to an empty dict
-        # orb.data_store.close()
         self.statusbar.showMessage('saving data elements and parameters ...')
         data_elements_path = os.path.join(orb.home, 'data_elements.json')
         parameters_path = os.path.join(orb.home, 'parameters.json')
@@ -3985,16 +3977,11 @@ class Main(QtWidgets.QMainWindow):
         sys.exit()
 
 def cleanup_and_save():
-    # save all cached DataMatrix instances
-    if orb.data:
-        dm_oids = list(orb.data.keys())
-        orb.log.debug('* data matrix objects found; saving ...')
-        for dm_oid in dm_oids:
-            dm = orb.data[dm_oid]
-            dm.save()
-            orb.log.debug('  - saved dm "{}"'.format(dm.oid))
     write_config(os.path.join(orb.home, 'config'))
     write_prefs(os.path.join(orb.home, 'prefs'))
+    # clear all synced oids and projects
+    state['synced_oids'] = []
+    state['synced_projects'] = []
     write_state(os.path.join(orb.home, 'state'))
     write_trash(os.path.join(orb.home, 'trash'))
 

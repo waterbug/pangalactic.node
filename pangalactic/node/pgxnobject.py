@@ -39,12 +39,13 @@ from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_parameter_definition_oid)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import validate_all
-from pangalactic.node.utils       import (clone, get_object_title,
-                                          extract_mime_data)
-from pangalactic.node.widgets     import get_widget, UnitsWidget
+from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.dialogs     import (ObjectSelectionDialog,
                                           ProgressDialog,
                                           ValidationDialog)
+from pangalactic.node.utils       import (clone, get_object_title,
+                                          extract_mime_data)
+from pangalactic.node.widgets     import get_widget, UnitsWidget
 
 
 DATATYPES = SELECTABLE_VALUES['range_datatype']
@@ -819,6 +820,8 @@ class PgxnObject(QDialog):
     def init_toolbar(self):
         # self.toolbar = self.addToolBar('Tools')
         self.toolbar = QToolBar('Tools')
+        class_label = SizedButton(self.cname, color='green')
+        self.toolbar.addWidget(class_label)
         if isinstance(self.obj, orb.classes['Product']):
             self.freeze_action = self.create_action('freeze',
                                     slot=self.freeze, icon='freeze_16',
@@ -868,11 +871,11 @@ class PgxnObject(QDialog):
                                     tip='Create new version by cloning',
                                     modes=['edit', 'view'])
                 self.toolbar.addAction(self.new_version_action)
-        self.clone_action = self.create_action('clone',
-                                slot=self.on_clone, icon='clone_16',
-                                tip='Clone this object',
-                                modes=['edit', 'view'])
-        self.toolbar.addAction(self.clone_action)
+            self.clone_action = self.create_action('clone',
+                                    slot=self.on_clone, icon='clone_16',
+                                    tip='Clone this object',
+                                    modes=['edit', 'view'])
+            self.toolbar.addAction(self.clone_action)
         # NOTE: viewer may be reactivated later ...
         # self.viewer_action = self.create_action('viewer',
                                 # slot=self.open_viewer, icon='view_16',
