@@ -326,14 +326,25 @@ def get_object_title(obj, new=False):
     title = '<h3>'
     cname_display = get_external_name(cname)
     if new:
-        title += '<font color="blue">New {}</font>'.format(cname_display)
+        title += f'<font color="blue">New {cname_display}</font>'
     else:
-        title += get_display_name(obj) or '[no name]'
+        # non-ManagedObjects don't have a significant obj.id ...
+        if isinstance(obj, orb.classes['ManagedObject']):
+            title += get_display_name(obj) or '[no name]'
+        else:
+            dname = get_display_name(obj)
+            if dname == 'Unidentified':
+                dname = obj.id
+            title += f' <font color="purple">[{dname}]</font>'
+            return title + '</h3>'
     pt = ''
-    if hasattr(obj, 'product_type'):
-        pt = getattr(obj.product_type, 'name', cname_display)
-    if pt:
-        title += ' <font color="purple">[{}]</font>'.format(pt)
+    if obj.id:
+        title += f' <font color="purple">[{obj.id}]</font>'
+    else:
+        if hasattr(obj, 'product_type'):
+            pt = obj.product_type.abbreviation or cname_display
+        if pt:
+            title += f' <font color="purple">[{pt}]</font>'
     return title + '</h3>'
 
 def get_icon_path(obj):

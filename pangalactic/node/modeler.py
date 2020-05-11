@@ -424,6 +424,10 @@ class ModelWindow(QMainWindow):
         """
         # orb.log.debug('* Modeler:  display_block_diagram()')
         obj = None
+        if state.get('mode') in ['data', 'db']:
+            # NOTE:  without this we will crash -- there is no model window in
+            # these modes!
+            return
         if state.get('mode') == 'system':
             # orb.log.debug('  mode is "system" ...')
             # in "system" mode, sync with tree selection
