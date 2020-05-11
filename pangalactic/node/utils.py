@@ -232,7 +232,9 @@ def create_template_from_product(product):
     if product.components:
         for acu in product.components:
             pth = acu.product_type_hint or acu.component.product_type
-            clone('Acu', id=acu.id, name=acu.name,
+            clone('Acu',
+                  id=get_acu_id(template_id, acu.reference_designator),
+                  name=get_acu_name(template_name, acu.reference_designator),
                   assembly=template, component=tbd,
                   reference_designator=acu.reference_designator,
                   product_type_hint=pth)
