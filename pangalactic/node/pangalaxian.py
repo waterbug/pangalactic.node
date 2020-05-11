@@ -2348,8 +2348,9 @@ class Main(QtWidgets.QMainWindow):
             # update state['product'] if needed, and regenerate diagram
             current_product = orb.get(state.get('product'))
             if current_product and current_product.oid == oid:
+                # -> the currently selected product was deleted ...
                 state['product'] = ''
-            dispatcher.send('refresh diagram')
+            self.set_product_modeler_interface()
         elif (self.mode == 'system' and
               cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                         'Port', 'Flow']):
