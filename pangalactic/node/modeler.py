@@ -239,7 +239,11 @@ class ModelWindow(QMainWindow):
                                       QSizePolicy.Preferred)
         self.setCentralWidget(new_placeholder)
         if getattr(self, 'placeholder', None):
-            self.placeholder.close()
+            try:
+                self.placeholder.close()
+            except:
+                # C++ object got deleted
+                pass
         self.placeholder = new_placeholder
 
     def display_external_window(self):
