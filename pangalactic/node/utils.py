@@ -23,7 +23,9 @@ from pangalactic.core.utils.meta  import (get_display_name, get_acu_id,
                                           get_port_id, get_port_name,
                                           to_media_name)
 from pangalactic.core.parametrics import (add_default_data_elements,
-                                          add_default_parameters, parameterz,
+                                          add_default_parameters,
+                                          data_elementz,
+                                          parameterz,
                                           refresh_componentz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
@@ -152,12 +154,15 @@ def clone(what, include_ports=True, include_components=True,
             newkw['owner'] = pgana
     new_obj = cls(**newkw)
     orb.db.add(new_obj)
+    # When cloning an existing object that has parameters or data elements,
+    # copy them to the clone
     if not new and parameterz.get(getattr(obj, 'oid', None)):
-        # When cloning an existing object that has parameters, copy its
-        # parameters to the clone
         new_parameters = deepcopy(parameterz[obj.oid])
         parameterz[newkw['oid']] = new_parameters
         recompute_needed = True
+    if not new and data_elementz.get(getattr(obj, 'oid', None)):
+        new_data = deepcopy(data_elementz[obj.oid])
+        data_elementz[newkw['oid']] = new_data
     # operations specific to Products ...
     if isinstance(new_obj, orb.classes['Product']):
         recompute_needed = True
@@ -227,7 +232,8 @@ def create_template_from_product(product):
         template_name = ' '.join([pt_name, 'Template'])
     orb.log.info('* creating template from product ...')
     template = clone('Template', id=template_id, name=template_name,
-                     product_type=tmpl_product_type, public=True)
+                     product_type=tmpl_product_type,
+                     derived_from=product, public=True)
     tbd = orb.get('pgefobjects:TBD')
     if product.components:
         for acu in product.components:
@@ -238,10 +244,13 @@ def create_template_from_product(product):
                   assembly=template, component=tbd,
                   reference_designator=acu.reference_designator,
                   product_type_hint=pth)
-    # TODO:  assign parameters to template ...
+    # Copy any parameters or data elements the product has to the template
     parms = parameterz.get(product.oid)
     if parms:
         parameterz[template.oid] = deepcopy(parms)
+    data = data_elementz.get(product.oid)
+    if data:
+        data_elementz[template.oid] = deepcopy(data)
     orb.log.info('  created Template instance with id "%s" ...' % (
                                                         template.id))
     return template
@@ -275,6 +284,7 @@ def create_product_from_template(template):
     product = clone('HardwareProduct', id=product_id,
                     name=product_name, description=product_desc,
                     product_type=template.product_type,
+                    derived_from=template,
                     public=True)
     new_comps = 0
     if template.components:
@@ -309,6 +319,13 @@ def create_product_from_template(template):
         orb.log.info('  and {} components.'.format(new_comps))
     else:
         orb.log.info('  and no components.')
+    # Copy any parameters or data elements the template has to the product
+    parms = parameterz.get(template.oid)
+    if parms:
+        parameterz[product.oid] = deepcopy(parms)
+    data = data_elementz.get(template.oid)
+    if data:
+        data_elementz[product.oid] = deepcopy(data)
     return product
 
 def get_object_title(obj, new=False):
