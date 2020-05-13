@@ -1070,8 +1070,9 @@ class PgxnObject(QDialog):
             # All subclasses of Modelable except the ones in PGXN_HIDE_PARMS
             # get a 'data' panel
             # First find the data elements to be displayed for this object ...
-            dataz = data_elementz.get(self.obj.oid, {})
-            deids = list(dataz)
+            de_dict = data_elementz.get(self.obj.oid, {})
+            all_deids = set(de_dict)
+            deids = list(all_deids.intersection(set(PGXN_DATA_VIEW)))
             orb.log.debug('  [pgxnobj] data elements: {}'.format(deids))
             if len(deids) > PARMS_NBR:
                 n_of_des = len(deids)
