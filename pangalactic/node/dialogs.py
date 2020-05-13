@@ -204,7 +204,7 @@ class ReqParmDialog(QDialog):
         self.req.description = ' '.join([str(self.req.req_subject),
                                          str(self.req.req_predicate),
                                          str(self.parm_field.get_value()),
-                                         str(self.req.req_units]))
+                                         str(self.req.req_units)])
         orb.save([self.req])
         dispatcher.send(signal='modified object', obj=self.req,
                         cname='Requirement')
