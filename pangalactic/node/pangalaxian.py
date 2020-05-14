@@ -2350,6 +2350,7 @@ class Main(QtWidgets.QMainWindow):
             if current_product and current_product.oid == oid:
                 # -> the currently selected product was deleted ...
                 state['product'] = ''
+            # this will set placeholders in place of PgxnObject and diagram
             self.set_product_modeler_interface()
         elif (self.mode == 'system' and
               cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',

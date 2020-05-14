@@ -724,8 +724,8 @@ class PgxnObject(QDialog):
     def __init__(self, obj, component=False, embedded=False,
                  edit_mode=False, enable_delete=True, view=None,
                  main_view=None, mask=None, required=None, panels=None,
-                 go_to_panel=None, new=False, test=False, modal_mode=False,
-                 view_only=False, parent=None, **kw):
+                 go_to_panel=None, new=False, test=False, title_text=None,
+                 modal_mode=False, view_only=False, parent=None, **kw):
         """
         Initialize the dialog.
 
@@ -790,6 +790,7 @@ class PgxnObject(QDialog):
         self.tabs         = QTabWidget()
         self.cname        = obj.__class__.__name__
         self.schema       = orb.schemas.get(self.cname)
+        self.title_text   = title_text
         # all_idvs is used in validating 'id' + 'version' uniqueness ...
         self.all_idvs = orb.get_idvs(cname=self.cname)
         obj_idv = (self.obj.id, getattr(obj, 'version', ''))
@@ -1031,8 +1032,9 @@ class PgxnObject(QDialog):
         """
         Build tabbed forms from the supplied object
         """
-        title_text = get_object_title(self.obj, new=self.new)
-        self.title.setText(title_text)
+        if not self.title_text:
+            self.title_text = get_object_title(self.obj, new=self.new)
+        self.title.setText(self.title_text)
         tab_names = ['main', 'info', 'narrative', 'admin']
         if self.panels:
             tab_names = [n for n in tab_names if n in self.panels]

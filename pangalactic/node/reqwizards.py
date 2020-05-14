@@ -274,19 +274,28 @@ class RequirementIDPage(QWizardPage):
         # Where the performance and functional differ
         main_view = []
         required = []
+        title_text = None
         if performance:
             main_view = ['id', 'name']
             required = ['name']
             mask = ['id']
+            if new:
+                title_text = '<h3><font color="blue">'
+                title_text += 'New Performance Requirement'
+                title_text += '</font></h3>'
         else:
             main_view = ['id', 'name', 'description', 'rationale', 'comment']
             required = ['name', 'description', 'rationale']
             mask = ['id']
+            if new:
+                title_text = '<h3><font color="blue">'
+                title_text += 'New Functional Requirement'
+                title_text += '</font></h3>'
         panels = ['main']
         self.pgxn_obj = PgxnObject(self.req, embedded=True, panels=panels,
                                    main_view=main_view, required=required,
                                    mask=mask, edit_mode=True, new=new,
-                                   enable_delete=False)
+                                   enable_delete=False, title_text=title_text)
         self.pgxn_obj.toolbar.hide()
         self.pgxn_obj.save_button.clicked.connect(self.completeChanged)
         self.pgxn_obj.save_button.clicked.connect(self.update_levels)
