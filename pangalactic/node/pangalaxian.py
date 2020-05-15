@@ -1068,7 +1068,9 @@ class Main(QtWidgets.QMainWindow):
         # NOTE:  using load_serialized_objects() here led to problematic
         # behavior due to unordered asynchronous operations
         # objs = self.load_serialized_objects(serialized_objects)
-        objs = deserialize(orb, serialized_objects)
+        # NOTE:  ignore None or "empty" objects
+        ser_objs = [so for so in serialized_objects if so]
+        objs = deserialize(orb, ser_objs)
         if objs:
             orb.log.debug('  deserialize() returned {} object(s):'.format(
                                                                     len(objs)))
