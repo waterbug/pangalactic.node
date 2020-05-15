@@ -42,7 +42,7 @@ from pangalactic.core.entity           import (save_dmz, save_entz,
                                                save_ent_histz, save_schemaz)
 from pangalactic.core.parametrics      import (node_count, save_data_elementz,
                                                save_parmz)
-from pangalactic.core.refdata          import ref_pd_oids
+from pangalactic.core.refdata          import ref_oids, ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
                                                deserialize, serialize)
 from pangalactic.core.test.utils       import (create_test_project,
@@ -599,11 +599,14 @@ class Main(QtWidgets.QMainWindow):
         # TODO:  Include all library classes (not just HardwareProduct)
         orb.log.debug('[pgxn] sync_library_objs()')
         self.statusbar.showMessage('syncing library objects ...')
-        # include the user's objects in `data`; it's faster and their oids will
+        # allow the user's objects in `data`; it's faster and their oids will
         # come back in the set of oids to be ignored
         data = orb.get_mod_dts(cname='HardwareProduct')
         data.update(orb.get_mod_dts(cname='Template'))
-        return self.mbus.session.call('vger.sync_library_objects', data)
+        # exclude reference data (ref_oids)
+        non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
+        return self.mbus.session.call('vger.sync_library_objects',
+                                      non_ref_data)
 
     def sync_current_project(self, data):
         """
@@ -634,8 +637,10 @@ class Main(QtWidgets.QMainWindow):
             local_objs = orb.get_objects_for_project(project)
             if local_objs:
                 for obj in local_objs:
-                    dts = str(obj.mod_datetime)
-                    oid_dts[obj.oid] = dts
+                    # exclude reference data (ref_oids)
+                    if obj.oid not in ref_oids:
+                        dts = str(obj.mod_datetime)
+                        oid_dts[obj.oid] = dts
         else:
             self.statusbar.showMessage('project synced.')
         return self.mbus.session.call('vger.sync_project', proj_oid, oid_dts)
@@ -3446,7 +3451,8 @@ class Main(QtWidgets.QMainWindow):
             # serialize all the objects relevant to the current project
             project_objects = orb.get_objects_for_project(self.project)
             serialized_objs = serialize(orb, project_objects,
-                                        include_components=True)
+                                        include_components=True,
+                                        include_refdata=True)
             f = open(fpath, 'w')
             f.write(yaml.safe_dump(serialized_objs, default_flow_style=False))
             f.close()
@@ -3472,7 +3478,7 @@ class Main(QtWidgets.QMainWindow):
             reqts = orb.get_reqts_for_project(self.project)
             reqts += self.project
             if reqts:
-                serialized_reqts = serialize(orb, reqts)
+                serialized_reqts = serialize(orb, reqts, include_refdata=True)
                 f = open(fpath, 'w')
                 f.write(yaml.safe_dump(serialized_reqts,
                                        default_flow_style=False))
@@ -3919,7 +3925,8 @@ class Main(QtWidgets.QMainWindow):
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
             state['last_path'] = os.path.dirname(fpath)
             # serialize all database objects
-            s_objs = serialize(orb, orb.get_all_subtypes('Identifiable'))
+            s_objs = serialize(orb, orb.get_all_subtypes('Identifiable'),
+                               include_refdata=True)
             f = open(fpath, 'w')
             f.write(yaml.safe_dump(s_objs, default_flow_style=False))
             f.close()
