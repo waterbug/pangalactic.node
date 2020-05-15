@@ -2205,7 +2205,7 @@ class Main(QtWidgets.QMainWindow):
             # "modified object", etc.), so no need to worry about
             # self.library_widget
             if (getattr(self, 'sys_tree', None)
-                and isinstance(obj, (orb.classes['Product'],
+                and isinstance(obj, (orb.classes['HardwareProduct'],
                                      orb.classes['Acu'],
                                      orb.classes['ProjectSystemUsage']))):
                 # update system tree and dashboard as necessary

@@ -202,7 +202,10 @@ def clone(what, include_ports=True, include_components=True,
                           create_datetime=NOW, mod_datetime=NOW)
                 refresh_componentz(new_obj)
         # the 'id' must be generated *after* the product_type is assigned
-        new_obj.id = orb.gen_product_id(new_obj)
+        if not isinstance(new_obj, orb.classes['Requirement']):
+            # Requirements are a special case -- their id is generated in the
+            # RequirementWizard and supplied in the 'id' kw arg
+            new_obj.id = orb.gen_product_id(new_obj)
     if recompute_needed:
         orb.recompute_parmz()
     return new_obj

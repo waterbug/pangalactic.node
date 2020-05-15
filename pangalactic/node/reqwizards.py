@@ -531,7 +531,10 @@ class ReqAllocPage(QWizardPage):
                 if self.req.allocated_to_system:
                     self.req.allocated_to_system = None
             allocated_item = link.reference_designator
-        self.sys_tree.clearSelection()
+        # the expandToDepth is needed to make it repaint to show the allocation
+        # node as yellow-highlighted
+        self.sys_tree.expandToDepth(1)
+        self.sys_tree.scrollTo(i)
         # TODO: get the selected name/product so it can be used in the shall
         # statement.
         allocation = 'The '
@@ -563,7 +566,6 @@ class ReqAllocPage(QWizardPage):
             msg += '[None]'
         msg += '</b></li></ul>'
         self.summary.setText(msg)
-        self.sys_tree.expandToDepth(1)
 
 
 class ReqSummaryPage(QWizardPage):

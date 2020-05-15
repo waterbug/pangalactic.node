@@ -36,7 +36,7 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, ureg
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
-                                          get_parameter_definition_oid)
+                                          get_data_element_definition_oid)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import validate_all
 from pangalactic.node.buttons     import SizedButton
@@ -1367,12 +1367,21 @@ class PgxnObject(QDialog):
         NOW = dtstamp()
         if caching_parameters:
             self.progress_dialog.setValue(1)
-        if cname == 'ParameterDefinition' and self.new:
+        # TODO:  we are not allowing custom ParameterDefinitions any more --
+        # adapt this code to handle custom DataElementDefinitions
+        if cname == 'DataElementDefinition' and self.new:
             new_id = str(self.editable_widgets['id'].get_value())
-            # create a new blank PD and destroy the temp one
+            if new_id in de_defz:
+                # pop up a dialog warning that the id already exists
+                txt = '"{}" is already in use'.format(new_id)
+                notice = QMessageBox(QMessageBox.Warning, 'Duplicate', txt,
+                                     QMessageBox.Ok, self)
+                notice.show()
+                return
+            # create a new blank DED and destroy the temp one
             temp_obj = self.obj
-            self.obj = clone('ParameterDefinition', id=new_id,
-                             oid=get_parameter_definition_oid(new_id))
+            self.obj = clone('DataElementDefinition', id=new_id,
+                             oid=get_data_element_definition_oid(new_id))
             orb.db.delete(temp_obj)
             for name, val in fields_dict.items():
                 setattr(self.obj, name, val)

@@ -2,6 +2,7 @@
 Shapes and connectors for diagrams
 """
 from collections import OrderedDict
+from copy import deepcopy
 # import functools
 from textwrap import wrap
 
@@ -16,7 +17,7 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.parametrics import get_pval, parameterz
+from pangalactic.core.parametrics import data_elementz, get_dval, parameterz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
@@ -925,8 +926,11 @@ class SubjectBlock(Block):
                 orb.db.commit()
                 # if the port_template has parameters, add them to the new port
                 if parameterz.get(port_template.oid):
-                    new_parameters = parameterz[port_template.oid].copy()
+                    new_parameters = deepcopy(parameterz[port_template.oid])
                     parameterz[new_port.oid] = new_parameters
+                if data_elementz.get(port_template.oid):
+                    new_data_els = deepcopy(data_elementz[port_template.oid])
+                    data_elementz[new_port.oid] = new_data_els
                 dispatcher.send('new object', obj=new_port)
                 self.obj.mod_datetime = dtstamp()
                 self.obj.modifier = orb.get(state.get('local_user_oid'))
@@ -1070,13 +1074,16 @@ class PortBlock(QGraphicsItem):
         port_type_id = getattr(self.port.type_of_port, 'id')
         # if port type is not found, set white as port color
         painter.setBrush(PORT_TYPE_COLORS.get(port_type_id, Qt.white))
-        if (not get_pval(self.port.oid, 'input') and
-            not get_pval(self.port.oid, 'output')):
+        if not (get_dval(self.port.oid, 'directionality') in ['input',
+                                                              'output']):
             # not input or output port -- bidirectional: draw a rectangle
             painter.drawRect(self.rect)
         else:
-            if ((get_pval(self.port.oid, 'input') and self.right_port) or
-                (get_pval(self.port.oid, 'output') and self.left_port)):
+            if (((get_dval(self.port.oid, 'directionality') == 'input')
+                  and self.right_port) or
+                ((get_dval(self.port.oid, 'directionality') == 'output')
+                  and not self.right_port)
+                  ):
                 # left-pointing triangle
                 p1 = self.rect.topRight()
                 p2 = self.rect.bottomRight()
