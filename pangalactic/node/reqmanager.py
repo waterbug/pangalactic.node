@@ -101,18 +101,8 @@ class RequirementManager(QDialog):
             wizard = ReqWizard(parent=self, req=obj, performance=is_perf)
             if wizard.exec_() == QDialog.Accepted:
                 orb.log.info('* req wizard completed.')
-                if getattr(wizard, 'pgxn_obj', None):
-                    wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                    wizard.pgxn_obj.parent = None
-                    wizard.pgxn_obj.close()
-                    wizard.pgxn_obj = None
             else:
                 orb.log.info('* req wizard cancelled...')
-                if getattr(wizard, 'pgxn_obj', None):
-                    wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
-                    wizard.pgxn_obj.parent = None
-                    wizard.pgxn_obj.close()
-                    wizard.pgxn_obj = None
 
     def on_edit_req_parm_signal(self, req=None, parm=None):
         orb.log.info('* RequirementManager: on_edit_req_parm_signal()')
