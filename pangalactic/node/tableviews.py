@@ -2,6 +2,10 @@
 Widgets based on QTableView
 """
 import os
+
+# ruamel_yaml
+import ruamel_yaml as yaml
+
 # PyQt
 from PyQt5.QtWidgets import (QAction, QDialog, QDialogButtonBox, QFileDialog,
                              QSizePolicy, QTableView, QVBoxLayout)
@@ -13,14 +17,14 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
+from pangalactic.core.serializers import serialize
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.meta  import get_external_name_plural
-from pangalactic.node.tablemodels import (DMTableModel,
-                                          ObjectTableModel,
+from pangalactic.node.tablemodels import (ObjectTableModel,
                                           CompareTableModel,
                                           SpecialSortModel)
-from pangalactic.node.dialogs     import SelectColsDialog
+from pangalactic.node.dialogs     import NotificationDialog, SelectColsDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 
 
@@ -105,9 +109,13 @@ class ObjectTableView(QTableView):
         select_columns_action = QAction('select columns', column_header)
         select_columns_action.triggered.connect(self.select_columns)
         column_header.addAction(select_columns_action)
-        export_tsv_action = QAction('export table to tsv file', column_header)
+        export_tsv_action = QAction('write table to tsv file', column_header)
         export_tsv_action.triggered.connect(self.export_tsv)
         column_header.addAction(export_tsv_action)
+        export_yaml_action = QAction('export objects to yaml file',
+                                     column_header)
+        export_yaml_action.triggered.connect(self.export_objs_to_yaml)
+        column_header.addAction(export_yaml_action)
         column_header.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def main_table_row_double_clicked(self, clicked_index):
@@ -206,11 +214,39 @@ class ObjectTableView(QTableView):
             content = '\n'.join(rows)
             f.write(content)
             f.close()
-            # TODO:  add a "success" notification
-            # txt = '... table exported to file: {}'.format(fpath)
+            html = '<h3>Success!</h3>'
+            msg = 'Table contents exported to file:'
+            html += '<p><b><font color="green">{}</font></b><br>'.format(msg)
+            html += '<b><font color="blue">{}</font></b></p>'.format(fpath)
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
         else:
             orb.log.debug('  ... export to tsv cancelled.')
             return
+
+    def export_objs_to_yaml(self):
+        """
+        Serialize the table objects to a yaml file.
+        """
+        dtstr = date2str(dtstamp())
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Export to yaml File',
+                                    self.cname + '-objs-' + dtstr + '.yaml')
+        if fpath:
+            orb.log.debug('  - file selected: "%s"' % fpath)
+            fpath = str(fpath)    # QFileDialog fpath is unicode; UTF-8 (?)
+            state['last_path'] = os.path.dirname(fpath)
+            f = open(fpath, 'w')
+            sobjs = serialize(orb, self.objs, include_refdata=True)
+            content = yaml.safe_dump(sobjs)
+            f.write(content)
+            f.close()
+            html = '<h3>Success!</h3>'
+            msg = 'Objects exported to file:'
+            html += '<p><b><font color="green">{}</font></b><br>'.format(msg)
+            html += '<b><font color="blue">{}</font></b></p>'.format(fpath)
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
 
 
 class CompareWidget(QDialog):
