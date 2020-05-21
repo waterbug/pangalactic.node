@@ -341,6 +341,7 @@ class Main(QtWidgets.QMainWindow):
                     self.mbus.runner.stop()
                 orb.log.info('  message bus session disconnected.')
                 self.sync_project_action.setEnabled(False)
+                self.full_resync_action.setEnabled(False)
                 self.net_status.setPixmap(self.offline_icon)
                 self.net_status.setToolTip('offline')
                 self.mbus = None
@@ -364,6 +365,7 @@ class Main(QtWidgets.QMainWindow):
         self.net_status.setPixmap(self.online_icon)
         self.net_status.setToolTip('connected')
         self.sync_project_action.setEnabled(True)
+        self.full_resync_action.setEnabled(True)
         if not state.get('synced'):
             # if we haven't been synced in this session
             self.statusbar.showMessage('connected to message bus, syncing ...')
@@ -1434,7 +1436,11 @@ class Main(QtWidgets.QMainWindow):
         self.sync_project_action = self.create_action(
                                     "Re-Sync Current Project",
                                     slot=self.resync_current_project,
-                                    modes=['system'])
+                                    modes=['system', 'component'])
+        self.full_resync_action = self.create_action(
+                                    "Force Full Re-Sync",
+                                    slot=self.full_resync,
+                                    modes=['system', 'component'])
         self.refresh_tree_action = self.create_action(
                                     "Refresh System Tree and Dashboard",
                                     slot=self.refresh_tree_and_dashboard,
@@ -1811,13 +1817,14 @@ class Main(QtWidgets.QMainWindow):
         system_tools_icon_file = 'tools' + state['icon_type']
         system_tools_icon_path = os.path.join(icon_dir,
                                               system_tools_icon_file)
-        system_tools_actions = [self.sync_project_action,
-                                self.refresh_tree_action,
-                                self.reqts_manager_action,
+        system_tools_actions = [self.reqts_manager_action,
                                 # self.conops_modeler_action,
                                 self.product_lib_action,
                                 self.port_template_lib_action,
-                                self.parameter_lib_action]
+                                self.parameter_lib_action,
+                                self.refresh_tree_action,
+                                self.sync_project_action,
+                                self.full_resync_action]
         if not platform.platform().startswith('Darwin'):
             system_tools_actions.append(self.view_cad_action)
         if not sys.platform == 'win32':
@@ -1826,6 +1833,7 @@ class Main(QtWidgets.QMainWindow):
         system_tools_actions.append(self.edit_prefs_action)
         # disable sync project action until we are online
         self.sync_project_action.setEnabled(False)
+        self.full_resync_action.setEnabled(False)
         system_tools_button = MenuButton(QtGui.QIcon(system_tools_icon_path),
                                    tooltip='Tools',
                                    actions=system_tools_actions, parent=self)
@@ -2392,7 +2400,15 @@ class Main(QtWidgets.QMainWindow):
         """
         Resync current project with repository.
         """
+        orb.log.debug('* resync_current_project()')
         self.on_set_current_project_signal(resync=True)
+
+    def full_resync(self):
+        """
+        Force a full resync of everything.
+        """
+        orb.log.debug('* user-requested full resync ...')
+        self.sync_with_services()
 
     def on_set_current_project_signal(self, resync=False):
         """
