@@ -138,6 +138,7 @@ class Main(QtWidgets.QMainWindow):
         ###################################################
         self.splash_msg = ''
         self.add_splash_msg('Starting ...')
+        self.channels = []
         self.reactor = reactor
         self.use_tls = use_tls
         self.app_version = app_version
@@ -145,6 +146,8 @@ class Main(QtWidgets.QMainWindow):
         self.dashboard_rebuilt = False
         self.progress_value = 0
         self.proc_pool = pool
+        # self.synced is set by dtstamp() when sync_with_services() is called
+        self.synced = None
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
@@ -345,9 +348,9 @@ class Main(QtWidgets.QMainWindow):
                 self.net_status.setPixmap(self.offline_icon)
                 self.net_status.setToolTip('offline')
                 self.mbus = None
+                self.synced = None
                 state['connected'] = False
                 state['done_with_progress'] = False
-                state['synced'] = ''
                 state['synced_projects'] = []
                 state['synced_oids'] = []
             else:
@@ -367,22 +370,27 @@ class Main(QtWidgets.QMainWindow):
         self.net_status.setToolTip('connected')
         self.sync_project_action.setEnabled(True)
         self.full_resync_action.setEnabled(True)
-        if not state.get('synced'):
+        if not getattr(self, 'synced', None):
             # if we haven't been synced in this session
             self.statusbar.showMessage('connected to message bus, syncing ...')
-            orb.log.info('  connected to message bus, syncing ...')
+            orb.log.info('  connected to message bus, not synced, syncing ...')
             self.sync_with_services()
-        elif dtstamp() - state['synced'] > timedelta(minutes=10):
-            # we haven't been synced in last 10 minutes, do a sync
-            self.statusbar.showMessage('auto-reconnect > 10 mins, re-sync')
-            orb.log.info('  auto-reconnect > 10 mins, re-syncing ...')
+        elif dtstamp() - self.synced > timedelta(minutes=5):
+            # it's been more than 5 minutes since we synced, do a sync
+            self.statusbar.showMessage('reconnect > 5 mins, re-syncing.')
+            orb.log.info('  connected > 5 mins since last sync, re-syncing.')
             self.sync_with_services()
         else:
-            self.statusbar.showMessage('auto-reconnect < 10 mins, no sync')
-            orb.log.info('  auto-reconnect < 10 mins, no sync.')
+            # it's been less than 5 minutes since we synced -> NO sync
+            self.statusbar.showMessage('reconnect < 5 mins, no sync')
+            orb.log.info('  reconnect < 5 mins since last sync, no re-sync')
+            orb.log.info('  but re-subscribing to channels:')
+            for channel in self.channels:
+                orb.log.info('  + {}'.format(channel))
+            self.subscribe_to_mbus_channels()
 
     def sync_with_services(self):
-        state['synced'] = dtstamp()
+        self.synced = dtstamp()
         self.role_label.setText('syncing data ...')
         # orb.log.debug('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
@@ -443,7 +451,6 @@ class Main(QtWidgets.QMainWindow):
         # orb.log.debug(' - data:  {}'.format(str(data)))
         # data should be a list with 5 elements:
         szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
-        channels = []
         if szd_user:
             # deserialize local user's Person object
             deserialize(orb, szd_user)
@@ -496,18 +503,19 @@ class Main(QtWidgets.QMainWindow):
         ras = orb.get_by_type('RoleAssignment')
         org_ids = [getattr(ra.role_assignment_context, 'id', '')
                    for ra in ras]
-        channels = ['vger.channel.' + org_id
+        self.channels = ['vger.channel.' + org_id
                     for org_id in org_ids if org_id and org_id != 'global']
-        channels = list(set(channels))
+        # uniquify
+        self.channels = list(set(self.channels))
         admins = [ra for ra in ras
                   if ra.assigned_role.oid == 'pgefobjects:Role.Administrator']
         if admins:
             # if we have *any* Administrator role assignments, subscribe to the
             # admin channel, so we will be notified when new Persons are added
             # to the repository
-            channels.append('vger.channel.admin')
+            self.channels.append('vger.channel.admin')
         orb.log.info('    channels we will subscribe to: {}'.format(
-                                                       str(channels)))
+                                                       str(self.channels)))
         if self.project:
             proj_ras = orb.search_exact(cname='RoleAssignment',
                                         assigned_to=self.local_user,
@@ -522,18 +530,20 @@ class Main(QtWidgets.QMainWindow):
             self.role_label.setText(txt)
         else:
             self.role_label.setText('online [no project selected]')
-        channels.append('vger.channel.public')
+        self.channels.append('vger.channel.public')
         dispatcher.send('sync progress', txt='user roles synced ...')
-        return channels
+        return self.channels
 
-    def subscribe_to_mbus_channels(self, channels):
-        # TODO: subscribe to channels for all our projects (as determined from
-        # our role assignments)
-        channels = channels or ['vger.channel.public']
+    def subscribe_to_mbus_channels(self, data):
+        # NOTE: "data" is now ignored -- previously, it was "channels" and was
+        # passed in from on_get_user_roles_result(), but now channels are set
+        # as self.channels (mainly for use in re-subscribing when/if connection
+        # is lost ...)
+        self.channels = self.channels or ['vger.channel.public']
         orb.log.debug('* attempting to subscribe to channels:  %s' % str(
-                                                                    channels))
+                                                                self.channels))
         subs = []
-        for channel in channels:
+        for channel in self.channels:
             sub = self.mbus.session.subscribe(self.on_pubsub_msg, channel)
             sub.addCallback(self.on_pubsub_success)
             sub.addErrback(self.on_pubsub_failure)
@@ -4018,7 +4028,6 @@ def cleanup_and_save():
     write_config(os.path.join(orb.home, 'config'))
     write_prefs(os.path.join(orb.home, 'prefs'))
     # clear synced, synced_oids, and synced_projects
-    state['synced'] = ''
     state['synced_oids'] = []
     state['synced_projects'] = []
     write_state(os.path.join(orb.home, 'state'))
