@@ -251,7 +251,6 @@ class Main(QtWidgets.QMainWindow):
             self.data_mode_action.trigger()
         state['done_with_progress'] = False
         state['connected'] = False
-        state['synced'] = None
 
     def on_log_info_msg(self, msg=''):
         orb.log.info(msg)
@@ -347,7 +346,6 @@ class Main(QtWidgets.QMainWindow):
                 self.mbus = None
                 state['connected'] = False
                 state['done_with_progress'] = False
-                state['synced'] = None
                 state['synced_projects'] = []
                 state['synced_oids'] = []
             else:
@@ -4002,7 +4000,8 @@ class Main(QtWidgets.QMainWindow):
 def cleanup_and_save():
     write_config(os.path.join(orb.home, 'config'))
     write_prefs(os.path.join(orb.home, 'prefs'))
-    # clear all synced oids and projects
+    # clear synced, synced_oids, and synced_projects
+    state['synced'] = ''
     state['synced_oids'] = []
     state['synced_projects'] = []
     write_state(os.path.join(orb.home, 'state'))
