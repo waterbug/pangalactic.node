@@ -447,6 +447,7 @@ class DMTreeModel(QAbstractItemModel):
     def populate_mel_dm(self):
         # special case for MEL -- create Entity instances using the oids in
         # the system assembly tree
+        orb.log.debug('* populate_mel_dm()')
         if self.project.systems:
             for psu in self.project.systems:
                 if psu.system and psu.system.oid != 'pgefobjects:TBD':
@@ -463,6 +464,9 @@ class DMTreeModel(QAbstractItemModel):
                         self.populate_mel_dm_subsystems(acu.component, 2)
 
     def populate_mel_dm_subsystems(self, subsystem, level):
+        name = getattr(subsystem, 'name', 'unknown') or 'none'
+        lev = str(level)
+        orb.log.debug(f'* populate_mel_dm_subsystems({name}, {lev})')
         if subsystem.oid != 'pgefobjects:TBD':
             set_dval(subsystem.oid, 'system_name', subsystem.name)
             set_dval(subsystem.oid, 'assembly_level', level)

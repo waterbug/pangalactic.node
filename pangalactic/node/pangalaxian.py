@@ -6,6 +6,7 @@ Pangalaxian (the PanGalactic GUI client) main window
 import argparse, atexit, multiprocessing, os, platform, shutil, six, sys
 import time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
+from datetime import timedelta
 
 # binaryornot
 from binaryornot.check import is_binary
@@ -250,7 +251,7 @@ class Main(QtWidgets.QMainWindow):
             self.data_mode_action.trigger()
         state['done_with_progress'] = False
         state['connected'] = False
-        state['synced'] = False
+        state['synced'] = None
 
     def on_log_info_msg(self, msg=''):
         orb.log.info(msg)
@@ -282,7 +283,7 @@ class Main(QtWidgets.QMainWindow):
 
     def set_bus_state(self):
         """
-        Connect to the message bus (crossbar server).
+        Connect to or disconnect from the message bus (crossbar server).
         """
         orb.log.debug('* set_bus_state() ...')
         # TODO:  add a remote url configuration item
@@ -346,7 +347,7 @@ class Main(QtWidgets.QMainWindow):
                 self.mbus = None
                 state['connected'] = False
                 state['done_with_progress'] = False
-                state['synced'] = False
+                state['synced'] = None
                 state['synced_projects'] = []
                 state['synced_oids'] = []
             else:
@@ -357,7 +358,6 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('* on_mbus_joined:  message bus session joined.')
         # first make sure state indicates that nothing is yet synced ...
         state['done_with_progress'] = False
-        state['synced'] = False
         state['synced_projects'] = []
         state['synced_oids'] = []
         state['connected'] = True
@@ -367,13 +367,21 @@ class Main(QtWidgets.QMainWindow):
         self.net_status.setToolTip('connected')
         self.sync_project_action.setEnabled(True)
         if not state.get('synced'):
+            # if we haven't been synced in this session
             self.statusbar.showMessage('connected to message bus, syncing ...')
+            orb.log.info('  connected to message bus, syncing ...')
+            self.sync_with_services()
+        elif dtstamp() - state['synced'] > timedelta(minutes=10):
+            # we haven't been synced in last 10 minutes, do a sync
+            self.statusbar.showMessage('auto-reconnect > 10 mins, re-sync')
+            orb.log.info('  auto-reconnect > 10 mins, re-syncing ...')
             self.sync_with_services()
         else:
-            self.statusbar.showMessage('auto-reconnected, not syncing.')
+            self.statusbar.showMessage('auto-reconnect < 10 mins, no sync')
+            orb.log.info('  auto-reconnect < 10 mins, no sync.')
 
     def sync_with_services(self):
-        state['synced'] = True
+        state['synced'] = dtstamp()
         self.role_label.setText('syncing data ...')
         # orb.log.debug('* calling rpc "vger.get_user_roles"')
         userid = state['userid']
@@ -829,6 +837,9 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.debug('[pgxn] on_sync_library_result()')
         orb.log.debug('       data: {}'.format(str(data)))
+        if data is None:
+            orb.log.debug('       no data received.')
+            return 'success'  # return value will be ignored
         newer, local_only = data
         # then collect any local objects that need to be saved to the repo ...
         if local_only:
