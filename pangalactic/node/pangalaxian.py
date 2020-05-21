@@ -347,6 +347,7 @@ class Main(QtWidgets.QMainWindow):
                 self.mbus = None
                 state['connected'] = False
                 state['done_with_progress'] = False
+                state['synced'] = ''
                 state['synced_projects'] = []
                 state['synced_oids'] = []
             else:
