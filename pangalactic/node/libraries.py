@@ -337,7 +337,7 @@ class LibraryListWidget(QWidget):
         """
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        hbox = QHBoxLayout(self)
+        hbox = QHBoxLayout()
         # layout.setSizeConstraint(layout.SetMinimumSize)
         title = title or 'Libraries'
         title = QLabel(title)
