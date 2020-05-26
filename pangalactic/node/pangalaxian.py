@@ -3907,8 +3907,8 @@ class Main(QtWidgets.QMainWindow):
     def set_current_project(self):
         orb.log.debug('* set_current_project()')
         # this is a good time to save data elements and parameters ...
-        save_data_elementz(os.path.join(orb.home, 'data_elements.json'))
-        save_parmz(os.path.join(orb.home, 'parameters.json'))
+        save_data_elementz(orb.home)
+        save_parmz(orb.home)
         dlg = ObjectSelectionDialog(self.projects, parent=self)
         dlg.make_popup(self.project_selection)
         # dlg.exec_() -> modal dialog
@@ -3984,18 +3984,12 @@ class Main(QtWidgets.QMainWindow):
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
         self.statusbar.showMessage('saving data elements and parameters ...')
-        data_elements_path = os.path.join(orb.home, 'data_elements.json')
-        parameters_path = os.path.join(orb.home, 'parameters.json')
-        ents_path = os.path.join(orb.home, 'ents.json')
-        ent_hists_path = os.path.join(orb.home, 'ent_hists.json')
-        dms_path = os.path.join(orb.home, 'dms.json')
-        schemas_path = os.path.join(orb.home, 'schemas.json')
-        save_data_elementz(data_elements_path)
-        save_parmz(parameters_path)
-        save_entz(ents_path)
-        save_ent_histz(ent_hists_path)
-        save_dmz(dms_path)
-        save_schemaz(schemas_path)
+        save_data_elementz(orb.home)
+        save_parmz(orb.home)
+        save_entz(orb.home)
+        save_ent_histz(orb.home)
+        save_dmz(orb.home)
+        save_schemaz(orb.home)
         if orb.db.dirty:
             orb.db.commit()
         if state.get('connected'):
