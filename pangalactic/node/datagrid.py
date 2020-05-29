@@ -252,7 +252,7 @@ class DMTreeModel(QAbstractItemModel):
         if name == 'MEL':
             self.dm.clear()
             self.dm.level_map = {}
-            self.populate_mel_dm()
+            self.dm.refresh_mel_data(project)
 
         # TODO: look up col label/name in the 'de_defz' cache ...
         #       the MEL-specific stuff below is for prototyping ...
@@ -444,41 +444,6 @@ class DMTreeModel(QAbstractItemModel):
             for j, col_id in enumerate(self.dm.schema):
                 item.setData(j, entity.get(col_id, ''))
 
-    def populate_mel_dm(self):
-        # special case for MEL -- create Entity instances using the oids in
-        # the system assembly tree
-        orb.log.debug('* populate_mel_dm()')
-        if self.project.systems:
-            for psu in self.project.systems:
-                if psu.system and psu.system.oid != 'pgefobjects:TBD':
-                    set_dval(psu.system.oid, 'system_name', psu.system.name)
-                    set_dval(psu.system.oid, 'assembly_level', 1)
-                    self.dm.append(Entity(oid=psu.system.oid,
-                                          owner=psu.system.owner.oid,
-                                          creator=psu.system.creator.oid,
-                                          create_datetime=str(psu.system.create_datetime),
-                                          modifier=psu.system.modifier.oid,
-                                          mod_datetime=str(psu.system.mod_datetime)))
-                    self.dm.level_map[psu.system.oid] = 1
-                    for acu in psu.system.components:
-                        self.populate_mel_dm_subsystems(acu.component, 2)
-
-    def populate_mel_dm_subsystems(self, subsystem, level):
-        name = getattr(subsystem, 'name', 'unknown') or 'none'
-        lev = str(level)
-        orb.log.debug(f'* populate_mel_dm_subsystems({name}, {lev})')
-        if subsystem.oid != 'pgefobjects:TBD':
-            set_dval(subsystem.oid, 'system_name', subsystem.name)
-            set_dval(subsystem.oid, 'assembly_level', level)
-            self.dm.append(Entity(oid=subsystem.oid,
-                                  owner=subsystem.owner.oid,
-                                  creator=subsystem.creator.oid,
-                                  create_datetime=str(subsystem.create_datetime),
-                                  modifier=subsystem.modifier.oid,
-                                  mod_datetime=str(subsystem.mod_datetime)))
-            self.dm.level_map[subsystem.oid] = level
-            for acu in subsystem.components:
-                self.populate_mel_dm_subsystems(acu.component, level + 1)
 
 class GridTreeView(QTreeView):
     """
