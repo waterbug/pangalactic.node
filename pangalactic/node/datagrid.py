@@ -16,7 +16,8 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 # pangalactic
 from pangalactic.core             import prefs, state
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.entity      import DataMatrix, Entity, dmz
+from pangalactic.core.entity      import (DataMatrix, Entity, dmz, PartsList,
+                                          plz)
 from pangalactic.core.parametrics import de_defz, set_dval
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.dialogs     import SelectColsDialog
@@ -231,28 +232,28 @@ class DMTreeModel(QAbstractItemModel):
         super().__init__(parent)
         self.cell_to_index = {}
         self.index_to_cell = {}
+        # for now, we focus on PartsList (a subclass of DataMatrix)
         self.dm = None
         self.project = project
         if isinstance(project, orb.classes['Project']) and name:
-            # check for a cached DataMatrix instance ...
+            # check for a cached PartsList instance ...
             dm_oid = project.id + '-' + name
-            orb.log.debug('  looking for DataMatrix "{}" ...'.format(dm_oid))
-            orb.log.debug('  dmz cache is: {}'.format(str(dmz)))
-            self.dm = dmz.get(dm_oid)
+            orb.log.debug('  looking for PartsList "{}" ...'.format(dm_oid))
+            orb.log.debug('  plz cache is: {}'.format(str(plz)))
+            self.dm = plz.get(dm_oid)
         if self.dm:
-            orb.log.debug('  DataMatrix found: "{}"'.format(self.dm.oid))
+            orb.log.debug('  PartsList found: "{}"'.format(self.dm.oid))
             orb.log.debug('  {}'.format(str(self.dm)))
         else:
-            orb.log.debug('  DataMatrix not found in cache.')
-            # if no datamatrix found in the orb's cache, pass the args to
-            # DataMatrix, which will check for a stored one or create a new
+            orb.log.debug('  PartsList not found in cache.')
+            # if no parts list found in the orb's cache, pass the args to
+            # PartsList, which will check for a stored one or create a new
             # one based on the input:
             self.project = project or orb.get('pgefobjects:SANDBOX')
-            self.dm = DataMatrix(project_id=project.id, name=name)
-        if name == 'MEL':
-            self.dm.clear()
-            self.dm.level_map = {}
-            self.dm.refresh_mel_data(project)
+            self.dm = PartsList(project_id=project.id, name=name)
+        self.dm.clear()
+        # self.dm.refresh_mel_data(project)
+        self.dm.refresh_mel_pli_data(project)
 
         # TODO: look up col label/name in the 'de_defz' cache ...
         #       the MEL-specific stuff below is for prototyping ...
@@ -432,7 +433,6 @@ class DMTreeModel(QAbstractItemModel):
         else:
             orb.log.debug('  - loading {} entities ...'.format(n))
         for row in range(n):
-            # TODO:  check the level_map to get level
             entity = self.dm[row]
             orb.log.debug('    row {} (oid "{}")'.format(row, entity.oid))
             self.insertRow(row, parent=QModelIndex())
