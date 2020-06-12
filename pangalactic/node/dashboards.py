@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Dashboards:  a dashboard in Pangalaxian is a dockable widget in the top section
-of the main window, in which widgets can be added to display the current values
+of the main window, in which columns can be added to display the current values
 and realtime updates of specified parameters of a system that is being modeled.
 """
 from louie import dispatcher
@@ -10,11 +10,14 @@ from PyQt5.QtCore    import Qt, QModelIndex, QItemSelectionModel
 from PyQt5.QtWidgets import QAction, QDialog, QMessageBox, QTreeView
 
 # pangalactic
-from pangalactic.core         import prefs, state
-from pangalactic.core.uberorb import orb
-from pangalactic.node.utils   import extract_mime_data
-from pangalactic.node.dialogs import (DeleteColsDialog, NewDashboardDialog,
-                                      UnitPrefsDialog)
+from pangalactic.core             import prefs, state
+from pangalactic.core.parametrics import de_defz, parm_defz
+from pangalactic.core.uberorb     import orb
+from pangalactic.node.utils       import extract_mime_data
+from pangalactic.node.dialogs     import (CustomizeColsDialog,
+                                          DeleteColsDialog,
+                                          NewDashboardDialog,
+                                          UnitPrefsDialog)
 
 
 class SystemDashboard(QTreeView):
@@ -77,6 +80,9 @@ class SystemDashboard(QTreeView):
         no_row_colors_action = QAction('clear row colors', dash_header)
         no_row_colors_action.triggered.connect(self.set_no_colors)
         dash_header.addAction(no_row_colors_action)
+        customize_columns_action = QAction('customize columns', dash_header)
+        customize_columns_action.triggered.connect(self.customize_columns)
+        dash_header.addAction(customize_columns_action)
         delete_columns_action = QAction('delete columns', dash_header)
         delete_columns_action.triggered.connect(self.delete_columns)
         dash_header.addAction(delete_columns_action)
@@ -225,8 +231,38 @@ class SystemDashboard(QTreeView):
             if cols_to_delete:
                 model = self.model().sourceModel()
                 model.delete_columns(cols=cols_to_delete)
-                for column in range(model.columnCount()):
-                    self.resizeColumnToContents(column)
+                indexes = [pids.index(pid) for pid in cols_to_delete]
+                if 0 in indexes:
+                    dispatcher.send(signal='refresh tree and dash')
+                else:
+                    for column in range(model.columnCount()):
+                        self.resizeColumnToContents(column)
+
+    def customize_columns(self):
+        """
+        Dialog displayed in response to 'customize columns' context menu item.
+        """
+        current_pids = prefs['dashboards'][state['dashboard_name']][:]
+        dlg = CustomizeColsDialog(cols=current_pids, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            all_pids = list(parm_defz) + list(de_defz)
+            model = self.model().sourceModel()
+            cols_to_delete = []
+            for pid in current_pids:
+                if not dlg.checkboxes[pid].isChecked():
+                    cols_to_delete.append(pid)
+            if cols_to_delete:
+                model.delete_columns(cols=cols_to_delete)
+            current_pids = prefs['dashboards'][state['dashboard_name']][:]
+            cols_to_insert = []
+            for pid in all_pids:
+                if dlg.checkboxes[pid].isChecked() and pid not in current_pids:
+                    cols_to_insert.append(pid)
+            if cols_to_insert:
+                for pid in cols_to_insert:
+                    model.insert_column(pid)
+            if cols_to_delete or cols_to_insert:
+                dispatcher.send(signal='refresh tree and dash')
 
     def create_dashboard(self):
         """

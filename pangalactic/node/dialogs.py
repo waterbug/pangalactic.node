@@ -496,6 +496,16 @@ class SelectColsDialog(QDialog):
         self.checkboxes = {}
         for i, col in enumerate(columns):
             label = QLabel(col, self)
+            col_def = de_defz.get(col) or parm_defz.get(col)
+            if col_def:
+                dtxt = col_def.get('description', '')
+                dtype = col_def.get('range_datatype', '')
+                dims = col_def.get('dimensions', '')
+                tt = f'<font><color="green">{dtype}</color></font>'
+                if dims:
+                    tt += f' <font><color="purple">[{dims}]</color></font>'
+                tt += f' {dtxt}'
+                label.setToolTip(tt)
             self.checkboxes[col] = QCheckBox(self)
             if col in view:
                 self.checkboxes[col].setChecked(True)
@@ -512,6 +522,74 @@ class SelectColsDialog(QDialog):
         form.addRow(self.buttons)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
+
+
+class CustomizeColsDialog(QDialog):
+    """
+    Dialog for selecting columns for the dashboard.
+    """
+    def __init__(self, cols=None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select Columns")
+        self.setStyleSheet('QToolTip { font-weight: normal; font-size: 12px; '
+                           'color: black; background: white;};')
+        cols = cols or []
+        form = QFormLayout()
+        m_form = QFormLayout()
+        r_form = QFormLayout()
+        hbox = QHBoxLayout(self)
+        hbox.addLayout(form)
+        hbox.addLayout(m_form)
+        hbox.addLayout(r_form)
+        self.checkboxes = {}
+        all_pids = list(de_defz) + list(parm_defz)
+        all_pids.sort()
+        names = self.get_col_names(all_pids)
+        for i, pid in enumerate(all_pids):
+            label = QLabel(names[i], self)
+            col_def = de_defz.get(pid) or parm_defz.get(pid)
+            if col_def:
+                dtxt = col_def.get('description', '')
+                dtype = col_def.get('range_datatype', '')
+                dims = col_def.get('dimensions', '')
+                tt = f'type: {dtype}<br>'
+                if dims:
+                    tt += f'dimensions: {dims}<br>'
+                tt += f'definition: {dtxt}'
+                label.setToolTip(tt)
+            self.checkboxes[pid] = QCheckBox(self)
+            if pid in cols:
+                self.checkboxes[pid].setChecked(True)
+            else:
+                self.checkboxes[pid].setChecked(False)
+            if pid in cols:
+                self.checkboxes[pid].setChecked(True)
+            else:
+                self.checkboxes[pid].setChecked(False)
+            if 0 <= i < 40:
+                form.addRow(self.checkboxes[pid], label)
+            elif 40 <= i < 80:
+                m_form.addRow(self.checkboxes[pid], label)
+            else:
+                r_form.addRow(self.checkboxes[pid], label)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+    def get_col_names(self, pids):
+        col_names = []
+        for pid in pids:
+            if parm_defz.get(pid):
+                col_names.append(parm_defz[pid]['name'])
+            elif de_defz.get(pid):
+                col_names.append(de_defz[pid]['name'])
+            else:
+                col_names.append('Unknown')
+        return col_names
 
 
 class DeleteColsDialog(QDialog):

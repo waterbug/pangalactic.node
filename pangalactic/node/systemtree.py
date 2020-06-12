@@ -526,6 +526,15 @@ class SystemTreeModel(QAbstractItemModel):
         else:
             return 1
 
+    def insertColumn(self, position, parent=QModelIndex()):
+        orb.log.debug('* insertColumn({})'.format(position))
+        self.beginInsertColumns(parent, position, position)
+        success = True
+        if position < 0 or position > len(self.cols):
+            success = False
+        self.endInsertColumns()
+        return success
+
     def removeColumn(self, position, parent=QModelIndex()):
         orb.log.debug('* removeColumn({})'.format(position))
         self.beginRemoveColumns(parent, position, position)
@@ -1022,6 +1031,29 @@ class SystemTreeModel(QAbstractItemModel):
             self.remote_deletion = False
         else:
             dispatcher.send(signal="deleted object", oid=oid, cname=cname)
+
+    def insert_column(self, element_id):
+        """
+        Insert a data element or parameter column at the end of the dashboard.
+
+        Args:
+            element_id (str): id of data element or parameter to insert
+        """
+        orb.log.debug(f'* insert_column({element_id})')
+        if element_id in self.cols:
+            orb.log.debug("  - we already got one, it's verra nahce.")
+        else:
+            dashboard_name = state.get('dashboard_name', 'MEL')
+            prefs['dashboards'][dashboard_name].append(element_id)
+            success = self.insertColumn(len(self.cols))
+            if success:
+                orb.log.debug('  - success')
+                orb.log.debug('    self.cols is now: "{}"'.format(str(self.cols)))
+                log_msg = '  - column count: {}'
+                orb.log.debug(log_msg.format(
+                              self.columnCount(QModelIndex())))
+            else:
+                orb.log.debug('  - column insert failed.')
 
     def delete_columns(self, cols=None):
         """

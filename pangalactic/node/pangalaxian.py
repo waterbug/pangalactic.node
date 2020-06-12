@@ -213,6 +213,8 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.rebuild_dashboard, 'dashboard mod')
+        dispatcher.connect(self.refresh_tree_and_dashboard,
+                                                    'refresh tree and dash')
         dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.on_ldap_search, 'ldap search')
@@ -2932,6 +2934,9 @@ class Main(QtWidgets.QMainWindow):
                                                                self.project.id)
         self.dash_title.setText(title)
         self.dash_title.setStyleSheet('font-weight: bold; font-size: 18px')
+        model = self.dashboard.model().sourceModel()
+        for column in range(model.columnCount()):
+            self.dashboard.resizeColumnToContents(column)
         self.dashboard_rebuilt = True
 
     def set_dashboard(self, index):

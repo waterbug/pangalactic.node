@@ -14,13 +14,14 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QVBoxLayout, QWidget)
 
 # pangalactic
-from pangalactic.core             import prefs, state
+# from pangalactic.core             import prefs
+from pangalactic.core             import state
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.entity      import (DataMatrix, Entity, dmz, PartsList,
-                                          plz)
-from pangalactic.core.parametrics import de_defz, set_dval
+from pangalactic.core.entity      import (Entity, PartsList,
+                                          PartsListItem, plz)
+from pangalactic.core.parametrics import de_defz, parm_defz
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.dialogs     import SelectColsDialog
+from pangalactic.node.dialogs     import CustomizeColsDialog, SelectColsDialog
 
 # Louie
 from louie import dispatcher
@@ -28,26 +29,26 @@ from louie import dispatcher
 
 class GridTreeItem:
     """
-    Node in a DMTreeModel, which is associated with an Entity (an object whose
-    attributes are Data Elements and Parameters).
+    Node in a DMTreeModel, which is associated with an Entity or PartsListItem.
 
     Attributes:
-        oid (str):  oid of an Entity
-        entity (Entity):  the corresponding Entity instance
-        dm (DataMatrix):  the DataMatrix of the DMTreeModel that has this item
+        oid (str):  oid of an Entity or PartsListItem
+        entity (Entity):  the corresponding Entity or PartsListItem instance
+        dm (DataMatrix or PartsList):  the DataMatrix or PartsList of the
+            DMTreeModel that has this item
 
     Keyword Args:
         parent (GridTreeItem):  parent item of this item
     """
     def __init__(self, oid=None, dm=None, root=False, parent=None):
         """
-        Initialize a GridTreeItem, which corresponds to an Entity (row) in the
-        DataMatrix of a DMTreeModel.
+        Initialize a GridTreeItem, which corresponds to a row (an Entity or
+        PartsListItem) in the DataMatrix or PartsList of a DMTreeModel.
 
         Keyword Args:
-            oid (str):  oid of an Entity
-            dm (DataMatrix):  the DataMatrix of the DMTreeModel that has this
-                item
+            oid (str):  oid of an Entity or PartListItem instance
+            dm (DataMatrix or PartsList):  the DataMatrix or PartsList instance
+                of the DMTreeModel that has this item
             root (bool):  if True, we are the root item (i.e. header row)
             parent (GridTreeItem):  parent item of this item
         """
@@ -59,7 +60,10 @@ class GridTreeItem:
             # the root item will not have an entity but will have the schema
             self.entity = None
         else:
-            self.entity = Entity(oid=oid)
+            if isinstance(self.dm, PartsList):
+                self.entity = PartsListItem(oid=oid)
+            else:
+                self.entity = Entity(oid=oid)
         self.parent_item = parent
         # "children" entities in the DataMatrix in which the entity is embedded
         # is determined by how many entities that immediately follow this one
@@ -235,6 +239,9 @@ class DMTreeModel(QAbstractItemModel):
         # for now, we focus on PartsList (a subclass of DataMatrix)
         self.dm = None
         self.project = project
+        # TODO:  support generalized, non-PartsList DataMatrix objects to be
+        # associated with a project -- for now, only support "MEL" (PartsList)
+        # DataMatrix objects
         if isinstance(project, orb.classes['Project']) and name:
             # check for a cached PartsList instance ...
             dm_oid = project.id + '-' + name
@@ -304,6 +311,11 @@ class DMTreeModel(QAbstractItemModel):
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self.root_item.data(section)
+        if role == Qt.ToolTipRole:
+            pid = self.dm.schema[section]
+            txt = de_defz.get(pid, {}).get('description')
+            txt = txt or parm_defz.get(pid, {}).get('description')
+            return txt or pid
         return None
 
     def index(self, row, column, parent=QModelIndex()):
@@ -415,13 +427,13 @@ class DMTreeModel(QAbstractItemModel):
 
     def load_initial_dm_data(self, parent=None):
         """
-        Add initial DataMatrix data to the grid.
+        Add initial DataMatrix or PartsList data to the grid.
         """
         orb.log.debug('* DMTreeModel.load_initial_dm_data()')
-        if parent == None:
-            parents = [self.root_item]
-        else:
-            parents = [parent]
+        # if parent == None:
+            # parents = [self.root_item]
+        # else:
+            # parents = [parent]
         # TODO:  levels
         # levels = [0]
         # NOTE:  if a series of rows are on the same level, might call
@@ -492,36 +504,43 @@ class GridTreeView(QTreeView):
         header.addAction(self.export_tsv_action)
         header.setContextMenuPolicy(Qt.ActionsContextMenu)
 
+    def append_column(self, name="[No header]"):
+        orb.log.debug('* GridTreeView.append_column()')
+        model = self.model()
+        column = model.columnCount()
+        changed = model.insertColumn(column)
+        if changed:
+            model.setHeaderData(column + 1, Qt.Horizontal, name, Qt.EditRole)
+        return changed
+
     def select_columns(self):
         """
         Display a dialog in response to 'select columns' context menu item.
         """
         orb.log.debug('* GridTreeView.select_columns() ...')
-        # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
+        schema = self.model().dm.schema
+        # NOTE: current_view is a *copy* from the schema -- DO NOT modify the
         # original schema!!!
-        all_cols = [de_defz[deid]['name'] for deid in de_defz]
-        dlg = SelectColsDialog(all_cols, self.model().dm.schema, parent=self)
+        current_schema = schema[:]
+        current_schema_name = self.model().dm.name
+        dlg = CustomizeColsDialog(self.model().dm.schema, parent=self)
         if dlg.exec_() == QDialog.Accepted:
-            # rebuild custom view from the selected columns
-            old_view = self.model().dm.schema
-            new_view = []
-            # add any columns from old_view first
-            for col in old_view:
+            all_cols = list(de_defz) + list(parm_defz)
+            all_cols.sort()
+            # rebuild schema from the selected columns
+            schema.clear()
+            # add any columns from current_schema first
+            for col in current_schema:
                 if col in dlg.checkboxes and dlg.checkboxes[col].isChecked():
-                    new_view.append(col)
+                    schema.append(col)
                     all_cols.remove(col)
             # then append any newly selected columns
             for col in all_cols:
                 if dlg.checkboxes[col].isChecked():
-                    new_view.append(col)
-            orb.log.debug('  new view: {}'.format(new_view))
-            # FIXME:  all the following needs re-doing ...
-            # if not prefs.get('db_views'):
-                # prefs['db_views'] = {}
-            # prefs['db_views'][self.cname] = new_view[:]
-            # self.view = new_view[:]
-            # orb.log.debug('  self.view: {}'.format(str(self.view)))
-            # self.setup_table()
+                    schema.append(col)
+                    # TODO: hmmm ... does this work?
+                    # self.insert_column(col)
+            orb.log.debug('  new schema: {}'.format(schema))
 
     def drawRow(self, painter, option, index):
         # orb.log.debug('* GridTreeView.drawRow()')
@@ -617,6 +636,7 @@ class GridTreeView(QTreeView):
         dm_oids = [e.oid for e in model.dm]
         item_dm_position = dm_oids.index(item.entity.oid)
         # NOTE:  dm.insert_new_row returns the new entity, if needed ...
+        #        ... do we need it??
         entity = model.dm.insert_new_row(item_dm_position + 1,
                                          child_of=item.entity)
         # NOTE: is this needed???
@@ -745,7 +765,7 @@ class DGDelegate(QStyledItemDelegate):
     def setModelData(self, editor, model, index):
         """
         Set the model data at the specified index to the edited value, and
-        update the model's associated DataMatrix.
+        update the model's associated DataMatrix or PartsList.
         """
         orb.log.debug('* setModelData()')
         if isinstance(editor, QLineEdit):
@@ -801,17 +821,6 @@ class DataGrid(QMainWindow):
 
     def display_status_msg(self, msg=''):
         self.statusBar().showMessage(msg)
-
-    def insertColumn(self):
-        orb.log.debug('* DataGrid.insertColumn()')
-        model = self.view.model()
-        column = self.view.selectionModel().currentIndex().column()
-        changed = model.insertColumn(column + 1)
-        if changed:
-            model.setHeaderData(column + 1, Qt.Horizontal, "[No header]",
-                    Qt.EditRole)
-        # self.updateActions()
-        return changed
 
     # This works fine.  Triggered by the "Insert Row" action.
     # *** moved to model as "add_row"
