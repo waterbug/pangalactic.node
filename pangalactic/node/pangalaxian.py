@@ -170,7 +170,6 @@ class Main(QtWidgets.QMainWindow):
             # config['logo'] = 'pangalactic_logo.png'
         self.logo = os.path.join(orb.image_dir, config.get('logo'))
         self.tall_logo = os.path.join(orb.image_dir, config['tall_logo'])
-        self.auto_update = not config.get('no_auto_update', False)
         state['last_path'] = ""
         state['synced_projects'] = []
         if not prefs.get('dashboard_names'):
@@ -212,7 +211,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_data_item_updated, 'dm item updated')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
-        dispatcher.connect(self.rebuild_dashboard, 'dashboard mod')
+        dispatcher.connect(self.mod_dashboard, 'dashboard mod')
         dispatcher.connect(self.refresh_tree_and_dashboard,
                                                     'refresh tree and dash')
         dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
@@ -2858,17 +2857,17 @@ class Main(QtWidgets.QMainWindow):
             self.dash_select = new_dash_select
             self.dashboard_title_layout.addWidget(self.dash_select)
 
-    def rebuild_dashboard(self):
-        # orb.log.debug('* [pgxn] rebuild_dashboard()')
-        if not self.sys_tree_rebuilt:
-            # orb.log.debug('      sys_tree not rebuilt yet; not rebuilding.')
+    def mod_dashboard(self):
+        self.rebuild_dashboard(dashboard_mod=True)
+
+    def rebuild_dashboard(self, dashboard_mod=False):
+        orb.log.debug('* [pgxn] rebuild_dashboard()')
+        if (not dashboard_mod and
+            (not self.sys_tree_rebuilt or self.dashboard_rebuilt)):
+            orb.log.debug(' + no dashboard mod and either tree not rebuilt')
+            orb.log.debug('   or dashboard already rebuilt; not rebuilding.')
             return
-        elif self.dashboard_rebuilt:
-            # sys_tree has been rebuilt and dashboard has been rebuilt for this
-            # sys_tree, so no need to rebuild
-            # orb.log.debug('      dashboard already rebuilt; not rebuilding.')
-            return
-        # orb.log.debug('      + sys_tree rebuilt -- rebuilding dashboard ...')
+        orb.log.debug(' + rebuilding ...')
         if getattr(self, 'dashboard_panel', None):
             # orb.log.debug('         + dashboard_panel exists ...')
             dashboard_layout = self.dashboard_panel.layout()

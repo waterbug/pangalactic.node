@@ -313,7 +313,6 @@ class SystemTreeModel(QAbstractItemModel):
         self.root = Node(fake_root)
         self.root.parent = None
         self.object_nodes = {}
-        self._cols = []
         if obj is None:
             # create a "null" Project
             Project = orb.classes['Project']
@@ -330,18 +329,9 @@ class SystemTreeModel(QAbstractItemModel):
     def dash_name(self):
         return state.get('dashboard_name', 'MEL')
 
-    def get_cols(self):
-        self._cols = prefs.get('dashboards', {}).get(self.dash_name, [])[:]
-        return self._cols
-
-    def set_cols(self, columns):
-        prefs['dashboards'][self.dash_name] = columns[:]
-        self._cols = prefs['dashboards'][self.dash_name]
-
-    def del_cols(self):
-        pass
-
-    cols = property(get_cols, set_cols, del_cols, 'cols')
+    @property
+    def cols(self):
+        return prefs.get('dashboards', {}).get(self.dash_name, [])
 
     def col_def(self, pid):
         pd = parm_defz.get(pid)

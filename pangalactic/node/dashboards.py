@@ -132,13 +132,17 @@ class SystemDashboard(QTreeView):
             painter.drawLine(0, y, option.rect.width(), y)
 
     def on_section_moved(self, logical, old, new):
-        orb.log.info('[Dashboard] section moved')
-        orb.log.info('            logical: {} old: {} new: {}'.format(
-                                                        logical, old, new))
-        dashboard = prefs['dashboards'][state['dashboard_name']]
-        colname = dashboard[old-1]
-        del dashboard[old-1]
-        dashboard.insert(new-1, colname)
+        orb.log.debug('[Dashboard] section moved')
+        # orb.log.debug(' + logical: {} old: {} new: {}'.format(
+                                                        # logical, old, new))
+        cols = prefs['dashboards'][state.get('dashboard_name', 'MEL')]
+        # orb.log.debug('   cols: {}'.format(str(cols)))
+        colname = cols.pop(old-1)
+        # orb.log.debug(f'   colname: {colname}')
+        cols.insert(new-1, colname)
+        # orb.log.debug('   inserting at {}'.format(new-1))
+        prefs['dashboards'][state['dashboard_name']] = cols[:]
+        # orb.log.debug('   new pref cols: {}'.format(str(cols)))
         dispatcher.send(signal='dashboard mod')
 
     def mimeTypes(self):
