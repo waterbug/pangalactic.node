@@ -11,6 +11,7 @@ from louie import dispatcher
 
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
+from pangalactic.core.entity      import Entity
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.uberorb     import orb
@@ -417,10 +418,11 @@ class FilterPanel(QWidget):
 
         Keyword Args:
             view (iterable):  attributes of object to be shown
-            schema (dict):  metadata for non-Identifiable objects; schema must
-                contain the keys 'field_names' (a list of strings) and
-                'fields', a dict that maps each field name to a dict that
-                contains 'definition' and 'range' (str of the field type).
+            schema (dict):  metadata for non-domain object (Entity or
+                PartsListItem instances); schema must contain the keys
+                'field_names' (a list of strings) and 'fields', a dict that
+                maps each field name to a dict that contains 'definition' and
+                'range' (str of the field type).
             label (str):  string to use for title
             width (int):  width of dialog widget
             as_library (bool):  (default: False) flag whether to act as library
@@ -436,13 +438,21 @@ class FilterPanel(QWidget):
         super().__init__(parent=parent)
         self.as_library = as_library
         if as_library and cname:
-            # orb.log.debug('* Create FilterPanel as {} library ...'.format(
-                                                                    # cname))
             self.cname = cname
-            self.objs = orb.get_by_type(cname) or [orb.get('pgefobjects:TBD')]
-        elif (objs and isinstance(objs[0], dict) and
+            if cname in orb.classes:
+                # orb.log.debug('* FilterPanel is {} library ...'.format(
+                                                                # cname))
+                self.objs = (orb.get_by_type(cname) or
+                             [orb.get('pgefobjects:TBD')])
+            else:
+                # not a pangalactic domain object, can't display as a library
+                orb.log.debug('  - Cannot display objs of class "{}".'.format(
+                                                                        cname))
+                self.objs = [orb.get('pgefobjects:TBD')]
+        elif (objs and isinstance(objs[0], Entity) and
               isinstance(schema, dict) and 'fields' in schema):
-            # if objs are just dicts and a schema is provided, use it ...
+            # if objs are Entity instances and a schema is provided, use it ...
+            self.cname = objs[0].__class__.__name__
             self.objs = objs
             self.view = view or list(objs[0].keys())
         else:
@@ -454,6 +464,7 @@ class FilterPanel(QWidget):
                 self.objs = [orb.get('pgefobjects:TBD')]
                 self.cname = 'Product'
         if self.cname:
+            # if objects are
             schema = orb.schemas[self.cname]
             if prefs.get('views', {}).get(self.cname):
                 # if there is a preferred view, ignore the provided view
@@ -816,6 +827,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
+    # window = FilterPanel('ProductType', label='Product Type', parent=None)
     window = FilterPanel('ProductType', label='Product Type', parent=None)
     window.show()
 

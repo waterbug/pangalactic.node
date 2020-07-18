@@ -17,6 +17,9 @@ from louie import dispatcher
 # ruamel_yaml
 import ruamel_yaml as yaml
 
+# PyNaCl
+from nacl.public import PrivateKey
+
 # twisted
 from twisted.internet.defer import DeferredList
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
@@ -57,9 +60,7 @@ from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
-# >>> NOTE: conops removed temporarily due to pyinstaller problem with
-# pyqtgraph (use of dynamic imports)
-# from pangalactic.node.conops           import ConOpsModeler
+from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
 from pangalactic.node.dialogs          import (LoginDialog,
@@ -1288,13 +1289,13 @@ class Main(QtWidgets.QMainWindow):
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
-        # conops_tip_text = "Model Concept of Operations for the Current Mission"
-        # self.conops_modeler_action = self.create_action(
-                                # "ConOps Modeler",
-                                # slot=self.display_conops_modeler,
-                                # icon='tools',
-                                # tip=conops_tip_text,
-                                # modes=['system'])
+        conops_tip_text = "Model Concept of Operations for the Current Mission"
+        self.conops_modeler_action = self.create_action(
+                                "ConOps Modeler",
+                                slot=self.display_conops_modeler,
+                                icon='tools',
+                                tip=conops_tip_text,
+                                modes=['system'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         self.product_lib_action = self.create_action(
                                     hw_lib_title,
@@ -1355,40 +1356,45 @@ class Main(QtWidgets.QMainWindow):
         # the cad viewer runs in the same process (which does not work on Mac!)
         if not platform.platform().startswith('Darwin'):
             self.view_cad_action = self.create_action(
-                                        "View a CAD Model ...",
-                                        slot=self.view_cad,
-                                        icon="view_16",
-                                        tip="View a CAD model from a STEP file",
-                                        modes=['system', 'component'])
+                                    "View a CAD Model ...",
+                                    slot=self.view_cad,
+                                    icon="view_16",
+                                    tip="View a CAD model from a STEP file",
+                                    modes=['system', 'component'])
         # "open_step_file" opens an external viewer in a separate process ...
         # *required* on Mac, an option on Linux, and *does not work* on Windows
         if not sys.platform == 'win32':
             self.view_multi_cad_action = self.create_action(
-                                        "View CAD Model(s) ...",
-                                        slot=self.open_step_file,
-                                        icon="view_16",
-                                        tip="View CAD model(s) from STEP file(s)",
-                                        modes=['system', 'component'])
+                                    "View CAD Model(s) ...",
+                                    slot=self.open_step_file,
+                                    icon="view_16",
+                                    tip="View CAD model(s) from STEP file(s)",
+                                    modes=['system', 'component'])
         self.export_project_to_file_action = self.create_action(
-                                    "Export Project to a File...",
-                                    slot=self.export_project_to_file,
-                                    tip="Export Project to a File...",
-                                    modes=['system'])
+                                "Export Project to a File...",
+                                slot=self.export_project_to_file,
+                                tip="Export Project to a File...",
+                                modes=['system'])
         self.export_reqts_to_file_action = self.create_action(
                                 "Export Project Requirements to a File...",
                                 slot=self.export_reqts_to_file,
                                 tip="Export Project Requirements to a File...",
                                 modes=['system'])
         self.output_mel_action = self.create_action(
-                                    "Write MEL...",
-                                    slot=self.output_mel,
-                                    tip="Write MEL...",
-                                    modes=['system'])
+                                "Write MEL...",
+                                slot=self.output_mel,
+                                tip="Write MEL...",
+                                modes=['system'])
         self.dump_db_action = self.create_action(
-                                    "Backup Local Database to a File...",
-                                    slot=self.dump_database,
-                                    tip="Dump DB...",
-                                    modes=['system', 'component', 'db'])
+                                "Backup Local Database to a File...",
+                                slot=self.dump_database,
+                                tip="Dump DB...",
+                                modes=['system', 'component', 'db'])
+        self.gen_keys_action = self.create_action(
+                                "Generate a Public/Private Key Pair...",
+                                slot=self.gen_keys,
+                                tip="Generate Key Pair...",
+                                modes=['system', 'component', 'data', 'db'])
         # actions accessible via the 'Import Data or Objects' toolbar menu:
         # * import_excel_data_action
         # * import_objects (import project or other serialized objs)
@@ -1830,7 +1836,7 @@ class Main(QtWidgets.QMainWindow):
         system_tools_icon_path = os.path.join(icon_dir,
                                               system_tools_icon_file)
         system_tools_actions = [self.reqts_manager_action,
-                                # self.conops_modeler_action,
+                                self.conops_modeler_action,
                                 self.product_lib_action,
                                 self.port_template_lib_action,
                                 self.parameter_lib_action,
@@ -3450,9 +3456,9 @@ class Main(QtWidgets.QMainWindow):
         dlg = RequirementManager(project=proj, width=w, height=h, parent=self)
         dlg.show()
 
-    # def display_conops_modeler(self):
-        # win = ConOpsModeler(parent=self)
-        # win.show()
+    def display_conops_modeler(self):
+        win = ConOpsModeler(parent=self)
+        win.show()
 
     def display_product_types(self):
         dlg = LibraryDialog('ProductType',
@@ -3978,6 +3984,15 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  db export cancelled.')
             self.statusbar.showMessage('DB export cancelled.')
             return
+
+    def gen_keys(self):
+        """
+        Generate a public/private key pair for use when logging into the
+        message bus.  The public key will be submitted to an administrator when
+        access is requested.
+        """
+        privkey = PrivateKey.generate()
+        pubkey = privkey.public_key
 
     def closeEvent(self, event):
         # things to do when window is closed
