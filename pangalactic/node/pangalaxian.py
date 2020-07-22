@@ -8,6 +8,9 @@ import time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
 from datetime import timedelta
 
+# autobahn
+from autobahn.wamp import cryptosign
+
 # binaryornot
 from binaryornot.check import is_binary
 
@@ -1386,7 +1389,7 @@ class Main(QtWidgets.QMainWindow):
                                 tip="Write MEL...",
                                 modes=['system'])
         self.dump_db_action = self.create_action(
-                                "Backup Local Database to a File...",
+                                "Dump Local Database to a File...",
                                 slot=self.dump_database,
                                 tip="Dump DB...",
                                 modes=['system', 'component', 'db'])
@@ -1813,7 +1816,8 @@ class Main(QtWidgets.QMainWindow):
         export_actions = [self.export_project_to_file_action,
                           self.export_reqts_to_file_action,
                           self.output_mel_action,
-                          self.dump_db_action]
+                          self.dump_db_action,
+                          self.gen_keys_action] 
         export_button = MenuButton(QtGui.QIcon(export_icon_path),
                                    tooltip='Export Data or Objects',
                                    actions=export_actions, parent=self)
@@ -1943,6 +1947,8 @@ class Main(QtWidgets.QMainWindow):
         self.online_icon = QtGui.QPixmap(online_icon_path)
         self.net_status.setPixmap(self.offline_icon)
         self.net_status.setToolTip('offline')
+        uid = '{} [{}]'.format(self.local_user.name, state.get('userid', ''))
+        self.user_label = ModeLabel(uid, color='green', w=300)
         self.role_label = ModeLabel('offline', w=300)
         self.statusbar = self.statusBar()
         self.statusbar.setStyleSheet('color: purple; font-weight: bold;')
@@ -1956,6 +1962,7 @@ class Main(QtWidgets.QMainWindow):
         self.pb.setTextVisible(False)
         self.pb.hide()
         self.statusbar.addPermanentWidget(self.pb)
+        self.statusbar.addPermanentWidget(self.user_label)
         self.statusbar.addPermanentWidget(self.role_label)
         self.statusbar.addPermanentWidget(self.net_status)
         self.statusbar.showMessage("To infinity, and beyond! :)")
@@ -2493,20 +2500,26 @@ class Main(QtWidgets.QMainWindow):
                 if 'delete' in get_perms(p):
                     project_is_local = True
                     role_label_txt = ': '.join([p.id, '[local]'])
+                number_of_roles = len(p_roles)
                 if global_admin:
-                    p_roles.append('Global Administrator')
-                if p_roles:
-                    if len(p_roles) > 1:
+                    number_of_roles += 1
+                if number_of_roles:
+                    if number_of_roles > 1:
                         # add asterisk to indicate multiple roles
                         role_label_txt = ': '.join([p.id, p_roles[0],
                                                     ' *'])
                         tt_txt = '<ul>\n'
-                        for p_role in p_roles:
-                            tt_txt += '<li>' + str(p.id) + ': '
-                            tt_txt += str(p_role) + '</li>\n'
+                        for r in p_roles:
+                            pid = str(p.id)
+                            role = '&nbsp;'.join(str(r).split(' '))
+                            tt_txt += f'<li>{pid}:&nbsp;{role}</li>\n'
+                        if global_admin:
+                            tt_txt += f'<li>Global&nbsp;Administrator</li>\n'
                         tt_txt += '</ul>'
-                    else:
+                    elif p_roles:
                         role_label_txt = ': '.join([p.id, p_roles[0]])
+                    elif global_admin:
+                        role_label_txt = 'Global Administrator'
                 if state['connected']:
                     if (project_is_local and 
                         ((p.creator == self.local_user) or global_admin)):
@@ -3991,8 +4004,23 @@ class Main(QtWidgets.QMainWindow):
         message bus.  The public key will be submitted to an administrator when
         access is requested.
         """
+        # TODO: set perms to 700 on .creds, 400 on private.key
+        self.statusbar.showMessage('Generating public/private key pair ...')
+        orb.log.debug('* gen_keys()')
         privkey = PrivateKey.generate()
-        pubkey = privkey.public_key
+        credpath = os.path.join(orb.home, '.creds')
+        if not os.path.exists(credpath):
+            os.mkdir(credpath, mode=0o700)
+        pkpath = os.path.join(credpath, 'private.key')
+        f = open(pkpath, 'wb')
+        f.write(privkey.encode())
+        f.close()
+        sk = cryptosign.SigningKey.from_raw_key(pkpath)
+        f = open(os.path.join(orb.home, 'public.key'), 'w')
+        f.write(sk.public_key())
+        f.close()
+        orb.log.debug('  - keys generated; "public.key" is in cattens_home.')
+        self.statusbar.showMessage('"public.key" file is in cattens_home dir.')
 
     def closeEvent(self, event):
         # things to do when window is closed

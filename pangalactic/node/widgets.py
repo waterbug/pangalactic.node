@@ -182,7 +182,7 @@ class ModeLabel(QLabel):
     Label used to display the current "mode" of the pangalaxian client
     application.
     """
-    def __init__(self, value, w=None, h=None, parent=None):
+    def __init__(self, value, w=None, h=None, color=None, parent=None):
         super().__init__(value, parent=parent)
         self.setWordWrap(True)
         self.setFrameStyle(QFrame.Box | QFrame.Plain)
@@ -190,8 +190,11 @@ class ModeLabel(QLabel):
         width = w or 200
         height = h or 25
         self.setMinimumSize(QSize(width, height))
-        self.setStyleSheet('color: purple; background-color: white;'
-                           'font-weight: bold; font-size: larger')
+        color = color or 'purple'
+        bg = 'background-color: white;'
+        fw = 'font-weight: bold;'
+        fs = 'font-size: larger;'
+        self.setStyleSheet(f'color: {color}; {bg} {fw} {fs}')
 
 
 class ParameterLabel(QLabel):
