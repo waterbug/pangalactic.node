@@ -228,8 +228,10 @@ class Main(QtWidgets.QMainWindow):
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
-        dispatcher.connect(self.on_remote_decloaked_signal,
+        dispatcher.connect(self.on_remote_new_or_decloaked_signal,
                                                     'remote: decloaked')
+        dispatcher.connect(self.on_remote_new_or_decloaked_signal,
+                                                    'remote: new')
         dispatcher.connect(self.on_remote_modified_signal,
                                                     'remote: modified')
         dispatcher.connect(self.on_remote_deleted_signal,
@@ -478,6 +480,10 @@ class Main(QtWidgets.QMainWindow):
                         dispatcher.send('modified object', obj=obj)
             else:
                 orb.log.debug('    + login user matches current local user.')
+            uid = '{} [{}]'.format(self.local_user.name,
+                                   self.local_user.id)
+            self.user_label.setText(uid)
+            # QtWidgets.QApplication.processEvents()
         else:
             orb.log.debug('    + user object for local user not returned!')
         orb.log.debug('  - inspecting projects and orgs ...')
@@ -945,6 +951,9 @@ class Main(QtWidgets.QMainWindow):
             if subject == 'decloaked':
                 obj_oid, obj_id = content
                 msg += obj_id
+            elif subject == 'new':
+                obj_oid, obj_id = content
+                msg += obj_id
             elif subject == 'data new row':
                 # TODO:  needs to be re-implemented with "Entity" paradigm --
                 # should be 'new entity'
@@ -983,6 +992,9 @@ class Main(QtWidgets.QMainWindow):
             if subject == 'decloaked':
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: decloaked", content=content)
+            elif subject == 'new':
+                self.statusbar.showMessage(msg)
+                dispatcher.send(signal="remote: new", content=content)
             elif subject == 'modified':
                 # don't show msg in statusbar -- may not be relevant
                 dispatcher.send(signal="remote: modified", content=content)
@@ -990,7 +1002,7 @@ class Main(QtWidgets.QMainWindow):
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: deleted", content=content)
 
-    def on_remote_decloaked_signal(self, content=None):
+    def on_remote_new_or_decloaked_signal(self, content=None):
         """
         Call functions to update applicable widgets when a pub/sub message is
         received from the repository service indicating that a new object has
@@ -1001,7 +1013,7 @@ class Main(QtWidgets.QMainWindow):
                 form of a 4-tuple:  (obj_oid, obj_id, actor_oid, actor_id)
         """
         # TODO:  other actions will be needed ...
-        orb.log.info('* "remote: decloaked" signal received ...')
+        orb.log.info('* "remote: [new|decloaked]" signal received ...')
         if not content:
             orb.log.debug(' - content was empty.')
             return
@@ -1017,7 +1029,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  - decloaked object is already in local db.')
         else:
             # get object from repository ...
-            orb.log.debug('  - decloaked object unknown -- get from repo...')
+            orb.log.debug('  - object unknown -- get from repo...')
             rpc = self.mbus.session.call('vger.get_object', obj_oid,
                                          include_components=True)
             rpc.addCallback(self.on_rpc_get_object)
@@ -1947,7 +1959,7 @@ class Main(QtWidgets.QMainWindow):
         self.online_icon = QtGui.QPixmap(online_icon_path)
         self.net_status.setPixmap(self.offline_icon)
         self.net_status.setToolTip('offline')
-        uid = '{} [{}]'.format(self.local_user.name, state.get('userid', ''))
+        uid = '{} [{}]'.format(self.local_user.name, self.local_user.id)
         self.user_label = ModeLabel(uid, color='green', w=300)
         self.role_label = ModeLabel('offline', w=300)
         self.statusbar = self.statusBar()

@@ -23,6 +23,7 @@ from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
 from pangalactic.core                 import state
+from pangalactic.core.parametrics     import add_parameter
 from pangalactic.core.refdata         import core
 from pangalactic.core.serializers     import deserialize, serialize
 from pangalactic.core.test.utils      import (create_test_project,
@@ -33,6 +34,7 @@ from pangalactic.core.utils.meta      import uncook_datetime
 from pangalactic.core.uberorb         import orb
 # from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dialogs         import LoginDialog
+from pangalactic.node.utils           import clone
 from pangalactic.node.widgets         import ModeLabel
 from pangalactic.node.widgets         import AutosizingListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus
@@ -153,17 +155,18 @@ class MainWindow(QMainWindow):
         self.system_level_obj = None
         self.latest_acu = None
 
-    def on_signal(self, msg):
-        print("event received on: {}".format(msg))
-        subject, content = list(msg.items())[0]
-        self.log("Event received:")
-        self.log("      subject: {}".format(str(subject)))
-        self.log("      content: {}".format(str(content)))
-        if str(subject) in ['decloaked', 'modified']:
-            self.log('* calling rpc vger.get_object() on {}'.format(content[0]))
-            rpc = message_bus.session.call('vger.get_object', content[0])
-            rpc.addCallback(self.on_get_object_result)
-            rpc.addErrback(self.on_failure)
+    # NOTE: this method is not connected to anything
+    # def on_signal(self, msg):
+        # print("event received on: {}".format(msg))
+        # subject, content = list(msg.items())[0]
+        # self.log("Event received:")
+        # self.log("      subject: {}".format(str(subject)))
+        # self.log("      content: {}".format(str(content)))
+        # if str(subject) in ['new', 'decloaked', 'modified', 'deleted']:
+            # self.log('* calling rpc vger.get_object() on {}'.format(content[0]))
+            # rpc = message_bus.session.call('vger.get_object', content[0])
+            # rpc.addCallback(self.on_get_object_result)
+            # rpc.addErrback(self.on_failure)
 
     def on_pubsub_msg(self, msg):
         """
@@ -180,7 +183,7 @@ class MainWindow(QMainWindow):
             obj_id = '[unknown]'
             # base text
             text = "remote {}: ".format(subject)
-            if subject == 'decloaked':
+            if subject in ['new', 'decloaked']:
                 # actor_oid is the oid of the Actor to which the object has
                 # been decloaked (usually an Organization or Project)
                 obj_oid, obj_id, actor_oid, actor_id = content
@@ -433,6 +436,7 @@ class MainWindow(QMainWindow):
         obj_oid = self.cloaked[self.cloaked_list.currentRow()]
         obj = orb.get(obj_oid)
         obj.public = True
+        obj.mod_datetime = dtstamp()
         orb.save([obj])
         sobjs = serialize(orb, [obj])
         rpc = message_bus.session.call('vger.save', sobjs)
@@ -440,7 +444,7 @@ class MainWindow(QMainWindow):
         rpc.addErrback(self.on_failure)
 
     def on_vger_save_result(self, stuff):
-        orb.log.debug('  vger.save result: {}'.format(str(stuff)))
+        self.log('  vger.save result: {}'.format(str(stuff)))
         try:
             msg = ''
             if stuff.get('new_obj_dts'):
@@ -453,14 +457,30 @@ class MainWindow(QMainWindow):
                 msg += '{} no owners (not saved); '.format(
                                                     len(stuff['no_owners']))
             self.log('- vger save: {}'.format(msg))
+            new_cloaked = 0
+            newly_decloaked = 0
             if stuff.get('new_obj_dts'):
-                self.log('  - adding new cloaked objects ...')
+                self.log('  - checking for new cloaked objects ...')
                 for oid in stuff['new_obj_dts']:
                     if not oid in self.cloaked:
                         self.cloaked.append(oid)
                         self.cloaked_list.addItem(oid)
+                        new_cloaked += 1
+            if stuff.get('mod_obj_dts'):
+                self.log('  - checking for newly decloaked objects ...')
+                for oid in stuff['mod_obj_dts']:
+                    if oid in self.cloaked:
+                        self.cloaked.remove(oid)
+                        obj = orb.get(oid)
+                        if obj and obj.public:
+                            self.cloaked_list.clear()
+                        newly_decloaked = 0
+            if new_cloaked:
+                self.log(f'    {new_cloaked} new cloaked object(s) added.')
+            else:
+                self.log('    no cloaked objects found.')
         except:
-            orb.log.debug('  result format incorrect.')
+            self.log('  result format incorrect.')
 
     def on_remote_decloaked_signal(self, content=None):
         """
@@ -657,17 +677,20 @@ class MainWindow(QMainWindow):
         ptype = product_types[random.randint(0, len(product_types) - 1)]
         new_id = 'TEST_' + ptype['id'][0:5] + '_' + suffix
         new_name = str(ptype['name']) + ' ' + str(suffix)
-        now = str(dtstamp())
-        obj_parms = {}
-        for pid, parm in test_parms.items():
-            obj_parms[pid] = deepcopy(parm)
-        gen_test_pvals(obj_parms)
-        serialized_obj = dict(_cname='HardwareProduct', oid=new_oid, id=new_id,
-                              name=new_name, creator=self.user.oid,
-                              owner='H2G2', create_datetime=now,
-                              modifier=self.user.oid, mod_datetime=now,
-                              version='1', iteration=0, version_sequence=0,
-                              product_type=ptype['oid'], parameters=obj_parms)
+        now = dtstamp()
+        for pid in test_parms:
+            add_parameter(new_oid, pid)
+        # gen_test_pvals(obj_parms)
+        obj = clone('HardwareProduct', oid=new_oid, id=new_id,
+                    name=new_name, creator=self.user, public=False,
+                    owner=orb.get('H2G2'), create_datetime=now,
+                    modifier=self.user, mod_datetime=now,
+                    version='1', iteration=0, version_sequence=0,
+                    product_type=orb.get(ptype['oid']))
+        serialized_objs = serialize(orb, [obj])
+        for so in serialized_objs:
+            if so['oid'] == new_oid:
+                serialized_obj = so
         self.log('* calling rpc "vger.save()" with serialized object:')
         self.log('  {}'.format(str(serialized_obj)))
         self.last_saved_obj = serialized_obj
@@ -676,7 +699,7 @@ class MainWindow(QMainWindow):
         else:
             self.add_psu_button.setVisible(True)
         rpc = message_bus.session.call('vger.save', [serialized_obj])
-        rpc.addCallback(self.on_save_result)
+        rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
 
     def on_save_public_object(self):
