@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 GUI client for autobahn/crossbar.
 
@@ -7,7 +8,7 @@ Based on:
     https://github.com/estan/gauges
   * crossbar examples "advanced" (CRA) auth example
 """
-import argparse, pprint, random, six, sys, time
+import argparse, pprint, random, sys, time
 from copy import deepcopy
 from uuid import uuid4
 from PyQt5.QtCore import QRectF, QSize, QTimer, Qt
@@ -45,7 +46,7 @@ cert_fname = 'server_cert.pem'
 try:
     cert = crypto.load_certificate(
             crypto.FILETYPE_PEM,
-            six.u(open(cert_fname, 'r').read()))
+            str(open(cert_fname, 'r').read()))
     tls_options = CertificateOptions(
         trustRoot=OpenSSLCertificateAuthorities([cert]))
 except:
@@ -323,7 +324,7 @@ class MainWindow(QMainWindow):
             message_bus.set_authid(login_dlg.userid)
             message_bus.set_passwd(login_dlg.passwd)
             message_bus.run('wss://{}:{}/ws'.format(self.host, self.port),
-                            realm=six.u('pangalactic-services'),
+                            realm='pangalactic-services',
                             start_reactor=False, ssl=tls_options)
 
     def on_joined(self):
@@ -474,11 +475,15 @@ class MainWindow(QMainWindow):
                         obj = orb.get(oid)
                         if obj and obj.public:
                             self.cloaked_list.clear()
-                        newly_decloaked = 0
+                        newly_decloaked += 1
             if new_cloaked:
                 self.log(f'    {new_cloaked} new cloaked object(s) added.')
             else:
                 self.log('    no cloaked objects found.')
+            if newly_decloaked:
+                self.log(f'    {newly_decloaked} newly decloaked object(s).')
+            else:
+                self.log('    no newly decloaked objects found.')
         except:
             self.log('  result format incorrect.')
 
@@ -921,11 +926,11 @@ class MainWindow(QMainWindow):
 #-------------------------------------------------------------------------------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', dest='host', type=six.text_type,
+    parser.add_argument('--host', dest='host', type=str,
                         default='localhost',
-                        help='the host to connect to [default: localhost]')
-    parser.add_argument('--port', dest='port', type=six.text_type,
-                        default='8080',
+                        help='the host to connect to [default: "localhost"]')
+    parser.add_argument('--port', dest='port', type=int,
+                        default=8080,
                         help='the port to connect to [default: 8080]')
     options = parser.parse_args()
     app = QApplication(sys.argv)
