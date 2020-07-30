@@ -8,7 +8,7 @@ Based on:
     https://github.com/estan/gauges
   * crossbar examples "advanced" (CRA) auth example
 """
-import argparse, pprint, random, sys, time
+import argparse, os, pprint, random, sys, time
 from copy import deepcopy
 from uuid import uuid4
 from PyQt5.QtCore import QRectF, QSize, QTimer, Qt
@@ -34,6 +34,7 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import uncook_datetime
 from pangalactic.core.uberorb         import orb
 # from pangalactic.node.conops          import ConOpsModeler
+from pangalactic.node                 import fix_qt_import_error
 from pangalactic.node.dialogs         import LoginDialog
 from pangalactic.node.utils           import clone
 from pangalactic.node.widgets         import ModeLabel
@@ -41,7 +42,6 @@ from pangalactic.node.widgets         import AutosizingListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus
 
 message_bus = PgxnMessageBus()
-# cert_fname = './.crossbar_for_test_vger/server_cert.pem'
 cert_fname = 'server_cert.pem'
 try:
     cert = crypto.load_certificate(
@@ -132,12 +132,17 @@ class LogWidget(QTextBrowser):
 class MainWindow(QMainWindow):
     MOD_COUNT = 0
 
-    def __init__(self, host, port, reactor=None, parent=None):
+    def __init__(self, host, port, auth_method='cryptosign', reactor=None,
+                 parent=None):
         super().__init__(parent)
         self.host = host
         self.port = port
+        self.auth_method = auth_method
         self.reactor = reactor
         self.create_main_frame()
+        self.log(f'* host set to: {host}')
+        self.log(f'* port set to: {port}')
+        self.log(f'* auth method set to: "{auth_method}"')
         self.setGeometry(100, 100, 1000, 800)
         self.create_timer()
         dispatcher.connect(self.on_joined, 'onjoined')
@@ -315,20 +320,40 @@ class MainWindow(QMainWindow):
         self.circle_timer.start(25)
 
     def login(self):
-        login_dlg = LoginDialog(parent=self)
-        if login_dlg.exec_() == QDialog.Accepted:
-            self.log('* logging in with userid "{}" ...'.format(
-                                                        login_dlg.userid))
-            self.log('  (oid "{}"'.format('test:' + login_dlg.userid))
-            self.userid = login_dlg.userid
-            message_bus.set_authid(login_dlg.userid)
-            message_bus.set_passwd(login_dlg.passwd)
+        if self.auth_method == 'cryptosign':
+            self.log('* logging in using cryptosign auth ...')
+            key_path = os.path.join(orb.home, '.creds', 'private.key')
+            if os.path.exists(key_path):
+                message_bus.set_key_path(key_path)
+            else:
+                message = 'Key file <{key_path}> not found ...\n'
+                message += 'operating in local-only mode.'
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "No certificate", message,
+                                    QMessageBox.Ok, self)
+                popup.show()
             message_bus.run('wss://{}:{}/ws'.format(self.host, self.port),
-                            realm='pangalactic-services',
+                            auth_method='cryptosign', realm='pangalactic-services',
                             start_reactor=False, ssl=tls_options)
+        else:  # password ("ticket") auth
+            login_dlg = LoginDialog(parent=self)
+            if login_dlg.exec_() == QDialog.Accepted:
+                self.log('* logging in with userid "{}" ...'.format(
+                                                            login_dlg.userid))
+                self.log('  (oid "{}"'.format('test:' + login_dlg.userid))
+                message_bus.set_authid(login_dlg.userid)
+                message_bus.set_passwd(login_dlg.passwd)
+                message_bus.run('wss://{}:{}/ws'.format(self.host, self.port),
+                                auth_method='ticket',
+                                realm='pangalactic-services',
+                                start_reactor=False, ssl=tls_options)
 
     def on_joined(self):
         self.log('  + session joined')
+        # get userid from message_bus ("authid" of session details ...)
+        authid = message_bus.session.details.authid
+        self.log(f'    userid: "{authid}"')
+        self.userid = authid
         self.login_button.setVisible(False)
         self.logout_button.setVisible(True)
         self.check_version_button.setVisible(True)
@@ -932,6 +957,9 @@ if __name__ == "__main__":
     parser.add_argument('--port', dest='port', type=int,
                         default=8080,
                         help='the port to connect to [default: 8080]')
+    parser.add_argument('--crypto', dest='crypto', type=bool,
+                        default=True,
+                        help='use cryptosign (pubkey auth) [default: True]')
     options = parser.parse_args()
     app = QApplication(sys.argv)
     orb.start('junk_home', console=True, debug=True)
@@ -962,10 +990,15 @@ if __name__ == "__main__":
         from twisted.internet import qt5reactor
     qt5reactor.install()
     from twisted.internet import reactor
-    mainwindow = MainWindow(options.host, options.port, reactor=reactor)
+    auth = "cryptosign"
+    if not options.crypto:
+        auth = "ticket"
+    mainwindow = MainWindow(options.host, options.port, auth_method=auth,
+                            reactor=reactor)
     print('MainWindow instantiated ...')
     print('  configured to connect to "{}"'.format(options.host))
     print('  on port {}'.format(options.port))
+    print('  using "{}" authentication'.format(auth))
     mainwindow.show()
     reactor.runReturn()
     sys.exit(app.exec_())
