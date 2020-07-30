@@ -11,6 +11,10 @@ Based on:
 import argparse, os, pprint, random, sys, time
 from copy import deepcopy
 from uuid import uuid4
+
+# before importing any pyqt stuff, fix the import error ...
+from pangalactic.node import fix_qt_import_error
+
 from PyQt5.QtCore import QRectF, QSize, QTimer, Qt
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
@@ -34,7 +38,6 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import uncook_datetime
 from pangalactic.core.uberorb         import orb
 # from pangalactic.node.conops          import ConOpsModeler
-from pangalactic.node                 import fix_qt_import_error
 from pangalactic.node.dialogs         import LoginDialog
 from pangalactic.node.utils           import clone
 from pangalactic.node.widgets         import ModeLabel
