@@ -5,10 +5,10 @@ import sys
 from collections import OrderedDict
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
-                             QFormLayout, QHBoxLayout, QLabel, QMenu,
-                             QMessageBox, QSizePolicy, QTableView, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDialog,
+                             QDialogButtonBox, QFormLayout, QHBoxLayout,
+                             QLabel, QMenu, QMessageBox, QSizePolicy,
+                             QTableView, QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
@@ -230,6 +230,7 @@ class LdapSearchDialog(QDialog):
         """
         orb.log.info('* LdapSearchDialog()')
         super().__init__(parent)
+        self.test_mode = False
         self.setWindowTitle("LDAP Search")
         outer_vbox = QVBoxLayout()
         self.setLayout(outer_vbox)
@@ -240,7 +241,11 @@ class LdapSearchDialog(QDialog):
         self.criteria_panel.setLayout(form_layout)
         form_label = ColorLabel('Search Criteria', element='h2', margin=10)
         form_layout.setWidget(0, QFormLayout.SpanningRole, form_label)
-        self.schema = state['ldap_schema']
+        self.schema = config.get('ldap_schema')
+        if not self.schema:
+            # if no schema is configured, do a "test" search (vger will return
+            # a dummy result to use for testing)
+            self.test_mode = True
         self.form_widgets = {}
         for name in self.schema:
             self.form_widgets[name] = StringFieldWidget()
@@ -254,15 +259,26 @@ class LdapSearchDialog(QDialog):
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok, Qt.Horizontal,
                                         self)
         self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
-        outer_vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
+        outer_vbox.addWidget(self.buttons)
+        self.test_mode_checkbox = QCheckBox('Test Mode')
+        self.test_mode_checkbox.clicked.connect(self.on_check_cb)
+        outer_vbox.addWidget(self.test_mode_checkbox)
         dispatcher.connect(self.on_search_result, 'ldap result')
+
+    def on_check_cb(self):
+        if self.test_mode_checkbox.isChecked():
+            orb.log.info('* LDAP search test mode activated')
+            self.test_mode = True
+        else:
+            orb.log.info('* LDAP search test mode deactivated')
+            self.test_mode = False
 
     def do_search(self):
         orb.log.info('* LdapSearchDialog: do_search()')
         q = {}
-        # for testing:
-        # q = {'test': 'result'}
+        if self.test_mode:
+            q = {'test': 'result'}
         for name, w in self.form_widgets.items():
             val = w.get_value()
             if val:
@@ -284,7 +300,7 @@ class LdapSearchDialog(QDialog):
         """
         orb.log.info('* LdapSearchDialog: on_search_result()')
         orb.log.info('  result: {}'.format(res))
-        self.ldap_schema = state['ldap_schema']
+        self.ldap_schema = config['ldap_schema']
         res_cols = list(self.ldap_schema.values())
         res_headers = {self.ldap_schema[a]:a for a in self.ldap_schema}
         self.ldap_data = []
@@ -343,9 +359,16 @@ class LdapSearchDialog(QDialog):
             self.person_label.set_content(person_display_name)
             self.add_person_panel.setVisible(True)
 
+    def create_person(self):
+        """
+        Handler for the create_person_button click: clones a new Person object
+        using the object editor and dispatches the "add person" signal, which
+        will trigger pangalaxian to send the 'vger.add_person' rpc.
+        """
+
     def on_add_person(self):
         """
-        Handler for the add_person_button click: dispatch the "add person"
+        Handler for the add_person_button click: dispatches the "add person"
         signal, which will trigger pangalaxian to send the 'vger.add_person'
         rpc.
         """
@@ -400,7 +423,7 @@ class AdminDialog(QDialog):
         outer_vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.accept)
         # if we have an ldap_schema, add an LDAP search button
-        if state.get('ldap_schema'):
+        if config.get('ldap_schema'):
             self.ldap_search_button = SizedButton('LDAP Search for a Person')
             self.ldap_search_button.clicked.connect(self.do_ldap_search)
             self.right_vbox.addWidget(self.ldap_search_button)

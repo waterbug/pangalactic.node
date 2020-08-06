@@ -3,7 +3,7 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, multiprocessing, os, platform, shutil, six, sys
+import argparse, atexit, multiprocessing, os, platform, shutil, sys
 import time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
 from datetime import timedelta
@@ -109,9 +109,10 @@ class Main(QtWidgets.QMainWindow):
         library_widget (LibraryListWidget):  a panel widget containing library
             views for specified classes and a selector (combo box)
         sys_tree (SystemTreeView):  the system tree widget (in left dock)
-        app_version (str):  version of calling app (if any)
-        app_test_data (list):  list of test data objects for self-testing
+        use_tls (bool): use tls to connect to message bus
+        auth_method (str): authentication method ("crypto" or "ticket")
         reactor (qt5reactor):  twisted event loop
+        app_version (str):  version of wrapper app (if any)
         roles (list of dicts):  actually, role assignments -- a list of dicts
             of the form {org oid : role name}
     """
@@ -119,24 +120,25 @@ class Main(QtWidgets.QMainWindow):
     modes = ['system', 'component', 'db', 'data']
 
     def __init__(self, home='', test_data=None, width=None, height=None,
-                 use_tls=True, console=False, debug=False, reactor=None,
-                 app_version=None, pool=None):
+                 use_tls=True, auth_method='crypto', reactor=None,
+                 app_version=None, pool=None, console=False, debug=False):
         """
         Initialize main window.
 
         Keyword Args:
-            home (str):       path to home directory
-            test_data (list): list of serialized test objects (dicts)
-            width (int):      width of main window (default: screen w - 300)
-            height (int):     height of main window (default: screen h - 200)
-            use_tls (bool):   use tls to connect to message bus
-            console (bool):   if True: send log messages to stdout
-                                       (*and* log file)
-                              else: send stdout and stderr to the logger
-            debug (bool):     set log level to DEBUG
+            home (str):        path to home directory
+            test_data (list):  list of serialized test objects (dicts)
+            width (int):       width of main window (default: screen w - 300)
+            height (int):      height of main window (default: screen h - 200)
+            use_tls (bool):    use tls to connect to message bus
+            auth_method (str): authentication method ("crypto" or "ticket")
             reactor (Reactor): twisted Reactor instance
-            app_version (str): version string
-            pool (Pool):      python multiprocessing Pool instance
+            app_version (str): version string of the wrapper app (if any)
+            pool (Pool):       python multiprocessing Pool instance
+            console (bool):    if True: send log messages to stdout
+                                        (*and* log file)
+                               else:    send stdout and stderr to the logger
+            debug (bool):      set log level to DEBUG
         """
         super().__init__(parent=None)
         ###################################################
@@ -145,6 +147,7 @@ class Main(QtWidgets.QMainWindow):
         self.channels = []
         self.reactor = reactor
         self.use_tls = use_tls
+        self.auth_method = auth_method
         self.app_version = app_version
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
@@ -163,7 +166,6 @@ class Main(QtWidgets.QMainWindow):
         # definitions
         setup_dirs_and_state()
         self.get_or_create_local_user()
-        self.app_test_data = test_data
         self.add_splash_msg('... logging started ...')
         # NOTES ON `config` and `state`:
         # * config vars can be modified by the user locally (in the home dir),
@@ -292,7 +294,9 @@ class Main(QtWidgets.QMainWindow):
 
     def set_bus_state(self):
         """
-        Connect to or disconnect from the message bus (crossbar server).
+        Handler for checkable "Connect to the message bus" button in the
+        toolbar: connect to or disconnect from the message bus (crossbar
+        server).
         """
         orb.log.debug('* set_bus_state() ...')
         # TODO:  add a remote url configuration item
@@ -304,42 +308,85 @@ class Main(QtWidgets.QMainWindow):
 
             @self.mbus.signal('onjoined')
             def onjoined():
+                orb.log.info('* mbus "onjoined" event received ...')
                 dispatcher.send(signal='onjoined')
 
             self.statusbar.showMessage('connecting to the message bus ...')
-            login_dlg = LoginDialog(userid=state.get('userid', ''),
-                                    parent=self)
-            if login_dlg.exec_() == QtWidgets.QDialog.Accepted:
-                state['userid'] = asciify(login_dlg.userid)
-                self.mbus.set_authid(login_dlg.userid)
-                self.mbus.set_passwd(login_dlg.passwd)
-                host = config.get('host', 'localhost')
-                port = config.get('port', '8080')
-                tls_options = None
-                if self.use_tls:
-                    if self.cert_path:
-                        orb.log.debug('  - using tls ...')
-                        cert = crypto.load_certificate(
-                                crypto.FILETYPE_PEM,
-                                six.u(open(self.cert_path, 'r').read()))
-                        tls_options = CertificateOptions(
-                            trustRoot=OpenSSLCertificateAuthorities([cert]))
-                        url = 'wss://{}:{}/ws'.format(host, port)
-                    else:
-                        orb.log.debug('  - no server cert; cannot use tls.')
-                        return
+            host = config.get('host', 'localhost')
+            port = config.get('port', '8080')
+            if self.auth_method == 'cryptosign':
+                orb.log.info('* using "cryptosign" (public key) auth ...')
+                key_path = os.path.join(orb.home, '.creds', 'private.key')
+                if not os.path.exists(key_path):
+                    message = f'Key file <{key_path}> not found ... '
+                    message += 'operating in local-only mode.'
+                    popup = QtWidgets.QMessageBox(
+                                        QtWidgets.QMessageBox.Warning,
+                                        "No certificate", message,
+                                        QtWidgets.QMessageBox.Ok, self)
+                    popup.show()
+                    self.connect_to_bus_action.setChecked(False)
                 else:
-                    url = 'ws://{}:{}/ws'.format(host, port)
-                orb.log.info('  logging in with userid "{}"'.format(
-                                                            login_dlg.userid))
-                orb.log.info('  to url "{}"'.format(url))
-                self.mbus.run(url, realm=None, start_reactor=False,
-                              ssl=tls_options)
-            else:
-                # uncheck button if login dialog is cancelled
-                self.connect_to_bus_action.setChecked(False)
-                self.connect_to_bus_action.setToolTip(
-                                                'Connect to the message bus')
+                    self.mbus.set_key_path(key_path)
+                    tls_options = None
+                    if self.use_tls:
+                        if self.cert_path:
+                            orb.log.debug('  - getting cert for tls ...')
+                            try:
+                                cert = crypto.load_certificate(
+                                            crypto.FILETYPE_PEM,
+                                            open(self.cert_path, 'r').read())
+                                tls_options = CertificateOptions(
+                                    trustRoot=OpenSSLCertificateAuthorities(
+                                                                    [cert]))
+                                url = 'wss://{}:{}/ws'.format(host, port)
+                            except:
+                                orb.log.debug('  - tls cert failed.')
+                                self.connect_to_bus_action.setChecked(False)
+                                return
+                        else:
+                            orb.log.debug('  - no server cert; no tls.')
+                            self.connect_to_bus_action.setChecked(False)
+                            return
+                    else:
+                        url = 'ws://{}:{}/ws'.format(host, port)
+                    self.mbus.run(url, auth_method='cryptosign',
+                                  realm='pangalactic-services',
+                                  start_reactor=False, ssl=tls_options)
+            else:  # password ("ticket") auth
+                orb.log.info('* using "ticket" (userid/password) auth ...')
+                login_dlg = LoginDialog(userid=state.get('userid', ''),
+                                        parent=self)
+                if login_dlg.exec_() == QtWidgets.QDialog.Accepted:
+                    state['userid'] = asciify(login_dlg.userid)
+                    self.mbus.set_authid(login_dlg.userid)
+                    self.mbus.set_passwd(login_dlg.passwd)
+                    tls_options = None
+                    if self.use_tls:
+                        if self.cert_path:
+                            orb.log.debug('  - using tls ...')
+                            cert = crypto.load_certificate(
+                                            crypto.FILETYPE_PEM,
+                                            open(self.cert_path, 'r').read())
+                            tls_options = CertificateOptions(
+                                trustRoot=OpenSSLCertificateAuthorities([cert]))
+                            url = 'wss://{}:{}/ws'.format(host, port)
+                        else:
+                            orb.log.debug('  - no server cert; cannot use tls.')
+                            return
+                    else:
+                        url = 'ws://{}:{}/ws'.format(host, port)
+                    orb.log.info('  logging in with userid "{}"'.format(
+                                                                login_dlg.userid))
+                    orb.log.info('  to url "{}"'.format(url))
+                    self.mbus.run(url, auth_method='ticket',
+                                  realm='pangalactic-services',
+                                  start_reactor=False, ssl=tls_options)
+                else:
+                    # uncheck button if login dialog is cancelled
+                    self.connect_to_bus_action.setChecked(False)
+                    self.connect_to_bus_action.setToolTip(
+                                                    'Connect to the message bus')
         else:
             if state['connected']:
                 orb.log.info('* disconnecting from message bus ...')
@@ -363,6 +410,7 @@ class Main(QtWidgets.QMainWindow):
             else:
                 orb.log.info('* already disconnected from message bus.')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
+        self.update_project_role_labels()
 
     def on_mbus_joined(self):
         orb.log.info('* on_mbus_joined:  message bus session joined.')
@@ -371,6 +419,8 @@ class Main(QtWidgets.QMainWindow):
         state['synced_projects'] = []
         state['synced_oids'] = []
         state['connected'] = True
+        # set userid from the returned session details ...
+        state['userid'] = self.mbus.session.details.authid
         self.connect_to_bus_action.setToolTip(
                                         'Disconnect from the message bus')
         self.net_status.setPixmap(self.online_icon)
@@ -4086,7 +4136,7 @@ def cleanup_and_save():
     write_state(os.path.join(orb.home, 'state'))
     write_trash(os.path.join(orb.home, 'trash'))
 
-def run(home='', splash_image=None, test_data=None, use_tls=True,
+def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
         console=True, debug=False, app_version=None, pool=None):
     app = QtWidgets.QApplication(sys.argv)
     # app.setStyleSheet('QToolTip { border: 2px solid;}')
@@ -4116,14 +4166,14 @@ def run(home='', splash_image=None, test_data=None, use_tls=True,
         # processEvents() is needed for image to load
         app.processEvents()
         # TODO:  updates to showMessage() using thread/slot+signal
-        main = Main(home=home, test_data=test_data, use_tls=use_tls,
-                    console=console, debug=debug, reactor=reactor,
-                    app_version=app_version, pool=pool)
+        main = Main(home=home, use_tls=use_tls, auth_method=auth_method,
+                    reactor=reactor, pool=pool, app_version=app_version,
+                    console=console, debug=debug)
         splash.finish(main)
     else:
-        main = Main(home=home, test_data=test_data, use_tls=use_tls,
-                    console=console, debug=debug, reactor=reactor,
-                    app_version=app_version, pool=pool)
+        main = Main(home=home, use_tls=use_tls, auth_method=auth_method,
+                    reactor=reactor, pool=pool, app_version=app_version,
+                    console=console, debug=debug)
     main.show()
     atexit.register(cleanup_and_save)
     # run the reactor after creating the main window but before starting the
@@ -4155,6 +4205,9 @@ if __name__ == "__main__":
                         help='debug mode (verbose logging)')
     parser.add_argument('-u', '--unencrypted', action='store_true',
                         help='use unencrypted transport (no tls)')
+    parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
+                        help='authentication method: "ticket" or "cryptosign" '
+                             '[default: "cryptosign" (pubkey auth)]')
     options = parser.parse_args()
     tls = not options.unencrypted
     admin = not options.noadmin
@@ -4166,5 +4219,6 @@ if __name__ == "__main__":
         proc_pool = None
     else:
         proc_pool = multiprocessing.Pool(5)
-    run(console=options.test, debug=options.debug, use_tls=tls, pool=proc_pool)
+    run(console=options.test, debug=options.debug, use_tls=tls,
+        auth_method=options.auth, pool=proc_pool)
 

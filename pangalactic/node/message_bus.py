@@ -1,20 +1,31 @@
+# -*- coding: utf-8 -*-
+import txaio
+txaio.use_twisted()
+
 from twisted.internet.defer import inlineCallbacks
 from autobahn.twisted.wamp import (Application, ApplicationRunner,
                                    _ApplicationSession)
+from autobahn.wamp import cryptosign
 
-# for testing
-TICKETS = {
-    u'user1': u'123secret',
-    u'user2': u'456secret',
-    u'systems_engineer': u'1234',
-    u'lead_engineer': u'1234',
-    u'acs_engineer': u'1234',
-    u'power_engineer': u'1234',
-    u'flight_dynamics_engineer': u'1234',
-}
 
 
 class PgxnAuthSession(_ApplicationSession):
+
+    def __init__(self, config, app, auth_method='cryptosign'):
+        _ApplicationSession.__init__(self, config, app)
+        self.auth_method = auth_method
+        self.log.info(f'* auth_method set to: "{self.auth_method}"')
+        if self.auth_method == 'cryptosign':
+            # load the client private key (raw format)
+            try:
+                self._key = cryptosign.SigningKey.from_raw_key(
+                                                self.config.extra['key_path'])
+            except Exception as e:
+                self.log.error("failed to load private key: {log_failure}",
+                               log_failure=e)
+            else:
+                self.log.info("public key loaded: {}".format(
+                              self._key.public_key()))
 
     @inlineCallbacks
     def onConnect(self):
@@ -22,19 +33,34 @@ class PgxnAuthSession(_ApplicationSession):
         Implements :func:`autobahn.wamp.interfaces.ISession.onConnect`
         """
         yield self.app._fire_signal('onconnect')
-        realm = self.config.realm
+        realm = self.config.realm or 'not specified'
         self.log.info("  onConnect:")
-        self.log.info("  + realm set to: %s" % realm)
-        authid = self.config.extra[u'authid']
         self.log.info("  + session connected.")
-        self.log.info("  + joining realm <{}> under authid <{}>".format(
-                                realm if realm else 'not specified', authid))
-        self.join(realm, [u'ticket'], authid)
+        self.log.info(f'  + realm set to: "{realm}"')
+        if self.auth_method == 'ticket':
+            authid = self.config.extra['authid']
+            self.log.info(f"  + joining realm <{realm}> as authid <{authid}>")
+            self.join(realm,
+                      authmethods=['ticket'],
+                      authid=authid)
+        elif self.auth_method == 'cryptosign':
+            self.log.info("  + joining realm <{realm}> using cryptosign ...")
+            extra = {'pubkey': self._key.public_key()}
+            self.join(realm,
+                      authmethods=['cryptosign'],
+                      authextra=extra)
 
     def onChallenge(self, challenge):
         self.log.info("  + challenge received: {}".format(challenge))
-        if challenge.method == u'ticket':
+        if challenge.method == 'ticket':
             return self.config.extra['passwd']
+        elif challenge.method == 'cryptosign':
+            self.log.info("authentication challenge received: {challenge}",
+                          challenge=challenge)
+            # sign challenge with private key.
+            signed_challenge = self._key.sign_challenge(self, challenge)
+            # return signed challenge for verification
+            return signed_challenge
         else:
             raise Exception("Invalid authmethod {}".format(challenge.method))
 
@@ -49,6 +75,7 @@ class PgxnAuthSession(_ApplicationSession):
         for uri, handler in self.app._handlers:
             yield self.subscribe(handler, uri)
 
+        self.details = details
         yield self.app._fire_signal('onjoined')
         self.log.info("  onJoin: session joined: {}".format(details))
 
@@ -83,16 +110,20 @@ class NullLogger(object):
 
 
 class PgxnMessageBus(Application):
+
     def __init__(self, prefix=None):
         Application.__init__(self, prefix=prefix)
         self.extra = {}
         self.log = NullLogger()
 
     def set_authid(self, authid):
-        self.extra[u'authid'] = authid
+        self.extra['authid'] = authid
 
     def set_passwd(self, passwd):
-        self.extra[u'passwd'] = passwd
+        self.extra['passwd'] = passwd
+
+    def set_key_path(self, key_path):
+        self.extra['key_path'] = key_path
 
     def set_logger(self, logger):
         if logger:
@@ -107,37 +138,23 @@ class PgxnMessageBus(Application):
         # assert(self.session is None)
         if self.session is not None:
             self.session = None
-        self.session = PgxnAuthSession(config, self)
+        self.session = PgxnAuthSession(config, self, self.auth_method)
         return self.session
 
-    def run(self, url=u"ws://localhost:8080/ws", realm=u"realm1",
-            start_reactor=True, ssl=None):
+    def run(self, url="ws://localhost:8080/ws", realm="realm1",
+            auth_method='cryptosign', start_reactor=True, ssl=None):
+        """
+        Run the message bus with specified arguments.
+
+        Keyword args:
+            url (str): url of the crossbar host
+            realm (str): realm to use on crossbar
+            auth_method (str): WAMP auth method ("cryptosign" or "ticket")
+            start_reactor (bool): start the twisted reactor
+            ssl (dict): server cert info for TLS connection
+        """
+        self.auth_method = auth_method
         self.runner = ApplicationRunner(url, realm, ssl=ssl)
         return self.runner.run(self.__call__, start_reactor,
                                auto_reconnect=True)
-
-
-if __name__ == '__main__':
-
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--authid', dest='authid', type=str,
-                        default=u'user1',
-                        help='The authid to connect under (required)')
-    parser.add_argument('--realm', dest='realm', type=str,
-                        default=None,
-                        help='The realm to join. If not provided, let the '
-                        'router auto-choose the realm (default).')
-    parser.add_argument('--url', dest='url', type=str,
-                        default=u'ws://localhost:8080/ws',
-                        help='The router URL '
-                             '(default: ws://localhost:8080/ws).')
-    options = parser.parse_args()
-
-    print("Connecting to {}: realm={}, authid={}".format(options.url,
-                                                         options.realm,
-                                                         options.authid))
-    app = PgxnMessageBus(options.authid)
-    app.run(options.url, realm=options.realm)
 

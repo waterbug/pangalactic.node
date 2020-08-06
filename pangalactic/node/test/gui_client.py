@@ -960,9 +960,8 @@ if __name__ == "__main__":
     parser.add_argument('--port', dest='port', type=int,
                         default=8080,
                         help='the port to connect to [default: 8080]')
-    parser.add_argument('--crypto', dest='crypto', type=bool,
-                        default=True,
-                        help='use cryptosign (pubkey auth) [default: True]')
+    parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
+            help='authentication method [default: "cryptosign" (pubkey auth)]')
     options = parser.parse_args()
     app = QApplication(sys.argv)
     orb.start('junk_home', console=True, debug=True)
@@ -993,15 +992,13 @@ if __name__ == "__main__":
         from twisted.internet import qt5reactor
     qt5reactor.install()
     from twisted.internet import reactor
-    auth = "cryptosign"
-    if not options.crypto:
-        auth = "ticket"
-    mainwindow = MainWindow(options.host, options.port, auth_method=auth,
+    mainwindow = MainWindow(options.host, options.port,
+                            auth_method=options.auth,
                             reactor=reactor)
     print('MainWindow instantiated ...')
     print('  configured to connect to "{}"'.format(options.host))
     print('  on port {}'.format(options.port))
-    print('  using "{}" authentication'.format(auth))
+    print('  using "{}" authentication'.format(options.auth))
     mainwindow.show()
     reactor.runReturn()
     sys.exit(app.exec_())
