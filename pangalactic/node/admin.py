@@ -23,7 +23,7 @@ from pangalactic.node.libraries       import LibraryListWidget
 from pangalactic.node.tablemodels     import ODTableModel
 from pangalactic.node.utils           import clone, extract_mime_data
 from pangalactic.node.widgets         import (ColorLabel, NameLabel,
-                                              StringFieldWidget)
+                                              StringFieldWidget, ValueLabel)
 
 
 def get_styled_text(text):
@@ -300,14 +300,25 @@ class LdapSearchDialog(QDialog):
         """
         Display result of LDAP search and enable selection of person for
         addition to repository for role assignments.
+
+        Keyword Args:
+            res (tuple): a tuple containing [0] the ldap search string and [1]
+                the result of the search or a test result.
         """
         orb.log.info('* LdapSearchDialog: on_search_result()')
         orb.log.info('  result: {}'.format(res))
+        search_string, records = res
         self.ldap_schema = config['ldap_schema']
         res_cols = list(self.ldap_schema.values())
         res_headers = {self.ldap_schema[a]:a for a in self.ldap_schema}
+        search_string_layout = QHBoxLayout()
+        search_string_field = ValueLabel(search_string, wrappable=True)
+        search_string_layout.addWidget(search_string_field)
+        result_layout = QVBoxLayout()
+        self.layout().addLayout(search_string_layout)
+        self.layout().addLayout(result_layout)
         self.ldap_data = []
-        for res_item in res:
+        for res_item in records:
             ldap_rec = OrderedDict()
             for col in res_cols:
                 ldap_rec[res_headers[col]] = res_item.get(col, '[none]')
@@ -337,7 +348,7 @@ class LdapSearchDialog(QDialog):
         hbox.addWidget(self.add_person_button)
         self.person_label = ColorLabel('tbd')
         hbox.addWidget(self.person_label)
-        self.layout().addWidget(self.add_person_panel)
+        result_layout.addWidget(self.add_person_panel)
         self.add_person_panel.setVisible(False)
         self.resize(700, 600)
         # self.adjustSize()
@@ -488,7 +499,7 @@ class PersonAdminDialog(QDialog):
 
     def on_save(self):
         for name in self.schema:
-            self.data[name] = self.form_widgets[name].getText()
+            self.data[name] = self.form_widgets[name].text()
         # send signal to call rpc "vger.add_person"
         dispatcher.send('add person', data=self.data)
 

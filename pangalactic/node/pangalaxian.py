@@ -60,7 +60,7 @@ from pangalactic.core.utils.meta       import (asciify,
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx
 from pangalactic.core.validation       import check_for_cycles
-from pangalactic.node.admin            import AdminDialog, PersonAdminDialog
+from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
 from pangalactic.node.conops           import ConOpsModeler
@@ -4080,7 +4080,7 @@ class Main(QtWidgets.QMainWindow):
         message bus.  The public key will be submitted to an administrator when
         access is requested.
         """
-        # TODO: set perms to 700 on .creds, 400 on private.key
+        # TODO: set perms to 700 on .creds
         self.statusbar.showMessage('Generating public/private key pair ...')
         orb.log.debug('* gen_keys()')
         privkey = PrivateKey.generate()
