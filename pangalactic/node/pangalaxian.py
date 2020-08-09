@@ -60,7 +60,7 @@ from pangalactic.core.utils.meta       import (asciify,
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx
 from pangalactic.core.validation       import check_for_cycles
-from pangalactic.node.admin            import AdminDialog
+from pangalactic.node.admin            import AdminDialog, PersonAdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
 from pangalactic.node.conops           import ConOpsModeler
@@ -224,6 +224,8 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')
+        dispatcher.connect(self.on_update_person, 'update person')
+        dispatcher.connect(self.on_delete_person, 'delete person')
         dispatcher.connect(self.on_get_people, 'get people')
         dispatcher.connect(self.set_new_object_table_view,
                                                 'new object table view pref')
@@ -1105,6 +1107,18 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_rpc_add_person_result)
         rpc.addErrback(self.on_failure)
 
+    def on_update_person(self, data=None):
+        """
+        Send 'vger.update_person' rpc when 'update person' signal is received.
+        """
+        pass
+
+    def on_delete_person(self, data=None):
+        """
+        Send 'vger.delete_person' rpc when 'delete person' signal is received.
+        """
+        pass
+
     def on_get_people(self):
         """
         Send 'vger.get_people' rpc when 'get people' signal is received from
@@ -1326,9 +1340,9 @@ class Main(QtWidgets.QMainWindow):
         self.disable_collab_action.setEnabled(False)
         self.disable_collab_action.setVisible(False)
         # Administer roles
-        admin_action_tip = "Administer roles on the current Project"
+        admin_action_tip = "Administer Users and Roles"
         self.admin_action = self.create_action(
-                                    "Administer Roles",
+                                    "Administer Users and Roles",
                                     slot=self.do_admin_stuff,
                                     tip=admin_action_tip)
         # default:  admin_action is not visible

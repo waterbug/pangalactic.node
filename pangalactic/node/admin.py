@@ -6,11 +6,13 @@ from collections import OrderedDict
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDialog,
-                             QDialogButtonBox, QFormLayout, QHBoxLayout,
-                             QLabel, QMenu, QMessageBox, QSizePolicy,
-                             QTableView, QVBoxLayout, QWidget)
+                             QDialogButtonBox, QFileDialog, QFormLayout,
+                             QHBoxLayout, QLabel, QMenu, QMessageBox,
+                             QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
 from louie import dispatcher
+
+from binaryornot.check import is_binary
 
 from pangalactic.core                 import config, state
 from pangalactic.core.uberorb         import orb
@@ -243,9 +245,16 @@ class LdapSearchDialog(QDialog):
         form_layout.setWidget(0, QFormLayout.SpanningRole, form_label)
         self.schema = config.get('ldap_schema')
         if not self.schema:
-            # if no schema is configured, do a "test" search (vger will return
-            # a dummy result to use for testing)
-            self.test_mode = True
+            # if no schema is configured, use a default LDAP schema
+            self.schema = {'UUPIC': 'oid',
+                           'AUID': 'id',
+                           'First Name': 'first_name',
+                           'Last Name': 'last_name',
+                           'MI or Name': 'mi_or_name',
+                           'Email': 'email',
+                           'Employer': 'employer_name',
+                           'Code': 'org_code'}
+            config['ldap_schema'] = self.schema.copy()
         self.form_widgets = {}
         for name in self.schema:
             self.form_widgets[name] = StringFieldWidget()
@@ -255,12 +264,6 @@ class LdapSearchDialog(QDialog):
         search_button = SizedButton('Search')
         search_button.clicked.connect(self.do_search)
         outer_vbox.addWidget(search_button)
-        self.results_panel = QWidget()
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok, Qt.Horizontal,
-                                        self)
-        self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
-        self.buttons.accepted.connect(self.accept)
-        outer_vbox.addWidget(self.buttons)
         self.test_mode_checkbox = QCheckBox('Test Mode')
         self.test_mode_checkbox.clicked.connect(self.on_check_cb)
         outer_vbox.addWidget(self.test_mode_checkbox)
@@ -365,6 +368,7 @@ class LdapSearchDialog(QDialog):
         using the object editor and dispatches the "add person" signal, which
         will trigger pangalaxian to send the 'vger.add_person' rpc.
         """
+        pass
 
     def on_add_person(self):
         """
@@ -375,8 +379,118 @@ class LdapSearchDialog(QDialog):
         orb.log.debug('* on_add_person()')
         data = {self.ldap_schema[a]: self.person_data[a]
                 for a in self.person_data}
+        dlg = PersonAdminDialog(data=data, parent=self)
+        dlg.show()
+
+
+class PersonAdminDialog(QDialog):
+    """
+    Dialog for adding, updating, or deleting a person and their public key
+    credential.
+    """
+    def __init__(self, data=None, parent=None):
+        """
+        Initialize.
+
+        Keyword Args:
+            data (dict):  data related to the person
+            parent (QWidget):  parent widget
+        """
+        orb.log.info('* PersonAdminDialog()')
+        super().__init__(parent)
+        self.data = data or {}
+        self.setWindowTitle("User Admin")
+        outer_vbox = QVBoxLayout()
+        self.setLayout(outer_vbox)
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
+        self.data_panel = QWidget()
+        form_layout = QFormLayout()
+        self.data_panel.setLayout(form_layout)
+        form_label = ColorLabel('Data', element='h2', margin=10)
+        form_layout.setWidget(0, QFormLayout.SpanningRole, form_label)
+        self.schema = config.get('ldap_schema')
+        self.form_widgets = {}
+        for name in self.schema:
+            self.form_widgets[name] = StringFieldWidget(
+                                        value=data.get(self.schema[name], ''),
+                                        parent=self)
+            form_layout.addRow(NameLabel(name), self.form_widgets[name])
+        self.data_panel.setLayout(form_layout)
+        outer_vbox.addWidget(self.data_panel)
+        get_key_button = SizedButton('Load User Public Key from File')
+        get_key_button.clicked.connect(self.on_get_key)
+        outer_vbox.addWidget(get_key_button)
+        save_button = SizedButton('Save')
+        save_button.clicked.connect(self.on_save)
+        outer_vbox.addWidget(save_button)
+
+    def on_get_key(self):
+        orb.log.debug('* on_get_key()')
+        d = state.get('last_path') or ''
+        dlg = QFileDialog(self, 'Open Key File', directory=d)
+        fpath = ''
+        data = ''
+        if dlg.exec_():
+            fpaths = dlg.selectedFiles()
+            if fpaths:
+                fpath = fpaths[0]
+            dlg.close()
+        if fpath:
+            orb.log.debug('* key file path: {}'.format(fpath))
+            if is_binary(fpath):
+                message = f'File at "{fpath}" was not in correct format.'
+                orb.log.debug(' - ' + message)
+                popup = QMessageBox(QMessageBox.Warning,
+                            "Wrong file type", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                return
+            try:
+                f = open(fpath)
+                data = f.read()
+                f.close()
+                self.project_file_path = ''
+            except:
+                message = f'File at "{fpath}" could not be opened.'
+                orb.log.debug(' - ' + message)
+                popup = QMessageBox(QMessageBox.Warning,
+                            "Error in file path", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                return
+        else:
+            # no file was selected
+            message = "No file was selected."
+            orb.log.debug(' - ' + message)
+            popup = QMessageBox(QMessageBox.Warning,
+                        "No file", message,
+                        QMessageBox.Ok, self)
+            popup.show()
+            return
+        if data:
+            self.data['public_key'] = data
+            orb.log.debug(' - public key: "{}"'.format(data))
+            message = "Public key has been captured."
+            popup = QMessageBox(QMessageBox.Warning,
+                        "Success", message,
+                        QMessageBox.Ok, self)
+            popup.show()
+            return
+        else:
+            message = "Public key file was empty."
+            orb.log.debug(' - ' + message)
+            popup = QMessageBox(QMessageBox.Warning,
+                        "Empty file", message,
+                        QMessageBox.Ok, self)
+            popup.show()
+            return
+
+    def on_save(self):
+        for name in self.schema:
+            self.data[name] = self.form_widgets[name].getText()
         # send signal to call rpc "vger.add_person"
-        dispatcher.send('add person', data=data)
+        dispatcher.send('add person', data=self.data)
 
 
 class AdminDialog(QDialog):
