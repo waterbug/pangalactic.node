@@ -311,12 +311,14 @@ class LdapSearchDialog(QDialog):
         self.ldap_schema = config['ldap_schema']
         res_cols = list(self.ldap_schema.values())
         res_headers = {self.ldap_schema[a]:a for a in self.ldap_schema}
-        search_string_layout = QHBoxLayout()
-        search_string_field = ValueLabel(search_string, wrappable=True)
-        search_string_layout.addWidget(search_string_field)
-        result_layout = QVBoxLayout()
-        self.layout().addLayout(search_string_layout)
-        self.layout().addLayout(result_layout)
+        layout = self.layout()
+        search_string_label = NameLabel('LDAP Search String:')
+        search_string_field = ValueLabel(search_string, w=300)
+        ss_hbox = QHBoxLayout()
+        ss_hbox.addWidget(search_string_label)
+        ss_hbox.addWidget(search_string_field, alignment=Qt.AlignLeft,
+                          stretch=1)
+        layout.addLayout(ss_hbox)
         self.ldap_data = []
         for res_item in records:
             ldap_rec = OrderedDict()
@@ -339,7 +341,7 @@ class LdapSearchDialog(QDialog):
         # self.ldap_table.setSizePolicy(QSizePolicy.Expanding,
                                      # QSizePolicy.Expanding)
         self.ldap_table.resizeColumnsToContents()
-        self.layout().addWidget(self.ldap_table)
+        layout.addWidget(self.ldap_table)
         self.add_person_panel = QWidget()
         hbox = QHBoxLayout()
         self.add_person_panel.setLayout(hbox)
@@ -348,7 +350,7 @@ class LdapSearchDialog(QDialog):
         hbox.addWidget(self.add_person_button)
         self.person_label = ColorLabel('tbd')
         hbox.addWidget(self.person_label)
-        result_layout.addWidget(self.add_person_panel)
+        layout.addWidget(self.add_person_panel)
         self.add_person_panel.setVisible(False)
         self.resize(700, 600)
         # self.adjustSize()
@@ -429,12 +431,18 @@ class PersonAdminDialog(QDialog):
             form_layout.addRow(NameLabel(name), self.form_widgets[name])
         self.data_panel.setLayout(form_layout)
         outer_vbox.addWidget(self.data_panel)
-        get_key_button = SizedButton('Load User Public Key from File')
-        get_key_button.clicked.connect(self.on_get_key)
-        outer_vbox.addWidget(get_key_button)
+        self.get_key_button = SizedButton('Load User Public Key from File')
+        self.get_key_button.clicked.connect(self.on_get_key)
+        outer_vbox.addWidget(self.get_key_button)
+        self.got_key_label = ButtonLabel('Public Key ready for upload')
+        self.got_key_label.setVisible(False)
+        outer_vbox.addWidget(self.got_key_label)
         save_button = SizedButton('Save')
         save_button.clicked.connect(self.on_save)
         outer_vbox.addWidget(save_button)
+        # make sure we are deleted when closed
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        dispatcher.connect(self.on_person_added_success, 'person added')
 
     def on_get_key(self):
         orb.log.debug('* on_get_key()')
@@ -487,6 +495,8 @@ class PersonAdminDialog(QDialog):
                         "Success", message,
                         QMessageBox.Ok, self)
             popup.show()
+            self.get_key_button.setVisible(False)
+            self.got_key_label.setVisible(True)
             return
         else:
             message = "Public key file was empty."
@@ -499,9 +509,13 @@ class PersonAdminDialog(QDialog):
 
     def on_save(self):
         for name in self.schema:
+            # TODO:  check if all attrs here are string-valued
             self.data[name] = self.form_widgets[name].text()
         # send signal to call rpc "vger.add_person"
         dispatcher.send('add person', data=self.data)
+
+    def on_person_added_success(self):
+        self.close()
 
 
 class AdminDialog(QDialog):
@@ -549,7 +563,7 @@ class AdminDialog(QDialog):
         self.buttons.accepted.connect(self.accept)
         # if we have an ldap_schema, add an LDAP search button
         if config.get('ldap_schema'):
-            self.ldap_search_button = SizedButton('LDAP Search for a Person')
+            self.ldap_search_button = SizedButton('Search for a Person')
             self.ldap_search_button.clicked.connect(self.do_ldap_search)
             self.right_vbox.addWidget(self.ldap_search_button)
         # populate Role and Person library widgets
@@ -563,7 +577,7 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.adjust_size, 'admin contents resized')
         dispatcher.connect(self.refresh_roles, 'deleted object')
         dispatcher.connect(self.refresh_roles, 'remote: deleted')
-        dispatcher.connect(self.refresh_libs, 'person added')
+        dispatcher.connect(self.on_person_added_success, 'person added')
 
     def do_ldap_search(self):
         """
@@ -572,12 +586,17 @@ class AdminDialog(QDialog):
         dlg = LdapSearchDialog(parent=self)
         dlg.show()
 
-    def refresh_libs(self, **kw):
-        """
-        Refresh the library widgets when a 'person added' signal is received,
-        which is sent when the result of the rpc 'vger.add_person' is received
-        in pangalaxian.
-        """
+    def on_person_added_success(self, obj=None, display_name='',
+                                pk_added=False):
+        if display_name:
+            message = f'Person "{display_name}" has been added'
+            if pk_added:
+                message += ' with public key'
+            orb.log.debug(' - ' + message)
+            popup = QMessageBox(QMessageBox.Information,
+                        "Person Added", message,
+                        QMessageBox.Ok, self)
+            popup.show()
         self.lib_widget.refresh(cname='Person')
 
     def refresh_roles(self):

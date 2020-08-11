@@ -1137,8 +1137,9 @@ class Main(QtWidgets.QMainWindow):
                 objects; otherwise, an empty list
         """
         if res:
+            pk_added, ser_objs = res
             try:
-                objs = deserialize(orb, res)
+                objs = deserialize(orb, ser_objs)
                 if objs:
                     for obj in objs:
                         if isinstance(obj, orb.classes['Person']):
@@ -1149,13 +1150,15 @@ class Main(QtWidgets.QMainWindow):
                                                             obj.org.name)
                             orb.log.debug('  - person "{}" saved.'.format(
                                                                 display_name))
-                            dispatcher.send('person added', obj=obj)
+                            dispatcher.send('person added', obj=obj,
+                                            display_name=display_name,
+                                            pk_added=pk_added)
                         elif isinstance(obj, orb.classes['Organization']):
                             orb.log.debug('  - org "{}" saved.'.format(
                                                                 obj.name))
             except:
                 d = str(res)
-                orb.log.debug('- cannot deserialize received data: '.format(d))
+                orb.log.debug('- cannot process received data: '.format(d))
         else:
             orb.log.debug('- rpc failed: no data received!')
 
