@@ -1107,27 +1107,6 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_rpc_add_person_result)
         rpc.addErrback(self.on_failure)
 
-    def on_update_person(self, data=None):
-        """
-        Send 'vger.update_person' rpc when 'update person' signal is received.
-        """
-        pass
-
-    def on_delete_person(self, data=None):
-        """
-        Send 'vger.delete_person' rpc when 'delete person' signal is received.
-        """
-        pass
-
-    def on_get_people(self):
-        """
-        Send 'vger.get_people' rpc when 'get people' signal is received from
-        the admin tool.
-        """
-        rpc = self.mbus.session.call('vger.get_people')
-        rpc.addCallback(self.on_rpc_add_person_result)
-        rpc.addErrback(self.on_failure)
-
     def on_rpc_add_person_result(self, res):
         """
         Handle the result of 'vger.add_person' rpc.
@@ -1156,6 +1135,63 @@ class Main(QtWidgets.QMainWindow):
                         elif isinstance(obj, orb.classes['Organization']):
                             orb.log.debug('  - org "{}" saved.'.format(
                                                                 obj.name))
+            except:
+                d = str(res)
+                orb.log.debug('- cannot process received data: '.format(d))
+        else:
+            orb.log.debug('- rpc failed: no data received!')
+
+    def on_update_person(self, data=None):
+        """
+        Send 'vger.update_person' rpc when 'update person' signal is received.
+        """
+        pass
+
+    def on_delete_person(self, data=None):
+        """
+        Send 'vger.delete_person' rpc when 'delete person' signal is received.
+        """
+        pass
+
+    def on_get_people(self):
+        """
+        Send 'vger.get_people' rpc when 'get people' signal is received from
+        the admin tool.
+        """
+        rpc = self.mbus.session.call('vger.get_people')
+        rpc.addCallback(self.on_rpc_add_person_result)
+        rpc.addErrback(self.on_failure)
+
+    def on_rpc_get_people_result(self, res):
+        """
+        Handle the result of 'vger.get_people' rpc.
+
+        Arg:
+            res (list): if the rpc was successful, a list of tuples
+                (has_pk, display_name, Person); otherwise, an empty list
+        """
+        if res:
+            try:
+                has_pks = [x[0] for x in res]
+                ser_persons = [x[1] for x in res]
+                persons = deserialize(orb, ser_persons)
+                pk_names = []
+                if persons:
+                    for i, person in enumerate(persons):
+                        if isinstance(person, orb.classes['Person']):
+                            display_name = '{}, {} {} ({})'.format(
+                                                            person.last_name,
+                                                            person.first_name,
+                                                            person.mi_or_name,
+                                                            person.org.name)
+                        pk_names.append((has_pks[i], display_name, person))
+                    orb.log.debug('  - users (* = active, has pk):')
+                    for pk_name in pk_names:
+                        orb.log.debug(' {} {}'.format(
+                            '*' if pk_name[0] else ' ', str(pk_name[1])))
+                    dispatcher.send('got people', pk_names=pk_names)
+                else:
+                    dispatcher.send('got people', pk_names=[])
             except:
                 d = str(res)
                 orb.log.debug('- cannot process received data: '.format(d))

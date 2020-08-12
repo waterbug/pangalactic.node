@@ -16,6 +16,7 @@ syntax: glob
 *.egg
 *.orig
 *.pprj
+*.xcf
 build
 bump_version.sh
 .glimpse*

@@ -578,6 +578,7 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.refresh_roles, 'deleted object')
         dispatcher.connect(self.refresh_roles, 'remote: deleted')
         dispatcher.connect(self.on_person_added_success, 'person added')
+        dispatcher.connect(self.on_got_people, 'got people')
 
     def do_ldap_search(self):
         """
@@ -585,6 +586,25 @@ class AdminDialog(QDialog):
         """
         dlg = LdapSearchDialog(parent=self)
         dlg.show()
+
+    def on_got_people(self, pk_names=None):
+        """
+        Set the "active_users" state and refresh the Persons widget when the
+        "got people" signal is received as a result of the vger.get_people()
+        rpc being received by pangalaxian.
+
+        Keyword Args:
+            pk_names (list of tuples): (has_pk, display_name, person)
+                has_pk (bool): True if the person has a public key record
+                    in the crossbar authorizer's principals db)
+                display_name (str):  person's last name, first name, mi,
+                    organization name or code
+                person (Person):  a Person object
+        """
+        if pk_names:
+            active_users = [r[2]['id'] for r in pk_names if r[0]]
+            state['active_users'] = active_users
+        self.lib_widget.refresh(cname='Person')
 
     def on_person_added_success(self, obj=None, display_name='',
                                 pk_added=False):

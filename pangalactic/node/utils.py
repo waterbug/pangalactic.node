@@ -437,6 +437,10 @@ def get_pixmap(obj):
             if obj.__class__.__name__ == 'Project':
                 icon_path = os.path.join(icon_dir,
                                          'favicon' + state['icon_type'])
+            elif (obj.__class__.__name__ == 'Person' and
+                  obj.id in state.get('active_users')):
+                icon_path = os.path.join(icon_dir,
+                                         'green_box' + state['icon_type'])
             else:
                 icon_path = os.path.join(icon_dir, 'box' + state['icon_type'])
         return QPixmap(icon_path)
