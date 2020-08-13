@@ -1159,7 +1159,7 @@ class Main(QtWidgets.QMainWindow):
         the admin tool.
         """
         rpc = self.mbus.session.call('vger.get_people')
-        rpc.addCallback(self.on_rpc_add_person_result)
+        rpc.addCallback(self.on_rpc_get_people_result)
         rpc.addErrback(self.on_failure)
 
     def on_rpc_get_people_result(self, res):
@@ -1170,31 +1170,25 @@ class Main(QtWidgets.QMainWindow):
             res (list): if the rpc was successful, a list of tuples
                 (has_pk, display_name, Person); otherwise, an empty list
         """
+        orb.log.info("* on_rpc_get_people_result()")
+        # orb.log.debug("  res: {}".format(str(res)))
         if res:
+            actives = 0
+            state['active_users'] = []
             try:
-                has_pks = [x[0] for x in res]
-                ser_persons = [x[1] for x in res]
-                persons = deserialize(orb, ser_persons)
-                pk_names = []
-                if persons:
-                    for i, person in enumerate(persons):
-                        if isinstance(person, orb.classes['Person']):
-                            display_name = '{}, {} {} ({})'.format(
-                                                            person.last_name,
-                                                            person.first_name,
-                                                            person.mi_or_name,
-                                                            person.org.name)
-                        pk_names.append((has_pks[i], display_name, person))
-                    orb.log.debug('  - users (* = active, has pk):')
-                    for pk_name in pk_names:
-                        orb.log.debug(' {} {}'.format(
-                            '*' if pk_name[0] else ' ', str(pk_name[1])))
-                    dispatcher.send('got people', pk_names=pk_names)
-                else:
-                    dispatcher.send('got people', pk_names=[])
+                for r in res:
+                    # orb.log.debug("  * len: {}, 0: {}, 1: {}".format(
+                                  # len(r), str(r[0]), str(r[1])))
+                    if r[0]:
+                        actives += 1
+                        state['active_users'].append(r[1]['id'])
             except:
-                d = str(res)
-                orb.log.debug('- cannot process received data: '.format(d))
+                orb.log.debug('  - could not process received data.')
+            finally:
+                if actives:
+                    orb.log.debug('  - active users: {}'.format(
+                                  state['active_users']))
+                dispatcher.send('got people')
         else:
             orb.log.debug('- rpc failed: no data received!')
 

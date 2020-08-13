@@ -409,6 +409,9 @@ def get_icon_path(obj):
         # if obj is not public, use the 'cloakable' icon
         return os.path.join(icon_dir, 'cloakable' + state['icon_type'])
     cname = obj.__class__.__name__
+    if ((cname == 'Person') and
+        obj.id in (state.get('active_users') or [])):
+        return os.path.join(icon_dir, 'green_box' + state['icon_type'])
     # check for a special icon for this class
     class_icon_path = os.path.join(icon_dir, cname + state['icon_type'])
     if os.path.exists(class_icon_path):
@@ -430,17 +433,13 @@ def get_pixmap(obj):
         obj (a PGEF object):  object whose icon is to be gotten
     """
     if obj:
-        # if no generated icon is found, fall back to default icons
         icon_path = get_icon_path(obj)
         if not os.path.exists(icon_path):
+            # if no generated icon is found, fall back to default icons
             icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             if obj.__class__.__name__ == 'Project':
                 icon_path = os.path.join(icon_dir,
                                          'favicon' + state['icon_type'])
-            elif (obj.__class__.__name__ == 'Person' and
-                  obj.id in state.get('active_users')):
-                icon_path = os.path.join(icon_dir,
-                                         'green_box' + state['icon_type'])
             else:
                 icon_path = os.path.join(icon_dir, 'box' + state['icon_type'])
         return QPixmap(icon_path)
