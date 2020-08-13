@@ -4129,6 +4129,14 @@ class Main(QtWidgets.QMainWindow):
         f.write(sk.public_key())
         f.close()
         orb.log.debug('  - keys generated; "public.key" is in cattens_home.')
+        message = '<html>The file <font color="green"><b>public.key</b></font>'
+        message += ' is in your <b>cattens_home</b> directory. Send it to the'
+        message += ' administrator with your request for access.'
+        popup = QtWidgets.QMessageBox(
+                            QtWidgets.QMessageBox.Information,
+                            "Public key generated ...", message,
+                            QtWidgets.QMessageBox.Ok, self)
+        popup.show()
         self.statusbar.showMessage('"public.key" file is in cattens_home dir.')
 
     def closeEvent(self, event):
