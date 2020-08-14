@@ -321,7 +321,7 @@ class LibraryListWidget(QWidget):
             of the library view in the QStackedLayout
     """
     def __init__(self, cnames=None, include_subtypes=True, icon_size=None,
-                 title=None, parent=None):
+                 title=None, min_width=None, parent=None):
         """
         Initialize the library container widget.
 
@@ -333,6 +333,7 @@ class LibraryListWidget(QWidget):
             include_subtypes (bool): flag, if True include subtypes
             icon_size (Qsize):  size of the icons to be used for library items
             title (str):  optional text for widget title; default is 'Libraries'
+            min_width (int):  minimum width of the contained library widgets
             parent (QWidget):  the library view's parent widget
         """
         super().__init__(parent)
@@ -362,10 +363,12 @@ class LibraryListWidget(QWidget):
         self.libraries = {}
         if cnames:
             for cname in cnames:
-                self.create_lib_widget(cname)
+                self.create_lib_widget(cname, min_width=min_width)
+        if min_width:
+            self.setMinimumWidth(min_width)
         # self.setMinimumHeight(300)
         # self.setMaximumWidth(450)
-        # self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         # self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Expanding)
         dispatcher.connect(self.refresh, 'deleted object')
@@ -375,7 +378,8 @@ class LibraryListWidget(QWidget):
         dispatcher.connect(self.refresh, 'remote: modified')
         dispatcher.connect(self.refresh, 'remote: deleted')
 
-    def create_lib_widget(self, cname, include_subtypes=True, icon_size=None):
+    def create_lib_widget(self, cname, include_subtypes=True, icon_size=None,
+                          min_width=None):
         """
         Creates an instance of 'FilterPanel' or 'LibraryListView' for the
         specified class name (cname), sets it as the self.libraries dict entry
@@ -400,7 +404,9 @@ class LibraryListWidget(QWidget):
                     'description', 'comment']
             widget = FilterPanel(None, view=view, as_library=True,
                                  cname=cname, label=library_label,
-                                 external_filters=True, parent=self)
+                                 external_filters=True,
+                                 min_width=min_width,
+                                 parent=self)
             if hasattr(widget, 'ext_filters'):
                 widget.ext_filters.clicked.connect(self.show_ext_filters)
                 dispatcher.connect(self.on_product_types_selected,
@@ -420,7 +426,8 @@ class LibraryListWidget(QWidget):
             # orb.log.debug('- people: {}'.format([p.oid for p in people]))
             people.sort(key=lambda o: getattr(o, 'last_name', '') or '')
             widget = FilterPanel(people, view=view, as_library=True,
-                                 label=select_label, parent=self)
+                                 min_width=min_width, label=select_label,
+                                 parent=self)
         else:
             widget = LibraryListView(cname, include_subtypes=include_subtypes,
                                      icon_size=icon_size, parent=self)

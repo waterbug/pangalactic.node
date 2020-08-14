@@ -219,7 +219,7 @@ class RADropLabel(ColorLabel):
             event.ignore()
 
 
-class LdapSearchDialog(QDialog):
+class PersonSearchDialog(QDialog):
     """
     Dialog for LDAP searches.
     """
@@ -230,7 +230,7 @@ class LdapSearchDialog(QDialog):
         Keyword Args:
             parent (QWidget):  parent widget
         """
-        orb.log.info('* LdapSearchDialog()')
+        orb.log.info('* PersonSearchDialog()')
         super().__init__(parent)
         self.test_mode = False
         self.setWindowTitle("LDAP Search")
@@ -278,7 +278,7 @@ class LdapSearchDialog(QDialog):
             self.test_mode = False
 
     def do_search(self):
-        orb.log.info('* LdapSearchDialog: do_search()')
+        orb.log.info('* PersonSearchDialog: do_search()')
         q = {}
         if self.test_mode:
             q = {'test': 'result'}
@@ -305,7 +305,7 @@ class LdapSearchDialog(QDialog):
             res (tuple): a tuple containing [0] the ldap search string and [1]
                 the result of the search or a test result.
         """
-        orb.log.info('* LdapSearchDialog: on_search_result()')
+        orb.log.info('* PersonSearchDialog: on_search_result()')
         orb.log.info('  result: {}'.format(res))
         search_string, records = res
         self.ldap_schema = config['ldap_schema']
@@ -520,8 +520,8 @@ class PersonAdminDialog(QDialog):
 
 class AdminDialog(QDialog):
     """
-    Dialog for admin operations: basically, role provisioning for an
-    organization.
+    Dialog for admin operations: basically, role provisioning for persons
+    relative to organizations.
     """
     def __init__(self, org=None, parent=None):
         """
@@ -545,13 +545,11 @@ class AdminDialog(QDialog):
         self.right_vbox = QVBoxLayout()
         hbox = QHBoxLayout()
         self.setLayout(outer_vbox)
-        outer_vbox.addLayout(hbox)
+        outer_vbox.addLayout(hbox, stretch=1)
         hbox.addLayout(self.left_vbox)
         hbox.addLayout(self.right_vbox)
         hbox.addStretch(1)
-        self.org_selection = ButtonLabel(self.org.id,
-                                    # actions=[self.new_org_action],
-                                    w=120)
+        self.org_selection = ButtonLabel(self.org.id, w=120)
         self.org_selection.clicked.connect(self.set_current_org)
         self.left_vbox.addWidget(self.org_selection)
         # build role assignments in left_vbox
@@ -564,15 +562,16 @@ class AdminDialog(QDialog):
         # if we have an ldap_schema, add an LDAP search button
         if config.get('ldap_schema'):
             self.ldap_search_button = SizedButton('Search for a Person')
-            self.ldap_search_button.clicked.connect(self.do_ldap_search)
+            self.ldap_search_button.clicked.connect(self.do_person_search)
             self.right_vbox.addWidget(self.ldap_search_button)
         # populate Role and Person library widgets
         cnames = ['Role', 'Person']
         self.lib_widget = LibraryListWidget(cnames=cnames,
                                             title='Roles and People',
+                                            min_width=600,
                                             parent=self)
-        self.right_vbox.addWidget(self.lib_widget)
-        self.right_vbox.addStretch(1)
+        # self.lib_widget.resize(700, 600)
+        self.right_vbox.addWidget(self.lib_widget, stretch=1)
         self.updateGeometry()
         dispatcher.connect(self.adjust_size, 'admin contents resized')
         dispatcher.connect(self.refresh_roles, 'deleted object')
@@ -580,11 +579,11 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.on_person_added_success, 'person added')
         dispatcher.connect(self.on_got_people, 'got people')
 
-    def do_ldap_search(self):
+    def do_person_search(self):
         """
-        Invoke the LDAP Search Dialog.
+        Invoke the PersonSearchDialog.
         """
-        dlg = LdapSearchDialog(parent=self)
+        dlg = PersonSearchDialog(parent=self)
         dlg.show()
 
     def on_got_people(self):

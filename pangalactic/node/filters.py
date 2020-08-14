@@ -408,7 +408,7 @@ class ProxyView(QTableView):
 
 class FilterPanel(QWidget):
     def __init__(self, objs, schema=None, view=None, label='', width=None,
-                 height=None, as_library=False, cname=None,
+                 min_width=None, height=None, as_library=False, cname=None,
                  external_filters=False, parent=None):
         """
         Initialize.
@@ -424,7 +424,8 @@ class FilterPanel(QWidget):
                 maps each field name to a dict that contains 'definition' and
                 'range' (str of the field type).
             label (str):  string to use for title
-            width (int):  width of dialog widget
+            width (int):  width dialog widget will be initially resized to
+            min_width (int):  minimum width of dialog widget
             as_library (bool):  (default: False) flag whether to act as library
                 -- i.e. its objects can be drag/dropped onto other widgets
             cname (str):  class name of the objects to be displayed ("objs" arg
@@ -554,7 +555,7 @@ class FilterPanel(QWidget):
         text_filter_hbox.addWidget(self.clear_btn)
         text_filter_hbox.addWidget(self.filter_case_checkbox)
         proxy_layout.addLayout(text_filter_hbox)
-        proxy_layout.addWidget(self.proxy_view)
+        proxy_layout.addWidget(self.proxy_view, stretch=1)
         proxy_group_box = QGroupBox()
         proxy_group_box.setLayout(proxy_layout)
         title = NameLabel(label)
@@ -568,6 +569,8 @@ class FilterPanel(QWidget):
         width = width or 500
         height = height or 500
         self.resize(width, height)
+        if min_width:
+            self.setMinimumWidth(min_width)
         self.set_source_model(self.create_model(objs=self.objs))
         self.create_actions()
         self.setup_context_menu()
