@@ -919,16 +919,16 @@ class Main(QtWidgets.QMainWindow):
         if local_only:
             orb.log.debug('       objects unknown to server found ...')
             objs_to_delete = set(orb.get(oids=local_only))
+            do_not_delete = set()
             for o in objs_to_delete:
                 if (hasattr(o, 'creator') and o.creator == self.local_user
                     and o.oid not in list(trash)):
-                    objs_to_delete.remove(o)
+                    do_not_delete.add(o)
                 # NOTE: ProjectSystemUsages are not relevant to library sync
                 # elif (o.__class__.__name__ == 'ProjectSystemUsage' and
                       # o.project.oid in state['admin_of']):
                     # objs_to_delete.remove(o)
-                else:
-                    objs_to_delete.add(o)
+            objs_to_delete = objs_to_delete - do_not_delete
             if objs_to_delete:
                 orb.log.debug('       to be deleted: {}'.format(
                               ', '.join([o.oid for o in objs_to_delete])))
