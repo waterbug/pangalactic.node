@@ -451,8 +451,8 @@ class Main(QtWidgets.QMainWindow):
     def sync_with_services(self):
         self.synced = dtstamp()
         self.role_label.setText('syncing data ...')
-        # orb.log.debug('* calling rpc "vger.get_user_roles"')
-        userid = state['userid']
+        orb.log.debug('* calling rpc "vger.get_user_roles"')
+        userid = state.get('userid', '')
         # orb.log.debug('  with arg: "{}"'.format(userid))
         QtWidgets.QApplication.processEvents()
         data = orb.get_mod_dts(cname='Person')
