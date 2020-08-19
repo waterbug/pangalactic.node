@@ -329,7 +329,7 @@ class MainWindow(QMainWindow):
             if os.path.exists(key_path):
                 message_bus.set_key_path(key_path)
             else:
-                message = 'Key file <{key_path}> not found ...\n'
+                message = f'Key file <{key_path}> not found ...\n'
                 message += 'operating in local-only mode.'
                 popup = QMessageBox(QMessageBox.Warning,
                                     "No certificate", message,

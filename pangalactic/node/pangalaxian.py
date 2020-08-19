@@ -423,6 +423,7 @@ class Main(QtWidgets.QMainWindow):
         state['connected'] = True
         # set userid from the returned session details ...
         state['userid'] = self.mbus.session.details.authid
+        orb.log.info('  userid from session: "{}"'.format(state['userid']))
         self.connect_to_bus_action.setToolTip(
                                         'Disconnect from the message bus')
         self.net_status.setPixmap(self.online_icon)
@@ -453,7 +454,7 @@ class Main(QtWidgets.QMainWindow):
         self.role_label.setText('syncing data ...')
         orb.log.debug('* calling rpc "vger.get_user_roles"')
         userid = state.get('userid', '')
-        # orb.log.debug('  with arg: "{}"'.format(userid))
+        orb.log.debug('  with userid: "{}"'.format(userid))
         QtWidgets.QApplication.processEvents()
         data = orb.get_mod_dts(cname='Person')
         data.update(orb.get_mod_dts(cname='Organization'))
@@ -4121,6 +4122,24 @@ class Main(QtWidgets.QMainWindow):
         if not os.path.exists(credpath):
             os.mkdir(credpath, mode=0o700)
         pkpath = os.path.join(credpath, 'private.key')
+        if os.path.exists(pkpath):
+            # if private key already exists, warn user
+            orb.log.debug('  - private key already exists, warning user.')
+            message = '<html><font color="red">A private key already exists.'
+            message += '</font color="red"><br>Do you want'
+            message += ' to replace it with a new one?  (If so, you will need'
+            message += ' to send the new generated <font color="green"><b>'
+            message += ' public.key</b></font> file to the administrator'
+            message += ' and request that it be used to replace your current'
+            message += ' public key.'
+            conf_dlg = QtWidgets.QMessageBox(
+                         QtWidgets.QMessageBox.Warning,
+                         "Private Key Exists ...", message,
+                         QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            response = conf_dlg.exec_()
+            if response == QtWidgets.QMessageBox.No:
+                conf_dlg.close()
+                return
         f = open(pkpath, 'wb')
         f.write(privkey.encode())
         f.close()
