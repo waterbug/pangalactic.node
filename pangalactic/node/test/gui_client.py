@@ -430,9 +430,9 @@ class MainWindow(QMainWindow):
             self.log('* roles assigned to this user:')
             for so in szd_ras:
                 if (so['_cname'] == 'RoleAssignment' and
-                    so['assigned_to'] == self.user.oid):
+                    so.get('assigned_to') == self.user.oid):
                     self.log('    + assigned role oid: {}'.format(
-                                                     so['assigned_role']))
+                                    so.get('assigned_role', 'unknown')))
                     self.log('    + assignment context oid: {}'.format(
                                     so.get('role_assignment_context', 'None')))
             self.log('---- END USER ROLES INFO -----------')
