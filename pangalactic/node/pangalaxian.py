@@ -110,7 +110,7 @@ class Main(QtWidgets.QMainWindow):
             views for specified classes and a selector (combo box)
         sys_tree (SystemTreeView):  the system tree widget (in left dock)
         use_tls (bool): use tls to connect to message bus
-        auth_method (str): authentication method ("crypto" or "ticket")
+        auth_method (str): authentication method ("cryptosign" or "ticket")
         reactor (qt5reactor):  twisted event loop
         app_version (str):  version of wrapper app (if any)
         roles (list of dicts):  actually, role assignments -- a list of dicts
@@ -120,7 +120,7 @@ class Main(QtWidgets.QMainWindow):
     modes = ['system', 'component', 'db', 'data']
 
     def __init__(self, home='', test_data=None, width=None, height=None,
-                 use_tls=True, auth_method='crypto', reactor=None,
+                 use_tls=True, auth_method='cryptosign', reactor=None,
                  app_version=None, pool=None, console=False, debug=False):
         """
         Initialize main window.
@@ -131,7 +131,7 @@ class Main(QtWidgets.QMainWindow):
             width (int):       width of main window (default: screen w - 300)
             height (int):      height of main window (default: screen h - 200)
             use_tls (bool):    use tls to connect to message bus
-            auth_method (str): authentication method ("crypto" or "ticket")
+            auth_method (str): authentication method ("cryptosign" or "ticket")
             reactor (Reactor): twisted Reactor instance
             app_version (str): version string of the wrapper app (if any)
             pool (Pool):       python multiprocessing Pool instance

@@ -45,15 +45,6 @@ from pangalactic.node.widgets         import AutosizingListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus
 
 message_bus = PgxnMessageBus()
-cert_fname = 'server_cert.pem'
-try:
-    cert = crypto.load_certificate(
-            crypto.FILETYPE_PEM,
-            str(open(cert_fname, 'r').read()))
-    tls_options = CertificateOptions(
-        trustRoot=OpenSSLCertificateAuthorities([cert]))
-except:
-    cert = None
 
 @message_bus.signal('onjoined')
 def onjoined():
@@ -283,15 +274,7 @@ class MainWindow(QMainWindow):
         self.decloaked_list = AutosizingListWidget(height=50, parent=self)
         vbox = QVBoxLayout()
         vbox.addWidget(self.role_label, alignment=Qt.AlignVCenter)
-        if cert:
-            vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
-        else:
-            message = 'Certificate not found or not readable ...\n'
-            message += 'operating in local-only mode.'
-            popup = QMessageBox(QMessageBox.Warning,
-                                "No certificate", message,
-                                QMessageBox.Ok, self)
-            popup.show()
+        vbox.addWidget(self.login_button, alignment=Qt.AlignVCenter)
         # vbox.addWidget(self.conops_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
@@ -323,6 +306,22 @@ class MainWindow(QMainWindow):
         self.circle_timer.start(25)
 
     def login(self):
+        cert_fname = 'server_cert.pem'
+        cert_path = os.path.join(orb.home, cert_fname)
+        try:
+            cert = crypto.load_certificate(
+                    crypto.FILETYPE_PEM,
+                    open(cert_path, 'r').read())
+            tls_options = CertificateOptions(
+                trustRoot=OpenSSLCertificateAuthorities([cert]))
+        except:
+            message = 'Certificate not found or not readable ...\n'
+            message += 'operating in local-only mode.'
+            popup = QMessageBox(QMessageBox.Warning,
+                                "No certificate", message,
+                                QMessageBox.Ok, self)
+            popup.show()
+            return
         if self.auth_method == 'cryptosign':
             self.log('* logging in using cryptosign auth ...')
             key_path = os.path.join(orb.home, '.creds', 'private.key')
@@ -336,7 +335,8 @@ class MainWindow(QMainWindow):
                                     QMessageBox.Ok, self)
                 popup.show()
             message_bus.run('wss://{}:{}/ws'.format(self.host, self.port),
-                            auth_method='cryptosign', realm='pangalactic-services',
+                            auth_method='cryptosign',
+                            realm='pangalactic-services',
                             start_reactor=False, ssl=tls_options)
         else:  # password ("ticket") auth
             login_dlg = LoginDialog(parent=self)
@@ -911,8 +911,7 @@ class MainWindow(QMainWindow):
     def on_leave(self):
         self.log('  + session left.')
         message_bus.session.disconnect()
-        if cert:
-            self.login_button.setVisible(True)
+        self.login_button.setVisible(True)
         self.logout_button.setVisible(False)
         self.check_version_button.setVisible(False)
         self.ldap_search_button.setVisible(False)
