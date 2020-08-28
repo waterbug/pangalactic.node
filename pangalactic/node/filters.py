@@ -409,7 +409,7 @@ class ProxyView(QTableView):
 class FilterPanel(QWidget):
     def __init__(self, objs, schema=None, view=None, label='', width=None,
                  min_width=None, height=None, as_library=False, cname=None,
-                 external_filters=False, parent=None):
+                 external_filters=False, excluded_oids=None, parent=None):
         """
         Initialize.
 
@@ -433,18 +433,22 @@ class FilterPanel(QWidget):
             external_filters (bool):  (default: False) flag whether external
                 widgets will be called to select additional filter states --
                 so far this is only used for the Product library
+            excluded_oids (list of str) oids of objs to be excluded from a
+                "library"
             height (int):  height of dialog widget
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
         self.as_library = as_library
+        self.excluded_oids = excluded_oids or []
         if as_library and cname:
             self.cname = cname
             if cname in orb.classes:
                 # orb.log.debug('* FilterPanel is {} library ...'.format(
                                                                 # cname))
-                self.objs = (orb.get_by_type(cname) or
-                             [orb.get('pgefobjects:TBD')])
+                objs = orb.get_by_type(cname) or [orb.get('pgefobjects:TBD')]
+                self.objs = [o for o in objs
+                             if o.oid not in self.excluded_oids]
             else:
                 # not a pangalactic domain object, can't display as a library
                 orb.log.debug('  - Cannot display objs of class "{}".'.format(
@@ -607,7 +611,8 @@ class FilterPanel(QWidget):
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
         if self.as_library and self.cname:
-            self.objs = orb.get_by_type(self.cname)
+            objs = orb.get_by_type(self.cname)
+            self.objs = [o for o in objs if o.oid not in self.excluded_oids]
         self.set_source_model(self.create_model(objs=self.objs))
 
     def on_column_moved(self, old_index=None, new_index=None):

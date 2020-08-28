@@ -20,7 +20,10 @@ requirements:
     # autobahn pulls in:
     # - txaio
     - binaryornot
+    - numpy
+    - pynacl
     - pyqt >=5.6
+    - pyqtgraph
     - python {{PY_VER}}
     - pythonocc-core >=0.18.2
     # -----------------------------------------------------
