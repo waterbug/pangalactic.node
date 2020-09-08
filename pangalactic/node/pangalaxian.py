@@ -45,8 +45,6 @@ from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms
 from pangalactic.core.datastructures   import chunkify
-from pangalactic.core.entity           import (save_dmz, save_entz,
-                                               save_ent_histz, save_schemaz)
 from pangalactic.core.parametrics      import (node_count, save_data_elementz,
                                                save_parmz)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
@@ -4167,12 +4165,7 @@ class Main(QtWidgets.QMainWindow):
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
         self.statusbar.showMessage('saving data elements and parameters ...')
-        save_data_elementz(orb.home)
-        save_parmz(orb.home)
-        save_entz(orb.home)
-        save_ent_histz(orb.home)
-        save_dmz(orb.home)
-        save_schemaz(orb.home)
+        orb.save_caches(orb.home)
         if orb.db.dirty:
             orb.db.commit()
         if state.get('connected'):

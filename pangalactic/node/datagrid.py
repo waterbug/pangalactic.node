@@ -15,13 +15,12 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 
 # pangalactic
 # from pangalactic.core             import prefs
-from pangalactic.core             import state
+from pangalactic.core             import config, state
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.entity      import (Entity, PartsList,
-                                          PartsListItem, plz)
+from pangalactic.core.entity      import DataMatrix, Entity, dmz
 from pangalactic.core.parametrics import de_defz, parm_defz
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.dialogs     import CustomizeColsDialog, SelectColsDialog
+from pangalactic.node.dialogs     import CustomizeColsDialog
 
 # Louie
 from louie import dispatcher
@@ -29,30 +28,31 @@ from louie import dispatcher
 
 class GridTreeItem:
     """
-    Node in a DMTreeModel, which is associated with an Entity or PartsListItem.
+    A node in a DMTreeModel, roughly equivalent to a row in a table.  A
+    GridTreeItem can be associated with an occurrance or a collection of
+    occurrances of an entity, product, subsystem, or model in an assembled or
+    integrated system.
 
     Attributes:
-        oid (str):  oid of an Entity or PartsListItem
-        entity (Entity):  the corresponding Entity or PartsListItem instance
-        dm (DataMatrix or PartsList):  the DataMatrix or PartsList of the
-            DMTreeModel that has this item
+        oid (str):  unique identifier of the underlying Entity
+        dm (DataMatrix):  the DataMatrix of the DMTreeModel that has this item
 
     Keyword Args:
         parent (GridTreeItem):  parent item of this item
     """
     def __init__(self, oid=None, dm=None, root=False, parent=None):
         """
-        Initialize a GridTreeItem, which corresponds to a row (an Entity or
-        PartsListItem) in the DataMatrix or PartsList of a DMTreeModel.
+        Initialize a GridTreeItem, which corresponds to a row in the DataMatrix
+        of a DMTreeModel.
 
         Keyword Args:
-            oid (str):  oid of an Entity or PartListItem instance
-            dm (DataMatrix or PartsList):  the DataMatrix or PartsList instance
-                of the DMTreeModel that has this item
+            oid (str):  unique identifier of the underlying Entity
+            dm (DataMatrix):  the DataMatrix instance of the DMTreeModel that
+                has this item
             root (bool):  if True, we are the root item (i.e. header row)
             parent (GridTreeItem):  parent item of this item
         """
-        argstr = 'oid="{}"'.format(str(oid))
+        argstr = f'oid={oid}'
         orb.log.debug('* GridTreeItem({}) initializing ...'.format(argstr))
         self.root = root
         self.dm = dm
@@ -60,13 +60,10 @@ class GridTreeItem:
             # the root item will not have an entity but will have the schema
             self.entity = None
         else:
-            if isinstance(self.dm, PartsList):
-                self.entity = PartsListItem(oid=oid)
-            else:
-                self.entity = Entity(oid=oid)
+            self.entity = Entity(oid=oid)
         self.parent_item = parent
         # "children" entities in the DataMatrix in which the entity is embedded
-        # is determined by how many entities that immediately follow this one
+        # are determined by how many entities that immediately follow this one
         # have a 'level' value that is exactly one higher ... but the
         # "children" attribute of GridTreeItem is determined by how many child
         # nodes have been added to the DMTreeModel.
@@ -152,7 +149,7 @@ class GridTreeItem:
             # position += self.childCount()
         for i in range(count):
             entity = self.dm[position + i]
-            item = GridTreeItem(oid=entity.oid, dm=self.dm, parent=None)
+            item = GridTreeItem(oid=entity.oid, dm=self.dm, parent=self)
             self.children.insert(position + i, item)
         return True
 
@@ -213,9 +210,9 @@ class DMTreeModel(QAbstractItemModel):
     are used to intialize the underlying DataMatrix object.
 
     Attributes:
-        cell_to_index (dict): maps an (entity oid, col_id) tuple to the model
+        cell_to_index (dict): maps a (entity oid, col_id) tuple to the model
             index of a cell
-        index_to_cell (dict): maps the index of a cell to a (row_oid, col_id)
+        index_to_cell (dict): maps the index of a cell to a (entity oid, col_id)
             tuple in the DataMatrix
     """
     def __init__(self, project=None, name=None, parent=None):
@@ -236,31 +233,27 @@ class DMTreeModel(QAbstractItemModel):
         super().__init__(parent)
         self.cell_to_index = {}
         self.index_to_cell = {}
-        # for now, we focus on PartsList (a subclass of DataMatrix)
         self.dm = None
         self.project = project
-        # TODO:  support generalized, non-PartsList DataMatrix objects to be
-        # associated with a project -- for now, only support "MEL" (PartsList)
-        # DataMatrix objects
+        name = name or config.get('default_schema_name')
         if isinstance(project, orb.classes['Project']) and name:
-            # check for a cached PartsList instance ...
+            # check for a cached DataMatrix instance ...
             dm_oid = project.id + '-' + name
-            orb.log.debug('  looking for PartsList "{}" ...'.format(dm_oid))
-            orb.log.debug('  plz cache is: {}'.format(str(plz)))
-            self.dm = plz.get(dm_oid)
+            orb.log.debug(f'  looking for DataMatrix "{dm_oid}" ...')
+            orb.log.debug('  dmz cache is: {}'.format(str(dmz)))
+            self.dm = dmz.get(dm_oid)
         if self.dm:
-            orb.log.debug('  PartsList found: "{}"'.format(self.dm.oid))
+            orb.log.debug('  DataMatrix found: "{}"'.format(self.dm.oid))
             orb.log.debug('  {}'.format(str(self.dm)))
         else:
-            orb.log.debug('  PartsList not found in cache.')
+            orb.log.debug('  DataMatrix not found in cache.')
             # if no parts list found in the orb's cache, pass the args to
-            # PartsList, which will check for a stored one or create a new
+            # DataMatrix, which will check for a stored one or create a new
             # one based on the input:
             self.project = project or orb.get('pgefobjects:SANDBOX')
-            self.dm = PartsList(project_id=project.id, name=name)
-        self.dm.clear()
-        # self.dm.refresh_mel_data(project)
-        self.dm.refresh_mel_pli_data(project)
+            self.dm = DataMatrix(project_id=project.id, name=name)
+        # self.dm.clear()
+        self.dm.recompute_mel(project)
 
         # TODO: look up col label/name in the 'de_defz' cache ...
         #       the MEL-specific stuff below is for prototyping ...
@@ -427,7 +420,7 @@ class DMTreeModel(QAbstractItemModel):
 
     def load_initial_dm_data(self, parent=None):
         """
-        Add initial DataMatrix or PartsList data to the grid.
+        Add initial DataMatrix data to the grid.
         """
         orb.log.debug('* DMTreeModel.load_initial_dm_data()')
         # if parent == None:
@@ -443,7 +436,7 @@ class DMTreeModel(QAbstractItemModel):
         if n == 1:
             orb.log.debug('  - loading 1 entity ...')
         else:
-            orb.log.debug('  - loading {} entities ...'.format(n))
+            orb.log.debug('  - loading {} entitys ...'.format(n))
         for row in range(n):
             entity = self.dm[row]
             orb.log.debug('    row {} (oid "{}")'.format(row, entity.oid))
@@ -464,6 +457,12 @@ class GridTreeView(QTreeView):
     def __init__(self, project=None, name=None, parent=None):
         """
         Initialize.
+
+        Keyword Args:
+            project (Project): associated project (effective owner of the
+                DataMatrix underlying the model)
+            name (str): name of an initial schema (in 'schemaz' cache)
+                to be passed to the DataMatrix
         """
         orb.log.debug('* GridTreeView initializing ...')
         super().__init__(parent)
@@ -765,7 +764,7 @@ class DGDelegate(QStyledItemDelegate):
     def setModelData(self, editor, model, index):
         """
         Set the model data at the specified index to the edited value, and
-        update the model's associated DataMatrix or PartsList.
+        update the model's associated DataMatrix.
         """
         orb.log.debug('* setModelData()')
         if isinstance(editor, QLineEdit):
@@ -784,15 +783,22 @@ class DGDelegate(QStyledItemDelegate):
 
 class DataGrid(QMainWindow):
     def __init__(self, project=None, name=None, parent=None):
+        """
+        Initialize.
+
+        Keyword Args:
+            project (Project): associated project (effective owner of the
+                underlying DataMatrix)
+            name (str): name of an initial schema (in 'schemaz' cache)
+                to be passed to the internal DataMatrix
+        """
         orb.log.debug('* DataGrid(project="{}", name="{}",'.format(
                              getattr(project, 'id', '[None]'), name))
         super().__init__(parent)
         self.centralwidget = QWidget(self)
-        self.centralwidget.setObjectName("centralwidget")
         self.vboxlayout = QVBoxLayout(self.centralwidget)
         self.vboxlayout.setContentsMargins(0, 0, 0, 0)
         self.vboxlayout.setSpacing(0)
-        self.vboxlayout.setObjectName("vboxlayout")
         self.view = GridTreeView(project=project, name=name,
                                  parent=self.centralwidget)
         self.view.setAlternatingRowColors(True)
@@ -803,7 +809,6 @@ class DataGrid(QMainWindow):
         self.vboxlayout.addWidget(self.view)
         self.setCentralWidget(self.centralwidget)
         self.statusbar = QStatusBar(self)
-        self.statusbar.setObjectName("statusbar")
         self.setStatusBar(self.statusbar)
         QMetaObject.connectSlotsByName(self)
         self.font().setPointSize(14)
