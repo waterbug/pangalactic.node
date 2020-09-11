@@ -392,14 +392,13 @@ class PersonSearchDialog(QDialog):
         orb.log.debug('* on_add_person()')
         data = {self.ldap_schema[a]: self.person_data[a]
                 for a in self.person_data}
-        dlg = PersonAdminDialog(data=data, parent=self)
+        dlg = AddPersonDialog(data=data, parent=self)
         dlg.show()
 
 
-class PersonAdminDialog(QDialog):
+class AddPersonDialog(QDialog):
     """
-    Dialog for adding, updating, or deleting a person and their public key
-    credential.
+    Dialog for adding a person and their public key credential.
     """
     def __init__(self, data=None, parent=None):
         """
@@ -409,10 +408,10 @@ class PersonAdminDialog(QDialog):
             data (dict):  data related to the person
             parent (QWidget):  parent widget
         """
-        orb.log.info('* PersonAdminDialog()')
+        orb.log.info('* AddPersonDialog()')
         super().__init__(parent)
         self.data = data or {}
-        self.setWindowTitle("User Admin")
+        self.setWindowTitle("Create User")
         outer_vbox = QVBoxLayout()
         self.setLayout(outer_vbox)
         self.setSizePolicy(QSizePolicy.Expanding,
@@ -420,7 +419,7 @@ class PersonAdminDialog(QDialog):
         self.data_panel = QWidget()
         form_layout = QFormLayout()
         self.data_panel.setLayout(form_layout)
-        form_label = ColorLabel('Data', element='h2', margin=10)
+        form_label = ColorLabel('User Data', element='h2', margin=10)
         form_layout.setWidget(0, QFormLayout.SpanningRole, form_label)
         self.schema = config.get('ldap_schema')
         self.form_widgets = {}
@@ -508,11 +507,14 @@ class PersonAdminDialog(QDialog):
             return
 
     def on_save(self):
-        for name in self.schema:
-            # TODO:  check if all attrs here are string-valued
-            self.data[name] = self.form_widgets[name].text()
+        # translate from LDAP schema to Person attrs
+        data = {self.schema[name] : self.form_widgets[name].text()
+                for name in self.schema}
+        # for name in self.schema:
+            # # TODO:  check if all attrs here are string-valued
+            # self.data[name] = self.form_widgets[name].text()
         # send signal to call rpc "vger.add_person"
-        dispatcher.send('add person', data=self.data)
+        dispatcher.send('add person', data=data)
 
     def on_person_added_success(self):
         self.close()
