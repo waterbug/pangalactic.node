@@ -1,6 +1,6 @@
 package:
   name: pangalactic.node
-  version: "1.4.0"
+  version: "1.4.0a"
 
 source:
   path: # [path to source]
@@ -15,7 +15,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=1.4.0
+    - pangalactic.core >=1.4.0a
     - autobahn
     # autobahn pulls in:
     # - txaio
