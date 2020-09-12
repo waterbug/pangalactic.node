@@ -668,9 +668,27 @@ class AdminDialog(QDialog):
         orb.log.info('* admin: set_current_org()')
         orgs = [org for org in orb.get_all_subtypes('Organization')
                 if org.id != 'PGANA']
-        orgs.sort(key=lambda org: org.id)
-        if orgs:
-            dlg = ObjectSelectionDialog(orgs, parent=self)
+        # only show orgs for which user is admin, or all orgs if user is a
+        # global admin ... vger will refuse to allow a role assignment by the
+        # user if user is not an admin for the org or a global admin, anyway.
+        userid = state.get('userid')
+        user_obj = orb.select('Person', id=userid)
+        admin_for = []
+        admin_role = orb.get('pgefobjects:Role.Administrator')
+        global_admin = orb.select('RoleAssignment',
+                                  assigned_role=admin_role,
+                                  assigned_to=user_obj,
+                                  role_assignment_context=None)
+        for org in orgs:
+            admin_ra = orb.select('RoleAssignment',
+                                  assigned_role=admin_role,
+                                  assigned_to=user_obj,
+                                  role_assignment_context=org)
+            if admin_ra or global_admin:
+                admin_for.append(org)
+        if admin_for:
+            admin_for.sort(key=lambda org: org.id)
+            dlg = ObjectSelectionDialog(admin_for, parent=self)
             dlg.make_popup(self.org_selection)
             # dlg.exec_() -> modal dialog
             if dlg.exec_():
