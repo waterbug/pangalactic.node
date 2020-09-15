@@ -410,7 +410,7 @@ class AddPersonDialog(QDialog):
         """
         orb.log.info('* AddPersonDialog()')
         super().__init__(parent)
-        self.data = data or {}
+        self.public_key = None
         self.setWindowTitle("Create User")
         outer_vbox = QVBoxLayout()
         self.setLayout(outer_vbox)
@@ -487,7 +487,7 @@ class AddPersonDialog(QDialog):
             popup.show()
             return
         if data:
-            self.data['public_key'] = data
+            self.public_key = data
             orb.log.debug(' - public key: "{}"'.format(data))
             message = "Public key has been captured."
             popup = QMessageBox(QMessageBox.Warning,
@@ -510,9 +510,8 @@ class AddPersonDialog(QDialog):
         # translate from LDAP schema to Person attrs
         data = {self.schema[name] : self.form_widgets[name].text()
                 for name in self.schema}
-        # for name in self.schema:
-            # # TODO:  check if all attrs here are string-valued
-            # self.data[name] = self.form_widgets[name].text()
+        if self.public_key:
+            data['public_key'] = self.public_key
         # send signal to call rpc "vger.add_person"
         dispatcher.send('add person', data=data)
 
