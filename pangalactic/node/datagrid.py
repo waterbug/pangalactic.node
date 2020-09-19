@@ -436,7 +436,7 @@ class DMTreeModel(QAbstractItemModel):
         if n == 1:
             orb.log.debug('  - loading 1 entity ...')
         else:
-            orb.log.debug('  - loading {} entitys ...'.format(n))
+            orb.log.debug('  - loading {} entities ...'.format(n))
         for row in range(n):
             entity = self.dm[row]
             orb.log.debug('    row {} (oid "{}")'.format(row, entity.oid))

@@ -212,6 +212,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        dispatcher.connect(self.on_mel_rearranged, 'mel rearranged')
         dispatcher.connect(self.on_data_item_updated, 'dm item updated')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
@@ -2426,6 +2427,14 @@ class Main(QtWidgets.QMainWindow):
 
     def on_failure(self, f):
         orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
+
+    def on_mel_rearranged(self):
+        """
+        Handle local dispatcher signal for "mel rearranged".
+        """
+        if self.mode == 'data' and hasattr(self, 'data_widget'):
+            self.data_widget = DataGrid(self.project, name="MEL")
+            self.setCentralWidget(self.data_widget)
 
     def on_data_item_updated(self, proj_id=None, dm_oid=None, row_oid=None,
                              col_id=None, value=None):
