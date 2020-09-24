@@ -28,7 +28,7 @@ from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
 from pangalactic.core                 import state
-from pangalactic.core.parametrics     import add_parameter
+from pangalactic.core.parametrics     import add_parameter, set_dval
 from pangalactic.core.refdata         import core
 from pangalactic.core.serializers     import deserialize, serialize
 from pangalactic.core.test.utils      import (create_test_project,
@@ -149,6 +149,7 @@ class MainWindow(QMainWindow):
                                                     'remote: deleted')
         self.new_index = 0
         self.test_oid = ''
+        self.cold_units_val = 0
         self.cloaked = []
         self.decloaked = []
         self.last_saved_obj = None
@@ -177,9 +178,10 @@ class MainWindow(QMainWindow):
         """
         for item in msg.items():
             subject, content = item
-            self.log("*** received pubsub msg ...")
-            self.log("       subject: {}".format(subject))
-            self.log("       content: {}".format(content))
+            if subject not in ['parameter set', 'data element set']:
+                self.log(f'*** received pubsub msg "{subject}" ...')
+                self.log("       subject: {}".format(subject))
+                self.log("       content: {}".format(content))
             obj_id = '[unknown]'
             # base text
             text = "remote {}: ".format(subject)
@@ -215,6 +217,14 @@ class MainWindow(QMainWindow):
                 obj_oid = content['oid']
                 obj_id = content['id']
                 text += obj_id
+            elif subject == 'parameter set':
+                oid, pid, value, units, mod_datetime = content
+            elif subject == 'data element set':
+                oid, deid, value, mod_datetime = content
+                if deid == 'cold_units':
+                    self.log(f'*** pubsub msg "{subject}" ...')
+                    self.log(f'    oid: "{oid}"')
+                    self.log(f'    deid: "{deid}", value: {value}')
             w = NotificationDialog(text, parent=self)
             w.setWidth(200)
             w.show()
@@ -251,6 +261,9 @@ class MainWindow(QMainWindow):
         self.add_acu_button = QPushButton('Add an Assembly Component Usage')
         self.add_acu_button.setVisible(False)
         self.add_acu_button.clicked.connect(self.on_add_acu)
+        self.mod_dval_button = QPushButton('Modify a Data Element')
+        self.mod_dval_button.setVisible(False)
+        self.mod_dval_button.clicked.connect(self.on_mod_dval)
         self.remove_comp_button = QPushButton('Remove Component (leave position)')
         self.remove_comp_button.setVisible(False)
         self.remove_comp_button.clicked.connect(self.on_remove_component)
@@ -284,6 +297,7 @@ class MainWindow(QMainWindow):
                                                 alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_psu_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_acu_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.mod_dval_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.remove_comp_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.get_object_button, alignment=Qt.AlignVCenter)
         # vbox.addWidget(self.sync_project_button, alignment=Qt.AlignVCenter)
@@ -362,6 +376,7 @@ class MainWindow(QMainWindow):
         self.check_version_button.setVisible(True)
         self.ldap_search_button.setVisible(True)
         self.ldap_result_button.setVisible(True)
+        self.mod_dval_button.setVisible(True)
         self.save_object_button.setVisible(True)
         self.save_public_object_button.setVisible(True)
         self.add_psu_button.setVisible(False)
@@ -776,6 +791,13 @@ class MainWindow(QMainWindow):
     def on_null_result(self):
         self.log('* no result expected.')
 
+    def on_mod_dval_success(self, stuff):
+        self.log(f'* result from "vger.set_data_element":  "{stuff}"')
+
+    def on_mod_dval_failure(self, f):
+        self.log('* "vger.set_data_element" failure: {}'.format(
+                                                         f.getTraceback()))
+
     def on_add_psu(self):
         if self.last_saved_obj:
             self.log('* Adding a ProjectSystemUsage for system {} ...'.format(
@@ -830,6 +852,23 @@ class MainWindow(QMainWindow):
         rpc = message_bus.session.call('vger.save', [acu])
         rpc.addCallback(self.on_save_result)
         rpc.addErrback(self.on_failure)
+
+    def on_mod_dval(self):
+        self.log("* on_mod_dval()")
+        # hard-coded for a specific generated entity for the Oscillation
+        # Overthruster ...
+        oid = 'c41796b6-9da1-49b9-bfb6-8ffb948580ea'
+        self.log(f'  modifying "cold units" for Oscillation Overthruster')
+        dts = str(dtstamp())
+        self.cold_units_val += 1
+        set_dval(oid, 'cold_units', self.cold_units_val, mod_datetime=dts,
+                 local=True)
+        rpc = message_bus.session.call('vger.set_data_element', oid=oid,
+                                       deid='cold_units',
+                                       value=self.cold_units_val,
+                                       mod_datetime=dts)
+        rpc.addCallback(self.on_mod_dval_success)
+        rpc.addErrback(self.on_mod_dval_failure)
 
     def on_remove_component(self):
         self.log("* on_remove_component()")

@@ -210,10 +210,8 @@ class DMTreeModel(QAbstractItemModel):
     are used to intialize the underlying DataMatrix object.
 
     Attributes:
-        cell_to_index (dict): maps a (entity oid, col_id) tuple to the model
-            index of a cell
-        index_to_cell (dict): maps the index of a cell to a (entity oid, col_id)
-            tuple in the DataMatrix
+        oid_to_index (dict): maps an entity oid to the model index of an item
+        index_to_oid (dict): maps the index of an item to an entity oid
     """
     def __init__(self, project=None, name=None, parent=None):
         """
@@ -231,8 +229,8 @@ class DMTreeModel(QAbstractItemModel):
                       arguments.format(getattr(project, 'id', 'None'),
                                        name)))
         super().__init__(parent)
-        self.cell_to_index = {}
-        self.index_to_cell = {}
+        self.oid_to_index = {}
+        self.index_to_oid = {}
         self.dm = None
         self.project = project
         name = name or config.get('default_schema_name')
@@ -254,10 +252,6 @@ class DMTreeModel(QAbstractItemModel):
             self.dm = DataMatrix(project_id=project.id, name=name)
         # self.dm.clear()
         self.dm.recompute_mel(project)
-
-        # TODO: look up col label/name in the 'de_defz' cache ...
-        #       the MEL-specific stuff below is for prototyping ...
-        # labels = [col['label'] or col['name'] for col in self.dm.schema]
         # --------------------------------------------------------------------
         # NOTE:  'root_item' is the header row ... and this is the ONLY place
         # where the Model explicitly calls GridTreeItem() -- in all other
@@ -269,13 +263,14 @@ class DMTreeModel(QAbstractItemModel):
         # blank cells.
         # --------------------------------------------------------------------
         self.root_item = GridTreeItem(dm=self.dm, root=True)
-        self.load_initial_dm_data()
+        self.load_dm_data()
         # TODO:  figure out if we need these ...
         # dispatcher.connect(self.new_row, 'dm new row')
         # dispatcher.connect(self.on_remote_new_row,
                            # 'remote: data new row')
         # dispatcher.connect(self.on_remote_data_item_updated,
                            # 'remote: data item updated')
+        dispatcher.connect(self.on_pval_set, 'pval set')
 
     def columnCount(self, parent=QModelIndex()):
         return self.root_item.columnCount()
@@ -418,11 +413,11 @@ class DMTreeModel(QAbstractItemModel):
             self.headerDataChanged.emit(orientation, section, section)
         return result
 
-    def load_initial_dm_data(self, parent=None):
+    def load_dm_data(self, parent=None):
         """
-        Add initial DataMatrix data to the grid.
+        Load DataMatrix data into the grid.
         """
-        orb.log.debug('* DMTreeModel.load_initial_dm_data()')
+        orb.log.debug('* DMTreeModel.load_dm_data()')
         # if parent == None:
             # parents = [self.root_item]
         # else:
@@ -446,8 +441,16 @@ class DMTreeModel(QAbstractItemModel):
                                           # self.root_item.columnCount())
             idx = self.index(row, 0, parent=QModelIndex())
             item = self.getItem(idx)
+            self.oid_to_index[item.oid] = idx
             for j, col_id in enumerate(self.dm.schema):
                 item.setData(j, entity.get(col_id, ''))
+
+    def on_pval_set(self, oid=None, pid=None, value=None, units=None,
+                    mod_datetime=None, local=True):
+        orb.log.debug('DMTreeModel.on_pval_set()')
+        idx = self.oid_to_index.get(oid)
+        if idx:
+            self.dataChanged(idx, idx)
 
 
 class GridTreeView(QTreeView):
@@ -652,11 +655,9 @@ class GridTreeView(QTreeView):
         # for column in range(model.columnCount(index)):
             # child_idx = model.index(new_child_row, column, index)
             ## NOTE: not clear that these are needed either ...???
-            ## cell_to_index maps (oid, col_id) to the index of the cell
-            # model.cell_to_index[(new_entity.oid,
-                                 # model.dm.schema[column])] = child_idx
-            # model.index_to_cell[child_idx] = (row_dict['oid'],
-                                              # model.dm.schema[column])
+            ## oid_to_index maps oid to the index of an item (row)
+            # model.oid_to_index[new_entity.oid] = child_idx
+            # model.index_to_oid[child_idx] = row_dict['oid']
             # model.setData(child_idx, "", Qt.EditRole)
             ## NOTE:  this probably doesn't make sense now ...???
             # if model.headerData(column, Qt.Horizontal) is None:

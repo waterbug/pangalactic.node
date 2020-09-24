@@ -46,7 +46,7 @@ from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (node_count, save_data_elementz,
-                                               save_parmz)
+                                               save_parmz, set_dval, set_pval)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
                                                deserialize, serialize)
@@ -212,8 +212,12 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
-        dispatcher.connect(self.on_mel_rearranged, 'mel rearranged')
-        dispatcher.connect(self.on_data_item_updated, 'dm item updated')
+        dispatcher.connect(self.on_local_mel_modified, 'mel modified')
+        dispatcher.connect(self.on_pval_set, 'pval set')
+        dispatcher.connect(self.on_dval_set, 'dval set')
+        dispatcher.connect(self.on_remote_pval_set, 'remote pval set')
+        dispatcher.connect(self.on_remote_dval_set, 'remote dval set')
+        dispatcher.connect(self.on_new_entity, 'new entity')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
@@ -1000,6 +1004,7 @@ class Main(QtWidgets.QMainWindow):
             obj_id = '[unknown]'
             # base msg
             msg = "remote {}: ".format(subject)
+            # generate log "msg" values ...
             if subject == 'decloaked':
                 obj_oid, obj_id = content
                 msg += obj_id
@@ -1041,6 +1046,7 @@ class Main(QtWidgets.QMainWindow):
                 obj_oid = content['oid']
                 obj_id = content['id']
                 msg += obj_id
+            # dispatcher signals to send ...
             if subject == 'decloaked':
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: decloaked", content=content)
@@ -1053,6 +1059,10 @@ class Main(QtWidgets.QMainWindow):
             elif subject == 'deleted':
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: deleted", content=content)
+            elif subject == 'parameter set':
+                dispatcher.send(signal="remote pval set", content=content)
+            elif subject == 'data element set':
+                dispatcher.send(signal="remote dval set", content=content)
 
     def on_remote_new_or_decloaked_signal(self, content=None):
         """
@@ -1079,7 +1089,7 @@ class Main(QtWidgets.QMainWindow):
         obj = orb.get(obj_oid)
         if obj:
             orb.log.debug('  - decloaked object is already in local db.')
-        else:
+        elif state['connected']:
             # get object from repository ...
             orb.log.debug('  - object unknown -- get from repo...')
             rpc = self.mbus.session.call('vger.get_object', obj_oid,
@@ -1091,10 +1101,11 @@ class Main(QtWidgets.QMainWindow):
         """
         Send 'vger.search_ldap' rpc when 'ldap search' signal is received.
         """
-        q = query or {}
-        rpc = self.mbus.session.call('vger.search_ldap', **q)
-        rpc.addCallback(self.on_rpc_ldap_result)
-        rpc.addErrback(self.on_failure)
+        if state['connected']:
+            q = query or {}
+            rpc = self.mbus.session.call('vger.search_ldap', **q)
+            rpc.addCallback(self.on_rpc_ldap_result)
+            rpc.addErrback(self.on_failure)
 
     def on_rpc_ldap_result(self, res):
         dispatcher.send('ldap result', res=res)
@@ -1103,9 +1114,13 @@ class Main(QtWidgets.QMainWindow):
         """
         Send 'vger.add_person' rpc when 'add person' signal is received.
         """
-        rpc = self.mbus.session.call('vger.add_person', data)
-        rpc.addCallback(self.on_rpc_add_person_result)
-        rpc.addErrback(self.on_failure)
+        orb.log.info("* on_add_person()")
+        if state['connected']:
+            rpc = self.mbus.session.call('vger.add_person', data)
+            rpc.addCallback(self.on_rpc_add_person_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            orb.log.info('  not connected, cannot call "add_person()" rpc.')
 
     def on_rpc_add_person_result(self, res):
         """
@@ -1158,9 +1173,13 @@ class Main(QtWidgets.QMainWindow):
         Send 'vger.get_people' rpc when 'get people' signal is received from
         the admin tool.
         """
-        rpc = self.mbus.session.call('vger.get_people')
-        rpc.addCallback(self.on_rpc_get_people_result)
-        rpc.addErrback(self.on_failure)
+        orb.log.info("* on_get_people()")
+        if state['connected']:
+            rpc = self.mbus.session.call('vger.get_people')
+            rpc.addCallback(self.on_rpc_get_people_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            orb.log.info("  not connected -- cannot get people from repo.")
 
     def on_rpc_get_people_result(self, res):
         """
@@ -2114,6 +2133,8 @@ class Main(QtWidgets.QMainWindow):
                                              serialize(orb, [obj]))
                 rpc.addCallback(self.on_vger_save_result)
                 rpc.addErrback(self.on_failure)
+            else:
+                orb.log.debug('  not connected -- cannot save to repo.')
 
     def on_collaborate(self):
         pass   # to be implemented ...
@@ -2428,28 +2449,73 @@ class Main(QtWidgets.QMainWindow):
     def on_failure(self, f):
         orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
 
-    def on_mel_rearranged(self):
+    def on_set_value_result(self, stuff):
+        orb.log.debug('  rpc result: {}'.format(stuff))
+        # TODO:  add more detailed status message ...
+
+    def on_local_mel_modified(self):
         """
-        Handle local dispatcher signal for "mel rearranged".
+        Handle local dispatcher signal for "mel modified".
         """
         if self.mode == 'data' and hasattr(self, 'data_widget'):
+            # replace and rebuild the data_widget
             self.data_widget = DataGrid(self.project, name="MEL")
             self.setCentralWidget(self.data_widget)
 
-    def on_data_item_updated(self, proj_id=None, dm_oid=None, row_oid=None,
-                             col_id=None, value=None):
-        """
-        Handle local dispatcher signal for "dm item updated".
-        """
-        orb.log.info('* received local "item updated" signal')
-        if state.get('connected'):
-            orb.log.info('  - calling "vger.data_update_item"')
-            rpc = self.mbus.session.call('vger.data_update_item',
-                                         proj_id=proj_id, dm_oid=dm_oid,
-                                         row_oid=row_oid, col_id=col_id,
-                                         value=value)
-            rpc.addCallback(self.on_result)
+    def on_pval_set(self, oid=None, pid=None, value=None, units=None,
+                    mod_datetime=None, local=True):
+        if local:
+            rpc = self.mbus.session.call('vger.set_parameter',
+                                 oid=oid, pid=pid, value=value,
+                                 units=units, mod_datetime=mod_datetime)
+            rpc.addCallback(self.on_set_value_result)
             rpc.addErrback(self.on_failure)
+
+    def on_dval_set(self, oid=None, deid=None, value=None,
+                    mod_datetime=None, local=True):
+        if local:
+            rpc = self.mbus.session.call('vger.set_data_element',
+                                     oid=oid, deid=deid, value=value,
+                                     mod_datetime=mod_datetime)
+            rpc.addCallback(self.on_set_value_result)
+            rpc.addErrback(self.on_failure)
+
+    def on_remote_pval_set(self, content=None):
+        """
+        Handle dispatcher signal for "remote pval set".
+        """
+        # orb.log.info('* received "remote pval set" signal')
+        if content is not None:
+            oid, pid, value, units, mod_datetime = content
+            set_pval(oid, pid, value, units=units, mod_datetime=mod_datetime,
+                     local=False)
+
+    def on_remote_dval_set(self, content=None):
+        """
+        Handle dispatcher signal for "remote dval set".
+        """
+        # orb.log.info('* received "remote dval set" signal')
+        if content is not None:
+            oid, deid, value, mod_datetime = content
+            set_dval(oid, deid, value, mod_datetime=mod_datetime, local=False)
+
+    def on_new_entity(self, oid=None, creator=None, modifier=None,
+                      create_datetime=None, mod_datetime=None, owner=None,
+                      assembly_level=None, parent_oid=None, system_oid=None,
+                      system_name=None):
+        if state['connected']:
+            rpc = self.mbus.session.call('vger.create_entity', oid=oid,
+                          creator=creator, modifier=modifier,
+                          create_datetime=create_datetime,
+                          mod_datetime=mod_datetime, owner=owner,
+                          assembly_level=assembly_level, parent_oid=parent_oid,
+                          system_oid=system_oid, system_name=system_name)
+            rpc.addCallback(self.rpc_create_entity_result)
+            rpc.addErrback(self.on_failure)
+
+    def rpc_create_entity_result(self, result):
+        # orb.log.debug(f'* "vger.create_entity" result: "{result}"')
+        pass
 
     def on_data_new_row_added(self, proj_id=None, dm_oid=None, row_oid=None):
         """
