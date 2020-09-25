@@ -1328,13 +1328,9 @@ class Main(QtWidgets.QMainWindow):
                     html += f' {content}'.format(context)
                     self.w = NotificationDialog(html, parent=self)
                     self.w.show()
-                admin_role = orb.get('pgefobjects:Role.Administrator')
-                global_admin = orb.select('RoleAssignment',
-                                          assigned_role=admin_role,
-                                          assigned_to=self.local_user,
-                                          role_assignment_context=None)
-                if global_admin:
-                    dispatcher.send('refresh admin tool')
+                # whether ra applies to this user or not, send signal to
+                # refresh the admin tool
+                dispatcher.send('refresh admin tool')
             if self.mode == 'db':
                 orb.log.debug('  updating db views with: "{}"'.format(obj.id))
                 self.refresh_cname_list()
@@ -2295,6 +2291,9 @@ class Main(QtWidgets.QMainWindow):
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
                                 remote=True)
                 self.update_project_role_labels()
+                # whether ra applies to this user or not, send signal to
+                # refresh the admin tool
+                dispatcher.send('refresh admin tool')
             elif cname == 'Activity':
                 dispatcher.send('remove activity', act=obj)
                 orb.delete([obj])
