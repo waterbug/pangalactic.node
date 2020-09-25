@@ -2650,8 +2650,13 @@ class Main(QtWidgets.QMainWindow):
         role_label_txt = ''
         tt_txt = ''
         p_roles = []
+        admin_role = orb.get('pgefobjects:Role.Administrator')
+        global_admin = orb.select('RoleAssignment',
+                                  assigned_role=admin_role,
+                                  assigned_to=self.local_user,
+                                  role_assignment_context=None)
         if p:
-            self.project_selection.setText(self.project.id)
+            self.project_selection.setText(p.id)
             orb.log.debug('* set_project({})'.format(p.id))
             state['project'] = str(p.oid)
             # if hasattr(self, 'delete_project_action'):
@@ -2662,8 +2667,13 @@ class Main(QtWidgets.QMainWindow):
                 self.enable_collab_action.setEnabled(False)
                 self.delete_project_action.setEnabled(False)
                 self.delete_project_action.setVisible(False)
-                self.admin_action.setVisible(False)
-                self.admin_action.setEnabled(False)
+                # admin menus accessible only to global admin ...
+                if global_admin:
+                    self.admin_action.setVisible(True)
+                    self.admin_action.setEnabled(True)
+                else:
+                    self.admin_action.setVisible(False)
+                    self.admin_action.setEnabled(False)
                 role_label_txt = 'SANDBOX'
             else:
                 project_is_local = False
@@ -2671,11 +2681,6 @@ class Main(QtWidgets.QMainWindow):
                                          assigned_to=self.local_user,
                                          role_assignment_context=p)
                 p_roles = [ra.assigned_role.name for ra in p_ras]
-                admin_role = orb.get('pgefobjects:Role.Administrator')
-                global_admin = orb.select('RoleAssignment',
-                                          assigned_role=admin_role,
-                                          assigned_to=self.local_user,
-                                          role_assignment_context=None)
                 project_admin = orb.select('RoleAssignment',
                                           assigned_role=admin_role,
                                           assigned_to=self.local_user,

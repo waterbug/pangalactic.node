@@ -57,7 +57,9 @@ class RADropLabel(ColorLabel):
                                           border=border, margin=margin,
                                           parent=None)
         self.setStyleSheet('background-color: white')
-        self.setAcceptDrops(True)
+        # Global Admin ra label does not accept drops
+        if ra.role_assignment_context is not None:
+            self.setAcceptDrops(True)
         self.ra = ra
         self.mime = mime
         self.setup_context_menu()
@@ -76,7 +78,7 @@ class RADropLabel(ColorLabel):
 
     def delete_role(self, event):
         """
-        Deleta a RoleAssignment.
+        Delete a RoleAssignment.
         """
         ra_oid = self.ra.oid
         orb.delete([self.ra])
@@ -539,7 +541,10 @@ class AdminDialog(QDialog):
         # this triggers an rpc that asynchronously updates the Person table
         dispatcher.send(signal='get people')
         self.org = org
-        title = "Administer {} Roles".format(getattr(self.org, 'id', ''))
+        context = getattr(self.org, 'id', '')
+        if context == 'PGANA':
+            context = 'Global Administrator'
+        title = f"Administer {context} Roles"
         self.setWindowTitle(title)
         outer_vbox = QVBoxLayout()
         self.left_vbox = QVBoxLayout()
@@ -638,11 +643,23 @@ class AdminDialog(QDialog):
             self.left_vbox.addWidget(self.users_widget)
         self.form_widgets = []
         orgid = getattr(self.org, 'id', 'No Organization')
+        if orgid == 'PGANA':
+            orgid = 'Global Administrators'
         org_label = ColorLabel(orgid, element='h2', margin=10)
         # org_label should span 2 columns
         form_layout.setWidget(0, QFormLayout.SpanningRole, org_label)
         self.form_widgets.append(org_label)
-        if self.org:
+        if orgid == 'Global Administrators':
+            # show global admins
+            admin_role = orb.get('pgefobjects:Role.Administrator')
+            garas = orb.search_exact(cname='RoleAssignment',
+                                     assigned_role=admin_role,
+                                     role_assignment_context=None)
+            for gara in garas:
+                r_label, p_label = self.get_labels(gara)
+                form_layout.addRow(p_label)
+                self.form_widgets.append(p_label)
+        elif self.org:
             ra_dict = {
                 (ra.assigned_role.name, ra.assigned_to.last_name or '') : ra
                 for ra in orb.search_exact(cname='RoleAssignment',
@@ -685,6 +702,12 @@ class AdminDialog(QDialog):
                                   role_assignment_context=org)
             if admin_ra or global_admin:
                 admin_for.append(org)
+        if global_admin:
+            # Global Admins see the "PGANA" org, enabling them to create other
+            # Global Admins
+            pgana = orb.get('pgefobjects:PGANA')
+            if pgana:
+                admin_for.append(pgana)
         if admin_for:
             admin_for.sort(key=lambda org: org.id)
             dlg = ObjectSelectionDialog(admin_for, parent=self)
@@ -701,10 +724,13 @@ class AdminDialog(QDialog):
 
     def get_labels(self, ra):
         # Role
-        r = ra.assigned_role
-        r_label = RADropLabel(r.name, ra,
-                              mime='application/x-pgef-role',
-                              margin=2, border=1)
+        if ra.role_assignment_context is not None:
+            r = ra.assigned_role
+            r_label = RADropLabel(r.name, ra,
+                                  mime='application/x-pgef-role',
+                                  margin=2, border=1)
+        else:
+            r_label = None
         # Person
         p = ra.assigned_to
         p_name = ' '.join([p.first_name or '',
@@ -753,21 +779,37 @@ class AdminDialog(QDialog):
                                  person.last_name or '[no last name]'])
                 orb.log.info('[Admin] Person dropped: {} ("{}")'.format(
                                                        person.oid, name))
-                observer = orb.get('pgefobjects:Role.Observer')
                 local_user = orb.get(state.get('local_user_oid'))
-                ra_id = get_ra_id(self.org.id, observer.id,
-                                  person.first_name or '',
-                                  person.mi_or_name or '',
-                                  person.last_name or '')
-                ra_name = get_ra_name(self.org.id, observer.id,
-                                  person.first_name or '',
-                                  person.mi_or_name or '',
-                                  person.last_name or '')
-                ra = clone('RoleAssignment', id=ra_id, name=ra_name,
-                           assigned_to=person,
-                           assigned_role=observer,
-                           role_assignment_context=self.org,
-                           creator=local_user, modifier=local_user)
+                if self.org.oid == 'pgefobjects:PGANA':
+                    admin = orb.get('pgefobjects:Role.Administrator')
+                    ra_id = get_ra_id('', 'global_admin',
+                                      person.first_name or '',
+                                      person.mi_or_name or '',
+                                      person.last_name or '')
+                    ra_name = get_ra_name('', 'Global Administrator',
+                                      person.first_name or '',
+                                      person.mi_or_name or '',
+                                      person.last_name or '')
+                    ra = clone('RoleAssignment', id=ra_id, name=ra_name,
+                               assigned_to=person,
+                               assigned_role=admin,
+                               role_assignment_context=None,
+                               creator=local_user, modifier=local_user)
+                else:
+                    observer = orb.get('pgefobjects:Role.Observer')
+                    ra_id = get_ra_id(self.org.id, observer.id,
+                                      person.first_name or '',
+                                      person.mi_or_name or '',
+                                      person.last_name or '')
+                    ra_name = get_ra_name(self.org.id, observer.id,
+                                      person.first_name or '',
+                                      person.mi_or_name or '',
+                                      person.last_name or '')
+                    ra = clone('RoleAssignment', id=ra_id, name=ra_name,
+                               assigned_to=person,
+                               assigned_role=observer,
+                               role_assignment_context=self.org,
+                               creator=local_user, modifier=local_user)
                 # NOTE:  clone() adds a dtstamp()
                 orb.save([ra])
                 # rebuild role assignments
@@ -783,7 +825,7 @@ class AdminDialog(QDialog):
             data = extract_mime_data(event, 'application/x-pgef-role')
             icon, r_oid, r_id, r_name, r_cname = data
             role = orb.get(r_oid)
-            if role:
+            if role and not self.org.oid == 'pgefobjects:PGANA':
                 orb.log.info('[Admin] Role dropped: "{}"'.format(role.name))
                 tbd = orb.get('pgefobjects:Person.TBD')
                 # check whether we already have a TBD for that role ...
