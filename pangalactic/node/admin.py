@@ -583,6 +583,7 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.refresh_roles, 'remote: deleted')
         dispatcher.connect(self.on_person_added_success, 'person added')
         dispatcher.connect(self.on_got_people, 'got people')
+        dispatcher.connect(self.refresh_roles, 'refresh admin tool')
 
     def do_person_search(self):
         """

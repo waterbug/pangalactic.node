@@ -1317,16 +1317,24 @@ class Main(QtWidgets.QMainWindow):
                                 orb.log.info(traceback.format_exc())
                     # resize dashboard columns if necessary
                     need_to_refresh_dashboard = True
-            elif (isinstance(obj, orb.classes['RoleAssignment'])
-                  and getattr(obj, 'assigned_to', None) is self.local_user):
-                html = '<h3>You have been assigned the role:</h3>'
-                html += '<p><b><font color="green">{}</font></b>'.format(
+            elif isinstance(obj, orb.classes['RoleAssignment']):
+                if getattr(obj, 'assigned_to', None) is self.local_user:
+                    html = '<h3>You have been assigned the role:</h3>'
+                    html += '<p><b><font color="green">{}</font></b>'.format(
                                                         obj.assigned_role.id)
-                html += ' in <b><font color="green">{}</font></b></p>'.format(
-                                    getattr(obj.role_assignment_context, 'id',
-                                            'global context'))
-                self.w = NotificationDialog(html, parent=self)
-                self.w.show()
+                    context = getattr(obj.role_assignment_context, 'id',
+                                                        'global context')
+                    content = 'in <b><font color="green">{}</font></b></p>'
+                    html += f' {content}'.format(context)
+                    self.w = NotificationDialog(html, parent=self)
+                    self.w.show()
+                admin_role = orb.get('pgefobjects:Role.Administrator')
+                global_admin = orb.select('RoleAssignment',
+                                          assigned_role=admin_role,
+                                          assigned_to=self.local_user,
+                                          role_assignment_context=None)
+                if global_admin:
+                    dispatcher.send('refresh admin tool')
             if self.mode == 'db':
                 orb.log.debug('  updating db views with: "{}"'.format(obj.id))
                 self.refresh_cname_list()
