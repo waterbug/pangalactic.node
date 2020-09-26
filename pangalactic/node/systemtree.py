@@ -1566,7 +1566,12 @@ class SystemTreeView(QTreeView):
         # project_node = model.get_node(project_index)
         # orb.log.debug('  for project {}'.format(project_node.obj.oid))
         # orb.log.debug('  (node cname: {})'.format(project_node.cname))
-        systems = [psu.system for psu in model.project.systems]
+        # NOTE: systems could be created with a list comp except the sanity
+        # check "if psu.system" is needed in case a psu got corrupted
+        systems = []
+        for psu in model.project.systems:
+            if psu.system:
+                systems.append(psu.system)
         # first check whether obj *is* one of the systems:
         is_a_system = [sys for sys in systems if sys.oid == obj.oid]
         # then check whether obj occurs in any system boms:

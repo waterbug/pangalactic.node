@@ -314,8 +314,11 @@ class ObjectBlock(Block):
             else:
                 hint = '[{}]'.format(hint)
         else:
-            hint = getattr(link.system.product_type, 'abbreviation',
-                           'Unspecified Type')
+            if link.system:
+                hint = getattr(link.system.product_type, 'abbreviation',
+                               'Unspecified Type')
+            else:
+                hint = 'Unknown Type'
             refdes = link.system_role or ''
         hint = hint or 'Unspecified Type'
         if getattr(self, 'name_label', None):

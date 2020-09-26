@@ -3001,7 +3001,9 @@ class Main(QtWidgets.QMainWindow):
         # later use in setting max for progress bar
         nodes = 0
         for psu in self.project.systems:
-            nodes += node_count(psu.system.oid) + 1
+            # sanity check in case a psu got corrupted ...
+            if psu.system:
+                nodes += node_count(psu.system.oid) + 1
         state['sys_trees'][self.project.id]['nodes'] = nodes
         # orb.log.debug('    and {} nodes.'.format(str(nodes)))
         # NB:  rebuild dashboard before expanding sys_tree, because their
