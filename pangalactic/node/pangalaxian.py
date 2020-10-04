@@ -2451,7 +2451,15 @@ class Main(QtWidgets.QMainWindow):
     def on_result(self, stuff):
         orb.log.debug('  rpc result: {}'.format(stuff))
         # TODO:  add more detailed status message ...
-        self.statusbar.showMessage('synced.')
+        if state.get('chunks_to_get'):
+            n = len(state['chunks_to_get'])
+            if n == 1:
+                msg = f'chunk synced -- 1 more chunk to get ...'
+            else:
+                msg = f'chunk synced -- {n} more chunks to get ...'
+        else:
+            msg = 'synced.'
+        self.statusbar.showMessage(msg)
 
     def on_failure(self, f):
         orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
@@ -3923,10 +3931,10 @@ class Main(QtWidgets.QMainWindow):
         if sobjs:
             byclass = {}
             if importing:
-                begin = 'Loading'
+                begin = 'loading'
                 end = 'imported'
             else:
-                begin = 'Syncing'
+                begin = 'syncing'
                 end = 'synced'
             for so in sobjs:
                 if byclass.get(so['_cname']):
@@ -3937,13 +3945,27 @@ class Main(QtWidgets.QMainWindow):
                 projid = byclass['Project'][0].get('id', '')
                 if projid:
                     start_msg = '{} data for {} ...'.format(begin, projid)
-                    message = "Success: project {} synced.".format(projid, end)
+                    msg = "success: project {} synced.".format(projid, end)
                 else:
                     start_msg = '{} data for your project ...'.format(begin)
-                    message = "Your data has been {}.".format(end)
+                    if end == 'synced' and state.get('chunks_to_get'):
+                        n = len(state['chunks_to_get'])
+                        if n == 1:
+                            msg = f'chunk synced -- 1 more chunk to get ...'
+                        else:
+                            msg = f'chunk synced -- {n} more chunks to get ...'
+                    else:
+                        msg = "data has been {}.".format(end)
             else:
                 start_msg = '{} data for your project ...'.format(begin)
-                message = "Your data has been {}.".format(end)
+                if end == 'synced' and state.get('chunks_to_get'):
+                    n = len(state['chunks_to_get'])
+                    if n == 1:
+                        msg = f'chunk synced -- 1 more chunk to get ...'
+                    else:
+                        msg = f'chunk synced -- {n} more chunks to get ...'
+                else:
+                    msg = "data has been {}.".format(end)
             self.statusbar.showMessage(start_msg)
             self.pb.show()
             self.pb.setValue(0)
@@ -3977,9 +3999,9 @@ class Main(QtWidgets.QMainWindow):
                         i += 1
                         self.pb.setValue(i)
             self.pb.hide()
-            if not message:
-                message = "Your data has been {}.".format(end)
-            self.statusbar.showMessage(message)
+            if not msg:
+                msg = "data has been {}.".format(end)
+            self.statusbar.showMessage(msg)
             new_products_psus_or_acus = [obj for obj in objs if isinstance(obj,
                                          (orb.classes['Product'],
                                           orb.classes['Acu'],
@@ -3997,16 +4019,16 @@ class Main(QtWidgets.QMainWindow):
             if importing:
                 popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Information,
-                            "Project Data Import", message,
+                            "Project Data Import", msg,
                             QtWidgets.QMessageBox.Ok, self)
                 popup.show()
             return objs
         else:
             if importing:
-                message = "No data found."
+                msg = "no data found."
                 popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Warning,
-                            "No data found.", message,
+                            "no data found.", msg,
                             QtWidgets.QMessageBox.Ok, self)
                 popup.show()
             return []
