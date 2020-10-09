@@ -4321,6 +4321,9 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
     app.setStyleSheet("QToolTip { color: #ffffff; "
                       "background-color: #2a82da; "
                       "border: 1px solid white; }")
+    styles = QtWidgets.QStyleFactory.keys()
+    if 'Fusion' in styles:
+        app.setStyle(QtWidgets.QStyleFactory.create('Fusion'))
     screen_resolution = app.desktop().screenGeometry()
     splash_image = splash_image or 'pangalacticon.png'
     # Create and display the splash screen
