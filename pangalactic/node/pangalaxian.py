@@ -4173,9 +4173,7 @@ class Main(QtWidgets.QMainWindow):
     def do_admin_stuff(self):
         orb.log.debug('* do_admin_stuff()')
         dlg = AdminDialog(org=self.project, parent=self)
-        if dlg.exec_():
-            orb.log.debug('  - admin dialog completed.')
-            self.update_project_role_labels()
+        dlg.show()
 
     # def compare_items(self):
         # # TODO:  this is just a mock-up for prototyping -- FIXME!
