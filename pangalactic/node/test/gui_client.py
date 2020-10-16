@@ -10,6 +10,7 @@ Based on:
 """
 import argparse, os, pprint, random, sys, time
 from copy import deepcopy
+from functools import partial
 from uuid import uuid4
 
 # before importing any pyqt stuff, fix the import error ...
@@ -18,9 +19,9 @@ from pangalactic.node import fix_qt_import_error
 from PyQt5.QtCore import QRectF, QSize, QTimer, Qt
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
-                             QFormLayout, QHBoxLayout, QLabel, QMainWindow,
-                             QMessageBox, QPushButton, QSizePolicy,
-                             QTextBrowser, QVBoxLayout, QWidget)
+                             QFileDialog, QFormLayout, QHBoxLayout, QLabel,
+                             QMainWindow, QMessageBox, QPushButton,
+                             QSizePolicy, QTextBrowser, QVBoxLayout, QWidget)
 from louie import dispatcher
 from twisted.internet.defer import DeferredList
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
@@ -248,6 +249,9 @@ class MainWindow(QMainWindow):
         self.ldap_result_button = QPushButton('Test LDAP Result')
         self.ldap_result_button.setVisible(False)
         self.ldap_result_button.clicked.connect(self.on_test_ldap_result)
+        self.upload_file_button = QPushButton('Upload a File')
+        self.upload_file_button.setVisible(False)
+        self.upload_file_button.clicked.connect(self.on_upload_file)
         self.save_object_button = QPushButton('Save Cloaked Object')
         self.save_object_button.setVisible(False)
         self.save_object_button.clicked.connect(self.on_save_object)
@@ -292,6 +296,7 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_result_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.upload_file_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.save_object_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.save_public_object_button,
                                                 alignment=Qt.AlignVCenter)
@@ -377,6 +382,7 @@ class MainWindow(QMainWindow):
         self.ldap_search_button.setVisible(True)
         self.ldap_result_button.setVisible(True)
         self.mod_dval_button.setVisible(True)
+        self.upload_file_button.setVisible(True)
         self.save_object_button.setVisible(True)
         self.save_public_object_button.setVisible(True)
         self.add_psu_button.setVisible(False)
@@ -405,16 +411,16 @@ class MainWindow(QMainWindow):
         subs = []
         for channel in channels:
             sub = message_bus.session.subscribe(self.on_pubsub_msg, channel)
-            sub.addCallback(self.on_success)
-            sub.addErrback(self.on_failure)
+            sub.addCallback(self.on_sub_success)
+            sub.addErrback(self.on_sub_failure)
             subs.append(sub)
         self.log('* subscribed to channels: {}'.format(channels))
         return DeferredList(subs, consumeErrors=True)
 
-    def on_success(self, result):
+    def on_sub_success(self, result):
         self.log("* subscribed successfully: {}".format(str(result)))
 
-    def on_failure(self, f):
+    def on_sub_failure(self, f):
         self.log("* subscription failure: {}".format(f.getTraceback()))
 
     def on_get_user_roles_result(self, data):
@@ -713,6 +719,53 @@ class MainWindow(QMainWindow):
         else:
             self.log('  oid not found in local db; ignoring.')
 
+    def on_upload_file(self):
+        """
+        Upload a selected file.
+        """
+        dialog = QFileDialog(self, 'Open File', directory='')
+        fpath = ''
+        if dialog.exec_():
+            fpaths = dialog.selectedFiles()
+            if fpaths:
+                fpath = fpaths[0]
+            dialog.close()
+        if fpath:
+            self.log('* file path: "{fpath}"')
+            fname = os.path.basename(fpath)
+            self.log('* file name: "{fname}"')
+            uploads = []
+            try:
+                with open(fpath, 'rb') as f:
+                    for i, chunk in enumerate(iter(
+                                        partial(f.read, 2**19), b'')):
+                        uploads.append(message_bus.session.call(
+                                      'vger.upload_chunk', fname, chunk))
+                dl = DeferredList(uploads, consumeErrors=True)
+                dl.addCallback(self.on_upload_result)
+            except:
+                message = f'File "{fpath}" could not be uploaded.'
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "Error in uploading", message,
+                                    QMessageBox.Ok, self)
+                popup.show()
+                return
+        else:
+            # no file was selected
+            return
+
+    def on_upload_result(self, result):
+        n_success = 0
+        n_failure = 0
+        for success, value in result:
+            if success:
+                n_success += 1
+            else:
+                n_failure += 1
+        self.log(f"* chunks uploaded: {n_success} succeeded.")
+        if n_failure:
+            self.log(f"                   {n_failure} failed.")
+
     def on_save_object(self):
         """
         Save a generated "non-public" (cloaked) test object to the repo.  NOTE:
@@ -955,6 +1008,7 @@ class MainWindow(QMainWindow):
         self.check_version_button.setVisible(False)
         self.ldap_search_button.setVisible(False)
         self.ldap_result_button.setVisible(False)
+        self.upload_file_button.setVisible(False)
         self.save_object_button.setVisible(False)
         self.save_public_object_button.setVisible(False)
         self.add_psu_button.setVisible(False)

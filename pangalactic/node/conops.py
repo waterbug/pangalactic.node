@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
 import os
-from collections  import namedtuple
-from urllib.parse import urlparse
-
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter, ParameterTree
 from pyqtgraph.dockarea import Dock, DockArea
@@ -26,7 +23,6 @@ from PyQt5.QtGui import (QIcon, QTransform, QBrush, QDrag, QPainter, QPen,
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.meta  import asciify, get_block_model_file_name
 from pangalactic.node.activities  import ActivityTable, ParameterTable
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -34,64 +30,6 @@ from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 from pangalactic.core.serializers import serialize, deserialize
 from pangalactic.core.parametrics import get_pval
-supported_model_types = {
-    # CAD models get "eyes" icon, not a lable button
-    'step:203' : None,
-    'step:214' : None,
-    'pgefobjects:Block' : 'Block',
-    'pgefobjects:ConOps' : 'Con Ops'}
-
-# a named tuple used in managing the "history" so that it can be navigated
-ModelerState = namedtuple('ModelerState', 'obj idx')
-# oid of "block" model type
-BLOCK_OID = 'pgefobjects:Block'
-
-
-def get_model_path(model):
-    """
-    Find the path for a model file.  For now, supported model types include
-    STEP AP203, AP214, and PGEF Block and ConOps models.
-
-    CAUTION:  this function short-circuits the model/rep/rep_files sequence and
-    assumes that each model can be rendered from one file path!  (Granted, this
-    works for STEP files, which may even include external references to other
-    STEP files, as the test data "Heart of Gold Spacecraft" AP214 model does.)
-
-    Args:
-        model (Model):  the Model for which model files are sought
-    Returns:
-        a file path in the orb's "vault"
-    """
-    orb.log.info('* get_model_path(model with oid "{}")'.format(getattr(model,
-                                                            'oid', 'None')))
-    if not isinstance(model, orb.classes['Modelable']):
-        orb.log.info('  not an instance of Modelable.')
-        return ''
-    # check if there is a STEP AP203 / AP214 model type
-    model_type_oid = getattr(model.type_of_model, 'oid', '')
-    orb.log.debug('  - model type oid: "{}"'.format(model_type_oid))
-    if (model.has_representations and model_type_oid in supported_model_types):
-        # FIXME:  for now we assume 1 Representation and 1 File
-        rep = model.has_representations[0]
-        if rep.has_files:
-            rep_file = rep.has_files[0]
-            u = urlparse(asciify(rep_file.url))
-            if u.scheme == 'vault':
-                fpath = os.path.join(orb.vault, u.netloc)
-                # FIXME: for now, assume there is just one cad
-                # model and file
-                if os.path.exists(fpath):
-                    return fpath
-    elif model_type_oid == BLOCK_OID:
-        # special path for pgef block model files
-        fname = get_block_model_file_name(model.of_thing)
-        fpath = os.path.join(orb.vault, fname)
-        if os.path.exists(fpath):
-            return fpath
-        else:
-            return ''
-    else:
-        return ''
 
 
 class EventBlock(QGraphicsPolygonItem):
