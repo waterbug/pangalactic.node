@@ -8,7 +8,7 @@ Based on:
     https://github.com/estan/gauges
   * crossbar examples "advanced" (CRA) auth example
 """
-import argparse, os, pprint, random, sys, time
+import argparse, math, os, pprint, random, sys, time
 from copy import deepcopy
 from functools import partial
 from uuid import uuid4
@@ -39,7 +39,7 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta      import uncook_datetime
 from pangalactic.core.uberorb         import orb
 # from pangalactic.node.conops          import ConOpsModeler
-from pangalactic.node.dialogs         import LoginDialog
+from pangalactic.node.dialogs         import LoginDialog, ProgressDialog
 from pangalactic.node.utils           import clone
 from pangalactic.node.widgets         import ModeLabel
 from pangalactic.node.widgets         import AutosizingListWidget
@@ -719,52 +719,57 @@ class MainWindow(QMainWindow):
         else:
             self.log('  oid not found in local db; ignoring.')
 
-    def on_upload_file(self):
+    def on_upload_file(self, chunk_size=None):
         """
         Upload a selected file.
         """
         dialog = QFileDialog(self, 'Open File', directory='')
         fpath = ''
+        chunk_size = chunk_size or 2**19
         if dialog.exec_():
             fpaths = dialog.selectedFiles()
             if fpaths:
                 fpath = fpaths[0]
             dialog.close()
         if fpath:
-            self.log('* file path: "{fpath}"')
             fname = os.path.basename(fpath)
-            self.log('* file name: "{fname}"')
-            uploads = []
-            try:
-                with open(fpath, 'rb') as f:
-                    for i, chunk in enumerate(iter(
-                                        partial(f.read, 2**19), b'')):
-                        uploads.append(message_bus.session.call(
-                                      'vger.upload_chunk', fname, chunk))
-                dl = DeferredList(uploads, consumeErrors=True)
-                dl.addCallback(self.on_upload_result)
-            except:
-                message = f'File "{fpath}" could not be uploaded.'
-                popup = QMessageBox(QMessageBox.Warning,
-                                    "Error in uploading", message,
-                                    QMessageBox.Ok, self)
-                popup.show()
-                return
+            self.log(f'* uploading file: "{fname}"')
+            self.uploaded_chunks = 0
+            self.failed_chunks = 0
+            # try:
+            with open(fpath, 'rb') as f:
+                fsize = os.fstat(f.fileno()).st_size
+                numchunks = math.ceil(fsize / chunk_size)
+                self.log(f'  using {numchunks} chunks ...')
+                for i, chunk in enumerate(iter(
+                                    partial(f.read, chunk_size), b'')):
+                    rpc = message_bus.session.call('vger.upload_chunk',
+                                        fname=fname, seq=i, data=chunk)
+                    rpc.addCallback(self.on_chunk_upload_success)
+                    rpc.addErrback(self.on_chunk_upload_failure)
+                    if i == numchunks - 1:
+                        rpc.addCallback(self.on_file_upload_success)
+            # except:
+                # message = f'File "{fpath}" could not be uploaded.'
+                # popup = QMessageBox(QMessageBox.Warning,
+                                    # "Error in uploading", message,
+                                    # QMessageBox.Ok, self)
+                # popup.show()
+                # return
         else:
             # no file was selected
             return
 
-    def on_upload_result(self, result):
-        n_success = 0
-        n_failure = 0
-        for success, value in result:
-            if success:
-                n_success += 1
-            else:
-                n_failure += 1
-        self.log(f"* chunks uploaded: {n_success} succeeded.")
-        if n_failure:
-            self.log(f"                   {n_failure} failed.")
+    def on_chunk_upload_success(self, result):
+        self.log(f'  chunk {result} uploaded.')
+        self.uploaded_chunks += 1
+
+    def on_chunk_upload_failure(self, result):
+        self.log(f'  chunk {result} failed.')
+        self.failed_chunks += 1
+
+    def on_file_upload_success(self, result):
+        self.log(f'  upload completed in {self.uploaded_chunks} chunks.')
 
     def on_save_object(self):
         """
