@@ -14,10 +14,10 @@ from PyQt5.QtGui import QIcon, QTransform
 # pangalactic
 from pangalactic.core             import diagramz, state
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.meta  import (asciify, get_block_model_id,
-                                             get_block_model_name,
-                                             get_block_model_file_name)
-from pangalactic.node.dialogs     import Viewer3DDialog
+from pangalactic.core.utils.meta  import (get_block_model_id,
+                                          get_block_model_name,
+                                          get_block_model_file_name)
+from pangalactic.node.cad.viewer  import STEP3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (clone, extract_mime_data,
@@ -67,7 +67,7 @@ def get_model_path(model):
         rep = model.has_representations[0]
         if rep.has_files:
             rep_file = rep.has_files[0]
-            u = urlparse(asciify(rep_file.url))
+            u = urlparse(rep_file.url)
             if u.scheme == 'vault':
                 fpath = os.path.join(orb.vault, u.netloc)
                 # FIXME: for now, assume there is just one cad
@@ -410,11 +410,10 @@ class ModelWindow(QMainWindow):
         try:
             model, fpath = self.models_by_label.get('CAD')
             if fpath:
-                # orb.log.debug('* ModelWindow.display_cad_model({})'.format(
-                                                                    # fpath))
-                viewer = Viewer3DDialog(self)
+                orb.log.debug('* ModelWindow.display_cad_model({})'.format(
+                                                                    fpath))
+                viewer = STEP3DViewer(step_file=fpath, parent=self)
                 viewer.show()
-                viewer.view_cad(fpath)
         except:
             orb.log.debug('  CAD model not found.')
 

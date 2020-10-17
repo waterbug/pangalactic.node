@@ -28,7 +28,7 @@ from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.cad.viewer  import QtViewer3DColor
+from pangalactic.node.cad.viewer  import STEP3DViewer
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, StringFieldWidget,
@@ -149,29 +149,6 @@ class ProgressDialog(QProgressDialog):
         self.setMinimumDuration(0)
         self.setValue(0)
         self.show()
-
-
-class Viewer3DDialog(QDialog):
-    """
-    A Dialog for CAD viewer.
-    """
-    def __init__(self, file_path, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("CAD Viewer")
-        self.cad_viewer = QtViewer3DColor(self)
-        self.cad_viewer.setAttribute(Qt.WA_DeleteOnClose)
-        self.cad_viewer.setSizePolicy(QSizePolicy.Expanding,
-                                      QSizePolicy.Expanding)
-        self.resize(800, 600)
-        layout = QVBoxLayout()
-        layout.addWidget(self.cad_viewer)
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Cancel,
-                                        Qt.Horizontal, self)
-        layout.addWidget(self.buttons)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(layout)
-        self.buttons.rejected.connect(self.reject)
-        self.cad_viewer.init_shape_from_STEP(file_path)
 
 
 class ReqParmDialog(QDialog):
