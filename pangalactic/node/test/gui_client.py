@@ -736,26 +736,33 @@ class MainWindow(QMainWindow):
             self.log(f'* uploading file: "{fname}"')
             self.uploaded_chunks = 0
             self.failed_chunks = 0
-            # try:
-            with open(fpath, 'rb') as f:
-                fsize = os.fstat(f.fileno()).st_size
-                numchunks = math.ceil(fsize / chunk_size)
-                self.log(f'  using {numchunks} chunks ...')
-                for i, chunk in enumerate(iter(
-                                    partial(f.read, chunk_size), b'')):
-                    rpc = message_bus.session.call('vger.upload_chunk',
-                                        fname=fname, seq=i, data=chunk)
-                    rpc.addCallback(self.on_chunk_upload_success)
-                    rpc.addErrback(self.on_chunk_upload_failure)
-                    if i == numchunks - 1:
-                        rpc.addCallback(self.on_file_upload_success)
-            # except:
-                # message = f'File "{fpath}" could not be uploaded.'
-                # popup = QMessageBox(QMessageBox.Warning,
-                                    # "Error in uploading", message,
-                                    # QMessageBox.Ok, self)
-                # popup.show()
-                # return
+            self.progress_dialog = ProgressDialog(title='File Upload',
+                                              label=f'uploading "{fname}" ...',
+                                              parent=self)
+            self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
+            try:
+                with open(fpath, 'rb') as f:
+                    fsize = os.fstat(f.fileno()).st_size
+                    numchunks = math.ceil(fsize / chunk_size)
+                    self.progress_dialog.setMaximum(numchunks)
+                    self.progress_dialog.setValue(0)
+                    self.progress_dialog.setMinimumDuration(2000)
+                    self.log(f'  using {numchunks} chunks ...')
+                    for i, chunk in enumerate(iter(
+                                        partial(f.read, chunk_size), b'')):
+                        rpc = message_bus.session.call('vger.upload_chunk',
+                                            fname=fname, seq=i, data=chunk)
+                        rpc.addCallback(self.on_chunk_upload_success)
+                        rpc.addErrback(self.on_chunk_upload_failure)
+                        if i == numchunks - 1:
+                            rpc.addCallback(self.on_file_upload_success)
+            except:
+                message = f'File "{fpath}" could not be uploaded.'
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "Error in uploading", message,
+                                    QMessageBox.Ok, self)
+                popup.show()
+                return
         else:
             # no file was selected
             return
@@ -763,6 +770,7 @@ class MainWindow(QMainWindow):
     def on_chunk_upload_success(self, result):
         self.log(f'  chunk {result} uploaded.')
         self.uploaded_chunks += 1
+        self.progress_dialog.setValue(self.uploaded_chunks)
 
     def on_chunk_upload_failure(self, result):
         self.log(f'  chunk {result} failed.')
@@ -770,6 +778,7 @@ class MainWindow(QMainWindow):
 
     def on_file_upload_success(self, result):
         self.log(f'  upload completed in {self.uploaded_chunks} chunks.')
+        self.progress_dialog.done(0)
         # TODO:  call vger.save_uploaded_file() rpc to associate file with the
         # db object that references it.
 
