@@ -4273,10 +4273,13 @@ class Main(QtWidgets.QMainWindow):
         # state['system'] = state.get('project')
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
-        self.statusbar.showMessage('saving data elements and parameters ...')
+        self.statusbar.showMessage('* saving data elements and parameters ...')
         orb.save_caches(orb.home)
         if orb.db.dirty:
             orb.db.commit()
+        self.statusbar.showMessage('* backing up db ...')
+        orb.dump_db()
+        self.statusbar.showMessage('* db backed up.')
         if state.get('connected'):
             self.mbus.session = None
             self.mbus = None

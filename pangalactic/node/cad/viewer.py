@@ -24,11 +24,6 @@ from pangalactic.core.uberorb import orb
 from pangalactic.node.buttons import MenuButton
 
 from OCC.Display import OCCViewer
-######################################
-# old stuff from monochrome viewer ...
-# from OCC.IFSelect import IFSelect_RetDone, IFSelect_ItemsByEntity
-# from OCC.STEPControl import STEPControl_Reader
-######################################
 # new stuff for colorized viewer ...
 from OCC.Core.TDocStd import TDocStd_Document
 from OCC.Core.XCAFApp import XCAFApp_Application
@@ -38,7 +33,8 @@ from OCC.Core.STEPCAFControl import STEPCAFControl_Reader
 from OCC.Core.IFSelect import IFSelect_RetDone
 from OCC.Core.TDF import TDF_LabelSequence, TDF_Label, TDF_Tool
 from OCC.Core.TDataStd import TDataStd_Name, TDataStd_Name_GetID
-from OCC.Core.TCollection import TCollection_ExtendedString, TCollection_AsciiString
+from OCC.Core.TCollection import (TCollection_ExtendedString,
+                                  TCollection_AsciiString)
 from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
@@ -72,14 +68,13 @@ def run_ext_3dviewer(file_path):
                                                          c.Green(),
                                                          c.Blue(),
                                                          Quantity_TOC_RGB))
+    display.FitAll()
     start_display()
 
 
 # TODO: figure out what's going on with:
 # "TKOpenGl | Type: Other | ID: 0 | Severity: Medium | Message:
 #  OpenGl_Window::CreateWindow: window Visual is incomplete: no stencil buffer"
-#  ... and:
-# "QWidget::paintEngine: Should no longer be called"
 class QtBaseViewer(QtWidgets.QOpenGLWidget):
     ''' The base Qt Widget for an OCC viewer
     '''
@@ -94,7 +89,11 @@ class QtBaseViewer(QtWidgets.QOpenGLWidget):
         self.setFocusPolicy(Qt.WheelFocus)
 
         # required for overpainting the widget
-        self.setAttribute(Qt.WA_PaintOnScreen)
+        ########################################
+        ### NOTE: commented out this line and things still work AND no longer
+        ### get the "QWidget::paintEngine: Should no longer be called" errors
+        # self.setAttribute(Qt.WA_PaintOnScreen)
+        ########################################
         self.setAttribute(Qt.WA_NoSystemBackground)
         self.setAutoFillBackground(False)
 
@@ -439,8 +438,9 @@ class QtViewer3DColor(QtBaseViewer):
             if event.button() == Qt.LeftButton:
                 pt = point(event.pos())
                 if self._select_area:
-                    [Xmin, Ymin, dx, dy] = self._drawbox
-                    self._display.SelectArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
+                    if self._drawbox:
+                        [Xmin, Ymin, dx, dy] = self._drawbox
+                        self._display.SelectArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
                     self._select_area = False
                 else:
                     # multiple select if shift is pressed
@@ -451,8 +451,9 @@ class QtViewer3DColor(QtBaseViewer):
                         self._display.Select(pt.x, pt.y)
             elif event.button() == Qt.RightButton:
                 if self._zoom_area:
-                    [Xmin, Ymin, dx, dy] = self._drawbox
-                    self._display.ZoomArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
+                    if self._drawbox:
+                        [Xmin, Ymin, dx, dy] = self._drawbox
+                        self._display.ZoomArea(Xmin, Ymin, Xmin+dx, Ymin+dy)
                     self._zoom_area = False
 
     def DrawBox(self, event):
