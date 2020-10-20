@@ -1413,11 +1413,6 @@ class Main(QtWidgets.QMainWindow):
                                     # slot=self.display_disciplines,
                                     # tip="Display List of Disciplines",
                                     # modes=['system', 'component'])
-        self.display_product_types_action = self.create_action(
-                                    "Product Types Library",
-                                    slot=self.display_product_types,
-                                    tip="Product Types Library",
-                                    modes=['system', 'component', 'db'])
         self.reqts_manager_action = self.create_action(
                                 "Project Requirements Manager",
                                 slot=self.display_requirements_manager,
@@ -1444,6 +1439,11 @@ class Main(QtWidgets.QMainWindow):
                                     slot=self.template_library,
                                     icon='Template',
                                     tip=template_lib_title,
+                                    modes=['system', 'component', 'db'])
+        self.display_product_types_action = self.create_action(
+                                    "Product Types Library",
+                                    slot=self.display_product_types,
+                                    tip="Product Types Library",
                                     modes=['system', 'component', 'db'])
         port_lib_title = "Port Templates Library"
         self.port_template_lib_action = self.create_action(
@@ -1982,6 +1982,7 @@ class Main(QtWidgets.QMainWindow):
                                 self.conops_modeler_action,
                                 self.product_lib_action,
                                 self.template_lib_action,
+                                self.display_product_types_action,
                                 self.port_template_lib_action,
                                 self.parameter_lib_action,
                                 self.refresh_tree_action,
@@ -1991,7 +1992,6 @@ class Main(QtWidgets.QMainWindow):
             system_tools_actions.append(self.view_cad_action)
         if not sys.platform == 'win32':
             system_tools_actions.append(self.view_multi_cad_action)
-        system_tools_actions.append(self.display_product_types_action)
         system_tools_actions.append(self.edit_prefs_action)
         # disable sync project action until we are online
         self.sync_project_action.setEnabled(False)
