@@ -1438,14 +1438,21 @@ class Main(QtWidgets.QMainWindow):
                                     icon='part',
                                     tip=hw_lib_title,
                                     modes=['system', 'component', 'db'])
-        port_lib_title = "Port Template Library"
+        template_lib_title = "System and Component Templates Library"
+        self.template_lib_action = self.create_action(
+                                    template_lib_title ,
+                                    slot=self.template_library,
+                                    icon='Template',
+                                    tip=template_lib_title,
+                                    modes=['system', 'component', 'db'])
+        port_lib_title = "Port Templates Library"
         self.port_template_lib_action = self.create_action(
                                     port_lib_title,
                                     slot=self.port_template_library,
                                     icon='PortTemplate',
                                     tip=port_lib_title,
                                     modes=['system', 'component', 'db'])
-        pd_lib_title = "Parameter Definition Library"
+        pd_lib_title = "Parameter Definitions Library"
         self.parameter_lib_action = self.create_action(
                                     pd_lib_title,
                                     slot=self.parameter_library,
@@ -1974,6 +1981,7 @@ class Main(QtWidgets.QMainWindow):
         system_tools_actions = [self.reqts_manager_action,
                                 self.conops_modeler_action,
                                 self.product_lib_action,
+                                self.template_lib_action,
                                 self.port_template_lib_action,
                                 self.parameter_lib_action,
                                 self.refresh_tree_action,
@@ -3659,6 +3667,13 @@ class Main(QtWidgets.QMainWindow):
                             parent=self)
         dlg.show()
 
+    def template_library(self):
+        view = ['id', 'name', 'description', 'comment']
+        dlg = LibraryDialog('Template', view=view,
+                           width=self.geometry().width()//2,
+                           height=self.geometry().height(), parent=self)
+        dlg.show()
+
     def port_template_library(self):
         view = ['id', 'name', 'description', 'comment']
         dlg = LibraryDialog('PortTemplate', view=view,
@@ -4260,7 +4275,7 @@ class Main(QtWidgets.QMainWindow):
         message += ' administrator with your request for access.'
         popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Information,
-                            "Public key generated ...", message,
+                            "Public key generated.", message,
                             QtWidgets.QMessageBox.Ok, self)
         popup.show()
         self.statusbar.showMessage('"public.key" file is in cattens_home dir.')
@@ -4273,13 +4288,15 @@ class Main(QtWidgets.QMainWindow):
         # state['system'] = state.get('project')
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
-        self.statusbar.showMessage('* saving data elements and parameters ...')
+        self.statusbar.showMessage('* saving data elements and parameters...')
         orb.save_caches(orb.home)
         if orb.db.dirty:
             orb.db.commit()
-        self.statusbar.showMessage('* backing up db ...')
-        orb.dump_db()
-        self.statusbar.showMessage('* db backed up.')
+        mods = False
+        if mods:
+            self.statusbar.showMessage('* backing up db...')
+            orb.dump_db()
+            self.statusbar.showMessage('* db backed up.')
         if state.get('connected'):
             self.mbus.session = None
             self.mbus = None

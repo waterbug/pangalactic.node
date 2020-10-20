@@ -562,6 +562,8 @@ class FilterPanel(QWidget):
         proxy_layout.addWidget(self.proxy_view, stretch=1)
         proxy_group_box = QGroupBox()
         proxy_group_box.setLayout(proxy_layout)
+        if as_library:
+            label += ' Library'
         title = NameLabel(label)
         title.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')

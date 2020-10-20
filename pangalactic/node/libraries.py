@@ -14,8 +14,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 # pangalactic
 from pangalactic.core            import state
 from pangalactic.core.uberorb    import orb
-from pangalactic.core.utils.meta import (display_id, get_external_name,
-                                         get_external_name_plural,
+from pangalactic.core.utils.meta import (display_id, get_external_name_plural,
                                          to_media_name)
 from pangalactic.node.buttons    import SizedButton
 from pangalactic.node.filters    import FilterPanel, ProductFilterDialog
@@ -396,14 +395,13 @@ class LibraryListWidget(QWidget):
         """
         self.msg = 'All Product Types'
         self.product_types = None
-        library_label = get_external_name(cname) + ' Library'
         select_label = get_external_name_plural(cname)
         if cname == 'HardwareProduct':
             select_label = 'Systems & Components (Hardware Products)'
             view = ['id', 'name', 'product_type', 'version', 'iteration',
                     'description', 'comment']
             widget = FilterPanel(None, view=view, as_library=True,
-                                 cname=cname, label=library_label,
+                                 cname=cname, label=select_label,
                                  external_filters=True,
                                  min_width=min_width,
                                  parent=self)
@@ -536,9 +534,10 @@ class LibraryDialog(QDialog):
         self.cname = cname
         # TODO:  include_subtypes, prefilter ...
         objs = orb.get_by_type(cname)
-        label = get_external_name(cname) + ' Library'
+        label = get_external_name_plural(cname)
         if tabular:
             if self.cname == 'HardwareProduct':
+                label = 'Systems and Components (Hardware Products)'
                 lib_view = FilterPanel(objs, view=view, as_library=True,
                                        label=label, external_filters=True,
                                        parent=self)
@@ -548,6 +547,9 @@ class LibraryDialog(QDialog):
                 dispatcher.connect(self.on_only_mine_toggled,
                                    'only mine toggled')
             else:
+                # special case label
+                if self.cname == 'Template':
+                    label = 'System and Component Templates'
                 lib_view = FilterPanel(objs, view=view, as_library=True,
                                        label=label, parent=self)
             # only listen for these signals if using FilterPanel, which does
