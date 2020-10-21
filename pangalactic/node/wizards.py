@@ -91,7 +91,7 @@ class NewProductWizard(QtWidgets.QWizard):
 
     def __init__(self, parent=None): 
         super().__init__(parent=parent)
-        orb.log.info('* [new product wizard]')
+        orb.log.info('* opening Product Wizard ...')
         self.setWizardStyle(QtWidgets.QWizard.ClassicStyle)
         # the included buttons must be specified using setButtonLayout in order
         # to get the "Back" button on Windows (it is automatically included on
@@ -105,9 +105,9 @@ class NewProductWizard(QtWidgets.QWizard):
         self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
         wizard_state['product_oid'] = None
         intro_label = QtWidgets.QLabel(
-                "<h2>Component Wizard</h2>"
-                "This wizard will assist you in creating new components "
-                "and reusable subsystems!")
+                "<h2>System / Component Wizard</h2>"
+                "This wizard will assist you in creating or editing systems "
+                "and components or subsystems!")
         project_oid = state.get('project')
         if project_oid:
             proj = orb.get(project_oid)
@@ -132,7 +132,7 @@ class NewProductWizard(QtWidgets.QWizard):
         self.addPage(NewProductWizardConclusionPage(self))
         self.setMinimumSize(800, 700)
         self.setSizeGripEnabled(True)
-        self.setWindowTitle("Component Wizard")
+        self.setWindowTitle("System / Component Wizard")
 
 
 class NewProductTypeWizard(QtWidgets.QWizard):
@@ -601,7 +601,7 @@ class IdentificationPage(QtWidgets.QWizardPage):
         # include version -- but it's allowed to be empty (blank)
         view = ['id', 'name', 'product_type', 'version', 'owner',
                 'description', 'public']
-        required = ['name', 'product_type', 'owner', 'description']
+        required = ['name', 'description', 'owner', 'product_type']
         panels = ['main']
         self.pgxn_obj = PgxnObject(product, embedded=True, panels=panels,
                                    view=view, required=required,
@@ -614,15 +614,21 @@ class IdentificationPage(QtWidgets.QWizardPage):
         self.wizard().button(QtWidgets.QWizard.FinishButton).clicked.connect(
                                                          self.close_pgxn_obj)
         instructions = '<p>The following fields are required:'
-        instructions += '<ul><li><b>id</b>: a unique identifier '
-        instructions += '(cannot contain spaces; may be a part number)</li>'
-        instructions += '<li><b>name</b>: descriptive name '
+        instructions += '<ul><li><b>name</b>: descriptive name '
         instructions += '(may contain spaces)</li>'
         instructions += '<li><b>description</b>: textual narrative</li>'
+        instructions += '<li><b>owner</b>: the project or organization '
+        instructions += 'that maintains configuration control'
+        instructions += 'for this system or component</li>'
+        instructions += '<li><b>product type</b>: a standard classifier '
+        instructions += 'for this system or component</li>'
         instructions += '</ul>'
-        instructions += '<p>If the <b>Product</b> is '
-        instructions += 'competition-sensitive, '
-        instructions += 'uncheck the <b>public</b> checkbox.</p>'
+        instructions += '<p>A unique <b>id</b> is auto-generated based on '
+        instructions += 'the <b>owner</b> and <b>product type</b> fields.</p> '
+        instructions += '<p><font color="red">If this <b>System / '
+        instructions += 'Component</b> is competition-sensitive, '
+        instructions += '<i><b>uncheck</b></i> the <b>public</b> checkbox.'
+        instructions += '</font></p> '
         instructions += '<p><i>NOTE:</i> you must click <b>Save</b> '
         instructions += 'to activate the <b>Next</b> button.</p>'
         inst_label = QtWidgets.QLabel(instructions)

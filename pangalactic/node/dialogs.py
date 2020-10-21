@@ -319,7 +319,7 @@ class UnitPrefsDialog(QDialog):
     """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Units Preferences")
+        self.setWindowTitle("Preferred Units")
         form = QFormLayout(self)
         dim_labels = {}
         self.dim_widgets = {}

@@ -68,8 +68,8 @@ class PgxnForm(QWidget):
             avoid
     """
     def __init__(self, obj, form_type, edit_mode=False, view=None,
-                 main_view=None, mask=None, unmask=None, seq=None, idvs=None,
-                 placeholders=None, parent=None):
+                 requireds=None, main_view=None, mask=None, unmask=None,
+                 seq=None, idvs=None, placeholders=None, parent=None):
         """
         Initialize.
 
@@ -81,6 +81,7 @@ class PgxnForm(QWidget):
             edit_mode (bool):  if True, open in edit mode; otherwise, view mode
             view (list):  names of the fields to be shown (a subset of
                 self.schema['field_names'])
+            requireds (list of str):  ids of required fields
             main_view (list):  names of the fields to put on the 'main' panel
             mask (list of str):  list of fields to be displayed as read-only
                 (default: None)
@@ -97,6 +98,7 @@ class PgxnForm(QWidget):
         self.edit_mode = edit_mode
         self.obj = obj
         self.all_idvs = idvs or []
+        requireds = requireds or []
         cname = obj.__class__.__name__
         if cname == 'HardwareProduct':
             # id's are auto-generated for HardwareProduct instances
@@ -124,6 +126,7 @@ class PgxnForm(QWidget):
         self.previous_units = {}
         self.editable_widgets = {}
         view = view or []
+        required_note = False
         form = QFormLayout()
         form.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
         form.setObjectName(form_type+'_form')
@@ -425,6 +428,10 @@ class PgxnForm(QWidget):
             this_view = [f for f in form_view if f in view]
         else:
             this_view = [f for f in form_view if f in field_names]
+        if not requireds:
+            # if no custom requireds are specified, use PGXN_REQD
+            requireds = PGXN_REQD.get(cname) or []
+        reqd_fields = [f for f in field_names if f in requireds]
         # don't create panel if it will have no fields
         if not this_view:
             return None
@@ -474,6 +481,10 @@ class PgxnForm(QWidget):
                     self.editable_widgets[field_name] = widget
                 widget.setSizePolicy(QSizePolicy.Minimum,
                                      QSizePolicy.Minimum)
+                if editable and field_name in reqd_fields:
+                    text = label.text() + ' **'
+                    label.setText(text)
+                    required_note = True
                 form.addRow(label, widget)
                 # orb.log.debug('* [pgxnobj] widget size hint: %s' % str(
                                                         # widget.sizeHint()))
@@ -484,6 +495,11 @@ class PgxnForm(QWidget):
                         widget.clicked.connect(self.on_view_related)
                 # if editable and field_name == 'id':
                     # widget.textChanged.connect(self.on_id_text_changed)
+        if required_note:
+            form.addRow(QWidget(), QLabel())
+            rnote = QLabel("** required fields\n  (cannot be empty or None)")
+            rnote.setStyleSheet('font-weight: bold;color: purple')
+            form.addRow(rnote)
         self.setSizePolicy(QSizePolicy.Minimum,
                            QSizePolicy.Minimum)
         self.setLayout(form)
@@ -1133,7 +1149,7 @@ class PgxnObject(QDialog):
                         PgxnForm(self.obj, tab_name, edit_mode=self.edit_mode,
                                  view=self.view, main_view=self.main_view,
                                  mask=self.mask, idvs=self.all_idvs,
-                                 parent=self))
+                                 requireds=self.required, parent=self))
             this_tab = getattr(self, tab_name+'_tab')
             self.editable_widgets.update(this_tab.editable_widgets)
             self.d_widgets.update(this_tab.d_widgets)
