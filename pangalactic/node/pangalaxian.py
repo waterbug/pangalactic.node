@@ -3659,9 +3659,10 @@ class Main(QtWidgets.QMainWindow):
         dlg.show()
 
     def product_library(self):
-        view = ['id', 'name', 'version', 'iteration', 'product_type',
-                'description', 'comment']
-        dlg = LibraryDialog('HardwareProduct', view=view,
+        # use the "MAIN_VIEWS" view -- it shows more [SCW 2020-10-20]
+        # view = ['id', 'name', 'version', 'iteration', 'product_type',
+                # 'description', 'comment']
+        dlg = LibraryDialog('HardwareProduct',
                             height=self.geometry().height(),
                             width=(2 * self.geometry().width() / 3),
                             parent=self)

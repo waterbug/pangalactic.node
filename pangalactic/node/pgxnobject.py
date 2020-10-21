@@ -1032,8 +1032,7 @@ class PgxnObject(QDialog):
         """
         Build tabbed forms from the supplied object
         """
-        if not self.title_text:
-            self.title_text = get_object_title(self.obj, new=self.new)
+        self.title_text = get_object_title(self.obj, new=self.new)
         self.title.setText(self.title_text)
         tab_names = ['main', 'info', 'narrative', 'admin']
         if self.panels:
