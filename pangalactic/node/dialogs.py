@@ -28,7 +28,6 @@ from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.cad.viewer  import STEP3DViewer
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, StringFieldWidget,
@@ -366,16 +365,6 @@ class PrefsDialog(QDialog):
         else:
             self.clear_rows.setChecked(True)
         form.addRow(clear_rows_label, self.clear_rows)
-        dash_row_colors_label = QLabel(
-                                  'Use alternating colors for dashboard rows',
-                                  self)
-        self.dash_row_colors = QCheckBox(self)
-        if prefs.get('dash_no_row_colors'):
-            self.dash_row_colors.setChecked(False)
-        else:
-            self.dash_row_colors.setChecked(True)
-        self.dash_row_colors.toggled.connect(self.set_dash_row_colors)
-        form.addRow(dash_row_colors_label, self.dash_row_colors)
         num_fmt_label = QLabel('Numeric Format', self)
         self.num_fmt_select = QComboBox()
         self.num_fmt_select.activated.connect(self.set_num_fmt)
@@ -409,13 +398,6 @@ class PrefsDialog(QDialog):
 
     def get_clear_rows(self):
         return self.clear_rows.isChecked()
-
-    def set_dash_row_colors(self):
-        prefs['dash_no_row_colors'] = not self.dash_row_colors.isChecked()
-        dispatcher.send('dashboard mod')
-
-    def get_dash_row_colors(self):
-        return self.dash_row_colors.isChecked()
 
     def set_num_fmt(self, index):
         """

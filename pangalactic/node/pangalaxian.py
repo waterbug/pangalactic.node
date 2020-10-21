@@ -1498,7 +1498,7 @@ class Main(QtWidgets.QMainWindow):
         # the cad viewer runs in the same process (which does not work on Mac!)
         if not platform.platform().startswith('Darwin'):
             self.view_cad_action = self.create_action(
-                                    "View a CAD Model ...",
+                                    "View a CAD Model...",
                                     slot=self.view_cad,
                                     icon="view_16",
                                     tip="View a CAD model from a STEP file",
@@ -1507,7 +1507,7 @@ class Main(QtWidgets.QMainWindow):
         # *required* on Mac, an option on Linux, and *does not work* on Windows
         if not sys.platform == 'win32':
             self.view_multi_cad_action = self.create_action(
-                                    "View CAD Model(s) ...",
+                                    "View CAD Model(s)...",
                                     slot=self.open_step_file,
                                     icon="view_16",
                                     tip="View CAD model(s) from STEP file(s)",
