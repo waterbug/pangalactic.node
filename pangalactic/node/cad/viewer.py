@@ -227,7 +227,7 @@ class QtViewer3DColor(QtBaseViewer):
         # print("Is SimpleShape :", self.shape_tool.IsSimpleShape(lab))
         # print("Is Reference   :", self.shape_tool.IsReference(lab))
 
-        users = TDF_LabelSequence()
+        # users = TDF_LabelSequence()
         # users_count = self.shape_tool.GetUsers(lab, users)
         # print("Nr Users       :", users_count)
 
@@ -250,15 +250,15 @@ class QtViewer3DColor(QtBaseViewer):
                     self.shape_tool.GetReferredShape(label, label_reference)
                     loc = self.shape_tool.GetLocation(label)
                     # print("    loc          :", loc)
-                    trans = loc.Transformation()
+                    # trans = loc.Transformation()
                     # print("    tran form    :", trans.Form())
-                    rot = trans.GetRotation()
+                    # rot = trans.GetRotation()
                     # print("    rotation     :", rot)
                     # print("    X            :", rot.X())
                     # print("    Y            :", rot.Y())
                     # print("    Z            :", rot.Z())
                     # print("    W            :", rot.W())
-                    tran = trans.TranslationPart()
+                    # tran = trans.TranslationPart()
                     # print("    translation  :", tran)
                     # print("    X            :", tran.X())
                     # print("    Y            :", tran.Y())
@@ -282,7 +282,7 @@ class QtViewer3DColor(QtBaseViewer):
                 # print("    take loc       :", self.locs[i])
                 loc = loc.Multiplied(self.locs[i])
 
-            trans = loc.Transformation()
+            # trans = loc.Transformation()
             # print("    FINAL loc    :")
             # print("    tran form    :", trans.Form())
             # rot = trans.GetRotation()
@@ -402,7 +402,8 @@ class QtViewer3DColor(QtBaseViewer):
             self.makeCurrent()
             self._display.Context.UpdateCurrentViewer()
             # important to allow overpainting of the OCC OpenGL context in Qt
-            self.swapBuffers()
+            ## -> but this gives an error message in Windows
+            # self.swapBuffers()
 
     def resizeGL(self, width, height):
         self.setupViewport(width, height)
@@ -528,14 +529,15 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         import_icon_file = 'open' + state['icon_type']
-        icon_dir = state.get('icon_dir',
+        self.icon_dir = state.get('icon_dir',
                              os.path.join(getattr(orb, 'home', ''), 'icons'))
-        import_icon_path = os.path.join(icon_dir, import_icon_file)
+        import_icon_path = os.path.join(self.icon_dir, import_icon_file)
         import_actions = [self.open_step_file_action]
         import_button = MenuButton(QtGui.QIcon(import_icon_path),
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)
         self.toolbar.addWidget(import_button)
+        self.loaded_file = step_file
         if step_file:
             self.load_file(step_file)
 
@@ -543,10 +545,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         action = QtWidgets.QAction(text, self)
         if icon is not None:
             icon_file = icon + state.get('icon_type', '.png')
-            icon_dir = state.get('icon_dir',
-                                 os.path.join(getattr(orb, 'home', ''),
-                                              'icons'))
-            icon_path = os.path.join(icon_dir, icon_file)
+            icon_path = os.path.join(self.icon_dir, icon_file)
             action.setIcon(QtGui.QIcon(icon_path))
         if tip is not None:
             action.setToolTip(tip)
@@ -570,10 +569,37 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         self.qt_viewer_3d.resize(800, 600)
         self.setCentralWidget(self.qt_viewer_3d)
 
+    def add_export_button(self):
+        export_to_image_action = self.create_action("Export to image...",
+                                   slot=self.export_to_image,
+                                   tip="Export current view to image...")
+        export_icon_file = 'save' + state['icon_type']
+        export_icon_path = os.path.join(self.icon_dir, export_icon_file)
+        export_actions = [export_to_image_action]
+        self.export_button = MenuButton(QtGui.QIcon(export_icon_path),
+                                   tooltip='Export Data or Objects',
+                                   actions=export_actions, parent=self)
+        self.toolbar.addWidget(self.export_button)
+
     def load_file(self, fpath):
         if self.viewer_in_use:
             self.init_viewer_3d()
         self.qt_viewer_3d.init_shape_from_STEP(fpath)
+        self.loaded_file = fpath
+        self.add_export_button()
+
+    def export_to_image(self):
+        fname = 'cad_view.png'
+        fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
+                                    self, 'Export to Image File',
+                                    fname)
+        if fpath:
+            orb.log.debug('* exporting to image file...')
+            self.qt_viewer_3d._display.ExportToImage(fpath)
+            orb.log.debug('  done.')
+        else:
+            orb.log.debug('* no path for export, aborting.')
+            return
 
     def open_step_file(self):
         if platform.platform().startswith('Darwin'):
@@ -598,6 +624,7 @@ class STEP3DViewer(QtWidgets.QMainWindow):
             if self.viewer_in_use:
                 self.init_viewer_3d()
             self.qt_viewer_3d.init_shape_from_STEP(fpath)
+            self.add_export_button()
         else:
             return
 
