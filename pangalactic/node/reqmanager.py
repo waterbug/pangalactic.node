@@ -29,9 +29,10 @@ class RequirementManager(QDialog):
     def __init__(self, project=None, width=None, height=None, view=None,
                  req=None, parent=None):
         super().__init__(parent=parent)
-        default_view = ['id', 'name', 'req_type', 'level', 'description',
+        default_view = ['id', 'req_level', 'name', 'req_type', 'description',
                         'rationale']
         view = view or default_view
+        sized_cols = ['id', 'req_level', 'name', 'req_type']
         self.req = req
         if project:
             objs = orb.search_exact(cname='Requirement', owner=project)
@@ -51,7 +52,8 @@ class RequirementManager(QDialog):
             QDialogButtonBox.Close, Qt.Horizontal, self)
         main_layout.addWidget(self.bbox)
         self.bbox.rejected.connect(self.reject)
-        self.fpanel = FilterPanel(objs, view=view, parent=self)
+        self.fpanel = FilterPanel(objs, view=view, sized_cols=sized_cols,
+                                  parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.fpanel.proxy_view.clicked.connect(self.on_select_req)
         fpanel_layout = QVBoxLayout()
@@ -81,7 +83,8 @@ class RequirementManager(QDialog):
             self.tree_layout.removeWidget()
         self.sys_tree = SystemTreeView(project, refdes=True, show_allocs=True,
                                        req=self.req)
-        self.sys_tree.expandToDepth(2)
+        self.sys_tree.collapseAll()
+        self.sys_tree.expandToDepth(1)
         self.sys_tree.clicked.connect(self.on_select_node)
         self.tree_layout = QVBoxLayout()
         self.tree_layout.addWidget(self.sys_tree)

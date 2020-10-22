@@ -475,7 +475,7 @@ class ReqAllocPage(QWizardPage):
         self.sys_tree = SystemTreeView(self.project, refdes=True,
                                        show_allocs=True, req=self.req)
         self.sys_tree.setItemDelegate(ReqAllocDelegate())
-        self.sys_tree.expandToDepth(2)
+        self.sys_tree.expandToDepth(1)
         self.sys_tree.setExpandsOnDoubleClick(False)
         self.sys_tree.doubleClicked.connect(self.on_select_node)
         main_layout = self.layout()

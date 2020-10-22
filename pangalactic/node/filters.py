@@ -1,5 +1,5 @@
 from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
-                          QSortFilterProxyModel, QVariant)
+                          QSortFilterProxyModel, QTimer, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
         QCheckBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel,
@@ -223,14 +223,19 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
     reqpat = r'[a-zA-Z][a-zA-Z0-9]*(\.[0-9][0-9]*)(\.[a-zA-Z0-9][a-zA-Z0-9]*)'
 
-    def __init__(self, ncols=None, col_labels=None, col_defs=None,
+    def __init__(self, view=None, col_labels=None, col_defs=None,
                  col_dtypes=None, parent=None):
         super().__init__(parent=parent)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
-        self.ncols = ncols or 2
+        if view:
+            self.ncols = len(view)
+        else:
+            self.ncols = 2
+        self.view = view or []
         self.col_labels = col_labels or []
         self.col_defs = col_defs or []
         self.col_dtypes = col_dtypes or []
+        self.col_to_label = dict(zip(self.view, self.col_labels))
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         idxs = []
@@ -332,8 +337,10 @@ class ProxyView(QTableView):
     """
     Presentation table view for a filtered set of objects.
     """
-    def __init__(self, proxy_model, as_library=False, parent=None):
+    def __init__(self, proxy_model, sized_cols=None, as_library=False,
+                 parent=None):
         super().__init__(parent=parent)
+        self.sized_cols = sized_cols or ['id', 'name']
         col_header = self.horizontalHeader()
         # col_header.setSectionResizeMode(col_header.Stretch)
         # TODO:  add a handler to set column order pref when sections are moved
@@ -370,6 +377,15 @@ class ProxyView(QTableView):
             # QTimer.singleShot(0, self.resizeRowsToContents)
         # else:
             # QTimer.singleShot(0, self.resizeColumnsToContents)
+        QTimer.singleShot(0, self.resize_sized_cols)
+
+    def resize_sized_cols(self):
+        labels = [self.model().headerData(i, Qt.Horizontal, Qt.DisplayRole)
+                  for i in range(len(self.model().view))]
+        for col in self.sized_cols:
+            # get int of col position ...
+            pos = labels.index(self.model().col_to_label[col])
+            self.resizeColumnToContents(pos)
 
     def on_section_moved(self, logical_index, old_index, new_index):
         orb.log.debug('* FilterPanel.on_section_moved() ...')
@@ -407,9 +423,10 @@ class ProxyView(QTableView):
 
 
 class FilterPanel(QWidget):
-    def __init__(self, objs, schema=None, view=None, label='', width=None,
-                 min_width=None, height=None, as_library=False, cname=None,
-                 external_filters=False, excluded_oids=None, parent=None):
+    def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
+                 width=None, min_width=None, height=None, as_library=False,
+                 cname=None, external_filters=False, excluded_oids=None,
+                 parent=None):
         """
         Initialize.
 
@@ -418,6 +435,7 @@ class FilterPanel(QWidget):
 
         Keyword Args:
             view (iterable):  attributes of object to be shown
+            sized_cols (iterable):  ids of columns to be sized to fit contents
             schema (dict):  metadata for non-domain object (Entity or
                 PartsListItem instances); schema must contain the keys
                 'field_names' (a list of strings) and 'fields', a dict that
@@ -489,7 +507,7 @@ class FilterPanel(QWidget):
                                 width=30, break_long_words=False)))
                 col_dtypes.append(schema['fields'][a]['range'])
             self.proxy_model = ObjectSortFilterProxyModel(
-                                                    ncols=len(self.view),
+                                                    view=self.view,
                                                     col_labels=col_labels,
                                                     col_defs=col_defs,
                                                     col_dtypes=col_dtypes,
@@ -505,7 +523,7 @@ class FilterPanel(QWidget):
                                 width=30, break_long_words=False)))
                 col_dtypes.append(schema['fields'][a]['range'])
             self.proxy_model = ObjectSortFilterProxyModel(
-                                                    ncols=len(self.view),
+                                                    view=self.view,
                                                     col_labels=col_labels,
                                                     col_defs=col_defs,
                                                     col_dtypes=col_dtypes,
@@ -535,12 +553,16 @@ class FilterPanel(QWidget):
         self.clear_btn = SizedButton("Clear")
         self.clear_btn.clicked.connect(self.clear_text)
         self.filter_case_checkbox.toggled.connect(self.textFilterChanged)
-        self.proxy_view = ProxyView(self.proxy_model, as_library=as_library,
-                                    parent=self)
+        self.proxy_view = ProxyView(self.proxy_model, sized_cols=sized_cols,
+                                    as_library=as_library, parent=self)
         # IMPORTANT:  after a sort, rows retain the heights they had before
         # the sort (i.e. wrong) unless this is done:
+        # [2020-10-22 SCW] NO, not necessary because not word-wrapping -> rows
+        # are all the same height!
+        # self.proxy_model.layoutChanged.connect(
+                                    # self.proxy_view.resizeRowsToContents)
         self.proxy_model.layoutChanged.connect(
-                                    self.proxy_view.resizeRowsToContents)
+                                        self.proxy_view.resize_sized_cols)
         self.textFilterChanged()
         proxy_layout = QVBoxLayout()
         if external_filters:

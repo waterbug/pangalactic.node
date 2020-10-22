@@ -1087,6 +1087,7 @@ class SystemTreeView(QTreeView):
             obj (Project or Product): root object of the tree
 
         Keyword Args:
+            selected_system (Product): system that is selected
             refdes (bool):  flag indicating whether to display the reference
                 designator or the component name as the node name
             show_allocs (bool):  flag indicating whether to highlight nodes to
@@ -1127,7 +1128,7 @@ class SystemTreeView(QTreeView):
         self.source_model.successful_drop.connect(self.on_successful_drop)
         self.create_actions()
         self.setup_context_menu()
-        # only use louie messages for assembly tree and dashboard tree
+        # only use dispatcher messages for assembly tree and dashboard tree
         # (i.e., a shared model); ignore them when instantiated in req
         # allocation mode (different models -> the indexes are not valid
         # anyway!!)
@@ -1157,7 +1158,7 @@ class SystemTreeView(QTreeView):
             state['sys_trees'][self.project.id]['expanded'] = []
         # set initial node selection
         if selected_system:
-            self.expandToDepth(3)
+            # self.expandToDepth(1)
             idxs = self.object_indexes_in_tree(selected_system)
             if idxs:
                 idx_to_select = self.proxy_model.mapFromSource(idxs[0])
@@ -1618,7 +1619,7 @@ class SystemTreeView(QTreeView):
                 node
         """
         # NOTE: ignore "TBD" objects
-        self.expandToDepth(3)
+        # self.expandToDepth(1)
         if getattr(obj, 'oid', '') == 'pgefobjects:TBD':
             return []
         model = self.source_model
@@ -1653,7 +1654,7 @@ class SystemTreeView(QTreeView):
             idx (QModelIndex):  index of the assembly or project node
         """
         if link:
-            self.expandToDepth(3)
+            # self.expandToDepth(1)
             model = self.source_model
             assembly_node = model.get_node(idx)
             if hasattr(assembly_node.link, 'component'):
