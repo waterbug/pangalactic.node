@@ -63,6 +63,7 @@ class RequirementManager(QDialog):
             self.display_allocation_panel(project)
         dispatcher.connect(self.on_edit_req_signal, 'edit requirement')
         dispatcher.connect(self.on_edit_req_parm_signal, 'edit req parm')
+        self.editing_parm = False
         width = width or 600
         height = height or 500
         self.resize(width, height)
@@ -106,9 +107,15 @@ class RequirementManager(QDialog):
 
     def on_edit_req_parm_signal(self, req=None, parm=None):
         orb.log.info('* RequirementManager: on_edit_req_parm_signal()')
-        if req and parm:
+        if req and parm and not self.editing_parm:
+            self.editing_parm = True
             dlg = ReqParmDialog(req, parm, parent=self)
-            dlg.show()
+            if dlg.exec_() == QDialog.Accepted:
+                orb.log.info('* req parm edited.')
+                self.editing_parm = False
+            else:
+                orb.log.info('* req parm editing cancelled.')
+                self.editing_parm = False
 
     def set_req(self, r):
         self.sys_tree.req = r

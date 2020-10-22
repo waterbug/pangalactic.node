@@ -1174,6 +1174,9 @@ class PerformReqBuildShallPage(QWizardPage):
         current_units = req_wizard_state.get('req_units')
         if current_units and current_units in units_list:
             self.units.setCurrentText(current_units)
+            req_wizard_state['req_units'] = current_units
+        elif units_list:
+            req_wizard_state['req_units'] = self.units.currentText()
         self.units.currentTextChanged.connect(self.on_set_units)
         # labels for the overall groups for organization of the page
         shall_label = QLabel('Shall Statement:')
@@ -1353,32 +1356,10 @@ class PerformReqBuildShallPage(QWizardPage):
                 pass
 
     def on_set_units(self):
-        orb.log.info('* [reqwizard] setting units ...')
-        units_widget = self.sender()
-        new_units = str(units_widget.currentText())
-        orb.log.debug('              new units: "{}"'.format(new_units))
+        orb.log.info('* reqwizard setting units ...')
+        new_units = str(self.units.currentText())
+        orb.log.debug('  new units: "{}"'.format(new_units))
         req_wizard_state['req_units'] = new_units
-        # parm_id = units_widget.field_name
-        # parm_widget = self.p_widgets.get(parm_id)
-        # if self.edit_mode and hasattr(parm_widget, 'get_value'):
-            # # in edit mode, get value (str) from editable field and convert
-            # # it
-            # str_val = parm_widget.get_value()
-            # pval = get_pval_from_str(orb, self.obj.oid, parm_id, str_val)
-            # applicable_units = self.previous_units[parm_id]
-            # quant = pval * ureg.parse_expression(applicable_units)
-            # new_quant = quant.to(new_units)
-            # new_str_val = str(new_quant.magnitude)
-        # else:
-            # # view mode or read-only parm -> get cached parameter value and
-            # # convert it to the requested units for display
-            # new_str_val = get_pval_as_str(orb, self.obj.oid, parm_id,
-                                          # units=new_units)
-        # if hasattr(parm_widget, 'set_value'):
-            # parm_widget.set_value(new_str_val)
-        # elif hasattr(parm_widget, 'setText'):
-            # parm_widget.setText(new_str_val)
-        # self.previous_units[parm_id] = new_units
 
     def contextMenu(self, event):
         self.selected_widget = self.sender()
