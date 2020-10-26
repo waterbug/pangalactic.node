@@ -1011,9 +1011,9 @@ class Main(QtWidgets.QMainWindow):
             elif subject == 'new':
                 obj_oid, obj_id = content
                 msg += obj_id
-            elif subject == 'data new row':
-                # TODO:  needs to be re-implemented with "Entity" paradigm --
-                # should be 'new entity'
+            elif subject == 'entity created':
+                # TODO: implement with Entity paradigm
+                # entity = Entity()
                 pass
             elif subject == 'data item updated':
                 # TODO:  needs to be re-implemented with "Entity" paradigm --
@@ -1043,9 +1043,15 @@ class Main(QtWidgets.QMainWindow):
                 obj_id = content['id']
                 msg += obj_id
             elif subject == 'person added':
-                obj_oid = content['oid']
-                obj_id = content['id']
-                msg += obj_id
+                ser_objs = content
+                objs = deserialize(orb, ser_objs)
+                persons = [so for so in ser_objs
+                           if so.get('_cname') == 'Person']
+                if persons:
+                    msg += persons[0].get('id', 'unknown id')
+                else:
+                    msg += '[{} new/mod objects but no person]'.format(
+                                                             len(objs))
             # dispatcher signals to send ...
             if subject == 'decloaked':
                 self.statusbar.showMessage(msg)
@@ -1053,6 +1059,8 @@ class Main(QtWidgets.QMainWindow):
             elif subject == 'new':
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: new", content=content)
+            elif subject == 'person added':
+                self.statusbar.showMessage(msg)
             elif subject == 'modified':
                 # don't show msg in statusbar -- may not be relevant
                 dispatcher.send(signal="remote: modified", content=content)
