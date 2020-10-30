@@ -193,15 +193,19 @@ class GridTreeItem:
         return True
 
     def setData(self, column, value):
-        if value:
-            # only log if there is a non-None/non-zero value
-            orb.log.debug('  - GridTreeItem.setData({}, {})'.format(
-                                                     column, value))
-        if column < 0 or column >= len(self.schema):
+        if value is not None:
+            # only log if there is a non-None value
+            if column < 0 or column >= len(self.schema):
+                return False
+            col_id = self.schema[column]
+            self.entity[col_id] = value
+            # don't log zero or empty string values ...
+            if value:
+                orb.log.debug('  - GridTreeItem.setData({}, {}) [{}]'.format(
+                                                      column, value, col_id))
+            return True
+        else:
             return False
-        col_id = self.schema[column]
-        self.entity[col_id] = value
-        return True
 
 
 class DMTreeModel(QAbstractItemModel):
@@ -264,7 +268,7 @@ class DMTreeModel(QAbstractItemModel):
         # --------------------------------------------------------------------
         self.root_item = GridTreeItem(dm=self.dm, root=True)
         self.load_dm_data()
-        # TODO:  figure out if we need these ...
+        # TODO:  figure out if we need these ... probably do
         # dispatcher.connect(self.new_row, 'dm new row')
         # dispatcher.connect(self.on_remote_new_row,
                            # 'remote: data new row')
@@ -280,9 +284,13 @@ class DMTreeModel(QAbstractItemModel):
             return None
         if role != Qt.DisplayRole and role != Qt.EditRole:
             return None
-        item = self.getItem(index)
-        # orb.log.debug('  - DMTreeModel.data({})'.format(index.column()))
-        return item.data(index.column())
+        if index.row() < len(self.dm):
+            # use the DataMatrix, Luke!
+            entity = self.dm[index.row()]
+            if index.column() < len(self.dm.schema):
+                # orb.log.debug('  - DMTreeModel.data()')
+                col_id = self.dm.schema[index.column()]
+                return entity.get(col_id)
 
     def flags(self, index):
         if not index.isValid():

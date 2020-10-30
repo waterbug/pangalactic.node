@@ -217,7 +217,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_dval_set, 'dval set')
         dispatcher.connect(self.on_remote_pval_set, 'remote pval set')
         dispatcher.connect(self.on_remote_dval_set, 'remote dval set')
-        dispatcher.connect(self.on_new_entity, 'new entity')
+        dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
@@ -2502,12 +2502,12 @@ class Main(QtWidgets.QMainWindow):
             rpc.addCallback(self.on_set_value_result)
             rpc.addErrback(self.on_failure)
 
-    def on_dval_set(self, oid=None, deid=None, value=None,
+    def on_dval_set(self, oid=None, deid=None, value=None, units=None,
                     mod_datetime=None, local=True):
         if local:
             rpc = self.mbus.session.call('vger.set_data_element',
                                      oid=oid, deid=deid, value=value,
-                                     mod_datetime=mod_datetime)
+                                     units=units, mod_datetime=mod_datetime)
             rpc.addCallback(self.on_set_value_result)
             rpc.addErrback(self.on_failure)
 
@@ -2527,26 +2527,30 @@ class Main(QtWidgets.QMainWindow):
         """
         # orb.log.info('* received "remote dval set" signal')
         if content is not None:
-            oid, deid, value, mod_datetime = content
-            set_dval(oid, deid, value, mod_datetime=mod_datetime, local=False)
+            oid, deid, value, units, mod_datetime = content
+            set_dval(oid, deid, value, units=units, mod_datetime=mod_datetime,
+                     local=False)
 
-    def on_new_entity(self, oid=None, creator=None, modifier=None,
-                      create_datetime=None, mod_datetime=None, owner=None,
-                      assembly_level=None, parent_oid=None, system_oid=None,
-                      system_name=None):
+    def on_entity_saved(self, e=None):
+        """
+        Handle the event of an entity being saved, as a result of either
+        creation or modification.
+
+        Args:
+            e (Entity): the entity that was saved.
+        """
         if state['connected']:
-            rpc = self.mbus.session.call('vger.create_entity', oid=oid,
-                          creator=creator, modifier=modifier,
-                          create_datetime=create_datetime,
-                          mod_datetime=mod_datetime, owner=owner,
-                          assembly_level=assembly_level, parent_oid=parent_oid,
-                          system_oid=system_oid, system_name=system_name)
-            rpc.addCallback(self.rpc_create_entity_result)
+            rpc = self.mbus.session.call('vger.save_entity', oid=e.oid,
+                          creator=e.creator, modifier=e.modifier,
+                          create_datetime=e.create_datetime,
+                          mod_datetime=e.mod_datetime, owner=e.owner,
+                          parent_oid=e.parent_oid, system_oid=e.system_oid,
+                          system_name=e.system_name)
+            rpc.addCallback(self.rpc_save_entity_result)
             rpc.addErrback(self.on_failure)
 
-    def rpc_create_entity_result(self, result):
-        # orb.log.debug(f'* "vger.create_entity" result: "{result}"')
-        pass
+    def rpc_save_entity_result(self, result):
+        orb.log.debug(f'* "vger.save_entity" result: "{result}"')
 
     def on_data_new_row_added(self, proj_id=None, dm_oid=None, row_oid=None):
         """
