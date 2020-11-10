@@ -14,10 +14,9 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QVBoxLayout, QWidget)
 
 # pangalactic
-# from pangalactic.core             import prefs
 from pangalactic.core             import config, state
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.entity      import DataMatrix, Entity, dmz
+from pangalactic.core.entity      import DataMatrix, dmz
 from pangalactic.core.parametrics import de_defz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.dialogs     import CustomizeColsDialog
@@ -60,7 +59,8 @@ class GridTreeItem:
             # the root item will not have an entity but will have the schema
             self.entity = None
         else:
-            self.entity = Entity(oid=oid)
+            entities = {e.oid : e for e in dm}
+            self.entity = entities.get(oid)
         self.parent_item = parent
         # "children" entities in the DataMatrix in which the entity is embedded
         # are determined by how many entities that immediately follow this one
@@ -71,7 +71,7 @@ class GridTreeItem:
 
     @property
     def oid(self):
-        return self.entity.oid
+        return getattr(self.entity, 'oid', '')
 
     @property
     def schema(self):
@@ -214,6 +214,7 @@ class DMTreeModel(QAbstractItemModel):
     are used to intialize the underlying DataMatrix object.
 
     Attributes:
+        dm (DataMatrix):  an instance of DataMatrix, the underlying model
         oid_to_index (dict): maps an entity oid to the model index of an item
         index_to_oid (dict): maps the index of an item to an entity oid
     """
@@ -240,7 +241,7 @@ class DMTreeModel(QAbstractItemModel):
         name = name or config.get('default_schema_name')
         if isinstance(project, orb.classes['Project']) and name:
             # check for a cached DataMatrix instance ...
-            dm_oid = project.id + '-' + name
+            dm_oid = project.oid + '-' + name
             orb.log.debug(f'  looking for DataMatrix "{dm_oid}" ...')
             orb.log.debug('  dmz cache is: {}'.format(str(dmz)))
             self.dm = dmz.get(dm_oid)
@@ -253,8 +254,7 @@ class DMTreeModel(QAbstractItemModel):
             # DataMatrix, which will check for a stored one or create a new
             # one based on the input:
             self.project = project or orb.get('pgefobjects:SANDBOX')
-            self.dm = DataMatrix(project_id=project.id, name=name)
-        # self.dm.clear()
+            self.dm = DataMatrix(project_oid=project.oid, name=name)
         self.dm.recompute_mel(project)
         # --------------------------------------------------------------------
         # NOTE:  'root_item' is the header row ... and this is the ONLY place
@@ -532,7 +532,8 @@ class GridTreeView(QTreeView):
         # NOTE: current_view is a *copy* from the schema -- DO NOT modify the
         # original schema!!!
         current_schema = schema[:]
-        current_schema_name = self.model().dm.name
+        ### what was this used for? ... not used now.
+        # current_schema_name = self.model().dm.name
         dlg = CustomizeColsDialog(self.model().dm.schema, parent=self)
         if dlg.exec_() == QDialog.Accepted:
             all_cols = list(de_defz) + list(parm_defz)
@@ -647,8 +648,10 @@ class GridTreeView(QTreeView):
         item_dm_position = dm_oids.index(item.entity.oid)
         # NOTE:  dm.insert_new_row returns the new entity, if needed ...
         #        ... do we need it??
-        entity = model.dm.insert_new_row(item_dm_position + 1,
-                                         child_of=item.entity)
+        # entity = model.dm.insert_new_row(item_dm_position + 1,
+                                         # child_of=item.entity)
+        # NOTE:  for now, just call 'insert_new_row()' and ignore the entity
+        model.dm.insert_new_row(item_dm_position + 1, child_of=item.entity)
         # NOTE: is this needed???
         # if model.columnCount(index) == 0:
             # if not model.insertColumn(0, parent=index):
@@ -801,7 +804,7 @@ class DataGrid(QMainWindow):
             name (str): name of an initial schema (in 'schemaz' cache)
                 to be passed to the internal DataMatrix
         """
-        orb.log.debug('* DataGrid(project="{}", name="{}",'.format(
+        orb.log.debug('* DataGrid(project="{}", name="{}")'.format(
                              getattr(project, 'id', '[None]'), name))
         super().__init__(parent)
         self.centralwidget = QWidget(self)

@@ -1013,10 +1013,9 @@ class Main(QtWidgets.QMainWindow):
                 msg += obj_id
             elif subject == 'entity created':
                 # TODO: implement with Entity paradigm
-                # entity = Entity()
                 pass
             elif subject == 'data item updated':
-                # TODO:  needs to be re-implemented with "Entity" paradigm --
+                # TODO:  needs to be re-implemented with Entity paradigm --
                 # should be 'entity update'
                 pass
             elif subject == 'modified':
@@ -2049,8 +2048,6 @@ class Main(QtWidgets.QMainWindow):
         # self.toolbar.addWidget(self.circle_widget)
         self.mode_label = ModeLabel('')
         self.toolbar.addWidget(self.mode_label)
-        # NOTE: "data mode" button temporarily removed -- to be restored in
-        # release 4.0 when data mode is fully implemented (MEL Manager)
         self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
@@ -2488,6 +2485,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Handle local dispatcher signal for "mel modified".
         """
+        # NOTE: this was causing cycles -- deactivated.
         if self.mode == 'data' and hasattr(self, 'data_widget'):
             # replace and rebuild the data_widget
             self.data_widget = DataGrid(self.project, name="MEL")
@@ -2541,11 +2539,12 @@ class Main(QtWidgets.QMainWindow):
         """
         if state['connected']:
             rpc = self.mbus.session.call('vger.save_entity', oid=e.oid,
-                          creator=e.creator, modifier=e.modifier,
+                          dm_oid=e.dm_oid, parent_oid=e.parent_oid,
+                          system_oid=e.system_oid, system_name=e.system_name,
+                          owner=e.owner, creator=e.creator,
+                          modifier=e.modifier,
                           create_datetime=e.create_datetime,
-                          mod_datetime=e.mod_datetime, owner=e.owner,
-                          parent_oid=e.parent_oid, system_oid=e.system_oid,
-                          system_name=e.system_name)
+                          mod_datetime=e.mod_datetime)
             rpc.addCallback(self.rpc_save_entity_result)
             rpc.addErrback(self.on_failure)
 
@@ -3341,7 +3340,7 @@ class Main(QtWidgets.QMainWindow):
 
     def set_data_interface(self):
         """
-        Data Matrix interface.
+        Data mode interface (DataGrid).
         """
         orb.log.debug('* setting data mode interface ...')
         # hide the top, right, and left dock widgets
@@ -3483,6 +3482,17 @@ class Main(QtWidgets.QMainWindow):
         orb.log.info('  - view_cad_error: {}'.format(e))
 
     def new_project(self):
+        """
+        Create a new project.  Note that the project id will be checked for
+        uniqueness among ids of projects known locally, which may not include
+        all projects if the local client is offline and new projects have been
+        created elsewhere.  If and when the status of the project is changed to
+        "collaborative" (i.e. a Global Admin assigns the project Administrator
+        role to the user), the server will check for global uniqueness of the
+        project id and will report the problem if it is not unique -- then the
+        user can be given the option of changing the project id to a globally
+        unique one.
+        """
         orb.log.info('* new_project()')
         # Projects and Organizations are always "public"
         view = ['id', 'name', 'description']
