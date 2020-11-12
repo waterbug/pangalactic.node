@@ -1943,7 +1943,8 @@ class Main(QtWidgets.QMainWindow):
         """
         if not cnames:
             cnames = ['HardwareProduct', 'Template', 'PortType',
-                      'PortTemplate', 'ParameterDefinition']
+                      'PortTemplate', 'ParameterDefinition',
+                      'DataElementDefinition']
         widget = LibraryListWidget(cnames=cnames,
                                    include_subtypes=include_subtypes,
                                    parent=self)

@@ -43,6 +43,9 @@ class LibraryListModel(QAbstractListModel):
             parent (QWidget):  the library model's parent widget
         """
         self.subtypes = include_subtypes
+        if cname == 'DataElementDefinition':
+            # only for DataElementDefinition (do not want ParameterDefinitions)
+            self.subtypes = False
         # orb.log.debug("* LibraryListModel for class %s initializing" % cname)
         super().__init__(parent=parent)
         self.cname = cname
