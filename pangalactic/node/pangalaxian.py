@@ -2497,6 +2497,7 @@ class Main(QtWidgets.QMainWindow):
     def on_set_value_result(self, stuff):
         # orb.log.debug('  rpc result: {}'.format(stuff))
         # TODO:  add more detailed status message ...
+        pass
 
     def on_local_mel_modified(self):
         """
