@@ -996,9 +996,9 @@ class Main(QtWidgets.QMainWindow):
         """
         for item in msg.items():
             subject, content = item
-            orb.log.info("[pgxn] on_pubsub_msg")
-            orb.log.info("       subject: {}".format(subject))
-            orb.log.info("       content: {}".format(content))
+            # orb.log.info("[pgxn] on_pubsub_msg")
+            # orb.log.info("       subject: {}".format(subject))
+            # orb.log.info("       content: {}".format(content))
             # orb.log.info("       pop-up notification ...")
             # text = ('subject: {}<br>'.format(subject))
             obj_id = '[unknown]'
