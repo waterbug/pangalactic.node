@@ -2479,7 +2479,7 @@ class Main(QtWidgets.QMainWindow):
             self.statusbar.showMessage('synced.')
 
     def on_result(self, stuff):
-        orb.log.debug('  rpc result: {}'.format(stuff))
+        # orb.log.debug('  rpc result: {}'.format(stuff))
         # TODO:  add more detailed status message ...
         if state.get('chunks_to_get'):
             n = len(state['chunks_to_get'])
@@ -2495,7 +2495,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
 
     def on_set_value_result(self, stuff):
-        orb.log.debug('  rpc result: {}'.format(stuff))
+        # orb.log.debug('  rpc result: {}'.format(stuff))
         # TODO:  add more detailed status message ...
 
     def on_local_mel_modified(self):
