@@ -527,7 +527,6 @@ class LibraryDialog(QDialog):
             parent (QWidget):  the library view's parent widget
         """
         super().__init__(parent)
-        self.setWindowTitle(get_external_name_plural(cname))
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.msg = 'All Product Types'
         self.product_types = None
@@ -538,6 +537,7 @@ class LibraryDialog(QDialog):
         if tabular:
             if self.cname == 'HardwareProduct':
                 label = 'Systems and Components (Hardware Products)'
+                self.setWindowTitle(label)
                 lib_view = FilterPanel(objs, view=view, as_library=True,
                                        label=label, external_filters=True,
                                        parent=self)
@@ -550,6 +550,7 @@ class LibraryDialog(QDialog):
                 # special case label
                 if self.cname == 'Template':
                     label = 'System and Component Templates'
+                self.setWindowTitle(label)
                 lib_view = FilterPanel(objs, view=view, as_library=True,
                                        label=label, parent=self)
             # only listen for these signals if using FilterPanel, which does

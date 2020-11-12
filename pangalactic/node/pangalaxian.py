@@ -1447,10 +1447,17 @@ class Main(QtWidgets.QMainWindow):
                                     icon='Template',
                                     tip=template_lib_title,
                                     modes=['system', 'component', 'db'])
-        self.display_product_types_action = self.create_action(
+        self.product_types_lib_action = self.create_action(
                                     "Product Types Library",
-                                    slot=self.display_product_types,
+                                    slot=self.product_types_library,
                                     tip="Product Types Library",
+                                    modes=['system', 'component', 'db'])
+        port_type_lib_title = "Port Types Library"
+        self.port_type_lib_action = self.create_action(
+                                    port_type_lib_title,
+                                    slot=self.port_type_library,
+                                    icon='PortType',
+                                    tip=port_type_lib_title,
                                     modes=['system', 'component', 'db'])
         port_lib_title = "Port Templates Library"
         self.port_template_lib_action = self.create_action(
@@ -1458,6 +1465,13 @@ class Main(QtWidgets.QMainWindow):
                                     slot=self.port_template_library,
                                     icon='PortTemplate',
                                     tip=port_lib_title,
+                                    modes=['system', 'component', 'db'])
+        de_def_lib_title = "Data Element Definitions Library"
+        self.de_def_lib_action = self.create_action(
+                                    de_def_lib_title,
+                                    slot=self.de_def_library,
+                                    icon='parameter',
+                                    tip=de_def_lib_title,
                                     modes=['system', 'component', 'db'])
         pd_lib_title = "Parameter Definitions Library"
         self.parameter_lib_action = self.create_action(
@@ -1989,9 +2003,11 @@ class Main(QtWidgets.QMainWindow):
                                 self.conops_modeler_action,
                                 self.product_lib_action,
                                 self.template_lib_action,
-                                self.display_product_types_action,
+                                self.product_types_lib_action,
+                                self.port_type_lib_action,
                                 self.port_template_lib_action,
                                 self.parameter_lib_action,
+                                self.de_def_lib_action,
                                 self.refresh_tree_action,
                                 self.sync_project_action,
                                 self.full_resync_action]
@@ -3676,7 +3692,17 @@ class Main(QtWidgets.QMainWindow):
         view = ['id', 'name', 'range_datatype', 'dimensions', 'description']
         dlg = LibraryDialog('ParameterDefinition', view=view,
                             height=self.geometry().height(),
-                            width=self.geometry().width()//2,
+                            width=(2 * self.geometry().width() // 3),
+                            parent=self)
+        dlg.show()
+
+    def de_def_library(self):
+        # TODO:  should have 'dimensions' but that will take a schema change
+        # view = ['id', 'name', 'range_datatype', 'dimensions', 'description']
+        view = ['id', 'name', 'range_datatype', 'description']
+        dlg = LibraryDialog('DataElementDefinition', view=view,
+                            height=self.geometry().height(),
+                            width=(2 * self.geometry().width() // 3),
                             parent=self)
         dlg.show()
 
@@ -3686,19 +3712,26 @@ class Main(QtWidgets.QMainWindow):
                 # 'description', 'comment']
         dlg = LibraryDialog('HardwareProduct',
                             height=self.geometry().height(),
-                            width=(2 * self.geometry().width() / 3),
+                            width=(2 * self.geometry().width() // 3),
                             parent=self)
         dlg.show()
 
     def template_library(self):
         view = ['id', 'name', 'description', 'comment']
         dlg = LibraryDialog('Template', view=view,
+                            width=(2 * self.geometry().width() // 3),
+                            height=self.geometry().height(), parent=self)
+        dlg.show()
+
+    def port_type_library(self):
+        view = ['id', 'name', 'description']
+        dlg = LibraryDialog('PortType', view=view,
                            width=self.geometry().width()//2,
                            height=self.geometry().height(), parent=self)
         dlg.show()
 
     def port_template_library(self):
-        view = ['id', 'name', 'description', 'comment']
+        view = ['id', 'name', 'description']
         dlg = LibraryDialog('PortTemplate', view=view,
                            width=self.geometry().width()//2,
                            height=self.geometry().height(), parent=self)
@@ -3716,9 +3749,9 @@ class Main(QtWidgets.QMainWindow):
         win = ConOpsModeler(parent=self)
         win.show()
 
-    def display_product_types(self):
+    def product_types_library(self):
         dlg = LibraryDialog('ProductType',
-                            width=self.geometry().width()//2,
+                            width=(2 * self.geometry().width() // 3),
                             height=self.geometry().height(), parent=self)
         dlg.show()
 
@@ -4312,7 +4345,8 @@ class Main(QtWidgets.QMainWindow):
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
         self.statusbar.showMessage('* saving data elements and parameters...')
-        orb.save_caches(orb.home)
+        # NOTE: save_caches saves the cache files *and* creates backup copies
+        orb.save_caches()
         if orb.db.dirty:
             orb.db.commit()
         mods = False
