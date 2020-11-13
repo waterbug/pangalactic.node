@@ -130,7 +130,7 @@ class NewProductWizard(QtWidgets.QWizard):
         #    * CAD Model
         # self.addPage(ParametersPage(parent=self))
         self.addPage(NewProductWizardConclusionPage(self))
-        self.setMinimumSize(800, 700)
+        self.setMinimumSize(800, 800)
         self.setSizeGripEnabled(True)
         self.setWindowTitle("System / Component Wizard")
 
@@ -575,6 +575,34 @@ class DataImportConclusionPage(QtWidgets.QWizardPage):
 #  New Product Wizard Pages
 #################################
 
+instructions = """
+<h3>Instructions</h3>
+<p>The following fields are required:
+<ul>
+<li><b>id</b>: <i>(not editable)</i> a unique value is auto-generated based on
+the <b>owner</b> and <b>product type</b> fields.</li>
+<li><b>name</b>: a brief descriptive name, approximately 25 characters or less
+(may contain spaces)</li>
+<li><b>description</b>: can be verbose, no size limit</li>
+<li><b>owner</b>: project or organization that has configuration control<br>
+for this system or component specification
+    <ul>
+    <li>if a GSFC part, choose your branch, the project, or MDL</li>
+    <li>if a vendor part, choose MDL but after creating the component,<br>
+    bring it up in the object editor and enter the vendor name into the<br>
+    <b>Vendor</b> field on the <b>data</b> tab</li>
+    </ul>
+</li>
+<li><b>product type</b>: click the button to display a list of a standard
+classifiers and select one</li>
+</ul>
+<p><font color="red">If this <b>System / Component</b>
+is competition-sensitive,
+<i><b>uncheck</b></i> the <b>public</b> checkbox.
+</font></p>
+<p><i>NOTE:</i> you must click <b>Save</b>
+to activate the <b>Next</b> button.</p>
+"""
 
 class IdentificationPage(QtWidgets.QWizardPage):
     """
@@ -613,24 +641,6 @@ class IdentificationPage(QtWidgets.QWizardPage):
         self.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
         self.wizard().button(QtWidgets.QWizard.FinishButton).clicked.connect(
                                                          self.close_pgxn_obj)
-        instructions = '<p>The following fields are required:'
-        instructions += '<ul><li><b>name</b>: descriptive name '
-        instructions += '(may contain spaces)</li>'
-        instructions += '<li><b>description</b>: textual narrative</li>'
-        instructions += '<li><b>owner</b>: the project or organization '
-        instructions += 'that maintains configuration control'
-        instructions += 'for this system or component</li>'
-        instructions += '<li><b>product type</b>: a standard classifier '
-        instructions += 'for this system or component</li>'
-        instructions += '</ul>'
-        instructions += '<p>A unique <b>id</b> is auto-generated based on '
-        instructions += 'the <b>owner</b> and <b>product type</b> fields.</p> '
-        instructions += '<p><font color="red">If this <b>System / '
-        instructions += 'Component</b> is competition-sensitive, '
-        instructions += '<i><b>uncheck</b></i> the <b>public</b> checkbox.'
-        instructions += '</font></p> '
-        instructions += '<p><i>NOTE:</i> you must click <b>Save</b> '
-        instructions += 'to activate the <b>Next</b> button.</p>'
         inst_label = QtWidgets.QLabel(instructions)
         id_panel_layout = QtWidgets.QVBoxLayout()
         id_panel_layout.addWidget(inst_label)
