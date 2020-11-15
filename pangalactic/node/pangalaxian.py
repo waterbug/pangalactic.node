@@ -3256,8 +3256,8 @@ class Main(QtWidgets.QMainWindow):
                     # log_msg = 'no indexes found in tree.'
                     # orb.log.debug('    {}'.format(log_msg))
                     if cname == 'ProjectSystemUsage':
-                        if new and len(obj.project.systems) == 1:
-                            # rebuild tree if this is the first new system
+                        if new:
+                            # rebuild tree when a new system has been added
                             self.refresh_tree_and_dashboard()
                         else:
                             # log_msg = 'obj is psu -- update project node'
