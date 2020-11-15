@@ -2401,14 +2401,14 @@ class Main(QtWidgets.QMainWindow):
         Handle local dispatcher signal for "new object".
         """
         # for now, use on_mod_object_signal (may change in the future)
-        self.on_mod_object_signal(obj=obj, cname=cname, msg='new')
+        self.on_mod_object_signal(obj=obj, cname=cname, new=True)
 
-    def on_mod_object_signal(self, obj=None, cname='', msg=None):
+    def on_mod_object_signal(self, obj=None, cname='', new=False):
         """
         Handle local "new object" and "modified object" signals.
         """
         orb.log.info('* [pgxn] on_mod_object_signal()')
-        if msg == 'new':
+        if new:
             orb.log.info('* received local "new object" signal')
         else:
             orb.log.info('* received local "modified object" signal')
@@ -2425,7 +2425,7 @@ class Main(QtWidgets.QMainWindow):
                                      orb.classes['Acu'],
                                      orb.classes['ProjectSystemUsage']))):
                 # update system tree and dashboard as necessary
-                self.update_object_in_trees(obj)
+                self.update_object_in_trees(obj, new=new)
                 # NOTE: the diagram will listen for "new | modified object"
                 # signals -- i.e., DiagramScene (in view.py)
             # NOTE: no need to do anything in 'db' mode -- the object table now
@@ -3215,11 +3215,17 @@ class Main(QtWidgets.QMainWindow):
                 self.dashboard.resizeColumnToContents(column)
             self.dashboard.repaint()
 
-    def update_object_in_trees(self, obj):
+    def update_object_in_trees(self, obj, new=False):
         """
         Update the tree and dashboard in response to a modified object.
+
+        Args:
+            obj (Product, Acu, or ProjectSystemUsage): the object
+
+        Keyword Args:
+            new (bool):  True if a new object, otherwise False
         """
-        # orb.log.debug('* update_object_in_trees() ...')
+        orb.log.debug('* update_object_in_trees() ...')
         if not obj:
             # orb.log.debug('  no object provided; ignoring.')
             return
@@ -3244,17 +3250,27 @@ class Main(QtWidgets.QMainWindow):
                         node_obj = obj.system
                     for idx in idxs:
                         self.sys_tree.source_model.setData(idx, node_obj)
+                    # resize/refresh dashboard columns if necessary
+                    self.refresh_dashboard()
                 else:
                     # log_msg = 'no indexes found in tree.'
                     # orb.log.debug('    {}'.format(log_msg))
                     if cname == 'ProjectSystemUsage':
-                        # log_msg = 'but obj is psu -- update project node ...'
-                        # orb.log.debug('    {}'.format(log_msg))
-                        source_model = self.sys_tree.source_model
-                        root_index = source_model.index(0, 0, QModelIndex())
-                        project_index = source_model.index(0, 0, root_index)
-                        source_model.dataChanged.emit(
-                                            project_index, project_index)
+                        if new and len(obj.project.systems) == 1:
+                            # rebuild tree if this is the first new system
+                            self.refresh_tree_and_dashboard()
+                        else:
+                            # log_msg = 'obj is psu -- update project node'
+                            # orb.log.debug('    {}'.format(log_msg))
+                            source_model = self.sys_tree.source_model
+                            root_index = source_model.index(0, 0,
+                                                            QModelIndex())
+                            project_index = source_model.index(0, 0,
+                                                               root_index)
+                            source_model.dataChanged.emit(
+                                                project_index, project_index)
+                            # resize/refresh dashboard columns if necessary
+                            self.refresh_dashboard()
             elif isinstance(obj, orb.classes['Product']):
                 # orb.log.debug('  - object is a product ...')
                 idxs = self.sys_tree.object_indexes_in_tree(obj)
@@ -3263,12 +3279,12 @@ class Main(QtWidgets.QMainWindow):
                     # orb.log.debug('    {}'.format(log_msg))
                     for idx in idxs:
                         self.sys_tree.source_model.dataChanged.emit(idx, idx)
+                    # resize/refresh dashboard columns if necessary
+                    self.refresh_dashboard()
                 # else:
                     # log_msg = 'no indexes for this product found in tree.'
                     # orb.log.debug('    {}'.format(log_msg))
                     # pass
-            # resize/refresh dashboard columns if necessary
-            self.refresh_dashboard()
         except:
             # sys_tree's C++ object had been deleted
             orb.log.debug('* update_object_in_tree(): sys_tree C++ object '

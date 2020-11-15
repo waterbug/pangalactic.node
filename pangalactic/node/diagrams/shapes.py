@@ -626,8 +626,10 @@ class ObjectBlock(Block):
                                   self.usage.name))
                     for obj in mod_objs:
                         dispatcher.send('modified object', obj=obj)
-                    dispatcher.send('product dropped on object block',
-                                    p=dropped_item)
+                    ### NOTE: this message is not being used -- maybe uncomment
+                    ### when/if I figure out what I had in mind for it :P
+                    # dispatcher.send('product dropped on object block',
+                                    # p=dropped_item)
             else:
                 orb.log.info("  - dropped product not in db; nothing done.")
                 event.accept()
@@ -771,13 +773,15 @@ class SubjectBlock(Block):
             orb.log.info("  - it is a {} ...".format(obj_cname))
             dropped_item = orb.get(obj_oid)
             if dropped_item:
-                # orb.log.info('  - found in db: "{}"'.format(obj_name))
+                orb.log.info('  - dropped object name: "{}"'.format(obj_name))
                 # orb.log.info(
                     # '    sending message "product dropped on subject block"')
-                dispatcher.send('product dropped on subject block',
-                                p=dropped_item)
+                ### NOTE: this message is not being used -- maybe uncomment it
+                ### when/if I figure out what I had in mind for it :P
+                # dispatcher.send('product dropped on subject block',
+                                # p=dropped_item)
             else:
-                # orb.log.info("  - dropped product oid not in db.")
+                orb.log.info("  - dropped product oid not in db.")
                 event.ignore()
             target_cname = drop_target.__class__.__name__
             if issubclass(orb.classes[target_cname],
@@ -836,7 +840,7 @@ class SubjectBlock(Block):
                     dispatcher.send('modified object', obj=drop_target)
             elif target_cname == 'Project':
                 # case 3: drop target is a project
-                log_txt = '+ target is a Project -- creating new system ...'
+                log_txt = '+ target is a Project -- adding new system ...'
                 orb.log.debug('    {}'.format(log_txt))
                 psu = orb.search_exact(cname='ProjectSystemUsage',
                                        project=drop_target,

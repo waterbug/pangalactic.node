@@ -584,8 +584,8 @@ the <b>owner</b> and <b>product type</b> fields.</li>
 <li><b>name</b>: a brief descriptive name, approximately 25 characters or less
 (may contain spaces)</li>
 <li><b>description</b>: can be verbose, no size limit</li>
-<li><b>owner</b>: project or organization that has configuration control<br>
-for this system or component specification
+<li><b>owner</b>: project or organization that has configuration control
+for this system<br>or component specification
     <ul>
     <li>if a GSFC part, choose your branch, the project, or MDL</li>
     <li>if a vendor part, choose MDL but after creating the component,<br>
@@ -593,7 +593,7 @@ for this system or component specification
     <b>Vendor</b> field on the <b>data</b> tab</li>
     </ul>
 </li>
-<li><b>product type</b>: click the button to display a list of a standard
+<li><b>product type</b>: click the button to display a list of standard
 classifiers and select one</li>
 </ul>
 <p><font color="red">If this <b>System / Component</b>
