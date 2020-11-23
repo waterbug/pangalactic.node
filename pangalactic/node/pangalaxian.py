@@ -3225,7 +3225,7 @@ class Main(QtWidgets.QMainWindow):
         Keyword Args:
             new (bool):  True if a new object, otherwise False
         """
-        orb.log.debug('* update_object_in_trees() ...')
+        # orb.log.debug('* update_object_in_trees() ...')
         if not obj:
             # orb.log.debug('  no object provided; ignoring.')
             return
