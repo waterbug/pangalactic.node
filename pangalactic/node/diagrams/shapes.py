@@ -419,7 +419,7 @@ class ObjectBlock(Block):
         else:
             # block is not TBD -- enable viewing of the object ...
             menu.addAction('View this object', self.display_object)
-        if 'modify' in perms and getattr(obj, 'id', 'TBD') != 'TBD':
+        if 'modify' in perms:
             mod_usage_txt = 'Modify quantity and/or reference designator'
             menu.addAction(mod_usage_txt, self.mod_usage)
             if isinstance(self.usage, orb.classes['Acu']):
