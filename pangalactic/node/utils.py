@@ -225,10 +225,10 @@ def clone(what, include_ports=True, include_components=True,
             new_obj.id = orb.gen_product_id(new_obj)
     if new_ports:
         for new_port in new_ports:
-            dispatcher.send('new object', new_port)
+            dispatcher.send(signal='new object', obj=new_port)
     if new_acus:
         for new_acu in new_acus:
-            dispatcher.send('new object', new_acu)
+            dispatcher.send(signal='new object', obj=new_acu)
     if recompute_needed:
         orb.recompute_parmz()
     return new_obj
