@@ -3824,20 +3824,20 @@ class Main(QtWidgets.QMainWindow):
                                 self, 'Export Project Requirements to File',
                                 fname)
         if fpath:
-            orb.log.debug('  - file selected: "%s"' % fpath)
+            orb.log.debug(f'  - file selected: "{fpath}"')
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
             state['last_path'] = os.path.dirname(fpath)
             # serialize all the objects relevant to the current project
             reqts = orb.get_reqts_for_project(self.project)
-            reqts += self.project
             if reqts:
+                reqts.append(self.project)
                 serialized_reqts = serialize(orb, reqts, include_refdata=True)
                 f = open(fpath, 'w')
                 f.write(yaml.safe_dump(serialized_reqts,
                                        default_flow_style=False))
                 f.close()
-                orb.log.debug('    %i project requirements written.' % len(
-                                                            serialized_reqts))
+                orb.log.debug('    {} project requirements written.'.format(
+                                                 len(serialized_reqts) - 1))
             else:
                 # TODO: notify user that no requirements were found ...
                 orb.log.debug('    no project requirements found.')

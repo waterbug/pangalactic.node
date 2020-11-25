@@ -13,6 +13,9 @@ from PyQt5.QtCore    import (Qt, QByteArray, QDataStream, QIODevice, QMimeData,
 from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QIcon, QPalette,
                              QPixmap, QTextDocument)
 
+# Louie
+from louie import dispatcher
+
 # SqlAlchemy
 from sqlalchemy import ForeignKey
 
@@ -77,10 +80,8 @@ def clone(what, include_ports=True, include_components=True,
     recompute_needed = False
     if what in orb.classes:
         # 'what' is a class name -- create a new instance from scratch
-        # TODO:  validation: every new object *must* have 'id' value
-        # TODO:  validation: a ParameterDefinition must have an 'id' value
-        # that is unique among ParameterDefinitions
-        # NOTE: possible future enhancement: parameter namespaces
+        # TODO:  validation: every new object *must* have 'id' value, which
+        # *should* be unique (at least within its Class of objects)
         new = True
         cname = what
         schema = orb.schemas[cname]
@@ -106,7 +107,13 @@ def clone(what, include_ports=True, include_components=True,
                 newkw[a] = kw[a]
             elif a in non_fk_fields:
                 newkw[a] = getattr(obj, a)
+        # new generated oid
         newkw['oid'] = str(uuid4())
+        # standard attributes of any Identifiable ...
+        newkw['name'] = 'clone of ' + (obj.name or 'anonymous')
+        newkw['abbreviation'] = 'cloned-' + (obj.abbreviation or 'obj')
+        newkw['description'] = 'cloned description: ' + (obj.description
+                                                         or '[empty]')
     # generate a unique oid if one is not provided
     if not newkw.get('oid'):
         newkw['oid'] = str(uuid4())
@@ -164,6 +171,8 @@ def clone(what, include_ports=True, include_components=True,
         new_data = deepcopy(data_elementz[obj.oid])
         data_elementz[newkw['oid']] = new_data
     # operations specific to Products ...
+    new_ports = []
+    new_acus = []
     if isinstance(new_obj, orb.classes['Product']):
         recompute_needed = True
         if new:
@@ -178,34 +187,48 @@ def clone(what, include_ports=True, include_components=True,
             new_obj.derived_from = obj
             # if we are including ports, add them ...
             if include_ports and getattr(obj, 'ports', None):
+                Port = orb.classes['Port']
                 for port in obj.ports:
                     seq = get_next_port_seq(new_obj, port.type_of_port)
+                    port_oid = str(uuid4())
                     port_id = get_port_id(port.type_of_port.id,
                                           seq)
                     port_name = get_port_name(port.type_of_port.name, seq)
-                    clone('Port', id=port_id, name=port_name,
-                          abbreviation=port_name,
-                          type_of_port=port.type_of_port, of_product=new_obj,
-                          creator=new_obj.creator, modifier=new_obj.creator,
-                          create_datetime=NOW, mod_datetime=NOW)
+                    p = Port(oid=port_oid, id=port_id, name=port_name,
+                             abbreviation=port_name,
+                             type_of_port=port.type_of_port,
+                             of_product=new_obj, creator=new_obj.creator,
+                             modifier=new_obj.creator, create_datetime=NOW,
+                             mod_datetime=NOW)
+                    new_ports.append(p)
             # if we are including components, add them ...
             if include_components and getattr(obj, 'components', None):
+                Acu = orb.classes['Acu']
                 for acu in obj.components:
+                    acu_oid = str(uuid4())
                     ref_des = get_next_ref_des(new_obj, acu.component)
-                    clone('Acu', 
-                          id=get_acu_id(new_obj.id, ref_des),
-                          name=get_acu_name(new_obj.name, ref_des),
-                          assembly=new_obj, component=acu.component,
-                          product_type_hint=acu.product_type_hint,
-                          reference_designator=ref_des,
-                          creator=new_obj.creator, modifier=new_obj.creator,
-                          create_datetime=NOW, mod_datetime=NOW)
+                    acu = Acu(oid=acu_oid,
+                              id=get_acu_id(new_obj.id, ref_des),
+                              name=get_acu_name(new_obj.name, ref_des),
+                              assembly=new_obj, component=acu.component,
+                              product_type_hint=acu.product_type_hint,
+                              reference_designator=ref_des,
+                              creator=new_obj.creator,
+                              modifier=new_obj.creator, create_datetime=NOW,
+                              mod_datetime=NOW)
+                    new_acus.append(acu)
                 refresh_componentz(new_obj)
         # the 'id' must be generated *after* the product_type is assigned
         if not isinstance(new_obj, orb.classes['Requirement']):
             # Requirements are a special case -- their id is generated in the
             # RequirementWizard and supplied in the 'id' kw arg
             new_obj.id = orb.gen_product_id(new_obj)
+    if new_ports:
+        for new_port in new_ports:
+            dispatcher.send('new object', new_port)
+    if new_acus:
+        for new_acu in new_acus:
+            dispatcher.send('new object', new_acu)
     if recompute_needed:
         orb.recompute_parmz()
     return new_obj
