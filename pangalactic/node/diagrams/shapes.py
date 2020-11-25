@@ -723,13 +723,24 @@ class SubjectBlock(Block):
         painter.drawRect(self.rect)
 
     def mimeTypes(self):
+        """
+        Return a list of the accepted mime types (a list of strings).
+        """
         return ["application/x-pgef-hardware-product",
+                "application/x-pgef-product-type",
                 "application/x-pgef-port-type",
                 "application/x-pgef-port-template"]
 
     def dragEnterEvent(self, event):
+        """
+        Accept the drag enter event if it has an accepted mime type.
+        """
+        orb.log.debug('  - drag object mime types: {}'.format(
+                      event.mimeData().formats()))
         if (event.mimeData().hasFormat(
                                 "application/x-pgef-hardware-product")
+            or event.mimeData().hasFormat(
+                                "application/x-pgef-product-type")
             or event.mimeData().hasFormat(
                                 "application/x-pgef-port-type")
             or event.mimeData().hasFormat(
@@ -748,11 +759,20 @@ class SubjectBlock(Block):
             0: dropped item would cause a cycle -> abort
             1: drop target is "TBD" -> replace it if drop item is a Product
                and matches the "product_type_hint" of the Acu
-            2: drop target is a normal Product -> add a new component position
+            2: dropped item is a Product and
+               drop target is a Product -> add a new component position
                with the dropped item as the new component
             3: drop target is a Project ->
                if drop item is a Product *and* it is not already in use
                on the Project, use it to create a new ProjectSystemUsage
+            4: dropped item is a PortType and
+               drop target is a Product -> add a Port to the Product
+            5: dropped item is a PortTemplate and
+               drop target is a Product -> add a Port to the Product
+            6: dropped item is a ProductType and
+               drop target is a Product -> add an empty assembly position
+               ("bucket") -- actually, an Acu with TBD product and the dropped
+               ProductType as its product_type_hint -- to the Product
         """
         orb.log.debug("* SubjectBlock: hm, something dropped on me ...")
         user = orb.get(state.get('local_user_oid'))
@@ -946,6 +966,43 @@ class SubjectBlock(Block):
                 self.rebuild_port_blocks()
             else:
                 orb.log.info("  - dropped port template not in db.")
+                event.ignore()
+        elif event.mimeData().hasFormat("application/x-pgef-product-type"):
+            data = extract_mime_data(event, "application/x-pgef-product-type")
+            icon, oid, _id, name, cname = data
+            orb.log.info("  - it is a {} ...".format(cname))
+            product_type = orb.get(oid)
+            if product_type:
+                orb.log.info('  - orb found {} "{}"'.format(cname, name))
+                orb.log.info('    creating an empty assembly position ...')
+                ref_des = get_next_ref_des(drop_target, None,
+                                           product_type=product_type)
+                # NOTE: clone() adds create/mod_datetime & creator/modifier
+                tbd = orb.get('pgefobjects:TBD')
+                new_acu = clone('Acu',
+                    id=get_acu_id(drop_target.id, ref_des),
+                    name=get_acu_name(drop_target.name, ref_des),
+                    assembly=drop_target,
+                    component=tbd,
+                    product_type_hint=product_type,
+                    creator=user,
+                    create_datetime=dtstamp(),
+                    modifier=user,
+                    mod_datetime=dtstamp(),
+                    reference_designator=ref_des)
+                # new Acu -> drop target is modified (any computed
+                # parameters must be recomputed, etc.)
+                drop_target.mod_datetime = dtstamp()
+                drop_target.modifier = user
+                orb.save([new_acu, drop_target])
+                # orb.log.debug('      Acu created: {}'.format(
+                              # new_acu.name))
+                self.scene().create_block(ObjectBlock, usage=new_acu)
+                dispatcher.send('new object', obj=new_acu)
+                dispatcher.send('modified object', obj=drop_target)
+                self.rebuild_port_blocks()
+            else:
+                orb.log.info("  - dropped product type oid not in db.")
                 event.ignore()
         else:
             orb.log.info("  - dropped object is not an allowed type")

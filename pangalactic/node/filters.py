@@ -400,7 +400,7 @@ class ProxyView(QTableView):
             self.startDrag(event)
 
     def startDrag(self, event):
-        # orb.log.debug('* starting drag operation ...')
+        orb.log.debug('* starting drag operation ...')
         index = self.indexAt(event.pos())
         if not index.isValid:
             return
@@ -411,6 +411,8 @@ class ProxyView(QTableView):
             pixmap = get_pixmap(obj)
             icon = QIcon(pixmap)
             mime_data = create_mime_data(obj, icon)
+            # orb.log.debug('  - setting mime data to: {}'.format(
+                                                        # mime_data.formats()))
             drag = QDrag(self)
             drag.setMimeData(mime_data)
             # TODO: IF we really want to use a table for ParameterDefinition

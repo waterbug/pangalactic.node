@@ -2,7 +2,7 @@
 """
 GUI related utility functions
 """
-import os, sys
+import os
 from copy import deepcopy
 from uuid import uuid4
 
@@ -38,7 +38,7 @@ def clone(what, include_ports=True, include_components=True,
     existing object.  NOTE:  clone() does not save/commit the object, so
     orb.save() or orb.db.commit() must be called after cloning.
 
-    (1) If `what` is a string, create a new instance of the schema with
+    (1) If `what` is a string, create a new instance of the class with
     that name, and assign it the values in the `kw` dict.  If the named
     class is a subtype of 'Product', the new instance will be a
     "working version" and will receive a version and version_sequence only
@@ -61,7 +61,7 @@ def clone(what, include_ports=True, include_components=True,
     Default values are used where appropriate.
 
     Args:
-        what (str or Identifiable): schema name or object to be cloned
+        what (str or Identifiable): class name or object to be cloned
 
     Keyword Args:
         include_ports (bool): if an object with ports is being cloned, give the
@@ -124,12 +124,12 @@ def clone(what, include_ports=True, include_components=True,
     newkw.update(dict([(dts, NOW) for dts in ['create_datetime',
                                               'mod_datetime']]))
     local_user = orb.get(state.get('local_user_oid'))
-    if local_user:
+    if issubclass(cls, orb.classes['Modelable']) and local_user:
         if 'creator' in fields:
             newkw['creator'] = local_user
         if 'modifier' in fields:
             newkw['modifier'] = local_user
-    if not new and orb.is_versioned(obj):
+    if not new and issubclass(cls, orb.classes['Product']):
         # TODO:  add interface functions for "clone to create new version"
         # current clone "copies" (i.e. creates a new object, not a version)
         ver_seq = kw.get('version_sequence')
@@ -446,6 +446,7 @@ def get_pixmap(obj):
     else:
         return QVariant()
 
+
 def create_mime_data(obj, icon):
     """
     Create a QMimeData instance to represent the content of an object whose
@@ -461,42 +462,20 @@ def create_mime_data(obj, icon):
         data (QMimeData):  contents are:  icon, oid, id, name, class name
     """
     # TODO:  provide a default icon in case icon is empty
-    if sys.version_info < (3, 0):
-        # python 2 version
-        if obj:
-            data = QByteArray()
-            stream = QDataStream(data, QIODevice.WriteOnly)
-            obj_oid = QByteArray(str(obj.oid))
-            obj_id = QByteArray(str(obj.id))
-            name = obj.name or u'[no name]'
-            obj_name = QByteArray(name.encode('utf-8'))
-            cname = obj.__class__.__name__
-            # for Product and its subtypes, 
-            ba_cname = QByteArray(cname)
-            stream << icon << obj_oid << obj_id << obj_name << ba_cname
-            mime_data = QMimeData()
-            mime_data.setData(to_media_name(obj.__class__.__name__), data)
-            return mime_data
-        else:
-            # if no obj, return an empty QMimeData object
-            return QMimeData()
-    else:
-        # python 3 version
-        if obj:
-            data = QByteArray()
-            stream = QDataStream(data, QIODevice.WriteOnly)
-            obj_oid = QByteArray(obj.oid.encode('utf-8'))
-            obj_id = QByteArray(obj.id.encode('utf-8'))
-            name = obj.name or u'[no name]'
-            obj_name = QByteArray(name.encode('utf-8'))
-            cname = obj.__class__.__name__.encode('utf-8')
-            # for Product and its subtypes, 
-            ba_cname = QByteArray(cname)
-            stream << icon << obj_oid << obj_id << obj_name << ba_cname
-            mime_data = QMimeData()
-            mime_data.setData(to_media_name(obj.__class__.__name__), data)
-            return mime_data
-        return QMimeData()
+    if obj:
+        data = QByteArray()
+        stream = QDataStream(data, QIODevice.WriteOnly)
+        obj_oid = QByteArray(obj.oid.encode('utf-8'))
+        obj_id = QByteArray(obj.id.encode('utf-8'))
+        name = obj.name or '[no name]'
+        obj_name = QByteArray(name.encode('utf-8'))
+        cname = obj.__class__.__name__.encode('utf-8')
+        ba_cname = QByteArray(cname)
+        stream << icon << obj_oid << obj_id << obj_name << ba_cname
+        mime_data = QMimeData()
+        mime_data.setData(to_media_name(obj.__class__.__name__), data)
+        return mime_data
+    return QMimeData()
 
 
 def extract_mime_data(event, media_type):
@@ -513,27 +492,16 @@ def extract_mime_data(event, media_type):
     data = event.mimeData().data(media_type)
     stream = QDataStream(data, QIODevice.ReadOnly)
     icon = QIcon()
-    if sys.version_info < (3, 0):
-        # python 2 version
-        obj_oid = QByteArray()
-        obj_id = QByteArray()
-        obj_name = QByteArray()
-        obj_cname = QByteArray()
-        stream >> icon >> obj_oid >> obj_id >> obj_name >> obj_cname
-        name = str(obj_name).decode('utf-8')
-        return icon, str(obj_oid), str(obj_id), name, str(obj_cname)
-    else:
-        # python 3 version
-        oid_ba = QByteArray()
-        id_ba = QByteArray()
-        name_ba = QByteArray()
-        cname_ba = QByteArray()
-        stream >> icon >> oid_ba >> id_ba >> name_ba >> cname_ba
-        obj_oid = bytes(oid_ba).decode('utf-8')
-        obj_id = bytes(id_ba).decode('utf-8')
-        obj_name = bytes(name_ba).decode('utf-8')
-        obj_cname = bytes(cname_ba).decode('utf-8')
-        return icon, obj_oid, obj_id, obj_name, obj_cname
+    oid_ba = QByteArray()
+    id_ba = QByteArray()
+    name_ba = QByteArray()
+    cname_ba = QByteArray()
+    stream >> icon >> oid_ba >> id_ba >> name_ba >> cname_ba
+    obj_oid = bytes(oid_ba).decode('utf-8')
+    obj_id = bytes(id_ba).decode('utf-8')
+    obj_name = bytes(name_ba).decode('utf-8')
+    obj_cname = bytes(cname_ba).decode('utf-8')
+    return icon, obj_oid, obj_id, obj_name, obj_cname
 
 
 def extract_mime_content(data, media_type):
@@ -550,27 +518,16 @@ def extract_mime_content(data, media_type):
     content = data.data(media_type)
     stream = QDataStream(content, QIODevice.ReadOnly)
     icon = QIcon()
-    if sys.version_info < (3, 0):
-        # python 2 version
-        obj_oid = QByteArray()
-        obj_id = QByteArray()
-        obj_name = QByteArray()
-        obj_cname = QByteArray()
-        stream >> icon >> obj_oid >> obj_id >> obj_name >> obj_cname
-        name = str(obj_name).decode('utf-8')
-        return icon, str(obj_oid), str(obj_id), name, str(obj_cname)
-    else:
-        # python 3 version
-        oid_ba = QByteArray()
-        id_ba = QByteArray()
-        name_ba = QByteArray()
-        cname_ba = QByteArray()
-        stream >> icon >> oid_ba >> id_ba >> name_ba >> cname_ba
-        obj_oid = bytes(oid_ba).decode('utf-8')
-        obj_id = bytes(id_ba).decode('utf-8')
-        obj_name = bytes(name_ba).decode('utf-8')
-        obj_cname = bytes(cname_ba).decode('utf-8')
-        return icon, obj_oid, obj_id, obj_name, obj_cname
+    oid_ba = QByteArray()
+    id_ba = QByteArray()
+    name_ba = QByteArray()
+    cname_ba = QByteArray()
+    stream >> icon >> oid_ba >> id_ba >> name_ba >> cname_ba
+    obj_oid = bytes(oid_ba).decode('utf-8')
+    obj_id = bytes(id_ba).decode('utf-8')
+    obj_name = bytes(name_ba).decode('utf-8')
+    obj_cname = bytes(cname_ba).decode('utf-8')
+    return icon, obj_oid, obj_id, obj_name, obj_cname
 
 
 def white_to_transparent(img):

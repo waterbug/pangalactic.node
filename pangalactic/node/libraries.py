@@ -401,8 +401,7 @@ class LibraryListWidget(QWidget):
         select_label = get_external_name_plural(cname)
         if cname == 'HardwareProduct':
             select_label = 'Systems & Components (Hardware Products)'
-            view = ['id', 'name', 'product_type', 'version', 'iteration',
-                    'description', 'comment']
+            view = ['id', 'name', 'product_type', 'description']
             widget = FilterPanel(None, view=view, as_library=True,
                                  cname=cname, label=select_label,
                                  external_filters=True,
@@ -550,7 +549,6 @@ class LibraryDialog(QDialog):
                 dispatcher.connect(self.on_only_mine_toggled,
                                    'only mine toggled')
             else:
-                # special case label
                 if self.cname == 'Template':
                     label = 'System and Component Templates'
                 self.setWindowTitle(label)

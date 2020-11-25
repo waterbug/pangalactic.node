@@ -495,6 +495,7 @@ class ParameterTable(QWidget):
 
 
 if __name__ == '__main__':
+    # for testing purposes only ...
     import sys
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import (create_test_project,

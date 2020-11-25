@@ -70,12 +70,15 @@ class DiagramScene(QGraphicsScene):
 
     def mimeTypes(self):
         return ["application/x-pgef-hardware-product",
+                "application/x-pgef-product-type",
                 "application/x-pgef-port-type",
                 "application/x-pgef-port-template"]
 
     def dragEnterEvent(self, event):
         if (event.mimeData().hasFormat(
                                 "application/x-pgef-hardware-product")
+            or event.mimeData().hasFormat(
+                                "application/x-pgef-product-type")
             or event.mimeData().hasFormat(
                                 "application/x-pgef-port-type")
             or event.mimeData().hasFormat(
@@ -563,12 +566,15 @@ class DiagramView(QGraphicsView):
 
     def mimeTypes(self):
         return ["application/x-pgef-hardware-product",
+                "application/x-pgef-product-type",
                 "application/x-pgef-port-type",
                 "application/x-pgef-port-template"]
 
     def dragEnterEvent(self, event):
         if (event.mimeData().hasFormat(
                                 "application/x-pgef-hardware-product")
+            or event.mimeData().hasFormat(
+                                "application/x-pgef-product-type")
             or event.mimeData().hasFormat(
                                 "application/x-pgef-port-type")
             or event.mimeData().hasFormat(
