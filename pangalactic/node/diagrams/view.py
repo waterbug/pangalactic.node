@@ -281,8 +281,9 @@ class DiagramScene(QGraphicsScene):
                                 right_ports=right_ports)
             # self.inserted_block.emit(block)
         elif block_type is SubjectBlock:
-            w = width or 100
-            h = height or 50
+            # change default w, h to 1000, 600 (SCW 2020-11-26)
+            w = width or 1000
+            h = height or 600
             # ports, if any, are on the right by default for SubjectBlock
             block = SubjectBlock(pos, scene=self, obj=obj, width=w, height=h)
         self.clearSelection()
@@ -350,15 +351,17 @@ class DiagramScene(QGraphicsScene):
             item_group = self.createItemGroup(items)
             # orb.log.debug('  - DiagramScene: created item group ...')
             brect = item_group.boundingRect()
-            sb_width = brect.width() + 150
-            sb_height = brect.height() + 150
+            # set min w, h to 1000, 600 (SCW 2020-11-26)
+            sb_width = max(brect.width() + 150, 1000)
+            sb_height = max(brect.height() + 150, 600)
             # NOTE: it is ESSENTIAL to destroy the group; otherwise the object
             # blocks in it will not receive their mouse events!
             self.destroyItemGroup(item_group)
         else:
             # if empty, give it minimum w, h
-            sb_width = 300
-            sb_height = 300
+            # set min w, h to 1000, 600 (SCW 2020-11-26)
+            sb_width = 1000
+            sb_height = 600
         return self.create_block(SubjectBlock, obj=self.subject,
                                  pos=QPointF(20, 20),
                                  width=sb_width, height=sb_height)
