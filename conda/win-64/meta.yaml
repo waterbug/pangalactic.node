@@ -16,7 +16,7 @@ requirements:
 
   run:
     - pangalactic.core >=1.4.7
-    - autobahn
+    - autobahn >= 20.7.1
     # autobahn pulls in:
     # - txaio
     - binaryornot
