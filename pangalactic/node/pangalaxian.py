@@ -56,7 +56,7 @@ from pangalactic.core.uberorb          import orb
 from pangalactic.core.utils.meta       import (asciify,
                                                uncook_datetime)
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
-from pangalactic.core.utils.reports    import write_mel_xlsx
+from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
@@ -4150,7 +4150,7 @@ class Main(QtWidgets.QMainWindow):
                                 self, 'Open File',
                                 self.project.id + '-MEL-' + dtstr + '.xlsx')
                 if fpath:
-                    write_mel_xlsx(self.project, file_path=fpath)
+                    write_mel_xlsx_from_model(self.project, file_path=fpath)
             else:
                 message = "This project has no systems defined."
                 popup = QtWidgets.QMessageBox(

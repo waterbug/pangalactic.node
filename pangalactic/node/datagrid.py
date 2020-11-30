@@ -455,7 +455,7 @@ class DMTreeModel(QAbstractItemModel):
 
     def on_pval_set(self, oid=None, pid=None, value=None, units=None,
                     mod_datetime=None, local=True):
-        orb.log.debug('DMTreeModel.on_pval_set()')
+        # orb.log.debug('DMTreeModel.on_pval_set()')
         idx = self.oid_to_index.get(oid)
         if idx:
             self.dataChanged(idx, idx)
