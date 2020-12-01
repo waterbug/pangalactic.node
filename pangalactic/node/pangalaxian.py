@@ -265,7 +265,8 @@ class Main(QtWidgets.QMainWindow):
         elif mode == 'db':
             self.db_mode_action.trigger()
         else:
-            self.data_mode_action.trigger()
+            pass
+            # self.data_mode_action.trigger()
         state['done_with_progress'] = False
         state['connected'] = False
 
@@ -868,7 +869,7 @@ class Main(QtWidgets.QMainWindow):
         #######################################################################
         if sobjs_to_save:
             self.statusbar.showMessage('saving local objs to repo ...')
-            txt = '{} sync: saving objects ...'.format(sync_type,
+            txt = '{} sync: saving {} objects ...'.format(sync_type,
                                                          len(sobjs_to_save))
             dispatcher.send('sync progress', txt=txt)
             rpc = self.mbus.session.call('vger.save', sobjs_to_save)
@@ -1159,7 +1160,7 @@ class Main(QtWidgets.QMainWindow):
                                                                 obj.name))
             except:
                 d = str(res)
-                orb.log.debug('- cannot process received data: '.format(d))
+                orb.log.debug('- cannot process received data: {}'.format(d))
         else:
             orb.log.debug('- rpc failed: no data received!')
 
@@ -1604,13 +1605,13 @@ class Main(QtWidgets.QMainWindow):
                                     icon="db",
                                     checkable=True,
                                     tip="Local DB")
-        self.data_mode_action = self.create_action(
-                                    "Data Mode",
-                                    slot=self._set_data_mode,
-                                    icon="data",
-                                    checkable=True,
-                                    tip="Data Mode")
-        self.data_mode_action.setEnabled(True)
+        # self.data_mode_action = self.create_action(
+                                    # "Data Mode",
+                                    # slot=self._set_data_mode,
+                                    # icon="data",
+                                    # checkable=True,
+                                    # tip="Data Mode")
+        # self.data_mode_action.setEnabled(True)
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
@@ -1640,7 +1641,7 @@ class Main(QtWidgets.QMainWindow):
         self.component_mode_action.setActionGroup(mode_action_group)
         self.system_mode_action.setActionGroup(mode_action_group)
         self.db_mode_action.setActionGroup(mode_action_group)
-        self.data_mode_action.setActionGroup(mode_action_group)
+        # self.data_mode_action.setActionGroup(mode_action_group)
         orb.log.debug('  ... all actions created.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -1670,12 +1671,18 @@ class Main(QtWidgets.QMainWindow):
         """
         Get the current mode. (Default: 'system')
         """
+        # NOTE: 'data' mode is temporarily disabled
+        if state.get('mode') == 'data':
+            state['mode'] = 'system'
         return state.get('mode', 'system')
 
     def set_mode(self, mode):
         """
         Set the current mode.
         """
+        # NOTE: 'data' mode is temporarily disabled
+        if mode == 'data':
+            mode = 'system'
         initial_size = self.size()
         if hasattr(orb, 'store'):
             orb.db.commit()
@@ -1699,7 +1706,7 @@ class Main(QtWidgets.QMainWindow):
             elif mode == 'db':
                 self.mode_label.setText('Local Database')
             elif mode == 'data':
-                self.mode_label.setText('Data Tools')
+                self.mode_label.setText('Data Mode')
             self._update_views()
             # NOTE: the saved_state stuff does not seem to be doing anything so
             # commented out for now ...
@@ -1725,8 +1732,8 @@ class Main(QtWidgets.QMainWindow):
     def _set_db_mode(self):
         self.mode = 'db'
 
-    def _set_data_mode(self):
-        self.mode = 'data'
+    # def _set_data_mode(self):
+        # self.mode = 'data'
     #######################################################################
 
     # 'datasets' property (linked to state['datasets']
@@ -2065,14 +2072,14 @@ class Main(QtWidgets.QMainWindow):
         # self.toolbar.addWidget(self.circle_widget)
         self.mode_label = ModeLabel('')
         self.toolbar.addWidget(self.mode_label)
-        self.toolbar.addAction(self.data_mode_action)
+        # self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
         self.toolbar.addAction(self.component_mode_action)
         # Makes the next toolbar appear underneath this one
         self.addToolBarBreak()
-        self.mode_widget_actions['data'].add(self.project_selection_action)
-        self.mode_widget_actions['data'].add(self.project_label_action)
+        # self.mode_widget_actions['data'].add(self.project_selection_action)
+        # self.mode_widget_actions['data'].add(self.project_label_action)
         self.mode_widget_actions['system'].add(self.project_selection_action)
         self.mode_widget_actions['system'].add(self.project_label_action)
         self.mode_widget_actions['component'].add(
@@ -2484,9 +2491,9 @@ class Main(QtWidgets.QMainWindow):
         if state.get('chunks_to_get'):
             n = len(state['chunks_to_get'])
             if n == 1:
-                msg = f'chunk synced -- 1 more chunk to get ...'
+                msg = 'chunk synced -- getting 1 more chunk ...'
             else:
-                msg = f'chunk synced -- {n} more chunks to get ...'
+                msg = f'chunk synced -- getting {n} more chunks ...'
         else:
             msg = 'synced.'
         self.statusbar.showMessage(msg)
@@ -2754,7 +2761,7 @@ class Main(QtWidgets.QMainWindow):
                             role = '&nbsp;'.join(str(r).split(' '))
                             tt_txt += f'<li>{pid}:&nbsp;{role}</li>\n'
                         if global_admin:
-                            tt_txt += f'<li>Global&nbsp;Administrator</li>\n'
+                            tt_txt += '<li>Global&nbsp;Administrator</li>\n'
                         tt_txt += '</ul>'
                     elif p_roles:
                         role_label_txt = ': '.join([p.id, p_roles[0]])
@@ -4033,28 +4040,28 @@ class Main(QtWidgets.QMainWindow):
             if 'Project' in byclass:
                 projid = byclass['Project'][0].get('id', '')
                 if projid:
-                    start_msg = '{} data for {} ...'.format(begin, projid)
-                    msg = "success: project {} synced.".format(projid, end)
+                    start_msg = f'{begin} data for {projid} ...'
+                    msg = f"success: project {projid} {end}"
                 else:
-                    start_msg = '{} data for your project ...'.format(begin)
+                    start_msg = f'{begin} data for your project ...'
                     if end == 'synced' and state.get('chunks_to_get'):
                         n = len(state['chunks_to_get'])
                         if n == 1:
-                            msg = f'chunk synced -- 1 more chunk to get ...'
+                            msg = 'chunk synced -- getting 1 more chunk ...'
                         else:
-                            msg = f'chunk synced -- {n} more chunks to get ...'
+                            msg = f'chunk synced -- getting {n} more chunks ...'
                     else:
-                        msg = "data has been {}.".format(end)
+                        msg = f"data has been {end}."
             else:
-                start_msg = '{} data for your project ...'.format(begin)
+                start_msg = f'{begin} data for your project ...'
                 if end == 'synced' and state.get('chunks_to_get'):
                     n = len(state['chunks_to_get'])
                     if n == 1:
-                        msg = f'chunk synced -- 1 more chunk to get ...'
+                        msg = 'chunk synced -- getting 1 more chunk ...'
                     else:
-                        msg = f'chunk synced -- {n} more chunks to get ...'
+                        msg = f'chunk synced -- getting {n} more chunks ...'
                 else:
-                    msg = "data has been {}.".format(end)
+                    msg = f"data has been {end}."
             self.statusbar.showMessage(start_msg)
             self.pb.show()
             self.pb.setValue(0)
@@ -4201,7 +4208,7 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.debug('* import_excel_data: dialog completed:')
                 orb.log.debug('  setting mode to "data" (which updates view)')
                 # set mode to "data"
-                self.data_mode_action.trigger()
+                # self.data_mode_action.trigger()
             except:
                 message = f"Data in '{fpath}' could not be imported."
                 popup = QtWidgets.QMessageBox(
@@ -4345,12 +4352,12 @@ class Main(QtWidgets.QMainWindow):
         f.write(sk.public_key())
         f.close()
         orb.log.debug('  - keys generated; "public.key" is in cattens_home.')
-        message = '<html>The <font color="green"><b>public key</b></font> file'
-        message += f' is here: <br><b>{public_key_path}</b> --<br>send it'
-        message += ' to the administrator with your request for access.'
+        msg = '<html>The <font color="green"><b>public key</b></font> file'
+        msg += f' is here: <br><b>{public_key_path}</b><br>'
+        msg += '-- send it to the administrator with your request for access.'
         popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Information,
-                            "Public key generated.", message,
+                            "Public key generated.", msg,
                             QtWidgets.QMessageBox.Ok, self)
         popup.show()
         self.statusbar.showMessage(
