@@ -4340,19 +4340,21 @@ class Main(QtWidgets.QMainWindow):
         f.write(privkey.encode())
         f.close()
         sk = cryptosign.SigningKey.from_raw_key(pkpath)
-        f = open(os.path.join(orb.home, 'public.key'), 'w')
+        public_key_path = os.path.join(orb.home, 'public.key')
+        f = open(public_key_path, 'w')
         f.write(sk.public_key())
         f.close()
         orb.log.debug('  - keys generated; "public.key" is in cattens_home.')
-        message = '<html>The file <font color="green"><b>public.key</b></font>'
-        message += ' is in your <b>cattens_home</b> directory. Send it to the'
-        message += ' administrator with your request for access.'
+        message = '<html>The <font color="green"><b>public key</b></font> file'
+        message += f' is here: <br><b>{public_key_path}</b> --<br>send it'
+        message += ' to the administrator with your request for access.'
         popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Information,
                             "Public key generated.", message,
                             QtWidgets.QMessageBox.Ok, self)
         popup.show()
-        self.statusbar.showMessage('"public.key" file is in cattens_home dir.')
+        self.statusbar.showMessage(
+            f'public key file is here: {public_key_path}.')
 
     def closeEvent(self, event):
         # things to do when window is closed
