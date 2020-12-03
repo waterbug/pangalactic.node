@@ -238,7 +238,7 @@ class ObjectTableView(QTableView):
             state['last_path'] = os.path.dirname(fpath)
             f = open(fpath, 'w')
             sobjs = serialize(orb, self.objs, include_refdata=True)
-            content = yaml.safe_dump(sobjs)
+            content = yaml.safe_dump(sobjs, default_flow_style=False)
             f.write(content)
             f.close()
             html = '<h3>Success!</h3>'
