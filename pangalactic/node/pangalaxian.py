@@ -1567,9 +1567,9 @@ class Main(QtWidgets.QMainWindow):
                                     # "Import Data from Excel...",
                                     # slot=self.import_excel_data)
         self.import_objects_action = self.create_action(
-                                    "Import Project from a File...",
+                                    "Import Objects from a File...",
                                     slot=self.import_objects,
-                                    tip="Import Project from a File...",
+                                    tip="Import Objects from a File...",
                                     modes=['system'])
         self.import_reqts_from_file_action = self.create_action(
                             "Import Project Requirements from a File...",
