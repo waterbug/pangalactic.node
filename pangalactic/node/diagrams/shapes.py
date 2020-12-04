@@ -405,12 +405,6 @@ class ObjectBlock(Block):
             obj = self.usage.system
             self.allocs = self.usage.system_requirements
         orb.log.debug("  permissions on usage: {}".format(str(perms)))
-        if self.allocs:
-            menu.addAction('Show allocated requirements', self.display_reqts)
-        else:
-            txt = '[No requirements are allocated here]'
-            a = menu.addAction(txt, self.noop)
-            a.setEnabled(False)
         if getattr(obj, 'id', 'TBD') == 'TBD':
             if isinstance(self.usage, orb.classes['Acu']):
                 # block is TBD and usage is Acu ...
@@ -419,6 +413,20 @@ class ObjectBlock(Block):
         else:
             # block is not TBD -- enable viewing of the object ...
             menu.addAction('View this object', self.display_object)
+        if self.allocs:
+            menu.addAction('Show allocated requirements', self.display_reqts)
+        else:
+            txt = '[No requirements are allocated here]'
+            a = menu.addAction(txt, self.noop)
+            a.setEnabled(False)
+        flows = orb.get_all_usage_flows(self.usage)
+        if flows:
+            log_flows_txt = '* See log for associated flows'
+            menu.addAction(log_flows_txt, self.noop)
+        else:
+            txt = '[No flows associated with this component]'
+            log_flows_act = menu.addAction(txt, self.noop)
+            log_flows_act.setEnabled(False)
         if 'modify' in perms:
             mod_usage_txt = 'Modify quantity and/or reference designator'
             menu.addAction(mod_usage_txt, self.mod_usage)
