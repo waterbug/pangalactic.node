@@ -467,6 +467,19 @@ class ObjectBlock(Block):
         """
         # NOTE: permissions are checked in the context menu that gives access
         # to this function
+        orb.log.debug('* ObjectBlock: del_position() ...')
+        # remove any associated Flows first!
+        orb.log.debug('  - checking for flows ...')
+        flows = orb.get_all_usage_flows(self.usage)
+        if flows:
+            for flow in flows:
+                orb.log.debug('   id: {}, name: {} (oid {})'.format(
+                              flow.id, flow.name, flow.oid))
+                orb.db.delete(flow)
+                orb.log.debug('     ... deleted.')
+            orb.db.commit()
+        else:
+            orb.log.debug('   no associated flows.')
         oid = self.usage.oid
         orb.delete([self.usage])
         dispatcher.send(signal='deleted object', oid=oid, cname='Acu')
@@ -478,6 +491,18 @@ class ObjectBlock(Block):
         """
         # NOTE: permissions are checked in the context menu that gives access
         # to this function
+        # remove any Flows first!
+        orb.log.debug('  - checking for flows ...')
+        flows = orb.get_all_usage_flows(self.usage)
+        if flows:
+            for flow in flows:
+                orb.log.debug('   id: {}, name: {} (oid {})'.format(
+                              flow.id, flow.name, flow.oid))
+                orb.db.delete(flow)
+                orb.log.debug('     ... deleted.')
+            orb.db.commit()
+        else:
+            orb.log.debug('   no associated flows.')
         oid = self.usage.oid
         orb.delete([self.usage])
         dispatcher.send(signal='deleted object', oid=oid,
@@ -492,6 +517,18 @@ class ObjectBlock(Block):
         # NOTE: permissions are checked in the context menu that gives access
         # to this function
         orb.log.debug('* ObjectBlock: del_component() ...')
+        # remove any Flows first!
+        orb.log.debug('  - checking for flows ...')
+        flows = orb.get_all_usage_flows(self.usage)
+        if flows:
+            for flow in flows:
+                orb.log.debug('   id: {}, name: {} (oid {})'.format(
+                              flow.id, flow.name, flow.oid))
+                orb.db.delete(flow)
+                orb.log.debug('     ... deleted.')
+            orb.db.commit()
+        else:
+            orb.log.debug('   no associated flows.')
         tbd = orb.get('pgefobjects:TBD')
         self.usage.component = tbd
         self.usage.quantity = 1
@@ -609,6 +646,20 @@ class ObjectBlock(Block):
                                 QMessageBox.Cancel)
                     event.accept()
                 else:
+                    # remove any Flows first!
+                    # [NOTE: TBD blocks cannot currently have flows but may in
+                    # the future ...]
+                    orb.log.debug('  - checking for flows ...')
+                    flows = orb.get_all_usage_flows(self.usage)
+                    if flows:
+                        for flow in flows:
+                            orb.log.debug('   id: {}, name: {} (oid {})'.format(
+                                          flow.id, flow.name, flow.oid))
+                            orb.db.delete(flow)
+                            orb.log.debug('     ... deleted.')
+                        orb.db.commit()
+                    else:
+                        orb.log.debug('   no associated flows.')
                     mod_objs = []
                     pt = dropped_item.product_type
                     if isinstance(usage, orb.classes['Acu']):
@@ -627,9 +678,6 @@ class ObjectBlock(Block):
                     # NOTE:  setting 'usage' triggers name/desc label rewrites
                     self.usage = usage
                     event.accept()
-                    # self.name_label.set_text(self.obj.name)
-                    # self.description_label.set_text('[{}]'.format(
-                                # self.obj.product_type.abbreviation))
                     orb.log.debug('   usage modified: {}'.format(
                                   self.usage.name))
                     for obj in mod_objs:
