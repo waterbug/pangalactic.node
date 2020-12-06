@@ -264,34 +264,35 @@ class TimelineScene(QGraphicsScene):
         self.grabbed_item == None
 
     def dropEvent(self, event):
-        if ((event.mimeData().text() == "Cycle") and
-            (self.act_of.product_type.id != 'spacecraft')):
-            pass
-        else:
-            if event.mimeData().text() == "Cycle":
-                activity_type = orb.select("ActivityType", name="Cycle")
+        ### NOTE: do not limit "Cycle" activities to top system
+        # if ((event.mimeData().text() == "Cycle") and
+            # (self.act_of.product_type.id != 'spacecraft')):
+            # pass
+        # else:
+        if event.mimeData().text() == "Cycle":
+            activity_type = orb.select("ActivityType", name="Cycle")
 
-            elif event.mimeData().text() == "Operation":
-                activity_type = orb.select("ActivityType", name="Operation")
-            else:
-                activity_type = orb.select("ActivityType", name="Event")
-            project = orb.get(state.get("project"))
-            activity = clone("Activity", activity_type=activity_type,
-                             owner=project, activity_of=self.act_of,
-                             public=True)
-            acu = clone("Acu", assembly=self.current_activity,
-                        component=activity)
-            orb.save([acu, activity])
-            item = EventBlock(activity=activity,
-                              parent_activity=self.current_activity)
-            item.setPos(event.scenePos())
-            self.addItem(item)
-            self.timeline.add_item(item)
-            dispatcher.send("new activity", parent_act=self.current_activity,
-                            act_of=self.act_of, position=self.position)
-            dispatcher.send("new object", obj=activity)
-            dispatcher.send("new object", obj=acu)
-            self.update()
+        elif event.mimeData().text() == "Operation":
+            activity_type = orb.select("ActivityType", name="Operation")
+        else:
+            activity_type = orb.select("ActivityType", name="Event")
+        project = orb.get(state.get("project"))
+        activity = clone("Activity", activity_type=activity_type,
+                         owner=project, activity_of=self.act_of,
+                         public=True)
+        acu = clone("Acu", assembly=self.current_activity,
+                    component=activity)
+        orb.save([acu, activity])
+        item = EventBlock(activity=activity,
+                          parent_activity=self.current_activity)
+        item.setPos(event.scenePos())
+        self.addItem(item)
+        self.timeline.add_item(item)
+        dispatcher.send("new activity", parent_act=self.current_activity,
+                        act_of=self.act_of, position=self.position)
+        dispatcher.send("new object", obj=activity)
+        dispatcher.send("new object", obj=acu)
+        self.update()
 
     def edit_parameters(self, activity):
         view = ['id', 'name', 'description']
@@ -348,7 +349,7 @@ class ToolbarAction(QWidgetAction):
 
 
 class TimelineWidget(QWidget):
-    def __init__(self, spacecraft, subject_activity=None,
+    def __init__(self, system, subject_activity=None,
                  act_of=None,parent=None, position=None):
         super().__init__(parent=parent)
         self.possible_systems = []
@@ -358,7 +359,7 @@ class TimelineWidget(QWidget):
             self.possible_systems = list(state.get(
                                          'discipline_subsystems').values())
         self.plot_win = None
-        self.spacecraft = spacecraft
+        self.system = system
         self.init_toolbar()
         self.subject_activity = subject_activity
         self.act_of = act_of
@@ -397,7 +398,7 @@ class TimelineWidget(QWidget):
 
     def disable_widget(self, parent_act=None):
         try:
-            if ((self.act_of != self.spacecraft) and
+            if ((self.act_of != self.system) and
                 (self.subject_activity != parent_act)):
                 self.scene = self.set_new_scene()
                 self.update_view()
@@ -738,7 +739,7 @@ class TimelineWidget(QWidget):
         return action
 
     def create_option_list(self):
-        lst = [acu.component for acu in self.spacecraft.components]
+        lst = [acu.component for acu in self.system.components]
         # print(lst,"0000000000000000000000000000000000000000000000000000000")
         options = []
         for system in lst:
@@ -768,9 +769,9 @@ class TimelineWidget(QWidget):
     def change_subsystem(self, index=None):
         # print("change subsystem called~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)")
         # print("act_of", self.act_of)
-        # print("spacecraft:", self.spacecraft)
+        # print("system:", self.system)
         # print("---------------------------------")
-        if self.act_of != self.spacecraft:
+        if self.act_of != self.system:
             # system_name = ''
             # if hasattr(self, 'options'):
             # print("self.options:8888888888888888888888888", self.options)
@@ -780,7 +781,7 @@ class TimelineWidget(QWidget):
                     pass
                 else:
                     existing_subsystems = [acu.component for acu
-                                           in self.spacecraft.components]
+                                           in self.system.components]
                     for subsystem in existing_subsystems:
                         # print("looking for:", system_name)
                         # print(getattr(subsystem, 'id', 'NA'))
@@ -801,10 +802,10 @@ class TimelineWidget(QWidget):
         (Deprecated) Make a new subsystem if one does not exist.
         """
         pro_type = orb.select("ProductType", id=system_name)
-        new_subsystem = clone("HardwareProduct", owner=self.spacecraft.owner,
+        new_subsystem = clone("HardwareProduct", owner=self.system.owner,
                               product_type=pro_type, id=pro_type.id,
                               name=pro_type.id, public=True)
-        acu = clone("Acu", assembly=self.spacecraft, component=new_subsystem)
+        acu = clone("Acu", assembly=self.system, component=new_subsystem)
         self.act_of = new_subsystem
         orb.save([new_subsystem, acu])
         dispatcher.send("new object", obj=new_subsystem)
@@ -842,7 +843,6 @@ class ConOpsModeler(QMainWindow):
         # self.preferred_size = preferred_size
         # self.model_files = {}
         project = orb.get(state.get('project'))
-        sc_type = orb.select("ProductType", id='spacecraft')
         if project:
             mission = orb.select('Mission', owner=project)
 
@@ -859,20 +859,19 @@ class ConOpsModeler(QMainWindow):
             self.subject_activity = clone("Activity", id="temp", name="temp")
             self.mission = self.subject_activity
         self.project = project
-        self.spacecraft = None
+        self.system = None
         psus = orb.search_exact(cname='ProjectSystemUsage', project=project)
-        self.sc_lst = []
+        self.system_list = []
         if psus:
             for p in psus:
-                if p.system.product_type is sc_type:
-                    self.sc_lst.append(p.system)
-        if self.sc_lst:
-            self.spacecraft = self.sc_lst[0]
+                self.system_list.append(p.system)
+        if self.system_list:
+            self.system = self.system_list[0]
         else:
-            message = "You don't have a spacecraft!"
+            message = "You don't have a system!"
             popup = QMessageBox(
                         QMessageBox.Warning,
-                        "No spacecraft", message,
+                        "No system", message,
                         QMessageBox.Ok, self)
             popup.show()
 
@@ -922,13 +921,13 @@ class ConOpsModeler(QMainWindow):
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         self.sc_combo_box = QComboBox()
-        self.sc_lst_ids = [sc.id for sc in self.sc_lst]
-        self.sc_combo_box.addItems(self.sc_lst_ids)
-        self.sc_combo_box.currentIndexChanged.connect(self.change_spacecraft)
+        self.system_list_ids = [sc.id for sc in self.system_list]
+        self.sc_combo_box.addItems(self.system_list_ids)
+        self.sc_combo_box.currentIndexChanged.connect(self.change_system)
         self.toolbar.addWidget(self.sc_combo_box)
 
-    def change_spacecraft(self, index):
-        self.spacecraft = self.sc_lst[index]
+    def change_system(self, index):
+        self.system = self.system_list[index]
         self.set_widgets(current_activity=self.subject_activity)
 
     def resizeEvent(self, event):
@@ -950,7 +949,7 @@ class ConOpsModeler(QMainWindow):
 
     def view_subsystem(self, obj=None):
         ### change obj to activity
-        if obj.activity_of is self.spacecraft:
+        if obj.activity_of is self.system:
             self.sub_widget.subject_activity = obj
             if obj.activity_type.id == 'cycle':
                 self.sub_widget.scene = self.sub_widget.show_empty_scene()
@@ -969,16 +968,16 @@ class ConOpsModeler(QMainWindow):
 
     def set_widgets(self, current_activity=None, init=False):
         self.system_widget = TimelineWidget(
-                                    self.spacecraft,
+                                    self.system,
                                     subject_activity=self.subject_activity,
-                                    act_of=self.spacecraft, position='top')
+                                    act_of=self.system, position='top')
         self.system_widget.setMinimumSize(900, 300)
-        self.sub_widget = TimelineWidget(self.spacecraft, position='middle')
+        self.sub_widget = TimelineWidget(self.system, position='middle')
         self.sub_widget.setEnabled(False)
         self.sub_widget.setMinimumSize(900, 300)
         self.outer_layout = QGridLayout()
         system_table = ActivityTable(subject=self.subject_activity,
-                                     parent=self, act_of=self.spacecraft,
+                                     parent=self, act_of=self.system,
                                      position='top')
         system_table.setMinimumSize(500, 300)
         system_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -996,7 +995,7 @@ class ConOpsModeler(QMainWindow):
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         self.bottom_table = ParameterTable(subject=self.subject_activity,
-                                           act_of=self.spacecraft,
+                                           act_of=self.system,
                                            parent=self)
         self.set_bottom_table()
         if init:
