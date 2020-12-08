@@ -362,7 +362,7 @@ class PersonSearchDialog(QDialog):
         clicked_row = clicked_index.row()
         orb.log.debug('  clicked row is "{}"'.format(clicked_row))
         person_data = self.ldap_data[clicked_row]
-        orb.log.debug('  person selected is:'.format(person_data))
+        orb.log.debug(f'  person selected is: {person_data}')
         # TODO: make "ldap_person_format" a config item ...
         person_display_name = '{}, {} {} ({})'.format(
                                              person_data['Last Name'],
@@ -602,8 +602,7 @@ class AdminDialog(QDialog):
         orb.log.info('* on_got_people()')
         self.lib_widget.refresh(cname='Person')
 
-    def on_person_added_success(self, obj=None, display_name='',
-                                pk_added=False):
+    def on_person_added_success(self, userid='', pk_added=False):
         """
         Update the "active_users" state and refresh the Persons widget when the
         "person added" signal is received from pangalaxian after it has
@@ -611,14 +610,14 @@ class AdminDialog(QDialog):
         the display of active users (green box icons) even if no new people
         were added.
         """
-        if display_name:
-            message = f'Person "{display_name}" has been added'
+        if userid:
+            message = f'Person "{userid}" has been added'
             if pk_added:
                 message += ' with public key'
                 if state.get('active_users'):
-                    state['active_users'].append(obj.id)
+                    state['active_users'].append(userid)
                 else:
-                    state['active_users'] = [obj.id]
+                    state['active_users'] = [userid]
             orb.log.debug(' - ' + message)
             popup = QMessageBox(QMessageBox.Information,
                         "Person Added", message,

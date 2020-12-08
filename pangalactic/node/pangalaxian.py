@@ -1044,14 +1044,36 @@ class Main(QtWidgets.QMainWindow):
                 msg += obj_id
             elif subject == 'person added':
                 ser_objs = content
-                objs = deserialize(orb, ser_objs)
-                persons = [so for so in ser_objs
-                           if so.get('_cname') == 'Person']
-                if persons:
-                    msg += persons[0].get('id', 'unknown id')
-                else:
-                    msg += '[{} new/mod objects but no person]'.format(
-                                                             len(objs))
+                try:
+                    objs = deserialize(orb, ser_objs)
+                    if objs:
+                        # NOTE: if the deserializer returned person and/or
+                        # organization objects, it means we are not the ones
+                        # who called vger.add_person(), so display a message in
+                        # the status bar and log this ...
+                        for obj in objs:
+                            if isinstance(obj, orb.classes['Person']):
+                                display_name = '{}, {} {} ({})'.format(
+                                                                obj.last_name,
+                                                                obj.first_name,
+                                                                obj.mi_or_name,
+                                                                obj.org.name)
+                                txt = f'person "{display_name}" saved.'
+                                orb.log.debug(f'  - {txt}')
+                                msg += ' ... ' + txt
+                                # NOTE: this dispatcher signal is only sent as
+                                # a result of the vger.add_person() rpc being
+                                # successful (see below)
+                                # dispatcher.send('person added', obj=obj,
+                                                # display_name=display_name,
+                                                # pk_added=pk_added)
+                            elif isinstance(obj, orb.classes['Organization']):
+                                orb.log.debug('  - org "{}" saved.'.format(
+                                                                    obj.name))
+                except:
+                    d = str(content)
+                    orb.log.debug(f'- could process received data: {d}')
+                self.statusbar.showMessage(msg)
             # dispatcher signals to send ...
             if subject == 'decloaked':
                 self.statusbar.showMessage(msg)
@@ -1059,8 +1081,6 @@ class Main(QtWidgets.QMainWindow):
             elif subject == 'new':
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: new", content=content)
-            elif subject == 'person added':
-                self.statusbar.showMessage(msg)
             elif subject == 'modified':
                 # don't show msg in statusbar -- may not be relevant
                 dispatcher.send(signal="remote: modified", content=content)
@@ -1140,27 +1160,11 @@ class Main(QtWidgets.QMainWindow):
         """
         if res:
             pk_added, ser_objs = res
-            try:
-                objs = deserialize(orb, ser_objs)
-                if objs:
-                    for obj in objs:
-                        if isinstance(obj, orb.classes['Person']):
-                            display_name = '{}, {} {} ({})'.format(
-                                                            obj.last_name,
-                                                            obj.first_name,
-                                                            obj.mi_or_name,
-                                                            obj.org.name)
-                            orb.log.debug('  - person "{}" saved.'.format(
-                                                                display_name))
-                            dispatcher.send('person added', obj=obj,
-                                            display_name=display_name,
-                                            pk_added=pk_added)
-                        elif isinstance(obj, orb.classes['Organization']):
-                            orb.log.debug('  - org "{}" saved.'.format(
-                                                                obj.name))
-            except:
-                d = str(res)
-                orb.log.debug('- cannot process received data: {}'.format(d))
+            userid = ''
+            for so in ser_objs:
+                if so.get('_cname') == 'Person':
+                    userid = so.get('id') or ''
+            dispatcher.send('person added', userid=userid, pk_added=pk_added)
         else:
             orb.log.debug('- rpc failed: no data received!')
 
