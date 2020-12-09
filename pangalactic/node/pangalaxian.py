@@ -642,13 +642,13 @@ class Main(QtWidgets.QMainWindow):
         Return:
             deferred: result of `vger.sync_parameter_definitions` rpc
         """
-        orb.log.debug('[pgxn] rpc: vger.sync_parameter_definitions()')
+        orb.log.debug('* rpc: vger.sync_parameter_definitions()')
         self.statusbar.showMessage('syncing parameter definitions ...')
         # exclude refdata (already shared)
         pd_mod_dts = orb.get_mod_dts(cname='ParameterDefinition')
         data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
-        orb.log.debug('       -> rpc: vger.sync_parameter_definitions()')
+        orb.log.debug('  -> rpc: vger.sync_parameter_definitions()')
         return self.mbus.session.call('vger.sync_parameter_definitions',
                                         data)
 
@@ -666,7 +666,7 @@ class Main(QtWidgets.QMainWindow):
         Args:
             data:  parameter required for callback (ignored)
         """
-        orb.log.debug('[pgxn] sync_user_created_objs_to_repo()')
+        orb.log.debug('* sync_user_created_objs_to_repo()')
         self.statusbar.showMessage('syncing locally created objects ...')
         oids = [o.oid for o in self.local_user.created_objects]
         data = orb.get_mod_dts(oids=oids)
@@ -684,7 +684,7 @@ class Main(QtWidgets.QMainWindow):
             data:  parameter required for callback (ignored)
         """
         # TODO:  Include all library classes (not just HardwareProduct)
-        orb.log.debug('[pgxn] sync_library_objs()')
+        orb.log.debug('* sync_library_objs()')
         self.statusbar.showMessage('syncing library objects ...')
         # allow the user's objects in `data`; it's faster and their oids will
         # come back in the set of oids to be ignored
@@ -713,12 +713,12 @@ class Main(QtWidgets.QMainWindow):
         Return:
             deferred: result of `vger.sync_project` rpc
         """
-        orb.log.info('[pgxn] sync_current_project()')
+        orb.log.info('* sync_current_project()')
         proj_oid = state.get('project')
         project = orb.get(proj_oid)
         oid_dts = {}
         if (proj_oid != 'pgefobjects:SANDBOX') and project:
-            orb.log.debug('       current project is: {}'.format(project.id))
+            orb.log.debug('  current project is: {}'.format(project.id))
             self.statusbar.showMessage('syncing project {} ...'.format(
                                                                  project.id))
             local_objs = orb.get_objects_for_project(project)
@@ -914,15 +914,21 @@ class Main(QtWidgets.QMainWindow):
         Return:
             deferred:  result of `vger.get_objects` rpc
         """
-        orb.log.debug('[pgxn] on_sync_library_result()')
-        orb.log.debug('       data: {}'.format(str(data)))
+        orb.log.debug('* on_sync_library_result()')
         if data is None:
-            orb.log.debug('       no data received.')
+            orb.log.debug('  no data received.')
             return 'success'  # return value will be ignored
+        msg = 'no data received.'
+        # data *should* be a list of 2 lists ...
+        if len(data) == 2:
+            n_new = len(data[0])
+            n_del = len(data[1])
+            msg = f'data: {n_new} new oids, {n_del} oids not found on server'
+        orb.log.debug(f'  {msg}'.format(str(data)))
         newer, local_only = data
         # then collect any local objects that need to be saved to the repo ...
         if local_only:
-            orb.log.debug('       objects unknown to server found ...')
+            orb.log.debug('  objects unknown to server found ...')
             objs_to_delete = set(orb.get(oids=local_only))
             do_not_delete = set()
             for o in objs_to_delete:
@@ -935,14 +941,18 @@ class Main(QtWidgets.QMainWindow):
                     # objs_to_delete.remove(o)
             objs_to_delete = objs_to_delete - do_not_delete
             if objs_to_delete:
-                orb.log.debug('       to be deleted: {}'.format(
+                orb.log.debug('  to be deleted: {}'.format(
                               ', '.join([o.oid for o in objs_to_delete])))
                 orb.delete(objs_to_delete)
         if newer:
-            orb.log.debug('       new objects found ...')
+            orb.log.debug('  new objects found ...')
             # chunks = chunkify(newer, 5)   # set chunks small for testing
             chunks = chunkify(newer, 100)
-            orb.log.debug('       chunks: {}'.format(str(chunks)))
+            n_chunks = len(chunks)
+            c = 'chunks'
+            if n_chunks == 1:
+                c = 'chunk'
+            orb.log.debug(f'  will get in {n_chunks} {c} ...')
             chunk = chunks.pop(0)
             state['chunks_to_get'] = chunks
             rpc = self.mbus.session.call('vger.get_objects', chunk)
@@ -997,10 +1007,10 @@ class Main(QtWidgets.QMainWindow):
         """
         for item in msg.items():
             subject, content = item
-            # orb.log.info("[pgxn] on_pubsub_msg")
-            # orb.log.info("       subject: {}".format(subject))
-            # orb.log.info("       content: {}".format(content))
-            # orb.log.info("       pop-up notification ...")
+            # orb.log.info("* on_pubsub_msg")
+            # orb.log.info("  subject: {}".format(subject))
+            # orb.log.info("  content: {}".format(content))
+            # orb.log.info("  pop-up notification ...")
             # text = ('subject: {}<br>'.format(subject))
             obj_id = '[unknown]'
             # base msg
@@ -2418,7 +2428,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Handle local "new object" and "modified object" signals.
         """
-        orb.log.info('* [pgxn] on_mod_object_signal()')
+        orb.log.info('* on_mod_object_signal()')
         if new:
             orb.log.info('* received local "new object" signal')
         else:
@@ -2827,8 +2837,8 @@ class Main(QtWidgets.QMainWindow):
         Keyword Args:
             obj (Identifiable):  object whose change triggered the update
         """
-        orb.log.info('* [pgxn] _update_views()')
-        orb.log.debug('        triggered by object: {}'.format(
+        orb.log.info('* _update_views()')
+        orb.log.debug('  triggered by object: {}'.format(
                                             getattr(obj, 'id', '[no object]')))
         if getattr(self, 'system_model_window', None):
             self.system_model_window.cache_block_model()
@@ -2912,7 +2922,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Set up a new PgxnObject panel (left dock widget in Component mode).
         """
-        # orb.log.debug('* [pgxn] update_pgxn_obj_panel(create_new={})'.format(
+        # orb.log.debug('* update_pgxn_obj_panel(create_new={})'.format(
                                                            # str(create_new)))
         # if there is an existing panel, remove and destroy its contents
         if getattr(self, 'pgxn_obj_panel', None):
@@ -2966,7 +2976,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Tree / dashboard refresh.  Can be user-activated by menu item.
         """
-        # orb.log.debug('* [pgxn] refresh_tree_and_dashboard()')
+        # orb.log.debug('* refresh_tree_and_dashboard()')
         orb.recompute_parmz()
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
@@ -2992,7 +3002,7 @@ class Main(QtWidgets.QMainWindow):
         # cache all oids and use that to determine whether the tree needs to be
         # refreshed ...
         ######################################################################
-        # orb.log.debug('* [pgxn] refresh_tree_views()')
+        # orb.log.debug('* refresh_tree_views()')
         # orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
         # use number of tree components to set max in progress bar
         if not state.get('sys_trees'):
@@ -3133,7 +3143,7 @@ class Main(QtWidgets.QMainWindow):
         self.rebuild_dashboard(dashboard_mod=True)
 
     def rebuild_dashboard(self, dashboard_mod=False):
-        orb.log.debug('* [pgxn] rebuild_dashboard()')
+        orb.log.debug('* rebuild_dashboard()')
         if (not dashboard_mod and
             (not self.sys_tree_rebuilt or self.dashboard_rebuilt)):
             orb.log.debug(' + no dashboard mod and either tree not rebuilt')
@@ -3351,7 +3361,7 @@ class Main(QtWidgets.QMainWindow):
         self.right_dock.setVisible(True)
 
     def set_system_model_window(self, system=None):
-        # orb.log.debug('* [pgxn] setting system model window ...')
+        # orb.log.debug('* setting system model window ...')
         if system:
             # orb.log.debug('  - using specified system {} ...'.format(
                                                                 # system.id))
@@ -3624,8 +3634,8 @@ class Main(QtWidgets.QMainWindow):
         Display a dialog to create a new Product.  (Now simply calls
         new_product_wizard.)
         """
-        orb.log.debug('* [pgxn] new_product()')
-        orb.log.debug('         calling new_product_wizard() ...')
+        orb.log.debug('* new_product()')
+        orb.log.debug('  calling new_product_wizard() ...')
         self.new_product_wizard()
 
     def new_product_wizard(self):
@@ -3633,10 +3643,10 @@ class Main(QtWidgets.QMainWindow):
         Display New Product Wizard, a guided process to create new Product
         instances.
         """
-        orb.log.debug('* [pgxn] new_product_wizard()')
+        orb.log.debug('* new_product_wizard()')
         wizard = NewProductWizard(parent=self)
         if wizard.exec_() == QtWidgets.QDialog.Accepted:
-            orb.log.debug('  [pgxn] New Product Wizard completed successfully.')
+            orb.log.debug('  New Product Wizard completed successfully.')
             product = orb.get(wizard_state.get('product_oid'))
             if product:
                 self.product = product
@@ -3648,7 +3658,7 @@ class Main(QtWidgets.QMainWindow):
                 # switch to 'component' mode (in case not already there) ...
                 self.component_mode_action.trigger()
         else:
-            orb.log.debug('  [pgxn] New Product Wizard cancelled.')
+            orb.log.debug('  New Product Wizard cancelled.')
             oid = wizard_state.get('product_oid')
             # if wizard was canceled before saving the new product, oid will be
             # None and no object was created, so there is nothing to delete
@@ -3801,7 +3811,7 @@ class Main(QtWidgets.QMainWindow):
             # file.write(<function to export data to whatever>)
 
     def export_project_to_file(self):
-        orb.log.debug('* [pgxn] export_project_to_file() for {}'.format(
+        orb.log.debug('* export_project_to_file() for {}'.format(
                  getattr(self.project, 'id', None) or '[no current project]'))
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         dtstr = date2str(dtstamp())
@@ -3826,7 +3836,7 @@ class Main(QtWidgets.QMainWindow):
             return
 
     def export_reqts_to_file(self):
-        orb.log.debug('* [pgxn] export_reqts_to_file() for project {}'.format(
+        orb.log.debug('* export_reqts_to_file() for project {}'.format(
                  getattr(self.project, 'id', None) or '[no current project]'))
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         dtstr = date2str(dtstamp())
@@ -3857,7 +3867,7 @@ class Main(QtWidgets.QMainWindow):
             return
 
     def import_reqts_from_file(self):
-        orb.log.debug('* [pgxn] import_reqts_from_file()')
+        orb.log.debug('* import_reqts_from_file()')
         # TODO:
         # [1] create a "wizard" dialog with some convenient defaults ...
         # [2] replace Project in file with current Project
@@ -3876,7 +3886,7 @@ class Main(QtWidgets.QMainWindow):
                 fpath = fpaths[0]
             dialog.close()
         if fpath:
-            orb.log.debug('  [pgxn] file path: {}'.format(fpath))
+            orb.log.debug('  file path: {}'.format(fpath))
             if is_binary(fpath):
                 message = "File '%s' is not importable." % fpath
                 popup = QtWidgets.QMessageBox(
@@ -3972,7 +3982,7 @@ class Main(QtWidgets.QMainWindow):
         Import a collection of serialized objects from a file (using a
         QFileDialog to select the file).
         """
-        orb.log.debug('* [pgxn] import_objects()')
+        orb.log.debug('* import_objects()')
         data = None
         message = ''
         # TODO:  create a "wizard" dialog with some convenient defaults ...
@@ -3988,7 +3998,7 @@ class Main(QtWidgets.QMainWindow):
                 fpath = fpaths[0]
             dialog.close()
         if fpath:
-            orb.log.debug('  [pgxn] file path: {}'.format(fpath))
+            orb.log.debug('  file path: {}'.format(fpath))
             if is_binary(fpath):
                 message = "File '%s' is not importable." % fpath
                 popup = QtWidgets.QMessageBox(
