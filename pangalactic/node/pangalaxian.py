@@ -4168,9 +4168,12 @@ class Main(QtWidgets.QMainWindow):
         if self.project:
             if getattr(self.project, 'systems', None):
                 dtstr = date2str(dtstamp())
+                suggest_fname = os.path.join(
+                            orb.home,
+                            self.project.id + '-MEL-' + dtstr + '.xlsx')
                 fpath, _ = QtWidgets.QFileDialog.getSaveFileName(
-                                self, 'Open File',
-                                self.project.id + '-MEL-' + dtstr + '.xlsx')
+                                self, 'Open File', suggest_fname,
+                                "Excel Files (.xlsx)")
                 if fpath:
                     write_mel_xlsx_from_model(self.project, file_path=fpath)
             else:
