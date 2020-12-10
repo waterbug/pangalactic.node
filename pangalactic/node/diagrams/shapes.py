@@ -364,6 +364,9 @@ class ObjectBlock(Block):
     usage = property(get_usage, set_usage, del_usage, 'usage property')
 
     def on_block_mod_signal(self, oid=None):
+        """
+        Handler for "block mod" signal.
+        """
         if oid == self.obj.oid:
             orb.log.debug('* received "block mod" signal')
             # setting usage calls set_usage(), which recreates label

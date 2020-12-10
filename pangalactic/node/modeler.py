@@ -148,8 +148,12 @@ class ModelWindow(QMainWindow):
 
     @property
     def diagram_oids(self):
-        # 'diagram_oids' is used by pangalaxian to decide whether the diagram
-        # needs refreshing as a result of on_remote_get_mod_object() ...
+        """
+        Returns oids of the subject block and all object blocks in the diagram.
+        This is used by pangalaxian to decide whether to send a "block mod"
+        dispatcher signal to its blocks as a result of a callback to
+        on_remote_get_mod_object().
+        """
         oids = [self.obj.oid]
         if hasattr(self.obj, 'components'):
             oids += [acu.component.oid for acu in self.obj.components]
