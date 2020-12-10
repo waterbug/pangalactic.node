@@ -2400,8 +2400,9 @@ class Main(QtWidgets.QMainWindow):
                     self.update_object_in_trees(obj)
             if getattr(self, 'system_model_window', None):
                 if (isinstance(obj, orb.classes['HardwareProduct'])
-                    and obj is self.system_model_window.obj):
-                    refresh_diagram = True
+                    and obj.oid in self.system_model_window.diagram_oids):
+                    orb.log.debug('  sending "block mod" signal...')
+                    dispatcher.send(signal='block mod', oid=obj.oid)
                 elif (isinstance(obj, orb.classes['Acu'])
                       and obj.assembly is self.system_model_window.obj):
                     refresh_diagram = True

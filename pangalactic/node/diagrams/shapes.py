@@ -161,6 +161,7 @@ class Block(QGraphicsItem):
 
     def setStyle(self, style):
         self.style = style
+        # NOTE: update() schedules a repaint of the area covered by the block
         self.update()
         global Dirty
         Dirty = True
@@ -220,6 +221,7 @@ class Block(QGraphicsItem):
         if comfy_height > self.rect.height():
             self.prepareGeometryChange()
             self.rect.setHeight(comfy_height)
+            # NOTE: update() repaints the area covered by the block
             self.update()
 
 
@@ -271,7 +273,9 @@ class ObjectBlock(Block):
         z_value = 1.0
         self.setZValue(z_value)
         self.rebuild_port_blocks()
+        # NOTE: update() repaints the area covered by the block
         self.update()
+        dispatcher.connect(self.on_block_mod_signal, 'block mod')
         global Dirty
         Dirty = True
 
@@ -351,12 +355,21 @@ class ObjectBlock(Block):
         self.description_label.setPos(2.0 * POINT_SIZE,
                                       0.0 * POINT_SIZE)
         self.__usage = link
+        # NOTE: update() repaints the area covered by the block
         self.update()
 
     def del_usage(self):
         pass
 
     usage = property(get_usage, set_usage, del_usage, 'usage property')
+
+    def on_block_mod_signal(self, oid=None):
+        if oid == self.obj.oid:
+            orb.log.debug('* received "block mod" signal')
+            # setting usage calls set_usage(), which recreates label
+            self.usage = self.usage
+            # update() repaints the area covered by the block
+            self.update()
 
     # def something(self):
         # orb.log.info('* doing something ...')
@@ -386,6 +399,7 @@ class ObjectBlock(Block):
 
     def setStyle(self, style):
         self.style = style
+        # NOTE: update() repaints the area covered by the block
         self.update()
         global Dirty
         Dirty = True
@@ -751,6 +765,7 @@ class SubjectBlock(Block):
         self.name_label = BlockLabel(name, self, centered=False, x=name_x,
                                      y=name_y)
         self.rebuild_port_blocks()
+        # NOTE: update() repaints the area covered by the block
         self.update()
         # SubjectBlocks get a z-value of 0 (lower than ObjectBlocks, so
         # ObjectBlocks can receive mouse events)
@@ -802,6 +817,7 @@ class SubjectBlock(Block):
             or event.mimeData().hasFormat(
                                 "application/x-pgef-port-template")):
             # self.dragOver = True
+            # NOTE: update() repaints the area covered by the block
             # self.update()
             event.accept()
         else:
@@ -1335,6 +1351,7 @@ class EntityBlock(Block):
 
     def setStyle(self, style):
         self.style = style
+        # NOTE: update() repaints the area covered by the block
         self.update()
         global Dirty
         Dirty = True

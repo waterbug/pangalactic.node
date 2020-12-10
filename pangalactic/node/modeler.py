@@ -146,6 +146,17 @@ class ModelWindow(QMainWindow):
         dispatcher.connect(self.display_block_diagram, 'deleted object')
         self.set_subject(obj=obj, msg='(setting to selected object)')
 
+    @property
+    def diagram_oids(self):
+        # 'diagram_oids' is used by pangalaxian to decide whether the diagram
+        # needs refreshing as a result of on_remote_get_mod_object() ...
+        oids = [self.obj.oid]
+        if hasattr(self.obj, 'components'):
+            oids += [acu.component.oid for acu in self.obj.components]
+        elif hasattr(self.obj, 'systems'):
+            oids += [psu.system.oid for psu in self.obj.systems]
+        return oids
+
     def sizeHint(self):
         if self.preferred_size:
             return QSize(*self.preferred_size)
