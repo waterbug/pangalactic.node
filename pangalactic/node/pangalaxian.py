@@ -4173,7 +4173,7 @@ class Main(QtWidgets.QMainWindow):
                             self.project.id + '-MEL-' + dtstr + '.xlsx')
                 fpath, _ = QtWidgets.QFileDialog.getSaveFileName(
                                 self, 'Open File', suggest_fname,
-                                "Excel Files (.xlsx)")
+                                "Excel Files (*.xlsx)")
                 if fpath:
                     write_mel_xlsx_from_model(self.project, file_path=fpath)
             else:
