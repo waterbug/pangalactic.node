@@ -1343,7 +1343,7 @@ class Main(QtWidgets.QMainWindow):
                 if getattr(obj, 'assigned_to', None) is self.local_user:
                     html = '<h3>You have been assigned the role:</h3>'
                     html += '<p><b><font color="green">{}</font></b>'.format(
-                                                        obj.assigned_role.id)
+                                                      obj.assigned_role.name)
                     context = getattr(obj.role_assignment_context, 'id',
                                                         'global context')
                     content = 'in <b><font color="green">{}</font></b></p>'
@@ -2331,7 +2331,7 @@ class Main(QtWidgets.QMainWindow):
                     # this user on the project, switch to SANDBOX project
                     html = '<h3>Your role:</h3>'
                     html += '<p><b><font color="green">{}</font></b>'.format(
-                                                        obj.assigned_role.id)
+                                                        obj.assigned_role.name)
                     html += ' in <b><font color="green">{}</font>'.format(
                                     getattr(obj.role_assignment_context, 'id',
                                             'global context'))
@@ -2381,7 +2381,7 @@ class Main(QtWidgets.QMainWindow):
                 if obj.assigned_to is self.local_user:
                     html = '<h3>You have been assigned the role:</h3>'
                     html += '<p><b><font color="green">{}</font></b>'.format(
-                                                        obj.assigned_role.id)
+                                                        obj.assigned_role.name)
                     html += ' in <b><font color="green">{}</font>'.format(
                                     getattr(obj.role_assignment_context, 'id',
                                             'global context'))
