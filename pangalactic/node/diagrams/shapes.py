@@ -326,11 +326,19 @@ class ObjectBlock(Block):
             refdes = link.system_role or ''
         hint = hint or 'Unspecified Type'
         if getattr(self, 'name_label', None):
-            self.name_label.prepareGeometryChange()
-            self.scene().removeItem(self.name_label)
+            try:
+                self.name_label.prepareGeometryChange()
+                self.scene().removeItem(self.name_label)
+            except:
+                # C/C++ object has already been deleted
+                pass
         if getattr(self, 'description_label', None):
-            self.description_label.prepareGeometryChange()
-            self.scene().removeItem(self.description_label)
+            try:
+                self.description_label.prepareGeometryChange()
+                self.scene().removeItem(self.description_label)
+            except:
+                # C/C++ object has already been deleted
+                pass
         if len(refdes) < 20:
             description = refdes
         else:
