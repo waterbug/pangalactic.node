@@ -2321,11 +2321,14 @@ class Main(QtWidgets.QMainWindow):
                         self.refresh_tree_and_dashboard(
                                             selected_link_oid=selected_link_oid)
                 if getattr(self, 'system_model_window', None):
-                    orb.delete([obj])
                     # rebuild diagram in case object corresponded to a
                     # block in the current diagram
-                    orb.log.debug('  sending "refresh diagram" signal ...')
-                    dispatcher.send('refresh diagram')
+                    if cname == 'ProjectSystemUsage':
+                        # if a psu is deleted, display the project diagram
+                        self.set_system_model_window(obj=self.project)
+                    else:
+                        # if an acu, just reset with the current system
+                        self.set_system_model_window()
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
