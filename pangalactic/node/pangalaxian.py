@@ -2320,10 +2320,11 @@ class Main(QtWidgets.QMainWindow):
                         orb.delete([obj])
                         self.refresh_tree_and_dashboard(
                                             selected_link_oid=selected_link_oid)
-                elif state.get('mode') == 'component':
+                if getattr(self, 'system_model_window', None):
                     orb.delete([obj])
                     # rebuild diagram in case object corresponded to a
                     # block in the current diagram
+                    orb.log.debug('  sending "refresh diagram" signal ...')
                     dispatcher.send('refresh diagram')
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
@@ -2358,15 +2359,22 @@ class Main(QtWidgets.QMainWindow):
         else:
             orb.log.debug('  oid not found in local db; ignoring.')
 
-    def on_remote_get_mod_object(self, serialized_objects):
+    def on_remote_get_mod_object(self, ser_objs):
         """
         Get a list of remote objects that have been modified.
 
         Args:
-            serialized_objects (list of dict):  a list of serialized objects
+            ser_objs (list of dict):  a list of serialized objects
         """
         orb.log.info('* on_remote_get_mod_object()')
-        objs =  deserialize(orb, serialized_objects)
+        orb.log.debug(f'  received {len(ser_objs)} serialized objects')
+        old_acus = [orb.get(so.get('oid')) for so in ser_objs
+                    if so.get('_cname') == 'Acu']
+        old_acu_comp_oids = [acu.component.oid for acu in old_acus]
+        old_psus = [orb.get(so.get('oid')) for so in ser_objs
+                    if so.get('_cname') == 'ProjectSystemUsage']
+        old_psu_system_oids = [psu.system.oid for psu in old_psus]
+        objs =  deserialize(orb, ser_objs)
         refresh_diagram = False
         if not objs:
             orb.log.debug('  (all objs received were already in the local db')
@@ -2394,21 +2402,35 @@ class Main(QtWidgets.QMainWindow):
             elif hasattr(self, 'library_widget'):
                 self.library_widget.refresh(cname=cname)
             if getattr(self, 'sys_tree', None):
+                orb.log.debug('  updating system tree ...')
                 if isinstance(obj, (orb.classes['HardwareProduct'],
                                     orb.classes['Acu'],
                                     orb.classes['ProjectSystemUsage'])):
                     self.update_object_in_trees(obj)
             if getattr(self, 'system_model_window', None):
+                orb.log.debug('  have diagram, check if update is needed ...')
                 if (isinstance(obj, orb.classes['HardwareProduct'])
                     and obj.oid in self.system_model_window.diagram_oids):
                     orb.log.debug('  sending "block mod" signal...')
                     dispatcher.send(signal='block mod', oid=obj.oid)
-                elif (isinstance(obj, orb.classes['Acu'])
-                      and obj.assembly is self.system_model_window.obj):
-                    refresh_diagram = True
-                elif (isinstance(obj, orb.classes['ProjectSystemUsage'])
-                      and obj.project is self.system_model_window.obj):
-                    refresh_diagram = True
+                elif isinstance(obj, orb.classes['Acu']):
+                    if obj.assembly is self.system_model_window.obj:
+                        msg = 'assembly is subject of diagram, refresh ...'
+                        orb.log.debug(f'  {msg}')
+                        refresh_diagram = True
+                    if state.get('system', '') in old_acu_comp_oids:
+                        msg = 'old component was subject; resetting ...'
+                        orb.log.debug(f'  {msg}')
+                        self.set_system_model_window(system=obj.component)
+                elif isinstance(obj, orb.classes['ProjectSystemUsage']):
+                    if obj.project is self.system_model_window.obj:
+                        msg = 'project is diagram subject, refresh ...'
+                        orb.log.debug(f'  {msg}')
+                        refresh_diagram = True
+                    if state.get('system', '') in old_psu_system_oids:
+                        msg = 'old system was subject; resetting ...'
+                        orb.log.debug(f'  {msg}')
+                        self.set_system_model_window(system=obj.system)
             # NOTE: no need to do anything in 'db' mode -- the object table now
             # listens for the 'mod object' signal and handles it ...
             elif self.mode == 'db' and cname == state.get('current_cname'):
