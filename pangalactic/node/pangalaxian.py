@@ -2325,11 +2325,12 @@ class Main(QtWidgets.QMainWindow):
                     # block in the current diagram
                     if cname == 'ProjectSystemUsage':
                         # if a psu is deleted, display the project diagram
-                        orb.log.info('  system deleted, set project diagram.')
-                        self.set_system_model_window(obj=self.project)
+                        msg = 'system deleted;  send "refresh diagram" signal'
+                        orb.log.debug(f'  {msg}.')
+                        dispatcher.send('refresh diagram')
                     else:
                         # if an acu, just reset with the current system
-                        orb.log.info('  acu deleted, refreshing diagram...')
+                        orb.log.debug('  acu deleted; reset model window.')
                         self.set_system_model_window()
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
