@@ -2271,6 +2271,8 @@ class Main(QtWidgets.QMainWindow):
         if obj:
             cname = obj.__class__.__name__
             if (cname in ['Acu', 'ProjectSystemUsage']):
+                tree_and_dash_refreshed = False
+                sys_delete = False
                 if getattr(self, 'sys_tree', None):
                     # (1) identify the current selection in the tree, so the
                     #     selection can be restored after the deletion (assuming
@@ -2318,6 +2320,7 @@ class Main(QtWidgets.QMainWindow):
                         # NOTE:  refreshing the whole tree is very disruptive but is
                         # necessary if the link occurs multiple times in the tree
                         orb.delete([obj])
+                        tree_and_dash_refreshed = True
                         self.refresh_tree_and_dashboard(
                                             selected_link_oid=selected_link_oid)
                 if getattr(self, 'system_model_window', None):
@@ -2325,13 +2328,16 @@ class Main(QtWidgets.QMainWindow):
                     # block in the current diagram
                     if cname == 'ProjectSystemUsage':
                         # if a psu is deleted, display the project diagram
-                        msg = 'system deleted;  send "refresh diagram" signal'
+                        msg = 'system delete;  tree & dash will be refreshed.'
                         orb.log.debug(f'  {msg}.')
-                        dispatcher.send('refresh diagram')
+                        sys_delete = True
                     else:
-                        # if an acu, just reset with the current system
+                        # if an acu, just reset with the current state system
                         orb.log.debug('  acu deleted; reset model window.')
                         self.set_system_model_window()
+                if (sys_delete and getattr(self, 'sys_tree', None)
+                    and not tree_and_dash_refreshed):
+                    self.refresh_tree_and_dashboard()
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
