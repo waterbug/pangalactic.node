@@ -375,12 +375,16 @@ class ObjectBlock(Block):
         """
         Handler for "block mod" signal.
         """
-        if oid == self.obj.oid:
-            orb.log.debug('* received "block mod" signal')
-            # setting usage calls set_usage(), which recreates label
-            self.usage = self.usage
-            # update() repaints the area covered by the block
-            self.update()
+        try:
+            if oid == self.obj.oid:
+                orb.log.debug('* received "block mod" signal')
+                # setting usage calls set_usage(), which recreates label
+                self.usage = self.usage
+                # update() repaints the area covered by the block
+                self.update()
+        except:
+            # wrapped C/C++ object may have been deleted
+            orb.log.debug('* received "block mod" signal but exception ...')
 
     # def something(self):
         # orb.log.info('* doing something ...')
