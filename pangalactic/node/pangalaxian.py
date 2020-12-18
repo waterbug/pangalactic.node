@@ -307,6 +307,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug('* set_bus_state() ...')
         # TODO:  add a remote url configuration item
         if self.connect_to_bus_action.isChecked():
+            self.login_label.setText('Logout: ')
             ###########################################################
             # Initialize message bus instance
             ###########################################################
@@ -415,6 +416,7 @@ class Main(QtWidgets.QMainWindow):
                 state['synced_oids'] = []
             else:
                 orb.log.info('* already disconnected from message bus.')
+            self.login_label.setText('Login: ')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
         self.update_project_role_labels()
 
@@ -1596,7 +1598,7 @@ class Main(QtWidgets.QMainWindow):
                                     "Load Test Objects",
                                     slot=self.load_test_objects)
         self.connect_to_bus_action = self.create_action(
-                                    "Connect/disconnect to the message bus",
+                                    "Repository Service",
                                     slot=self.set_bus_state,
                                     icon="system",
                                     checkable=True,
@@ -1975,6 +1977,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug('  - initializing toolbar ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         import_icon_file = 'open' + state['icon_type']
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         import_icon_path = os.path.join(icon_dir, import_icon_file)
@@ -2075,9 +2078,9 @@ class Main(QtWidgets.QMainWindow):
         # project_selection and its label will only be visible in 'data',
         # 'system', and 'component' modes
         self.toolbar.addSeparator()
-        login_label = QtWidgets.QLabel('Login: ')
-        login_label.setStyleSheet('font-weight: bold')
-        self.toolbar.addWidget(login_label)
+        self.login_label = QtWidgets.QLabel('Login: ')
+        self.login_label.setStyleSheet('font-weight: bold')
+        self.toolbar.addWidget(self.login_label)
         self.toolbar.addAction(self.connect_to_bus_action)
         spacer = QtWidgets.QWidget(parent=self)
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
