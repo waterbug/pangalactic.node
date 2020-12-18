@@ -11,17 +11,20 @@ class MenuButton(QPushButton):
     """
     A button to serve as a toolbar menu
     """
-    def __init__(self, icon, tooltip='', actions=None, parent=None):
+    def __init__(self, icon, text='', tooltip='', actions=None, parent=None):
         """
         Args:
             icon (QIcon):  icon for the button
 
         Keyword Args:
+            text (str):  text of button (display is optional)
             tooltip (str):  text of tooltip
             actions (iterable of QAction):  items for the menu
         """
         super().__init__(parent=parent)
         self.setIcon(icon)
+        if text:
+            self.setText(text)
         if tooltip:
             self.setToolTip(tooltip)
         menu = QMenu(self)

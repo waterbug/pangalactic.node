@@ -1403,22 +1403,6 @@ class Main(QtWidgets.QMainWindow):
         # default:  delete_project_action is not visible
         self.delete_project_action.setEnabled(False)
         self.delete_project_action.setVisible(False)
-        enable_collab_tip = "Enable Collaboration on the current Project"
-        self.enable_collab_action = self.create_action(
-                                    "Enable Collaboration",
-                                    slot=self.enable_collaboration,
-                                    tip=enable_collab_tip)
-        # default:  enable_collab_action is not visible
-        self.enable_collab_action.setEnabled(False)
-        self.enable_collab_action.setVisible(False)
-        disable_collab_tip = "Disable Collaboration on the current Project"
-        self.disable_collab_action = self.create_action(
-                                    "Disable Collaboration",
-                                    slot=self.disable_collaboration,
-                                    tip=disable_collab_tip)
-        # default:  disable_collab_action is not visible
-        self.disable_collab_action.setEnabled(False)
-        self.disable_collab_action.setVisible(False)
         # Administer roles
         admin_action_tip = "Administer Users and Roles"
         self.admin_action = self.create_action(
@@ -1610,11 +1594,11 @@ class Main(QtWidgets.QMainWindow):
                                     checkable=True,
                                     tip="Component Modeler")
         self.system_mode_action = self.create_action(
-                                    "Systems Modeler",
+                                    "System Modeler",
                                     slot=self._set_system_mode,
                                     icon="favicon",
                                     checkable=True,
-                                    tip="Systems Modeler")
+                                    tip="System Modeler")
         self.db_mode_action = self.create_action(
                                     "Local DB",
                                     slot=self._set_db_mode,
@@ -1649,9 +1633,9 @@ class Main(QtWidgets.QMainWindow):
         # self.load_requirements_action = self.create_action(
                                     # "Load Requirements",
                                     # slot=self.load_requirements)
-        self.exit_action = self.create_action(
-                                    "Exit",
-                                    slot=self.close)
+        # self.exit_action = self.create_action(
+                                    # "Exit",
+                                    # slot=self.close)
         # set up a group for mode actions
         mode_action_group = QtWidgets.QActionGroup(self)
         self.component_mode_action.setActionGroup(mode_action_group)
@@ -1715,14 +1699,14 @@ class Main(QtWidgets.QMainWindow):
             for action in set.union(self.mode_widget_actions[mode],
                                     self.mode_widget_actions['all']):
                 action.setVisible(True)
-            if mode == 'component':
-                self.mode_label.setText('Component Modeler')
-            elif mode == 'system':
-                self.mode_label.setText('Systems Modeler')
-            elif mode == 'db':
-                self.mode_label.setText('Local Database')
-            elif mode == 'data':
-                self.mode_label.setText('Data Mode')
+            # if mode == 'component':
+                # self.mode_label.setText('Component Modeler')
+            # elif mode == 'system':
+                # self.mode_label.setText('System Modeler')
+            # elif mode == 'db':
+                # self.mode_label.setText('Local Database')
+            # elif mode == 'data':
+                # self.mode_label.setText('Data Mode')
             self._update_views()
             # NOTE: the saved_state stuff does not seem to be doing anything so
             # commented out for now ...
@@ -1984,15 +1968,17 @@ class Main(QtWidgets.QMainWindow):
         import_actions = [
                           # self.import_excel_data_action,
                           self.import_objects_action,
-                          self.import_reqts_from_file_action,
+                          self.import_reqts_from_file_action
                           # Load Test Objects is currently flaky unless ONLY
                           # operating in standalone mode ...
                           # self.load_test_objects_action,
-                          self.exit_action]
+                          # self.exit_action
+                          ]
         # Import Excel deactivated until mapping is implemented, and/or support
         # for "data sets" is revised (hdf5 was breaking) ...
         # self.import_excel_data_action.setEnabled(False)
         import_button = MenuButton(QtGui.QIcon(import_icon_path),
+                                   text='Input',
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)
         self.toolbar.addWidget(import_button)
@@ -2004,6 +1990,7 @@ class Main(QtWidgets.QMainWindow):
                           self.dump_db_action,
                           self.gen_keys_action] 
         export_button = MenuButton(QtGui.QIcon(export_icon_path),
+                                   text='Output',
                                    tooltip='Export Data or Objects',
                                    actions=export_actions, parent=self)
         self.toolbar.addWidget(export_button)
@@ -2017,6 +2004,7 @@ class Main(QtWidgets.QMainWindow):
                               self.new_performance_requirement_action,
                               self.new_test_action]
         new_object_button = MenuButton(QtGui.QIcon(new_object_icon_path),
+                                   text='Create',
                                    tooltip='Create New Objects',
                                    actions=new_object_actions, parent=self)
         self.toolbar.addWidget(new_object_button)
@@ -2045,6 +2033,7 @@ class Main(QtWidgets.QMainWindow):
         self.sync_project_action.setEnabled(False)
         self.full_resync_action.setEnabled(False)
         system_tools_button = MenuButton(QtGui.QIcon(system_tools_icon_path),
+                                   text='Tools',
                                    tooltip='Tools',
                                    actions=system_tools_actions, parent=self)
         self.toolbar.addWidget(system_tools_button)
@@ -2053,6 +2042,7 @@ class Main(QtWidgets.QMainWindow):
         help_actions = [self.help_action,
                         self.about_action]
         help_button = MenuButton(QtGui.QIcon(help_icon_path),
+                                 text='Help',
                                  tooltip='Help',
                                  actions=help_actions, parent=self)
         self.toolbar.addWidget(help_button)
@@ -2063,15 +2053,12 @@ class Main(QtWidgets.QMainWindow):
         self.project_selection = ButtonLabel(
                                     self.project.id,
                                     actions=[
-                                             # self.enable_collab_action,
                                              self.admin_action,
                                              self.delete_project_action,
                                              self.new_project_action],
                                     w=120)
         self.delete_project_action.setVisible(False)
         self.delete_project_action.setEnabled(False)
-        # self.enable_collab_action.setVisible(False)
-        # self.enable_collab_action.setEnabled(False)
         self.project_selection.clicked.connect(self.set_current_project)
         self.project_selection_action = self.toolbar.addWidget(
                                                     self.project_selection)
@@ -2088,8 +2075,10 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(spacer)
         # self.circle_widget = CircleWidget()
         # self.toolbar.addWidget(self.circle_widget)
-        self.mode_label = ModeLabel('')
-        self.toolbar.addWidget(self.mode_label)
+        ### NOTE: don't need 'mode_label' now that mode buttons display their
+        ### text [SCW 2020-12-18]
+        # self.mode_label = ModeLabel('')
+        # self.toolbar.addWidget(self.mode_label)
         # self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
@@ -2775,8 +2764,6 @@ class Main(QtWidgets.QMainWindow):
             if p.oid == 'pgefobjects:SANDBOX':
                 # SANDBOX cannot be deleted, made collaborative, nor have
                 # roles provisioned (admin)
-                self.enable_collab_action.setVisible(False)
-                self.enable_collab_action.setEnabled(False)
                 self.delete_project_action.setEnabled(False)
                 self.delete_project_action.setVisible(False)
                 # admin menus accessible only to global admin ...
@@ -2827,8 +2814,6 @@ class Main(QtWidgets.QMainWindow):
                         # collaboration can be enabled
                         self.delete_project_action.setEnabled(True)
                         self.delete_project_action.setVisible(True)
-                        # self.enable_collab_action.setVisible(True)
-                        # self.enable_collab_action.setEnabled(True)
                     else:
                         # project is collaborative ->
                         # to delete it, all roles must first be deleted ...
@@ -2839,9 +2824,6 @@ class Main(QtWidgets.QMainWindow):
                         self.admin_action.setVisible(True)
                         self.admin_action.setEnabled(True)
                 else:
-                    # when offline, `enable collaboration` is disabled
-                    # self.enable_collab_action.setVisible(False)
-                    # self.enable_collab_action.setEnabled(False)
                     # when offline, admin action is disabled
                     self.admin_action.setVisible(False)
                     self.admin_action.setEnabled(False)
@@ -3639,22 +3621,6 @@ class Main(QtWidgets.QMainWindow):
             rpc.addErrback(self.on_failure)
             if project_oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(project_oid)
-
-    def enable_collaboration(self):
-        """
-        Enable collaboration on a locally-defined project.
-        """
-        # TODO: implement this!
-        pass
-
-    def disable_collaboration(self):
-        """
-        Disable collaboration on a collaborative project (making it
-        local-only).  In order to delete a collaborative project, collaboration
-        must first be disabled.
-        """
-        # TODO: implement this!
-        pass
 
     def on_display_object_signal(self, obj=None):
         if obj:
