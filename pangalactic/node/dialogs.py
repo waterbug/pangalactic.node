@@ -242,7 +242,7 @@ class PopupDialogMixin(object):
         # Move the dialog to the widget that called it
         point = call_widget.rect().bottomRight()
         global_point = call_widget.mapToGlobal(point)
-        self.move(global_point - QPoint(0, 0))
+        self.move(global_point - QPoint(100, 0))
 
 
 class ObjectSelectionDialog(QDialog, PopupDialogMixin):

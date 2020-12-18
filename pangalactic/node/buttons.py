@@ -60,12 +60,19 @@ class ButtonLabel(QPushButton):
             for action in self.actions:
                 self.menu.addAction(action)
         self.setStyleSheet('color: purple; background-color: white; '
-                           'border: 1px solid black;'
-                           )
+                           'border: 1px solid black;')
 
     def contextMenuEvent(self, event):
         if self.menu:
-            action = self.menu.exec_(self.mapToGlobal(event.pos()))
+            self.menu.exec_(self.mapToGlobal(event.pos()))
+
+    def enterEvent(self, event):
+        self.setStyleSheet('color: purple; background-color: white; '
+                           'border: 2px solid purple;')
+
+    def leaveEvent(self, event):
+        self.setStyleSheet('color: purple; background-color: white; '
+                           'border: 1px solid black;')
 
 
 class SizedButton(QPushButton):

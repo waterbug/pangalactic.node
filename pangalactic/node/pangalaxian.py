@@ -2053,10 +2053,8 @@ class Main(QtWidgets.QMainWindow):
                                  tooltip='Help',
                                  actions=help_actions, parent=self)
         self.toolbar.addWidget(help_button)
-
         self.toolbar.addSeparator()
-
-        project_label = QtWidgets.QLabel('Project:  ')
+        project_label = QtWidgets.QLabel('Select Project:  ')
         project_label.setStyleSheet('font-weight: bold')
         self.project_label_action = self.toolbar.addWidget(project_label)
         self.project_selection = ButtonLabel(
@@ -2077,11 +2075,14 @@ class Main(QtWidgets.QMainWindow):
         # project_selection and its label will only be visible in 'data',
         # 'system', and 'component' modes
         self.toolbar.addSeparator()
+        login_label = QtWidgets.QLabel('Login: ')
+        login_label.setStyleSheet('font-weight: bold')
+        self.toolbar.addWidget(login_label)
+        self.toolbar.addAction(self.connect_to_bus_action)
         spacer = QtWidgets.QWidget(parent=self)
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                              QtWidgets.QSizePolicy.Expanding)
         self.toolbar.addWidget(spacer)
-        self.toolbar.addAction(self.connect_to_bus_action)
         # self.circle_widget = CircleWidget()
         # self.toolbar.addWidget(self.circle_widget)
         self.mode_label = ModeLabel('')
