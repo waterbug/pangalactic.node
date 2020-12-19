@@ -4349,31 +4349,32 @@ class Main(QtWidgets.QMainWindow):
         message bus.  The public key will be submitted to an administrator when
         access is requested.
         """
-        # TODO: set perms to 700 on .creds
         self.statusbar.showMessage('Generating public/private key pair ...')
         orb.log.debug('* gen_keys()')
         privkey = PrivateKey.generate()
         if os.path.exists(self.key_path):
             # if private key already exists, warn user
             orb.log.debug('  - private key already exists, warning user.')
-            message = '<html><font color="red">A private key already exists.'
-            message += '</font color="red"><br>Do you want'
-            message += ' to replace it with a new one?  (If so, you will need'
-            message += ' to send the new generated <font color="green"><b>'
-            message += ' public.key</b></font> file to the administrator'
-            message += ' and request that it be used to replace your current'
-            message += ' public key.'
+            message = '<html><font color="red">A private key'
+            message += f' (<b>{self.key_path}</b>) already exists.</font><br>'
+            message += ' If you want to generate a new one, you must first'
+            message += ' delete the current private key; then after generating'
+            message += ' a new public/private key pair, send the new'
+            message += ' <font color="green"><b>public.key</b></font> file'
+            message += ' to an administrator and request that it be used to'
+            message += ' replace your current public key.'
             conf_dlg = QtWidgets.QMessageBox(
                          QtWidgets.QMessageBox.Warning,
                          "Private Key Exists ...", message,
-                         QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                         QtWidgets.QMessageBox.Ok)
             response = conf_dlg.exec_()
-            if response == QtWidgets.QMessageBox.No:
+            if response == QtWidgets.QMessageBox.Ok:
                 conf_dlg.close()
                 return
         f = open(self.key_path, 'wb')
         f.write(privkey.encode())
         f.close()
+        os.chmod(self.key_path, 0o400)
         sk = cryptosign.SigningKey.from_raw_key(self.key_path)
         public_key_path = os.path.join(orb.home, 'public.key')
         f = open(public_key_path, 'w')
