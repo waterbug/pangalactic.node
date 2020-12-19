@@ -7,6 +7,7 @@ import argparse, atexit, multiprocessing, os, platform, shutil, sys
 import time, traceback
 import urllib.parse, urllib.request, urllib.parse, urllib.error
 from datetime import timedelta
+from pathlib  import Path
 
 # autobahn
 from autobahn.wamp import cryptosign
@@ -323,9 +324,8 @@ class Main(QtWidgets.QMainWindow):
             port = config.get('port', '8080')
             if self.auth_method == 'cryptosign':
                 orb.log.info('* using "cryptosign" (public key) auth ...')
-                key_path = os.path.join(orb.home, '.creds', 'private.key')
-                if not os.path.exists(key_path):
-                    message = f'Key file <{key_path}> not found ... '
+                if not os.path.exists(self.key_path):
+                    message = f'Key file <{self.key_path}> not found ... '
                     message += 'operating in local-only mode.'
                     popup = QtWidgets.QMessageBox(
                                         QtWidgets.QMessageBox.Warning,
@@ -334,7 +334,7 @@ class Main(QtWidgets.QMainWindow):
                     popup.show()
                     self.connect_to_bus_action.setChecked(False)
                 else:
-                    self.mbus.set_key_path(key_path)
+                    self.mbus.set_key_path(self.key_path)
                     tls_options = None
                     if self.use_tls:
                         if self.cert_path:
@@ -1803,6 +1803,16 @@ class Main(QtWidgets.QMainWindow):
         names = list(orb.classes.keys())[:]
         names.sort()
         return names
+
+    @property
+    def key_path(self):
+        """
+        Path to the private key used for cryptosign auth.
+        """
+        p = Path(orb.home)
+        absp = p.resolve()
+        home = absp.parent
+        return os.path.join(str(home), 'cattens.key')
 
     @property
     def populated(self):
@@ -4343,11 +4353,7 @@ class Main(QtWidgets.QMainWindow):
         self.statusbar.showMessage('Generating public/private key pair ...')
         orb.log.debug('* gen_keys()')
         privkey = PrivateKey.generate()
-        credpath = os.path.join(orb.home, '.creds')
-        if not os.path.exists(credpath):
-            os.mkdir(credpath, mode=0o700)
-        pkpath = os.path.join(credpath, 'private.key')
-        if os.path.exists(pkpath):
+        if os.path.exists(self.key_path):
             # if private key already exists, warn user
             orb.log.debug('  - private key already exists, warning user.')
             message = '<html><font color="red">A private key already exists.'
@@ -4365,10 +4371,10 @@ class Main(QtWidgets.QMainWindow):
             if response == QtWidgets.QMessageBox.No:
                 conf_dlg.close()
                 return
-        f = open(pkpath, 'wb')
+        f = open(self.key_path, 'wb')
         f.write(privkey.encode())
         f.close()
-        sk = cryptosign.SigningKey.from_raw_key(pkpath)
+        sk = cryptosign.SigningKey.from_raw_key(self.key_path)
         public_key_path = os.path.join(orb.home, 'public.key')
         f = open(public_key_path, 'w')
         f.write(sk.public_key())
