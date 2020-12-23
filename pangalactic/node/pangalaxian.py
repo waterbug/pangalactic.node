@@ -101,10 +101,6 @@ class Main(QtWidgets.QMainWindow):
             (its oid is persisted as `project` in the `state` dict)
         projects (list of Project):  current authorized Projects in db
             (a read-only property linked to the local db)
-        dataset (str):  name of currently selected dataset
-            (persistent in the `state` module)
-        datasets (list of str):  names of currently stored datasets
-            (persistent in the `state` module)
         library_widget (LibraryListWidget):  a panel widget containing library
             views for specified classes and a selector (combo box)
         sys_tree (SystemTreeView):  the system tree widget (in left dock)
@@ -266,8 +262,7 @@ class Main(QtWidgets.QMainWindow):
         elif mode == 'db':
             self.db_mode_action.trigger()
         else:
-            pass
-            # self.data_mode_action.trigger()
+            self.data_mode_action.trigger()
         state['done_with_progress'] = False
         state['connected'] = False
 
@@ -1605,13 +1600,13 @@ class Main(QtWidgets.QMainWindow):
                                     icon="db",
                                     checkable=True,
                                     tip="Local DB")
-        # self.data_mode_action = self.create_action(
-                                    # "Data Mode",
-                                    # slot=self._set_data_mode,
-                                    # icon="data",
-                                    # checkable=True,
-                                    # tip="Data Mode")
-        # self.data_mode_action.setEnabled(True)
+        self.data_mode_action = self.create_action(
+                                    "Data Mode",
+                                    slot=self._set_data_mode,
+                                    icon="data",
+                                    checkable=True,
+                                    tip="Data Mode")
+        self.data_mode_action.setEnabled(True)
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
@@ -1641,7 +1636,7 @@ class Main(QtWidgets.QMainWindow):
         self.component_mode_action.setActionGroup(mode_action_group)
         self.system_mode_action.setActionGroup(mode_action_group)
         self.db_mode_action.setActionGroup(mode_action_group)
-        # self.data_mode_action.setActionGroup(mode_action_group)
+        self.data_mode_action.setActionGroup(mode_action_group)
         orb.log.debug('  ... all actions created.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -1671,18 +1666,18 @@ class Main(QtWidgets.QMainWindow):
         """
         Get the current mode. (Default: 'system')
         """
-        # NOTE: 'data' mode is temporarily disabled
-        if state.get('mode') == 'data':
-            state['mode'] = 'system'
+        # # NOTE: this is used if 'data' mode is temporarily disabled:
+        # if state.get('mode') == 'data':
+            # state['mode'] = 'system'
         return state.get('mode', 'system')
 
     def set_mode(self, mode):
         """
         Set the current mode.
         """
-        # NOTE: 'data' mode is temporarily disabled
-        if mode == 'data':
-            mode = 'system'
+        # # NOTE: this is used if 'data' mode is temporarily disabled:
+        # if mode == 'data':
+            # mode = 'system'
         initial_size = self.size()
         if hasattr(orb, 'store'):
             orb.db.commit()
@@ -1732,68 +1727,9 @@ class Main(QtWidgets.QMainWindow):
     def _set_db_mode(self):
         self.mode = 'db'
 
-    # def _set_data_mode(self):
-        # self.mode = 'data'
+    def _set_data_mode(self):
+        self.mode = 'data'
     #######################################################################
-
-    # 'datasets' property (linked to state['datasets']
-    # NOTE:  the primary purpose of this property is to persist the *order* of
-    # dataset names, to give the dataset list widget some coherence, because
-    # the hdf5 file storage does not guarantee any particular order for the
-    # stored datasets.  The order of the `datasets` list is intended to
-    # correspond to the order in which the datasets were added.
-    def get_datasets(self):
-        """
-        Get the current dataset names.
-
-        Returns:
-            datasets (list of str):  list of the names of currently stored
-                datasets
-        """
-        return state.get('datasets', [])
-
-    def set_datasets(self, names):
-        """
-        Set the current list of dataset names.
-
-        Arguments:
-            names (list of str):  list of the names of currently stored
-                datasets
-        """
-        orb.log.debug('* setting datasets: {}'.format(str(names)))
-        state['datasets'] = [str(n) for n in names]
-
-    def del_datasets(self):
-        pass
-
-    datasets = property(get_datasets, set_datasets, del_datasets,
-                       "datasets property")
-
-    # 'dataset' property (linked to state['dataset']
-    def get_dataset(self):
-        """
-        Get the name of the currently selected dataset.
-
-        Returns:
-            dataset (str):  name of currently selected dataset
-        """
-        return state.get('dataset')
-
-    def set_dataset(self, name):
-        """
-        Set the name of the currently selected dataset.
-
-        Arguments:
-            name (str):  name of currently selected dataset
-        """
-        orb.log.debug('* setting dataset: {}'.format(name))
-        state['dataset'] = name
-
-    def del_dataset(self):
-        pass
-
-    dataset = property(get_dataset, set_dataset, del_dataset,
-                       "dataset property")
 
     @property
     def cnames(self):
@@ -2089,7 +2025,7 @@ class Main(QtWidgets.QMainWindow):
         ### text [SCW 2020-12-18]
         # self.mode_label = ModeLabel('')
         # self.toolbar.addWidget(self.mode_label)
-        # self.toolbar.addAction(self.data_mode_action)
+        self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
         self.toolbar.addAction(self.component_mode_action)

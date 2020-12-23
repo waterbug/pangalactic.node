@@ -319,9 +319,9 @@ class DMTreeModel(QAbstractItemModel):
         if parent.isValid() and parent.column() != 0:
             return QModelIndex()
         parent_item = self.getItem(parent)
-        childItem = parent_item.child(row)
-        if childItem:
-            return self.createIndex(row, column, childItem)
+        child_item = parent_item.child(row)
+        if child_item:
+            return self.createIndex(row, column, child_item)
         else:
             return QModelIndex()
 
@@ -363,8 +363,8 @@ class DMTreeModel(QAbstractItemModel):
     def parent(self, index):
         if not index.isValid():
             return QModelIndex()
-        childItem = self.getItem(index)
-        parent_item = childItem.parent()
+        child_item = self.getItem(index)
+        parent_item = child_item.parent()
         if parent_item == self.root_item or parent_item == None:
             return QModelIndex()
         return self.createIndex(parent_item.childNumber(), 0, parent_item)
@@ -404,10 +404,10 @@ class DMTreeModel(QAbstractItemModel):
         item = self.getItem(index)
         result = item.setData(index.column(), value)
         if result:
-            orb.log.debug('  - DMTreeModel.setData({})'.format(value))
-            orb.log.debug('    for item with oid: "{}"'.format(item.oid))
-            orb.log.debug('    at row: {}, column: {}'.format(index.row(),
-                                                              index.column()))
+            # orb.log.debug('  - DMTreeModel.setData({})'.format(value))
+            # orb.log.debug('    for item with oid: "{}"'.format(item.oid))
+            # orb.log.debug('    at row: {}, column: {}'.format(index.row(),
+                                                              # index.column()))
             self.dataChanged.emit(index, index)
         return result
 
@@ -421,7 +421,7 @@ class DMTreeModel(QAbstractItemModel):
             self.headerDataChanged.emit(orientation, section, section)
         return result
 
-    def load_dm_data(self, parent=None):
+    def load_dm_data(self):
         """
         Load DataMatrix data into the grid.
         """
