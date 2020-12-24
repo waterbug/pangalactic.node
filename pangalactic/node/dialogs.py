@@ -15,7 +15,8 @@ from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                              QDialogButtonBox, QFormLayout, QFrame,
                              QHBoxLayout, QLabel, QLineEdit, QProgressDialog,
-                             QSizePolicy, QTableView, QVBoxLayout, QWidget)
+                             QSizePolicy, QTableView, QTreeView, QVBoxLayout,
+                             QWidget)
 
 from louie import dispatcher
 
@@ -29,11 +30,56 @@ from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.tablemodels import ObjectTableModel
+from pangalactic.node.treemodels  import ParmDefTreeModel
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, StringFieldWidget,
                                           IntegerFieldWidget)
 
 COLORS = {True: 'green', False: 'red'}
+
+
+class ParmDefsDialog(QDialog):
+    """
+    Dialog to display the Parameter Definition Tree
+    """
+    def __init__(self, parent=None):
+        """
+        Dialog for the Parameter Definition Tree.
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.setWindowTitle("Parameter Definitions")
+        model = ParmDefTreeModel()
+        self.parm_tree = QTreeView(parent=self)
+        self.parm_tree.setModel(model)
+        self.parm_tree.setUniformRowHeights(True)
+        self.parm_tree.setAlternatingRowColors(True)
+        self.resize_columns()
+        self.parm_tree.expanded.connect(self.node_expanded)
+        self.parm_tree.setWindowTitle('Parameter Definition Library')
+        layout = QVBoxLayout()
+        layout.addWidget(self.parm_tree)
+        layout.setContentsMargins(1, 1, 1, 1)
+        self.setLayout(layout)
+        # self.adjustSize()
+
+    def minimumSizeHint(self):
+        return QSize(300, 300)
+
+    def sizeHint(self):
+        return QSize(800, 800)
+
+    def resize_columns(self):
+        view = self.parm_tree.model().view
+        for col in view:
+            if col in ['id', 'name', 'dimensions', 'range_datatype',
+                       'computed']:
+                self.parm_tree.resizeColumnToContents(view.index(col))
+
+    def node_expanded(self, index):
+        self.resize_columns()
 
 
 class LoginDialog(QDialog):

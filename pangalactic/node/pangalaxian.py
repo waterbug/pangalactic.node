@@ -68,7 +68,7 @@ from pangalactic.node.datagrid         import DataGrid
 from pangalactic.node.dialogs          import (LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
-                                               PrefsDialog)
+                                               ParmDefsDialog, PrefsDialog)
 from pangalactic.node.helpwidget       import HelpWidget
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus
@@ -3679,11 +3679,14 @@ class Main(QtWidgets.QMainWindow):
         pxo.show()
 
     def parameter_library(self):
-        view = ['id', 'name', 'range_datatype', 'dimensions', 'description']
-        dlg = LibraryDialog('ParameterDefinition', view=view,
-                            height=self.geometry().height(),
-                            width=(2 * self.geometry().width() // 3),
-                            parent=self)
+        # view = ['id', 'name', 'range_datatype', 'dimensions', 'description']
+        # dlg = LibraryDialog('ParameterDefinition', view=view,
+                            # height=self.geometry().height(),
+                            # width=(2 * self.geometry().width() // 3),
+                            # parent=self)
+        # dlg.show()
+        ### EXPERIMENTAL ParameterDefinition library interface
+        dlg = ParmDefsDialog(parent=self)
         dlg.show()
 
     def de_def_library(self):

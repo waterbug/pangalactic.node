@@ -2,10 +2,16 @@
 """
 Tree models
 """
+import os
+from textwrap import wrap
+
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QApplication, QTreeView
 
+from pangalactic.core             import state
 from pangalactic.core.parametrics import parm_defz
+from pangalactic.core.uberorb     import orb
 
 
 class ParmDefItem:
@@ -41,6 +47,18 @@ class ParmDefItem:
     @property
     def cell_data(self):
         return [self.pid] + [parm_defz[self.pid][col] for col in self.view[1:]]
+
+    @property
+    def tooltip(self):
+        desc = parm_defz[self.pid]['description']
+        return '\n'.join(wrap(desc, width=30, break_long_words=False))
+
+    @property
+    def icon(self):
+        # hmmm ... need a better icon for parameters!  the "parameter" icon
+        # (xy) doesn't really work for this, and the "box" is too generic
+        return QPixmap(os.path.join(
+                       orb.home, 'icons', 'box' + state['icon_type']))
 
     def appendChild(self, item):
         self.children.append(item)
@@ -78,7 +96,7 @@ class ParmDefItem:
 class ParmDefTreeModel(QAbstractItemModel):
     def __init__(self, view=None, parent=None):
         super(ParmDefTreeModel, self).__init__(parent)
-        self.view = view or ['pid', 'name', 'description', 'dimensions',
+        self.view = view or ['id', 'name', 'description', 'dimensions',
                              'range_datatype', 'computed']
         self.root_item = ParmDefItem(root=True, view=self.view)
         self.refresh_data()
@@ -96,10 +114,14 @@ class ParmDefTreeModel(QAbstractItemModel):
     def data(self, index, role):
         if not index.isValid():
             return None
-        if role != Qt.DisplayRole:
-            return None
         item = index.internalPointer()
-        return item.data(index.column())
+        if role == Qt.DecorationRole and index.column() == 0:
+            return item.icon
+        if role == Qt.ToolTipRole:
+            return item.tooltip
+        if role == Qt.DisplayRole:
+            return item.data(index.column())
+        return None
 
     def flags(self, index):
         if not index.isValid():
@@ -161,7 +183,6 @@ class ParmDefTreeModel(QAbstractItemModel):
 if __name__ == '__main__':
     # strictly for testing purposes
     import sys
-    from pangalactic.core.uberorb import orb
     orb.start(home='pangalaxian_test')
     app = QApplication(sys.argv)
     model = ParmDefTreeModel()
