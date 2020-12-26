@@ -15,8 +15,7 @@ from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                              QDialogButtonBox, QFormLayout, QFrame,
                              QHBoxLayout, QLabel, QLineEdit, QProgressDialog,
-                             QSizePolicy, QTableView, QTreeView, QVBoxLayout,
-                             QWidget)
+                             QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
@@ -30,7 +29,7 @@ from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.tablemodels import ObjectTableModel
-from pangalactic.node.treemodels  import ParmDefTreeModel
+from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, StringFieldWidget,
                                           IntegerFieldWidget)
@@ -51,11 +50,7 @@ class ParmDefsDialog(QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Parameter Definitions")
-        model = ParmDefTreeModel()
-        self.parm_tree = QTreeView(parent=self)
-        self.parm_tree.setModel(model)
-        self.parm_tree.setUniformRowHeights(True)
-        self.parm_tree.setAlternatingRowColors(True)
+        self.parm_tree = ParmDefTreeView(parent=self)
         self.resize_columns()
         self.parm_tree.expanded.connect(self.node_expanded)
         self.parm_tree.setWindowTitle('Parameter Definition Library')

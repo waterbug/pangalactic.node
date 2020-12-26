@@ -20,8 +20,9 @@ from sqlalchemy.orm.collections import InstrumentedList
 # pangalactic
 from pangalactic.core import state
 from pangalactic.core.access import get_perms, is_global_admin
+# NOTE:  PGXN_PARAMETERS does not seem to be needed here ...
 from pangalactic.core.meta import (MAIN_VIEWS, PGXN_DATA_VIEW, PGXN_HIDE,
-                                   PGXN_HIDE_PARMS, PGXN_MASK, PGXN_PARAMETERS,
+                                   PGXN_HIDE_PARMS, PGXN_MASK,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
                                    SELECTABLE_VALUES, SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
@@ -153,36 +154,16 @@ class PgxnForm(QWidget):
             base_ids = orb.get_ids(cname='ParameterDefinition')
             contingencies = [get_parameter_id(p, 'Ctgcy') for p in base_ids]
             parmz = parameterz.get(obj.oid, {})
-            pids = [p for p in parmz if p in base_ids or p in contingencies]
+            pids = sorted(list(parmz), key=str.lower)  # case-independent sort
+            editables = [pid for pid in pids
+                         if not parm_defz[pid].get('computed')
+                         or pid in contingencies]
             if pids:
                 # orb.log.info('* [pgxnobj] parameters found: {}'.format(
                                                             # str(pids)))
                 computed_note = False
-                # order parameters -- editable (non-computed) parameters first
-                pref_editables = [pid for pid in PGXN_PARAMETERS
-                                  if pid in pids]
-                np_editables = [pid for pid in pids
-                                if pid not in PGXN_PARAMETERS]
-                editables = pref_editables + np_editables
-                ##############################################################
-                ### New Parameter paradigm (SCW 2019-03-25) ##################
-                # 1. by default, only base ("variable") parameters are shown
-                # 2. "computeds" shown only when a relevant "context" is set
-                # (to be implemented)
-                ##############################################################
-                ### Put ... computeds ... BECK! (SCW 2019-09-04) #############
-                ### (Per request of Patrick and Rachel)
-                ##############################################################
-                pref_computeds = [pid for pid in PGXN_PARAMETERS
-                                  if pid in parmz
-                                  and parm_defz.get(pid)
-                                  and parm_defz[pid].get('computed')]
-                np_computeds = [pid for pid in parmz
-                                if parm_defz.get(pid)
-                                and parm_defz[pid].get('computed')
-                                and pid not in PGXN_PARAMETERS]
-                computeds = pref_computeds + np_computeds
-                # computeds = []
+                editables = [pid for pid in pids if pid in editables]
+                computeds = [pid for pid in pids if pid not in editables]
                 p_ordering = [pid for pid in editables + computeds
                               if pid not in contingencies]
                 # orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
@@ -644,20 +625,23 @@ class ParameterForm(PgxnForm):
         self.pgxo = pgxo
         self.seq = seq
         self.setAcceptDrops(True)
+        self.accepted_mime_types = set([
+                             "application/x-pgef-parameter-definition",
+                             "application/x-pgef-data-element-definition",
+                             "application/x-pgef-parameter-id"])
 
     def dragEnterEvent(self, event):
-        # mime_formats = list(event.mimeData().formats())
-        # orb.log.info("* dragEnterEvent: mime types {}".format(
-                     # str(mime_formats)))
-        if event.mimeData().hasFormat(
-                                "application/x-pgef-parameter-definition"):
+        mime_formats = set(event.mimeData().formats())
+        orb.log.info("* dragEnterEvent: mime types {}".format(
+                     str(mime_formats)))
+        if mime_formats & self.accepted_mime_types:
             event.accept()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event):
-        if event.mimeData().hasFormat(
-                                "application/x-pgef-parameter-definition"):
+        mime_formats = set(event.mimeData().formats())
+        if mime_formats & self.accepted_mime_types:
             event.setDropAction(Qt.CopyAction)
             event.accept()
         else:
@@ -665,10 +649,10 @@ class ParameterForm(PgxnForm):
 
     def dropEvent(self, event):
         orb.log.info("* dropEvent: got data")
+        ### NOTE: 'x-pgef-parameter-definition' will be deprecated in favor of
+        ### 'x-pgef-parameter-id' (just a string)
         if self.pgxo.edit_mode and event.mimeData().hasFormat(
             "application/x-pgef-parameter-definition"):
-            # if the dropped object is not a ParameterDefinition, the drop
-            # event is ignored
             data = extract_mime_data(event,
                                      "application/x-pgef-parameter-definition")
             icon, pd_oid, pd_id, pd_name, pd_cname = data
@@ -686,8 +670,26 @@ class ParameterForm(PgxnForm):
             else:
                 event.ignore()
                 orb.log.info("* Parameter drop event: ignoring '%s' -- "
-                             "we already got one, it's verra nahss!)"
+                             "we already got one, it's verra nahss!"
                              % pd_name)
+        if self.pgxo.edit_mode and event.mimeData().hasFormat(
+            "application/x-pgef-parameter-id"):
+            pid = extract_mime_data(event, "application/x-pgef-parameter-id")
+            obj_parms = parameterz.get(self.obj.oid) or {}
+            if pid not in obj_parms:
+                orb.log.info(f'* Parameter drop event: got "{pid}"')
+                event.setDropAction(Qt.CopyAction)
+                event.accept()
+                add_parameter(self.obj.oid, pid)
+                self.obj.modifier = orb.get(state.get('local_user_oid'))
+                self.obj.mod_datetime = dtstamp()
+                orb.save([self.obj])
+                dispatcher.send(signal='modified object', obj=self.obj)
+                self.pgxo.build_from_object()
+            else:
+                event.ignore()
+                orb.log.info(f'* Parameter drop event: ignoring "{pid}" -- '
+                             "we already got one, it's verra nahss!")
         if self.pgxo.edit_mode and event.mimeData().hasFormat(
             "application/x-pgef-data-element-definition"):
             data = extract_mime_data(event,
@@ -708,7 +710,7 @@ class ParameterForm(PgxnForm):
             else:
                 event.ignore()
                 orb.log.info("* Data Element drop event: ignoring '{}' -- "
-                             "we already got one, it's verra nahss!)".format(
+                             "we already got one, it's verra nahss!".format(
                                                                     de_name))
         else:
             event.ignore()
@@ -965,8 +967,8 @@ class PgxnObject(QDialog):
                                      QMessageBox.Ok, self)
                 assemblies = [acu.assembly for acu in self.obj.where_used]
                 text = '<p><ul>{}</ul></p>'.format('\n'.join(
-                               ['<li><b>{}</b><br>(id: {})</li>'.format(
-                               a.name, a.id, a.oid) for a in assemblies]))
+                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
+                           a.name, a.oid) for a in assemblies if a]))
                 notice.setInformativeText(text)
                 notice.show()
             elif getattr(self.obj, 'projects_using_system', None):
@@ -997,8 +999,8 @@ class PgxnObject(QDialog):
                                  QMessageBox.Ok, self)
             if assemblies and len(assemblies) > 0:
                 info = '<p><ul>{}</ul></p>'.format('\n'.join(
-                               ['<li><b>{}</b><br>(id: {})</li>'.format(
-                               a.name, a.id, a.oid) for a in assemblies if a]))
+                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
+                           a.name, a.oid) for a in assemblies if a]))
                 notice.setInformativeText(info)
             notice.show()
 
@@ -1265,8 +1267,8 @@ class PgxnObject(QDialog):
                                  QMessageBox.Ok, self)
             assemblies = [acu.assembly for acu in self.obj.where_used]
             text = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br>(id: {})</li>'.format(
-                           a.name, a.id, a.oid) for a in assemblies]))
+                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
+                           a.name, a.oid) for a in assemblies if a]))
             notice.setInformativeText(text)
             notice.show()
             return

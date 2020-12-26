@@ -488,15 +488,20 @@ def create_mime_data(obj, icon):
     if obj:
         data = QByteArray()
         stream = QDataStream(data, QIODevice.WriteOnly)
-        obj_oid = QByteArray(obj.oid.encode('utf-8'))
-        obj_id = QByteArray(obj.id.encode('utf-8'))
-        name = obj.name or '[no name]'
-        obj_name = QByteArray(name.encode('utf-8'))
-        cname = obj.__class__.__name__.encode('utf-8')
-        ba_cname = QByteArray(cname)
-        stream << icon << obj_oid << obj_id << obj_name << ba_cname
         mime_data = QMimeData()
-        mime_data.setData(to_media_name(obj.__class__.__name__), data)
+        if isinstance(obj, str):
+            # if obj is a string, it's just a parameter id
+            stream << QByteArray(obj.encode('utf-8'))
+            mime_data.setData('application/x-pgef-parameter-id', data)
+        else:
+            obj_oid = QByteArray(obj.oid.encode('utf-8'))
+            obj_id = QByteArray(obj.id.encode('utf-8'))
+            name = obj.name or '[no name]'
+            obj_name = QByteArray(name.encode('utf-8'))
+            cname = obj.__class__.__name__.encode('utf-8')
+            ba_cname = QByteArray(cname)
+            stream << icon << obj_oid << obj_id << obj_name << ba_cname
+            mime_data.setData(to_media_name(obj.__class__.__name__), data)
         return mime_data
     return QMimeData()
 
@@ -510,21 +515,31 @@ def extract_mime_data(event, media_type):
         media_type (str):  the expected media_type
 
     Returns:
+        data (str):  parameter id (for 'application/x-pgef-parameter-id')
+        - or (for anything else) -
         data (tuple):  icon, oid, id, name, class name
     """
-    data = event.mimeData().data(media_type)
-    stream = QDataStream(data, QIODevice.ReadOnly)
-    icon = QIcon()
-    oid_ba = QByteArray()
-    id_ba = QByteArray()
-    name_ba = QByteArray()
-    cname_ba = QByteArray()
-    stream >> icon >> oid_ba >> id_ba >> name_ba >> cname_ba
-    obj_oid = bytes(oid_ba).decode('utf-8')
-    obj_id = bytes(id_ba).decode('utf-8')
-    obj_name = bytes(name_ba).decode('utf-8')
-    obj_cname = bytes(cname_ba).decode('utf-8')
-    return icon, obj_oid, obj_id, obj_name, obj_cname
+    if media_type == 'application/x-pgef-parameter-id':
+        data = event.mimeData().data(media_type)
+        stream = QDataStream(data, QIODevice.ReadOnly)
+        pid_ba = QByteArray()
+        stream >> pid_ba
+        pid = bytes(pid_ba).decode('utf-8')
+        return pid
+    else:
+        data = event.mimeData().data(media_type)
+        stream = QDataStream(data, QIODevice.ReadOnly)
+        icon = QIcon()
+        oid_ba = QByteArray()
+        id_ba = QByteArray()
+        name_ba = QByteArray()
+        cname_ba = QByteArray()
+        stream >> icon >> oid_ba >> id_ba >> name_ba >> cname_ba
+        obj_oid = bytes(oid_ba).decode('utf-8')
+        obj_id = bytes(id_ba).decode('utf-8')
+        obj_name = bytes(name_ba).decode('utf-8')
+        obj_cname = bytes(cname_ba).decode('utf-8')
+        return icon, obj_oid, obj_id, obj_name, obj_cname
 
 
 def extract_mime_content(data, media_type):

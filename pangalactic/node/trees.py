@@ -5,13 +5,14 @@ Tree models
 import os
 from textwrap import wrap
 
-from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QApplication, QTreeView
+from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QPoint, QSize, Qt
+from PyQt5.QtGui import QDrag, QIcon, QPixmap
+from PyQt5.QtWidgets import QAbstractItemView, QApplication, QTreeView
 
 from pangalactic.core             import state
 from pangalactic.core.parametrics import parm_defz
 from pangalactic.core.uberorb     import orb
+from pangalactic.node.utils       import create_mime_data
 
 
 class ParmDefItem:
@@ -57,8 +58,8 @@ class ParmDefItem:
     def icon(self):
         # hmmm ... need a better icon for parameters!  the "parameter" icon
         # (xy) doesn't really work for this, and the "box" is too generic
-        return QPixmap(os.path.join(
-                       orb.home, 'icons', 'box' + state['icon_type']))
+        return QIcon(QPixmap(os.path.join(
+                       orb.home, 'icons', 'box' + state['icon_type'])))
 
     def appendChild(self, item):
         self.children.append(item)
@@ -101,9 +102,10 @@ class ParmDefTreeModel(QAbstractItemModel):
         self.root_item = ParmDefItem(root=True, view=self.view)
         self.refresh_data()
 
-    @property
-    def pd_matrix(self):
-        return [parm_defz[pid] for pid in sorted(parm_defz)]
+    ### NOTE: hmmm, I don't see this being used, maybe lose it?
+    # @property
+    # def pd_matrix(self):
+        # return [parm_defz[pid] for pid in sorted(parm_defz)]
 
     def columnCount(self, parent):
         if parent.isValid():
@@ -121,6 +123,9 @@ class ParmDefTreeModel(QAbstractItemModel):
             return item.tooltip
         if role == Qt.DisplayRole:
             return item.data(index.column())
+        if role == Qt.UserRole:
+            # return the pid and icon for that item
+            return item.pid, item.icon
         return None
 
     def flags(self, index):
@@ -167,9 +172,10 @@ class ParmDefTreeModel(QAbstractItemModel):
 
     def refresh_data(self):
         current_parent = self.root_item
-        pids = list(parm_defz)
-        pids.sort()
-        for pid in pids:
+        pids = sorted(list(parm_defz), key=str.lower)  # case-independent
+        selectable_pids = [pid for pid in pids
+                           if not pid.endswith('[Ctgcy]')]
+        for pid in selectable_pids:
             if pid == parm_defz[pid]['variable']:
                 # child of the root_item and becomes the current parent
                 current_parent = ParmDefItem(pid=pid, parent=self.root_item)
@@ -178,6 +184,40 @@ class ParmDefTreeModel(QAbstractItemModel):
                 # append new item to the current parent's list of children
                 current_parent.appendChild(ParmDefItem(pid=pid,
                                                        parent=current_parent))
+
+
+class ParmDefTreeView(QTreeView):
+    """
+    Tree view for ParameterDefinitions.
+    """
+    def __init__(self, view=None, parent=None):
+        super(ParmDefTreeView, self).__init__(parent)
+        self.view = view or ['id', 'name', 'dimensions', 'range_datatype',
+                             'computed']
+        model = ParmDefTreeModel()
+        self.setModel(model)
+        self.setUniformRowHeights(True)
+        self.setAlternatingRowColors(True)
+        self.setDragEnabled(True)
+        self.setDragDropMode(QAbstractItemView.DragDrop)
+
+    def startDrag(self, event):
+        index = self.indexAt(event.pos())
+        if not index.isValid:
+            return
+        pid, icon = self.model().data(index, Qt.UserRole)
+        if pid:
+            drag = QDrag(self)
+            drag.setHotSpot(QPoint(20, 10))
+            drag.setPixmap(icon.pixmap(QSize(16, 16)))
+            # create_mime_data() will ignore the icon in this case
+            mime_data = create_mime_data(pid, icon)
+            drag.setMimeData(mime_data)
+            drag.exec_(Qt.CopyAction)
+
+    def mouseMoveEvent(self, event):
+        if self.dragEnabled():
+            self.startDrag(event)
 
 
 if __name__ == '__main__':
