@@ -51,8 +51,6 @@ class ParmDefsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Parameter Definitions")
         self.parm_tree = ParmDefTreeView(parent=self)
-        self.resize_columns()
-        self.parm_tree.expanded.connect(self.node_expanded)
         self.parm_tree.setWindowTitle('Parameter Definition Library')
         layout = QVBoxLayout()
         layout.addWidget(self.parm_tree)
@@ -65,16 +63,6 @@ class ParmDefsDialog(QDialog):
 
     def sizeHint(self):
         return QSize(800, 800)
-
-    def resize_columns(self):
-        view = self.parm_tree.model().view
-        for col in view:
-            if col in ['id', 'name', 'dimensions', 'range_datatype',
-                       'computed']:
-                self.parm_tree.resizeColumnToContents(view.index(col))
-
-    def node_expanded(self, index):
-        self.resize_columns()
 
 
 class LoginDialog(QDialog):

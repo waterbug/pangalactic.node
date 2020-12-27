@@ -18,9 +18,8 @@ from pangalactic.core.utils.meta import (display_id, get_external_name_plural,
                                          to_media_name)
 from pangalactic.node.buttons    import SizedButton
 from pangalactic.node.filters    import FilterPanel, ProductFilterDialog
-from pangalactic.node.utils      import (create_mime_data,
-                                         create_template_from_product,
-                                         get_pixmap)
+from pangalactic.node.trees      import ParmDefTreeView
+from pangalactic.node.utils      import create_mime_data, get_pixmap
 from pangalactic.node.widgets    import ParameterLabel
 from pangalactic.node.pgxnobject import PgxnObject
 
@@ -145,7 +144,7 @@ class LibraryListModel(QAbstractListModel):
 class LibraryListView(QListView):
     """
     Generic QListView-style View -- designed particularly to support the
-    ParameterDefinition library.
+    DataElementDefinition library.
     """
     def __init__(self, cname, include_subtypes=True, draggable=True,
                  icon_size=None, parent=None):
@@ -173,7 +172,7 @@ class LibraryListView(QListView):
             self.setDragDropMode(QAbstractItemView.DragDrop)
         else:
             self.setDragEnabled(False)
-        # NOTE: ParameterDefinitions do not have icons now!
+        # NOTE: old ParameterDefinitions generated icons are not used now!
         # if self.cname != "ParameterDefinition":
             # default_icon_size = QSize(125, 20)
         # else:
@@ -197,12 +196,6 @@ class LibraryListView(QListView):
     def create_actions(self):
         self.pgxnobj_action = QAction('View this object', self)
         self.pgxnobj_action.triggered.connect(self.display_object)
-        # TODO:  include 'Model', 'Document', etc. when they have libraries
-        if self.cname != "ParameterDefinition":
-            # ParameterDefinitions do not have templates
-            self.template_action = QAction('Create template from object',
-                                           self)
-            self.template_action.triggered.connect(self.create_template)
 
     def setup_context_menu(self):
         self.addAction(self.pgxnobj_action)
@@ -220,21 +213,6 @@ class LibraryListView(QListView):
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
             dlg = PgxnObject(obj, modal_mode=True, parent=self)
-            dlg.show()
-
-    def create_template(self):
-        """
-        Create a Template instance from the selected library product.
-        """
-        # TODO:  invoke a "Template Wizard"
-        if len(self.selectedIndexes()) == 1:
-            i = self.selectedIndexes()[0].row()
-            # orb.log.debug('* clicked index: {}]'.format(i))
-            oid = getattr(self.model().objs[i], 'oid')
-            obj = orb.get(oid)
-            template = create_template_from_product(obj)
-            dlg = PgxnObject(template, edit_mode=True, modal_mode=True,
-                             parent=self)
             dlg.show()
 
     def refresh(self, **kw):
@@ -399,6 +377,7 @@ class LibraryListWidget(QWidget):
         self.msg = 'All Product Types'
         self.product_types = None
         select_label = get_external_name_plural(cname)
+        # special cases for HardwareProduct, ParameterDefinition, Person
         if cname == 'HardwareProduct':
             select_label = 'Systems & Components (Hardware Products)'
             view = ['id', 'name', 'product_type', 'description']
@@ -413,6 +392,9 @@ class LibraryListWidget(QWidget):
                                    'product types selected')
                 dispatcher.connect(self.on_only_mine_toggled,
                                    'only mine toggled')
+        elif cname == 'ParameterDefinition':
+            select_label = 'Parameters'
+            widget = ParmDefTreeView(parent=self)
         elif cname == 'Person':
             select_label = 'People'
             view = ['id', 'last_name', 'first_name', 'org']

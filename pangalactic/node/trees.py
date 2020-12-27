@@ -42,8 +42,7 @@ class ParmDefItem:
             self.parent_item = parent
             self.pid = pid
         self.children = []
-        self.view = view or ['id', 'name', 'description', 'dimensions',
-                             'range_datatype', 'computed']
+        self.view = view or ['id', 'name', 'dimensions', 'computed']
 
     @property
     def cell_data(self):
@@ -97,8 +96,7 @@ class ParmDefItem:
 class ParmDefTreeModel(QAbstractItemModel):
     def __init__(self, view=None, parent=None):
         super(ParmDefTreeModel, self).__init__(parent)
-        self.view = view or ['id', 'name', 'description', 'dimensions',
-                             'range_datatype', 'computed']
+        self.view = view or ['id', 'name', 'dimensions', 'computed']
         self.root_item = ParmDefItem(root=True, view=self.view)
         self.refresh_data()
 
@@ -172,7 +170,10 @@ class ParmDefTreeModel(QAbstractItemModel):
 
     def refresh_data(self):
         current_parent = self.root_item
-        pids = sorted(list(parm_defz), key=str.lower)  # case-independent
+        # must use the case-dependent sort (which is the default sort) so that
+        # (for example) "V" (voltage) and "v" (velocity) parameters are grouped
+        # separately
+        pids = sorted(list(parm_defz))
         selectable_pids = [pid for pid in pids
                            if not pid.endswith('[Ctgcy]')]
         for pid in selectable_pids:
@@ -192,14 +193,22 @@ class ParmDefTreeView(QTreeView):
     """
     def __init__(self, view=None, parent=None):
         super(ParmDefTreeView, self).__init__(parent)
-        self.view = view or ['id', 'name', 'dimensions', 'range_datatype',
-                             'computed']
-        model = ParmDefTreeModel()
+        self.view = view or ['id', 'name', 'dimensions', 'computed']
+        model = ParmDefTreeModel(view=self.view)
         self.setModel(model)
         self.setUniformRowHeights(True)
+        self.resize_columns()
+        self.expanded.connect(self.node_expanded)
         self.setAlternatingRowColors(True)
         self.setDragEnabled(True)
         self.setDragDropMode(QAbstractItemView.DragDrop)
+
+    def node_expanded(self, index):
+        self.resize_columns()
+
+    def resize_columns(self):
+        for col in self.view:
+            self.resizeColumnToContents(self.view.index(col))
 
     def startDrag(self, event):
         index = self.indexAt(event.pos())
