@@ -17,7 +17,7 @@ from pangalactic.core.meta       import TEXT_PROPERTIES, SELECTABLE_VALUES
 # from pangalactic.core.uberorb    import orb
 from pangalactic.core.utils.meta import asciify
 from pangalactic.node.buttons    import FkButton
-from pangalactic.node.utils      import make_parm_html
+from pangalactic.node.utils      import make_de_html, make_parm_html
 
 
 def HLine():
@@ -247,7 +247,8 @@ class ParameterLabel(QLabel):
 def get_widget(field_name, field_type, value=None, editable=True,
                nullable=True, maxlen=50, obj_pk='', external_name='',
                related_cname=None, placeholder=None, choices=None,
-               tooltip=None, parm_field=False, parm_type='float'):
+               tooltip=None, parm_field=False, parm_type='float',
+               de_field=False, de_type='float'):
     """
     Get the appropriate widget for a specified field_type -- main use is for
     `PgxnObject`.
@@ -280,6 +281,8 @@ def get_widget(field_name, field_type, value=None, editable=True,
             definition
         parm_field (bool):  the field is a parameter field
         parm_type (str):  one of ['float', 'int', 'bool', 'text']
+        de_field (bool):  the field is a data element field
+        de_type (str):  one of ['float', 'int', 'bool', 'str', 'text']
 
     Returns:
         tuple: widget (QWidget) and label (QLabel)
@@ -309,6 +312,8 @@ def get_widget(field_name, field_type, value=None, editable=True,
             # in case this field_type is not found in select_widgets ...
             widget_class = widgets.get(field_type)
             # orb.log.debug('  setting plain widget {}'.format(widget_class))
+    elif de_field:
+        widget_class = widgets.get(de_type)
     else:
         widget_class = widgets.get(field_type)
     # print ' - widget_class = %s' % widget_class.__name__
@@ -318,7 +323,8 @@ def get_widget(field_name, field_type, value=None, editable=True,
                                   related_cname=related_cname, obj_pk=obj_pk,
                                   field_name=field_name, nullable=nullable,
                                   editable=editable, placeholder=placeholder,
-                                  parm_field=parm_field, parm_type=parm_type)
+                                  parm_field=parm_field, parm_type=parm_type,
+                                  de_field=de_field, de_type=de_type)
         elif field_type == Boolean:
             # read-only boolean field -> disabled checkbox
             widget = widget_class(value=value, editable=editable)
@@ -333,6 +339,14 @@ def get_widget(field_name, field_type, value=None, editable=True,
         if parm_field:
             label.setTextFormat(Qt.RichText)
             html_name = make_parm_html(field_name)
+            label.setText(html_name)
+            label.setStyleSheet(
+                                'QLabel {font-size: 15px; font-weight: bold} '
+                                'QToolTip { font-weight: normal; '
+                                'font-size: 12px; border: 2px solid; }')
+        elif de_field:
+            label.setTextFormat(Qt.RichText)
+            html_name = make_de_html(field_name)
             label.setText(html_name)
             label.setStyleSheet(
                                 'QLabel {font-size: 15px; font-weight: bold} '
@@ -661,6 +675,12 @@ widgets = {
     Time        : TimeFieldWidget,
     ForeignKey  : FkButton,
     'parameter' : StringFieldWidget,
+    # these are for data elements, 'de_type'
+    'bool'      : BooleanFieldWidget,
+    'str'       : StringFieldWidget,
+    'float'     : FloatFieldWidget,
+    'int'       : IntegerFieldWidget,
+    'text'      : TextFieldWidget,
     # FIXME: stop-gap pending policy for "non-functional" properties -- really
     # should at least make it some kind of list widget
     set         : TextFieldWidget

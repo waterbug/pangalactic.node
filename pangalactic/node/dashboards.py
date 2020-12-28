@@ -64,6 +64,10 @@ class SystemDashboard(QTreeView):
         dash_header.setDefaultAlignment(Qt.AlignHCenter)
         # accept drops of parameters on dash to add columns
         self.setAcceptDrops(True)
+        self.accepted_mime_types = set([
+                             "application/x-pgef-parameter-definition",
+                             "application/x-pgef-data-element-definition",
+                             "application/x-pgef-parameter-id"])
         # provide a context menu for various actions
         set_units_action = QAction('set preferred units', dash_header)
         set_units_action.triggered.connect(self.set_units)
@@ -149,19 +153,23 @@ class SystemDashboard(QTreeView):
         """
         Return MIME Types accepted for drops.
         """
-        return ['application/x-pgef-parameter-definition']
+        return ['application/x-pgef-parameter-definition',
+                "application/x-pgef-data-element-definition",
+                "application/x-pgef-parameter-id"]
 
     def supportedDropActions(self):
         return Qt.CopyAction
 
     def dragEnterEvent(self, event):
-        if event.mimeData().hasFormat('application/x-pgef-parameter-definition'):
+        mime_formats = set(event.mimeData().formats())
+        if mime_formats & self.accepted_mime_types:
             event.accept()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event):
-        if event.mimeData().hasFormat('application/x-pgef-parameter-definition'):
+        mime_formats = set(event.mimeData().formats())
+        if mime_formats & self.accepted_mime_types:
             event.setDropAction(Qt.CopyAction)
             event.accept()
         else:

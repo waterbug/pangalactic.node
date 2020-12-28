@@ -582,6 +582,8 @@ def white_to_transparent(img):
 
 
 def make_parm_html(parm_id):
+    if not isinstance(parm_id, str):
+        return '<b>oops</b>'
     if '[' in parm_id:
         base, tail = parm_id.split('[')
         ctxt = '[' + tail
@@ -593,6 +595,17 @@ def make_parm_html(parm_id):
         return '<b>{}<sub>{}</sub>{}</b>'.format(parts[0], parts[1], ctxt)
     else:
         return '<b>{}{}</b>'.format(base, ctxt)
+
+
+def make_de_html(deid):
+    if not isinstance(deid, str):
+        return '<b>oops</b>'
+    parts = deid.split('_')
+    name_parts = [p.capitalize() for p in parts]
+    if len(parts) > 1:
+        return '<b>' + ' '.join(name_parts) + '</b>'
+    else:
+        return f'<b>{deid.capitalize()}</b>'
 
 
 class HTMLDelegate(QStyledItemDelegate):

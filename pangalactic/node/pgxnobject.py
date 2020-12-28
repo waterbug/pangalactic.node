@@ -21,10 +21,10 @@ from sqlalchemy.orm.collections import InstrumentedList
 from pangalactic.core import state
 from pangalactic.core.access import get_perms, is_global_admin
 # NOTE:  PGXN_PARAMETERS does not seem to be needed here ...
-from pangalactic.core.meta import (MAIN_VIEWS, PGXN_DATA_VIEW, PGXN_HIDE,
-                                   PGXN_HIDE_PARMS, PGXN_MASK,
-                                   PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
-                                   SELECTABLE_VALUES, SELECTION_FILTERS)
+from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
+                                   PGXN_MASK, PGXN_PLACEHOLDERS, PGXN_VIEWS,
+                                   PGXN_REQD, SELECTABLE_VALUES,
+                                   SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           data_elementz, de_defz,
                                           delete_parameter,
@@ -49,7 +49,6 @@ from pangalactic.node.utils       import (clone, get_object_title,
 from pangalactic.node.widgets     import get_widget, UnitsWidget
 
 
-DATATYPES = SELECTABLE_VALUES['range_datatype']
 PARMS_NBR = 9
 DEFAULT_PANELS = ['main', 'info', 'narrative', 'admin']
 
@@ -60,17 +59,18 @@ class PgxnForm(QWidget):
 
     Attributes:
         obj (Identifiable or subtype):  the object to be viewed or edited
+        form_type (str): one of [parameters|data|main|info|narrative|admin]
+        pgxo (PgxnObject):  PgxnObject instance of which this is a subwidget
         schema (dict):  the schema of the object to be viewed or edited
-        edit_mode (bool):  if True, open in edit mode; otherwise, view mode
         view (list):  names of the fields to be shown (a subset of
             self.schema['field_names'])
         mask (list of str):  list of fields to be displayed as read-only
         all_idvs (list of tuples):  list of current (`id`, `version`) values to
             avoid
     """
-    def __init__(self, obj, form_type, edit_mode=False, view=None,
-                 requireds=None, main_view=None, mask=None, unmask=None,
-                 seq=None, idvs=None, placeholders=None, parent=None):
+    def __init__(self, obj, form_type, pgxo=None, view=None, requireds=None,
+                 main_view=None, mask=None, unmask=None, seq=None, idvs=None,
+                 placeholders=None, parent=None):
         """
         Initialize.
 
@@ -79,7 +79,8 @@ class PgxnForm(QWidget):
             form_type (str): one of [parameters|data|main|info|narrative|admin]
 
         Keyword Args:
-            edit_mode (bool):  if True, open in edit mode; otherwise, view mode
+            pgxo (PgxnObject):  PgxnObject instance of which this is a
+                subwidget
             view (list):  names of the fields to be shown (a subset of
                 self.schema['field_names'])
             requireds (list of str):  ids of required fields
@@ -96,8 +97,8 @@ class PgxnForm(QWidget):
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
-        self.edit_mode = edit_mode
         self.obj = obj
+        self.pgxo = pgxo
         self.all_idvs = idvs or []
         requireds = requireds or []
         cname = obj.__class__.__name__
@@ -110,6 +111,13 @@ class PgxnForm(QWidget):
         schema = orb.schemas.get(cname)
         field_names = [n for n in schema.get('field_names')
                        if n not in PGXN_MASK.get(cname, PGXN_HIDE)]
+        self.form_type = 'data'
+        # if form_type is "data", accept drops of data element ids -- drops of
+        # parameter ids are only accepted by the ParameterForm subclass
+        if self.form_type == 'data':
+            self.setAcceptDrops(True)
+            self.accepted_mime_types = set([
+                             "application/x-pgef-data-element-definition"])
         # get default placeholders; override them with the specified
         # placeholders, if any
         ph_defaults = PGXN_PLACEHOLDERS
@@ -205,7 +213,7 @@ class PgxnForm(QWidget):
                     # field_type 'parameter' -> StringFieldWidget for edit mode
                     field_type = 'parameter'
                     # if 'computed', p is not editable
-                    editable = (edit_mode and not pd.get('computed'))
+                    editable = (self.edit_mode and not pd.get('computed'))
                     definition = (pd.get('description', '')
                                   or 'unknown definition')
                     # NOTE: get_pval_as_str will convert the stored value from
@@ -262,7 +270,7 @@ class PgxnForm(QWidget):
                                 'font-weight: normal; color: black; '
                                 'font-size: 12px; border: 2px solid;}')
                             computed_note = True
-                        if edit_mode:
+                        if self.edit_mode:
                             del_action = QAction('delete', label)
                             del_action.triggered.connect(
                                     partial(parent.on_del_parameter, pid=pid))
@@ -308,10 +316,8 @@ class PgxnForm(QWidget):
             # used for the other panels
             # orb.log.info('* [pgxnobj] building "data" form ...')
             de_dict = data_elementz.get(obj.oid, {})
-            all_deids = set(de_dict)
-            deids = list(all_deids.intersection(set(PGXN_DATA_VIEW)))
+            deids = sorted(list(de_dict))
             if deids:
-                deids.sort()
                 # orb.log.info('* [pgxnobj] data elements found: {}'.format(
                                                             # str(deids)))
                 if seq is None:
@@ -335,7 +341,7 @@ class PgxnForm(QWidget):
                     # field_type 'parameter' -> StringFieldWidget for edit mode
                     # NOTE: use 'parameter' field type for data elements too
                     field_type = 'parameter'
-                    editable = edit_mode
+                    editable = self.edit_mode
                     definition = (ded.get('description', '')
                                   or 'unknown definition')
                     str_val = get_dval_as_str(self.obj.oid, deid)
@@ -345,8 +351,8 @@ class PgxnForm(QWidget):
                                                external_name=ext_name,
                                                editable=editable,
                                                tooltip=definition,
-                                               parm_field=True,
-                                               parm_type=de_type)
+                                               de_field=True,
+                                               de_type=de_type)
                     if widget:
                         # *** this is EXTREMELY verbose, even for debugging!
                         # orb.log.debug('  [pgxnobj]'
@@ -359,7 +365,7 @@ class PgxnForm(QWidget):
                         self.d_widget_values[deid] = str_val
                         widget.setSizePolicy(QSizePolicy.Minimum,
                                              QSizePolicy.Minimum)
-                        if edit_mode:
+                        if self.edit_mode:
                             del_action = QAction('delete', label)
                             del_action.triggered.connect(
                                 partial(parent.on_del_data_elmt, deid=deid))
@@ -431,7 +437,7 @@ class PgxnForm(QWidget):
             nullable = schema['fields'][field_name].get('null')
             choices = schema['fields'][field_name].get('choices')
             definition = schema['fields'][field_name].get('definition')
-            if edit_mode:
+            if self.edit_mode:
                 editable = schema['fields'][field_name].get('editable')
                 if mask and field_name in mask:
                     editable = False
@@ -484,6 +490,52 @@ class PgxnForm(QWidget):
         self.setSizePolicy(QSizePolicy.Minimum,
                            QSizePolicy.Minimum)
         self.setLayout(form)
+
+    @property
+    def edit_mode(self):
+        return self.pgxo.edit_mode
+
+    def dragEnterEvent(self, event):
+        mime_formats = set(event.mimeData().formats())
+        orb.log.info("* dragEnterEvent: mime types {}".format(
+                     str(mime_formats)))
+        if mime_formats & self.accepted_mime_types:
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        mime_formats = set(event.mimeData().formats())
+        if mime_formats & self.accepted_mime_types:
+            event.setDropAction(Qt.CopyAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        # NOTE: 'x-pgef-data-element-definition' may be deprecated in favor of
+        # 'x-pgef-data-element-id' (just a string) in the future ...
+        if self.edit_mode and event.mimeData().hasFormat(
+            "application/x-pgef-data-element-definition"):
+            orb.log.info("* dropEvent: got data element")
+            data = extract_mime_data(event,
+                             "application/x-pgef-data-element-definition")
+            icon, ded_oid, deid, de_name, ded_cname = data
+            obj_des = data_elementz.get(self.obj.oid) or {}
+            orb.log.info(f'* DE drop event: "{de_name}" ("{deid}")')
+            if deid not in obj_des:
+                event.setDropAction(Qt.CopyAction)
+                event.accept()
+                add_data_element(self.obj.oid, deid)
+                self.obj.modifier = orb.get(state.get('local_user_oid'))
+                self.obj.mod_datetime = dtstamp()
+                orb.save([self.obj])
+                dispatcher.send(signal='modified object', obj=self.obj)
+                self.pgxo.build_from_object()
+            else:
+                event.ignore()
+                orb.log.info(f"* DE drop event: ignoring '{de_name}' -- "
+                             "we already got one, it's verra nahss!")
 
     def on_set_units(self):
         # orb.log.info('* [pgxnobj] setting units ...')
@@ -597,14 +649,15 @@ class ParameterForm(PgxnForm):
 
     Attributes:
         obj (Identifiable or subtype):  the object to be viewed or edited
+        pgxo (PgxnObject):  PgxnObject instance of which this is a subwidget
         schema (dict):  the schema of the object to be viewed or edited
-        edit_mode (bool):  if True, open in edit mode; otherwise, view mode
+        edit_mode (bool):  a property derived from the edit mode of the 'pgxo'
         view (list):  names of the fields to be shown (a subset of
             self.schema['field_names'])
         mask (list of str):  list of fields to be displayed as read-only
     """
-    def __init__(self, obj, pgxo=None, edit_mode=False, view=None, mask=None,
-                 seq=None, parent=None):
+    def __init__(self, obj, pgxo=None, view=None, mask=None, seq=None,
+                 parent=None):
         """
         Initialize.
 
@@ -612,22 +665,20 @@ class ParameterForm(PgxnForm):
             obj (Identifiable or subtype):  the object to be viewed or edited
 
         Keyword Args:
-            edit_mode (bool):  if True, open in edit mode; otherwise, view mode
             view (list):  names of the fields to be shown (a subset of
                 self.schema['field_names'])
             mask (list of str):  list of fields to be displayed as read-only
                 (default: None)
             seq (int):  sequence number of parameter panel in pgxnobject
         """
-        super().__init__(obj, 'parameters', edit_mode=edit_mode, view=view,
-                         mask=mask, seq=seq, parent=parent)
+        super().__init__(obj, 'parameters', pgxo=pgxo, view=view, mask=mask,
+                         seq=seq, parent=parent)
         self.obj = obj
         self.pgxo = pgxo
         self.seq = seq
         self.setAcceptDrops(True)
         self.accepted_mime_types = set([
                              "application/x-pgef-parameter-definition",
-                             "application/x-pgef-data-element-definition",
                              "application/x-pgef-parameter-id"])
 
     def dragEnterEvent(self, event):
@@ -651,7 +702,7 @@ class ParameterForm(PgxnForm):
         orb.log.info("* dropEvent: got data")
         ### NOTE: 'x-pgef-parameter-definition' will be deprecated in favor of
         ### 'x-pgef-parameter-id' (just a string)
-        if self.pgxo.edit_mode and event.mimeData().hasFormat(
+        if self.edit_mode and event.mimeData().hasFormat(
             "application/x-pgef-parameter-definition"):
             data = extract_mime_data(event,
                                      "application/x-pgef-parameter-definition")
@@ -672,7 +723,7 @@ class ParameterForm(PgxnForm):
                 orb.log.info("* Parameter drop event: ignoring '%s' -- "
                              "we already got one, it's verra nahss!"
                              % pd_name)
-        if self.pgxo.edit_mode and event.mimeData().hasFormat(
+        if self.edit_mode and event.mimeData().hasFormat(
             "application/x-pgef-parameter-id"):
             pid = extract_mime_data(event, "application/x-pgef-parameter-id")
             obj_parms = parameterz.get(self.obj.oid) or {}
@@ -690,28 +741,6 @@ class ParameterForm(PgxnForm):
                 event.ignore()
                 orb.log.info(f'* Parameter drop event: ignoring "{pid}" -- '
                              "we already got one, it's verra nahss!")
-        if self.pgxo.edit_mode and event.mimeData().hasFormat(
-            "application/x-pgef-data-element-definition"):
-            data = extract_mime_data(event,
-                             "application/x-pgef-data-element-definition")
-            icon, ded_oid, deid, de_name, ded_cname = data
-            obj_des = data_elementz.get(self.obj.oid) or {}
-            if deid not in obj_des:
-                orb.log.info("* Data Element drop event: got '{}'".format(
-                                                                 de_name))
-                event.setDropAction(Qt.CopyAction)
-                event.accept()
-                add_data_element(self.obj.oid, deid)
-                self.obj.modifier = orb.get(state.get('local_user_oid'))
-                self.obj.mod_datetime = dtstamp()
-                orb.save([self.obj])
-                dispatcher.send(signal='modified object', obj=self.obj)
-                self.pgxo.build_from_object()
-            else:
-                event.ignore()
-                orb.log.info("* Data Element drop event: ignoring '{}' -- "
-                             "we already got one, it's verra nahss!".format(
-                                                                    de_name))
         else:
             event.ignore()
 
@@ -1090,8 +1119,7 @@ class PgxnObject(QDialog):
             # get a 'data' panel
             # First find the data elements to be displayed for this object ...
             de_dict = data_elementz.get(self.obj.oid, {})
-            all_deids = set(de_dict)
-            deids = list(all_deids.intersection(set(PGXN_DATA_VIEW)))
+            deids = sorted(list(de_dict))
             orb.log.debug('  [pgxnobj] data elements: {}'.format(deids))
             if len(deids) > PARMS_NBR:
                 n_of_des = len(deids)
@@ -1143,15 +1171,14 @@ class PgxnObject(QDialog):
                 else:
                     n = None
                 setattr(self, tab_name+'_tab',
-                        ParameterForm(self.obj, pgxo=self,
-                        edit_mode=self.edit_mode, view=self.view,
-                        mask=self.mask, seq=n, parent=self))
+                        ParameterForm(self.obj, pgxo=self, view=self.view,
+                                      mask=self.mask, seq=n, parent=self))
             else:
                 setattr(self, tab_name+'_tab',
-                        PgxnForm(self.obj, tab_name, edit_mode=self.edit_mode,
-                                 view=self.view, main_view=self.main_view,
-                                 mask=self.mask, idvs=self.all_idvs,
-                                 requireds=self.required, parent=self))
+                        PgxnForm(self.obj, tab_name, pgxo=self, view=self.view,
+                                 main_view=self.main_view, mask=self.mask,
+                                 idvs=self.all_idvs, requireds=self.required,
+                                 parent=self))
             this_tab = getattr(self, tab_name+'_tab')
             self.editable_widgets.update(this_tab.editable_widgets)
             self.d_widgets.update(this_tab.d_widgets)
