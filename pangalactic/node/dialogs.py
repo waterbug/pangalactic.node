@@ -31,8 +31,7 @@ from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.widgets     import UnitsWidget
-from pangalactic.node.widgets     import (FloatFieldWidget, StringFieldWidget,
-                                          IntegerFieldWidget)
+from pangalactic.node.widgets     import FloatFieldWidget, StringFieldWidget
 
 COLORS = {True: 'green', False: 'red'}
 
@@ -229,7 +228,7 @@ class AssemblyNodeDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Edit System Tree Node")
         self.ref_des = ref_des or ''
-        self.quantity = quantity or 1
+        self.quantity = quantity or 1.0
         form = QFormLayout(self)
         if system:
             ref_des_label = QLabel('System Role', self)
@@ -239,9 +238,8 @@ class AssemblyNodeDialog(QDialog):
         form.addRow(ref_des_label, self.ref_des_field)
         if not system:
             quantity_label = QLabel('Quantity', self)
-            self.quantity_field = IntegerFieldWidget(parent=self,
-                                                     value=self.quantity)
-            # self.quantity_field.setInputMask('D99')
+            self.quantity_field = FloatFieldWidget(parent=self,
+                                                   value=self.quantity)
             form.addRow(quantity_label, self.quantity_field)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(

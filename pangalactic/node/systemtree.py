@@ -139,7 +139,7 @@ class Node(object):
             if getattr(link, 'component', None) == self.obj:
                 if (hasattr(link, 'quantity')
                     and link.quantity is not None
-                    and link.quantity > 1):
+                    and link.quantity > 1.0):
                     if refdes and self.refdes:
                         return '[{}] {} ({})'.format(refdes, obj_name,
                                                 str(link.quantity))
@@ -1404,7 +1404,7 @@ class SystemTreeView(QTreeView):
                     node.link.component.product_type):
                     pt = node.link.component.product_type
                     node.link.product_type_hint = pt
-                    node.link.quantity = 1
+                    node.link.quantity = 1.0
                 tbd = orb.get('pgefobjects:TBD')
                 self.source_model.setData(mapped_i, tbd)
                 orb.save([node.link])
