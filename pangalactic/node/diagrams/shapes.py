@@ -312,7 +312,7 @@ class ObjectBlock(Block):
                 hint = getattr(link.product_type_hint, 'abbreviation',
                                'Unspecified Type')
             refdes = link.reference_designator or ''
-            if link.quantity and link.quantity > 1.0:
+            if link.quantity and link.quantity > 1:
                 refdes = '{} ({})'.format(refdes, link.quantity)
                 hint = '[{}] ({})'.format(hint, link.quantity)
             else:
@@ -560,7 +560,7 @@ class ObjectBlock(Block):
             orb.log.debug('   no associated flows.')
         tbd = orb.get('pgefobjects:TBD')
         self.usage.component = tbd
-        self.usage.quantity = 1.0
+        self.usage.quantity = 1
         self.usage.mod_datetime = dtstamp()
         self.usage.modifier = orb.get(state.get('local_user_oid'))
         orb.save([self.usage])
