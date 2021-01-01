@@ -638,10 +638,37 @@ class ObjectBlock(Block):
             event.ignore()
 
     def dropEvent(self, event):
+        """
+        Handle the drop event on ObjectBlock.  This includes the following
+        possible cases:
+
+            00: user permissions prohibit operation -> abort
+            0: dropped item would cause a cycle -> abort
+            1: dropped item is not a Product -> abort
+               (note that a Model is a Product, so in theory Models can be
+               assembled ...  but in the current implementation the only
+               allowed mime type is for HardwareProduct ... in future, more
+               mime types will be added)
+            2: drop target is "TBD" -> replace with dropped object
+        """
         orb.log.debug("* ObjectBlock: hm, something dropped on me ...")
         # only accept the drop if dropped item is a HardwareProduct and our
         # object is TBD
         drop_target = self.obj
+        # TODO:  add more mime types so any kind of product can be used to
+        # populate a TBD block, if the product_type_hint allows it
+        if not 'modify' in get_perms(self.usage):
+            # --------------------------------------------------------
+            # 00: user permissions prohibit operation -> abort
+            # --------------------------------------------------------
+            popup = QMessageBox(
+                  QMessageBox.Critical,
+                  "Unauthorized Operation",
+                  "User's roles do not permit this operation",
+                  QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            event.ignore()
+            return
         if (event.mimeData().hasFormat("application/x-pgef-hardware-product")
             and drop_target.oid == 'pgefobjects:TBD'):
             data = extract_mime_data(event,
@@ -649,6 +676,33 @@ class ObjectBlock(Block):
             icon, oid, _id, name, cname = data
             dropped_item = orb.get(oid)
             if dropped_item:
+                if self.usage.assembly.oid == oid:
+                    # --------------------------------------------------------
+                    # 0: dropped item would cause a cycle -> abort
+                    # --------------------------------------------------------
+                    orb.log.debug(
+                      '    invalid: dropped object same as target object.')
+                    popup = QMessageBox(
+                                QMessageBox.Critical,
+                                "Assembly same as Component",
+                                "A product cannot be a component of itself.",
+                                QMessageBox.Ok, self.parentWidget())
+                    popup.show()
+                    event.ignore()
+                    return
+                bom_oids = get_bom_oids(dropped_item)
+                if self.usage.assembly.oid in bom_oids:
+                    # --------------------------------------------------------
+                    # 0: dropped item would cause a cycle -> abort
+                    # --------------------------------------------------------
+                    popup = QMessageBox(
+                            QMessageBox.Critical,
+                            "Prohibited Operation",
+                            "Product cannot be used in its own assembly.",
+                            QMessageBox.Ok, self.parentWidget())
+                    popup.show()
+                    event.ignore()
+                    return
                 orb.log.info('  - dropped_item: "{}"'.format(name))
                 # drop target is "TBD" product -> replace it with the dropped
                 # item if it has the right product_type
@@ -674,6 +728,7 @@ class ObjectBlock(Block):
                                 "{}.".format(hint or "[unspecified type]"),
                                 QMessageBox.Cancel)
                     event.accept()
+                    return
                 else:
                     # remove any Flows first!
                     # [NOTE: TBD blocks cannot currently have flows but may in
@@ -719,7 +774,7 @@ class ObjectBlock(Block):
                 orb.log.info("  - dropped product not in db; nothing done.")
                 event.accept()
         else:
-            orb.log.info("  - dropped object was not a HardwareProduct")
+            orb.log.info("  - dropped object was not a Product")
             orb.log.info("    or was not dropped on a TBD -- ignored!")
             event.ignore()
 
@@ -843,9 +898,9 @@ class SubjectBlock(Block):
         Handle the drop event on SubjectBlock.  This includes the following
         possible cases:
 
+            00: user permissions prohibit operation -> abort
             0: dropped item would cause a cycle -> abort
-            1: drop target is "TBD" -> replace it if drop item is a Product
-               and matches the "product_type_hint" of the Acu
+            1: drop target is "TBD" -> disallow (SubjectBlock cannot be TBD
             2: dropped item is a Product and
                drop target is a Product -> add a new component position
                with the dropped item as the new component
@@ -853,31 +908,53 @@ class SubjectBlock(Block):
                if drop item is a Product *and* it is not already in use
                on the Project, use it to create a new ProjectSystemUsage
             4: dropped item is a PortType and
-               drop target is a Product -> add a Port to the Product
+               drop target is an object that can have ports ->
+               add a Port to the drop target
             5: dropped item is a PortTemplate and
-               drop target is a Product -> add a Port to the Product
+               drop target is an object that can have ports ->
+               add a Port to the drop target
             6: dropped item is a ProductType and
                drop target is a Product -> add an empty assembly position
-               ("bucket") -- actually, an Acu with TBD product and the dropped
-               ProductType as its product_type_hint -- to the Product
+               ("bucket") -- actually, an Acu with TBD component and the
+               dropped ProductType as its product_type_hint -- to the Product
         """
         orb.log.debug("* SubjectBlock: hm, something dropped on me ...")
         user = orb.get(state.get('local_user_oid'))
         drop_target = self.obj
         orb.log.debug('  - target name: {}'.format(drop_target.name))
-        # first, check that user has permission to modify the target
+        # 00: user permissions prohibit operation -> abort
         if not 'modify' in get_perms(drop_target):
+            # --------------------------------------------------------
+            # 00: user permissions prohibit operation -> abort
+            # --------------------------------------------------------
             popup = QMessageBox(
                   QMessageBox.Critical,
                   "Unauthorized Operation",
                   "User's roles do not permit this operation",
                   QMessageBox.Ok, self.parentWidget())
             popup.show()
+            event.ignore()
+            return
         elif event.mimeData().hasFormat("application/x-pgef-hardware-product"):
             data = extract_mime_data(event,
                                      "application/x-pgef-hardware-product")
             icon, obj_oid, obj_id, obj_name, obj_cname = data
             orb.log.info("  - it is a {} ...".format(obj_cname))
+            # check if target is same as dropped object
+            if drop_target.oid == obj_oid:
+                # ------------------------------------------------------------
+                # 0: dropped item same as target, would cause a cycle -> abort
+                # ------------------------------------------------------------
+                orb.log.debug(
+                  '    invalid: dropped object same as target object.')
+                popup = QMessageBox(
+                            QMessageBox.Critical,
+                            "Assembly same as Component",
+                            "A product cannot be a component of itself.",
+                            QMessageBox.Ok, self.parentWidget())
+                popup.show()
+                event.ignore()
+                return
             dropped_item = orb.get(obj_oid)
             if dropped_item:
                 orb.log.info('  - dropped object name: "{}"'.format(obj_name))
@@ -895,21 +972,10 @@ class SubjectBlock(Block):
                           orb.classes['Product']):
                 orb.log.debug('    + target is a Product ...')
                 bom_oids = get_bom_oids(dropped_item)
-                # check if target is same as dropped object
-                # and check for cycles
-                if drop_target.oid == obj_oid:
-                    orb.log.debug(
-                      '    invalid: dropped object same as target object.')
-                    popup = QMessageBox(
-                                QMessageBox.Critical,
-                                "Assembly same as Component",
-                                "A product cannot be a component of itself.",
-                                QMessageBox.Ok, self.parentWidget())
-                    popup.show()
-                    event.ignore()
-                elif (drop_target.oid in bom_oids and
-                      drop_target.oid != 'pgefobjects:TBD'):
-                    # dropped object would cause a cycle -> abort
+                if drop_target.oid in bom_oids:
+                    # ---------------------------------------------------------
+                    # 0: target is a component of dropped item (cycle) -> abort
+                    # ---------------------------------------------------------
                     popup = QMessageBox(
                             QMessageBox.Critical,
                             "Prohibited Operation",
@@ -917,36 +983,58 @@ class SubjectBlock(Block):
                             QMessageBox.Ok, self.parentWidget())
                     popup.show()
                     event.ignore()
-                else:
-                    # add new Acu
-                    orb.log.info('      accepted as component ...')
-                    # orb.log.debug('      creating Acu ...')
-                    # generate a new reference_designator
-                    ref_des = get_next_ref_des(drop_target, dropped_item)
-                    # NOTE: clone() adds create/mod_datetime & creator/modifier
-                    new_acu = clone('Acu',
-                        id=get_acu_id(drop_target.id, ref_des),
-                        name=get_acu_name(drop_target.name, ref_des),
-                        assembly=drop_target,
-                        component=dropped_item,
-                        product_type_hint=dropped_item.product_type,
-                        creator=user,
-                        create_datetime=dtstamp(),
-                        modifier=user,
-                        mod_datetime=dtstamp(),
-                        reference_designator=ref_des)
-                    # new Acu -> drop target is modified (any computed
-                    # parameters must be recomputed, etc.)
-                    drop_target.mod_datetime = dtstamp()
-                    drop_target.modifier = user
-                    orb.save([new_acu, drop_target])
-                    # orb.log.debug('      Acu created: {}'.format(
-                                  # new_acu.name))
-                    self.scene().create_block(ObjectBlock, usage=new_acu)
-                    dispatcher.send('new object', obj=new_acu)
-                    dispatcher.send('modified object', obj=drop_target)
+                    return
+                if drop_target.oid == 'pgefobjects:TBD':
+                    # --------------------------------------------------------
+                    # 1: drop target is "TBD" -> disallow (SubjectBlock cannot
+                    #    be TBD)
+                    # --------------------------------------------------------
+                    popup = QMessageBox(
+                            QMessageBox.Critical,
+                            "Prohibited Operation",
+                            "Subject Block cannot be TBD.",
+                            QMessageBox.Ok, self.parentWidget())
+                    popup.show()
+                    event.ignore()
+                    return
+                # --------------------------------------------------------
+                # 2: dropped item is a Product and
+                #    drop target is a Product -> add a new component
+                #    position with the dropped item as the new component
+                # --------------------------------------------------------
+                # add new Acu
+                orb.log.info('      accepted as component ...')
+                # orb.log.debug('      creating Acu ...')
+                # generate a new reference_designator
+                ref_des = get_next_ref_des(drop_target, dropped_item)
+                # NOTE: clone() adds create/mod_datetime & creator/modifier
+                new_acu = clone('Acu',
+                    id=get_acu_id(drop_target.id, ref_des),
+                    name=get_acu_name(drop_target.name, ref_des),
+                    assembly=drop_target,
+                    component=dropped_item,
+                    product_type_hint=dropped_item.product_type,
+                    creator=user,
+                    create_datetime=dtstamp(),
+                    modifier=user,
+                    mod_datetime=dtstamp(),
+                    reference_designator=ref_des)
+                # new Acu -> drop target is modified (any computed
+                # parameters must be recomputed, etc.)
+                drop_target.mod_datetime = dtstamp()
+                drop_target.modifier = user
+                orb.save([new_acu, drop_target])
+                # orb.log.debug('      Acu created: {}'.format(
+                              # new_acu.name))
+                self.scene().create_block(ObjectBlock, usage=new_acu)
+                dispatcher.send('new object', obj=new_acu)
+                dispatcher.send('modified object', obj=drop_target)
             elif target_cname == 'Project':
-                # case 3: drop target is a project
+                # ------------------------------------------------------------
+                # 3: drop target is a Project ->
+                #    if drop item is a Product *and* it is not already in use
+                #    on the Project, use it to create a new ProjectSystemUsage
+                # ------------------------------------------------------------
                 log_txt = '+ target is a Project -- adding new system ...'
                 orb.log.debug('    {}'.format(log_txt))
                 psu = orb.search_exact(cname='ProjectSystemUsage',
@@ -958,32 +1046,37 @@ class SubjectBlock(Block):
                                     'System "{0}" already exists on '
                                     'project {1}'.format(
                                     dropped_item.name, drop_target.id))
-                else:
-                    psu_id = ('psu-' + dropped_item.id + '-' +
-                              drop_target.id)
-                    psu_name = ('psu: ' + dropped_item.name +
-                                ' (system used on) ' + drop_target.name)
-                    psu_role = getattr(dropped_item.product_type, 'name',
-                                       'System')
-                    new_psu = clone('ProjectSystemUsage',
-                                    id=psu_id,
-                                    name=psu_name,
-                                    creator=user,
-                                    create_datetime=dtstamp(),
-                                    modifier=user,
-                                    mod_datetime=dtstamp(),
-                                    system_role=psu_role,
-                                    project=drop_target,
-                                    system=dropped_item)
-                    orb.save([new_psu])
-                    # NOTE:  addition of a ProjectSystemUsage does not imply
-                    # that the Project is "modified" (maybe it should??)
-                    # orb.log.debug('      ProjectSystemUsage created: %s'
-                                  # % psu_name)
-                    self.scene().create_block(ObjectBlock, usage=new_psu)
-                    dispatcher.send('new object', obj=new_psu)
+                    return
+                psu_id = ('psu-' + dropped_item.id + '-' +
+                          drop_target.id)
+                psu_name = ('psu: ' + dropped_item.name +
+                            ' (system used on) ' + drop_target.name)
+                psu_role = getattr(dropped_item.product_type, 'name',
+                                   'System')
+                new_psu = clone('ProjectSystemUsage',
+                                id=psu_id,
+                                name=psu_name,
+                                creator=user,
+                                create_datetime=dtstamp(),
+                                modifier=user,
+                                mod_datetime=dtstamp(),
+                                system_role=psu_role,
+                                project=drop_target,
+                                system=dropped_item)
+                orb.save([new_psu])
+                # NOTE:  addition of a ProjectSystemUsage does not imply
+                # that the Project is "modified" (maybe it should??)
+                # orb.log.debug('      ProjectSystemUsage created: %s'
+                              # % psu_name)
+                self.scene().create_block(ObjectBlock, usage=new_psu)
+                dispatcher.send('new object', obj=new_psu)
 
         elif event.mimeData().hasFormat("application/x-pgef-port-type"):
+            # ------------------------------------------------------------
+            # 4: dropped item is a PortType and
+            #    drop target is an object that can have ports ->
+            #    add a Port to the drop target
+            # ------------------------------------------------------------
             data = extract_mime_data(event, "application/x-pgef-port-type")
             icon, oid, _id, name, cname = data
             orb.log.info("  - it is a {} ...".format(cname))
@@ -1014,6 +1107,11 @@ class SubjectBlock(Block):
                 orb.log.info("  - dropped port type oid not in db.")
                 event.ignore()
         elif event.mimeData().hasFormat("application/x-pgef-port-template"):
+            # ------------------------------------------------------------
+            # 5: dropped item is a PortTemplate and
+            #    drop target is an object that can have ports ->
+            #    add a Port to the drop target
+            # ------------------------------------------------------------
             data = extract_mime_data(event, "application/x-pgef-port-template")
             icon, oid, _id, name, cname = data
             orb.log.info("  - it is a {} ...".format(cname))
@@ -1055,11 +1153,17 @@ class SubjectBlock(Block):
                 orb.log.info("  - dropped port template not in db.")
                 event.ignore()
         elif event.mimeData().hasFormat("application/x-pgef-product-type"):
+            # ------------------------------------------------------------
+            # 6: dropped item is a ProductType and
+            #    drop target is a Product -> add an empty assembly position
+            #    ("bucket") -- actually, an Acu with TBD component and the
+            #    dropped ProductType as its product_type_hint -- to the Product
+            # ------------------------------------------------------------
             data = extract_mime_data(event, "application/x-pgef-product-type")
             icon, oid, _id, name, cname = data
             orb.log.info("  - it is a {} ...".format(cname))
             product_type = orb.get(oid)
-            if product_type:
+            if product_type and isinstance(self.obj, orb.classes['Product']):
                 orb.log.info('  - orb found {} "{}"'.format(cname, name))
                 orb.log.info('    creating an empty assembly position ...')
                 ref_des = get_next_ref_des(drop_target, None,
@@ -1093,7 +1197,7 @@ class SubjectBlock(Block):
                 event.ignore()
         else:
             orb.log.info("  - dropped object is not an allowed type")
-            orb.log.info("    to drop on an object block.")
+            orb.log.info("    to drop on a subject block.")
 
 
 class PortBlock(QGraphicsItem):
