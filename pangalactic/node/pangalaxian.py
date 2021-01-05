@@ -62,7 +62,7 @@ from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
-from pangalactic.node.conops           import ConOpsModeler
+# from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
 from pangalactic.node.dialogs          import (LoginDialog,
@@ -1422,13 +1422,13 @@ class Main(QtWidgets.QMainWindow):
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
-        conops_tip_text = "Model Concept of Operations for the Current Mission"
-        self.conops_modeler_action = self.create_action(
-                                "ConOps Modeler",
-                                slot=self.display_conops_modeler,
-                                icon='tools',
-                                tip=conops_tip_text,
-                                modes=['system'])
+        # conops_tip_text = "Model Concept of Operations for the Current Mission"
+        # self.conops_modeler_action = self.create_action(
+                                # "ConOps Modeler",
+                                # slot=self.display_conops_modeler,
+                                # icon='tools',
+                                # tip=conops_tip_text,
+                                # modes=['system'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         self.product_lib_action = self.create_action(
                                     hw_lib_title,
@@ -1959,7 +1959,7 @@ class Main(QtWidgets.QMainWindow):
         system_tools_icon_path = os.path.join(icon_dir,
                                               system_tools_icon_file)
         system_tools_actions = [self.reqts_manager_action,
-                                self.conops_modeler_action,
+                                # self.conops_modeler_action,
                                 self.product_lib_action,
                                 self.template_lib_action,
                                 self.product_types_lib_action,
@@ -3737,9 +3737,9 @@ class Main(QtWidgets.QMainWindow):
         dlg = RequirementManager(project=proj, width=w, height=h, parent=self)
         dlg.show()
 
-    def display_conops_modeler(self):
-        win = ConOpsModeler(parent=self)
-        win.show()
+    # def display_conops_modeler(self):
+        # win = ConOpsModeler(parent=self)
+        # win.show()
 
     def product_types_library(self):
         dlg = LibraryDialog('ProductType',
