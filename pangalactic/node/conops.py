@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 
 import os
+# these numpy imports are for the benefit of PyInstaller;
+# numpy is a dependency of pyqtgraph so is imported there as well
+import numpy as np
+import numpy.random.common
+import numpy.random.bounded_integers
+import numpy.random.entropy
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter, ParameterTree
 from pyqtgraph.dockarea import Dock, DockArea

@@ -19,7 +19,11 @@ requirements:
     - autobahn
     - binaryornot
     - inflect
+    # numpy is pulled in by pyqtgraph, but making it an explicit dependency is
+    # done in hopes of helping PyInstaller
+    - numpy
     - pyqt >=5.6
+    - pyqtgraph
     - python >=2.7
     - pythonocc-core
     - pytz
