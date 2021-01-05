@@ -235,6 +235,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
         self.col_labels = col_labels or []
         self.col_defs = col_defs or []
         self.col_dtypes = col_dtypes or []
+        # NOTE:  col_labels are derived from the view in source model
         self.col_to_label = dict(zip(self.view, self.col_labels))
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
@@ -383,9 +384,13 @@ class ProxyView(QTableView):
         labels = [self.model().headerData(i, Qt.Horizontal, Qt.DisplayRole)
                   for i in range(len(self.model().view))]
         for col in self.sized_cols:
-            # get int of col position ...
-            pos = labels.index(self.model().col_to_label[col])
-            self.resizeColumnToContents(pos)
+            if col in self.model().col_to_label:
+                # get int of col position ... use try/except to be extra safe
+                try:
+                    pos = labels.index(self.model().col_to_label[col])
+                    self.resizeColumnToContents(pos)
+                except:
+                    continue
 
     def on_section_moved(self, logical_index, old_index, new_index):
         orb.log.debug('* FilterPanel.on_section_moved() ...')
