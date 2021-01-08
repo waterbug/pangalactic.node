@@ -262,7 +262,8 @@ class Main(QtWidgets.QMainWindow):
         elif mode == 'db':
             self.db_mode_action.trigger()
         else:
-            self.data_mode_action.trigger()
+            # self.data_mode_action.trigger()
+            pass
         state['done_with_progress'] = False
         state['connected'] = False
 
@@ -1600,13 +1601,13 @@ class Main(QtWidgets.QMainWindow):
                                     icon="db",
                                     checkable=True,
                                     tip="Local DB")
-        self.data_mode_action = self.create_action(
-                                    "Data Mode",
-                                    slot=self._set_data_mode,
-                                    icon="data",
-                                    checkable=True,
-                                    tip="Data Mode")
-        self.data_mode_action.setEnabled(True)
+        # self.data_mode_action = self.create_action(
+                                    # "Data Mode",
+                                    # slot=self._set_data_mode,
+                                    # icon="data",
+                                    # checkable=True,
+                                    # tip="Data Mode")
+        # self.data_mode_action.setEnabled(True)
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
@@ -1636,7 +1637,7 @@ class Main(QtWidgets.QMainWindow):
         self.component_mode_action.setActionGroup(mode_action_group)
         self.system_mode_action.setActionGroup(mode_action_group)
         self.db_mode_action.setActionGroup(mode_action_group)
-        self.data_mode_action.setActionGroup(mode_action_group)
+        # self.data_mode_action.setActionGroup(mode_action_group)
         orb.log.debug('  ... all actions created.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -1676,8 +1677,8 @@ class Main(QtWidgets.QMainWindow):
         Set the current mode.
         """
         # # NOTE: this is used if 'data' mode is temporarily disabled:
-        # if mode == 'data':
-            # mode = 'system'
+        if mode == 'data':
+            mode = 'system'
         initial_size = self.size()
         if hasattr(orb, 'store'):
             orb.db.commit()
@@ -2025,7 +2026,7 @@ class Main(QtWidgets.QMainWindow):
         ### text [SCW 2020-12-18]
         # self.mode_label = ModeLabel('')
         # self.toolbar.addWidget(self.mode_label)
-        self.toolbar.addAction(self.data_mode_action)
+        # self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
         self.toolbar.addAction(self.component_mode_action)
