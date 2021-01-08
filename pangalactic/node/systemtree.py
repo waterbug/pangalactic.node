@@ -383,7 +383,7 @@ class SystemTreeModel(QAbstractItemModel):
 
     def node_for_object(self, obj, parent, link=None):
         """
-        Return a Node instance for an object and its "parent" object.  This is
+        Return a Node instance for an object and "parent" node.  This is
         a factory function that can be used with either a Product object or a
         Project.  Only in the case of a Product will there be a 'link' (Acu or
         ProjectSystemUsage).
@@ -1111,8 +1111,6 @@ class SystemTreeView(QTreeView):
         self.proxy_model = SystemTreeProxyModel(tree_model, parent=self)
         self.source_model = self.proxy_model.sourceModel()
         self.proxy_model.setDynamicSortFilter(True)
-        # old tree used model directly:
-        # self.setModel(tree_model)
         self.setModel(self.proxy_model)
         # all rows are same height, so use this to optimize performance
         self.setUniformRowHeights(True)
@@ -1144,6 +1142,7 @@ class SystemTreeView(QTreeView):
                                                        'diagram go back')
             dispatcher.connect(self.on_diagram_tree_index,
                                                        'diagram tree index')
+            dispatcher.connect(self.on_new_diagram_block, 'new diagram block')
         self.setStyleSheet('font-weight: normal; font-size: 12px')
         self.proxy_model.sort(0)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
@@ -1201,24 +1200,29 @@ class SystemTreeView(QTreeView):
             # need to expand when selected so its children are visible in the
             # tree and can be located if there is a diagram drill-down
             self.setExpanded(i, True)
-            mapped_i = self.proxy_model.mapToSource(i)
-            obj = self.source_model.get_node(mapped_i).obj
-            link = self.source_model.get_node(mapped_i).link
-            if link and not obj:
-                if isinstance(link, orb.classes['Acu']):
-                    obj = link.component
-                elif isinstance(link, orb.classes['ProjectSystemUsage']):
-                    obj = link.system
-            # orb.log.debug('- node selected ...')
-            # orb.log.debug('  + row: {}'.format(mapped_i.row()))
-            # orb.log.debug('  + col: {}'.format(mapped_i.column()))
-            # orb.log.debug('  + obj id: {}'.format(
-                          # getattr(obj, 'id', '') or 'id unknown'))
-            # orb.log.debug('  + parent node obj id: {}'.format(
-                # getattr(self.source_model.get_node(mapped_i.parent()).obj,
-                                                         # 'id', 'fake root')))
-            dispatcher.send(signal='sys node selected', index=index, obj=obj,
-                            link=link)
+            try:
+                mapped_i = self.proxy_model.mapToSource(i)
+                obj = self.source_model.get_node(mapped_i).obj
+                link = self.source_model.get_node(mapped_i).link
+                if link and not obj:
+                    if isinstance(link, orb.classes['Acu']):
+                        obj = link.component
+                    elif isinstance(link, orb.classes['ProjectSystemUsage']):
+                        obj = link.system
+                # orb.log.debug('- node selected ...')
+                # orb.log.debug('  + row: {}'.format(mapped_i.row()))
+                # orb.log.debug('  + col: {}'.format(mapped_i.column()))
+                # orb.log.debug('  + obj id: {}'.format(
+                              # getattr(obj, 'id', '') or 'id unknown'))
+                # orb.log.debug('  + parent node obj id: {}'.format(
+                    # getattr(self.source_model.get_node(
+                                                    # mapped_i.parent()).obj,
+                                                    # 'id', 'fake root')))
+                dispatcher.send(signal='sys node selected', index=index,
+                                obj=obj, link=link)
+            except:
+                # oops -- my C++ object probably got deleted
+                pass
 
     def sys_node_expand(self, index=None):
         try:
@@ -1235,6 +1239,20 @@ class SystemTreeView(QTreeView):
         except:
             # oops -- my C++ object probably got deleted
             pass
+
+    def on_new_diagram_block(self, acu=None):
+        orb.log.debug('- systree: "new diagram block" signal received.')
+        if acu:
+            idxs = self.object_indexes_in_tree(acu.assembly)
+            if idxs:
+                orb.log.debug('  assembly found in tree, updating ...')
+                for idx in idxs:
+                    src_model = self.source_model
+                    # pnode = src_model.get_node(src_idx)
+                    # src_model.add_nodes([src_model.node_for_object(
+                                         # acu.assembly, pnode, link=acu)],
+                                         # src_idx)
+                    src_model.fetchMore(idx)
 
     def select_initial_node(self, index=None):
         self.sys_node_select(index=index, origin='tree initialization')
@@ -1259,7 +1277,6 @@ class SystemTreeView(QTreeView):
         """
         # orb.log.debug('* sys_node_select() [{}]'.format(
                                             # origin or "unknown origin"))
-        # try:
         if index:
             try:
                 self.selectionModel().setCurrentIndex(index,
@@ -1278,7 +1295,7 @@ class SystemTreeView(QTreeView):
                     # orb.log.debug(msg)
             except:
                 # oops -- C++ object for systree got deleted
-                # orb.log.debug('  - index specified but exception encountered.')
+                # orb.log.debug('  - exception encountered.')
                 pass
         else:
             try:
@@ -1290,7 +1307,7 @@ class SystemTreeView(QTreeView):
                 # orb.log.debug('  - index not found; project node selected.')
             except:
                 # oops -- C++ object probably got deleted
-                # orb.log.debug('  - exception encountered; node not selected.')
+                # orb.log.debug('  - exception; node not selected.')
                 pass
 
     def on_successful_drop(self):
@@ -1300,10 +1317,14 @@ class SystemTreeView(QTreeView):
         """
         orb.log.debug('* successful drop.')
         sdi = self.source_model.successful_drop_index
-        if sdi:
-            mapped_sdi = self.proxy_model.mapFromSource(sdi)
-            self.expand(mapped_sdi)
-        self.proxy_model.sort(0)
+        try:
+            if sdi:
+                mapped_sdi = self.proxy_model.mapFromSource(sdi)
+                self.expand(mapped_sdi)
+            self.proxy_model.sort(0)
+        except:
+            # oops -- C++ object probably got deleted
+            pass
 
     def expand_project(self):
         """
@@ -1562,7 +1583,11 @@ class SystemTreeView(QTreeView):
             obj (Product):  specified object
         """
         # orb.log.debug('* object_indexes_in_tree({})'.format(obj.id))
-        model = self.proxy_model.sourceModel()
+        try:
+            model = self.proxy_model.sourceModel()
+        except:
+            # oops -- C++ object probably got deleted
+            return []
         project_index = model.index(0, 0, QModelIndex())
         # project_node = model.get_node(project_index)
         # orb.log.debug('  for project {}'.format(project_node.obj.oid))

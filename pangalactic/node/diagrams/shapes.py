@@ -1028,6 +1028,7 @@ class SubjectBlock(Block):
                               # new_acu.name))
                 self.scene().create_block(ObjectBlock, usage=new_acu)
                 dispatcher.send('new object', obj=new_acu)
+                dispatcher.send('new diagram block', acu=new_acu)
                 dispatcher.send('modified object', obj=drop_target)
             elif target_cname == 'Project':
                 # ------------------------------------------------------------
