@@ -474,7 +474,7 @@ class Main(QtWidgets.QMainWindow):
                                              data=data)
             except:
                 orb.log.debug('  rpc "vger.get_user_roles" failed again ...')
-                message = "Could not recoonect -- log out and log in again."
+                message = "Could not reconnect -- log out and log in again."
                 popup = QtWidgets.QMessageBox(
                             QtWidgets.QMessageBox.Warning,
                             "Connection Lost", message,
