@@ -605,10 +605,11 @@ class SystemTreeModel(QAbstractItemModel):
                     elif len(self.cols) >= index.column() > 0:
                         col_id = self.cols[index.column()-1]
                         pd = parm_defz.get(col_id)
+                        de_def = de_defz.get(col_id)
                         if pd:
+                            units = prefs['units'].get(pd['dimensions'])
                             # it's a parameter
                             pid = col_id
-                            units = prefs['units'].get(pd['dimensions'])
                             # descriptive parameters apply to node objects
                             # (components or subsystems)
                             if pd['context_type'] == 'descriptive':
@@ -630,10 +631,13 @@ class SystemTreeModel(QAbstractItemModel):
                             else:
                                 # base parameter (no context)
                                 return get_pval_as_str(node.obj.oid,
-                                                       col_id)
-                        else:
+                                                       col_id, units=units)
+                        elif de_def:
                             # it's a data element (we hope :)
-                            return get_dval_as_str(node.obj.oid, col_id)
+                            units = prefs['units'].get(
+                                                de_def.get('dimensions')) or ''
+                            return get_dval_as_str(node.obj.oid, col_id,
+                                                   units=units)
                     else:
                         return node.name
             else:
@@ -723,7 +727,8 @@ class SystemTreeModel(QAbstractItemModel):
         elif role == Qt.ToolTipRole:
             if section == 0:
                 return 'System or component identifier'
-            return self.col_defs[section-1]
+            if section <= len(self.col_defs):
+                return self.col_defs[section-1]
         return QVariant()
 
     def mimeTypes(self):

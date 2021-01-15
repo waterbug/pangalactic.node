@@ -373,11 +373,11 @@ class UnitPrefsDialog(QDialog):
         form.addRow(self.bbox)
 
     def set_units(self):
-        # msg = '<h3>Preferred Units set to:</h3><ul>'
+        orb.log.debug('Preferred Units set to:')
         for dims, widget in self.dim_widgets.items():
-            prefs['units'][dims] = widget.get_value()
-            # msg += '<li>{}: {}</li>'
-        # msg += '</ul>'
+            val = widget.get_value()
+            prefs['units'][dims] = val
+            orb.log.debug(f'  - {dims}: {val}')
         # dispatcher.send('dashboard mod')
 
 
@@ -521,17 +521,21 @@ class CustomizeColsDialog(QDialog):
         self.setStyleSheet('QToolTip { font-weight: normal; font-size: 12px; '
                            'color: black; background: white;};')
         cols = cols or []
-        form = QFormLayout()
-        m_form = QFormLayout()
-        r_form = QFormLayout()
-        hbox = QHBoxLayout(self)
-        hbox.addLayout(form)
-        hbox.addLayout(m_form)
-        hbox.addLayout(r_form)
         self.checkboxes = {}
         all_pids = list(de_defz) + list(parm_defz)
         all_pids.sort()
         names = self.get_col_names(all_pids)
+        nbr_of_cols = len(all_pids) // 40
+        if len(all_pids) % 40:
+            nbr_of_cols += 1
+        form = QFormLayout()
+        subforms = []
+        for n in range(nbr_of_cols):
+            subforms.append(QFormLayout())
+        hbox = QHBoxLayout(self)
+        hbox.addLayout(form)
+        for subform in subforms:
+            hbox.addLayout(subform)
         for i, pid in enumerate(all_pids):
             label = QLabel(names[i], self)
             col_def = de_defz.get(pid) or parm_defz.get(pid)
@@ -549,16 +553,7 @@ class CustomizeColsDialog(QDialog):
                 self.checkboxes[pid].setChecked(True)
             else:
                 self.checkboxes[pid].setChecked(False)
-            if pid in cols:
-                self.checkboxes[pid].setChecked(True)
-            else:
-                self.checkboxes[pid].setChecked(False)
-            if 0 <= i < 40:
-                form.addRow(self.checkboxes[pid], label)
-            elif 40 <= i < 80:
-                m_form.addRow(self.checkboxes[pid], label)
-            else:
-                r_form.addRow(self.checkboxes[pid], label)
+            subforms[i // 40].addRow(self.checkboxes[pid], label)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
