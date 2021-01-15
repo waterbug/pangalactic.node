@@ -331,7 +331,9 @@ class SystemTreeModel(QAbstractItemModel):
 
     @property
     def cols(self):
-        return prefs.get('dashboards', {}).get(self.dash_name, [])
+        columns = ['System']
+        columns += prefs.get('dashboards', {}).get(self.dash_name, [])
+        return columns
 
     def col_def(self, pid):
         pd = parm_defz.get(pid)
@@ -344,15 +346,16 @@ class SystemTreeModel(QAbstractItemModel):
                 description = de_def['description']
             else:
                 # oops, got nothin'
-                log_msg = 'nothing found for id "{}"'.format(pid)
-                orb.log.debug('* col_def: {}'.format(log_msg))
+                # log_msg = 'nothing found for id "{}"'.format(pid)
+                # orb.log.debug('* col_def: {}'.format(log_msg))
                 return ''
         return '\n'.join(wrap(description, width=30,
                               break_long_words=False))
 
     @property
     def col_defs(self):
-        return [self.col_def(pid) for pid in self.cols]
+        data_cols = self.cols[1:]
+        return [self.col_def(col_id) for col_id in data_cols]
 
     def get_header(self, pid):
         pd = parm_defz.get(pid)
@@ -512,7 +515,7 @@ class SystemTreeModel(QAbstractItemModel):
                 all nodes in the tree
         """
         if self.cols:
-            return len(self.cols) + 1
+            return len(self.cols)
         else:
             return 1
 
@@ -520,7 +523,7 @@ class SystemTreeModel(QAbstractItemModel):
         orb.log.debug('* insertColumn({})'.format(position))
         self.beginInsertColumns(parent, position, position)
         success = True
-        if position < 0 or position > len(self.cols):
+        if position < 0 or position > len(self.cols) - 1:
             success = False
         self.endInsertColumns()
         return success
@@ -529,10 +532,10 @@ class SystemTreeModel(QAbstractItemModel):
         orb.log.debug('* removeColumn({})'.format(position))
         self.beginRemoveColumns(parent, position, position)
         success = True
-        if position < 0 or position >= len(self.cols):
+        if position < 0 or position >= len(self.cols) - 1:
             success = False
         dashboard_name = state.get('dashboard_name', 'MEL')
-        pid = self.cols[position]
+        pid = self.cols[position + 1]
         prefs['dashboards'][dashboard_name].remove(pid)
         s = 'prefs["dashboards"]["{}"]'.format(dashboard_name)
         log_msg = '  - column "{}" removed from {}'
@@ -602,8 +605,8 @@ class SystemTreeModel(QAbstractItemModel):
                 else:
                     if index.column() == 0:
                         return node.name
-                    elif len(self.cols) >= index.column() > 0:
-                        col_id = self.cols[index.column()-1]
+                    elif len(self.cols) > index.column() > 0:
+                        col_id = self.cols[index.column()]
                         pd = parm_defz.get(col_id)
                         de_def = de_defz.get(col_id)
                         if pd:
@@ -645,24 +648,24 @@ class SystemTreeModel(QAbstractItemModel):
         if role == Qt.ForegroundRole:
             if index.column() == 0:
                 return self.BRUSH
-            elif self.cols and len(self.cols) >= index.column() > 0:
+            elif self.cols and len(self.cols) > index.column() > 0:
                 col_id = self.cols[index.column()-1]
                 pd = parm_defz.get(col_id)
                 if pd:
                     if pd['context_type'] == 'descriptive':
                         pval = get_pval(node.obj.oid,
-                                        self.cols[index.column()-1])
+                                        self.cols[index.column()])
                     elif pd['context_type'] == 'prescriptive':
                         oid = getattr(node.link, 'oid', None)
                         if oid:
                             pval = get_pval(node.link.oid,
-                                            self.cols[index.column()-1])
+                                            self.cols[index.column()])
                         else:
                             pval = '-'
                     else:
                         # base parameter (no context)
                         pval = get_pval(node.obj.oid,
-                                        self.cols[index.column()-1])
+                                        self.cols[index.column()])
                     if isinstance(pval, (int, float)) and pval <= 0:
                         return self.RED_BRUSH
                     else:
@@ -717,13 +720,14 @@ class SystemTreeModel(QAbstractItemModel):
     def headerData(self, section, orientation, role):
         if (orientation == Qt.Horizontal and
             role == Qt.DisplayRole):
-            if self.cols and len(self.cols) > section-1:
+            if self.cols and len(self.cols) > section:
                 if section == 0:
                     return QVariant('System')
                 else:
-                    return QVariant(self.get_header(self.cols[section-1]))
+                    return QVariant(self.get_header(self.cols[section]))
             else:
-                return self.root.name
+                # return self.root.name
+                return QVariant('System')
         elif role == Qt.ToolTipRole:
             if section == 0:
                 return 'System or component identifier'
@@ -1124,7 +1128,7 @@ class SystemTreeView(QTreeView):
         self.setHeaderHidden(True)
         cols = self.source_model.cols
         if cols:
-            for i in range(1, len(cols)+1):
+            for i in range(1, len(cols)):
                 self.hideColumn(i)
         self.setSelectionMode(self.SingleSelection)
         self.setDragDropMode(QAbstractItemView.DragDrop)

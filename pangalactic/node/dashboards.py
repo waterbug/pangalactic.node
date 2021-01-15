@@ -290,7 +290,7 @@ class SystemDashboard(QTreeView):
             else:
                 prefs['dashboard_names'].append(dash_name)
             state['dashboard_name'] = dash_name
-            dispatcher.send(signal='dashboard mod')
+            dispatcher.send(signal='refresh tree and dash')
 
     def set_as_pref_dashboard(self):
         """
