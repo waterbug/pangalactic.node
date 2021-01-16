@@ -19,8 +19,8 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMessageBox,
 # pangalactic
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.parametrics import (de_defz, get_dval_as_str, get_pval,
-                                          get_pval_as_str, parm_defz)
+from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
+                                          get_pval, get_pval_as_str, parm_defz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
@@ -532,10 +532,10 @@ class SystemTreeModel(QAbstractItemModel):
         orb.log.debug('* removeColumn({})'.format(position))
         self.beginRemoveColumns(parent, position, position)
         success = True
-        if position < 0 or position >= len(self.cols) - 1:
+        if position < 0 or position > len(self.cols) - 1:
             success = False
         dashboard_name = state.get('dashboard_name', 'MEL')
-        pid = self.cols[position + 1]
+        pid = self.cols[position]
         prefs['dashboards'][dashboard_name].remove(pid)
         s = 'prefs["dashboards"]["{}"]'.format(dashboard_name)
         log_msg = '  - column "{}" removed from {}'
@@ -642,36 +642,39 @@ class SystemTreeModel(QAbstractItemModel):
                             return get_dval_as_str(node.obj.oid, col_id,
                                                    units=units)
                     else:
-                        return node.name
+                        return ''
             else:
                 return node.name
         if role == Qt.ForegroundRole:
             if index.column() == 0:
                 return self.BRUSH
             elif self.cols and len(self.cols) > index.column() > 0:
-                col_id = self.cols[index.column()-1]
+                col_id = self.cols[index.column()]
                 pd = parm_defz.get(col_id)
+                de_def = de_defz.get(col_id)
                 if pd:
                     if pd['context_type'] == 'descriptive':
-                        pval = get_pval(node.obj.oid,
-                                        self.cols[index.column()])
+                        pval = get_pval(node.obj.oid, col_id)
                     elif pd['context_type'] == 'prescriptive':
                         oid = getattr(node.link, 'oid', None)
                         if oid:
-                            pval = get_pval(node.link.oid,
-                                            self.cols[index.column()])
+                            pval = get_pval(node.link.oid, col_id)
                         else:
                             pval = '-'
                     else:
                         # base parameter (no context)
-                        pval = get_pval(node.obj.oid,
-                                        self.cols[index.column()])
+                        pval = get_pval(node.obj.oid, col_id)
                     if isinstance(pval, (int, float)) and pval <= 0:
                         return self.RED_BRUSH
                     else:
                         return self.BRUSH
+                elif de_def:
+                    dval = get_dval(node.obj.oid, col_id, units=units)
+                    if isinstance(dval, (int, float)) and dval <= 0:
+                        return self.RED_BRUSH
+                    else:
+                        return self.BRUSH
                 else:
-                    # data element, not a parameter
                     return self.BRUSH
             else:
                 return self.BRUSH

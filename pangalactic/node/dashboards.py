@@ -220,6 +220,26 @@ class SystemDashboard(QTreeView):
                 event.ignore()
                 orb.log.info(f'* Parameter drop event: ignoring "{pid}" -- '
                              "we already got one, it's verra nahss!")
+        elif event.mimeData().hasFormat(
+            "application/x-pgef-data-element-definition"):
+            orb.log.info("* dropEvent: got data element")
+            data = extract_mime_data(event,
+                             "application/x-pgef-data-element-definition")
+            icon, ded_oid, deid, de_name, ded_cname = data
+            orb.log.info(f'* DE drop event: "{de_name}" ("{deid}")')
+            dash_name = state.get('dashboard_name', 'unnamed')
+            state['dashboard_name'] = dash_name
+            if not dash_name in prefs['dashboard_names']:
+                prefs['dashboard_names'].append(dash_name)
+            if deid not in prefs['dashboards'][dash_name]:
+                orb.log.info(f'  adding column for "{deid}" ...')
+                prefs['dashboards'][dash_name].append(deid)
+                dispatcher.send(signal='refresh tree and dash')
+                event.accept()
+            else:
+                event.ignore()
+                orb.log.info(f'* Data Element drop event: ignoring "{deid}"'
+                             " -- we already got one, it's verra nahss!")
         else:
             # ignore anything else
             event.ignore()
