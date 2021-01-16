@@ -23,8 +23,7 @@ from pangalactic.core.access import get_perms, is_global_admin
 # NOTE:  PGXN_PARAMETERS does not seem to be needed here ...
 from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
                                    PGXN_MASK, PGXN_PLACEHOLDERS, PGXN_VIEWS,
-                                   PGXN_REQD, SELECTABLE_VALUES,
-                                   SELECTION_FILTERS)
+                                   PGXN_REQD, SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           data_elementz, de_defz,
                                           delete_parameter,
@@ -1308,6 +1307,17 @@ class PgxnObject(QDialog):
             notice.setInformativeText('<p><ul>{}</ul></p>'.format('\n'.join(
                                       ['<li><b>{}</b></li>'.format(p_id) for
                                       p_id in p_ids])))
+            notice.show()
+            return
+        elif getattr(self.obj, 'created_objects', None):
+            txt = 'This Person cannot be deleted:\n'
+            txt += 'they have created object(s) which must be deleted first:'
+            notice = QMessageBox(QMessageBox.Warning, 'Cannot Delete', txt,
+                                 QMessageBox.Ok, self)
+            ids = [obj.id for obj in self.obj.created_objects]
+            notice.setInformativeText('<p><ul>{}</ul></p>'.format('\n'.join(
+                                      ['<li><b>{}</b></li>'.format(obj_id)
+                                       for obj_id in ids])))
             notice.show()
             return
         txt = ('This will permanently delete the object -- '
