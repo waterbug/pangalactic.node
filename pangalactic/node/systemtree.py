@@ -669,6 +669,7 @@ class SystemTreeModel(QAbstractItemModel):
                     else:
                         return self.BRUSH
                 elif de_def:
+                    units = prefs['units'].get(de_def.get('dimensions')) or ''
                     dval = get_dval(node.obj.oid, col_id, units=units)
                     if isinstance(dval, (int, float)) and dval <= 0:
                         return self.RED_BRUSH
