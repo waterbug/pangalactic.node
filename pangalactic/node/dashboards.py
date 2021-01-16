@@ -84,9 +84,11 @@ class SystemDashboard(QTreeView):
         no_row_colors_action = QAction('clear row colors', dash_header)
         no_row_colors_action.triggered.connect(self.set_no_colors)
         dash_header.addAction(no_row_colors_action)
-        customize_columns_action = QAction('customize columns', dash_header)
-        customize_columns_action.triggered.connect(self.customize_columns)
-        dash_header.addAction(customize_columns_action)
+        ## NOTE: "customize columns" is currently deactivated in favor of
+        ## drag/drop of parameters / data elements from library to add columns
+        # customize_columns_action = QAction('customize columns', dash_header)
+        # customize_columns_action.triggered.connect(self.customize_columns)
+        # dash_header.addAction(customize_columns_action)
         delete_columns_action = QAction('delete columns', dash_header)
         delete_columns_action.triggered.connect(self.delete_columns)
         dash_header.addAction(delete_columns_action)
@@ -190,20 +192,36 @@ class SystemDashboard(QTreeView):
                 prefs['dashboard_names'].append(dash_name)
             if pd_id not in prefs['dashboards'][dash_name]:
                 orb.log.info('[Dashboard] New parameter dropped -- adding '
-                             'column for "{}" ...')
+                             f'column for "{pd_id}" ...')
                 # if dropped PD is not in columns, add it
                 prefs['dashboards'][dash_name].append(pd_id)
-                orb.log.info('            '
-                             'sending "dashboard column added" signal ...')
+                # orb.log.debug('sending "dashboard mod" signal ...')
                 # this will trigger refresh_tree_and_dashboard() in pangalaxian
                 # (tree has to be rebuilt because columns are in model)
-                dispatcher.send(signal='dashboard mod')
+                dispatcher.send(signal='refresh tree and dash')
+                event.accept()
             else:
-                orb.log.info(
-                    "[Dashboard] Parameter drop event: ignoring '{}': "
-                    "we already got one, it's verra nahss!".format(pd_id))
+                event.ignore()
+                orb.log.info(f'* Parameter drop event: ignoring "{pd_id}" -- '
+                             "we already got one, it's verra nahss!")
+        elif event.mimeData().hasFormat("application/x-pgef-parameter-id"):
+            pid = extract_mime_data(event, "application/x-pgef-parameter-id")
+            dash_name = state.get('dashboard_name', 'unnamed')
+            state['dashboard_name'] = dash_name
+            if not dash_name in prefs['dashboard_names']:
+                prefs['dashboard_names'].append(dash_name)
+            if pid not in prefs['dashboards'][dash_name]:
+                orb.log.info('[Dashboard] New parameter dropped -- adding '
+                             f'column for "{pid}" ...')
+                prefs['dashboards'][dash_name].append(pid)
+                dispatcher.send(signal='refresh tree and dash')
+                event.accept()
+            else:
+                event.ignore()
+                orb.log.info(f'* Parameter drop event: ignoring "{pid}" -- '
+                             "we already got one, it's verra nahss!")
         else:
-            # ignore anything that's not parameter-definition
+            # ignore anything else
             event.ignore()
 
     def set_units(self):
