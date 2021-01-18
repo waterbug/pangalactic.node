@@ -69,7 +69,7 @@ class PgxnForm(QWidget):
     """
     def __init__(self, obj, form_type, pgxo=None, view=None, requireds=None,
                  main_view=None, mask=None, unmask=None, seq=None, idvs=None,
-                 placeholders=None, parent=None):
+                 placeholders=None, data_panel_contents=None, parent=None):
         """
         Initialize.
 
@@ -88,7 +88,8 @@ class PgxnForm(QWidget):
                 (default: None)
             unmask (list of str):  list of fields to be editable which are not
                 editable by default (default: None)
-            seq (int):  sequence number of parameter panel in pgxnobject
+            seq (int):  sequence number of parameter or data panel in
+                pgxnobject
             idvs (list of tuples):  list of current (`id`, `version`) values to
                 avoid
             placeholders (dict of str):  a dict mapping field names to
@@ -110,10 +111,9 @@ class PgxnForm(QWidget):
         schema = orb.schemas.get(cname)
         field_names = [n for n in schema.get('field_names')
                        if n not in PGXN_MASK.get(cname, PGXN_HIDE)]
-        self.form_type = 'data'
         # if form_type is "data", accept drops of data element ids -- drops of
         # parameter ids are only accepted by the ParameterForm subclass
-        if self.form_type == 'data':
+        if form_type == 'data':
             self.setAcceptDrops(True)
             self.accepted_mime_types = set([
                              "application/x-pgef-data-element-definition"])
@@ -157,7 +157,7 @@ class PgxnForm(QWidget):
             # special case for parameters panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            # orb.log.info('* [pgxnobj] building "parameters" form ...')
+            orb.log.info('* [pgxnobj] building "parameters" form ...')
             base_ids = orb.get_ids(cname='ParameterDefinition')
             contingencies = [get_parameter_id(p, 'Ctgcy') for p in base_ids]
             parmz = parameterz.get(obj.oid, {})
@@ -166,27 +166,27 @@ class PgxnForm(QWidget):
                          if not parm_defz[pid].get('computed')
                          or pid in contingencies]
             if pids:
-                # orb.log.info('* [pgxnobj] parameters found: {}'.format(
-                                                            # str(pids)))
+                orb.log.info('* [pgxnobj] parameters found: {}'.format(
+                                                            str(pids)))
                 computed_note = False
                 editables = [pid for pid in pids if pid in editables]
                 computeds = [pid for pid in pids if pid not in editables]
                 p_ordering = [pid for pid in editables + computeds
                               if pid not in contingencies]
-                # orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
-                                                            # str(p_ordering)))
+                orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
+                                                            str(p_ordering)))
                 if seq is None:
-                    # orb.log.debug('  seq is None; all parameters on one page.')
+                    orb.log.debug('  seq is None; all parameters on one page.')
                     pids_on_panel = p_ordering
                 else:
-                    # orb.log.debug('  seq is {}'.format(str(seq)))
+                    orb.log.debug('  seq is {}'.format(str(seq)))
                     # NOTE:  'seq' is a 1-based sequence
-                    # orb.log.debug('  parameters found: {}'.format(
-                                                        # str(pids)))
+                    orb.log.debug('  parameters found: {}'.format(
+                                                        str(pids)))
                     pids_on_panel = p_ordering[
                                             (seq-1)*PARMS_NBR : seq*PARMS_NBR]
-                    # orb.log.debug('  parameters on this panel: {}'.format(
-                                                          # str(pids_on_panel)))
+                    orb.log.debug('  parameters on this panel: {}'.format(
+                                                          str(pids_on_panel)))
                 for pid in pids_on_panel:
                     field_name = pid
                     parm = parmz[pid] or {}
@@ -313,25 +313,26 @@ class PgxnForm(QWidget):
             # special case for data panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            # orb.log.info('* [pgxnobj] building "data" form ...')
+            orb.log.info('* [pgxnobj] building "data" form ...')
             de_dict = data_elementz.get(obj.oid, {})
             deids = sorted(list(de_dict))
             if deids:
-                # orb.log.info('* [pgxnobj] data elements found: {}'.format(
-                                                            # str(deids)))
+                orb.log.info('* [pgxnobj] data elements found: {}'.format(
+                                                            str(deids)))
                 if seq is None:
-                    # orb.log.debug('  seq is None; all parameters on one page.')
+                    orb.log.debug('  seq is None; only one "data" page.')
                     deids_on_panel = deids
                 else:
-                    # orb.log.debug('  seq is {}'.format(str(seq)))
+                    orb.log.debug('  seq is {}'.format(str(seq)))
                     # NOTE:  'seq' is a 1-based sequence
-                    # orb.log.debug('  data elements found: {}'.format(
-                                                        # str(deids)))
-                    deids_on_panel = deids[(seq-1)*PARMS_NBR : seq*PARMS_NBR]
-                    # orb.log.debug('  data elements on this panel: {}'.format(
-                                                          # str(pids_on_panel)))
+                    orb.log.debug('  data elements found: {}'.format(
+                                                        str(deids)))
+                    # deids_on_panel = deids[(seq-1)*PARMS_NBR : seq*PARMS_NBR]
+                    deids_on_panel = data_panel_contents[seq-1]
+                    orb.log.debug('  data elements on this panel: {}'.format(
+                                                          str(deids_on_panel)))
                 for deid in deids_on_panel:
-                    # orb.log.debug('* getting data element "{}"'.format(deid))
+                    orb.log.debug('* getting data element "{}"'.format(deid))
                     field_name = deid
                     ded = de_defz[deid]
                     ext_name = ded.get('name', '') or '[unknown]'
@@ -344,7 +345,7 @@ class PgxnForm(QWidget):
                     definition = (ded.get('description', '')
                                   or 'unknown definition')
                     str_val = get_dval_as_str(self.obj.oid, deid)
-                    # orb.log.debug('  value: "{}"'.format(str_val))
+                    orb.log.debug('  value: "{}"'.format(str_val))
                     widget, label = get_widget(field_name, field_type,
                                                value=str_val,
                                                external_name=ext_name,
@@ -376,7 +377,7 @@ class PgxnForm(QWidget):
                         # orb.log.debug('* [pgxnobj] size hint: %s' % str(
                                                     # widget.sizeHint()))
             else:
-                # orb.log.info('* [pgxnobj] no data elements found.')
+                orb.log.info('* [pgxnobj] no data elements found.')
                 label = QLabel('No data elements have been specified yet.')
                 label.setStyleSheet('font-weight: bold')
                 form.addRow(label)
@@ -1120,16 +1121,33 @@ class PgxnObject(QDialog):
             de_dict = data_elementz.get(self.obj.oid, {})
             deids = sorted(list(de_dict))
             orb.log.debug('  [pgxnobj] data elements: {}'.format(deids))
+            data_panel_contents = []
             if len(deids) > PARMS_NBR:
-                n_of_des = len(deids)
-                # allow PARMS_NBR data elements to a panel ...
-                n_of_data_panels = int(math.ceil(
-                                       float(n_of_des)/float(PARMS_NBR)))
+                # pre-define the contents of the data panels ...
+                des = []
+                n = 0
+                for deid in deids:
+                    de_type = de_defz.get(deid, {}).get('range_datatype')
+                    if de_type == 'text':
+                        n += 2
+                    else:
+                        n += 1
+                    if n < PARMS_NBR:
+                        des.append(deid)
+                    else:
+                        data_panel_contents.append(des)
+                        des = [deid]
+                        n = 1
+                    # if we get to the end, make sure to include the last one
+                    if deid == deids[-1] and des not in data_panel_contents:
+                        data_panel_contents.append(des)
+                # number of allowed data elements on a panel depends on how
+                # many of the data elements are "text" (large text fields)
+                n_of_data_panels = len(data_panel_contents)
                 orb.log.debug('  [pgxnobj] data panels: {}'.format(
                                                         n_of_data_panels))
                 for i in range(n_of_data_panels):
-                    i += n_of_parm_panels
-                    tab_names.insert(i, 'data_{}'.format(i+1))
+                    tab_names.insert(n_of_parm_panels + i, f'data_{i+1}')
             else:
                 tab_names.insert(n_of_parm_panels, 'data')
         # destroy button box and current tab pages, if they exist
@@ -1160,7 +1178,7 @@ class PgxnObject(QDialog):
         for tab_name in tab_names:
             # The purpose of the tabs is to split the class's fields up so it
             # is not necessary to scroll at all.
-            # TODO:  add more tabs if necessary
+            # TODO:  wrap tabs if necessary
             # The basic algorithm is steps [1], [2], and [3] below ...
             # TODO:  a 'prefs' capability to override MAIN_VIEWS.
             if tab_name.startswith('parms'):
@@ -1172,6 +1190,17 @@ class PgxnObject(QDialog):
                 setattr(self, tab_name+'_tab',
                         ParameterForm(self.obj, pgxo=self, view=self.view,
                                       mask=self.mask, seq=n, parent=self))
+            elif tab_name.startswith('data'):
+                sufs = ('1', '2', '3', '4', '5', '6', '7', '8', '9')
+                if tab_name.endswith(sufs):
+                    n = int(tab_name[-1])
+                else:
+                    n = None
+                setattr(self, tab_name+'_tab',
+                        PgxnForm(self.obj, 'data', pgxo=self, view=self.view,
+                                 mask=self.mask, seq=n,
+                                 data_panel_contents=data_panel_contents,
+                                 parent=self))
             else:
                 setattr(self, tab_name+'_tab',
                         PgxnForm(self.obj, tab_name, pgxo=self, view=self.view,
@@ -1253,7 +1282,11 @@ class PgxnObject(QDialog):
         self.vbox.addWidget(self.bbox)
         self.create_connections()
         self.tabs.setCurrentIndex(self.go_to_tab)
-        self.adjustSize()
+        # self.adjustSize()
+        if len(tab_names) > 7:
+            # if there are more than 7 tabs, add width for each extra tab
+            new_width = 500 + 80 * (len(tab_names) - 7)
+            self.resize(new_width, self.height())
 
     def on_close(self):
         self.close()

@@ -4267,16 +4267,8 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
             state['last_path'] = os.path.dirname(fpath)
-            # serialize all database objects
-            s_objs = serialize(orb, orb.get_all_subtypes('Identifiable'),
-                               include_refdata=True)
-            f = open(fpath, 'w')
-            f.write(yaml.safe_dump(s_objs, default_flow_style=False))
-            f.close()
-            orb.log.debug('    {} db objects written.'.format(len(s_objs)))
-            txt = '... all {} DB objects exported to file: {}'.format(
-                                                            len(s_objs), fpath)
-            self.statusbar.showMessage(txt)
+            orb.dump_db(fpath=fpath)
+            self.statusbar.showMessage('All DB objects exported to file.')
         else:
             orb.log.debug('  db export cancelled.')
             self.statusbar.showMessage('DB export cancelled.')
