@@ -143,8 +143,8 @@ class LibraryListModel(QAbstractListModel):
 
 class LibraryListView(QListView):
     """
-    Generic QListView-style View -- designed particularly to support the
-    DataElementDefinition library.
+    Generic QListView-style View -- initially designed particularly to support
+    the Parameter library, for which a table view is now used.
     """
     def __init__(self, cname, include_subtypes=True, draggable=True,
                  icon_size=None, parent=None):
@@ -395,6 +395,13 @@ class LibraryListWidget(QWidget):
         elif cname == 'ParameterDefinition':
             select_label = 'Parameters'
             widget = ParmDefTreeView(parent=self)
+        elif cname == 'DataElementDefinition':
+            select_label = 'Data Elements'
+            view = ['id', 'range_datatype', 'name']
+            widget = FilterPanel(None, view=view, as_library=True,
+                                 cname=cname, label=select_label,
+                                 min_width=min_width,
+                                 parent=self)
         elif cname == 'Person':
             select_label = 'People'
             view = ['id', 'last_name', 'first_name', 'org']

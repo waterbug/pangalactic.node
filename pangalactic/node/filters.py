@@ -323,6 +323,17 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
             return str(lvalue).lower() < str(rvalue).lower()
 
+    def data(self, index, role):
+        if role == Qt.ToolTipRole:
+            model = self.sourceModel()
+            if (getattr(model, 'objs', None) and index.row() < len(model.objs)
+                and hasattr(model.objs[0], 'description')):
+                model_idx = self.mapToSource(index)
+                return model.objs[model_idx.row()].description or ''
+            else:
+                return ''
+        return super().data(index, role)
+
     def headerData(self, section, orientation, role):
         if (orientation == Qt.Horizontal and
             role == Qt.DisplayRole and
@@ -494,10 +505,9 @@ class FilterPanel(QWidget):
                 self.objs = [orb.get('pgefobjects:TBD')]
                 self.cname = 'Product'
         if self.cname:
-            # if objects are
             schema = orb.schemas[self.cname]
-            if prefs.get('views', {}).get(self.cname):
-                # if there is a preferred view, ignore the provided view
+            if not view and prefs.get('views', {}).get(self.cname):
+                # if no view is provided and there is a preferred view, use it
                 view = prefs['views'][self.cname]
             else:
                 view = view or MAIN_VIEWS.get(self.cname,

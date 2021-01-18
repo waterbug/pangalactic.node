@@ -1274,6 +1274,8 @@ class Main(QtWidgets.QMainWindow):
             cname = obj.__class__.__name__
             if isinstance(obj, orb.classes['ParameterDefinition']):
                 need_to_refresh_libraries.append('ParameterDefinition')
+            elif isinstance(obj, orb.classes['DataElementDefinition']):
+                need_to_refresh_libraries.append('DataElementDefinition')
             elif isinstance(obj, orb.classes['HardwareProduct']):
                 need_to_refresh_libraries.append('HardwareProduct')
                 need_to_refresh_diagram = True
