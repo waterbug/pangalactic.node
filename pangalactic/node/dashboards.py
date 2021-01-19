@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import QAction, QDialog, QMessageBox, QTreeView
 
 # pangalactic
 from pangalactic.core             import prefs, state
-from pangalactic.core.parametrics import de_defz, parm_defz
+from pangalactic.core.parametrics import parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.utils       import extract_mime_data
 from pangalactic.node.dialogs     import (CustomizeColsDialog,
@@ -84,11 +84,11 @@ class SystemDashboard(QTreeView):
         no_row_colors_action = QAction('clear row colors', dash_header)
         no_row_colors_action.triggered.connect(self.set_no_colors)
         dash_header.addAction(no_row_colors_action)
-        ## NOTE: "customize columns" is currently deactivated in favor of
-        ## drag/drop of parameters / data elements from library to add columns
-        # customize_columns_action = QAction('customize columns', dash_header)
-        # customize_columns_action.triggered.connect(self.customize_columns)
-        # dash_header.addAction(customize_columns_action)
+        prescriptive_parms_action = QAction('select prescriptive parameters',
+                                            dash_header)
+        prescriptive_parms_action.triggered.connect(
+                                            self.select_prescriptive_parms)
+        dash_header.addAction(prescriptive_parms_action)
         delete_columns_action = QAction('delete columns', dash_header)
         delete_columns_action.triggered.connect(self.delete_columns)
         dash_header.addAction(delete_columns_action)
@@ -288,25 +288,43 @@ class SystemDashboard(QTreeView):
                     for column in range(model.columnCount()):
                         self.resizeColumnToContents(column)
 
-    def customize_columns(self):
+    def select_prescriptive_parms(self):
         """
-        Dialog displayed in response to 'customize columns' context menu item.
+        Dialog displayed in response to 'select prescriptive parameters'
+        context menu item.
         """
+        parm_contexts = orb.search_exact(cname='ParameterContext',
+                                         context_type='prescriptive')
+        prescriptive_contexts = [obj.id for obj in parm_contexts]
+        all_pids = sorted(list(parm_defz))
+        prescriptive_pids = [pid for pid in all_pids
+                             if parm_defz[pid]['context']
+                             in prescriptive_contexts]
         current_pids = prefs['dashboards'][state['dashboard_name']][:]
-        dlg = CustomizeColsDialog(cols=current_pids, parent=self)
+        current_prescriptives = [pid for pid in current_pids
+                                 if pid in prescriptive_pids]
+        dlg = CustomizeColsDialog(title="Select Prescriptive Parameters",
+                                  cols=current_prescriptives,
+                                  selectables=prescriptive_pids,
+                                  parent=self)
         if dlg.exec_() == QDialog.Accepted:
-            all_pids = list(parm_defz) + list(de_defz)
             model = self.model().sourceModel()
             cols_to_delete = []
+            # delete any prescriptive pids that are not checked
             for pid in current_pids:
-                if not dlg.checkboxes[pid].isChecked():
+                if (pid in prescriptive_pids
+                    and not dlg.checkboxes[pid].isChecked()):
                     cols_to_delete.append(pid)
             if cols_to_delete:
                 model.delete_columns(cols=cols_to_delete)
             current_pids = prefs['dashboards'][state['dashboard_name']][:]
+            # insert any prescriptive pids that are not in the current columns
+            # but are checked
             cols_to_insert = []
-            for pid in all_pids:
-                if dlg.checkboxes[pid].isChecked() and pid not in current_pids:
+            for pid in prescriptive_pids:
+                if (pid in dlg.checkboxes
+                    and dlg.checkboxes[pid].isChecked()
+                    and pid not in current_pids):
                     cols_to_insert.append(pid)
             if cols_to_insert:
                 for pid in cols_to_insert:

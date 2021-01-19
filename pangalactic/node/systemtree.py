@@ -1048,7 +1048,7 @@ class SystemTreeModel(QAbstractItemModel):
         else:
             dashboard_name = state.get('dashboard_name', 'MEL')
             prefs['dashboards'][dashboard_name].append(element_id)
-            success = self.insertColumn(len(self.cols))
+            success = self.insertColumn(len(self.cols)-1)
             if success:
                 orb.log.debug('  - success')
                 orb.log.debug('    self.cols is now: "{}"'.format(str(self.cols)))

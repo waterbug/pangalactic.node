@@ -173,9 +173,18 @@ class ParmDefTreeModel(QAbstractItemModel):
         # must use the case-dependent sort (which is the default sort) so that
         # (for example) "V" (voltage) and "v" (velocity) parameters are grouped
         # separately
+        # NOTE:  parameters in "prescriptive" contexts are excluded, since it
+        # is not appropriate to assign them to products, only to usages --
+        # prescriptive parameters are used solely in defining constraints for
+        # use in performance requirements.  They can be added as columns in
+        # dashboards but it is not meaningful to assign them to products.
+        parm_contexts = orb.search_exact(cname='ParameterContext',
+                                         context_type='prescriptive')
+        prescriptive_contexts = [obj.id for obj in parm_contexts]
         pids = sorted(list(parm_defz))
         selectable_pids = [pid for pid in pids
-                           if not pid.endswith('[Ctgcy]')]
+                           if not (pid.endswith('[Ctgcy]') or
+                           parm_defz[pid]['context'] in prescriptive_contexts)]
         for pid in selectable_pids:
             if pid == parm_defz[pid]['variable']:
                 # child of the root_item and becomes the current parent

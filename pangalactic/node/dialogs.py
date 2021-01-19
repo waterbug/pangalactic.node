@@ -514,19 +514,23 @@ class SelectColsDialog(QDialog):
 class CustomizeColsDialog(QDialog):
     """
     Dialog for selecting columns for the dashboard.
+
+    Keyword Args:
+        cols (list of str): names of current columns
     """
-    def __init__(self, cols=None, parent=None):
+    def __init__(self, title=None, cols=None, selectables=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Select Columns")
+        title = title or "Select Columns"
+        self.setWindowTitle(title)
         self.setStyleSheet('QToolTip { font-weight: normal; font-size: 12px; '
                            'color: black; background: white;};')
         cols = cols or []
         self.checkboxes = {}
-        all_pids = list(de_defz) + list(parm_defz)
-        all_pids.sort()
-        names = self.get_col_names(all_pids)
-        nbr_of_cols = len(all_pids) // 40
-        if len(all_pids) % 40:
+        selectables = selectables or []
+        selectables.sort()
+        names = self.get_col_names(selectables)
+        nbr_of_cols = len(selectables) // 40
+        if len(selectables) % 40:
             nbr_of_cols += 1
         form = QFormLayout()
         subforms = []
@@ -536,7 +540,7 @@ class CustomizeColsDialog(QDialog):
         hbox.addLayout(form)
         for subform in subforms:
             hbox.addLayout(subform)
-        for i, pid in enumerate(all_pids):
+        for i, pid in enumerate(selectables):
             label = QLabel(names[i], self)
             col_def = de_defz.get(pid) or parm_defz.get(pid)
             if col_def:
