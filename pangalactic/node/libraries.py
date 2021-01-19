@@ -398,9 +398,20 @@ class LibraryListWidget(QWidget):
         elif cname == 'DataElementDefinition':
             select_label = 'Data Elements'
             view = ['id', 'range_datatype', 'name']
+            # exclude DEs that are only computed for the MEL -- this is kludgy:
+            # identify them by oid endings (same as id endings)
+            ded_objs = orb.get_by_type('DataElementDefinition')
+            excluded_oids = [o.oid for o in ded_objs
+                             if (o.oid.endswith('_cbe') or
+                                 o.oid.endswith('_mev') or
+                                 o.oid.endswith('assembly_level') or
+                                 o.oid.endswith('_units') or
+                                 o.oid.endswith('_spares') or
+                                 o.oid.endswith('_ctgcy'))]
             widget = FilterPanel(None, view=view, as_library=True,
                                  cname=cname, label=select_label,
                                  min_width=min_width,
+                                 excluded_oids=excluded_oids,
                                  parent=self)
         elif cname == 'Person':
             select_label = 'People'
