@@ -35,8 +35,7 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           set_pval_from_str)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, ureg
-from pangalactic.core.utils.meta  import (get_attr_ext_name,
-                                          get_data_element_definition_oid)
+from pangalactic.core.utils.meta  import get_attr_ext_name
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import validate_all
 from pangalactic.node.buttons     import SizedButton
@@ -157,7 +156,7 @@ class PgxnForm(QWidget):
             # special case for parameters panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            orb.log.info('* [pgxnobj] building "parameters" form ...')
+            # orb.log.info('* [pgxnobj] building "parameters" form ...')
             base_ids = orb.get_ids(cname='ParameterDefinition')
             contingencies = [get_parameter_id(p, 'Ctgcy') for p in base_ids]
             parmz = parameterz.get(obj.oid, {})
@@ -166,27 +165,27 @@ class PgxnForm(QWidget):
                          if not parm_defz[pid].get('computed')
                          or pid in contingencies]
             if pids:
-                orb.log.info('* [pgxnobj] parameters found: {}'.format(
-                                                            str(pids)))
+                # orb.log.info('* [pgxnobj] parameters found: {}'.format(
+                                                            # str(pids)))
                 computed_note = False
                 editables = [pid for pid in pids if pid in editables]
                 computeds = [pid for pid in pids if pid not in editables]
                 p_ordering = [pid for pid in editables + computeds
                               if pid not in contingencies]
-                orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
-                                                            str(p_ordering)))
+                # orb.log.info('  [pgxnobj] parameter ordering: {}'.format(
+                                                            # str(p_ordering)))
                 if seq is None:
-                    orb.log.debug('  seq is None; all parameters on one page.')
+                    # orb.log.debug('  seq is None; all parameters on one page.')
                     pids_on_panel = p_ordering
                 else:
-                    orb.log.debug('  seq is {}'.format(str(seq)))
+                    # orb.log.debug('  seq is {}'.format(str(seq)))
                     # NOTE:  'seq' is a 1-based sequence
-                    orb.log.debug('  parameters found: {}'.format(
-                                                        str(pids)))
+                    # orb.log.debug('  parameters found: {}'.format(
+                                                        # str(pids)))
                     pids_on_panel = p_ordering[
                                             (seq-1)*PARMS_NBR : seq*PARMS_NBR]
-                    orb.log.debug('  parameters on this panel: {}'.format(
-                                                          str(pids_on_panel)))
+                    # orb.log.debug('  parameters on this panel: {}'.format(
+                                                          # str(pids_on_panel)))
                 for pid in pids_on_panel:
                     field_name = pid
                     parm = parmz[pid] or {}
@@ -313,26 +312,25 @@ class PgxnForm(QWidget):
             # special case for data panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            orb.log.info('* [pgxnobj] building "data" form ...')
+            # orb.log.info('* [pgxnobj] building "data" form ...')
             de_dict = data_elementz.get(obj.oid, {})
             deids = sorted(list(de_dict))
             if deids:
-                orb.log.info('* [pgxnobj] data elements found: {}'.format(
-                                                            str(deids)))
+                # orb.log.info('* [pgxnobj] data elements found: {}'.format(
+                                                            # str(deids)))
                 if seq is None:
-                    orb.log.debug('  seq is None; only one "data" page.')
+                    # orb.log.debug('  seq is None; only one "data" page.')
                     deids_on_panel = deids
                 else:
-                    orb.log.debug('  seq is {}'.format(str(seq)))
+                    # orb.log.debug('  seq is {}'.format(str(seq)))
                     # NOTE:  'seq' is a 1-based sequence
-                    orb.log.debug('  data elements found: {}'.format(
-                                                        str(deids)))
-                    # deids_on_panel = deids[(seq-1)*PARMS_NBR : seq*PARMS_NBR]
+                    # orb.log.debug('  data elements found: {}'.format(
+                                                        # str(deids)))
                     deids_on_panel = data_panel_contents[seq-1]
-                    orb.log.debug('  data elements on this panel: {}'.format(
-                                                          str(deids_on_panel)))
+                    # orb.log.debug('  data elements on this panel: {}'.format(
+                                                        # str(deids_on_panel)))
                 for deid in deids_on_panel:
-                    orb.log.debug('* getting data element "{}"'.format(deid))
+                    # orb.log.debug('* getting data element "{}"'.format(deid))
                     field_name = deid
                     ded = de_defz[deid]
                     ext_name = ded.get('name', '') or '[unknown]'
@@ -345,7 +343,7 @@ class PgxnForm(QWidget):
                     definition = (ded.get('description', '')
                                   or 'unknown definition')
                     str_val = get_dval_as_str(self.obj.oid, deid)
-                    orb.log.debug('  value: "{}"'.format(str_val))
+                    # orb.log.debug('  value: "{}"'.format(str_val))
                     widget, label = get_widget(field_name, field_type,
                                                value=str_val,
                                                external_name=ext_name,
@@ -377,7 +375,7 @@ class PgxnForm(QWidget):
                         # orb.log.debug('* [pgxnobj] size hint: %s' % str(
                                                     # widget.sizeHint()))
             else:
-                orb.log.info('* [pgxnobj] no data elements found.')
+                # orb.log.info('* [pgxnobj] no data elements found.')
                 label = QLabel('No data elements have been specified yet.')
                 label.setStyleSheet('font-weight: bold')
                 form.addRow(label)
@@ -517,7 +515,7 @@ class PgxnForm(QWidget):
         # 'x-pgef-data-element-id' (just a string) in the future ...
         if self.edit_mode and event.mimeData().hasFormat(
             "application/x-pgef-data-element-definition"):
-            orb.log.info("* dropEvent: got data element")
+            # orb.log.info("* dropEvent: got data element")
             data = extract_mime_data(event,
                              "application/x-pgef-data-element-definition")
             icon, ded_oid, deid, de_name, ded_cname = data
@@ -534,8 +532,8 @@ class PgxnForm(QWidget):
                 self.pgxo.build_from_object()
             else:
                 event.ignore()
-                orb.log.info(f"* DE drop event: ignoring '{de_name}' -- "
-                             "we already got one, it's verra nahss!")
+                # orb.log.info(f"* DE drop event: ignoring '{de_name}' -- "
+                             # "we already got one, it's verra nahss!")
 
     def on_set_units(self):
         # orb.log.info('* [pgxnobj] setting units ...')
@@ -683,8 +681,8 @@ class ParameterForm(PgxnForm):
 
     def dragEnterEvent(self, event):
         mime_formats = set(event.mimeData().formats())
-        orb.log.info("* dragEnterEvent: mime types {}".format(
-                     str(mime_formats)))
+        # orb.log.info("* dragEnterEvent: mime types {}".format(
+                     # str(mime_formats)))
         if mime_formats & self.accepted_mime_types:
             event.accept()
         else:
@@ -720,9 +718,9 @@ class ParameterForm(PgxnForm):
                 self.pgxo.build_from_object()
             else:
                 event.ignore()
-                orb.log.info("* Parameter drop event: ignoring '%s' -- "
-                             "we already got one, it's verra nahss!"
-                             % pd_name)
+                # orb.log.info("* Parameter drop event: ignoring '%s' -- "
+                             # "we already got one, it's verra nahss!"
+                             # % pd_name)
         if self.edit_mode and event.mimeData().hasFormat(
             "application/x-pgef-parameter-id"):
             pid = extract_mime_data(event, "application/x-pgef-parameter-id")
@@ -739,8 +737,8 @@ class ParameterForm(PgxnForm):
                 self.pgxo.build_from_object()
             else:
                 event.ignore()
-                orb.log.info(f'* Parameter drop event: ignoring "{pid}" -- '
-                             "we already got one, it's verra nahss!")
+                # orb.log.info(f'* Parameter drop event: ignoring "{pid}" -- '
+                             # "we already got one, it's verra nahss!")
         else:
             event.ignore()
 
@@ -756,6 +754,9 @@ class PgxnObject(QDialog):
         component (bool):  if True, embedded in component modeler window
             (special behavior when deleting object, not used in other
             embedded modes)
+        disallowed_names (list of str):  a property containing all current
+            parameter and data element ids and names, used in validating the
+            contents of the "id" field in the editor
         embedded (bool):  if True, PgxnObject is embedded in another widget
         enable_delete (bool):  flag indicating whether a "Delete" button
             should be displayed when in edit mode (deletes object)
@@ -918,7 +919,7 @@ class PgxnObject(QDialog):
                         # only a global admin can "thaw"
                         self.thaw_action.setVisible(True)
                 else:
-                    orb.log.debug('            object is NOT frozen.')
+                    # orb.log.debug('            object is NOT frozen.')
                     self.frozen_action.setVisible(False)
                     self.freeze_action.setVisible(True)
                 # only users who can modify an object can create a new version
@@ -1075,6 +1076,17 @@ class PgxnObject(QDialog):
         self.build_from_object()
         self.on_edit()
 
+    @property
+    def disallowed_names(self):
+        """
+        List of lower-case versions of all "id" and "name" attributes of all
+        current ParameterDefinitions and DataElementDefinitions.
+        """
+        names = list(parm_defz) + list(de_defz)
+        names += [pd['name'] for pd in parm_defz.values()]
+        names += [ded['name'] for ded in de_defz.values()]
+        return [n.lower() for n in names]
+
     def build_from_object(self):
         """
         Build tabbed forms from the supplied object
@@ -1099,14 +1111,14 @@ class PgxnObject(QDialog):
             # contingencies are not used in calculating the number of
             # parameters on the panel, since they do not have separate rows
             pids = [p for p in parmz if p not in contingencies]
-            orb.log.debug('  [pgxnobj] parameters: {}'.format(pids))
+            # orb.log.debug('  [pgxnobj] parameters: {}'.format(pids))
             if len(pids) > PARMS_NBR:
                 n_of_parms = len(pids)
                 # allow PARMS_NBR parameters to a panel ...
                 n_of_parm_panels = int(math.ceil(
                                        float(n_of_parms)/float(PARMS_NBR)))
-                orb.log.debug('  [pgxnobj] parm panels: {}'.format(
-                                                        n_of_parm_panels))
+                # orb.log.debug('  [pgxnobj] parm panels: {}'.format(
+                                                        # n_of_parm_panels))
                 for i in range(n_of_parm_panels):
                     tab_names.insert(i, 'parms_{}'.format(i+1))
             else:
@@ -1120,7 +1132,7 @@ class PgxnObject(QDialog):
             # First find the data elements to be displayed for this object ...
             de_dict = data_elementz.get(self.obj.oid, {})
             deids = sorted(list(de_dict))
-            orb.log.debug('  [pgxnobj] data elements: {}'.format(deids))
+            # orb.log.debug('  [pgxnobj] data elements: {}'.format(deids))
             data_panel_contents = []
             if len(deids) > PARMS_NBR:
                 # pre-define the contents of the data panels ...
@@ -1144,8 +1156,8 @@ class PgxnObject(QDialog):
                 # number of allowed data elements on a panel depends on how
                 # many of the data elements are "text" (large text fields)
                 n_of_data_panels = len(data_panel_contents)
-                orb.log.debug('  [pgxnobj] data panels: {}'.format(
-                                                        n_of_data_panels))
+                # orb.log.debug('  [pgxnobj] data panels: {}'.format(
+                                                        # n_of_data_panels))
                 for i in range(n_of_data_panels):
                     tab_names.insert(n_of_parm_panels + i, f'data_{i+1}')
             else:
@@ -1282,11 +1294,42 @@ class PgxnObject(QDialog):
         self.vbox.addWidget(self.bbox)
         self.create_connections()
         self.tabs.setCurrentIndex(self.go_to_tab)
+        orb.log.debug('* [pgxnobj] editable_widgets: {}'.format(
+                                        str(list(self.editable_widgets))))
+        if 'id' in self.editable_widgets:
+            self.id_widget = self.editable_widgets['id']
+            self.id_widget.textEdited.connect(self.on_id_edited)
+        if 'name' in self.editable_widgets:
+            self.name_widget = self.editable_widgets['name']
+            self.name_widget.textEdited.connect(self.on_name_edited)
+
         # self.adjustSize()
         if len(tab_names) > 7:
             # if there are more than 7 tabs, add width for each extra tab
             new_width = 500 + 80 * (len(tab_names) - 7)
             self.resize(new_width, self.height())
+
+    def on_id_edited(self):
+        """
+        Handler for textEdited signal from the "id" field.
+        """
+        id_val = self.id_widget.text()
+        # orb.log.debug(f'* [pgxnobj] id = "{id_val}"')
+        if id_val.lower() in self.disallowed_names:
+            self.id_widget.setStyleSheet('color: red')
+        else:
+            self.id_widget.setStyleSheet('color: green')
+
+    def on_name_edited(self):
+        """
+        Handler for textEdited signal from the "name" field.
+        """
+        name = self.name_widget.text()
+        # orb.log.debug(f'* [pgxnobj] name = "{name}"')
+        if name.lower() in self.disallowed_names:
+            self.name_widget.setStyleSheet('color: red')
+        else:
+            self.name_widget.setStyleSheet('color: green')
 
     def on_close(self):
         self.close()
@@ -1423,6 +1466,27 @@ class PgxnObject(QDialog):
 
     def on_save(self):
         orb.log.info('* [pgxnobj] saving ...')
+        # immediately check for duplicate "id"
+        if self.new:
+            if 'id' in self.editable_widgets:
+                self.id_widget = self.editable_widgets['id']
+                id_value = self.id_widget.text()
+                if id_value.lower() in self.disallowed_names:
+                    msg = f'The id "{id_value}" is already being used.'
+                    notice = QMessageBox(QMessageBox.Warning, 'Duplicate ID',
+                                         msg, QMessageBox.Ok, self)
+                    notice.show()
+                    return
+            # also check for name collision with parameters or data elements
+            if 'name' in self.editable_widgets:
+                name_widget = self.editable_widgets['name']
+                name_value = name_widget.text()
+                if name_value.lower() in self.disallowed_names:
+                    msg = f'The name "{name_value}" is already being used.'
+                    notice = QMessageBox(QMessageBox.Warning, 'Duplicate Name',
+                                         msg, QMessageBox.Ok, self)
+                    notice.show()
+                    return
         cname = self.obj.__class__.__name__
         fields_dict = {}
         for name in self.editable_widgets:
@@ -1454,146 +1518,112 @@ class PgxnObject(QDialog):
         NOW = dtstamp()
         if caching_parameters:
             self.progress_dialog.setValue(1)
-        # TODO:  we are not allowing custom ParameterDefinitions any more --
-        # adapt this code to handle custom DataElementDefinitions
-        if cname == 'DataElementDefinition' and self.new:
-            new_id = str(self.editable_widgets['id'].get_value())
-            if new_id in de_defz:
-                # pop up a dialog warning that the id already exists
-                txt = '"{}" is already in use'.format(new_id)
-                notice = QMessageBox(QMessageBox.Warning, 'Duplicate', txt,
-                                     QMessageBox.Ok, self)
-                notice.show()
-                return
-            # create a new blank DED and destroy the temp one
-            temp_obj = self.obj
-            self.obj = clone('DataElementDefinition', id=new_id,
-                             oid=get_data_element_definition_oid(new_id))
-            orb.db.delete(temp_obj)
-            for name, val in fields_dict.items():
-                setattr(self.obj, name, val)
-                orb.log.info('  [pgxnobj] - {}: {}'.format(
-                                            name, val.__repr__()))
-            user_obj = orb.get(state.get('local_user_oid'))
-            self.obj.creator = user_obj
-            self.obj.modifier = user_obj
-            self.obj.create_datetime = NOW
-            self.obj.mod_datetime = NOW
-            orb.save([self.obj])
-            QApplication.processEvents()
-            parent = self.parent()
-            if parent:
-                parent.setFocus()
-            # orb.log.debug('  [pgxnobj] sending "new object" signal')
-            dispatcher.send(signal="new object", obj=self.obj,
-                            cname=cname)
+        for name, val in fields_dict.items():
+            setattr(self.obj, name, val)
+            # orb.log.debug('  [pgxnobj] - {}: {}'.format(
+                          # name, val.__repr__()))
+        # NOTE:  for new objects, save *ALL* parameters (they are new
+        # also); for existing objects, save only modified parameters
+        # if parameterz.get(self.obj.oid) and self.new:
+        if self.new:
+            for p_id in self.p_widgets:
+                # only non-computed parm widgets have 'get_value'
+                if hasattr(self.p_widgets[p_id], 'get_value'):
+                    str_val = self.p_widgets[p_id].get_value()
+                    set_pval_from_str(self.obj.oid, p_id, str_val)
+            for deid in self.d_widgets:
+                if hasattr(self.d_widgets[deid], 'get_value'):
+                    str_val = self.d_widgets[deid].get_value()
+                    set_dval_from_str(self.obj.oid, deid, str_val)
+        # elif parameterz.get(self.obj.oid):
         else:
-            for name, val in fields_dict.items():
-                setattr(self.obj, name, val)
-                # orb.log.debug('  [pgxnobj] - {}: {}'.format(
-                              # name, val.__repr__()))
-            # NOTE:  for new objects, save *ALL* parameters (they are new
-            # also); for existing objects, save only modified parameters
-            # if parameterz.get(self.obj.oid) and self.new:
-            if self.new:
-                for p_id in self.p_widgets:
-                    # only non-computed parm widgets have 'get_value'
-                    if hasattr(self.p_widgets[p_id], 'get_value'):
-                        str_val = self.p_widgets[p_id].get_value()
-                        set_pval_from_str(self.obj.oid, p_id, str_val)
-                for deid in self.d_widgets:
-                    if hasattr(self.d_widgets[deid], 'get_value'):
-                        str_val = self.d_widgets[deid].get_value()
-                        set_dval_from_str(self.obj.oid, deid, str_val)
-            # elif parameterz.get(self.obj.oid):
+            # if object is *not* new, save any modified data elements and
+            # parameters
+            for deid in self.d_widgets:
+                orb.log.debug('  - data element: "{}"'.format(deid))
+                if hasattr(self.d_widgets[deid], 'get_value'):
+                    str_val = self.d_widgets[deid].get_value()
+                    orb.log.debug('    writing val: "{}"'.format(str_val))
+                    set_dval_from_str(self.obj.oid, deid, str_val)
+            for p_id in self.p_widgets:
+                # if p is computed, its widget is a label (no 'get_value')
+                # DO NOT MODIFY units/values ... but:
+                # TODO:  set display units for all related parameters (same
+                #        variable) when user sets it for any one of them.
+                #        *AND* set it in user prefs for that parameter.
+                if hasattr(self.p_widgets[p_id], 'get_value'):
+                    str_val = self.p_widgets[p_id].get_value()
+                    # u_cur -> current units setting
+                    # (None if can't modify, which also means base units)
+                    u_cur = None
+                    if hasattr(self.u_widgets[p_id], 'currentText'):
+                        u_cur = self.u_widgets[p_id].currentText()
+                        # orb.log.debug('  - units widget set to {}'.format(
+                                                                    # u_cur))
+                    # set parameter values/units for ALL editable
+                    # parameters (faster/simpler than checking for mods)
+                    # orb.log.debug('  - setting {} to {} {}'.format(
+                                  # p_id, str_val, u_cur))
+                    set_pval_from_str(self.obj.oid, p_id, str_val,
+                                      units=u_cur)
+        if caching_parameters:
+            self.progress_dialog.setValue(2)
+        user_obj = orb.get(state.get('local_user_oid'))
+        if self.new:
+            self.obj.creator = user_obj
+            self.obj.create_datetime = NOW
+        self.obj.modifier = user_obj
+        self.obj.mod_datetime = NOW
+        if caching_parameters:
+            self.progress_value = 3
+            self.progress_dialog.setValue(self.progress_value)
+        # for instances of HardwareProduct, the last step is to generate
+        # an 'id': even if it is an existing object, its 'id' might change
+        # depending on its 'owner' and 'product_type' ... if the
+        # current id incorporates the owner.id and
+        # product_type.abbreviation in the correct format and is unique,
+        # gen_product_id will simply return it unaltered.
+        if isinstance(self.obj, orb.classes['HardwareProduct']):
+            generated_id = orb.gen_product_id(self.obj)
+            if not self.obj.id == generated_id:
+                self.obj.id = generated_id
+        orb.save([self.obj])
+        if self.new:
+            if cname == 'Project':
+                # orb.log.debug('  [pgxnobj] send "new project" signal')
+                dispatcher.send(signal="new project", obj=self.obj)
             else:
-                # if object is *not* new, save any modified data elements and
-                # parameters
-                for deid in self.d_widgets:
-                    orb.log.debug('  - data element: "{}"'.format(deid))
-                    if hasattr(self.d_widgets[deid], 'get_value'):
-                        str_val = self.d_widgets[deid].get_value()
-                        orb.log.debug('    writing val: "{}"'.format(str_val))
-                        set_dval_from_str(self.obj.oid, deid, str_val)
-                for p_id in self.p_widgets:
-                    # if p is computed, its widget is a label (no 'get_value')
-                    # DO NOT MODIFY units/values ... but:
-                    # TODO:  set display units for all related parameters (same
-                    #        variable) when user sets it for any one of them.
-                    #        *AND* set it in user prefs for that parameter.
-                    if hasattr(self.p_widgets[p_id], 'get_value'):
-                        str_val = self.p_widgets[p_id].get_value()
-                        # u_cur -> current units setting
-                        # (None if can't modify, which also means base units)
-                        u_cur = None
-                        if hasattr(self.u_widgets[p_id], 'currentText'):
-                            u_cur = self.u_widgets[p_id].currentText()
-                            # orb.log.debug('  - units widget set to {}'.format(
-                                                                        # u_cur))
-                        # set parameter values/units for ALL editable
-                        # parameters (faster/simpler than checking for mods)
-                        # orb.log.debug('  - setting {} to {} {}'.format(
-                                      # p_id, str_val, u_cur))
-                        set_pval_from_str(self.obj.oid, p_id, str_val,
-                                          units=u_cur)
-            if caching_parameters:
-                self.progress_dialog.setValue(2)
-            user_obj = orb.get(state.get('local_user_oid'))
-            if self.new:
-                self.obj.creator = user_obj
-                self.obj.create_datetime = NOW
-            self.obj.modifier = user_obj
-            self.obj.mod_datetime = NOW
-            if caching_parameters:
-                self.progress_value = 3
-                self.progress_dialog.setValue(self.progress_value)
-            # for instances of HardwareProduct, the last step is to generate
-            # an 'id': even if it is an existing object, its 'id' might change
-            # depending on its 'owner' and 'product_type' ... if the
-            # current id incorporates the owner.id and
-            # product_type.abbreviation in the correct format and is unique,
-            # gen_product_id will simply return it unaltered.
-            if isinstance(self.obj, orb.classes['HardwareProduct']):
-                generated_id = orb.gen_product_id(self.obj)
-                if not self.obj.id == generated_id:
-                    self.obj.id = generated_id
-            orb.save([self.obj])
-            if self.new:
-                if cname == 'Project':
-                    # orb.log.debug('  [pgxnobj] send "new project" signal')
-                    dispatcher.send(signal="new project", obj=self.obj)
-                else:
-                    # generic new object signal
-                    # orb.log.debug('  [pgxnobj] sending "new object" signal')
-                    dispatcher.send(signal="new object", obj=self.obj,
-                                    cname=cname)
-                # for new ProductType instances, create a
-                # 'DisciplineProductType' relating them to the
-                # catch-all "Engineering" discipline so they will be included
-                # in the "ALL" product types filter ...
-                if cname == 'ProductType':
-                    eng_discipline = orb.get(
-                                        'pgefobjects:Discipline.engineering')
-                    dpt = clone('DisciplineProductType',
-                                id='engineering_to_'+self.obj.id,
-                                used_in_discipline=eng_discipline,
-                                relevant_product_type=self.obj)
-                    orb.save([dpt])
-            else:
-                orb.log.debug('  [pgxnobj] send "modified object" signal')
-                dispatcher.send(signal="modified object", obj=self.obj,
+                # generic new object signal
+                # orb.log.debug('  [pgxnobj] sending "new object" signal')
+                dispatcher.send(signal="new object", obj=self.obj,
                                 cname=cname)
-                if isinstance(self.obj, orb.classes['Activity']):
-                    dispatcher.send(signal="modified activity",
-                                    activity=self.obj)
-            if caching_parameters:
-                QApplication.processEvents()
-                self.progress_dialog.setValue(progress_max)
-                self.progress_dialog.done(0)
-                self.progress_value = 0
-            parent = self.parent()
-            if parent:
-                parent.setFocus()
+            # for new ProductType instances, create a
+            # 'DisciplineProductType' relating them to the
+            # catch-all "Engineering" discipline so they will be included
+            # in the "ALL" product types filter ...
+            if cname == 'ProductType':
+                eng_discipline = orb.get(
+                                    'pgefobjects:Discipline.engineering')
+                dpt = clone('DisciplineProductType',
+                            id='engineering_to_'+self.obj.id,
+                            used_in_discipline=eng_discipline,
+                            relevant_product_type=self.obj)
+                orb.save([dpt])
+        else:
+            orb.log.debug('  [pgxnobj] send "modified object" signal')
+            dispatcher.send(signal="modified object", obj=self.obj,
+                            cname=cname)
+            if isinstance(self.obj, orb.classes['Activity']):
+                dispatcher.send(signal="modified activity",
+                                activity=self.obj)
+        if caching_parameters:
+            QApplication.processEvents()
+            self.progress_dialog.setValue(progress_max)
+            self.progress_dialog.done(0)
+            self.progress_value = 0
+        parent = self.parent()
+        if parent:
+            parent.setFocus()
         if getattr(self, 'closing', False):
             orb.log.debug('  [pgxnobj] saving and closing ...')
             # reset 'closing'

@@ -1509,6 +1509,12 @@ class Main(QtWidgets.QMainWindow):
                                     icon="new_doc",
                                     tip="Create a New Requirement",
                                     modes=["system"])
+        self.data_element_action = self.create_action(
+                                    "New Data Element",
+                                    slot=self.new_data_element,
+                                    icon="new_doc",
+                                    tip="Create a New Data Element",
+                                    modes=['system', 'component', 'db'])
         self.new_test_action = self.create_action(
                                     "New Test",
                                     slot=self.new_test,
@@ -1951,6 +1957,7 @@ class Main(QtWidgets.QMainWindow):
                               # self.new_product_type_action,
                               self.new_functional_requirement_action,
                               self.new_performance_requirement_action,
+                              self.data_element_action,
                               self.new_test_action]
         new_object_button = MenuButton(QtGui.QIcon(new_object_icon_path),
                                    text='Create',
@@ -3656,6 +3663,16 @@ class Main(QtWidgets.QMainWindow):
                 wizard.pgxn_obj.parent = None
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
+
+    def new_data_element(self):
+        # TODO:  Wizard for data element -- needed to check uniqueness of "id"
+        de_def = clone('DataElementDefinition')
+        panels = ['main', 'admin']
+        required = ['id', 'name', 'abbreviation', 'description',
+                    'range_datatype']
+        pxo = PgxnObject(de_def, edit_mode=True, new=True, modal_mode=True,
+                         required=required, panels=panels, parent=self)
+        pxo.show()
 
     def new_test(self):
         # TODO:  Wizard for Test?
