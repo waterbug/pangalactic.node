@@ -900,7 +900,7 @@ class SubjectBlock(Block):
 
             00: user permissions prohibit operation -> abort
             0: dropped item would cause a cycle -> abort
-            1: drop target is "TBD" -> disallow (SubjectBlock cannot be TBD
+            1: drop target is "TBD" -> disallow (SubjectBlock cannot be TBD)
             2: dropped item is a Product and
                drop target is a Product -> add a new component position
                with the dropped item as the new component
@@ -1192,6 +1192,7 @@ class SubjectBlock(Block):
                 self.scene().create_block(ObjectBlock, usage=new_acu)
                 dispatcher.send('new object', obj=new_acu)
                 dispatcher.send('modified object', obj=drop_target)
+                dispatcher.send('new diagram block', acu=new_acu)
                 self.rebuild_port_blocks()
             else:
                 orb.log.info("  - dropped product type oid not in db.")

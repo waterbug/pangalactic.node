@@ -44,7 +44,7 @@ class DiagramScene(QGraphicsScene):
         """
         super().__init__(parent)
         w = 1600
-        h = 2400
+        h = 4000
         self.setSceneRect(QRectF(0, 0, w, h))
         self.subject = subject
         self.line = None
