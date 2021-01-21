@@ -14,9 +14,9 @@ from textwrap import wrap
 from pangalactic.core            import state
 from pangalactic.core.meta       import TEXT_PROPERTIES, SELECTABLE_VALUES
 ### uncomment orb if debug logging is needed ...
-# from pangalactic.core.uberorb    import orb
+from pangalactic.core.uberorb    import orb
 from pangalactic.core.utils.meta import asciify
-from pangalactic.node.buttons    import FkButton
+from pangalactic.node.buttons    import FkButton, UrlButton
 from pangalactic.node.utils      import make_de_html, make_parm_html
 
 
@@ -291,7 +291,12 @@ def get_widget(field_name, field_type, value=None, editable=True,
     ### for EXTREMELY verbose debugging, uncomment:
     # orb.log.debug('get_widget for field type: {}'.format(field_type))
     wrap_text = False
-    if field_name in TEXT_PROPERTIES:
+    if field_name == 'url':
+        if editable:
+            widget_class = UnicodeFieldWidget
+        else:
+            widget_class = UrlButton
+    elif field_name in TEXT_PROPERTIES:
         widget_class = TextFieldWidget
         wrap_text = True
         # NOTE:  'maxlen' here this is NOT the maximum length of the text field
@@ -318,7 +323,11 @@ def get_widget(field_name, field_type, value=None, editable=True,
         widget_class = widgets.get(field_type)
     # print ' - widget_class = %s' % widget_class.__name__
     if widget_class:
-        if editable or field_type == ForeignKey:
+        if field_name == 'url' and not editable:
+            orb.log.debug('  instantiating UrlButton')
+            widget = widget_class(value=value, maxlen=maxlen,
+                                  editable=False)
+        elif editable or field_type == ForeignKey:
             widget = widget_class(value=value, maxlen=maxlen,
                                   related_cname=related_cname, obj_pk=obj_pk,
                                   field_name=field_name, nullable=nullable,

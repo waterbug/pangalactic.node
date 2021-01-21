@@ -1,6 +1,8 @@
 """
 PanGalactic widgets based on QPushButton
 """
+import webbrowser
+
 from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets  import QMenu, QPushButton
 
@@ -148,4 +150,39 @@ class FkButton(QPushButton):
         self.value = value
         self.setText(getattr(value, 'id', 'None'))
 
+
+class UrlButton(QPushButton):
+    """
+    Button for rendering a "url" field.
+    """
+    def __init__(self, parent=None, value=None, **kw):
+        """
+        Initialize a UrlButton.
+
+        Keyword Args:
+            value (str):  a url (value of the field)
+        """
+        QPushButton.__init__(self, value, parent=parent)
+        self.setStyleSheet('color: purple')
+        self.set_value(value)
+        self.clicked.connect(self.open_url)
+
+    def get_value(self):
+        """
+        @return: an Identifiable of some kind
+        @rtype:  `Identifiable`
+        """
+        return self.value
+
+    def set_value(self, value):
+        """
+        Args:
+            value (str): a url
+        """
+        self.value = value
+        self.setText(value)
+
+    def open_url(self, evt):
+        if self.value:
+            webbrowser.open_new(self.value)
 

@@ -445,7 +445,7 @@ class PgxnForm(QWidget):
                 editable = False
             related_cname = schema['fields'][field_name].get('related_cname')
             # NOTE: this should be uncommented if needed for debugging
-            # orb.log.debug('* [pgxnobj] get_widget(%s, %s, ...)' % (
+            # orb.log.debug('* [pgxnobj] get_widget("{}", {})'.format(
                                                         # field_name,
                                                         # str(field_type)))
             widget, label = get_widget(field_name, field_type, value=val,
@@ -457,11 +457,9 @@ class PgxnForm(QWidget):
                                    choices=choices, tooltip=definition)
             if widget:
                 # orb.log.debug('  [pgxnobj]'
-                               # ' - got widget (%s) and label, "%s"' % (
+                              # ' - got widget (%s) and label, "%s"' % (
                                                      # str(widget),
                                                      # str(label.text())))
-                # setting the value when widget is initialized now ...
-                # widget.set_value(val)
                 if editable:
                     self.editable_widgets[field_name] = widget
                 widget.setSizePolicy(QSizePolicy.Minimum,
