@@ -1567,9 +1567,9 @@ class Main(QtWidgets.QMainWindow):
         # * import_excel_data_action
         # * import_objects (import project or other serialized objs)
         # * load_test_objects
-        # self.import_excel_data_action = self.create_action(
-                                    # "Import Data from Excel...",
-                                    # slot=self.import_excel_data)
+        self.import_excel_data_action = self.create_action(
+                                    "Import Data from Excel...",
+                                    slot=self.import_excel_data)
         self.import_objects_action = self.create_action(
                                     "Import Objects from a File...",
                                     slot=self.import_objects,
@@ -1921,7 +1921,7 @@ class Main(QtWidgets.QMainWindow):
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         import_icon_path = os.path.join(icon_dir, import_icon_file)
         import_actions = [
-                          # self.import_excel_data_action,
+                          self.import_excel_data_action,
                           self.import_objects_action,
                           self.import_reqts_from_file_action
                           # Load Test Objects is currently flaky unless ONLY
@@ -1931,7 +1931,7 @@ class Main(QtWidgets.QMainWindow):
                           ]
         # Import Excel deactivated until mapping is implemented, and/or support
         # for "data sets" is revised (hdf5 was breaking) ...
-        # self.import_excel_data_action.setEnabled(False)
+        self.import_excel_data_action.setEnabled(True)
         import_button = MenuButton(QtGui.QIcon(import_icon_path),
                                    text='Input',
                                    tooltip='Import Data or Objects',
@@ -4177,7 +4177,8 @@ class Main(QtWidgets.QMainWindow):
             state['last_path'] = orb.test_data_dir
         fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
                                     self, 'Open File',
-                                    directory=state['last_path'])
+                                    state['last_path'],
+                                    "Excel Files (*.xlsx)")
         if fpath:
             # TODO: exception handling in case data import fails ...
             # TODO: add an "index" column for sorting, or else figure out how
@@ -4195,8 +4196,7 @@ class Main(QtWidgets.QMainWindow):
             try:
                 wizard = DataImportWizard(file_path=fpath, parent=self)
                 wizard.exec_()
-                orb.log.debug('* import_excel_data: dialog completed:')
-                orb.log.debug('  setting mode to "data" (which updates view)')
+                orb.log.debug('* import_excel_data: dialog completed.')
                 # set mode to "data"
                 # self.data_mode_action.trigger()
             except:

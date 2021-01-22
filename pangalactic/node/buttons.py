@@ -122,7 +122,7 @@ class FkButton(QPushButton):
             text = value.__str__()
         else:
             text = asciify(value)
-        QPushButton.__init__(self, text, parent=parent)
+        super().__init__(text, parent=parent)
         if editable:
             pass
         else:
@@ -155,14 +155,14 @@ class UrlButton(QPushButton):
     """
     Button for rendering a "url" field.
     """
-    def __init__(self, parent=None, value=None, **kw):
+    def __init__(self, parent=None, value='none', **kw):
         """
         Initialize a UrlButton.
 
         Keyword Args:
             value (str):  a url (value of the field)
         """
-        QPushButton.__init__(self, value, parent=parent)
+        super().__init__(value)
         self.setStyleSheet('color: purple')
         self.set_value(value)
         self.clicked.connect(self.open_url)

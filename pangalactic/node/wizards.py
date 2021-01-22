@@ -492,14 +492,6 @@ class MetaDataPage(QtWidgets.QWizardPage):
                             alignment=Qt.AlignLeft|Qt.AlignTop)
         self.updateGeometry()
         self.setLayout(self.hbox)
-        # see if we can create a DataFrame
-        # d = OD([(new_dataset[0][i],
-                 # [new_dataset[j][i] for j in range(1, len(new_dataset))])
-                 # for i in range(len(wizard_state['column_numbers']))])
-        # df = pd.DataFrame(d)
-        # TODO:  make sure that either the dataset name is unique or they want
-        # to overwrite the current version ...
-        # orb.data_store[wizard_state['dataset_name']] = df
 
     def on_row_clicked(self, idx):
         orb.log.debug('* wizard: row {} is selected'.format(idx.row()))
@@ -557,18 +549,6 @@ class DataImportConclusionPage(QtWidgets.QWizardPage):
                             # alignment=Qt.AlignLeft|Qt.AlignTop)
         # self.addLayout(self.vbox)
         self.updateGeometry()
-        # see if we can create a DataFrame
-        # d = OD([(new_dataset[0][i],
-                 # [new_dataset[j][i] for j in range(1, len(new_dataset))])
-                 # for i in range(len(wizard_state['column_numbers']))])
-        # df = pd.DataFrame(d)
-        # TODO:  make sure that either the dataset name is unique or they want
-        # to overwrite the current version ...
-        # orb.data_store[wizard_state['dataset_name']] = df
-        # if not state.get('datasets'):
-            # state['datasets'] = []
-        # state['datasets'].append(wizard_state['dataset_name'])
-        # state['dataset'] = wizard_state['dataset_name']
 
 
 #################################
