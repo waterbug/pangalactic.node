@@ -451,7 +451,7 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.info('  + {}'.format(channel))
             self.subscribe_to_mbus_channels()
 
-    def sync_with_services(self):
+    def sync_with_services(self, force=False):
         self.synced = dtstamp()
         self.role_label.setText('syncing data ...')
         orb.log.debug('* calling rpc "vger.get_user_roles"')
@@ -489,13 +489,19 @@ class Main(QtWidgets.QMainWindow):
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_user_objs_sync_result)
         rpc.addErrback(self.on_failure)
-        rpc.addCallback(self.sync_library_objs)
-        rpc.addErrback(self.on_failure)
-        rpc.addCallback(self.on_sync_library_result)
-        rpc.addErrback(self.on_failure)
-        # syncing of current project is now done by adding a callback of
-        # resync_current_project() when the last chunk of library data
-        # is being requested by on_get_library_objects_result()
+        if force:
+            rpc.addCallback(self.force_sync_library_objs)
+            rpc.addErrback(self.on_failure)
+            rpc.addCallback(self.on_force_sync_library_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            rpc.addCallback(self.sync_library_objs)
+            rpc.addErrback(self.on_failure)
+            rpc.addCallback(self.on_sync_library_result)
+            rpc.addErrback(self.on_failure)
+            # syncing of current project is now done by adding a callback of
+            # resync_current_project() when the last chunk of library data
+            # is being requested by on_get_library_objects_result()
 
     def on_get_user_roles_result(self, data):
         """
@@ -674,9 +680,9 @@ class Main(QtWidgets.QMainWindow):
     def sync_library_objs(self, data):
         """
         Sync all library objects with the repository. This will synchronize the
-        user's local collection of library objects with any `Modelable` objects
-        to which the user has access in the repository (including "public"
-        objects) that were created or modified since the last login.
+        user's local collection of library objects with any `ManagedObject`
+        instances to which the user has access in the repository (including
+        "public" objects) that were created or modified since the last login.
 
         Args:
             data:  parameter required for callback (ignored)
@@ -691,6 +697,24 @@ class Main(QtWidgets.QMainWindow):
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
         return self.mbus.session.call('vger.sync_library_objects',
+                                      non_ref_data)
+
+    def force_sync_library_objs(self, data):
+        """
+        Get all `ManagedObject` instances to which the user has access in the
+        repository (including "public" objects and related objects).
+
+        Args:
+            data:  parameter required for callback (ignored)
+        """
+        # TODO:  Include all library classes (not just HardwareProduct)
+        orb.log.debug('* force_sync_library_objs()')
+        self.statusbar.showMessage('forcing sync of ALL library objects ...')
+        data = orb.get_mod_dts(cname='HardwareProduct')
+        data.update(orb.get_mod_dts(cname='Template'))
+        # exclude reference data (ref_oids)
+        non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
+        return self.mbus.session.call('vger.force_sync_library_objects',
                                       non_ref_data)
 
     def sync_current_project(self, data):
@@ -981,6 +1005,102 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
             rpc = self.mbus.session.call('vger.get_objects', chunk)
             rpc.addCallback(self.on_get_library_objects_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            # if this was the last chunk, sync current project
+            self.resync_current_project()
+
+    def on_force_sync_library_result(self, data, project_sync=False):
+        """
+        Callback function to process the result of the
+        `vger.force_sync_library_objs` rpc.  The server response is a list
+        of lists:
+
+            [0]:  oids of server objects (in DESERIALIZATION_ORDER), regardless
+                  of their mod_datetime(s) or not found in the local data sent
+                  with `force_sync_library_objs()`
+                  -> do one or more vger.get_objects() rpcs to get the objects
+                  and add them to the local db
+            [1]:  oids in the data sent with `force_sync_library_objs()`
+                  that were not found on the server
+                  -> delete these from the local db if they are either:
+                     [a] not created by the local user
+                     [b] created by the local user but are in 'trash'
+
+        Args:
+            data:  response from the server
+
+        Return:
+            deferred:  result of `vger.get_objects` rpc
+        """
+        orb.log.debug('* on_force_sync_library_result()')
+        if data is None:
+            orb.log.debug('  no data received.')
+            return 'success'  # return value will be ignored
+        msg = 'no data received.'
+        # data *should* be a list of 2 lists ...
+        if len(data) == 2:
+            n_new = len(data[0])
+            n_del = len(data[1])
+            msg = f'data: {n_new} oids, {n_del} oids not found on server'
+        orb.log.debug(f'  {msg}'.format(str(data)))
+        newer, local_only = data
+        # then collect any local objects that need to be saved to the repo ...
+        if local_only:
+            orb.log.debug('  objects unknown to server found ...')
+            objs_to_delete = set(orb.get(oids=local_only))
+            do_not_delete = set()
+            for o in objs_to_delete:
+                if (hasattr(o, 'creator') and o.creator == self.local_user
+                    and o.oid not in list(trash)):
+                    do_not_delete.add(o)
+                # NOTE: ProjectSystemUsages are not relevant to library sync
+                # elif (o.__class__.__name__ == 'ProjectSystemUsage' and
+                      # o.project.oid in state['admin_of']):
+                    # objs_to_delete.remove(o)
+            objs_to_delete = objs_to_delete - do_not_delete
+            if objs_to_delete:
+                orb.log.debug('  to be deleted: {}'.format(
+                              ', '.join([o.oid for o in objs_to_delete])))
+                orb.delete(objs_to_delete)
+        if newer:
+            orb.log.debug('  server objects found ...')
+            # chunks = chunkify(newer, 5)   # set chunks small for testing
+            chunks = chunkify(newer, 100)
+            n_chunks = len(chunks)
+            c = 'chunks'
+            if n_chunks == 1:
+                c = 'chunk'
+            orb.log.debug(f'  will get in {n_chunks} {c} ...')
+            chunk = chunks.pop(0)
+            state['chunks_to_get'] = chunks
+            rpc = self.mbus.session.call('vger.get_objects', chunk)
+            rpc.addCallback(self.on_force_get_library_objects_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            # if no newer objects but objects have been deleted, update views
+            self._update_views()
+            return 'success'  # return value will be ignored
+
+    def on_force_get_library_objects_result(self, data):
+        """
+        Handler for the result of the rpc 'vger.get_objects()' when called by
+        'on_force_sync_library_result()' (i.e., only at login).  This should only be
+        used as handler for 'on_force_sync_library_result()' because it will
+        force the deserializer to replace any local versions of the objects.
+
+        Args:
+            data (list):  a list of serialized objects
+        """
+        orb.log.debug('* on_force_get_library_objects_result()')
+        if data is not None:
+            orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
+            self.force_load_serialized_objects(data)
+        if state.get('chunks_to_get'):
+            chunk = state['chunks_to_get'].pop(0)
+            orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
+            rpc = self.mbus.session.call('vger.get_objects', chunk)
+            rpc.addCallback(self.on_force_get_library_objects_result)
             rpc.addErrback(self.on_failure)
         else:
             # if this was the last chunk, sync current project
@@ -2670,10 +2790,10 @@ class Main(QtWidgets.QMainWindow):
 
     def full_resync(self):
         """
-        Force a full resync of everything.
+        Force full synchronization with server (ignoring mod_datetimes).
         """
         orb.log.debug('* user-requested full resync ...')
-        self.sync_with_services()
+        self.sync_with_services(force=True)
 
     def on_set_current_project_signal(self, resync=False):
         """
@@ -4079,6 +4199,125 @@ class Main(QtWidgets.QMainWindow):
                             so['creator'] = self.local_user.oid
                             so['modifier'] = self.local_user.oid
                         objs += deserialize(orb, [so], force_no_recompute=True)
+                        i += 1
+                        self.pb.setValue(i)
+            self.pb.hide()
+            if not msg:
+                msg = "data has been {}.".format(end)
+            self.statusbar.showMessage(msg)
+            new_products_psus_or_acus = [obj for obj in objs if isinstance(obj,
+                                         (orb.classes['Product'],
+                                          orb.classes['Acu'],
+                                          orb.classes['ProjectSystemUsage']))]
+            if new_products_psus_or_acus:
+                orb.recompute_parmz()
+                if hasattr(self, 'library_widget'):
+                    self.library_widget.refresh()
+                if hasattr(self, 'sys_tree'):
+                    for obj in new_products_psus_or_acus:
+                        self.update_object_in_trees(obj)
+                    # might need to refresh dashboard, e.g. if acu quantities
+                    # have changed ...
+                    self.refresh_dashboard()
+            if importing:
+                popup = QtWidgets.QMessageBox(
+                            QtWidgets.QMessageBox.Information,
+                            "Project Data Import", msg,
+                            QtWidgets.QMessageBox.Ok, self)
+                popup.show()
+            return objs
+        else:
+            if importing:
+                msg = "no data found."
+                popup = QtWidgets.QMessageBox(
+                            QtWidgets.QMessageBox.Warning,
+                            "no data found.", msg,
+                            QtWidgets.QMessageBox.Ok, self)
+                popup.show()
+            return []
+
+    def force_load_serialized_objects(self, sobjs, importing=False):
+        """
+        Used for the result of 'vger.get_objects()' when called by
+        'on_force_get_library_objects_result()'.  This should only be
+        used as handler for 'on_force_get_library_objects_result()' because it
+        will force the deserializer to replace any local versions of the
+        objects.
+
+        Args:
+            data (list):  a list of serialized objects
+        """
+        objs = []
+        if sobjs:
+            byclass = {}
+            if importing:
+                begin = 'loading'
+                end = 'imported'
+            else:
+                begin = 'syncing'
+                end = 'synced'
+            for so in sobjs:
+                if byclass.get(so['_cname']):
+                    byclass[so['_cname']].append(so)
+                else:
+                    byclass[so['_cname']] = [so]
+            if 'Project' in byclass:
+                projid = byclass['Project'][0].get('id', '')
+                if projid:
+                    start_msg = f'{begin} data for {projid} ...'
+                    msg = f"success: project {projid} {end}"
+                else:
+                    start_msg = f'{begin} data for your project ...'
+                    if end == 'synced' and state.get('chunks_to_get'):
+                        n = len(state['chunks_to_get'])
+                        if n == 1:
+                            msg = 'chunk synced -- getting 1 more chunk ...'
+                        else:
+                            msg = f'chunk synced -- getting {n} more chunks ...'
+                    else:
+                        msg = f"data has been {end}."
+            else:
+                start_msg = f'{begin} data for your project ...'
+                if end == 'synced' and state.get('chunks_to_get'):
+                    n = len(state['chunks_to_get'])
+                    if n == 1:
+                        msg = 'chunk synced -- getting 1 more chunk ...'
+                    else:
+                        msg = f'chunk synced -- getting {n} more chunks ...'
+                else:
+                    msg = f"data has been {end}."
+            self.statusbar.showMessage(start_msg)
+            self.pb.show()
+            self.pb.setValue(0)
+            self.pb.setMaximum(len(sobjs))
+            i = 0
+            user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
+            for cname in DESERIALIZATION_ORDER:
+                if cname in byclass:
+                    for so in byclass[cname]:
+                        # if objs are still owned by 'me' but user has
+                        # logged in and has a local_user object ...
+                        if so.get('creator') == 'me' and not user_is_me:
+                            so['creator'] = self.local_user.oid
+                            so['modifier'] = self.local_user.oid
+                        objs += deserialize(orb, [so], force_no_recompute=True,
+                                            force_update=True)
+                        i += 1
+                        self.pb.setValue(i)
+                        self.statusbar.showMessage('{}: {}'.format(cname,
+                                                       so.get('id', '')))
+                    byclass.pop(cname)
+            # deserialize any other classes ...
+            if byclass:
+                for cname in byclass:
+                    for so in byclass[cname]:
+                        # if objs are still owned by 'me' but user has
+                        # logged in and has a local_user object ...
+                        if so.get('creator') == 'me' and not user_is_me:
+                            so['creator'] = self.local_user.oid
+                            so['modifier'] = self.local_user.oid
+                        objs += deserialize(orb, [so], force_no_recompute=True,
+                                            force_update=True)
                         i += 1
                         self.pb.setValue(i)
             self.pb.hide()
