@@ -770,7 +770,7 @@ class PgxnObject(QDialog):
     def __init__(self, obj, component=False, embedded=False,
                  edit_mode=False, enable_delete=True, view=None,
                  main_view=None, mask=None, required=None, panels=None,
-                 go_to_panel=None, new=False, test=False, title_text=None,
+                 go_to_panel='main', new=False, test=False, title_text=None,
                  modal_mode=False, view_only=False, parent=None, **kw):
         """
         Initialize the dialog.
@@ -796,7 +796,7 @@ class PgxnObject(QDialog):
                 object's class in PGXN_REQD are used
             panels (list of str or None):  list of names of panels to include
                 in the interface ('main', 'info', 'narrative', 'admin',
-                'parameters'); if None, all panels
+                'parameters', 'data'); if None, all panels
             go_to_panel (str or None):  name of panel to show initially in the
                 interface (one of 'main', 'info', 'narrative', 'admin') -- NOTE
                 that this will only work if the object has no parameters; if
@@ -823,9 +823,8 @@ class PgxnObject(QDialog):
         self.modal_mode    = modal_mode
         self.enable_delete = enable_delete
         self.go_to_tab     = 0
-        if go_to_panel and panels:
-            if go_to_panel in panels:
-                self.go_to_tab = panels.index(go_to_panel)
+        if panels and go_to_panel in panels:
+            self.go_to_tab = panels.index(go_to_panel)
         elif go_to_panel in DEFAULT_PANELS:
             self.go_to_tab = DEFAULT_PANELS.index(go_to_panel)
         self.view         = view or []
@@ -1043,7 +1042,7 @@ class PgxnObject(QDialog):
             new_obj = clone(self.obj, id='new-id')
         orb.save([new_obj])
         self.obj = new_obj
-        self.go_to_tab = 2
+        self.go_to_tab = 3
         self.build_from_object()
         self.on_edit()
         # if in component mode, set state and refresh diagram
@@ -1070,7 +1069,7 @@ class PgxnObject(QDialog):
                         version_sequence=ver_seq)
         orb.save([new_obj])
         self.obj = new_obj
-        self.go_to_tab = 2
+        self.go_to_tab = 3
         self.build_from_object()
         self.on_edit()
 
@@ -1093,7 +1092,9 @@ class PgxnObject(QDialog):
         self.title.setText(self.title_text)
         tab_names = ['main', 'info', 'narrative', 'admin']
         if self.panels:
-            tab_names = [n for n in tab_names if n in self.panels]
+            self.tab_names = [name for name in tab_names if name in self.panels]
+        else:
+            self.tab_names = tab_names
         cname = self.obj.__class__.__name__
         # insert parameter panels if appropriate
         n_of_parm_panels = 0
@@ -1118,9 +1119,9 @@ class PgxnObject(QDialog):
                 # orb.log.debug('  [pgxnobj] parm panels: {}'.format(
                                                         # n_of_parm_panels))
                 for i in range(n_of_parm_panels):
-                    tab_names.insert(i, 'parms_{}'.format(i+1))
+                    self.tab_names.insert(i, 'parms_{}'.format(i+1))
             else:
-                tab_names.insert(0, 'parms')
+                self.tab_names.insert(0, 'parms')
         # insert data panels if appropriate
         if ((not self.panels or (self.panels and 'data' in self.panels))
             and isinstance(self.obj, orb.classes['Modelable'])
@@ -1159,15 +1160,15 @@ class PgxnObject(QDialog):
                 # orb.log.debug('  [pgxnobj] data panels: {}'.format(
                                                         # n_of_data_panels))
                 for i in range(n_of_data_panels):
-                    tab_names.insert(n_of_parm_panels + i, f'data_{i+1}')
+                    self.tab_names.insert(n_of_parm_panels + i, f'data_{i+1}')
             else:
-                tab_names.insert(n_of_parm_panels, 'data')
+                self.tab_names.insert(n_of_parm_panels, 'data')
         # destroy button box and current tab pages, if they exist
         if hasattr(self, 'bbox'):
             self.bbox.hide()
             self.vbox.removeWidget(self.bbox)
             self.bbox.parent = None
-            for tab_name in tab_names:
+            for tab_name in self.tab_names:
                 if hasattr(self, tab_name+'_tab'):
                     tab = getattr(self, tab_name+'_tab')
                     tab.parent = None
@@ -1187,7 +1188,7 @@ class PgxnObject(QDialog):
         self.u_widget_values = {}
         self.previous_units = {}
         perms = get_perms(self.obj)
-        for tab_name in tab_names:
+        for tab_name in self.tab_names:
             # The purpose of the tabs is to split the class's fields up so it
             # is not necessary to scroll at all.
             # TODO:  wrap tabs if necessary
@@ -1293,7 +1294,6 @@ class PgxnObject(QDialog):
         self.vbox.setStretch(1, 1)
         self.vbox.addWidget(self.bbox)
         self.create_connections()
-        self.tabs.setCurrentIndex(self.go_to_tab)
         orb.log.debug('* [pgxnobj] editable_widgets: {}'.format(
                                         str(list(self.editable_widgets))))
         if 'id' in self.editable_widgets:
@@ -1304,10 +1304,18 @@ class PgxnObject(QDialog):
             self.name_widget.textEdited.connect(self.on_name_edited)
 
         # self.adjustSize()
-        if len(tab_names) > 7:
+        if len(self.tab_names) > 7:
             # if there are more than 7 tabs, add width for each extra tab
-            new_width = 500 + 80 * (len(tab_names) - 7)
+            new_width = 500 + 80 * (len(self.tab_names) - 7)
             self.resize(new_width, self.height())
+        self.set_current_tab()
+
+    def set_current_tab(self):
+        if (hasattr(self, 'tabs') and getattr(self, 'tab_names', None)
+            and self.go_to_tab < len(self.tab_names)):
+            tab_name = self.tab_names[self.go_to_tab]
+            orb.log.debug(f'* [pgxnobj] setting tab to "{tab_name}"')
+            self.tabs.setCurrentIndex(self.go_to_tab)
 
     def on_id_edited(self):
         """
