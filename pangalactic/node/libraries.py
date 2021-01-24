@@ -405,6 +405,8 @@ class LibraryListWidget(QWidget):
                              if (o.oid.endswith('_cbe') or
                                  o.oid.endswith('_mev') or
                                  o.oid.endswith('assembly_level') or
+                                 o.oid.endswith('m_unit') or
+                                 o.oid.endswith('quoted_unit_price') or
                                  o.oid.endswith('_units') or
                                  o.oid.endswith('_spares') or
                                  o.oid.endswith('_ctgcy'))]

@@ -1132,7 +1132,9 @@ class PgxnObject(QDialog):
             deids = sorted(list(de_dict))
             # orb.log.debug('  [pgxnobj] data elements: {}'.format(deids))
             data_panel_contents = []
-            if len(deids) > PARMS_NBR:
+            # only allow PARMS_NBR - 3 data elements on first data panel before
+            # beginning the pagination algorithm ...
+            if len(deids) > PARMS_NBR - 3:
                 # pre-define the contents of the data panels ...
                 des = []
                 n = 0
