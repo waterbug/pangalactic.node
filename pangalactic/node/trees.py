@@ -183,8 +183,9 @@ class ParmDefTreeModel(QAbstractItemModel):
         prescriptive_contexts = [obj.id for obj in parm_contexts]
         pids = sorted(list(parm_defz))
         selectable_pids = [pid for pid in pids
-                           if not (pid.endswith('[Ctgcy]') or
-                           parm_defz[pid]['context'] in prescriptive_contexts)]
+                           # if not (pid.endswith('[Ctgcy]') or
+                           if parm_defz[pid]['context']
+                           not in prescriptive_contexts]
         for pid in selectable_pids:
             if pid == parm_defz[pid]['variable']:
                 # child of the root_item and becomes the current parent
