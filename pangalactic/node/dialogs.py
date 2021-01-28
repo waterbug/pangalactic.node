@@ -103,6 +103,33 @@ class LoginDialog(QDialog):
         self.accept()
 
 
+class FullSyncDialog(QDialog):
+    """
+    Dialog for confirming a "Force Full Sync" operation.
+    """
+    def __init__(self, parent=None):
+        """
+        Initializer.
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.setWindowTitle("Danger Danger Danger!")
+        msg = '<b><font color="red">Full Re-sync will overwrite '
+        msg += 'all local data -- continue?</font></b>'
+        msg_label = QLabel(msg, self)
+        form = QFormLayout(self)
+        form.addRow(msg_label)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        self.buttons.button(QDialogButtonBox.Ok).setText('Yes')
+        self.buttons.button(QDialogButtonBox.Cancel).setText('No')
+        form.addRow(self.buttons)
+        self.buttons.rejected.connect(self.reject)
+
+
 class NotificationDialog(QDialog):
     def __init__(self, something, news=True, parent=None):
         super().__init__(parent)
@@ -115,7 +142,6 @@ class NotificationDialog(QDialog):
         else:
             something_happened = QLabel(something, self)
             form.addRow(something_happened)
-        # OK and Cancel buttons
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok,
                                         Qt.Horizontal, self)
         form.addRow(self.buttons)
@@ -130,7 +156,6 @@ class OptionNotification(QDialog):
         note_label = QLabel(title + ':', self)
         message_label = QLabel(message, self)
         form.addRow(note_label, message_label)
-        # OK and Cancel buttons
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok,
                                         Qt.Horizontal, self)
         form.addRow(self.buttons)
@@ -157,7 +182,6 @@ class ValidationDialog(QDialog):
             msg_label = QLabel(
                 '<font color="red">{}</font>'.format(msg), self)
             form.addRow(field_label, msg_label)
-        # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok, Qt.Horizontal, self)
         form.addRow(self.buttons)

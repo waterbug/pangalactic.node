@@ -870,6 +870,8 @@ class PgxnObject(QDialog):
         self.init_toolbar()
         # self.setCentralWidget(self.main_panel)
         self.vbox.addWidget(self.main_panel)
+        dispatcher.connect(self.on_parameters_recomputed,
+                           'parameters recomputed')
 
     def init_toolbar(self):
         # self.toolbar = self.addToolBar('Tools')
@@ -1316,6 +1318,46 @@ class PgxnObject(QDialog):
             tab_name = self.tab_names[self.go_to_tab]
             orb.log.debug(f'* [pgxnobj] setting tab to "{tab_name}"')
             self.tabs.setCurrentIndex(self.go_to_tab)
+
+    def on_parameters_recomputed(self):
+        """
+        Handler for dispatcher signal "parameters recomputed" -- updates all
+        computed parameter values.
+        """
+        orb.log.debug('* [pxo] got "parameters recomputed" signal ...')
+        # [1] find all computed parameters
+        parmz = parameterz.get(self.obj.oid, {})
+        pids = sorted(list(parmz), key=str.lower)  # case-independent sort
+        computeds = [pid for pid in pids if parm_defz[pid].get('computed')]
+        if computeds:
+            orb.log.debug(' + found: {}'.format(str(computeds)))
+        else:
+            orb.log.debug(' + no computed parameters found.')
+        # [2] find their fields and update them ...
+        for pid in computeds:
+            parm_widget = self.p_widgets.get(pid)
+            if parm_widget:
+                orb.log.debug(f' + found parm_widget for "{pid}"')
+            else:
+                orb.log.debug(f' + got no parm_widget for "{pid}"')
+            units_widget = self.u_widgets.get(pid)
+            try:
+                units = units_widget.get_value()
+            except:
+                # C++ obj got deleted
+                units = None   # use base units
+            str_val = get_pval_as_str(self.obj.oid, pid, units=units)
+            orb.log.debug(f' + got str val of "{str_val}" for "{pid}"')
+            if hasattr(parm_widget, 'setText'):
+                if pid == 'm[CBE]':
+                    orb.log.debug(' + parm widget has "setText()"')
+                    orb.log.debug(' + setting m[CBE] to: {str_val}')
+                try:
+                    parm_widget.setText(str_val)
+                except:
+                    # C++ obj got deleted
+                    continue
+        self.update()
 
     def on_id_edited(self):
         """

@@ -65,7 +65,8 @@ from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
 # from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
-from pangalactic.node.dialogs          import (LoginDialog,
+from pangalactic.node.dialogs          import (FullSyncDialog,
+                                               LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog)
@@ -2793,7 +2794,11 @@ class Main(QtWidgets.QMainWindow):
         Force full synchronization with server (ignoring mod_datetimes).
         """
         orb.log.debug('* user-requested full resync ...')
-        self.sync_with_services(force=True)
+        dlg = FullSyncDialog(parent=self)
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            self.sync_with_services(force=True)
+        else:
+            return
 
     def on_set_current_project_signal(self, resync=False):
         """
