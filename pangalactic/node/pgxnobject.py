@@ -1357,7 +1357,11 @@ class PgxnObject(QDialog):
                 except:
                     # C++ obj got deleted
                     continue
-        self.update()
+        try:
+            self.update()
+        except:
+            # C++ obj got deleted
+            pass
 
     def on_id_edited(self):
         """

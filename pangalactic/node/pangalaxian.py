@@ -1878,6 +1878,7 @@ class Main(QtWidgets.QMainWindow):
         p = Path(orb.home)
         absp = p.resolve()
         home = absp.parent
+        # TODO:  use app_name + '.key'
         return os.path.join(str(home), 'cattens.key')
 
     @property
