@@ -4438,20 +4438,20 @@ class Main(QtWidgets.QMainWindow):
                 popup.show()
                 return
             state['last_path'] = os.path.dirname(fpath)
-            try:
-                wizard = DataImportWizard(file_path=fpath, parent=self)
-                wizard.exec_()
-                orb.log.debug('* import_excel_data: dialog completed.')
-                # set mode to "data"
-                # self.data_mode_action.trigger()
-            except:
-                message = f"Data in '{fpath}' could not be imported."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
-                            "An error occurred.", message,
-                            QtWidgets.QMessageBox.Ok, self)
-                popup.show()
-                return
+            # try:
+            wizard = DataImportWizard(file_path=fpath, parent=self)
+            wizard.exec_()
+            orb.log.debug('* import_excel_data: dialog completed.')
+            # set mode to "data"
+            # self.data_mode_action.trigger()
+            # except:
+                # message = f"Data in '{fpath}' could not be imported."
+                # popup = QtWidgets.QMessageBox(
+                            # QtWidgets.QMessageBox.Warning,
+                            # "An error occurred.", message,
+                            # QtWidgets.QMessageBox.Ok, self)
+                # popup.show()
+                # return
         else:
             return
 
