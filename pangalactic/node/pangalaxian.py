@@ -4423,7 +4423,7 @@ class Main(QtWidgets.QMainWindow):
         fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
                                     self, 'Open File',
                                     state['last_path'],
-                                    "Excel Files (*.xlsx)")
+                                    "Excel Files (*.xlsx | *.xls)")
         if fpath:
             # TODO: exception handling in case data import fails ...
             # TODO: add an "index" column for sorting, or else figure out how
@@ -4439,7 +4439,10 @@ class Main(QtWidgets.QMainWindow):
                 return
             state['last_path'] = os.path.dirname(fpath)
             # try:
-            wizard = DataImportWizard(file_path=fpath, parent=self)
+            wizard = DataImportWizard(file_path=fpath,
+                            height=self.geometry().height(),
+                            width=self.geometry().width(),
+                            parent=self)
             wizard.exec_()
             orb.log.debug('* import_excel_data: dialog completed.')
             # set mode to "data"

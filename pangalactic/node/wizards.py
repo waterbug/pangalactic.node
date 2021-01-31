@@ -18,6 +18,7 @@ from pangalactic.core.parametrics import set_dval
 from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
+from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -52,7 +53,7 @@ class DataImportWizard(QtWidgets.QWizard):
     Wizard to assist with importing data from a file.
     """
 
-    def __init__(self, file_path='', parent=None): 
+    def __init__(self, file_path='', width=1200, height=700, parent=None): 
         super().__init__(parent=parent)
         if not hasattr(orb, 'log'):
             orb.log = PrintLogger()
@@ -69,17 +70,17 @@ class DataImportWizard(QtWidgets.QWizard):
         self.setButtonLayout(included_buttons)
         self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
         wizard_state['file_path'] = file_path
-        txt = "<p/>You have selected the file <b>&lt;%s&gt;</b>.".format(
-                wizard_state['file_path'])
-        txt += "<br>This wizard will assist in importing data ..."
+        txt = '<p/>You have selected the file<br>'
+        txt += f'<font color="green"><b>&lt;{file_path}&gt;</b></font>.<br>'
+        txt += 'This wizard will assist in importing data ...'
         intro_label = QtWidgets.QLabel(txt)
-        intro_label.setWordWrap(True)
+        intro_label.setWordWrap(False)
         self.addPage(IntroPage(intro_label, parent=self))
         self.addPage(DataSetPage(parent=self))
         # self.addPage(ObjectTypePage(parent=self))
         self.addPage(HeaderPage(parent=self))
         self.addPage(DataImportConclusionPage(self))
-        self.setGeometry(50, 50, 800, 500)
+        self.setGeometry(50, 50, width, height)
         self.setSizeGripEnabled(True)
         self.setWindowTitle("Data Import Wizard")
 
@@ -183,7 +184,6 @@ class ConceptWizard(QtWidgets.QWizard):
                 "<p/>Blah blah blah."
                 "<br>This wizard will assist in blah!")
         self.addPage(IntroPage(intro_label, parent=self))
-        self.addPage(DataSetPage(parent=self))
         self.addPage(HeaderPage(parent=self))
         # self.addPage(MetaDataPage(parent=self))
         self.addPage(ConceptConclusionPage(self))
@@ -229,11 +229,14 @@ class DataSetPage(QtWidgets.QWizardPage):
                           % os.path.basename(file_path))
             # self.setSubTitle("Select a sheet to import...")
             # import raw data from excel file
-            self.datasets = get_raw_excel_data(file_path, clear_empty_rows=False)
-            if self.datasets is None:
-                # pop up a dialog advising that the file could not be opened,
-                # and cancel the wizard ...
-                pass
+            self.datasets = {}
+            if file_path.endswith('.xls'):
+                self.datasets = get_raw_excel_data(file_path,
+                                                   clear_empty_rows=False)
+            elif file_path.endswith('.xlsx'):
+                self.datasets = get_raw_xlsx_data(file_path,
+                                                  clear_empty_rows=False,
+                                                  read_only=True)
             datasets_list_label = QtWidgets.QLabel(
                                         "<b>Select a sheet<br>to import:</b>")
             # sheet list widget
@@ -285,11 +288,10 @@ class DataSetPage(QtWidgets.QWizardPage):
         self.tableview = QtWidgets.QTableView(self)
         self.tableview.setModel(tablemodel)
         self.tableview.resizeColumnsToContents()
-        self.tableview.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                     QtWidgets.QSizePolicy.MinimumExpanding)
-        self.tableview.setMinimumSize(800, 500)
+        self.tableview.setSizeAdjustPolicy(self.tableview.AdjustToContents)
         self.hbox.addWidget(self.tableview, stretch=1,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
+        self.hbox.setStretch(1, 1)
         self.updateGeometry()
 
 
@@ -320,8 +322,6 @@ class HeaderPage(QtWidgets.QWizardPage):
         wizard_state['heading_row'] = 0
         wizard_state['column_names'] = []
         wizard_state['column_numbers'] = []
-        self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                           QtWidgets.QSizePolicy.MinimumExpanding)
         self.directions = QtWidgets.QLabel("<b>Click on the row<br>"
                                        "that contains<br>"
                                        "the column names...</b><br>"
@@ -346,9 +346,7 @@ class HeaderPage(QtWidgets.QWizardPage):
         self.tableview = QtWidgets.QTableView(self)
         self.tableview.setModel(tablemodel)
         self.tableview.resizeColumnsToContents()
-        self.tableview.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                     QtWidgets.QSizePolicy.MinimumExpanding)
-        self.tableview.setMinimumSize(800, 500)
+        self.tableview.setSizeAdjustPolicy(self.tableview.AdjustToContents)
         self.tableview.setSelectionBehavior(self.tableview.SelectRows)
         self.tableview.setSelectionMode(self.tableview.SingleSelection)
         self.tableview.clicked.connect(self.on_row_clicked)
@@ -452,8 +450,6 @@ class MetaDataPage(QtWidgets.QWizardPage):
         # [1]  provide a form for metadata about the dataset
         # [2]  offer to map the dataset to a standard schema
         # [3]  import the data into a database or create a db for it.
-        self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                           QtWidgets.QSizePolicy.MinimumExpanding)
         self.directions = QtWidgets.QLabel("<b>Metadata</b><br>"
                                        "<hr>")
         # set min. width so that when the column name checkboxes are added, the
@@ -480,9 +476,7 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.tableview = QtWidgets.QTableView(self)
         self.tableview.setModel(tablemodel)
         self.tableview.resizeColumnsToContents()
-        self.tableview.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                     QtWidgets.QSizePolicy.MinimumExpanding)
-        self.tableview.setMinimumSize(800, 500)
+        self.tableview.setSizeAdjustPolicy(self.tableview.AdjustToContents)
         self.tableview.setSelectionBehavior(self.tableview.SelectRows)
         self.tableview.setSelectionMode(self.tableview.SingleSelection)
         self.tableview.clicked.connect(self.on_row_clicked)
@@ -538,9 +532,7 @@ class DataImportConclusionPage(QtWidgets.QWizardPage):
         self.tableview = QtWidgets.QTableView(self)
         self.tableview.setModel(tablemodel)
         self.tableview.resizeColumnsToContents()
-        self.tableview.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                     QtWidgets.QSizePolicy.MinimumExpanding)
-        self.tableview.setMinimumSize(800, 500)
+        self.tableview.setSizeAdjustPolicy(self.tableview.AdjustToContents)
         self.tableview.setSelectionBehavior(self.tableview.SelectRows)
         self.tableview.setSelectionMode(self.tableview.SingleSelection)
         # row_header = self.tableview.verticalHeader()
@@ -549,6 +541,8 @@ class DataImportConclusionPage(QtWidgets.QWizardPage):
                             # alignment=Qt.AlignLeft|Qt.AlignTop)
         # self.addLayout(self.vbox)
         self.updateGeometry()
+        self.resize(self.parent().geometry().width(),
+                    self.parent().geometry().height())
 
 
 #################################
