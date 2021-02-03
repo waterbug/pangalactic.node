@@ -2405,6 +2405,7 @@ class Main(QtWidgets.QMainWindow):
                                                                row_parent)
                         # this will resize dashboard columns if necessary
                         # self.refresh_dashboard()
+                        orb.delete([obj])
                     elif len(idxs) > 1:
                         # NOTE:  refreshing the whole tree is very disruptive but is
                         # necessary if the link occurs multiple times in the tree
