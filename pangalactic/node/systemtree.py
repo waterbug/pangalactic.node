@@ -980,9 +980,9 @@ class SystemTreeModel(QAbstractItemModel):
         represent the same object, which is being deleted, all such nodes must
         be located and deleted.
         """
-        # orb.log.debug('* SystemTreeModel.removeRows()')
-        # orb.log.debug('  position: {}'.format(position))
-        # orb.log.debug('  count: {}'.format(count))
+        orb.log.debug('* SystemTreeModel.removeRows()')
+        orb.log.debug('  position: {}'.format(position))
+        orb.log.debug('  count: {}'.format(count))
         parent_node = self.get_node(parent)
         # orb.log.debug('  parent_node: {}'.format(
                                  # getattr(parent_node.obj, 'id', '[no id]')))
@@ -1004,10 +1004,10 @@ class SystemTreeModel(QAbstractItemModel):
                            # if isinstance(l, orb.classes['Acu'])]))
         psu_oids = [l.oid for l in links_to_delete
                 if isinstance(l, orb.classes['ProjectSystemUsage'])]
-        # if psu_oids:
-            # orb.log.debug('  + psus to be deleted: {}'.format(
-                          # [l.oid for l in links_to_delete
-                # if isinstance(l, orb.classes['ProjectSystemUsage'])]))
+        if psu_oids:
+            orb.log.debug('  + psus to be deleted: {}'.format(
+                          [l.oid for l in links_to_delete
+                if isinstance(l, orb.classes['ProjectSystemUsage'])]))
         orb.delete(links_to_delete)
         success = parent_node.remove_children(position, count)
         self.endRemoveRows()

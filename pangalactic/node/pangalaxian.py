@@ -2358,6 +2358,7 @@ class Main(QtWidgets.QMainWindow):
         obj = orb.get(obj_oid)
         selected_link_oid = None
         if obj:
+            orb.log.info('  object exists in local db ...')
             cname = obj.__class__.__name__
             if (cname in ['Acu', 'ProjectSystemUsage']):
                 tree_and_dash_refreshed = False
@@ -2401,18 +2402,28 @@ class Main(QtWidgets.QMainWindow):
                         # prevents the systree model sending the
                         # "deleted object" signal, which triggers a vger.delete
                         # rpc, causing a cycle!
+                        msg = 'calling tree model on_remote_deletion() ...'
+                        orb.log.debug(f'  {msg}')
+                        orb.log.debug('  which should call orb.delete() ...')
                         self.sys_tree.source_model.on_remote_deletion(pos,
                                                                row_parent)
                         # this will resize dashboard columns if necessary
                         # self.refresh_dashboard()
-                        orb.delete([obj])
                     elif len(idxs) > 1:
                         # NOTE:  refreshing the whole tree is very disruptive but is
                         # necessary if the link occurs multiple times in the tree
+                        msg = 'calling orb.delete() and refreshing tree ...'
+                        orb.log.debug(f'  {msg}')
                         orb.delete([obj])
                         tree_and_dash_refreshed = True
                         self.refresh_tree_and_dashboard(
                                             selected_link_oid=selected_link_oid)
+                else:
+                    # if there is currently no tree being shown, just delete
+                    # the Acu or PSU
+                    msg = 'calling orb.delete() (not displaying tree) ...'
+                    orb.log.debug(f'  {msg}')
+                    orb.delete([obj])
                 if getattr(self, 'system_model_window', None):
                     # rebuild diagram in case object corresponded to a
                     # block in the current diagram
