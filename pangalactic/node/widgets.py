@@ -296,7 +296,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
             widget_class = UnicodeFieldWidget
         else:
             widget_class = UrlButton
-    elif field_name in TEXT_PROPERTIES:
+    elif field_name in TEXT_PROPERTIES or de_type == 'text':
         widget_class = TextFieldWidget
         wrap_text = True
         # NOTE:  'maxlen' here this is NOT the maximum length of the text field
