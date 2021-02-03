@@ -172,6 +172,7 @@ class Main(QtWidgets.QMainWindow):
             # config['logo'] = 'pangalactic_logo.png'
         self.logo = os.path.join(orb.image_dir, config.get('logo'))
         self.tall_logo = os.path.join(orb.image_dir, config['tall_logo'])
+        self.sandbox = orb.get('pgefobjects:SANDBOX')
         state['last_path'] = ""
         state['synced_projects'] = []
         if not prefs.get('dashboard_names'):
@@ -596,7 +597,7 @@ class Main(QtWidgets.QMainWindow):
             my_roles = [ra.assigned_role.name for ra in proj_ras]
             if my_roles:
                 txt = ': '.join([self.project.id, my_roles[0]])
-            elif str(self.project.oid) == 'pgefobjects:SANDBOX':
+            elif self.project is self.sandbox:
                 txt = 'SANDBOX'
             else:
                 txt = ': '.join([self.project.id, '[local]'])
@@ -856,11 +857,12 @@ class Main(QtWidgets.QMainWindow):
             objs_to_delete = set()
             for o in local_only_objs:
                 if hasattr(o, 'creator') and o.creator == self.local_user:
-                    created_objs.add(o)
-                elif (o.__class__.__name__ == 'ProjectSystemUsage' and
-                    getattr(o.project, 'oid', None) == 'pgefobjects:SANDBOX'):
-                    # NOTE:  SANDBOX PSUs are not synced
-                    created_objs.add(o)
+                    if (o.__class__.__name__ == 'ProjectSystemUsage' and
+                        o.project is self.sandbox):
+                        # NOTE:  SANDBOX PSUs are ignored
+                        continue
+                    else:
+                        created_objs.add(o)
                 else:
                     objs_to_delete.add(o)
             if objs_to_delete:
@@ -1389,6 +1391,7 @@ class Main(QtWidgets.QMainWindow):
         need_to_refresh_tree = False
         need_to_refresh_dashboard = False
         need_to_refresh_diagram = False
+        to_delete = []
         for obj in objs:
             # TODO: check whether object is actually being displayed in system
             # tree and/or diagram before rebuilding them ...
@@ -1411,6 +1414,12 @@ class Main(QtWidgets.QMainWindow):
                 need_to_refresh_diagram = True
             elif isinstance(obj, (orb.classes['Acu'],
                                   orb.classes['ProjectSystemUsage'])):
+                # NOTE:  SANDBOX PSUs are not synced, so any that are received
+                # from the server are errors and will be ignored
+                if (hasattr(obj, 'project') and
+                    obj.project is self.sandbox):
+                    to_delete.append(obj)
+                    continue
                 need_to_refresh_diagram = True
                 if hasattr(self, 'sys_tree'):
                     # sys_tree_model = self.sys_tree.model()
@@ -1479,6 +1488,9 @@ class Main(QtWidgets.QMainWindow):
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
             self.update_project_role_labels()
+        if to_delete:
+            # delete any SANDBOX PSUs that were received
+            orb.delete(to_delete)
         for cname in need_to_refresh_libraries:
             # refresh library widgets ...
             orb.log.debug('  updating libraries with: "{}"'.format(obj.id))
@@ -1902,7 +1914,7 @@ class Main(QtWidgets.QMainWindow):
         Get the current project (or SANDBOX project if not set).
         """
         # if project in saved state is not found, return SANDBOX project
-        return orb.get(state.get('project')) or orb.get('pgefobjects:SANDBOX')
+        return orb.get(state.get('project')) or self.sandbox
 
     def set_project(self, p):
         """
@@ -1965,8 +1977,7 @@ class Main(QtWidgets.QMainWindow):
             projects |= user_projects
             projects = list(projects)
             # "SANDBOX project" doesn't have roles so add it separately
-            sandbox_project = orb.get('pgefobjects:SANDBOX')
-            projects.append(sandbox_project)
+            projects.append(self.sandbox)
         projects.sort(key=lambda p: p.id)
         # orb.log.debug('  - project list: {}'.format(
                       # str([p.id for p in projects])))
@@ -2567,7 +2578,9 @@ class Main(QtWidgets.QMainWindow):
             # elif self.mode == 'db':
                 # self.refresh_cname_list()
                 # self.set_object_table_for(cname)
-            if state['connected']:
+            if (state['connected']
+                and not getattr(obj, 'project', None) is self.sandbox):
+                # SANDBOX PSUs are not saved to the server
                 serialized_objs = serialize(orb, [obj])
                 if isinstance(obj, orb.classes['RoleAssignment']):
                     orb.log.debug('  calling rpc vger.assign_role() ...')
@@ -2851,7 +2864,7 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('* set_project({})'.format(p.id))
             state['project'] = str(p.oid)
             # if hasattr(self, 'delete_project_action'):
-            if p.oid == 'pgefobjects:SANDBOX':
+            if p is self.sandbox:
                 # SANDBOX cannot be deleted, made collaborative, nor have
                 # roles provisioned (admin)
                 self.delete_project_action.setEnabled(False)
@@ -3662,7 +3675,7 @@ class Main(QtWidgets.QMainWindow):
         # Projects and Organizations are always "public"
         view = ['id', 'name', 'description']
         panels = ['main']
-        if self.project and not self.project.oid == 'pgefobjects:SANDBOX':
+        if self.project and not self.project is self.sandbox:
             org_parent = self.project
         else:
             org_parent = orb.get('pgefobjects:PGANA')
@@ -3694,13 +3707,13 @@ class Main(QtWidgets.QMainWindow):
         orb.delete([self.project])
         if len(self.projects) > 1:
             self.project = self.projects[-1]
-            if self.project.oid == 'pgefobjects:SANDBOX':
+            if self.project is self.sandbox:
                 self.delete_project_action.setEnabled(False)
                 self.delete_project_action.setVisible(False)
             # else:
                 # self.delete_project_action.setVisible(True)
         else:
-            self.project = orb.get('pgefobjects:SANDBOX')
+            self.project = self.sandbox
             self.delete_project_action.setEnabled(False)
             self.delete_project_action.setVisible(False)
         if state.get('connected'):
@@ -3884,11 +3897,10 @@ class Main(QtWidgets.QMainWindow):
         dlg.show()
 
     def display_requirements_manager(self):
-        project_oid = state.get('project') or 'pgefobjects:SANDBOX'
-        proj = orb.get(project_oid)
         w = 4 * self.geometry().width() / 5
         h = self.geometry().height()
-        dlg = RequirementManager(project=proj, width=w, height=h, parent=self)
+        dlg = RequirementManager(project=self.project, width=w, height=h,
+                                 parent=self)
         dlg.show()
 
     # def display_conops_modeler(self):
