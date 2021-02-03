@@ -1871,15 +1871,22 @@ class Main(QtWidgets.QMainWindow):
         return names
 
     @property
-    def key_path(self):
+    def user_home(self):
         """
-        Path to the private key used for cryptosign auth.
+        Path to the user's home directory.
         """
         p = Path(orb.home)
         absp = p.resolve()
         home = absp.parent
+        return str(home)
+
+    @property
+    def key_path(self):
+        """
+        Path to the private key used for cryptosign auth.
+        """
         # TODO:  use app_name + '.key'
-        return os.path.join(str(home), 'cattens.key')
+        return os.path.join(self.user_home, 'cattens.key')
 
     @property
     def populated(self):
@@ -2796,7 +2803,8 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.debug('* user-requested full resync ...')
         dlg = FullSyncDialog(parent=self)
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+        if dlg.exec_():
+            orb.log.debug('  confirmed, resyncing ...')
             self.sync_with_services(force=True)
         else:
             return
@@ -3914,9 +3922,13 @@ class Main(QtWidgets.QMainWindow):
                  getattr(self.project, 'id', None) or '[no current project]'))
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         dtstr = date2str(dtstamp())
+        if not state.get('last_path'):
+            state['last_path'] = self.user_home
+        file_path = os.path.join(state['last_path'],
+                                 self.project.id + '-' + dtstr + '.yaml')
         fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
                                     self, 'Export Project to File',
-                                    self.project.id + '-' + dtstr + '.yaml')
+                                    file_path)
         if fpath:
             orb.log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
@@ -3939,10 +3951,14 @@ class Main(QtWidgets.QMainWindow):
                  getattr(self.project, 'id', None) or '[no current project]'))
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         dtstr = date2str(dtstamp())
-        fname = self.project.id + '-requirements-'+ dtstr + '.yaml'
+        if not state.get('last_path'):
+            state['last_path'] = self.user_home
+        suggested_path = os.path.join(
+                          state['last_path'],
+                          self.project.id + '-requirements-'+ dtstr + '.yaml')
         fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
                                 self, 'Export Project Requirements to File',
-                                fname)
+                                suggested_path)
         if fpath:
             orb.log.debug(f'  - file selected: "{fpath}"')
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
@@ -3974,10 +3990,11 @@ class Main(QtWidgets.QMainWindow):
         message = ''
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         if not state.get('last_path'):
-            state['last_path'] = ''
+            state['last_path'] = self.user_home
         # NOTE: can add filter if needed, e.g.: filter="(*.yaml)"
         dialog = QtWidgets.QFileDialog(self, 'Open File',
-                                       directory=state['last_path'])
+                                       state['last_path'],
+                                       "(*.yaml)")
         fpath = ''
         if dialog.exec_():
             fpaths = dialog.selectedFiles()
@@ -4086,10 +4103,11 @@ class Main(QtWidgets.QMainWindow):
         message = ''
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         if not state.get('last_path'):
-            state['last_path'] = orb.test_data_dir
+            state['last_path'] = self.user_home
         # NOTE: can add filter if needed, e.g.: filter="(*.yaml)"
         dialog = QtWidgets.QFileDialog(self, 'Open File',
-                                       directory=state['last_path'])
+                                       state['last_path'],
+                                       "(*.yaml)")
         fpath = ''
         if dialog.exec_():
             fpaths = dialog.selectedFiles()
@@ -4385,9 +4403,11 @@ class Main(QtWidgets.QMainWindow):
         if self.project:
             if getattr(self.project, 'systems', None):
                 dtstr = date2str(dtstamp())
+                if not state.get('last_path'):
+                    state['last_path'] = self.user_home
                 suggest_fname = os.path.join(
-                            orb.home,
-                            self.project.id + '-MEL-' + dtstr + '.xlsx')
+                                  state['last_path'],
+                                  self.project.id + '-MEL-' + dtstr + '.xlsx')
                 fpath, _ = QtWidgets.QFileDialog.getSaveFileName(
                                 self, 'Open File', suggest_fname,
                                 "Excel Files (*.xlsx)")
@@ -4419,7 +4439,7 @@ class Main(QtWidgets.QMainWindow):
         #    tableview.setColumnWidth(i, 300)
         #    tableview.resizeColumnToContents(cols.index('Category'))
         if not state.get('last_path'):
-            state['last_path'] = orb.test_data_dir
+            state['last_path'] = self.user_home
         fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
                                     self, 'Open File',
                                     state['last_path'],
@@ -4527,9 +4547,13 @@ class Main(QtWidgets.QMainWindow):
         self.statusbar.showMessage('Exporting DB to file ...')
         orb.log.debug('* dump_database()')
         dtstr = date2str(dtstamp())
+        if not state.get('last_path'):
+            state['last_path'] = self.user_home
+        suggested_path = os.path.join(state['last_path'], 
+                                    'DB-' + dtstr + '.yaml')
         fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
                                     self, 'Export DB to File',
-                                    'DB-' + dtstr + '.yaml')
+                                    suggested_path)
         if fpath:
             orb.log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str

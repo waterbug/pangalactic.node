@@ -127,6 +127,7 @@ class FullSyncDialog(QDialog):
         self.buttons.button(QDialogButtonBox.Ok).setText('Yes')
         self.buttons.button(QDialogButtonBox.Cancel).setText('No')
         form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
 
 
