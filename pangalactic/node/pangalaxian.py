@@ -972,7 +972,8 @@ class Main(QtWidgets.QMainWindow):
         if newer:
             orb.log.debug('  new objects found ...')
             # chunks = chunkify(newer, 5)   # set chunks small for testing
-            chunks = chunkify(newer, 100)
+            # chunks = chunkify(newer, 100)
+            chunks = chunkify(newer, 50)   # 100 is too big sometimes
             n_chunks = len(chunks)
             c = 'chunks'
             if n_chunks == 1:
@@ -1069,7 +1070,7 @@ class Main(QtWidgets.QMainWindow):
         if newer:
             orb.log.debug('  server objects found ...')
             # chunks = chunkify(newer, 5)   # set chunks small for testing
-            chunks = chunkify(newer, 100)
+            chunks = chunkify(newer, 50)
             n_chunks = len(chunks)
             c = 'chunks'
             if n_chunks == 1:
