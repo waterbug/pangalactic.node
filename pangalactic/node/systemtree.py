@@ -981,8 +981,8 @@ class SystemTreeModel(QAbstractItemModel):
         be located and deleted.
         """
         orb.log.debug('* SystemTreeModel.removeRows()')
-        orb.log.debug('  position: {}'.format(position))
-        orb.log.debug('  count: {}'.format(count))
+        # orb.log.debug('  position: {}'.format(position))
+        # orb.log.debug('  count: {}'.format(count))
         parent_node = self.get_node(parent)
         # orb.log.debug('  parent_node: {}'.format(
                                  # getattr(parent_node.obj, 'id', '[no id]')))
@@ -998,14 +998,14 @@ class SystemTreeModel(QAbstractItemModel):
         if acus_by_oid:
             acus = list(acus_by_oid.values())
             assembly = acus[0].assembly
-        # if acus_by_oid:
-            # orb.log.debug('  + acus to be deleted: {}'.format(
-                          # [l.id for l in links_to_delete
-                           # if isinstance(l, orb.classes['Acu'])]))
+        if acus_by_oid:
+            orb.log.debug('  + deleting Acus: {}'.format(
+                          [l.id for l in links_to_delete
+                           if isinstance(l, orb.classes['Acu'])]))
         psu_oids = [l.oid for l in links_to_delete
                 if isinstance(l, orb.classes['ProjectSystemUsage'])]
         if psu_oids:
-            orb.log.debug('  + psus to be deleted: {}'.format(
+            orb.log.debug('  + deleting PSUs: {}'.format(
                           [l.oid for l in links_to_delete
                 if isinstance(l, orb.classes['ProjectSystemUsage'])]))
         orb.delete(links_to_delete)
@@ -1299,8 +1299,8 @@ class SystemTreeView(QTreeView):
                 node = self.source_model.get_node(src_idx)
                 obj = node.obj
                 if obj:
-                    msg = '* tree node selected: "{}".'.format(obj.id)
-                    orb.log.debug(msg)
+                    # msg = '* tree node selected: "{}".'.format(obj.id)
+                    # orb.log.debug(msg)
                     dispatcher.send('system selected', system=obj)
                 # link = node.link
                 # if link:

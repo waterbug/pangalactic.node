@@ -2358,7 +2358,7 @@ class Main(QtWidgets.QMainWindow):
         obj = orb.get(obj_oid)
         selected_link_oid = None
         if obj:
-            orb.log.info('  object exists in local db ...')
+            orb.log.debug('  object exists in local db ...')
             cname = obj.__class__.__name__
             if (cname in ['Acu', 'ProjectSystemUsage']):
                 tree_and_dash_refreshed = False
@@ -2397,14 +2397,15 @@ class Main(QtWidgets.QMainWindow):
                                                             # row_parent).obj.id
                         # orb.log.debug('  at row {} of parent {}'.format(pos,
                                                                    # parent_id))
-                        # removeRow calls orb.delete on the object ...
                         # NOTE 2020-04-23:  new call 'on_remote_deletion()'
                         # prevents the systree model sending the
                         # "deleted object" signal, which triggers a vger.delete
                         # rpc, causing a cycle!
-                        msg = 'calling tree model on_remote_deletion() ...'
-                        orb.log.debug(f'  {msg}')
-                        orb.log.debug('  which should call orb.delete() ...')
+                        # [on_remote_deletion() calls removeRow(), which calls
+                        # orb.delete on the object]
+                        # msg = 'calling tree model on_remote_deletion() ...'
+                        # orb.log.debug(f'  {msg}')
+                        # orb.log.debug('  which should call orb.delete() ...')
                         self.sys_tree.source_model.on_remote_deletion(pos,
                                                                row_parent)
                         # this will resize dashboard columns if necessary
@@ -2412,18 +2413,20 @@ class Main(QtWidgets.QMainWindow):
                     elif len(idxs) > 1:
                         # NOTE:  refreshing the whole tree is very disruptive but is
                         # necessary if the link occurs multiple times in the tree
-                        msg = 'calling orb.delete() and refreshing tree ...'
-                        orb.log.debug(f'  {msg}')
+                        # msg = 'calling orb.delete() and refreshing tree ...'
+                        # orb.log.debug(f'  {msg}')
                         orb.delete([obj])
+                        orb.log.debug('  deleted.')
                         tree_and_dash_refreshed = True
                         self.refresh_tree_and_dashboard(
                                             selected_link_oid=selected_link_oid)
                 else:
                     # if there is currently no tree being shown, just delete
                     # the Acu or PSU
-                    msg = 'calling orb.delete() (not displaying tree) ...'
-                    orb.log.debug(f'  {msg}')
+                    # msg = 'calling orb.delete() (not displaying tree) ...'
+                    # orb.log.debug(f'  {msg}')
                     orb.delete([obj])
+                    orb.log.debug('  deleted.')
                 if getattr(self, 'system_model_window', None):
                     # rebuild diagram in case object corresponded to a
                     # block in the current diagram
@@ -2453,6 +2456,7 @@ class Main(QtWidgets.QMainWindow):
                     self.w = NotificationDialog(html, parent=self)
                     self.w.show()
                 orb.delete([obj])
+                orb.log.debug('  deleted.')
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
                                 remote=True)
                 self.update_project_role_labels()
@@ -2462,13 +2466,14 @@ class Main(QtWidgets.QMainWindow):
             elif cname == 'Activity':
                 dispatcher.send('remove activity', act=obj)
                 orb.delete([obj])
+                orb.log.debug('  deleted.')
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
                                 remote=True)
             else:
                 orb.delete([obj])
+                orb.log.debug('  deleted.')
                 dispatcher.send('deleted object', oid=obj_oid, cname=cname,
                                 remote=True)
-            orb.log.debug('  - object deleted.')
         else:
             orb.log.debug('  oid not found in local db; ignoring.')
 
@@ -2751,16 +2756,18 @@ class Main(QtWidgets.QMainWindow):
             cname (str):  class name of the deleted object
             remote (bool):  whether the action originated remotely
         """
-        orb.log.info('* received local "deleted object" signal on:')
         # make sure db transaction has been committed
         orb.db.commit()
+        origin = 'local'
         if remote:
+            origin = 'remote'
             obj = orb.get(oid)
             if obj:
                 orb.delete([obj])
+        orb.log.debug(f'* received {origin} "deleted object" signal on:')
         # cname is needed here because at this point the local object has
         # already been deleted
-        orb.log.info('  cname="{}", oid = "{}"'.format(str(cname), str(oid)))
+        orb.log.debug(f'  cname="{cname}", oid="{oid}"')
         # only attempt to update tree and dashboard if in "system" mode ...
         if ((self.mode == 'system') and
             cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
@@ -2826,7 +2833,7 @@ class Main(QtWidgets.QMainWindow):
         """
         Force full synchronization with server (ignoring mod_datetimes).
         """
-        orb.log.debug('* user-requested full resync ...')
+        orb.log.debug('* user requested force full resync ...')
         dlg = FullSyncDialog(parent=self)
         if dlg.exec_():
             orb.log.debug('  confirmed, resyncing ...')
@@ -2973,7 +2980,7 @@ class Main(QtWidgets.QMainWindow):
         Keyword Args:
             obj (Identifiable):  object whose change triggered the update
         """
-        orb.log.info('* _update_views()')
+        orb.log.debug('* _update_views()')
         orb.log.debug('  triggered by object: {}'.format(
                                             getattr(obj, 'id', '[no object]')))
         if getattr(self, 'system_model_window', None):
