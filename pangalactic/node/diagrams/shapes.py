@@ -498,7 +498,8 @@ class ObjectBlock(Block):
 
     def del_position(self):
         """
-        Remove a position (i.e. an Acu) from a assembly.
+        Remove a position (i.e. an Acu) from a assembly.  Prohibit removal if
+        associated flows exist.
         """
         # NOTE: permissions are checked in the context menu that gives access
         # to this function
@@ -507,12 +508,13 @@ class ObjectBlock(Block):
         orb.log.debug('  - checking for flows ...')
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
-            for flow in flows:
-                orb.log.debug('   id: {}, name: {} (oid {})'.format(
-                              flow.id, flow.name, flow.oid))
-                orb.db.delete(flow)
-                orb.log.debug('     ... deleted.')
-            orb.db.commit()
+            message = 'Associated flows must be deleted first ...\n'
+            message += 'see "Select or delete associated flows".'
+            popup = QMessageBox(QMessageBox.Warning,
+                        "CAUTION: Associated Flows", message,
+                        QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            return
         else:
             orb.log.debug('   no associated flows.')
         oid = self.usage.oid
@@ -530,12 +532,13 @@ class ObjectBlock(Block):
         orb.log.debug('  - checking for flows ...')
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
-            for flow in flows:
-                orb.log.debug('   id: {}, name: {} (oid {})'.format(
-                              flow.id, flow.name, flow.oid))
-                orb.db.delete(flow)
-                orb.log.debug('     ... deleted.')
-            orb.db.commit()
+            message = 'Associated flows must be deleted first ...\n'
+            message += 'see "Select or delete associated flows".'
+            popup = QMessageBox(QMessageBox.Warning,
+                        "CAUTION: Associated Flows", message,
+                        QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            return
         else:
             orb.log.debug('   no associated flows.')
         oid = self.usage.oid
@@ -556,12 +559,13 @@ class ObjectBlock(Block):
         orb.log.debug('  - checking for flows ...')
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
-            for flow in flows:
-                orb.log.debug('   id: {}, name: {} (oid {})'.format(
-                              flow.id, flow.name, flow.oid))
-                orb.db.delete(flow)
-                orb.log.debug('     ... deleted.')
-            orb.db.commit()
+            message = 'Associated flows must be deleted first ...\n'
+            message += 'see "Select or delete associated flows".'
+            popup = QMessageBox(QMessageBox.Warning,
+                        "CAUTION: Associated Flows", message,
+                        QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            return
         else:
             orb.log.debug('   no associated flows.')
         tbd = orb.get('pgefobjects:TBD')
