@@ -26,7 +26,8 @@ from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
                                           get_next_ref_des, 
                                           get_port_name)
 from pangalactic.core.validation  import get_bom_oids
-from pangalactic.node.dialogs     import AssemblyNodeDialog, OptionNotification
+from pangalactic.node.dialogs     import (AssemblyNodeDialog, FlowsDialog,
+                                          OptionNotification)
 from pangalactic.node.filters     import FilterDialog
 from pangalactic.node.utils       import clone, extract_mime_data
 
@@ -450,12 +451,12 @@ class ObjectBlock(Block):
             a.setEnabled(False)
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
-            log_flows_txt = '* See log for associated flows'
-            menu.addAction(log_flows_txt, self.noop)
+            flows_txt = 'Select or delete associated flows'
+            menu.addAction(flows_txt, self.select_flows)
         else:
             txt = '[No flows associated with this component]'
-            log_flows_act = menu.addAction(txt, self.noop)
-            log_flows_act.setEnabled(False)
+            flows_act = menu.addAction(txt, self.noop)
+            flows_act.setEnabled(False)
         if 'modify' in perms:
             mod_usage_txt = 'Modify quantity and/or reference designator'
             menu.addAction(mod_usage_txt, self.mod_usage)
@@ -468,6 +469,11 @@ class ObjectBlock(Block):
             if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
                 menu.addAction('Remove this system', self.del_system)
         menu.exec_(event.screenPos())
+
+    def select_flows(self):
+        dlg = FlowsDialog(self.usage)
+        if dlg.exec_():
+            pass
 
     def display_type_hint(self):
         type_hint = getattr(self.usage.product_type_hint, 'name', '')

@@ -639,6 +639,33 @@ class DeleteColsDialog(QDialog):
         return col_names
 
 
+class FlowsDialog(QDialog):
+    """
+    Dialog for selecting, inspecting, and deleting Flows associated with a
+    block in an IBD (Internal Block Diagram).  Note that each block in such a
+    diagram represents a component "usage" in the assembly that is the subject
+    of the diagram.
+    """
+    def __init__(self, usage, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Flows")
+        form = QFormLayout(self)
+        self.checkboxes = {}
+        flows = orb.get_all_usage_flows(usage)
+        for flow in flows:
+            label = QLabel(flow.name, self)
+            self.checkboxes[flow.oid] = QCheckBox(self)
+            self.checkboxes[flow.oid].setChecked(False)
+            form.addRow(self.checkboxes[flow.oid], label)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+
 class NewDashboardDialog(QDialog):
     """
     Dialog for deleting columns from the dashboard.
