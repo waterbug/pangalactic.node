@@ -451,7 +451,10 @@ class ObjectBlock(Block):
             a.setEnabled(False)
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
-            flows_txt = 'Select or delete associated flows'
+            if 'modify' in perms:
+                flows_txt = 'Select or delete associated flows'
+            else:
+                flows_txt = 'Display info about associated flows'
             menu.addAction(flows_txt, self.select_flows)
         else:
             txt = '[No flows associated with this component]'
@@ -471,6 +474,14 @@ class ObjectBlock(Block):
         menu.exec_(event.screenPos())
 
     def select_flows(self):
+        """
+        Handler for menu items "Select or delete associated flows" and 
+        "Display info about associated flows" (the former if the user has
+        delete permission).
+        """
+        perms = get_perms(self.usage)
+        # check for 'modify' permission; if found, offer "delete" option
+        # if 'modify' in perms:
         dlg = FlowsDialog(self.usage)
         if dlg.exec_():
             pass
@@ -528,19 +539,6 @@ class ObjectBlock(Block):
         """
         # NOTE: permissions are checked in the context menu that gives access
         # to this function
-        # remove any Flows first!
-        orb.log.debug('  - checking for flows ...')
-        flows = orb.get_all_usage_flows(self.usage)
-        if flows:
-            message = 'Associated flows must be deleted first ...\n'
-            message += 'see "Select or delete associated flows".'
-            popup = QMessageBox(QMessageBox.Warning,
-                        "CAUTION: Associated Flows", message,
-                        QMessageBox.Ok, self.parentWidget())
-            popup.show()
-            return
-        else:
-            orb.log.debug('   no associated flows.')
         oid = self.usage.oid
         orb.delete([self.usage])
         dispatcher.send(signal='deleted object', oid=oid,

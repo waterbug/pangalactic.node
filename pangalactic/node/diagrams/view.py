@@ -13,6 +13,7 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core                 import diagramz, state
 from pangalactic.core.access          import get_perms
+from pangalactic.core.parametrics     import get_dval, get_pval
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.uberorb         import orb
 from pangalactic.node.diagrams.shapes import (ObjectBlock, PortBlock,
@@ -146,6 +147,30 @@ class DiagramScene(QGraphicsScene):
                     if (start_item.port.type_of_port.id !=
                         end_item.port.type_of_port.id):
                         txt = 'Cannot connect ports of different types.'
+                        notice = QMessageBox()
+                        notice.setText(txt)
+                        notice.exec_()
+                        return
+                    p1_dir = get_dval(start_item.port.oid, 'directionality')
+                    p2_dir = get_dval(end_item.port.oid, 'directionality')
+                    if (p1_dir in ['input', 'output'] and p1_dir == p2_dir):
+                        txt = f'Cannot connect two {p1_dir} ports.'
+                        notice = QMessageBox()
+                        notice.setText(txt)
+                        notice.exec_()
+                        return
+                    port1_V = get_pval(start_item.port.oid, 'Voltage')
+                    port2_V = get_pval(end_item.port.oid, 'Voltage')
+                    if (port1_V and port2_V and port1_V != port2_V):
+                        txt = 'Cannot connect ports of different Voltages.'
+                        notice = QMessageBox()
+                        notice.setText(txt)
+                        notice.exec_()
+                        return
+                    port1_RD = get_pval(start_item.port.oid, 'R_D')
+                    port2_RD = get_pval(end_item.port.oid, 'R_D')
+                    if (port1_RD and port2_RD and port1_RD != port2_RD):
+                        txt = 'Cannot connect ports with different Data Rates.'
                         notice = QMessageBox()
                         notice.setText(txt)
                         notice.exec_()

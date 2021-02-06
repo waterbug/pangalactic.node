@@ -1352,8 +1352,7 @@ class SystemTreeView(QTreeView):
         mod_node_txt = 'Modify quantity and/or reference designator'
         self.mod_node_action = QAction(mod_node_txt, self)
         self.mod_node_action.triggered.connect(self.modify_node)
-        self.del_component_action = QAction('Remove this component',
-                                                      self)
+        self.del_component_action = QAction('Remove this component', self)
         self.del_component_action.triggered.connect(self.del_component)
         self.del_position_action = QAction('Remove this assembly position',
                                            self)
@@ -1431,24 +1430,38 @@ class SystemTreeView(QTreeView):
                               QMessageBox.Ok)
                     if ret == QMessageBox.Ok:
                         return False
-                # replace component with special "TBD" product
-                orb.log.debug('  removing component "%s" ...'
-                              % node.link.component.id)
-                if (not node.link.product_type_hint and
-                    node.link.component.product_type):
-                    pt = node.link.component.product_type
-                    node.link.product_type_hint = pt
-                    node.link.quantity = 1
-                tbd = orb.get('pgefobjects:TBD')
-                self.source_model.setData(mapped_i, tbd)
-                orb.save([node.link])
-                dispatcher.send('modified object', obj=node.link)
-                # Acu modified -> assembly is modified
-                node.link.assembly.mod_datetime = dtstamp()
-                node.link.assembly.modifier = orb.get(state.get(
-                                                'local_user_oid'))
-                orb.save([node.link.assembly])
-                dispatcher.send('modified object', obj=node.link.assembly)
+                orb.log.debug('  - checking for flows ...')
+                flows = orb.get_all_usage_flows(node.link)
+                if flows:
+                    refdes = node.link.reference_designator
+                    message = 'Associated flows must be deleted first ...\n'
+                    message += 'use "Select or delete associated flows"\n'
+                    message += f'by right-clicking on the "{refdes}" block\n'
+                    message += 'in the diagram.'
+                    popup = QMessageBox(QMessageBox.Warning,
+                                "CAUTION: Associated Flows", message,
+                                QMessageBox.Ok, self)
+                    popup.show()
+                    return
+                else:
+                    # replace component with special "TBD" product
+                    orb.log.debug('  removing component "%s" ...'
+                                  % node.link.component.id)
+                    if (not node.link.product_type_hint and
+                        node.link.component.product_type):
+                        pt = node.link.component.product_type
+                        node.link.product_type_hint = pt
+                        node.link.quantity = 1
+                    tbd = orb.get('pgefobjects:TBD')
+                    self.source_model.setData(mapped_i, tbd)
+                    orb.save([node.link])
+                    dispatcher.send('modified object', obj=node.link)
+                    # Acu modified -> assembly is modified
+                    node.link.assembly.mod_datetime = dtstamp()
+                    node.link.assembly.modifier = orb.get(state.get(
+                                                    'local_user_oid'))
+                    orb.save([node.link.assembly])
+                    dispatcher.send('modified object', obj=node.link.assembly)
             elif node.link.__class__.__name__ == 'ProjectSystemUsage':
                 if not 'modify' in get_perms(node.link):
                     ret = QMessageBox.critical(
@@ -1496,6 +1509,18 @@ class SystemTreeView(QTreeView):
                               QMessageBox.Ok)
                     if ret == QMessageBox.Ok:
                         return False
+                flows = orb.get_all_usage_flows(node.link)
+                if flows:
+                    refdes = node.link.reference_designator
+                    message = 'Associated flows must be deleted first ...\n'
+                    message += 'use "Select or delete associated flows"\n'
+                    message += f'by right-clicking on the "{refdes}" block\n'
+                    message += 'in the diagram.'
+                    popup = QMessageBox(QMessageBox.Warning,
+                                "CAUTION: Associated Flows", message,
+                                QMessageBox.Ok, self)
+                    popup.show()
+                    return False
                 ref_des = getattr(node.link, 'reference_designator',
                                   '(No reference designator)')
                 assembly = node.link.assembly
