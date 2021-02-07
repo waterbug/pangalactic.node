@@ -1083,7 +1083,7 @@ class SubjectBlock(Block):
         elif event.mimeData().hasFormat("application/x-pgef-port-type"):
             # ------------------------------------------------------------
             # 4: dropped item is a PortType and
-            #    drop target is an object that can have ports ->
+            #    drop target is a Product instance ->
             #    add a Port to the drop target
             # ------------------------------------------------------------
             data = extract_mime_data(event, "application/x-pgef-port-type")
@@ -1093,7 +1093,15 @@ class SubjectBlock(Block):
             if not hasattr(self.obj, 'ports'):
                 orb.log.info("  - {} cannot have ports.".format(
                                                 self.obj.__class__.__name__))
+                msg = "Only models of physical objects and software\n"
+                msg += "can have ports."
+                popup = QMessageBox(
+                        QMessageBox.Critical,
+                        "Prohibited Operation", msg,
+                        QMessageBox.Ok, self.parentWidget())
+                popup.show()
                 event.ignore()
+                return
             elif port_type:
                 orb.log.info('  - orb found {} "{}"'.format(cname, name))
                 orb.log.info('    creating Port ...')
@@ -1128,6 +1136,13 @@ class SubjectBlock(Block):
             if not hasattr(self.obj, 'ports'):
                 orb.log.info("  - {} cannot have ports.".format(
                                                 self.obj.__class__.__name__))
+                msg = "Only models of physical objects and software\n"
+                msg += "can have ports."
+                popup = QMessageBox(
+                        QMessageBox.Critical,
+                        "Prohibited Operation", msg,
+                        QMessageBox.Ok, self.parentWidget())
+                popup.show()
                 event.ignore()
             elif port_template:
                 orb.log.info('  - orb found {} "{}"'.format(cname, name))

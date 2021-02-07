@@ -1520,8 +1520,9 @@ class PgxnObject(QDialog):
 
     def on_save(self):
         orb.log.info('* [pgxo] saving ...')
-        # immediately check for duplicate "id"
-        if self.new:
+        # immediately check for unique "id" and "name", unless a Port
+        cname = self.obj.__class__.__name__
+        if self.new and cname != 'Port':
             if 'id' in self.editable_widgets:
                 self.id_widget = self.editable_widgets['id']
                 id_value = self.id_widget.text()
@@ -1541,7 +1542,40 @@ class PgxnObject(QDialog):
                                          msg, QMessageBox.Ok, self)
                     notice.show()
                     return
-        cname = self.obj.__class__.__name__
+        elif cname == 'Port':
+            # Port ids/names are only required to be unique within the context
+            # of their parent product (the "of_product" attribute)
+            parent_product = self.obj.of_product
+            sibling_ids = []
+            sibling_names = []
+            if parent_product and 'id' in self.editable_widgets:
+                sibling_ids = [port.id for port in parent_product.ports
+                               if port.oid != self.obj.oid]
+                self.id_widget = self.editable_widgets['id']
+                id_value = self.id_widget.text()
+                if id_value in sibling_ids:
+                    sib_ids_txt = ', '.join([i for i in sibling_ids])
+                    msg = f'The id "{id_value}" has a duplicate within\n'
+                    msg += f'its parent object ("{parent_product.id}");\n'
+                    msg += f'port ids are: {sib_ids_txt}.'
+                    notice = QMessageBox(QMessageBox.Warning, 'Duplicate ID',
+                                         msg, QMessageBox.Ok, self)
+                    notice.show()
+                    return
+            if parent_product and 'name' in self.editable_widgets:
+                sibling_names = [port.name for port in parent_product.ports
+                                 if port.oid != self.obj.oid]
+                name_widget = self.editable_widgets['name']
+                name_value = self.name_widget.text()
+                if name_value in sibling_names:
+                    sib_names_txt = ', '.join([n for n in sibling_names])
+                    msg = f'The name "{name_value}" has a duplicate within\n'
+                    msg += f'its parent object ("{parent_product.id}");\n'
+                    msg += f'port names are: {sib_names_txt}.'
+                    notice = QMessageBox(QMessageBox.Warning, 'Duplicate Name',
+                                         msg, QMessageBox.Ok, self)
+                    notice.show()
+                    return
         fields_dict = {}
         for name in self.editable_widgets:
             fields_dict[name] = self.editable_widgets[name].get_value()
