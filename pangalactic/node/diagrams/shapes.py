@@ -452,9 +452,9 @@ class ObjectBlock(Block):
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
             if 'modify' in perms:
-                flows_txt = 'Select or delete associated flows'
+                flows_txt = 'Select or delete connections'
             else:
-                flows_txt = 'Display info about associated flows'
+                flows_txt = 'Display info about connections'
             menu.addAction(flows_txt, self.select_flows)
         else:
             txt = '[No flows associated with this component]'
@@ -475,8 +475,8 @@ class ObjectBlock(Block):
 
     def select_flows(self):
         """
-        Handler for menu items "Select or delete associated flows" and 
-        "Display info about associated flows" (the former if the user has
+        Handler for menu items "Select or delete connections" and
+        "Display info about connections" (the former if the user has
         delete permission).
         """
         perms = get_perms(self.usage)
@@ -519,10 +519,9 @@ class ObjectBlock(Block):
         orb.log.debug('  - checking for flows ...')
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
-            message = 'Associated flows must be deleted first ...\n'
-            message += 'see "Select or delete associated flows".'
+            message = 'Cannot delete: all connections must be deleted first.'
             popup = QMessageBox(QMessageBox.Warning,
-                        "CAUTION: Associated Flows", message,
+                        "CAUTION: Connections", message,
                         QMessageBox.Ok, self.parentWidget())
             popup.show()
             return
@@ -557,10 +556,9 @@ class ObjectBlock(Block):
         orb.log.debug('  - checking for flows ...')
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
-            message = 'Associated flows must be deleted first ...\n'
-            message += 'see "Select or delete associated flows".'
+            message = 'Cannot delete: all connections must be deleted first.'
             popup = QMessageBox(QMessageBox.Warning,
-                        "CAUTION: Associated Flows", message,
+                        "CAUTION: Connections", message,
                         QMessageBox.Ok, self.parentWidget())
             popup.show()
             return
@@ -1276,16 +1274,39 @@ class PortBlock(QGraphicsItem):
 
     def contextMenuEvent(self, event):
         if isinstance(self.parent_block, (SubjectBlock, ObjectBlock)):
+            # NOTE: the permissions related to a Port are those of its
+            # "of_product" object
             perms = get_perms(self.port)
             self.scene().clearSelection()
             # self.setSelected(True)
             menu = QMenu()
             menu.addAction('inspect port object', self.display_port)
-            if 'delete' in perms:
+            flows = orb.get_all_port_flows(self.port)
+            if flows:
+                # delete is only allowed if the associated Port object has no
+                # associated Flows (in ANY context!)
+                txt = '[port cannot be deleted -- has external connections]'
+                a = menu.addAction(txt, self.noop)
+                a.setEnabled(False)
+            if 'delete' in perms and not flows:
+                # delete is only allowed if the associated Port object has no
+                # associated Flows (in ANY context!)
                 menu.addAction('delete port', self.delete_local)
+            if self.connectors:
+                # if the port has connectors/flows, check whether the user has
+                # modify permission for the flows (which is determined from the
+                # permissions for the associated "flow_context")
+                flow_perms = get_perms(self.connectors[0].flow)
+                if 'modify' in flow_perms:
+                    menu.addAction(
+                        "delete this port's connections within this assembly",
+                        self.delete_all_flows_local)
             menu.exec_(event.screenPos())
         else:
             event.ignore()
+
+    def noop(self):
+        pass
 
     def delete_local(self):
         """
@@ -1295,29 +1316,28 @@ class PortBlock(QGraphicsItem):
 
     def delete(self, remote=False):
         """
-        Delete this PortBlock, its Port object, and any associated Flows.  User
-        permissions are checked before access is provided to this function.
+        Delete this PortBlock and its Port object if it does not have any
+        associated Flows.  User permissions are checked before access is
+        provided to this function.
 
         Keyword Args:
             remote (bool):  if True, action originated remotely, so a local
                 "deleted object" signal should NOT be dispatched.
         """
-        txt = 'This will delete the {}'.format(self.port.name)
-        txt += ' and any associated Flow(s) -- are you sure?'
+        if self.connectors:
+            # if the port has connectors, warn the user and ignore
+            message = 'Cannot delete: all connections must be deleted first.'
+            popup = QMessageBox(QMessageBox.Warning,
+                        "CAUTION: Connections", message,
+                        QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            return
+        txt = 'This will delete the {} port'.format(self.port.name)
+        txt += ' -- are you sure?'
         confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Port?', txt,
                                   QMessageBox.Yes | QMessageBox.No)
         response = confirm_dlg.exec_()
         if response == QMessageBox.Yes:
-            # delete connector(s) and their associated flows, if any ...
-            for shape in self.scene().items():
-                if (isinstance(shape, RoutedConnector) and
-                    (shape.start_item is self or shape.end_item is self)):
-                    flow_oid = shape.flow.oid
-                    orb.delete([shape.flow])
-                    dispatcher.send('deleted object', oid=flow_oid,
-                                    cname='Flow', remote=remote)
-                    shape.prepareGeometryChange()
-                    self.scene().removeItem(shape)
             # the PortBlock must have a Port, but check just to be sure ... it
             # might have already been deleted if this was a remote action
             if getattr(self, 'port', None):
@@ -1334,6 +1354,36 @@ class PortBlock(QGraphicsItem):
                     obj.mod_datetime = dtstamp()
                     orb.save([obj])
                     dispatcher.send('modified object', obj=obj)
+            # regenerate the diagram
+            dispatcher.send('refresh diagram')
+
+    def delete_all_flows_local(self):
+        self.delete_all_flows(remote=False)
+
+    def delete_all_flows(self, remote=False):
+        """
+        Delete all associated Flows and their RoutedConnector objects.
+
+        Keyword Args:
+            remote (bool):  if True, action originated remotely, so a local
+                "deleted object" signal should NOT be dispatched.
+        """
+        txt = 'This will delete all connections (Flows) associated with the '
+        txt += f' {self.port.name} port -- are you sure?'
+        confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Connections?',
+                                  txt, QMessageBox.Yes | QMessageBox.No)
+        response = confirm_dlg.exec_()
+        if response == QMessageBox.Yes:
+            # delete connector(s) and their associated flows, if any ...
+            for shape in self.scene().items():
+                if (isinstance(shape, RoutedConnector) and
+                    (shape.start_item is self or shape.end_item is self)):
+                    flow_oid = shape.flow.oid
+                    orb.delete([shape.flow])
+                    dispatcher.send('deleted object', oid=flow_oid,
+                                    cname='Flow', remote=remote)
+                    shape.prepareGeometryChange()
+                    self.scene().removeItem(shape)
             # regenerate the diagram
             dispatcher.send('refresh diagram')
 

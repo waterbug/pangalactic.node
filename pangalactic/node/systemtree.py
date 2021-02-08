@@ -1434,12 +1434,14 @@ class SystemTreeView(QTreeView):
                 flows = orb.get_all_usage_flows(node.link)
                 if flows:
                     refdes = node.link.reference_designator
-                    message = 'Associated flows must be deleted first ...\n'
-                    message += 'use "Select or delete associated flows"\n'
+                    assmb_name = node.link.assembly.name
+                    message = 'CANNOT REMOVE:\n'
+                    message += 'All connections must be deleted first ...\n'
+                    message += 'use "Select or delete connections"\n'
                     message += f'by right-clicking on the "{refdes}" block\n'
-                    message += 'in the diagram.'
+                    message += f'in the diagram for "{assmb_name}".'
                     popup = QMessageBox(QMessageBox.Warning,
-                                "CAUTION: Associated Flows", message,
+                                "CAUTION: Connections", message,
                                 QMessageBox.Ok, self)
                     popup.show()
                     return
@@ -1512,12 +1514,14 @@ class SystemTreeView(QTreeView):
                 flows = orb.get_all_usage_flows(node.link)
                 if flows:
                     refdes = node.link.reference_designator
-                    message = 'Associated flows must be deleted first ...\n'
-                    message += 'use "Select or delete associated flows"\n'
+                    assmb_name = node.link.assembly.name
+                    message = 'CANNOT REMOVE:\n'
+                    message += 'All connections must be deleted first ...\n'
+                    message += 'use "Select or delete connections"\n'
                     message += f'by right-clicking on the "{refdes}" block\n'
-                    message += 'in the diagram.'
+                    message += f'in the diagram for "{assmb_name}".'
                     popup = QMessageBox(QMessageBox.Warning,
-                                "CAUTION: Associated Flows", message,
+                                "CAUTION: Connections", message,
                                 QMessageBox.Ok, self)
                     popup.show()
                     return False
