@@ -1511,7 +1511,7 @@ class Main(QtWidgets.QMainWindow):
         return True
 
     def _create_actions(self):
-        orb.log.debug('* creating actions ...')
+        # orb.log.debug('* creating actions ...')
         app_name = config.get('app_name', 'Pangalaxian'),
         self.about_action = self.create_action(
                                     "About",
@@ -1780,7 +1780,7 @@ class Main(QtWidgets.QMainWindow):
         self.system_mode_action.setActionGroup(mode_action_group)
         self.db_mode_action.setActionGroup(mode_action_group)
         # self.data_mode_action.setActionGroup(mode_action_group)
-        orb.log.debug('  ... all actions created.')
+        # orb.log.debug('  ... all actions created.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False, modes=None):
@@ -2981,9 +2981,9 @@ class Main(QtWidgets.QMainWindow):
         Keyword Args:
             obj (Identifiable):  object whose change triggered the update
         """
-        orb.log.debug('* _update_views()')
-        orb.log.debug('  triggered by object: {}'.format(
-                                            getattr(obj, 'id', '[no object]')))
+        # orb.log.debug('* _update_views()')
+        # orb.log.debug('  triggered by object: {}'.format(
+                                        # getattr(obj, 'id', '[no object]')))
         if getattr(self, 'system_model_window', None):
             self.system_model_window.cache_block_model()
         # [gui refactor] creation of top dock moved to _init_ui()
@@ -3286,13 +3286,13 @@ class Main(QtWidgets.QMainWindow):
         self.rebuild_dashboard(dashboard_mod=True)
 
     def rebuild_dashboard(self, dashboard_mod=False):
-        orb.log.debug('* rebuild_dashboard()')
+        # orb.log.debug('* rebuild_dashboard()')
         if (not dashboard_mod and
             (not self.sys_tree_rebuilt or self.dashboard_rebuilt)):
-            orb.log.debug(' + no dashboard mod and either tree not rebuilt')
-            orb.log.debug('   or dashboard already rebuilt; not rebuilding.')
+            # orb.log.debug(' + no dashboard mod and either tree not rebuilt')
+            # orb.log.debug('   or dashboard already rebuilt; not rebuilding.')
             return
-        orb.log.debug(' + rebuilding ...')
+        # orb.log.debug(' + rebuilding ...')
         if getattr(self, 'dashboard_panel', None):
             # orb.log.debug('         + dashboard_panel exists ...')
             dashboard_layout = self.dashboard_panel.layout()

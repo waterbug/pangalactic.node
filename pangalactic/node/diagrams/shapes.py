@@ -26,7 +26,9 @@ from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
                                           get_next_ref_des, 
                                           get_port_name)
 from pangalactic.core.validation  import get_bom_oids
-from pangalactic.node.dialogs     import (AssemblyNodeDialog, FlowsDialog,
+from pangalactic.node.dialogs     import (AssemblyNodeDialog,
+                                          ConnectionsDialog,
+                                          DirectionalityDialog,
                                           OptionNotification)
 from pangalactic.node.filters     import FilterDialog
 from pangalactic.node.utils       import clone, extract_mime_data
@@ -446,20 +448,25 @@ class ObjectBlock(Block):
         if self.allocs:
             menu.addAction('Show allocated requirements', self.display_reqts)
         else:
-            txt = '[No requirements are allocated here]'
+            txt = '[No requirements are allocated to this component]'
             a = menu.addAction(txt, self.noop)
             a.setEnabled(False)
+        # NOTE: get_all_usage_flows() will come up empty if the usage is a
+        # ProjectSystemUsage instance, since flows are not allowed to have a
+        # Project as their flow_context.
         flows = orb.get_all_usage_flows(self.usage)
         if flows:
             if 'modify' in perms:
                 flows_txt = 'Select or delete connections'
             else:
                 flows_txt = 'Display info about connections'
-            menu.addAction(flows_txt, self.select_flows)
+            menu.addAction(flows_txt, self.select_connections)
         else:
-            txt = '[No flows associated with this component]'
-            flows_act = menu.addAction(txt, self.noop)
-            flows_act.setEnabled(False)
+            # if usage is a PSU, don't even mention connections in the menu
+            if not isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+                txt = '[This component has no connections in this assembly]'
+                flows_act = menu.addAction(txt, self.noop)
+                flows_act.setEnabled(False)
         if 'modify' in perms:
             mod_usage_txt = 'Modify quantity and/or reference designator'
             menu.addAction(mod_usage_txt, self.mod_usage)
@@ -473,16 +480,18 @@ class ObjectBlock(Block):
                 menu.addAction('Remove this system', self.del_system)
         menu.exec_(event.screenPos())
 
-    def select_flows(self):
+    def select_connections(self):
         """
         Handler for menu items "Select or delete connections" and
         "Display info about connections" (the former if the user has
-        delete permission).
+        delete permission).  Note that the diagram objects are RoutedConnector
+        instances but their associated "models" in the database are Flow
+        instances.
         """
         perms = get_perms(self.usage)
         # check for 'modify' permission; if found, offer "delete" option
         # if 'modify' in perms:
-        dlg = FlowsDialog(self.usage)
+        dlg = ConnectionsDialog(self.usage, parent=self.parentWidget())
         if dlg.exec_():
             pass
 
@@ -1288,6 +1297,10 @@ class PortBlock(QGraphicsItem):
                 txt = '[port cannot be deleted -- has external connections]'
                 a = menu.addAction(txt, self.noop)
                 a.setEnabled(False)
+            if 'modify' in perms:
+                # allow setting of directionality -- set_directionality() will
+                # check for consistency with any existing flows
+                menu.addAction('set directionality', self.set_directionality)
             if 'delete' in perms and not flows:
                 # delete is only allowed if the associated Port object has no
                 # associated Flows (in ANY context!)
@@ -1307,6 +1320,10 @@ class PortBlock(QGraphicsItem):
 
     def noop(self):
         pass
+
+    def set_directionality(self):
+        dlg = DirectionalityDialog(self.port, parent=self.parentWidget())
+        dlg.show()
 
     def delete_local(self):
         """

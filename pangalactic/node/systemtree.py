@@ -303,7 +303,7 @@ class SystemTreeModel(QAbstractItemModel):
                 highlighted if 'show_allocs' is True
             parent (QWidget): parent widget of the SystemTreeModel
         """
-        orb.log.debug('* SystemTreeModel initializing ...')
+        # orb.log.debug('* SystemTreeModel initializing ...')
         super().__init__(parent=parent)
         self.parent = parent
         self.refdes = refdes

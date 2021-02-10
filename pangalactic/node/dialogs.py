@@ -12,17 +12,19 @@ import sys
 
 from PyQt5.QtCore import (Qt, QPoint, QRectF, QSize, QVariant)
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
-from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
-                             QDialogButtonBox, QFormLayout, QFrame,
+from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
+                             QDialog, QDialogButtonBox, QFormLayout, QFrame,
                              QHBoxLayout, QLabel, QLineEdit, QProgressDialog,
-                             QSizePolicy, QTableView, QVBoxLayout, QWidget)
+                             QRadioButton, QSizePolicy, QTableView,
+                             QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
                                           SELECTION_VIEWS)
-from pangalactic.core.parametrics import de_defz, parm_defz, parmz_by_dimz
+from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
+                                          get_dval, set_dval)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
@@ -639,16 +641,18 @@ class DeleteColsDialog(QDialog):
         return col_names
 
 
-class FlowsDialog(QDialog):
+class ConnectionsDialog(QDialog):
     """
-    Dialog for selecting, inspecting, and deleting Flows associated with a
-    block in an IBD (Internal Block Diagram).  Note that each block in such a
-    diagram represents a component "usage" in the assembly that is the subject
-    of the diagram.
+    Dialog for selecting, inspecting, and deleting connections (diagram objects
+    that are instances of RoutedConnector, for which the underlying "model"
+    objects are Flow instances) associated with a block in an IBD (Internal
+    Block Diagram). Note that each block in such a diagram represents a
+    component "usage" (an Acu instance) in the assembly that is the subject of
+    the diagram.
     """
     def __init__(self, usage, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Flows")
+        self.setWindowTitle("Connections")
         form = QFormLayout(self)
         self.checkboxes = {}
         flows = orb.get_all_usage_flows(usage)
@@ -664,6 +668,56 @@ class FlowsDialog(QDialog):
         form.addRow(self.buttons)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
+
+
+class DirectionalityDialog(QDialog):
+    """
+    Dialog for selecting the "directionality" assigned to a Port, which may be
+    "input", "output", or "bidirectional" (default).
+    """
+    def __init__(self, port, parent=None):
+        super().__init__(parent)
+        orb.log.debug('* DirectionalityDialog')
+        self.setWindowTitle("Directionality")
+        # if isinstance(port, orb.classes['Port']):
+            # flows = orb.get_all_port_flows(port)
+        # else:
+            # flows = []
+        port_dir = get_dval(port.oid, 'directionality') or 'bidirectional'
+        self.port = port
+        orb.log.debug('  directionality is currently "{port_dir}"')
+        # other_dirs = []
+        # check directionality of ports at other ends of flows ...
+        # for flow in flows:
+            # if flow.start_port is port:
+                # other_dir = get_dval(flow.end_port.oid, 'directionality')
+            # elif flow.end_port is port:
+                # other_dir = get_dval(flow.start_port.oid, 'directionality')
+        layout = QVBoxLayout(self)
+        self.dir_buttons = QButtonGroup()
+        self.input_button = QRadioButton('input')
+        self.output_button = QRadioButton('output')
+        self.bidir_button = QRadioButton('bidirectional')
+        self.dir_buttons.addButton(self.input_button)
+        self.dir_buttons.addButton(self.output_button)
+        self.dir_buttons.addButton(self.bidir_button)
+        layout.addWidget(self.input_button)
+        layout.addWidget(self.output_button)
+        layout.addWidget(self.bidir_button)
+        if port_dir == 'input':
+            self.input_button.setChecked(True)
+        elif port_dir == 'output':
+            self.output_button.setChecked(True)
+        else:
+            self.bidir_button.setChecked(True)
+        self.dir_buttons.buttonClicked.connect(self.set_directionality)
+
+    def set_directionality(self, clicked_index):
+        b = self.dir_buttons.checkedButton()
+        port_dir = b.text()
+        orb.log.debug(f'  setting directionality to: "{port_dir}"')
+        set_dval(self.port.oid, 'directionality', port_dir)
+        self.accept()
 
 
 class NewDashboardDialog(QDialog):
