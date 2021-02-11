@@ -98,7 +98,9 @@ class Node(object):
                 self.link.system = value
             # this modifies the existing link with new 'system' or 'component'
             self.link.mod_datetime = dtstamp()
-            self.link.modifier = orb.get(state.get('local_user_oid'))
+            local_user_obj = orb.get(state.get('local_user_oid'))
+            if local_user_obj:
+                self.link.modifier = local_user_obj
             orb.save([self.link])
             # "modified object" signal is sent by the drop event when object is
             # created or modified by a local action (a drop)

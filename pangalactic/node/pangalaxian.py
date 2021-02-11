@@ -175,6 +175,7 @@ class Main(QtWidgets.QMainWindow):
         self.sandbox = orb.get('pgefobjects:SANDBOX')
         state['last_path'] = ""
         state['synced_projects'] = []
+        state['connected'] = False
         if not prefs.get('dashboard_names'):
             prefs['dashboard_names'] = ['MEL']
         state['dashboard_name'] = prefs['dashboard_names'][0]
@@ -267,7 +268,6 @@ class Main(QtWidgets.QMainWindow):
             # self.data_mode_action.trigger()
             pass
         state['done_with_progress'] = False
-        state['connected'] = False
 
     def on_log_info_msg(self, msg=''):
         orb.log.info(msg)
@@ -2261,7 +2261,10 @@ class Main(QtWidgets.QMainWindow):
         if hasattr(self, 'pb'):
             self.pb.reset()
             self.pb.hide()
-            self.statusbar.showMessage("To infinity, and beyond!")
+            if state.get('connected', False):
+                self.statusbar.showMessage("synced.")
+            else:
+                self.statusbar.showMessage("To infinity, and beyond! :)")
 
     def on_new_project_signal(self, obj=None):
         """
@@ -2625,20 +2628,27 @@ class Main(QtWidgets.QMainWindow):
         try:
             msg = ''
             if stuff.get('new_obj_dts'):
-                msg += '{} new; '.format(len(stuff['new_obj_dts']))
+                msg = '{} new; '.format(len(stuff['new_obj_dts']))
+                orb.log.debug(f'  {msg}')
             if stuff.get('mod_obj_dts'):
-                msg += '{} modified; '.format(len(stuff['mod_obj_dts']))
+                msg = '{} modified; '.format(len(stuff['mod_obj_dts']))
+                orb.log.debug(f'  {msg}')
             if stuff.get('unauth'):
-                msg += '{} unauthorized (not saved); '.format(
+                msg = '{} unauthorized (not saved); '.format(
                                                     len(stuff['unauth']))
+                orb.log.debug(f'  {msg}')
             if stuff.get('no_owners'):
-                msg += '{} no owners (not saved); '.format(
+                msg = '{} no owners (not saved); '.format(
                                                     len(stuff['no_owners']))
+                orb.log.debug(f'  {msg}')
             if not msg:
                 msg = 'nothing to save; synced.'
+                orb.log.debug(f'* {msg}')
             else:
-                msg += 'synced.'
-            self.statusbar.showMessage('vger save: {}'.format(msg))
+                msg = 'synced.'
+                orb.log.debug(f'* {msg}')
+            self.statusbar.showMessage('synced.')
+            orb.log.debug('vger save: {}'.format(msg))
         except:
             orb.log.debug('  result format incorrect.')
             self.statusbar.showMessage('synced.')
@@ -2654,6 +2664,7 @@ class Main(QtWidgets.QMainWindow):
                 msg = f'chunk synced -- getting {n} more chunks ...'
         else:
             msg = 'synced.'
+        orb.log.debug(f'* {msg}')
         self.statusbar.showMessage(msg)
 
     def on_failure(self, f):
