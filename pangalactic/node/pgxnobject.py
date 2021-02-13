@@ -752,9 +752,9 @@ class PgxnObject(QDialog):
         component (bool):  if True, embedded in component modeler window
             (special behavior when deleting object, not used in other
             embedded modes)
-        disallowed_names (list of str):  a property containing all current
+        ded_disallowed_names (list of str):  a property containing all current
             parameter and data element ids and names, used in validating the
-            contents of the "id" field in the editor
+            contents of the "id" and "name" fields for a DataElementDefinition
         embedded (bool):  if True, PgxnObject is embedded in another widget
         enable_delete (bool):  flag indicating whether a "Delete" button
             should be displayed when in edit mode (deletes object)
@@ -836,6 +836,8 @@ class PgxnObject(QDialog):
         self.cname        = obj.__class__.__name__
         self.schema       = orb.schemas.get(self.cname)
         self.title_text   = title_text
+        self.ded_id_modified = False
+        self.ded_name_modified = False
         # all_idvs is used in validating 'id' + 'version' uniqueness ...
         self.all_idvs = orb.get_idvs(cname=self.cname)
         obj_idv = (self.obj.id, getattr(obj, 'version', ''))
@@ -1076,7 +1078,7 @@ class PgxnObject(QDialog):
         self.on_edit()
 
     @property
-    def disallowed_names(self):
+    def ded_disallowed_names(self):
         """
         List of lower-case versions of all "id" and "name" attributes of all
         current ParameterDefinitions and DataElementDefinitions.
@@ -1298,12 +1300,14 @@ class PgxnObject(QDialog):
         self.create_connections()
         # orb.log.debug('* [pgxo] editable_widgets: {}'.format(
                                         # str(list(self.editable_widgets))))
-        if 'id' in self.editable_widgets:
+        if ('id' in self.editable_widgets
+            and self.cname == 'DataElementDefinition'):
             self.id_widget = self.editable_widgets['id']
-            self.id_widget.textEdited.connect(self.on_id_edited)
-        if 'name' in self.editable_widgets:
+            self.id_widget.textEdited.connect(self.on_ded_id_edited)
+        if ('name' in self.editable_widgets
+            and self.cname == 'DataElementDefinition'):
             self.name_widget = self.editable_widgets['name']
-            self.name_widget.textEdited.connect(self.on_name_edited)
+            self.name_widget.textEdited.connect(self.on_ded_name_edited)
 
         # self.adjustSize()
         if len(self.tab_names) > 7:
@@ -1363,24 +1367,28 @@ class PgxnObject(QDialog):
             # C++ obj got deleted
             pass
 
-    def on_id_edited(self):
+    def on_ded_id_edited(self):
         """
-        Handler for textEdited signal from the "id" field.
+        Handler for textEdited signal from the "id" field for
+        DataElementDefinition.
         """
+        self.ded_id_modified = True
         id_val = self.id_widget.text()
         # orb.log.debug(f'* [pgxo] id = "{id_val}"')
-        if id_val.lower() in self.disallowed_names:
+        if id_val.lower() in self.ded_disallowed_names:
             self.id_widget.setStyleSheet('color: red')
         else:
             self.id_widget.setStyleSheet('color: green')
 
-    def on_name_edited(self):
+    def on_ded_name_edited(self):
         """
-        Handler for textEdited signal from the "name" field.
+        Handler for textEdited signal from the "name" field for
+        DataElementDefinition.
         """
+        self.ded_name_modified = True
         name = self.name_widget.text()
         # orb.log.debug(f'* [pgxo] name = "{name}"')
-        if name.lower() in self.disallowed_names:
+        if name.lower() in self.ded_disallowed_names:
             self.name_widget.setStyleSheet('color: red')
         else:
             self.name_widget.setStyleSheet('color: green')
@@ -1520,23 +1528,25 @@ class PgxnObject(QDialog):
 
     def on_save(self):
         orb.log.info('* [pgxo] saving ...')
-        # immediately check for unique "id" and "name", unless a Port
+        # uniqueness checks are done only for id's and names of:
+        # [1] DataElementDefinitions
+        # [2] Ports
         cname = self.obj.__class__.__name__
-        if self.new and cname != 'Port':
-            if 'id' in self.editable_widgets:
+        if cname == 'DataElementDefinition':
+            if 'id' in self.editable_widgets and self.ded_id_modified:
                 self.id_widget = self.editable_widgets['id']
                 id_value = self.id_widget.text()
-                if id_value.lower() in self.disallowed_names:
+                if id_value.lower() in self.ded_disallowed_names:
                     msg = f'The id "{id_value}" is already being used.'
                     notice = QMessageBox(QMessageBox.Warning, 'Duplicate ID',
                                          msg, QMessageBox.Ok, self)
                     notice.show()
                     return
             # also check for name collision with parameters or data elements
-            if 'name' in self.editable_widgets:
-                name_widget = self.editable_widgets['name']
-                name_value = name_widget.text()
-                if name_value.lower() in self.disallowed_names:
+            if 'name' in self.editable_widgets and self.ded_name_modified:
+                self.name_widget = self.editable_widgets['name']
+                name_value = self.name_widget.text()
+                if name_value.lower() in self.ded_disallowed_names:
                     msg = f'The name "{name_value}" is already being used.'
                     notice = QMessageBox(QMessageBox.Warning, 'Duplicate Name',
                                          msg, QMessageBox.Ok, self)
@@ -1565,7 +1575,7 @@ class PgxnObject(QDialog):
             if parent_product and 'name' in self.editable_widgets:
                 sibling_names = [port.name for port in parent_product.ports
                                  if port.oid != self.obj.oid]
-                name_widget = self.editable_widgets['name']
+                self.name_widget = self.editable_widgets['name']
                 name_value = self.name_widget.text()
                 if name_value in sibling_names:
                     sib_names_txt = ', '.join([n for n in sibling_names])
