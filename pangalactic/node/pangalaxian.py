@@ -4787,7 +4787,6 @@ if __name__ == "__main__":
                              '[default: "cryptosign" (pubkey auth)]')
     options = parser.parse_args()
     tls = not options.unencrypted
-    admin = not options.noadmin
     # NOTE: if running from an app "run" module, the process pool needs to be
     # started in that module, since this __name__ == "__main__" clause is not
     # called in that case!
