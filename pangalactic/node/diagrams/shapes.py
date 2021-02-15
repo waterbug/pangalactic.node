@@ -468,7 +468,10 @@ class ObjectBlock(Block):
                 flows_act = menu.addAction(txt, self.noop)
                 flows_act.setEnabled(False)
         if 'modify' in perms:
-            mod_usage_txt = 'Modify quantity and/or reference designator'
+            if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+                mod_usage_txt = 'Modify system role in project'
+            elif isinstance(self.usage, orb.classes['Acu']):
+                mod_usage_txt = 'Modify quantity and/or reference designator'
             menu.addAction(mod_usage_txt, self.mod_usage)
             if isinstance(self.usage, orb.classes['Acu']):
                 menu.addAction('Remove this component', self.del_component)
@@ -588,6 +591,7 @@ class ObjectBlock(Block):
         """
         user = orb.get(state.get('local_user_oid'))
         NOW = dtstamp()
+        assembly = None
         if isinstance(self.usage, orb.classes['Acu']):
             orb.log.debug('  editing assembly node ...')
             ref_des = self.usage.reference_designator
