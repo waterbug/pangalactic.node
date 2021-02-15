@@ -8,13 +8,13 @@ from textwrap import wrap
 from louie import dispatcher
 
 # PyQt
-from PyQt5.QtGui  import QBrush, QIcon
+from PyQt5.QtGui  import QBrush, QCursor, QIcon
 from PyQt5.QtCore import (Qt, QAbstractItemModel, QItemSelectionModel,
                           QModelIndex, QSize, QSortFilterProxyModel, QVariant,
                           pyqtSignal)
 # from PyQt5.QtCore import QRegExp
-from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMessageBox,
-                             QSizePolicy, QTreeView)
+from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMenu,
+                             QMessageBox, QSizePolicy, QTreeView)
 
 # pangalactic
 from pangalactic.core             import prefs, state
@@ -1140,11 +1140,10 @@ class SystemTreeView(QTreeView):
         self.setDragDropMode(QAbstractItemView.DragDrop)
         self.source_model.successful_drop.connect(self.on_successful_drop)
         self.create_actions()
-        self.setup_context_menu()
         # only use dispatcher messages for assembly tree and dashboard tree
         # (i.e., a shared model); ignore them when instantiated in req
         # allocation mode (different models -> the indexes are not valid
-        # anyway!!)
+        # anyway!)
         if not show_allocs:
             self.expanded.connect(self.sys_node_expanded)
             self.collapsed.connect(self.sys_node_collapsed)
@@ -1186,6 +1185,43 @@ class SystemTreeView(QTreeView):
             idx_to_select = self.proxy_model.mapFromSource(
                                 self.source_model.index(0, 0, QModelIndex()))
         self.select_initial_node(idx_to_select)
+
+    def create_actions(self):
+        self.pgxnobj_action = QAction('View this object', self)
+        self.pgxnobj_action.triggered.connect(self.view_object)
+        mod_node_txt = 'Modify quantity and/or reference designator'
+        self.mod_node_action = QAction(mod_node_txt, self)
+        self.mod_node_action.triggered.connect(self.modify_node)
+        self.del_component_action = QAction('Remove this component', self)
+        self.del_component_action.triggered.connect(self.del_component)
+        self.del_function_action = QAction('Remove this function', self)
+        self.del_function_action.triggered.connect(self.del_function)
+        self.del_system_action = QAction('Remove this system from the project',
+                                         self)
+        self.del_system_action.triggered.connect(self.del_function)
+
+    def contextMenuEvent(self, event):
+        orb.log.debug('* contextMenuEvent()')
+        menu = QMenu()
+        if len(self.selectedIndexes()) == 1:
+            i = self.selectedIndexes()[0]
+            mapped_i = self.proxy_model.mapToSource(i)
+            obj = self.source_model.get_node(mapped_i).obj
+            orb.log.debug(f'  obj: {obj.id}')
+            link = self.source_model.get_node(mapped_i).link
+            orb.log.debug(f'  usage: {link.id}')
+            menu.addAction(self.pgxnobj_action)
+            link_perms = get_perms(link)
+            if isinstance(link, orb.classes['Acu']):
+                if 'modify' in link_perms:
+                    menu.addAction(self.mod_node_action)
+                    menu.addAction(self.del_component_action)
+                if 'delete' in link_perms:
+                    menu.addAction(self.del_function_action)
+            elif isinstance(link, orb.classes['ProjectSystemUsage']):
+                if 'delete' in link_perms:
+                    menu.addAction(self.del_system_action)
+            menu.exec_(QCursor().pos())
 
     @property
     def req(self):
@@ -1348,19 +1384,7 @@ class SystemTreeView(QTreeView):
         self.expand(self.proxy_model.mapFromSource(
                     self.source_model.index(0, 0, QModelIndex())))
 
-    def create_actions(self):
-        self.pgxnobj_action = QAction('View this object', self)
-        self.pgxnobj_action.triggered.connect(self.display_object)
-        mod_node_txt = 'Modify quantity and/or reference designator'
-        self.mod_node_action = QAction(mod_node_txt, self)
-        self.mod_node_action.triggered.connect(self.modify_node)
-        self.del_component_action = QAction('Remove this component', self)
-        self.del_component_action.triggered.connect(self.del_component)
-        self.del_position_action = QAction('Remove this assembly position',
-                                           self)
-        self.del_position_action.triggered.connect(self.del_position)
-
-    def display_object(self):
+    def view_object(self):
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0]
             mapped_i = self.proxy_model.mapToSource(i)
@@ -1411,8 +1435,9 @@ class SystemTreeView(QTreeView):
 
     def del_component(self):
         """
-        Remove a component from an assembly position (a node in the system
-        tree), replacing it with the `TBD` object.
+        Remove a component from a function (a.k.a. an assembly position) --
+        this modifies a node in the system tree), replacing its component
+        object with the `TBD` object.
         """
         orb.log.debug('* SystemTreeView: del_component() ...')
         for i in self.selectedIndexes():
@@ -1485,11 +1510,14 @@ class SystemTreeView(QTreeView):
                 self.source_model.setData(mapped_i, tbd)
                 dispatcher.send('modified object', obj=node.link)
 
-    def del_position(self):
+    def del_function(self):
         """
-        Delete an assembly position (a node in the system tree).
+        Remove a node from the system tree, which can either be [1] a
+        "function" from an assembly (a.k.a. an assembly "position", as denoted
+        by its reference designator), or [2] a system from the project (root
+        node of the tree).
         """
-        orb.log.info('* SystemTreeView: del_position() ...')
+        orb.log.info('* SystemTreeView: del_function() ...')
         for i in self.selectedIndexes():
             mapped_i = self.proxy_model.mapToSource(i)
             node = self.source_model.get_node(mapped_i)
@@ -1556,13 +1584,6 @@ class SystemTreeView(QTreeView):
                 assembly.modifier = orb.get(state.get('local_user_oid'))
                 orb.save([assembly])
                 dispatcher.send('modified object', obj=assembly)
-
-    def setup_context_menu(self):
-        self.addAction(self.pgxnobj_action)
-        self.addAction(self.mod_node_action)
-        self.addAction(self.del_component_action)
-        self.addAction(self.del_position_action)
-        self.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def link_indexes_in_tree(self, link):
         """
