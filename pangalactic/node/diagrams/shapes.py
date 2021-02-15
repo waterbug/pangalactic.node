@@ -448,7 +448,10 @@ class ObjectBlock(Block):
         if self.allocs:
             menu.addAction('Show allocated requirements', self.display_reqts)
         else:
-            txt = '[No requirements are allocated to this component]'
+            if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+                txt = '[No requirements are allocated to this system]'
+            elif isinstance(self.usage, orb.classes['Acu']):
+                txt = '[No requirements are allocated to this component]'
             a = menu.addAction(txt, self.noop)
             a.setEnabled(False)
         # NOTE: get_all_usage_flows() will come up empty if the usage is a
