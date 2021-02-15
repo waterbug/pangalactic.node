@@ -800,6 +800,7 @@ class Main(QtWidgets.QMainWindow):
             [1]:  oids of server objects with the same mod_datetime(s)
             [2]:  oids of server objects with earlier mod_datetime(s),
             [3]:  oids sent that were not found on the server
+            [4]:  oids of all objs that were deleted on the server
 
         Args:
             data:  response from the server
@@ -820,7 +821,7 @@ class Main(QtWidgets.QMainWindow):
             sync_type = 'user objs'
         # orb.log.debug('       data: {}'.format(str(data)))
         try:
-            sobjs, same_dts, to_update, local_only = data
+            sobjs, same_dts, to_update, local_only, deleted_oids = data
         except:
             orb.log.info('  unable to unpack "{}"'.format(data))
             rpc = self.mbus.session.call('vger.save', [])
@@ -881,17 +882,18 @@ class Main(QtWidgets.QMainWindow):
             # (which will update the 'role_label' with the project etc.)
             state['project_sync'] = True
             self._update_views()
+        if deleted_oids:
+            local_objs_to_del = orb.get(oids=deleted_oids)
+            if local_objs_to_del:
+                n = len(local_objs_to_del)
+                orb.log.debug(f'       {n} obj(s) deleted on server found:')
+                for obj_oid in local_objs_to_del:
+                    orb.log.debug(f'         {obj_oid}')
+                orb.log.debug('       deleting ...')
+                orb.delete(local_objs_to_del)
         if user_objs_sync:
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
-        #######################################################################
-        # NOTE: temp work-around for bug in syncing ParameterDefinitions and/or
-        # ProductTypes ...
-        # new_sobjs_to_save = sobjs_to_save[:]
-        # sobjs_to_save = [so for so in new_sobjs_to_save
-                         # if so['_cname'] not in ['ParameterDefinition',
-                                                 # 'ProductType']]
-        #######################################################################
         if sobjs_to_save:
             self.statusbar.showMessage('saving local objs to repo ...')
             txt = '{} sync: saving {} objects ...'.format(sync_type,
@@ -957,6 +959,9 @@ class Main(QtWidgets.QMainWindow):
             objs_to_delete = set(orb.get(oids=local_only))
             do_not_delete = set()
             for o in objs_to_delete:
+                # NOTE: any local objects that are in the server's "deleted"
+                # cache will be deleted separately, based on either the initial
+                # sync of user objects or a published "deleted" message
                 if (hasattr(o, 'creator') and o.creator == self.local_user
                     and o.oid not in list(trash)):
                     do_not_delete.add(o)

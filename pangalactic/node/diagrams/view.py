@@ -122,6 +122,13 @@ class DiagramScene(QGraphicsScene):
                 notice = QMessageBox()
                 notice.setText(txt)
                 notice.exec_()
+            elif not state.get('connected'):
+                self.removeItem(self.line)
+                self.line = None
+                txt = "Connections cannot be created while offline"
+                notice = QMessageBox()
+                notice.setText(txt)
+                notice.exec_()
             else:
                 # orb.log.debug(' - mouseReleaseEvent ...')
                 down_items = self.items(self.line.line().p1())
@@ -159,8 +166,8 @@ class DiagramScene(QGraphicsScene):
                         notice.setText(txt)
                         notice.exec_()
                         return
-                    port1_V = get_pval(start_item.port.oid, 'Voltage')
-                    port2_V = get_pval(end_item.port.oid, 'Voltage')
+                    port1_V = get_pval(start_item.port.oid, 'V')
+                    port2_V = get_pval(end_item.port.oid, 'V')
                     if (port1_V and port2_V and port1_V != port2_V):
                         txt = 'Cannot connect ports of different Voltages.'
                         notice = QMessageBox()
