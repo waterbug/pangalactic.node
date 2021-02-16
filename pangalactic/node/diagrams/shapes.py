@@ -17,7 +17,8 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.parametrics import data_elementz, get_dval, parameterz
+from pangalactic.core.parametrics import (data_elementz, get_dval,
+                                          get_pval_as_str, parameterz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
@@ -77,6 +78,18 @@ PORT_TYPE_COLORS = OrderedDict([
     ('thermal',            Qt.lightGray),
     ('gas',                Qt.black),
     ('unknown',            Qt.gray)
+    ])
+# Map of PortType.id to definitional parameter id:
+PORT_TYPE_PARAMETERS = OrderedDict([
+    ('electrical_power',   'V'),
+    ('propulsion_power',   'P'),  # should be "Thrust"!
+    ('electronic_control', ''),
+    ('analog_data',        'R_D'),
+    ('digital_data',       'R_D'),
+    ('comm',               'f'),
+    ('thermal',            'P'),
+    ('gas',                'm'),
+    ('unknown',            '')
     ])
 PORT_TYPES = list(PORT_TYPE_COLORS.keys())
 
@@ -1266,16 +1279,15 @@ class PortBlock(QGraphicsItem):
         self.setFlags(
                       # QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsFocusable)
+        self.port = port
         self.setAcceptHoverEvents(True)
-        tooltip_text = port.abbreviation or port.name
-        self.setToolTip(tooltip_text)
+        self.setToolTip(self.tooltip_text)
         self.rect = QRectF(0, -POINT_SIZE, PORT_SIZE, PORT_SIZE)
         self.triangle = QPolygonF()
         self.right_port = right
         self.style = style or Qt.SolidLine
         self.parent_block = parent_block
         self.obj = parent_block.obj
-        self.port = port
         self.connectors = []
         self.setOpacity(1.0)
         # PortBlocks get a higher z-value than ObjectBlocks or SubjectBlocks
@@ -1284,6 +1296,21 @@ class PortBlock(QGraphicsItem):
         self.setZValue(z_value)
         global Dirty
         Dirty = True
+
+    @property
+    def tooltip_text(self):
+        port_type_id = getattr(self.port.type_of_port, 'id')
+        port_pid = PORT_TYPE_PARAMETERS.get(port_type_id, '')
+        port_parm = parameterz.get(self.port.oid, {}).get(port_pid)
+        units = ''
+        pval = ''
+        if port_parm:
+            units = port_parm.get('units')
+            pval = get_pval_as_str(self.port.oid, port_pid, units=units)
+        tooltip_text = self.port.abbreviation or self.port.name
+        if pval and units:
+            tooltip_text += ' [' + pval + ' ' + units + ']'
+        return tooltip_text
 
     def parentWidget(self):
         return self.parent_block.parentWidget()
