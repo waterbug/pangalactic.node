@@ -101,11 +101,11 @@ class LibraryListModel(QAbstractListModel):
                 id_v = display_id(obj)
                 pt_name = getattr(obj.product_type, 'name', None)
                 if pt_name:
-                    tt = id_v + ' [' + pt_name + ']'
+                    tt = id_v + '\n[' + pt_name + ']'
                 else:
-                    tt = id_v + ' [unknown type]'
+                    tt = id_v + '\n[unknown type]'
             else:
-                tt = '\n'.join(wrap(obj.description or '', width=30,
+                tt = '\n'.join(wrap(obj.description or '', width=40,
                                     break_long_words=False))
             return QVariant(tt)
         elif role == Qt.DecorationRole:

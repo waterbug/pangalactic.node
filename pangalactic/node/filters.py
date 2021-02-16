@@ -329,7 +329,9 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             if (getattr(model, 'objs', None) and index.row() < len(model.objs)
                 and hasattr(model.objs[0], 'description')):
                 model_idx = self.mapToSource(index)
-                return model.objs[model_idx.row()].description or ''
+                descr = model.objs[model_idx.row()].description or ''
+                tt = '\n'.join(wrap(descr, width=30, break_long_words=False))
+                return tt
             else:
                 return ''
         return super().data(index, role)
