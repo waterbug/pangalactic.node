@@ -18,7 +18,7 @@ from louie import dispatcher
 from pangalactic.core             import state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import (data_elementz, get_dval,
-                                          get_pval_as_str, parameterz)
+                                          get_pval, parameterz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
@@ -1302,14 +1302,21 @@ class PortBlock(QGraphicsItem):
         port_type_id = getattr(self.port.type_of_port, 'id')
         port_pid = PORT_TYPE_PARAMETERS.get(port_type_id, '')
         port_parm = parameterz.get(self.port.oid, {}).get(port_pid)
+        tooltip_text = self.port.abbreviation or self.port.name
         units = ''
         pval = ''
         if port_parm:
             units = port_parm.get('units')
-            pval = get_pval_as_str(self.port.oid, port_pid, units=units)
-        tooltip_text = self.port.abbreviation or self.port.name
+            pval = get_pval(self.port.oid, port_pid, units=units)
+        # only show pval if other than zero
         if pval and units:
-            tooltip_text += ' [' + pval + ' ' + units + ']'
+            tooltip_text += ' [' + str(pval) + ' ' + units + ']'
+        if port_type_id == 'digital_data' and self.port.description:
+            if pval and units:
+                tooltip_text = '\n'.join([self.port.description,
+                                          '[' + str(pval) + ' ' + units + ']'])
+            else:
+                tooltip_text = self.port.description
         return tooltip_text
 
     def parentWidget(self):
