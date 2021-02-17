@@ -1309,14 +1309,14 @@ class PortBlock(QGraphicsItem):
             units = port_parm.get('units')
             pval = get_pval(self.port.oid, port_pid, units=units)
         # only show pval if other than zero
-        if pval and units:
-            tooltip_text += ' [' + str(pval) + ' ' + units + ']'
         if port_type_id == 'digital_data' and self.port.description:
             if pval and units:
-                tooltip_text = '\n'.join([self.port.description,
+                tooltip_text = '\n'.join([tooltip_text, self.port.description,
                                           '[' + str(pval) + ' ' + units + ']'])
             else:
-                tooltip_text = self.port.description
+                tooltip_text = '\n'.join([tooltip_text, self.port.description])
+        elif pval and units:
+            tooltip_text += ' [' + str(pval) + ' ' + units + ']'
         return tooltip_text
 
     def parentWidget(self):
