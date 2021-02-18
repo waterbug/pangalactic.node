@@ -886,14 +886,16 @@ class Main(QtWidgets.QMainWindow):
             n = len(deleted_oids)
             orb.log.debug(f'* sync: {n} deleted oids received from server.')
             state['deleted_oids'] = deleted_oids
-            # local_objs_to_del = orb.get(oids=deleted_oids)
-            # if local_objs_to_del:
-                # n = len(local_objs_to_del)
-                # orb.log.debug(f'       {n} obj(s) deleted on server found:')
-                # for obj_oid in local_objs_to_del:
-                    # orb.log.debug(f'         {obj_oid}')
-                # orb.log.debug('       deleting ...')
-                # orb.delete(local_objs_to_del)
+            local_objs_to_del = orb.get(oids=deleted_oids)
+            if local_objs_to_del:
+                n = len(local_objs_to_del)
+                orb.log.debug(f'        {n} were found in local db ...')
+                for obj_oid in local_objs_to_del:
+                    orb.log.debug(f'         {obj_oid}')
+                orb.delete(local_objs_to_del)
+                orb.log.debug('        deleted.')
+            else:
+                orb.log.debug('        none were found in local db.')
         if user_objs_sync:
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
