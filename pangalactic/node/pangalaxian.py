@@ -674,6 +674,10 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.debug('* sync_user_created_objs_to_repo()')
         self.statusbar.showMessage('syncing locally created objects ...')
+        # ********************************************************************
+        # NOTE: exclusion of "SANDBOX" PSUs here is IMPORTANT: without it, the
+        # sync process will HANG for non-admin users (unclear why)
+        # ********************************************************************
         oids = [o.oid for o in self.local_user.created_objects
                 if not (isinstance(o, orb.classes['ProjectSystemUsage'])
                         and o.project.oid == 'pgefobjects:SANDBOX')]
