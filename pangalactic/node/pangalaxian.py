@@ -858,11 +858,9 @@ class Main(QtWidgets.QMainWindow):
             objs_to_delete = set()
             for o in local_only_objs:
                 if hasattr(o, 'creator') and o.creator == self.local_user:
-                    if (o.__class__.__name__ == 'ProjectSystemUsage' and
-                        o.project is self.sandbox):
+                    if not (o.__class__.__name__ == 'ProjectSystemUsage' and
+                            o.project is self.sandbox):
                         # NOTE:  SANDBOX PSUs are ignored
-                        continue
-                    else:
                         created_objs.add(o)
                 else:
                     objs_to_delete.add(o)
@@ -870,8 +868,6 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.debug('       to be deleted: {}'.format(str([
                               o.oid for o in objs_to_delete])))
                 orb.delete(objs_to_delete)
-            # created_sos = serialize(orb, created_objs,
-            #                         include_components=True)
             created_sos = serialize(orb, created_objs)
         if created_sos:
             sobjs_to_save += created_sos
