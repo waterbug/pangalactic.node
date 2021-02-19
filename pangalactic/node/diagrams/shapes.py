@@ -1350,11 +1350,11 @@ class PortBlock(QGraphicsItem):
             if 'delete' in perms and not flows:
                 # delete is only allowed if the associated Port object has no
                 # associated Flows (in ANY context!)
-                menu.addAction('delete port', self.delete_local)
+                del_act = menu.addAction('delete port', self.delete_local)
                 if state.get('connected'):
-                    self.delete_local.setEnabled(True)
+                    del_act.setEnabled(True)
                 else:
-                    self.delete_local.setEnabled(False)
+                    del_act.setEnabled(False)
             if self.connectors:
                 # if the port has connectors/flows, check whether the user has
                 # modify permission for the flows (which is determined from the
@@ -1745,12 +1745,12 @@ class RoutedConnector(QGraphicsItem):
         menu = QMenu()
         # perms on flow could be checked but does the same and this is quicker
         if 'modify' in get_perms(self.context):
-            menu.addAction('delete connector', self.delete_local)
-            menu.exec_(event.screenPos())
+            del_act = menu.addAction('delete connector', self.delete_local)
             if state.get('connected'):
-                self.delete_local.setEnabled(True)
+                del_act.setEnabled(True)
             else:
-                self.delete_local.setEnabled(False)
+                del_act.setEnabled(False)
+            menu.exec_(event.screenPos())
         else:
             menu.addAction('user has no modify permissions', self.noop)
             menu.exec_(event.screenPos())
