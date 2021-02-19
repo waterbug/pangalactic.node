@@ -674,7 +674,9 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.debug('* sync_user_created_objs_to_repo()')
         self.statusbar.showMessage('syncing locally created objects ...')
-        oids = [o.oid for o in self.local_user.created_objects]
+        oids = [o.oid for o in self.local_user.created_objects
+                if not (isinstance(o, orb.classes['ProjectSystemUsage'])
+                        and o.project.oid == 'pgefobjects:SANDBOX')]
         data = orb.get_mod_dts(oids=oids)
         orb.log.debug('       -> rpc: vger.sync_objects()')
         return self.mbus.session.call('vger.sync_objects', data)
