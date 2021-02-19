@@ -493,7 +493,7 @@ class ObjectBlock(Block):
                 menu.addAction('Remove this component', self.del_component)
         if 'delete' in perms:
             if isinstance(self.usage, orb.classes['Acu']):
-                menu.addAction('Remove this assembly position',
+                menu.addAction('Remove this function',
                                self.del_position)
             if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
                 menu.addAction('Remove this system', self.del_system)
@@ -573,9 +573,9 @@ class ObjectBlock(Block):
 
     def del_component(self):
         """
-        Remove a component from an assembly position, replacing it with the
-        `TBD` object.  (User permissions are checked before access is granted
-        to this function.)
+        Remove a component from a function, replacing it with the `TBD` object.
+        (User permissions are checked before access is granted to this
+        function.)
         """
         # NOTE: permissions are checked in the context menu that gives access
         # to this function
@@ -949,7 +949,7 @@ class SubjectBlock(Block):
                drop target is an object that can have ports ->
                add a Port to the drop target
             6: dropped item is a ProductType and
-               drop target is a Product -> add an empty assembly position
+               drop target is a Product -> add an empty function
                ("bucket") -- actually, an Acu with TBD component and the
                dropped ProductType as its product_type_hint -- to the Product
         """
@@ -1206,7 +1206,7 @@ class SubjectBlock(Block):
         elif event.mimeData().hasFormat("application/x-pgef-product-type"):
             # ------------------------------------------------------------
             # 6: dropped item is a ProductType and
-            #    drop target is a Product -> add an empty assembly position
+            #    drop target is a Product -> add an empty function
             #    ("bucket") -- actually, an Acu with TBD component and the
             #    dropped ProductType as its product_type_hint -- to the Product
             # ------------------------------------------------------------
@@ -1216,7 +1216,7 @@ class SubjectBlock(Block):
             product_type = orb.get(oid)
             if product_type and isinstance(self.obj, orb.classes['Product']):
                 orb.log.info('  - orb found {} "{}"'.format(cname, name))
-                orb.log.info('    creating an empty assembly position ...')
+                orb.log.info('    creating an empty function ...')
                 ref_des = get_next_ref_des(drop_target, None,
                                            product_type=product_type)
                 # NOTE: clone() adds create/mod_datetime & creator/modifier
@@ -1341,17 +1341,26 @@ class PortBlock(QGraphicsItem):
             if 'modify' in perms:
                 # allow setting of directionality -- set_directionality() will
                 # check for consistency with any existing flows
-                menu.addAction('set directionality', self.set_directionality)
+                set_dir_action = menu.addAction('set directionality',
+                                                self.set_directionality)
+                if state.get('connected'):
+                    set_dir_action.setEnabled(True)
+                else:
+                    set_dir_action.setEnabled(False)
             if 'delete' in perms and not flows:
                 # delete is only allowed if the associated Port object has no
                 # associated Flows (in ANY context!)
                 menu.addAction('delete port', self.delete_local)
+                if state.get('connected'):
+                    self.delete_local.setEnabled(True)
+                else:
+                    self.delete_local.setEnabled(False)
             if self.connectors:
                 # if the port has connectors/flows, check whether the user has
                 # modify permission for the flows (which is determined from the
                 # permissions for the associated "flow_context")
                 flow_perms = get_perms(self.connectors[0].flow)
-                if 'modify' in flow_perms:
+                if 'modify' in flow_perms and state.get('connected'):
                     menu.addAction(
                         "delete this port's connections within this assembly",
                         self.delete_all_flows_local)
@@ -1738,6 +1747,10 @@ class RoutedConnector(QGraphicsItem):
         if 'modify' in get_perms(self.context):
             menu.addAction('delete connector', self.delete_local)
             menu.exec_(event.screenPos())
+            if state.get('connected'):
+                self.delete_local.setEnabled(True)
+            else:
+                self.delete_local.setEnabled(False)
         else:
             menu.addAction('user has no modify permissions', self.noop)
             menu.exec_(event.screenPos())
