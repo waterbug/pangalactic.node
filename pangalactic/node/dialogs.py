@@ -674,26 +674,28 @@ class DirectionalityDialog(QDialog):
     """
     Dialog for selecting the "directionality" assigned to a Port, which may be
     "input", "output", or "bidirectional" (default).
+
+    Args:
+        port (Port): port to receive directionality
+
+    Keyword Args:
+        otherdirs (list of str): directionalities of other ports connected to
+            this one
     """
-    def __init__(self, port, parent=None):
+    def __init__(self, port, otherdirs=None, parent=None):
         super().__init__(parent)
         orb.log.debug('* DirectionalityDialog')
         self.setWindowTitle("Directionality")
-        # if isinstance(port, orb.classes['Port']):
-            # flows = orb.get_all_port_flows(port)
-        # else:
-            # flows = []
         port_dir = get_dval(port.oid, 'directionality') or 'bidirectional'
         self.port = port
         orb.log.debug('  directionality is currently "{port_dir}"')
-        # other_dirs = []
-        # check directionality of ports at other ends of flows ...
-        # for flow in flows:
-            # if flow.start_port is port:
-                # other_dir = get_dval(flow.end_port.oid, 'directionality')
-            # elif flow.end_port is port:
-                # other_dir = get_dval(flow.start_port.oid, 'directionality')
         layout = QVBoxLayout(self)
+        otherdirs = otherdirs or set()
+        if otherdirs:
+            msg = '<b><font color="red">Directionality is constrained by<br>'
+            msg += 'other ports connected to this one.</font></b>'
+            msg_label = QLabel(msg, self)
+            layout.addWidget(msg_label)
         self.dir_buttons = QButtonGroup()
         self.input_button = QRadioButton('input')
         self.output_button = QRadioButton('output')
@@ -704,6 +706,10 @@ class DirectionalityDialog(QDialog):
         layout.addWidget(self.input_button)
         layout.addWidget(self.output_button)
         layout.addWidget(self.bidir_button)
+        if 'input' in otherdirs:
+            self.input_button.setEnabled(False)
+        if 'output' in otherdirs:
+            self.output_button.setEnabled(False)
         if port_dir == 'input':
             self.input_button.setChecked(True)
         elif port_dir == 'output':

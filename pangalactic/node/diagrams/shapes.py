@@ -1372,7 +1372,15 @@ class PortBlock(QGraphicsItem):
         pass
 
     def set_directionality(self):
-        dlg = DirectionalityDialog(self.port, parent=self.parentWidget())
+        # get directionalities of all ports connected to this one
+        gazintas = orb.gazintas(self.port)
+        gazoutas = orb.gazoutas(self.port)
+        otherdirs = set([get_dval(port.oid, 'directionality')
+                         for port in gazintas + gazoutas])
+        otherdirs &= set(['input', 'output'])
+        orb.log.debug(f'* set_directionality: not {otherdirs}.')
+        dlg = DirectionalityDialog(self.port, otherdirs=otherdirs,
+                                   parent=self.parentWidget())
         dlg.show()
 
     def delete_local(self):
