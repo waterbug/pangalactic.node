@@ -650,16 +650,26 @@ class ConnectionsDialog(QDialog):
     component "usage" (an Acu instance) in the assembly that is the subject of
     the diagram.
     """
-    def __init__(self, usage, parent=None):
+    def __init__(self, scene, usage, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Connections")
         form = QFormLayout(self)
+        self.scene = scene
         self.checkboxes = {}
+        self.flows = {}
+        self.conns = {}
         flows = orb.get_all_usage_flows(usage)
         for flow in flows:
             label = QLabel(flow.name, self)
             self.checkboxes[flow.oid] = QCheckBox(self)
             self.checkboxes[flow.oid].setChecked(False)
+            self.checkboxes[flow.oid].stateChanged.connect(self.show_conns)
+            self.flows[flow.oid] = flow
+            start_port_block = scene.port_blocks.get(flow.start_port.oid)
+            end_port_block = scene.port_blocks.get(flow.end_port.oid)
+            start_conns = set(start_port_block.connectors)
+            end_conns = set(end_port_block.connectors)
+            self.conns[flow.oid] = start_conns & end_conns
             form.addRow(self.checkboxes[flow.oid], label)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
@@ -668,6 +678,41 @@ class ConnectionsDialog(QDialog):
         form.addRow(self.buttons)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
+
+    def show_conns(self):
+        checked_flows = 0
+        orb.log.debug('* connections:')
+        for flow_oid, cb in self.checkboxes.items():
+            flow = self.flows[flow_oid]
+            if cb.isChecked():
+                checked_flows += 1
+                orb.log.debug(f'  checked: {flow.name}')
+                if self.conns[flow_oid]:
+                    for conn in self.conns[flow_oid]:
+                        conn.pen.setColor(Qt.black)
+                else:
+                    orb.log.debug('  no connector found.')
+            else:
+                if self.conns[flow_oid]:
+                    for conn in self.conns[flow_oid]:
+                        conn.pen.setColor(conn.color)
+        if not checked_flows:
+            orb.log.debug('  None.')
+        self.scene.update()
+
+    def accept(self):
+        for flow_oid in self.checkboxes:
+            if self.conns[flow_oid]:
+                for conn in self.conns[flow_oid]:
+                    conn.pen.setColor(conn.color)
+        super().accept()
+
+    def reject(self):
+        for flow_oid in self.checkboxes:
+            if self.conns[flow_oid]:
+                for conn in self.conns[flow_oid]:
+                    conn.pen.setColor(conn.color)
+        super().reject()
 
 
 class DirectionalityDialog(QDialog):

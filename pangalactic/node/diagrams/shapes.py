@@ -510,9 +510,9 @@ class ObjectBlock(Block):
         perms = get_perms(self.usage)
         # check for 'modify' permission; if found, offer "delete" option
         # if 'modify' in perms:
-        dlg = ConnectionsDialog(self.usage, parent=self.parentWidget())
-        if dlg.exec_():
-            pass
+        dlg = ConnectionsDialog(self.scene(), self.usage,
+                                parent=self.parentWidget())
+        dlg.show()
 
     def display_type_hint(self):
         type_hint = getattr(self.usage.product_type_hint, 'name', '')
@@ -1704,18 +1704,25 @@ class RoutedConnector(QGraphicsItem):
             pen_width (int):  width of pen
         """
         super().__init__()
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.segments = []
         self.routing_channel = routing_channel
         # default is Electrical Power (red)
         self.type_of_flow = getattr(start_item.port.type_of_port, 'id',
                                     'electrical_power')
         self.color = PORT_TYPE_COLORS[self.type_of_flow]
-        self.arrow = arrow
         self.pen_width = pen_width
         self.normal_pen_width = pen_width
         self.wide_pen_width = pen_width + 5
+        # NOTE:  arrow is not being used, since we terminate at a port
+        self.arrow = arrow
         if arrow:
             self.arrow_head = QPolygonF()
+        # NOTE: about "color" (and "pen_width" is the same):
+        # to change the color of a RoutedConnector to a custom color ...
+        #    * conn.pen.setColor(some special color)
+        # to set the color of a RoutedConnector back to its original color ...
+        #    * conn.pen.setColor(conn.color)  -- i.e., use "self.color"
         self.pen = QPen(self.color, pen_width, Qt.SolidLine, Qt.RoundCap,
                         Qt.RoundJoin)
         self.start_item = start_item
@@ -1798,32 +1805,6 @@ class RoutedConnector(QGraphicsItem):
             orb.save([self.context])
             dispatcher.send('modified object', obj=self.context)
 
-    def set_color(self, color):
-        self._color = color
-        for s in self.segments:
-            s.color = color
-
-    def get_color(self):
-        return self._color
-
-    def del_color(self):
-        pass
-
-    color = property(get_color, set_color, del_color, 'color property')
-
-    def set_pen(self, pen):
-        self._pen = pen
-        for s in self.segments:
-            s.set_pen(pen)
-
-    def get_pen(self):
-        return self._pen
-
-    def del_pen(self):
-        pass
-
-    pen = property(get_pen, set_pen, del_pen, 'pen property')
-
     def p1(self):
         if self.segments:
             p1 = self.segments[0].p1()
@@ -1884,13 +1865,13 @@ class RoutedConnector(QGraphicsItem):
         elif isinstance(end_item.parent_block, SubjectBlock):
             end_right = not end_right
         arrow_size = 20.0
-        self.pen.setWidth(self.pen_width)
         painter.setPen(self.pen)
+        # NOTE: for a line, "brush" is irrelevant; "pen" determines color etc.
         # if self.isUnderMouse():
             # painter.setBrush(Qt.darkGray)
             # self.pen.setWidth(6)
         # else:
-        painter.setBrush(self.color)
+        # painter.setBrush(self.color)
         # routing channel is used together with the port type and the
         # "SEPARATION" factor (spacing between flows) to calculate the
         # x-position of the vertical segment, vertical_x (formerly known as
@@ -1906,7 +1887,7 @@ class RoutedConnector(QGraphicsItem):
             # arrow should point right
             right_arrow = True
             start_x_pad = start_item.boundingRect().width()
-            end_x_pad = 0.0
+            end_x_pad = PORT_SIZE/2
             x_pad = start_x_pad + end_x_pad
             total_x = (end_item.scenePos().x()
                        - start_item.scenePos().x()
@@ -1918,7 +1899,8 @@ class RoutedConnector(QGraphicsItem):
                 seg1p1x = start_item.scenePos().x() + start_x_pad
                 # seg1p2x = seg1p1x + total_x/2.0
                 seg1p2x = vertical_x
-                seg1p1y = start_item.scenePos().y()
+                # NOTE: for some reason, the y needs a shim
+                seg1p1y = start_item.scenePos().y() + 3
                 # seg3p2x = seg1p2x + total_x/2.0
                 seg3p2x = end_item.scenePos().x()
             elif total_x <= 0:   # FIXME!
@@ -1941,7 +1923,8 @@ class RoutedConnector(QGraphicsItem):
             seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
-            seg2p2y = end_item.scenePos().y()
+            # NOTE: for some reason, the y needs a shim
+            seg2p2y = end_item.scenePos().y() + 3
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2
@@ -1952,9 +1935,8 @@ class RoutedConnector(QGraphicsItem):
         # [2] from right (obj left port), to left (obj right port)
             # arrow should point left
             right_arrow = False
-            start_x_pad = 0.0
-            # end_x_pad = 0.0
-            end_x_pad = end_item.boundingRect().width()
+            start_x_pad = PORT_SIZE/2
+            end_x_pad = end_item.boundingRect().width() + PORT_SIZE/2
             x_pad = start_x_pad + end_x_pad
             total_x = (end_item.scenePos().x()
                        - start_item.scenePos().x()
@@ -1963,14 +1945,11 @@ class RoutedConnector(QGraphicsItem):
                 # NOTE:  currently this is the only supported case for
                 # right-to-left connection
                 # (seg1 is always horizontal)
-                seg1p1x = start_item.scenePos().x()
-                # add end_x_pad (width of end port) here
-                # seg1p2x = seg1p1x + total_x/2.0
+                seg1p1x = start_item.scenePos().x() + start_x_pad
                 seg1p2x = vertical_x
-                seg1p1y = start_item.scenePos().y()
-                # don't need end_x_pad here -- already in seg1p2x
-                # seg3p2x = seg1p2x + total_x/2.0
-                seg3p2x = end_item.scenePos().x()
+                # NOTE: for some reason, the y needs a shim
+                seg1p1y = start_item.scenePos().y() + 3
+                seg3p2x = end_item.scenePos().x() + start_x_pad
             elif total_x >= 0:   # FIXME!
                 # THIS IS INCORRECT ... need special case:
                 # seg1 vertical, seg2 horizontal, seg3 vertical
@@ -1991,7 +1970,8 @@ class RoutedConnector(QGraphicsItem):
             seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
-            seg2p2y = end_item.scenePos().y()
+            # NOTE: for some reason, the y needs a shim
+            seg2p2y = end_item.scenePos().y() + 3
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2
@@ -2010,11 +1990,11 @@ class RoutedConnector(QGraphicsItem):
             x_jog = shim + (SEPARATION * PORT_TYPES.index(self.type_of_flow))
             if x_delta > 0:
                 # seg1 is horizontal
-                seg1p1x = start_item.scenePos().x()
+                seg1p1x = start_item.scenePos().x() + PORT_SIZE/2
                 seg1p2x = seg1p1x - x_jog
                 seg1p1y = start_item.scenePos().y()
                 # seg3p2x = seg1p2x + x_jog + x_delta
-                seg3p2x = end_item.scenePos().x()
+                seg3p2x = end_item.scenePos().x() + PORT_SIZE/2
             elif x_delta < 0:
                 seg1p1x = start_item.scenePos().x()
                 seg1p2x = seg1p1x + x_delta - x_jog
@@ -2022,16 +2002,18 @@ class RoutedConnector(QGraphicsItem):
                 # seg3p2x = seg1p2x + x_jog
                 seg3p2x = end_item.scenePos().x()
             else:      # x_delta == 0
-                seg1p1x = start_item.scenePos().x()
+                seg1p1x = start_item.scenePos().x() + PORT_SIZE/2
                 seg1p2x = seg1p1x - x_jog
-                seg1p1y = start_item.scenePos().y()
+                # NOTE: for some reason, the y needs a shim
+                seg1p1y = start_item.scenePos().y() + 3
                 # seg3p2x = seg1p2x + x_jog
-                seg3p2x = end_item.scenePos().x()
+                seg3p2x = end_item.scenePos().x() + PORT_SIZE/2
             seg1p1 = QPointF(seg1p1x, seg1p1y)
             seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
-            seg2p2y = end_item.scenePos().y()
+            # NOTE: for some reason, the y needs a shim
+            seg2p2y = end_item.scenePos().y() + 3
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2
@@ -2061,27 +2043,18 @@ class RoutedConnector(QGraphicsItem):
                 # seg3p2x = seg1p2x + x_delta + x_jog - start_x_pad + end_x_pad
                 seg3p2x = end_item.scenePos().x()
             else:      # x_delta == 0
-                seg1p1x = start_item.scenePos().x() + start_x_pad
+                seg1p1x = start_item.scenePos().x() + start_x_pad + PORT_SIZE/2
                 seg1p2x = seg1p1x + x_jog
-                seg1p1y = start_item.scenePos().y()
+                # NOTE: for some reason, the y needs a shim
+                seg1p1y = start_item.scenePos().y() + 3
                 # seg3p2x = seg1p2x - x_jog - start_x_pad + end_x_pad
-                seg3p2x = end_item.scenePos().x()
+                seg3p2x = end_item.scenePos().x() + PORT_SIZE/2
             seg1p1 = QPointF(seg1p1x, seg1p1y)
             seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
-            seg2p2y = end_item.scenePos().y()
-            # seg3 is horizontal
-            seg3p2y = seg2p2y
-            seg2p1 = seg1p2
-            seg2p2 = QPointF(seg2p2x, seg2p2y)
-            seg3p1 = seg2p2
-            seg3p2 = QPointF(seg3p2x, seg3p2y)
-            seg1p1 = QPointF(seg1p1x, seg1p1y)
-            seg1p2 = QPointF(seg1p2x, seg1p1y)
-            # seg2 is vertical
-            seg2p2x = seg1p2x
-            seg2p2y = end_item.scenePos().y()
+            # NOTE: for some reason, the y needs a shim
+            seg2p2y = end_item.scenePos().y() + 3
             # seg3 is horizontal
             seg3p2y = seg2p2y
             seg2p1 = seg1p2

@@ -424,7 +424,7 @@ class DiagramScene(QGraphicsScene):
         spacing = 20
         items = []
         all_ports = []
-        port_blocks = {}   # maps Port oids to PortBlock instances
+        self.port_blocks = {}   # maps Port oids to PortBlock instances
         # remove current items before generating ...
         if self.items():
             for shape in self.items():
@@ -452,7 +452,7 @@ class DiagramScene(QGraphicsScene):
                 p = QPointF(x_left, y_left_next)
                 new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
                                              right_ports=True)
-                port_blocks.update(new_item.port_blocks)
+                self.port_blocks.update(new_item.port_blocks)
                 items.append(new_item)
                 y_left_next += new_item.rect.height() + spacing
             for oid in right_good_oids:
@@ -464,7 +464,7 @@ class DiagramScene(QGraphicsScene):
                 p = QPointF(x_right, y_right_next)
                 new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
                                              right_ports=False)
-                port_blocks.update(new_item.port_blocks)
+                self.port_blocks.update(new_item.port_blocks)
                 items.append(new_item)
                 y_right_next += new_item.rect.height() + spacing
             for oid in new_oids:
@@ -478,7 +478,7 @@ class DiagramScene(QGraphicsScene):
                     p = QPointF(x_left, y_left_next)
                     new_item = self.create_block(ObjectBlock, usage=usage,
                                                  pos=p, right_ports=True)
-                    port_blocks.update(new_item.port_blocks)
+                    self.port_blocks.update(new_item.port_blocks)
                     items.append(new_item)
                     y_left_next += new_item.rect.height() + spacing
                 else:
@@ -486,7 +486,7 @@ class DiagramScene(QGraphicsScene):
                     p = QPointF(x_right, y_right_next)
                     new_item = self.create_block(ObjectBlock, usage=usage,
                                                  pos=p, right_ports=False)
-                    port_blocks.update(new_item.port_blocks)
+                    self.port_blocks.update(new_item.port_blocks)
                     items.append(new_item)
                     y_right_next += new_item.rect.height() + spacing
         else:
@@ -509,7 +509,7 @@ class DiagramScene(QGraphicsScene):
                                                             # p.x(), p.y()))
                 new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
                                              right_ports=right_ports)
-                port_blocks.update(new_item.port_blocks)
+                self.port_blocks.update(new_item.port_blocks)
                 items.append(new_item)
                 if left_col:
                     y_left_next += new_item.rect.height() + spacing
@@ -517,7 +517,7 @@ class DiagramScene(QGraphicsScene):
                     y_right_next += new_item.rect.height() + spacing
         # create subject block ...
         subj_block = self.create_ibd_subject_block(items)
-        port_blocks.update(subj_block.port_blocks)
+        self.port_blocks.update(subj_block.port_blocks)
         # if Flows exist, create RoutedConnectors for them ...
         # subject might be a Project, so need getattr here ...
         flows = orb.search_exact(cname='Flow', flow_context=self.subject)
@@ -529,9 +529,9 @@ class DiagramScene(QGraphicsScene):
             # orb.log.debug('  - creating routed connectors ...')
             for flow in flows:
                 # check in case flows in db out of sync with diagram
-                start_item = port_blocks.get(getattr(
+                start_item = self.port_blocks.get(getattr(
                                              flow.start_port, 'oid', None))
-                end_item = port_blocks.get(getattr(flow.end_port, 'oid', None))
+                end_item = self.port_blocks.get(getattr(flow.end_port, 'oid', None))
                 if not (start_item and end_item):
                     # NOTE: this indicates db/diagram out of sync ... delete
                     # this flow after finishing the diagram
