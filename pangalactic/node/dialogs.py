@@ -29,6 +29,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
+from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.trees       import ParmDefTreeView
@@ -768,6 +769,15 @@ class DirectionalityDialog(QDialog):
         port_dir = b.text()
         orb.log.debug(f'  setting directionality to: "{port_dir}"')
         set_dval(self.port.oid, 'directionality', port_dir)
+        NOW = dtstamp()
+        user = orb.get(state.get('local_user_oid'))
+        self.port.mod_datetime = NOW
+        self.port.modifier = user
+        product = self.port.of_product
+        product.mod_datetime = NOW
+        product.modifier = user
+        orb.save([product, self.port])
+        dispatcher.send(signal='modified object', obj=product)
         self.accept()
 
 
