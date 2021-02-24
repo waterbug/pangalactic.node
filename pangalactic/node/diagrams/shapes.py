@@ -873,7 +873,7 @@ class SubjectBlock(Block):
         description = '[{}]'.format(desc)
         self.setPos(self.position)
         if hasattr(self, 'description_label'):
-            self.description_label.setText(description)
+            self.description_label.set_text(description)
         else:
             self.description_label = TextLabel(description, self,
                                                color='darkMagenta')
