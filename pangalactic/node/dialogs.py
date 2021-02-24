@@ -776,7 +776,7 @@ class DirectionalityDialog(QDialog):
         product = self.port.of_product
         product.mod_datetime = NOW
         product.modifier = user
-        orb.save([product, self.port])
+        orb.db.commit()
         dispatcher.send(signal='modified object', obj=product)
         self.accept()
 

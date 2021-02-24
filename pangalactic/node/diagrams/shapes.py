@@ -839,45 +839,55 @@ class SubjectBlock(Block):
             right_ports (bool):  flag indicating whether to place ports on
                 right (if True) or left
         """
-        super().__init__(position, scene=scene, obj=obj,
-                                          style=style)
+        super().__init__(position, scene=scene, obj=obj, style=style)
         self.setFlags(QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
         # this apparently does work, but not what I wanted
         # self.setAcceptedMouseButtons(Qt.NoButton)
+        self.position = position
         self.rect = QRectF(0, 0, width, height)
         self.style = style or Qt.SolidLine
         self.__obj = obj   # used by the 'obj' property of Block
-        self.right_ports = right_ports
-        name = getattr(obj, 'name', None) or obj.id
-        version = getattr(obj, 'version', '')
+        # SubjectBlock ports are always on the right side
+        self.right_ports = True
+        self.rebuild()
+        # SubjectBlocks get a z-value of 0 (lower than ObjectBlocks, so
+        # ObjectBlocks can receive mouse events)
+        z_value = 0.0
+        self.setZValue(z_value)
+        dispatcher.connect(self.on_block_mod_signal, 'block mod')
+        global Dirty
+        Dirty = True
+
+    def rebuild(self):
+        name = getattr(self.obj, 'name', None) or self.obj.id
+        version = getattr(self.obj, 'version', '')
         if version:
             name += ' v.' + version
-        if hasattr(obj, 'product_type'):
-            desc = getattr(obj.product_type, 'abbreviation',
+        if hasattr(self.obj, 'product_type'):
+            desc = getattr(self.obj.product_type, 'abbreviation',
                            'Unspecified Type')
         else:
             # for now, if it doesn't have a product_type, it's a project ...
             desc = 'Project'
         description = '[{}]'.format(desc)
-        # self.connectors = []
-        self.setPos(position)
-        self.description_label = TextLabel(description, self,
-                                           color='darkMagenta')
-        self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
+        self.setPos(self.position)
+        if hasattr(self, 'description_label'):
+            self.description_label.setText(description)
+        else:
+            self.description_label = TextLabel(description, self,
+                                               color='darkMagenta')
+            self.description_label.setPos(2.0 * POINT_SIZE, 0.0 * POINT_SIZE)
         name_x = 20
         name_y = self.description_label.boundingRect().height() + 5
-        self.name_label = BlockLabel(name, self, centered=False, x=name_x,
-                                     y=name_y)
+        if hasattr(self, 'name_label'):
+            self.name_label.set_text(name)
+        else:
+            self.name_label = BlockLabel(name, self, centered=False, x=name_x,
+                                         y=name_y)
         self.rebuild_port_blocks()
         # NOTE: update() repaints the area covered by the block
         self.update()
-        # SubjectBlocks get a z-value of 0 (lower than ObjectBlocks, so
-        # ObjectBlocks can receive mouse events)
-        z_value = 0.0
-        self.setZValue(z_value)
-        global Dirty
-        Dirty = True
 
     def parentWidget(self):
         return self.scene().views()[0]
@@ -897,6 +907,19 @@ class SubjectBlock(Block):
             pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRect(self.rect)
+
+    def on_block_mod_signal(self, oid=None):
+        """
+        Handler for "block mod" signal.
+        """
+        try:
+            if oid == self.obj.oid:
+                orb.log.debug('* received "block mod" signal')
+                # self.rebuild() calls update()
+                self.rebuild()
+        except:
+            # wrapped C/C++ object may have been deleted
+            orb.log.debug('* received "block mod" signal but exception ...')
 
     def mimeTypes(self):
         """
