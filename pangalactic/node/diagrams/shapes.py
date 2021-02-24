@@ -912,14 +912,14 @@ class SubjectBlock(Block):
         """
         Handler for "block mod" signal.
         """
-        # try:
-        if oid == self.obj.oid:
-            orb.log.debug('* received "block mod" signal')
-            self.rebuild()
-            self.update()
-        # except:
+        try:
+            if oid == self.obj.oid:
+                orb.log.debug('* received "block mod" signal')
+                self.rebuild()
+                self.update()
+        except:
             # wrapped C/C++ object may have been deleted
-            # orb.log.debug('* received "block mod" signal but exception ...')
+            orb.log.debug('* received "block mod" signal but exception ...')
 
     def mimeTypes(self):
         """
@@ -1396,13 +1396,28 @@ class PortBlock(QGraphicsItem):
 
     def set_directionality(self):
         # get directionalities of all ports connected to this one
+        opposite_dir = {'input':'output', 'output':'input'}
         gazintas = orb.gazintas(self.port)
         gazoutas = orb.gazoutas(self.port)
-        otherdirs = set([get_dval(port.oid, 'directionality')
-                         for port in gazintas + gazoutas])
-        otherdirs &= set(['input', 'output'])
-        orb.log.debug(f'* set_directionality: not {otherdirs}.')
-        dlg = DirectionalityDialog(self.port, otherdirs=otherdirs,
+        this_of_product = self.port.of_product
+        assmbl_w_this = [acu.assembly for acu in this_of_product.where_used]
+        allowed_dirs = set(['input', 'output', 'bidirectional'])
+        for port in gazintas + gazoutas:
+            port_dir = get_dval(port.oid, 'directionality')
+            if port_dir in ['input', 'output']:
+                assmbl_w_port = [acu.assembly for acu in
+                                 port.of_product.where_used]
+                if (this_of_product in assmbl_w_port or
+                    port.of_product in assmbl_w_this):
+                    # connected internal/external block ports can't be opposite
+                    if opposite_dir[port_dir] in allowed_dirs:
+                        allowed_dirs.remove(opposite_dir[port_dir])
+                else:
+                    # connected peer block ports can't be same directionality
+                    if port_dir in allowed_dirs:
+                        allowed_dirs.remove(port_dir)
+        orb.log.debug(f'* set directionality (allowed: {allowed_dirs}).')
+        dlg = DirectionalityDialog(self.port, allowed=allowed_dirs,
                                    parent=self.parentWidget())
         dlg.show()
 

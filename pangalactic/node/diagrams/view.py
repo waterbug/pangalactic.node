@@ -151,6 +151,12 @@ class DiagramScene(QGraphicsScene):
                                             # start_item.port.type_of_port.id))
                     # orb.log.debug("  - end port type: {}".format(
                                             # end_item.port.type_of_port.id))
+                    if start_item == end_item:
+                        txt = 'Cannot connect ports of the same block.'
+                        notice = QMessageBox()
+                        notice.setText(txt)
+                        notice.exec_()
+                        return
                     if (start_item.port.type_of_port.id !=
                         end_item.port.type_of_port.id):
                         txt = 'Cannot connect ports of different types.'
@@ -160,12 +166,32 @@ class DiagramScene(QGraphicsScene):
                         return
                     p1_dir = get_dval(start_item.port.oid, 'directionality')
                     p2_dir = get_dval(end_item.port.oid, 'directionality')
-                    if (p1_dir in ['input', 'output'] and p1_dir == p2_dir):
-                        txt = f'Cannot connect two {p1_dir} ports.'
-                        notice = QMessageBox()
-                        notice.setText(txt)
-                        notice.exec_()
-                        return
+                    start_product = start_item.port.of_product
+                    start_assemblies = [acu.assembly for acu in
+                                        start_product.where_used]
+                    end_product = end_item.port.of_product
+                    end_assemblies = [acu.assembly for acu in
+                                      end_product.where_used]
+                    if (start_product in end_assemblies or
+                        end_product in start_assemblies):
+                        if ((p1_dir == 'input' and p2_dir == 'output') or
+                            (p1_dir == 'output' and p2_dir == 'input')):
+                            txt = 'Cannot connect an internal block port\n'
+                            txt += 'to an external port of opposite\n'
+                            txt += 'directionality.'
+                            notice = QMessageBox()
+                            notice.setText(txt)
+                            notice.exec_()
+                            return
+                    else:
+                        if (p1_dir in ['input', 'output'] and
+                            p1_dir == p2_dir):
+                            txt = f'Cannot connect {p1_dir} ports of two '
+                            txt += 'internal blocks.'
+                            notice = QMessageBox()
+                            notice.setText(txt)
+                            notice.exec_()
+                            return
                     port1_V = get_pval(start_item.port.oid, 'V')
                     port2_V = get_pval(end_item.port.oid, 'V')
                     if (port1_V and port2_V and port1_V != port2_V):

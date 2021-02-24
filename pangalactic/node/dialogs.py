@@ -725,10 +725,9 @@ class DirectionalityDialog(QDialog):
         port (Port): port to receive directionality
 
     Keyword Args:
-        otherdirs (list of str): directionalities of other ports connected to
-            this one
+        allowed (set of str): allowed directionalities
     """
-    def __init__(self, port, otherdirs=None, parent=None):
+    def __init__(self, port, allowed=None, parent=None):
         super().__init__(parent)
         orb.log.debug('* DirectionalityDialog')
         self.setWindowTitle("Directionality")
@@ -736,8 +735,9 @@ class DirectionalityDialog(QDialog):
         self.port = port
         orb.log.debug('  directionality is currently "{port_dir}"')
         layout = QVBoxLayout(self)
-        otherdirs = otherdirs or set()
-        if otherdirs:
+        if allowed is None:
+            allowed = set(['input', 'output', 'bidirectional'])
+        if allowed != set(['input', 'output', 'bidirectional']):
             msg = '<b><font color="red">Directionality is constrained by<br>'
             msg += 'other ports connected to this one.</font></b>'
             msg_label = QLabel(msg, self)
@@ -752,9 +752,9 @@ class DirectionalityDialog(QDialog):
         layout.addWidget(self.input_button)
         layout.addWidget(self.output_button)
         layout.addWidget(self.bidir_button)
-        if 'input' in otherdirs:
+        if 'input' not in allowed:
             self.input_button.setEnabled(False)
-        if 'output' in otherdirs:
+        if 'output' not in allowed:
             self.output_button.setEnabled(False)
         if port_dir == 'input':
             self.input_button.setChecked(True)
