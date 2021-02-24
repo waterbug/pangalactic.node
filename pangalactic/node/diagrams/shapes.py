@@ -912,14 +912,14 @@ class SubjectBlock(Block):
         """
         Handler for "block mod" signal.
         """
-        try:
-            if oid == self.obj.oid:
-                orb.log.debug('* received "block mod" signal')
-                # self.rebuild() calls update()
-                self.rebuild()
-        except:
+        # try:
+        if oid == self.obj.oid:
+            orb.log.debug('* received "block mod" signal')
+            self.rebuild()
+            self.update()
+        # except:
             # wrapped C/C++ object may have been deleted
-            orb.log.debug('* received "block mod" signal but exception ...')
+            # orb.log.debug('* received "block mod" signal but exception ...')
 
     def mimeTypes(self):
         """
