@@ -167,11 +167,17 @@ class DiagramScene(QGraphicsScene):
                     p1_dir = get_dval(start_item.port.oid, 'directionality')
                     p2_dir = get_dval(end_item.port.oid, 'directionality')
                     start_product = start_item.port.of_product
+                    orb.log.debug(f"  - start prod: {start_product.id}")
                     start_assemblies = [acu.assembly for acu in
                                         start_product.where_used]
+                    sa_ids = [product.id for product in start_assemblies]
+                    orb.log.debug(f"  - start asmbs: {sa_ids}")
                     end_product = end_item.port.of_product
+                    orb.log.debug(f"  - end prod: {end_product.id}")
                     end_assemblies = [acu.assembly for acu in
                                       end_product.where_used]
+                    ea_ids = [product.id for product in end_assemblies]
+                    orb.log.debug(f"  - end asmbs: {ea_ids}")
                     if (start_product in end_assemblies or
                         end_product in start_assemblies):
                         if ((p1_dir == 'input' and p2_dir == 'output') or

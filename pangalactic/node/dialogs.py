@@ -733,7 +733,7 @@ class DirectionalityDialog(QDialog):
         self.setWindowTitle("Directionality")
         port_dir = get_dval(port.oid, 'directionality') or 'bidirectional'
         self.port = port
-        orb.log.debug('  directionality is currently "{port_dir}"')
+        orb.log.debug(f'  directionality is currently "{port_dir}"')
         layout = QVBoxLayout(self)
         if allowed is None:
             allowed = set(['input', 'output', 'bidirectional'])

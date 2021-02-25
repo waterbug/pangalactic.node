@@ -400,7 +400,8 @@ class ObjectBlock(Block):
                 self.update()
         except:
             # wrapped C/C++ object may have been deleted
-            orb.log.debug('* received "block mod" signal but exception ...')
+            orb.log.debug('* "block mod" signal failed, refreshing diagram...')
+            dispatcher.send('refresh diagram')
 
     # def something(self):
         # orb.log.info('* doing something ...')
@@ -915,8 +916,7 @@ class SubjectBlock(Block):
         try:
             if oid == self.obj.oid:
                 orb.log.debug('* received "block mod" signal')
-                self.rebuild()
-                self.update()
+                dispatcher.send('refresh diagram')
         except:
             # wrapped C/C++ object may have been deleted
             orb.log.debug('* received "block mod" signal but exception ...')
@@ -1403,23 +1403,25 @@ class PortBlock(QGraphicsItem):
         assmbl_w_this = [acu.assembly for acu in this_of_product.where_used]
         allowed_dirs = set(['input', 'output', 'bidirectional'])
         for port in gazintas + gazoutas:
-            port_dir = get_dval(port.oid, 'directionality')
-            if port_dir in ['input', 'output']:
-                assmbl_w_port = [acu.assembly for acu in
-                                 port.of_product.where_used]
-                if (this_of_product in assmbl_w_port or
-                    port.of_product in assmbl_w_this):
-                    # connected internal/external block ports can't be opposite
-                    if opposite_dir[port_dir] in allowed_dirs:
-                        allowed_dirs.remove(opposite_dir[port_dir])
-                else:
-                    # connected peer block ports can't be same directionality
-                    if port_dir in allowed_dirs:
-                        allowed_dirs.remove(port_dir)
+            assmbl_w_other = [acu.assembly for acu in
+                              port.of_product.where_used]
+            other_port_dir = get_dval(port.oid, 'directionality')
+            if (this_of_product in assmbl_w_other or
+                port.of_product in assmbl_w_this):
+                # connected internal/external block ports can't be opposite
+                orb.log.debug(f'  an assembly port is "{other_port_dir}"')
+                if opposite_dir[other_port_dir] in allowed_dirs:
+                    allowed_dirs.remove(opposite_dir[other_port_dir])
+            else:
+                # connected peer block ports can't be same directionality
+                orb.log.debug(f'  an peer port is "{other_port_dir}"')
+                if other_port_dir in allowed_dirs:
+                    allowed_dirs.remove(other_port_dir)
         orb.log.debug(f'* set directionality (allowed: {allowed_dirs}).')
         dlg = DirectionalityDialog(self.port, allowed=allowed_dirs,
                                    parent=self.parentWidget())
-        dlg.show()
+        if dlg.exec_() == QDialog.Accepted:
+            dispatcher.send('refresh diagram')
 
     def delete_local(self):
         """
