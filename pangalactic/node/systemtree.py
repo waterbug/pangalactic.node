@@ -1209,19 +1209,22 @@ class SystemTreeView(QTreeView):
             obj = self.source_model.get_node(mapped_i).obj
             orb.log.debug(f'  obj: {obj.id}')
             link = self.source_model.get_node(mapped_i).link
-            orb.log.debug(f'  usage: {link.id}')
-            menu.addAction(self.pgxnobj_action)
-            link_perms = get_perms(link)
-            if isinstance(link, orb.classes['Acu']):
-                if 'modify' in link_perms:
-                    menu.addAction(self.mod_node_action)
-                    menu.addAction(self.del_component_action)
-                if 'delete' in link_perms:
-                    menu.addAction(self.del_function_action)
-            elif isinstance(link, orb.classes['ProjectSystemUsage']):
-                if 'delete' in link_perms:
-                    menu.addAction(self.del_system_action)
-            menu.exec_(QCursor().pos())
+            # NOTE: root node (project) has a link of None ...
+            if link and isinstance(link, (orb.classes['Acu'],
+                                          orb.classes['ProjectSystemUsage'])):
+                orb.log.debug(f'  usage: {link.id}')
+                menu.addAction(self.pgxnobj_action)
+                link_perms = get_perms(link)
+                if isinstance(link, orb.classes['Acu']):
+                    if 'modify' in link_perms:
+                        menu.addAction(self.mod_node_action)
+                        menu.addAction(self.del_component_action)
+                    if 'delete' in link_perms:
+                        menu.addAction(self.del_function_action)
+                elif isinstance(link, orb.classes['ProjectSystemUsage']):
+                    if 'delete' in link_perms:
+                        menu.addAction(self.del_system_action)
+                menu.exec_(QCursor().pos())
 
     @property
     def req(self):
