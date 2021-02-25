@@ -221,18 +221,22 @@ class ParmDefTreeView(QTreeView):
             self.resizeColumnToContents(self.view.index(col))
 
     def startDrag(self, event):
-        index = self.indexAt(event.pos())
-        if not index.isValid:
-            return
-        pid, icon = self.model().data(index, Qt.UserRole)
-        if pid:
-            drag = QDrag(self)
-            drag.setHotSpot(QPoint(20, 10))
-            drag.setPixmap(icon.pixmap(QSize(16, 16)))
-            # create_mime_data() will ignore the icon in this case
-            mime_data = create_mime_data(pid, icon)
-            drag.setMimeData(mime_data)
-            drag.exec_(Qt.CopyAction)
+        try:
+            index = self.indexAt(event.pos())
+            if not index.isValid:
+                return
+            pid, icon = self.model().data(index, Qt.UserRole)
+            if pid:
+                drag = QDrag(self)
+                drag.setHotSpot(QPoint(20, 10))
+                drag.setPixmap(icon.pixmap(QSize(16, 16)))
+                # create_mime_data() will ignore the icon in this case
+                mime_data = create_mime_data(pid, icon)
+                drag.setMimeData(mime_data)
+                drag.exec_(Qt.CopyAction)
+        except:
+            # tried to drag in an area outside the tree
+            pass
 
     def mouseMoveEvent(self, event):
         if self.dragEnabled():
