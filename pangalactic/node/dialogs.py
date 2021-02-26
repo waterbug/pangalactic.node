@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
 from louie import dispatcher
 
 from pangalactic.core             import prefs, state
+from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
                                           SELECTION_VIEWS)
 from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
@@ -680,7 +681,8 @@ class ConnectionsDialog(QDialog):
         # Delete and Cancel buttons
         self.buttons = QDialogButtonBox(QDialogButtonBox.Cancel,
             Qt.Horizontal, self)
-        if state.get('connected'):
+        if (state.get('connected') and hasattr(usage, 'assembly')
+            and 'modify' in get_perms(usage.assembly)):
             self.buttons.addButton("Delete Selected Connections",
                                    QDialogButtonBox.AcceptRole)
             self.buttons.accepted.connect(self.accept)
