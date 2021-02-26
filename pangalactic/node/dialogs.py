@@ -661,7 +661,12 @@ class ConnectionsDialog(QDialog):
         self.conns = {}
         flows = orb.get_all_usage_flows(usage)
         for flow in flows:
-            label = QLabel(flow.name, self)
+            start_txt = ' '.join([flow.start_port.of_product.name,
+                                  flow.start_port.name, 'to'])
+            end_txt = ' '.join([flow.end_port.of_product.name,
+                                flow.end_port.name])
+            label_text = '\n'.join([start_txt, end_txt])
+            label = QLabel(label_text, self)
             self.checkboxes[flow.oid] = QCheckBox(self)
             self.checkboxes[flow.oid].setChecked(False)
             self.checkboxes[flow.oid].stateChanged.connect(self.show_conns)
@@ -672,12 +677,14 @@ class ConnectionsDialog(QDialog):
             end_conns = set(end_port_block.connectors)
             self.conns[flow.oid] = start_conns & end_conns
             form.addRow(self.checkboxes[flow.oid], label)
-        # OK and Cancel buttons
-        self.buttons = QDialogButtonBox(
-            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+        # Delete and Cancel buttons
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Cancel,
             Qt.Horizontal, self)
+        if state.get('connected'):
+            self.buttons.addButton("Delete Selected Connections",
+                                   QDialogButtonBox.AcceptRole)
+            self.buttons.accepted.connect(self.accept)
         form.addRow(self.buttons)
-        self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
 
     def show_conns(self):
@@ -702,15 +709,21 @@ class ConnectionsDialog(QDialog):
         self.scene.update()
 
     def accept(self):
+        for flow_oid, cb in self.checkboxes.items():
+            flow = self.flows[flow_oid]
+            if cb.isChecked():
+                orb.delete([flow])
+                dispatcher.send(signal='deleted object', oid=flow_oid,
+                                cname='Flow')
         for flow_oid in self.checkboxes:
-            if self.conns[flow_oid]:
+            if orb.get(flow_oid):
                 for conn in self.conns[flow_oid]:
                     conn.pen.setColor(conn.color)
         super().accept()
 
     def reject(self):
         for flow_oid in self.checkboxes:
-            if self.conns[flow_oid]:
+            if self.conns.get(flow_oid):
                 for conn in self.conns[flow_oid]:
                     conn.pen.setColor(conn.color)
         super().reject()

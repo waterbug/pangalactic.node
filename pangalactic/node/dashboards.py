@@ -98,6 +98,12 @@ class SystemDashboard(QTreeView):
         set_as_pref_action = QAction('set as preferred dashboard', dash_header)
         set_as_pref_action.triggered.connect(self.set_as_pref_dashboard)
         dash_header.addAction(set_as_pref_action)
+        dash_name = state.get('dashboard_name')
+        if dash_name in state.get('app_dashboards', {}).keys():
+            txt = f'use standard {dash_name} dashboard schema'
+            use_app_dash_action = QAction(txt, dash_header)
+            use_app_dash_action.triggered.connect(self.use_app_dash_schema)
+            dash_header.addAction(use_app_dash_action)
         delete_dashboard_action = QAction('delete dashboard', dash_header)
         delete_dashboard_action.triggered.connect(self.delete_dashboard)
         dash_header.addAction(delete_dashboard_action)
@@ -357,6 +363,16 @@ class SystemDashboard(QTreeView):
         prefs['dashboard_names'].insert(0, dash_name)
         state['dashboard_name'] = dash_name
         dispatcher.send(signal='dash pref set')
+
+    def use_app_dash_schema(self):
+        """
+        Handler for 'use standard [name] dashboard schema' context menu item.
+        """
+        dash_name = state['dashboard_name']
+        app_dash_schema = state.get('app_dashboards', {}).get(dash_name)
+        if app_dash_schema:
+            prefs['dashboards'][dash_name] = app_dash_schema
+            dispatcher.send(signal='refresh tree and dash')
 
     def delete_dashboard(self):
         """

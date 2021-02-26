@@ -39,14 +39,13 @@ def setup_dirs_and_state():
         if item not in config:
             config[item] = default_config[item]
     if not prefs.get('dashboards'):
-        config_dbds = config.get('dashboards')
-        if config_dbds:
-            prefs['dashboards'] = deepcopy(config_dbds)
-            prefs['dashboard_names'] = config['dashboard_names'][:]
+        app_dbds = state.get('app_dashboards')
+        if app_dbds:
+            prefs['dashboards'] = deepcopy(app_dbds)
         else:
             prefs['dashboards'] = {'Mass-Power-Data':
                         ['m_total', 'm', 'P_total', 'P', 'R_total', 'R_D']}
-            prefs['dashboard_names'] = ['Mass-Power-Data']
+        prefs['dashboard_names'] = list(prefs['dashboards'].keys())
         # orb.log.debug('* pref dashboards updated: {}'.format(str(
                                             # prefs['dashboard_names'])))
     if not state.get('dashboard_name'):

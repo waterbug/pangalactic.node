@@ -4536,8 +4536,8 @@ class Main(QtWidgets.QMainWindow):
     def open_step_file(self):
         orb.log.debug('* opening a STEP file')
         # NOTE: for demo purposes ... actual function TBD
-        if not state.get('last_path'):
-            state['last_path'] = orb.test_data_dir
+        if not state.get('last_step_path'):
+            state['last_step_path'] = orb.test_data_dir
         fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
                                     self, 'Open STEP File',
                                     state['last_path'],
@@ -4546,7 +4546,7 @@ class Main(QtWidgets.QMainWindow):
             # TODO: exception handling in case data import fails ...
             # TODO: add an "index" column for sorting, or else figure out how
             # to sort on the left header column ...
-            state['last_path'] = os.path.dirname(fpath)
+            state['last_step_path'] = os.path.dirname(fpath)
             # orb.log.info('  - STEP3DViewer(step_file="{}")'.format(fpath))
             # viewer = STEP3DViewer(step_file=fpath, parent=self)
             # viewer.show()
