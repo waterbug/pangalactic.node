@@ -51,12 +51,20 @@ def setup_dirs_and_state():
                                             # prefs['dashboard_names'])))
     if not state.get('dashboard_name'):
         state['dashboard_name'] = prefs['dashboard_names'][0]
+    # app config will have been loaded -- add any missing default_parameters or
+    # default_data_elements using default config
     if not prefs.get('default_parms'):
         config_parms = config.get('default_parms')
         if config_parms:
             prefs['default_parms'] = config_parms[:]
         else:
-            prefs['default_parms'] = ['m', 'P', 'R_D', 'Vendor', 'Cost']
+            prefs['default_parms'] = ['m', 'P', 'R_D', 'Cost']
+    if not prefs.get('default_data_elements'):
+        config_des = config.get('default_data_elements')
+        if config_des:
+            prefs['default_data_elements'] = config_des[:]
+        else:
+            prefs['default_data_elements'] = ['Vendor']
     if not prefs.get('editor'):
         prefs['editor'] = {}
     if not prefs['editor'].get('parameters'):
