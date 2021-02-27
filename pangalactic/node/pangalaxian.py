@@ -3246,7 +3246,27 @@ class Main(QtWidgets.QMainWindow):
             # self._expand_tree_from_saved_state()
             # self.sys_tree.expandAll()
             self.sys_tree.expandToDepth(1)
-        self.left_dock.setWidget(self.sys_tree)
+
+        # NOTE: new sys tree panel (with expansion selector) code begins here
+        sys_tree_panel = QtWidgets.QWidget(self)
+        # set panel size policy to match the sys_tree's
+        sys_tree_panel.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                                     QtWidgets.QSizePolicy.MinimumExpanding)
+        # set panel max width to match the max width set for sys_tree
+        sys_tree_panel.setMaximumWidth(450)
+        sys_tree_layout = QtWidgets.QVBoxLayout(sys_tree_panel)
+        expansion_select = QtWidgets.QComboBox()
+        expansion_select.setStyleSheet('font-weight: bold; font-size: 14px')
+        expansion_select.activated.connect(self.set_systree_expansion)
+        expansion_select.addItem('2 levels', QVariant())
+        expansion_select.addItem('3 levels', QVariant())
+        expansion_select.addItem('4 levels', QVariant())
+        sys_tree_layout.addWidget(expansion_select)
+        sys_tree_layout.addWidget(self.sys_tree)
+        # NOTE: new sys tree panel code ends here
+
+        # self.left_dock.setWidget(self.sys_tree)
+        self.left_dock.setWidget(sys_tree_panel)
         self.end_progress()
         # check if the selected object and selected link exist in the tree
         # selected_obj = None
@@ -3283,6 +3303,12 @@ class Main(QtWidgets.QMainWindow):
             # msg = 'found neither previously selected link nor state["system"]'
             # orb.log.debug('  - {}'.format(msg))
         self.set_system_model_window()
+
+    def set_systree_expansion(self, index):
+        try:
+            self.sys_tree.expandToDepth(index + 1)
+        except:
+            orb.log.debug('* sys tree expansion failed.')
 
     def rebuild_dash_selector(self):
         orb.log.debug('* rebuild_dash_selector()')
