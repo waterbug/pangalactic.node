@@ -604,6 +604,9 @@ def make_de_html(deid):
     name_parts = [p.capitalize() for p in parts]
     if len(parts) > 1:
         return '<b>' + ' '.join(name_parts) + '</b>'
+    elif deid == 'TRL':
+        # yes, ugly :(
+        return f'<b>TRL</b>'
     else:
         return f'<b>{deid.capitalize()}</b>'
 
