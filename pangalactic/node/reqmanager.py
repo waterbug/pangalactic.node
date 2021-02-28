@@ -34,6 +34,7 @@ class RequirementManager(QDialog):
         view = view or default_view
         sized_cols = ['id', 'req_level', 'name', 'req_type']
         self.req = req
+        self.req_wiz_calls = []
         if project:
             objs = orb.search_exact(cname='Requirement', owner=project)
             title_txt = 'Project Requirements for {}'.format(project.id)
@@ -98,15 +99,17 @@ class RequirementManager(QDialog):
         # otherwise, filtering behavior (as above) is in effect.
         pass
 
-    def on_edit_req_signal(self, obj=None):
+    def on_edit_req_signal(self, obj=None, call=0):
         orb.log.info('* RequirementManager: on_edit_req_signal()')
-        if obj:
+        if obj and call not in self.req_wiz_calls:
             is_perf = (obj.req_type == 'performance')
             wizard = ReqWizard(parent=self, req=obj, performance=is_perf)
             if wizard.exec_() == QDialog.Accepted:
                 orb.log.info('* req wizard completed.')
+                self.req_wiz_calls.append(call)
             else:
                 orb.log.info('* req wizard cancelled...')
+                self.req_wiz_calls.append(call)
 
     def on_edit_req_parm_signal(self, req=None, parm=None):
         orb.log.info('* RequirementManager: on_edit_req_parm_signal()')
@@ -134,6 +137,12 @@ class RequirementManager(QDialog):
             req = orb.get(oid)
             if req:
                 self.set_req(req)
+                # if allocated to an acu, send signal to ensure that node of
+                # the tree is made visible -- not necessary if allocated to a
+                # "system", since tree will be expanded to at least 1 level
+                acu = req.allocated_to_function
+                if acu:
+                    dispatcher.send(signal='show alloc acu', acu=acu)
             else:
                 orb.log.debug('  req with oid "{}" not found.'.format(oid))
 

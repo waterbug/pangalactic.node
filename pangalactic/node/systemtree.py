@@ -1144,7 +1144,9 @@ class SystemTreeView(QTreeView):
         # (i.e., a shared model); ignore them when instantiated in req
         # allocation mode (different models -> the indexes are not valid
         # anyway!)
-        if not show_allocs:
+        if show_allocs:
+            dispatcher.connect(self.on_show_alloc, 'show alloc acu')
+        else:
             self.expanded.connect(self.sys_node_expanded)
             self.collapsed.connect(self.sys_node_collapsed)
             self.clicked.connect(self.sys_node_selected)
@@ -1237,6 +1239,25 @@ class SystemTreeView(QTreeView):
 
     def sizeHint(self):
         return QSize(300, 300)
+
+    def on_show_alloc(self, acu=None):
+        if acu:
+            level = 1
+            while 1:
+                try:
+                    self.expandToDepth(level)
+                    idxs = self.link_indexes_in_tree(acu)
+                    if idxs:
+                        self.scrollTo(self.proxy_model.mapFromSource(idxs[0]))
+                        return
+                    else:
+                        level += 1
+                        if level > 5:
+                            # we have our limits! ;)
+                            return
+                except:
+                    orb.log.debug('  on_show_alloc() crashed (probably C++).')
+                    return
 
     def sys_node_expanded(self, index):
         if index not in state['sys_trees'][self.project.id]['expanded']:

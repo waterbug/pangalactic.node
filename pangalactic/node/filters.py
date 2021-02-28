@@ -479,6 +479,7 @@ class FilterPanel(QWidget):
         super().__init__(parent=parent)
         self.as_library = as_library
         self.excluded_oids = excluded_oids or []
+        self.edit_req_calls = 0
         if as_library and cname:
             self.cname = cname
             if cname in orb.classes:
@@ -743,7 +744,9 @@ class FilterPanel(QWidget):
                 req = orb.get(oid)
         if req:
             if 'modify' in get_perms(req):
-                dispatcher.send('edit requirement', obj=req)
+                self.edit_req_calls +=1
+                dispatcher.send('edit requirement', obj=req,
+                                call=self.edit_req_calls)
             else:
                 message = "Not Authorized"
                 popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
