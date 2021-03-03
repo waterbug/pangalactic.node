@@ -75,6 +75,7 @@ def run_ext_3dviewer(fpath):
         shapes_labels_colors = read_step_file_with_names_colors(fpath)
         for shpt_lbl_color in shapes_labels_colors:
             label, c = shapes_labels_colors[shpt_lbl_color]
+            display.display_triedron()
             display.DisplayColoredShape(shpt_lbl_color,
                                         color=Quantity_Color(c.Red(),
                                                              c.Green(),
@@ -153,6 +154,7 @@ class QtViewer3DColor(QtBaseViewer):
         self._display.Create()
         self._display.set_bg_gradient_color([206, 215, 222],
                                             [128, 128, 128])
+        self._display.display_triedron()
         # new stuff for XCAF ...
         # create a handle to a document
         doc = TDocStd_Document(TCollection_ExtendedString("pythonocc-doc"))
