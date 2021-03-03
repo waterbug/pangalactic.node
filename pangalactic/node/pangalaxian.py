@@ -61,7 +61,7 @@ from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
-from pangalactic.node.cad.viewer       import run_ext_3dviewer, STEP3DViewer
+from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
 # from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
@@ -1673,7 +1673,7 @@ class Main(QtWidgets.QMainWindow):
                                     "View a CAD Model...",
                                     slot=self.view_cad,
                                     icon="view_16",
-                                    tip="View a CAD model from a STEP file",
+                                    tip="View a CAD model",
                                     modes=['system', 'component'])
         # "open_step_file" opens an external viewer in a separate process ...
         # *required* on Mac, an option on Linux, and *does not work* on Windows
@@ -2238,12 +2238,12 @@ class Main(QtWidgets.QMainWindow):
         self.statusbar = self.statusBar()
         self.statusbar.setStyleSheet('color: purple; font-weight: bold;')
         self.pb = QtWidgets.QProgressBar(self.statusbar)
-        stl = "QProgressBar::chunk {background: QLinearGradient( x1: 0,"
-        stl += "y1: 0, x2: 1, y2: 0,stop: 0 #A020F0,stop: 0.4999"
-        stl += " #A020F0,stop: 0.5 #A020F0,stop: 1 #551A8B );"
-        stl += "border-bottom-right-radius: 5px;border-bottom-left-radius:"
-        stl += " 5px;border: .px solid black;}"
-        self.pb.setStyleSheet(stl)
+        style = "QProgressBar::chunk {background: QLinearGradient( x1: 0,"
+        style += "y1: 0, x2: 1, y2: 0,stop: 0 #A020F0,stop: 0.4999"
+        style += " #A020F0,stop: 0.5 #A020F0,stop: 1 #551A8B );"
+        style += "border-bottom-right-radius: 5px;border-bottom-left-radius:"
+        style += " 5px;border: .px solid black;}"
+        self.pb.setStyleSheet(style)
         self.pb.setTextVisible(False)
         self.pb.hide()
         self.statusbar.addPermanentWidget(self.pb)
@@ -3712,7 +3712,7 @@ class Main(QtWidgets.QMainWindow):
 
     def view_cad(self, file_path=None):
         orb.log.info('* view_cad(file_path="{}")'.format(file_path))
-        viewer = STEP3DViewer(step_file=file_path, parent=self)
+        viewer = Model3DViewer(step_file=file_path, parent=self)
         viewer.show()
 
     def run_external_viewer(self, file_path):
@@ -4560,22 +4560,19 @@ class Main(QtWidgets.QMainWindow):
             return
 
     def open_step_file(self):
-        orb.log.debug('* opening a STEP file')
+        orb.log.debug('* opening a CAD Model file')
         # NOTE: for demo purposes ... actual function TBD
-        if not state.get('last_step_path'):
-            state['last_step_path'] = orb.test_data_dir
+        if not state.get('last_model_path'):
+            state['last_model_path'] = orb.test_data_dir
         fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
-                                    self, 'Open STEP File',
-                                    state['last_path'],
-                                    'STEP Files (*.stp *.step *.p21)')
+                                    self, 'Open STEP or STL File',
+                                    state['last_model_path'],
+                                    'Model Files (*.stp *.step *.p21 *.stl)')
         if fpath:
             # TODO: exception handling in case data import fails ...
             # TODO: add an "index" column for sorting, or else figure out how
             # to sort on the left header column ...
-            state['last_step_path'] = os.path.dirname(fpath)
-            # orb.log.info('  - STEP3DViewer(step_file="{}")'.format(fpath))
-            # viewer = STEP3DViewer(step_file=fpath, parent=self)
-            # viewer.show()
+            state['last_model_path'] = os.path.dirname(fpath)
             orb.log.info('  - running external viewer ...')
             self.run_external_viewer(file_path=fpath)
         else:

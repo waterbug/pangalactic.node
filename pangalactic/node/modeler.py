@@ -17,7 +17,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.meta  import (get_block_model_id,
                                           get_block_model_name,
                                           get_block_model_file_name)
-from pangalactic.node.cad.viewer  import STEP3DViewer
+from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (clone, extract_mime_data,
@@ -25,7 +25,7 @@ from pangalactic.node.utils       import (clone, extract_mime_data,
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 
 supported_model_types = {
-    # CAD models get "eyes" icon, not a lable button
+    # CAD models get "eyes" icon, not a label button
     'step:203' : None,
     'step:214' : None,
     'pgefobjects:Block' : 'Block',
@@ -427,7 +427,7 @@ class ModelWindow(QMainWindow):
             if fpath:
                 orb.log.debug('* ModelWindow.display_cad_model({})'.format(
                                                                     fpath))
-                viewer = STEP3DViewer(step_file=fpath, parent=self)
+                viewer = Model3DViewer(step_file=fpath, parent=self)
                 viewer.show()
         except:
             orb.log.debug('  CAD model not found.')

@@ -39,7 +39,8 @@ from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCC.Display.SimpleGui import init_display
-from OCC.Extend.DataExchange import read_step_file_with_names_colors
+from OCC.Extend.DataExchange import (read_step_file_with_names_colors,
+                                     read_stl_file)
 
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import Qt
@@ -57,17 +58,31 @@ class point(object):
         self.y = obj.y()
 
 
-def run_ext_3dviewer(file_path):
-    shapes_labels_colors = read_step_file_with_names_colors(file_path)
+def run_ext_3dviewer(fpath):
+    if not fpath:
+        return
     # init graphic display
+    basename, fname = os.path.split(fpath)
+    parts = fname.split('.')
+    suffix = ''
+    if len(parts) == 2:
+        suffix = parts[1]
+    if not suffix:
+        # unidentifiable file type
+        return
     display, start_display, add_menu, add_function_to_menu = init_display()
-    for shpt_lbl_color in shapes_labels_colors:
-        label, c = shapes_labels_colors[shpt_lbl_color]
-        display.DisplayColoredShape(shpt_lbl_color,
-                                    color=Quantity_Color(c.Red(),
-                                                         c.Green(),
-                                                         c.Blue(),
-                                                         Quantity_TOC_RGB))
+    if suffix in ['step', 'stp', 'p21']:
+        shapes_labels_colors = read_step_file_with_names_colors(fpath)
+        for shpt_lbl_color in shapes_labels_colors:
+            label, c = shapes_labels_colors[shpt_lbl_color]
+            display.DisplayColoredShape(shpt_lbl_color,
+                                        color=Quantity_Color(c.Red(),
+                                                             c.Green(),
+                                                             c.Blue(),
+                                                             Quantity_TOC_RGB))
+    elif suffix == 'stl':
+        stl_shape = read_stl_file(fpath)
+        display.DisplayShape(stl_shape, update=True)
     display.FitAll()
     start_display()
 
@@ -124,12 +139,15 @@ class QtViewer3DColor(QtBaseViewer):
         self._selection = None
         self._drawtext = True
 
-    def init_shape_from_STEP(self, fpath):
+    def init_shape_from_model(self, fpath, model_type='step'):
         """
         Load a STEP file into the viewer.
 
-        @param fpath:  path to a STEP file
-        @type  fpath:  `str`
+        Args:
+            fpath (str):  path to a STEP file
+
+        Keyword Args:
+            model_type (str):  "step" or "stl"
         """
         self._display = OCCViewer.Viewer3d(self.GetHandle())
         self._display.Create()
@@ -148,48 +166,55 @@ class QtViewer3DColor(QtBaseViewer):
         # TODO:  figure out what "layer tool" and "material tool" do ...
         # h_layer_tool = XCAFDoc_DocumentTool_LayerTool(doc.Main())
         # h_mat_tool = XCAFDoc_DocumentTool_MaterialTool(doc.Main())
-        step_reader = STEPCAFControl_Reader()
-        step_reader.SetColorMode(True)
-        step_reader.SetLayerMode(True)
-        step_reader.SetNameMode(True)
-        step_reader.SetMatMode(True)
-        #########################
+        if model_type in ['step', 'stl']:
+            if model_type == 'step':
+                step_reader = STEPCAFControl_Reader()
+                step_reader.SetColorMode(True)
+                step_reader.SetLayerMode(True)
+                step_reader.SetNameMode(True)
+                step_reader.SetMatMode(True)
+                #########################
 
-        status = step_reader.ReadFile(fpath)
-        if status == IFSelect_RetDone:  # check status
-            # failsonly = False
-            # step_reader.PrintCheckLoad(failsonly, IFSelect_ItemsByEntity)
-            # step_reader.PrintCheckTransfer(failsonly, IFSelect_ItemsByEntity)
-            # ok = step_reader.TransferRoot(1)
-            # _nbs = step_reader.NbShapes()
-            # step_reader.TransferRoot(1)
-            # step_reader.NbShapes()
-            # step_shape = step_reader.Shape(1)
-            step_reader.Transfer(doc)
+                status = step_reader.ReadFile(fpath)
+                if status == IFSelect_RetDone:  # check status
+                    # failsonly = False
+                    # step_reader.PrintCheckLoad(failsonly, IFSelect_ItemsByEntity)
+                    # step_reader.PrintCheckTransfer(failsonly, IFSelect_ItemsByEntity)
+                    # ok = step_reader.TransferRoot(1)
+                    # _nbs = step_reader.NbShapes()
+                    # step_reader.TransferRoot(1)
+                    # step_reader.NbShapes()
+                    # step_shape = step_reader.Shape(1)
+                    step_reader.Transfer(doc)
+                else:
+                    sys.exit(0)
+
+                #########################
+                # new stuff for XCAF ...
+                # self.shape_tool = self.h_shape_tool.GetObject()
+                self.shape_tool = self.h_shape_tool
+                self.shape_tool.SetAutoNaming(True)
+                # self.color_tool = h_color_tool.GetObject()
+                self.color_tool = h_color_tool
+                self.lvl = 0
+                self.locs = []
+                self.count = 0
+                #########################
+
+                self.getShapes()
+            elif model_type == 'stl':
+                stl_shape = read_stl_file(fpath)
+                self._display.DisplayShape(stl_shape, update=True)
+            self._display.SetModeShaded()
+            # NOTE: "EnableAntiAliasing" raises a warning ...
+            # self._display.EnableAntiAliasing()
+            self._display.FitAll()
+            self._inited = True
+            # dict mapping keys to functions
+            self._SetupKeyMap()
         else:
+            # model is not a suppored type
             sys.exit(0)
-
-        #########################
-        # new stuff for XCAF ...
-        # self.shape_tool = self.h_shape_tool.GetObject()
-        self.shape_tool = self.h_shape_tool
-        self.shape_tool.SetAutoNaming(True)
-        # self.color_tool = h_color_tool.GetObject()
-        self.color_tool = h_color_tool
-        self.lvl = 0
-        self.locs = []
-        self.count = 0
-        #########################
-
-        self.getShapes()
-        # self._display.DisplayShape(step_shape, update=True)
-        self._display.SetModeShaded()
-        # NOTE: "EnableAntiAliasing" raises a warning ...
-        # self._display.EnableAntiAliasing()
-        self._display.FitAll()
-        self._inited = True
-        # dict mapping keys to functions
-        self._SetupKeyMap()
 
     def get_label_name(self, label):
         entry = TCollection_AsciiString()
@@ -516,30 +541,47 @@ class QtViewer3DColor(QtBaseViewer):
             evt.ignore()
 
 
-class STEP3DViewer(QtWidgets.QMainWindow):
-    def __init__(self, step_file=None, parent=None):
+class Model3DViewer(QtWidgets.QMainWindow):
+    def __init__(self, step_file=None, stl_file=None, parent=None):
         super().__init__(parent=parent)
-        self.setWindowTitle(self.tr("STEP 3D viewer"))
+        self.setWindowTitle(self.tr("3D Model Viewer"))
         self.init_viewer_3d()
         self.viewer_in_use = False
         self.resize(800, 600)
         self.open_step_file_action = self.create_action("Open a STEP file...",
                                    slot=self.open_step_file,
                                    tip="View a CAD model from a STEP file")
+        self.open_stl_file_action = self.create_action("Open an STL file...",
+                                   slot=self.open_stl_file,
+                                   tip="View a model from an STL file")
+        self.export_to_image_action = self.create_action("Export to image...",
+                                   slot=self.export_to_image,
+                                   tip="Export current view to image...")
+        self.export_to_image_action.setEnabled(False)
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         import_icon_file = 'open' + state['icon_type']
         self.icon_dir = state.get('icon_dir',
                              os.path.join(getattr(orb, 'home', ''), 'icons'))
         import_icon_path = os.path.join(self.icon_dir, import_icon_file)
-        import_actions = [self.open_step_file_action]
+        import_actions = [self.open_step_file_action,
+                          self.open_stl_file_action]
         import_button = MenuButton(QtGui.QIcon(import_icon_path),
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)
         self.toolbar.addWidget(import_button)
-        self.loaded_file = step_file
+        export_icon_file = 'save' + state['icon_type']
+        export_icon_path = os.path.join(self.icon_dir, export_icon_file)
+        export_actions = [self.export_to_image_action]
+        self.export_button = MenuButton(QtGui.QIcon(export_icon_path),
+                                   tooltip='Export Data or Objects',
+                                   actions=export_actions, parent=self)
+        self.toolbar.addWidget(self.export_button)
+        self.loaded_file = step_file or stl_file
         if step_file:
-            self.load_file(step_file)
+            self.load_step_file(step_file)
+        elif stl_file:
+            self.load_stl_file(stl_file)
 
     def create_action(self, text, icon=None, slot=None, tip=None):
         action = QtWidgets.QAction(text, self)
@@ -569,24 +611,21 @@ class STEP3DViewer(QtWidgets.QMainWindow):
         self.qt_viewer_3d.resize(800, 600)
         self.setCentralWidget(self.qt_viewer_3d)
 
-    def add_export_button(self):
-        export_to_image_action = self.create_action("Export to image...",
-                                   slot=self.export_to_image,
-                                   tip="Export current view to image...")
-        export_icon_file = 'save' + state['icon_type']
-        export_icon_path = os.path.join(self.icon_dir, export_icon_file)
-        export_actions = [export_to_image_action]
-        self.export_button = MenuButton(QtGui.QIcon(export_icon_path),
-                                   tooltip='Export Data or Objects',
-                                   actions=export_actions, parent=self)
-        self.toolbar.addWidget(self.export_button)
-
-    def load_file(self, fpath):
+    def load_step_file(self, fpath):
         if self.viewer_in_use:
             self.init_viewer_3d()
-        self.qt_viewer_3d.init_shape_from_STEP(fpath)
+        self.qt_viewer_3d.init_shape_from_model(fpath, model_type='step')
         self.loaded_file = fpath
-        self.add_export_button()
+        if hasattr(self, 'export_to_image_action'):
+            self.export_to_image_action.setEnabled(True)
+
+    def load_stl_file(self, fpath):
+        if self.viewer_in_use:
+            self.init_viewer_3d()
+        self.qt_viewer_3d.init_shape_from_model(fpath, model_type='stl')
+        self.loaded_file = fpath
+        if hasattr(self, 'export_to_image_action'):
+            self.export_to_image_action.setEnabled(True)
 
     def export_to_image(self):
         fname = 'cad_view.png'
@@ -603,28 +642,59 @@ class STEP3DViewer(QtWidgets.QMainWindow):
 
     def open_step_file(self):
         if platform.platform().startswith('Darwin'):
+            # on Mac, can only open one file (next attempt will crash)
+            self.removeToolBar(self.toolbar)
+            self.open_step_file_action.setEnabled(False)
+            self.open_stl_file_action.setEnabled(False)
+        if orb.started:
+            orb.log.debug('* opening a STEP file')
+            if not state.get('last_step_path'):
+                state['last_step_path'] = orb.test_data_dir
+        fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
+                                    self, 'Open STEP File',
+                                    state.get('last_step_path', ''),
+                                    'STEP Files (*.stp *.step *.p21)')
+        if fpath:
+            # TODO: exception handling in case data import fails ...
+            # TODO: add an "index" column for sorting, or else figure out how
+            # to sort on the left header column ...
+            state['last_step_path'] = os.path.dirname(fpath)
+            if orb.started:
+                orb.log.debug('  - opening STEP file "{}" ...'.format(fpath))
+            if self.viewer_in_use:
+                self.init_viewer_3d()
+            self.qt_viewer_3d.init_shape_from_model(fpath, model_type='step')
+            if hasattr(self, 'export_to_image_action'):
+                self.export_to_image_action.setEnabled(True)
+        else:
+            return
+
+    def open_stl_file(self):
+        if platform.platform().startswith('Darwin'):
             # on Mac, can only open one step file (next attempt will crash)
             self.removeToolBar(self.toolbar)
             self.open_step_file_action.setEnabled(False)
+            self.open_stl_file_action.setEnabled(False)
         if orb.started:
-            orb.log.debug('* opening a STEP file')
-            if not state.get('last_path'):
-                state['last_path'] = orb.test_data_dir
+            orb.log.debug('* opening an STL file')
+            if not state.get('last_stl_path'):
+                state['last_stl_path'] = orb.test_data_dir
         fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
-                                    self, 'Open STEP File',
-                                    state.get('last_path', ''),
-                                    'STEP Files (*.stp *.step *.p21)')
+                                    self, 'Open STL File',
+                                    state.get('last_stl_path', ''),
+                                    'STL Files (*.stl)')
         if fpath:
             # TODO: exception handling in case data import fails ...
             # TODO: add an "index" column for sorting, or else figure out how
             # to sort on the left header column ...
             state['last_path'] = os.path.dirname(fpath)
             if orb.started:
-                orb.log.debug('  - opening STEP file "{}" ...'.format(fpath))
+                orb.log.debug('  - opening STL file "{}" ...'.format(fpath))
             if self.viewer_in_use:
                 self.init_viewer_3d()
-            self.qt_viewer_3d.init_shape_from_STEP(fpath)
-            self.add_export_button()
+            self.qt_viewer_3d.init_shape_from_model(fpath, model_type='stl')
+            if hasattr(self, 'export_to_image_action'):
+                self.export_to_image_action.setEnabled(True)
         else:
             return
 
@@ -639,7 +709,7 @@ if __name__ == "__main__":
     # CAX-IF test file "bracket" copied into current dir.
     fpath = 'as1-oc-214.stp'
     app = QtWidgets.QApplication(sys.argv)
-    frame = STEP3DViewer()
+    frame = Model3DViewer(step_file=fpath)
     frame.show()
     sys.exit(app.exec_())
 
