@@ -1891,7 +1891,6 @@ class RoutedConnector(QGraphicsItem):
     def paint(self, painter, option, widget=None):
         # self.paints += 1
         # orb.log.debug("RoutedConnector.paint %i ..." % self.paints)
-        # TODO: compute how many segments (horizontal/vertical) to use
         if (self.start_item.collidesWithItem(self.end_item)):
             return
         start_item = self.start_item
@@ -1907,12 +1906,7 @@ class RoutedConnector(QGraphicsItem):
         arrow_size = 20.0
         painter.setPen(self.pen)
         # NOTE: for a line, "brush" is irrelevant; "pen" determines color etc.
-        # if self.isUnderMouse():
-            # painter.setBrush(Qt.darkGray)
-            # self.pen.setWidth(6)
-        # else:
-        # painter.setBrush(self.color)
-        # routing channel is used together with the port type and the
+        # NOTE: routing channel is used together with the port type and the
         # "SEPARATION" factor (spacing between flows) to calculate the
         # x-position of the vertical segment, vertical_x (formerly known as
         # seg1p2x)
@@ -1927,43 +1921,23 @@ class RoutedConnector(QGraphicsItem):
             # arrow should point right
             right_arrow = True
             start_x_pad = start_item.boundingRect().width()
-            end_x_pad = PORT_SIZE/2
-            x_pad = start_x_pad + end_x_pad
-            total_x = (end_item.scenePos().x()
-                       - start_item.scenePos().x()
-                       - x_pad)
-            if total_x > 0:
-                # NOTE:  currently this is the only supported case for
-                # left-to-right connection
-                # (seg1 is always horizontal)
-                seg1p1x = start_item.scenePos().x() + start_x_pad
-                # seg1p2x = seg1p1x + total_x/2.0
-                seg1p2x = vertical_x
-                # NOTE: for some reason, the y needs a shim
-                seg1p1y = start_item.scenePos().y() + 3
-                # seg3p2x = seg1p2x + total_x/2.0
-                seg3p2x = end_item.scenePos().x()
-            elif total_x <= 0:   # FIXME!
-                # NOTE: THIS IS INCORRECT ... need special case:
-                # seg1 vertical, seg2 horizontal, seg3 vertical
-                seg1p1x = start_item.scenePos().x() - start_x_pad
-                # seg1p2x = seg1p1x + total_x/2.0
-                seg1p2x = vertical_x
-                seg1p1y = start_item.scenePos().y()
-                # seg3p2x = seg1p2x + total_x/2.0
-                seg3p2x = end_item.scenePos().x()
-            else:               # FIXME!
-                # NOTE: THIS IS INCORRECT ... need special case:
-                # (= 0 => vertical segment only)
-                seg1p1x = seg1p2x = start_item.scenePos().x()
-                seg1p2x = seg1p1x + total_x/2.0
-                seg1p1y = start_item.scenePos().y()
-                seg3p2x = seg1p2x + total_x/2.0
+            # end_x_pad = PORT_SIZE/2
+            # *******************************************************
+            # compute segment end points x, y coords.
+            # *******************************************************
+            # NOTE:  currently this is the only supported case for
+            # left-to-right connection (seg1 is always horizontal)
+            seg1p1x = start_item.scenePos().x() + start_x_pad
+            seg1p2x = vertical_x
+            # NOTE: for some reason, the y needs a fudge factor
+            seg1p1y = start_item.scenePos().y() + 3
+            seg3p2x = end_item.scenePos().x()
+            # *******************************************************
             seg1p1 = QPointF(seg1p1x, seg1p1y)
             seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
-            # NOTE: for some reason, the y needs a shim
+            # NOTE: for some reason, the y needs a fudge factor
             seg2p2y = end_item.scenePos().y() + 3
             # seg3 is horizontal
             seg3p2y = seg2p2y
@@ -1976,36 +1950,17 @@ class RoutedConnector(QGraphicsItem):
             # arrow should point left
             right_arrow = False
             start_x_pad = PORT_SIZE/2
-            end_x_pad = end_item.boundingRect().width() + PORT_SIZE/2
-            x_pad = start_x_pad + end_x_pad
-            total_x = (end_item.scenePos().x()
-                       - start_item.scenePos().x()
-                       + x_pad)
-            if total_x < 0:
-                # NOTE:  currently this is the only supported case for
-                # right-to-left connection
-                # (seg1 is always horizontal)
-                seg1p1x = start_item.scenePos().x() + start_x_pad
-                seg1p2x = vertical_x
-                # NOTE: for some reason, the y needs a shim
-                seg1p1y = start_item.scenePos().y() + 3
-                seg3p2x = end_item.scenePos().x() + start_x_pad
-            elif total_x >= 0:   # FIXME!
-                # THIS IS INCORRECT ... need special case:
-                # seg1 vertical, seg2 horizontal, seg3 vertical
-                seg1p1x = start_item.scenePos().x() - start_x_pad
-                # seg1p2x = seg1p1x + total_x/2.0
-                seg1p2x = vertical_x
-                seg1p1y = start_item.scenePos().y()
-                # seg3p2x = seg1p2x + total_x/2.0
-                seg3p2x = end_item.scenePos().x()
-            else:               # FIXME!
-                # THIS IS INCORRECT ... need special case:
-                # (= 0 => vertical segment only)
-                seg1p1x = seg1p2x = start_item.scenePos().x()
-                seg1p2x = seg1p1x + total_x/2.0
-                seg1p1y = start_item.scenePos().y()
-                seg3p2x = seg1p2x + total_x/2.0
+            # *******************************************************
+            # compute segment end points x, y coords.
+            # *******************************************************
+            # NOTE:  currently this is the only supported case for
+            # right-to-left connection (seg1 is always horizontal)
+            seg1p1x = start_item.scenePos().x() + start_x_pad
+            seg1p2x = vertical_x
+            # NOTE: for some reason, the y needs a shim
+            seg1p1y = start_item.scenePos().y() + 3
+            seg3p2x = end_item.scenePos().x() + start_x_pad
+            # *******************************************************
             seg1p1 = QPointF(seg1p1x, seg1p1y)
             seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
@@ -2022,37 +1977,23 @@ class RoutedConnector(QGraphicsItem):
         # [3] from start_item left port to end_item left port
             # arrow should point right
             right_arrow = True
-            start_x_pad = start_item.boundingRect().width()
-            end_x_pad = end_item.boundingRect().width()
-            x_pad = start_x_pad + end_x_pad
-            x_delta = end_item.scenePos().x() - start_item.scenePos().x()
             shim = 4.0 * POINT_SIZE
             x_jog = shim + (SEPARATION * PORT_TYPES.index(self.type_of_flow))
-            if x_delta > 0:
-                # seg1 is horizontal
-                seg1p1x = start_item.scenePos().x() + PORT_SIZE/2
-                seg1p2x = seg1p1x - x_jog
-                seg1p1y = start_item.scenePos().y()
-                # seg3p2x = seg1p2x + x_jog + x_delta
-                seg3p2x = end_item.scenePos().x() + PORT_SIZE/2
-            elif x_delta < 0:
-                seg1p1x = start_item.scenePos().x()
-                seg1p2x = seg1p1x + x_delta - x_jog
-                seg1p1y = start_item.scenePos().y()
-                # seg3p2x = seg1p2x + x_jog
-                seg3p2x = end_item.scenePos().x()
-            else:      # x_delta == 0
-                seg1p1x = start_item.scenePos().x() + PORT_SIZE/2
-                seg1p2x = seg1p1x - x_jog
-                # NOTE: for some reason, the y needs a shim
-                seg1p1y = start_item.scenePos().y() + 3
-                # seg3p2x = seg1p2x + x_jog
-                seg3p2x = end_item.scenePos().x() + PORT_SIZE/2
+            # *******************************************************
+            # compute segment end points x, y coords.
+            # *******************************************************
+            seg1p1x = start_item.scenePos().x() + PORT_SIZE/2
+            seg1p2x = seg1p1x - x_jog
+            # NOTE: for some reason, the y needs a fudge factor
+            seg1p1y = start_item.scenePos().y() + 3
+            # seg3p2x = seg1p2x + x_jog
+            seg3p2x = end_item.scenePos().x() + PORT_SIZE/2
+            # *******************************************************
             seg1p1 = QPointF(seg1p1x, seg1p1y)
             seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
-            # NOTE: for some reason, the y needs a shim
+            # NOTE: for some reason, the y needs a fudge factor
             seg2p2y = end_item.scenePos().y() + 3
             # seg3 is horizontal
             seg3p2y = seg2p2y
@@ -2064,36 +2005,22 @@ class RoutedConnector(QGraphicsItem):
         # [4] from start_item right port to end_item right port
             # arrow should point left
             right_arrow = False
-            start_x_pad = start_item.boundingRect().width()
-            end_x_pad = end_item.boundingRect().width()
-            x_delta = end_item.scenePos().x() - start_item.scenePos().x()
             shim = 4.0 * POINT_SIZE
             x_jog = shim + (SEPARATION * PORT_TYPES.index(self.type_of_flow))
-            if x_delta > 0:
-                # seg1 is horizontal
-                seg1p1x = start_item.scenePos().x() + start_x_pad
-                seg1p2x = seg1p1x + x_jog + x_delta
-                seg1p1y = start_item.scenePos().y()
-                # seg3p2x = seg1p2x - x_jog - start_x_pad + end_x_pad
-                seg3p2x = end_item.scenePos().x()
-            elif x_delta < 0:
-                seg1p1x = start_item.scenePos().x() + start_x_pad
-                seg1p2x = seg1p1x - x_jog
-                seg1p1y = start_item.scenePos().y()
-                # seg3p2x = seg1p2x + x_delta + x_jog - start_x_pad + end_x_pad
-                seg3p2x = end_item.scenePos().x()
-            else:      # x_delta == 0
-                seg1p1x = start_item.scenePos().x() + start_x_pad + PORT_SIZE/2
-                seg1p2x = seg1p1x + x_jog
-                # NOTE: for some reason, the y needs a shim
-                seg1p1y = start_item.scenePos().y() + 3
-                # seg3p2x = seg1p2x - x_jog - start_x_pad + end_x_pad
-                seg3p2x = end_item.scenePos().x() + PORT_SIZE/2
+            # *******************************************************
+            # compute segment end points x, y coords.
+            # *******************************************************
+            seg1p1x = start_item.scenePos().x() + PORT_SIZE/2
+            seg1p2x = seg1p1x + x_jog
+            # NOTE: for some reason, the y needs a shim
+            seg1p1y = start_item.scenePos().y() + 3
+            seg3p2x = end_item.scenePos().x() + PORT_SIZE/2
+            # *******************************************************
             seg1p1 = QPointF(seg1p1x, seg1p1y)
             seg1p2 = QPointF(seg1p2x, seg1p1y)
             # seg2 is vertical
             seg2p2x = seg1p2x
-            # NOTE: for some reason, the y needs a shim
+            # NOTE: for some reason, the y needs a fudge factor
             seg2p2y = end_item.scenePos().y() + 3
             # seg3 is horizontal
             seg3p2y = seg2p2y
@@ -2133,25 +2060,6 @@ class RoutedConnector(QGraphicsItem):
             for point in [seg3p2, arrow_p1, arrow_p2]:
                 self.arrow_head.append(point)
             painter.drawPolygon(self.arrow_head)
-        # if self.isSelected():
-            # painter.setPen(QPen(self.color, 1, Qt.DashLine))
-            # myLine = QLineF(seg1)
-            # myLine.translate(0, 4.0)
-            # painter.drawLine(myLine)
-            # myLine.translate(0, -8.0)
-            # painter.drawLine(myLine)
-
-    # def hoverEnterEvent(self, event):
-        # super().hoverEnterEvent(event)
-        # orb.log.debug("RoutedConnector hover enter...")
-        # self.pen_width = self.wide_pen_width
-        # self.update()
-
-    # def hoverLeaveEvent(self, event):
-        # super().hoverLeaveEvent(event)
-        # orb.log.debug("RoutedConnector hover leave ...")
-        # self.pen_width = self.normal_pen_width
-        # self.update()
 
 
 class BlockLabel(QGraphicsTextItem):

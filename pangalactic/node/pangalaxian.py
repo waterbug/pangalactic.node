@@ -1643,6 +1643,12 @@ class Main(QtWidgets.QMainWindow):
                                     icon="new_doc",
                                     tip="Create a New Product Type",
                                     modes=['system', 'component', 'db'])
+        self.new_model_action = self.create_action(
+                                "New Design or Analysis Model",
+                                slot=self.new_model,
+                                icon='new_part',
+                                tip="Create a New Design or Analysis Model",
+                                modes=['system', 'component'])
         self.new_functional_requirement_action = self.create_action(
                                     "New Functional Requirement",
                                     slot=self.new_functional_requirement,
@@ -3813,6 +3819,15 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug('* new_product()')
         orb.log.debug('  calling new_product_wizard() ...')
         self.new_product_wizard()
+
+    def new_model(self):
+        model = clone('Model')
+        view = ['id', 'name', 'abbreviation', 'description']
+        panels = ['main']
+        # modal_mode -> 'cancel' closes dialog
+        pxo = PgxnObject(model, edit_mode=True, new=True, view=view,
+                         panels=panels, modal_mode=True, parent=self)
+        pxo.show()
 
     def new_product_wizard(self):
         """
