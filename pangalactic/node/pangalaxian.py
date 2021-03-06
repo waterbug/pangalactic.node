@@ -460,10 +460,8 @@ class Main(QtWidgets.QMainWindow):
         userid = state.get('userid', '')
         orb.log.debug('  with userid: "{}"'.format(userid))
         QtWidgets.QApplication.processEvents()
-        data = orb.get_mod_dts(cname='Person')
-        data.update(orb.get_mod_dts(cname='Organization'))
-        data.update(orb.get_mod_dts(cname='Project'))
-        data.update(orb.get_mod_dts(cname='RoleAssignment'))
+        data = orb.get_mod_dts(cnames=['Person', 'Organization', 'Project',
+                                       'RoleAssignment'])
         try:
             rpc = self.mbus.session.call('vger.get_user_roles', userid,
                                          data=data)
@@ -492,9 +490,9 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_user_objs_sync_result)
         rpc.addErrback(self.on_failure)
         if force:
-            rpc.addCallback(self.force_sync_library_objs)
+            rpc.addCallback(self.force_sync_managed_objs)
             rpc.addErrback(self.on_failure)
-            rpc.addCallback(self.on_force_sync_library_result)
+            rpc.addCallback(self.on_force_sync_managed_result)
             rpc.addErrback(self.on_failure)
         else:
             rpc.addCallback(self.sync_library_objs)
@@ -651,7 +649,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug('* rpc: vger.sync_parameter_definitions()')
         self.statusbar.showMessage('syncing parameter definitions ...')
         # exclude refdata (already shared)
-        pd_mod_dts = orb.get_mod_dts(cname='ParameterDefinition')
+        pd_mod_dts = orb.get_mod_dts(cnames=['ParameterDefinition'])
         data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
         orb.log.debug('  -> rpc: vger.sync_parameter_definitions()')
@@ -699,30 +697,31 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug('* sync_library_objs()')
         self.statusbar.showMessage('syncing library objects ...')
         # allow the user's objects in `data`; it's faster and their oids will
-        # come back in the set of oids to be ignored
-        data = orb.get_mod_dts(cname='HardwareProduct')
-        data.update(orb.get_mod_dts(cname='Template'))
+        # come back in the set of oids to be ignored.
+        # Here we just include the most important subtypes of ManagedObject ...
+        # we will get back ALL subtypes anyway.
+        data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template',
+                                       'DataElementDefinition', 'Activity',
+                                       'Requirement', 'Model'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
         return self.mbus.session.call('vger.sync_library_objects',
                                       non_ref_data)
 
-    def force_sync_library_objs(self, data):
+    def force_sync_managed_objs(self, data):
         """
-        Get all `ManagedObject` instances to which the user has access in the
-        repository (including "public" objects and related objects).
+        Get all "public" instances of ManagedObject in the repository.
 
         Args:
             data:  parameter required for callback (ignored)
         """
         # TODO:  Include all library classes (not just HardwareProduct)
-        orb.log.debug('* force_sync_library_objs()')
+        orb.log.debug('* force_sync_managed_objs()')
         self.statusbar.showMessage('forcing sync of ALL library objects ...')
-        data = orb.get_mod_dts(cname='HardwareProduct')
-        data.update(orb.get_mod_dts(cname='Template'))
+        data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
-        return self.mbus.session.call('vger.force_sync_library_objects',
+        return self.mbus.session.call('vger.force_sync_managed_objects',
                                       non_ref_data)
 
     def sync_current_project(self, data):
@@ -1026,18 +1025,18 @@ class Main(QtWidgets.QMainWindow):
             # if this was the last chunk, sync current project
             self.resync_current_project()
 
-    def on_force_sync_library_result(self, data, project_sync=False):
+    def on_force_sync_managed_result(self, data, project_sync=False):
         """
         Callback function to process the result of the
-        `vger.force_sync_library_objs` rpc.  The server response is a list
+        `vger.force_sync_managed_objs` rpc.  The server response is a list
         of lists:
 
             [0]:  oids of server objects (in DESERIALIZATION_ORDER), regardless
                   of their mod_datetime(s) or not found in the local data sent
-                  with `force_sync_library_objs()`
+                  with `force_sync_managed_objs()`
                   -> do one or more vger.get_objects() rpcs to get the objects
                   and add them to the local db
-            [1]:  oids in the data sent with `force_sync_library_objs()`
+            [1]:  oids in the data sent with `force_sync_managed_objs()`
                   that were not found on the server
                   -> delete these from the local db if they are either:
                      [a] not created by the local user
@@ -1049,7 +1048,7 @@ class Main(QtWidgets.QMainWindow):
         Return:
             deferred:  result of `vger.get_objects` rpc
         """
-        orb.log.debug('* on_force_sync_library_result()')
+        orb.log.debug('* on_force_sync_managed_result()')
         if data is None:
             orb.log.debug('  no data received.')
             return 'success'  # return value will be ignored
@@ -1091,24 +1090,24 @@ class Main(QtWidgets.QMainWindow):
             chunk = chunks.pop(0)
             state['chunks_to_get'] = chunks
             rpc = self.mbus.session.call('vger.get_objects', chunk)
-            rpc.addCallback(self.on_force_get_library_objects_result)
+            rpc.addCallback(self.on_force_get_managed_objects_result)
             rpc.addErrback(self.on_failure)
         else:
             # if no newer objects but objects have been deleted, update views
             self._update_views()
             return 'success'  # return value will be ignored
 
-    def on_force_get_library_objects_result(self, data):
+    def on_force_get_managed_objects_result(self, data):
         """
         Handler for the result of the rpc 'vger.get_objects()' when called by
-        'on_force_sync_library_result()' (i.e., only at login).  This should only be
-        used as handler for 'on_force_sync_library_result()' because it will
+        'on_force_sync_managed_result()' (i.e., only at login).  This should only be
+        used as handler for 'on_force_sync_managed_result()' because it will
         force the deserializer to replace any local versions of the objects.
 
         Args:
             data (list):  a list of serialized objects
         """
-        orb.log.debug('* on_force_get_library_objects_result()')
+        orb.log.debug('* on_force_get_managed_objects_result()')
         if data is not None:
             orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
             self.force_load_serialized_objects(data)
@@ -1116,7 +1115,7 @@ class Main(QtWidgets.QMainWindow):
             chunk = state['chunks_to_get'].pop(0)
             orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
             rpc = self.mbus.session.call('vger.get_objects', chunk)
-            rpc.addCallback(self.on_force_get_library_objects_result)
+            rpc.addCallback(self.on_force_get_managed_objects_result)
             rpc.addErrback(self.on_failure)
         else:
             # if this was the last chunk, sync current project
@@ -3668,14 +3667,16 @@ class Main(QtWidgets.QMainWindow):
         # except:
             # orb.log.debug('  - set_object_table_for("%s") had an exception.'
                           # % cname)
-        if state.get('connected'):
-            # if we are connected, check for updates to any instances of this
-            # class
-            data = orb.get_mod_dts(cname=cname)
-            # orb.log.info('  - calling "vger.sync_objects"')
-            rpc = self.mbus.session.call('vger.sync_objects', data)
-            rpc.addCallback(self.on_sync_result)
-            rpc.addErrback(self.on_failure)
+        ### NOTE:  syncing using 'sync_objects' rpc -- not such a good idea :(
+        ### MAYBE in the future do a class-specific sync ...
+        # if state.get('connected'):
+            # # if we are connected, check for updates to any instances of this
+            # # class
+            # data = orb.get_mod_dts(cnames=[cname])
+            # # orb.log.info('  - calling "vger.sync_objects"')
+            # rpc = self.mbus.session.call('vger.sync_objects', data)
+            # rpc.addCallback(self.on_sync_result)
+            # rpc.addErrback(self.on_failure)
 
     def set_object_table_for(self, cname):
         orb.log.debug('* setting object table for {}'.format(cname))
@@ -4359,8 +4360,8 @@ class Main(QtWidgets.QMainWindow):
     def force_load_serialized_objects(self, sobjs, importing=False):
         """
         Used for the result of 'vger.get_objects()' when called by
-        'on_force_get_library_objects_result()'.  This should only be
-        used as handler for 'on_force_get_library_objects_result()' because it
+        'on_force_get_managed_objects_result()'.  This should only be
+        used as handler for 'on_force_get_managed_objects_result()' because it
         will force the deserializer to replace any local versions of the
         objects.
 
