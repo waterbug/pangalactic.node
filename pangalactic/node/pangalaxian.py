@@ -842,10 +842,10 @@ class Main(QtWidgets.QMainWindow):
         # update parameterz and data_elementz
         orb.log.debug('  - updating parameters ...')
         parameterz.update(parm_data)
-        orb.log.debug(f'    parameters updated.')
+        orb.log.debug('    parameters updated.')
         orb.log.debug('  - updating data elements ...')
         data_elementz.update(de_data)
-        orb.log.debug(f'    data elements updated.')
+        orb.log.debug('    data elements updated.')
         # TODO:  create a progress bar for this ...
         n = len(sobjs)
         if n:
