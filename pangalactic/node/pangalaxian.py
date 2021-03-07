@@ -46,7 +46,8 @@ from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms
 from pangalactic.core.datastructures   import chunkify
-from pangalactic.core.parametrics      import (node_count, save_data_elementz,
+from pangalactic.core.parametrics      import (data_elementz, node_count,
+                                               parameterz, save_data_elementz,
                                                save_parmz, set_dval, set_pval)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
@@ -685,15 +686,14 @@ class Main(QtWidgets.QMainWindow):
 
     def sync_library_objs(self, data):
         """
-        Sync all library objects with the repository. This will synchronize the
-        user's local collection of library objects with any `ManagedObject`
-        instances to which the user has access in the repository (including
-        "public" objects) that were created or modified since the last login.
+        Sync with the repository's "public" objects. This update all "public"
+        `ManagedObject` instances that were created or modified since the last
+        login.  (Non-public objects are synced via the vger.sync_project()
+        rpc.)
 
         Args:
             data:  parameter required for callback (ignored)
         """
-        # TODO:  Include all library classes (not just HardwareProduct)
         orb.log.debug('* sync_library_objs()')
         self.statusbar.showMessage('syncing library objects ...')
         # allow the user's objects in `data`; it's faster and their oids will
@@ -718,7 +718,9 @@ class Main(QtWidgets.QMainWindow):
         # TODO:  Include all library classes (not just HardwareProduct)
         orb.log.debug('* force_sync_managed_objs()')
         self.statusbar.showMessage('forcing sync of ALL library objects ...')
-        data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template'])
+        data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template',
+                                       'DataElementDefinition', 'Activity',
+                                       'Requirement', 'Model'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
         return self.mbus.session.call('vger.force_sync_managed_objects',
@@ -735,6 +737,9 @@ class Main(QtWidgets.QMainWindow):
             [1]:  oids of server objects with the same mod_datetime(s)
             [2]:  oids of server objects with earlier mod_datetime(s),
             [3]:  oids sent that were not found on the server
+            [4]:  all oids in the server's "deleted" cache
+            [5]:  parameter data for all project-owned objects
+            [6]:  data element data for all project-owned objects
 
         Args:
             data:  parameter required for callback (ignored)
@@ -792,8 +797,6 @@ class Main(QtWidgets.QMainWindow):
             - `vger.sync_objects` -- which is called by:
                 on startup:
                 + self.sync_user_created_objs_to_repo()
-                in db mode:
-                + self.on_cname_selected()
 
             - `vger.sync_project` -- which is called by:
                 + self.sync_current_project()
@@ -806,6 +809,8 @@ class Main(QtWidgets.QMainWindow):
             [2]:  oids of server objects with earlier mod_datetime(s),
             [3]:  oids sent that were not found on the server
             [4]:  oids of all objs that were deleted on the server
+            [5]:  parameter data for all objs requested
+            [6]:  data element data for all objs requested
 
         Args:
             data:  response from the server
@@ -826,13 +831,21 @@ class Main(QtWidgets.QMainWindow):
             sync_type = 'user objs'
         # orb.log.debug('       data: {}'.format(str(data)))
         try:
-            sobjs, same_dts, to_update, local_only, deleted_oids = data
+            (sobjs, same_dts, to_update, local_only, deleted_oids,
+             parm_data, de_data) = data
         except:
             orb.log.info('  unable to unpack "{}"'.format(data))
             rpc = self.mbus.session.call('vger.save', [])
             rpc.addCallback(self.on_vger_save_result)
             rpc.addErrback(self.on_failure)
             return rpc
+        # update parameterz and data_elementz
+        orb.log.debug('  - updating parameters ...')
+        parameterz.update(parm_data)
+        orb.log.debug(f'    parameters updated.')
+        orb.log.debug('  - updating data elements ...')
+        data_elementz.update(de_data)
+        orb.log.debug(f'    data elements updated.')
         # TODO:  create a progress bar for this ...
         n = len(sobjs)
         if n:
@@ -940,6 +953,12 @@ class Main(QtWidgets.QMainWindow):
                   -> delete these from the local db if they are either:
                      [a] not created by the local user
                      [b] created by the local user but are in 'trash'
+            [2]:  parameter data for all oids in the data that correspond to
+                  "public" objects known to the server, irrespective of their
+                  mod_datetimes
+            [3]:  data element data for all oids in the data that correspond to
+                  "public" objects known to the server, irrespective of their
+                  mod_datetimes
 
         Args:
             data:  response from the server
@@ -952,13 +971,25 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  no data received.')
             return 'success'  # return value will be ignored
         msg = 'no data received.'
-        # data *should* be a list of 2 lists ...
-        if len(data) == 2:
+        # data *should* be a list of 2 lists and 2 dicts ...
+        if len(data) == 4:
             n_new = len(data[0])
             n_del = len(data[1])
+            n_obj_parms = len(data[2])
+            n_obj_des = len(data[3])
             msg = f'data: {n_new} new oids, {n_del} oids not found on server'
+        else:
+            orb.log.debug('  data incorrectly formatted.')
+            return 'invalid data format'  # return value will be ignored
         orb.log.debug(f'  {msg}'.format(str(data)))
-        newer, local_only = data
+        newer, local_only, parm_data, de_data = data
+        # update parameterz and data_elementz
+        orb.log.debug('  - updating parameters ...')
+        parameterz.update(parm_data)
+        orb.log.debug(f'    parameters updated for {n_obj_parms} objects.')
+        orb.log.debug('  - updating data elements ...')
+        data_elementz.update(de_data)
+        orb.log.debug(f'    data elements updated for {n_obj_des} objects.')
         # then collect any local objects that need to be saved to the repo ...
         if local_only:
             orb.log.debug('  objects unknown to server found ...')
@@ -3664,19 +3695,6 @@ class Main(QtWidgets.QMainWindow):
         state['current_cname'] = str(cname)
         orb.log.debug('  - class: "%s"' % cname)
         self.set_object_table_for(cname)
-        # except:
-            # orb.log.debug('  - set_object_table_for("%s") had an exception.'
-                          # % cname)
-        ### NOTE:  syncing using 'sync_objects' rpc -- not such a good idea :(
-        ### MAYBE in the future do a class-specific sync ...
-        # if state.get('connected'):
-            # # if we are connected, check for updates to any instances of this
-            # # class
-            # data = orb.get_mod_dts(cnames=[cname])
-            # # orb.log.info('  - calling "vger.sync_objects"')
-            # rpc = self.mbus.session.call('vger.sync_objects', data)
-            # rpc.addCallback(self.on_sync_result)
-            # rpc.addErrback(self.on_failure)
 
     def set_object_table_for(self, cname):
         orb.log.debug('* setting object table for {}'.format(cname))
