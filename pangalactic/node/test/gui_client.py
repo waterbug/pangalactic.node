@@ -104,12 +104,13 @@ class CircleWidget(QWidget):
 
         #range of diameter must start at a number greater than 0
         for diameter in range(1, 50, 9):
-            delta = abs((self.nframe % 64) - diameter/2)
-            alpha = 255 - (delta * delta)/4 - diameter
+            delta = abs((self.nframe % 64) - math.ceil(diameter/2))
+            alpha = 255 - math.ceil((delta * delta)/4) - diameter
             if alpha > 0:
-                painter.setPen(QPen(QColor(0, diameter/2, 127, alpha), 3))
+                painter.setPen(QPen(QColor(0, math.ceil(diameter/2), 127,
+                                           alpha), 3))
                 painter.drawEllipse(QRectF(
-                    -diameter/2.0, -diameter/2.0,
+                    -math.ceil(diameter/2.0), -math.ceil(diameter/2.0),
                     diameter, diameter))
 
 
@@ -688,7 +689,7 @@ class MainWindow(QMainWindow):
                     else:
                         node_des = (getattr(node.link, 'system_role',
                                     None) or '(No system role)')
-                    self.log('  deleting position "%s"'.format(node_des))
+                    self.log('  deleting position "{}"'.format(node_des))
                     pos = idx.row()
                     row_parent = idx.parent()
                     parent_id = self.sys_tree.source_model.get_node(
@@ -927,7 +928,7 @@ class MainWindow(QMainWindow):
         # hard-coded for a specific generated entity for the Oscillation
         # Overthruster ...
         oid = 'c41796b6-9da1-49b9-bfb6-8ffb948580ea'
-        self.log(f'  modifying "cold units" for Oscillation Overthruster')
+        self.log('  modifying "cold units" for Oscillation Overthruster')
         dts = str(dtstamp())
         self.cold_units_val += 1
         set_dval(oid, 'cold_units', self.cold_units_val, mod_datetime=dts,
@@ -981,6 +982,9 @@ class MainWindow(QMainWindow):
             [1]:  oids of server objects with the same mod_datetime(s)
             [2]:  oids of server objects with earlier mod_datetime(s),
             [3]:  oids sent that were not found on the server
+            [4]:  all oids in the server's "deleted" cache
+            [5]:  parameter data for all project-owned objects
+            [6]:  data element data for all project-owned objects
 
         Args:
             data:  response from the server
@@ -993,7 +997,8 @@ class MainWindow(QMainWindow):
         Return:
             deferred:  result of `vger.save` rpc
         """
-        sobjs, same_dts, to_update, local_only = data
+        (sobjs, same_dts, to_update, local_only, deleted_oids,
+         parm_data, de_data) = data
         self.log('* vger.sync_project result received: {} objects.'.format(
                                                                 len(sobjs)))
         self.log('  - deserializing ...')
@@ -1002,6 +1007,9 @@ class MainWindow(QMainWindow):
 
     def on_result(self, stuff):
         self.log('* result received:  %s' % str(stuff))
+
+    def on_failure(self, f):
+        orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
 
     def on_get_object_result(self, stuff):
         self.log('* result of get_object() received:')
