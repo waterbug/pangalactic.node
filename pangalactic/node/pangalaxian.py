@@ -2757,9 +2757,11 @@ class Main(QtWidgets.QMainWindow):
         """
         # orb.log.info('* received "remote pval set" signal')
         if content is not None:
+            ### NOTE: mod_datetime is deprecated for parameters
             oid, pid, value, units, mod_datetime = content
-            set_pval(oid, pid, value, units=units, mod_datetime=mod_datetime,
-                     local=False)
+            # set_pval(oid, pid, value, units=units, mod_datetime=mod_datetime,
+                     # local=False)
+            set_pval(oid, pid, value, units=units, local=False)
 
     def on_remote_dval_set(self, content=None):
         """
@@ -2767,9 +2769,11 @@ class Main(QtWidgets.QMainWindow):
         """
         # orb.log.info('* received "remote dval set" signal')
         if content is not None:
+            ### NOTE: mod_datetime is deprecated for data elements
             oid, deid, value, units, mod_datetime = content
-            set_dval(oid, deid, value, units=units, mod_datetime=mod_datetime,
-                     local=False)
+            # set_dval(oid, deid, value, units=units, mod_datetime=mod_datetime,
+                     # local=False)
+            set_dval(oid, deid, value, units=units, local=False)
 
     def on_entity_saved(self, e=None):
         """
