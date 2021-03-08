@@ -2734,20 +2734,20 @@ class Main(QtWidgets.QMainWindow):
             self.setCentralWidget(self.data_widget)
 
     def on_pval_set(self, oid=None, pid=None, value=None, units=None,
-                    mod_datetime=None, local=True):
+                    local=True):
         if local:
             rpc = self.mbus.session.call('vger.set_parameter',
                                  oid=oid, pid=pid, value=value,
-                                 units=units, mod_datetime=mod_datetime)
+                                 units=units)
             rpc.addCallback(self.on_set_value_result)
             rpc.addErrback(self.on_failure)
 
     def on_dval_set(self, oid=None, deid=None, value=None, units=None,
-                    mod_datetime=None, local=True):
+                    local=True):
         if local:
             rpc = self.mbus.session.call('vger.set_data_element',
                                      oid=oid, deid=deid, value=value,
-                                     units=units, mod_datetime=mod_datetime)
+                                     units=units)
             rpc.addCallback(self.on_set_value_result)
             rpc.addErrback(self.on_failure)
 
@@ -2757,10 +2757,7 @@ class Main(QtWidgets.QMainWindow):
         """
         # orb.log.info('* received "remote pval set" signal')
         if content is not None:
-            ### NOTE: mod_datetime is deprecated for parameters
-            oid, pid, value, units, mod_datetime = content
-            # set_pval(oid, pid, value, units=units, mod_datetime=mod_datetime,
-                     # local=False)
+            oid, pid, value, units = content
             set_pval(oid, pid, value, units=units, local=False)
 
     def on_remote_dval_set(self, content=None):
@@ -2769,10 +2766,7 @@ class Main(QtWidgets.QMainWindow):
         """
         # orb.log.info('* received "remote dval set" signal')
         if content is not None:
-            ### NOTE: mod_datetime is deprecated for data elements
-            oid, deid, value, units, mod_datetime = content
-            # set_dval(oid, deid, value, units=units, mod_datetime=mod_datetime,
-                     # local=False)
+            oid, deid, value, units = content
             set_dval(oid, deid, value, units=units, local=False)
 
     def on_entity_saved(self, e=None):
