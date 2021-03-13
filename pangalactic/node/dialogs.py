@@ -799,7 +799,7 @@ class DirectionalityDialog(QDialog):
 
 class NewDashboardDialog(QDialog):
     """
-    Dialog for deleting columns from the dashboard.
+    Dialog for creating a new dashboard.
     """
     def __init__(self, parent=None):
         super().__init__(parent)

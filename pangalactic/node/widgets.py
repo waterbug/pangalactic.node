@@ -349,22 +349,19 @@ def get_widget(field_name, field_type, value=None, editable=True,
             label.setTextFormat(Qt.RichText)
             html_name = make_parm_html(field_name)
             label.setText(html_name)
-            label.setStyleSheet(
-                                'QLabel {font-size: 15px; font-weight: bold} '
+            label.setStyleSheet('QLabel {font-size: 15px; font-weight: bold} '
                                 'QToolTip { font-weight: normal; '
                                 'font-size: 12px; border: 2px solid; }')
         elif de_field:
             label.setTextFormat(Qt.RichText)
             html_name = make_de_html(field_name)
             label.setText(html_name)
-            label.setStyleSheet(
-                                'QLabel {font-size: 15px; font-weight: bold} '
+            label.setStyleSheet('QLabel {font-size: 15px; font-weight: bold} '
                                 'QToolTip { font-weight: normal; '
                                 'font-size: 12px; border: 2px solid; }')
         else:
             label.setText(external_name)
-            label.setStyleSheet(
-                                'QLabel {font-size: 14px; font-weight: bold} '
+            label.setStyleSheet('QLabel {font-size: 14px; font-weight: bold} '
                                 'QToolTip { font-weight: normal; '
                                 'font-size: 12px; border: 2px solid; }')
         if tooltip:
@@ -401,10 +398,13 @@ class StringFieldWidget(QLineEdit):
     to represent strings that can serve as programmatic names/tokens, i.e. not
     unicode).
     """
-    def __init__(self, parent=None, value=None, maxlen=None, **kw):
+    def __init__(self, parent=None, value=None, maxlen=None, width=None, **kw):
         super().__init__(parent=parent)
+        self.setSizePolicy(QSizePolicy(
+                           QSizePolicy.Fixed, QSizePolicy.Fixed))
         self.parm_field = kw.get('parm_field')
         self.parm_type = kw.get('parm_type')
+        self.width = width
         if maxlen is not None:
             self.setMaxLength(maxlen)
         self.maxlen = maxlen
@@ -427,6 +427,8 @@ class StringFieldWidget(QLineEdit):
         if self.parm_field:
             if self.parm_type in ['int', 'float']:
                 return QSize(100, 25)
+        elif self.width:
+            return QSize(self.width, 25)
         return QSize(250, 25)
 
 
