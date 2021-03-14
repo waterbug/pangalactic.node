@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout,
                              QLabel, QScrollArea, QSizePolicy, QWidget)
 
 from pangalactic.core.uberorb     import orb
+from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.widgets     import NameLabel
 from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
                                           StringFieldWidget)
@@ -19,6 +20,7 @@ object_types = ['body', 'joint', 'wheel', 'mtb', 'thruster', 'gyro',
 
 If42_SC = dict(
   file_section=dict(
+    name="Spacecraft",
     label="42: Spacecraft Description File",
     heading=(
 "<<<<<<<<<<<<<<<<<  42: Spacecraft Description File   >>>>>>>>>>>>>>>>>"),
@@ -33,6 +35,7 @@ If42_SC = dict(
       fsw_sample_t=dict(label="FSW Sample Time, sec", value="0.2",
                         datatype='float'))),
   orbit_parameters_section=dict(
+    name="Orbit",
     label="Orbit Parameters",
     heading=(
 "************************* Orbit Parameters ****************************"),
@@ -47,6 +50,7 @@ If42_SC = dict(
       velocity=dict(label="Vel wrt Formation (m/s), expressed in F",
                     value=[0.0, 0.0, 0.0], datatype='array'))),
   initial_attitude_section=dict(
+    name="Initial Attitude",
     label="Initial Attitude",
     heading=(
 "*************************** Initial Attitude ***************************"),
@@ -60,6 +64,7 @@ If42_SC = dict(
       angles=dict(label="Angles (deg) & Euler Sequence",
                   value=[60.0, 50.0, 40.0, 213], datatype='array'))),
   dynamics_flags_section=dict(
+    name="Dynamics Flags",
     label="Dynamics Flags",
     heading=(
 "***************************  Dynamics Flags  ***************************"),
@@ -81,6 +86,7 @@ If42_SC = dict(
       drag_coefficient=dict(label="Drag Coefficient", value=2.0,
                             datatype='float'))),
   body=dict(
+    name="Body",
     label="Body Parameters",
     heading=(
 """************************************************************************
@@ -93,6 +99,7 @@ If42_SC = dict(
                                         "8", "9"]),
       )),
   joint=dict(
+    name="Joint",
     label = ("Joint Parameters "
              "(Number of Joints is Number of Bodies minus one)"),
     heading=(
@@ -102,6 +109,7 @@ If42_SC = dict(
          (Number of Joints is Number of Bodies minus one)"""),
     fields={}),
   wheel=dict(
+    name="Wheel",
     label="Wheel Parameters",
     heading=(
 "*************************** Wheel Parameters ***************************"),
@@ -112,6 +120,7 @@ If42_SC = dict(
                                         "8", "9"]),
       )),
   mtb=dict(
+    name="MTB",
     label="MTB Parameters",
     heading=(
 "*************************** MTB Parameters ****************************"),
@@ -122,6 +131,7 @@ If42_SC = dict(
                                         "8", "9"]),
       )),
   thruster=dict(
+    name="Thruster",
     label="Thruster Parameters",
     heading=(
 "************************* Thruster Parameters **************************"),
@@ -132,6 +142,7 @@ If42_SC = dict(
                                            "7", "8", "9"]),
       )),
   gyro=dict(
+    name="Gyro",
     label="Gyro",
     heading=(
 "******************************* Gyro ************************************"),
@@ -142,6 +153,7 @@ If42_SC = dict(
                                            "7", "8", "9"]),
       )),
   magnetometer=dict(
+    name="Magnetometer",
     label="Magnetometer",
     heading=(
 "*************************** Magnetometer ********************************"),
@@ -152,6 +164,7 @@ If42_SC = dict(
                                            "7", "8", "9"]),
       )),
   css=dict(
+    name="Coarse Sun Sensor",
     label="Coarse Sun Sensor",
     heading=(
 "*********************** Coarse Sun Sensor *******************************"),
@@ -162,6 +175,7 @@ If42_SC = dict(
                                      "7", "8", "9"]),
       )),
   fss=dict(
+    name="Fine Sun Sensor",
     label="Fine Sun Sensor",
     heading=(
 "************************* Fine Sun Sensor *******************************"),
@@ -172,6 +186,7 @@ If42_SC = dict(
                                      "7", "8", "9"]),
       )),
   st=dict(
+    name="Star Tracker",
     label="Star Tracker",
     heading=(
 "************************** Star Tracker *********************************"),
@@ -182,6 +197,7 @@ If42_SC = dict(
                                      "7", "8", "9"]),
       )),
   gps=dict(
+    name="GPS",
     label="GPS",
     heading=(
 "****************************** GPS **************************************"),
@@ -192,6 +208,7 @@ If42_SC = dict(
                                      "7", "8", "9"]),
       )),
   accelerometer=dict(
+    name="Accelerometer",
     label="Accelerometer",
     heading=(
 "*************************** Accelerometer *******************************"),
@@ -511,7 +528,6 @@ class If42Forms(QWidget):
             section_label.setLineWidth(1)
             self.widgets[section] = {}
             self.widgets[section]['section_label'] = section_label
-            self.widgets[section]['widgets'] = {}
             self.form.addRow(section_label)
             for field, field_props in props['fields'].items():
                 field_label_text = field_props.get('label', '[missing label]')
@@ -533,37 +549,74 @@ class If42Forms(QWidget):
                         widget = QComboBox()
                         for val in field_props['selections']:
                             widget.addItem(val, QVariant())
-                        # TODO: a more elegant way of identifying "Number of"
                         if section in object_types:
                             # special case for model "component" sections
-                            # TODO: add a button for each component of this
-                            # type, which will bring up a ParameterDialog
-                            # object_type = props.get('object_type', 'unknown')
                             widget.object_type = section
                             widget.activated.connect(
                                                 self.set_number_of_components)
                         else:
-                            widget.activated.connect(self.set_selection)
+                            widget.activated.connect(self.set_selected_value)
                     else:
                         if field_props.get('datatype') in ['float', 'int']:
                             widget = StringFieldWidget(parent=self, width=80)
                         elif field_props.get('datatype') == 'str':
                             widget = StringFieldWidget(parent=self, width=200)
                     self.form.addRow(field_label, widget)
-            # if props.get('object_type'):
+            # add a place for the buttons that invoke ParameterDialogs for
+            # objects of this type
             if section in object_types:
-                self.widgets[section]
+                if not self.widgets[section].get('button_box'):
+                    name = props.get('name', 'Unknown Name')
+                    placeholder = NameLabel(f'0 {name} objects specified')
+                    placeholder.setStyleSheet("QLabel {font-size: 14px;"
+                                              "font-weight: bold;"
+                                              "color:purple}")
+                    placeholder.setAttribute(Qt.WA_DeleteOnClose)
+                    button_box = QHBoxLayout()
+                    button_box.addWidget(placeholder)
+                    button_box.addStretch(1)
+                    button_panel = QWidget()
+                    button_panel.setLayout(button_box)
+                    self.widgets[section]['button_box'] = button_box
+                    self.form.addRow(button_panel)
 
     def set_number_of_components(self, evt):
         widget = self.sender()
         if hasattr(widget, 'object_type'):
+            obj_type = widget.object_type
             number = int(widget.currentText())
-            print(f'object type to set number of: {widget.object_type}')
-            print(f'number: {number}')
+            # print(f'object type to set number of: {obj_type}')
+            # print(f'number: {number}')
+            button_box = self.widgets.get(widget.object_type, {}).get(
+                                                            'button_box')
+            if button_box:
+                # try:
+                n = button_box.count()
+                # print(f'{n} widgets in {obj_type} button box.')
+                for idx in reversed(range(n)):
+                    # print(f'removing item at {idx}')
+                    item = button_box.takeAt(idx)
+                    if item is not None:
+                        w = item.widget()
+                        if w:
+                            w.close()
+                        button_box.removeItem(item)
+                if number == 0:
+                    placeholder = NameLabel(f'0 {obj_type} objects specified')
+                    placeholder.setStyleSheet("QLabel {font-size: 14px;"
+                                              "font-weight: bold;"
+                                              "color:purple}")
+                    placeholder.setAttribute(Qt.WA_DeleteOnClose)
+                    button_box.addWidget(placeholder)
+                else:
+                    for x in range(number):
+                        button = SizedButton(f'{obj_type} {x}')
+                        button_box.addWidget(button)
+                button_box.addStretch(1)
         else:
             print('could not determine sender.')
 
-    def set_selection(self, evt):
+    def set_selected_value(self, evt):
         pass
 
 
@@ -586,16 +639,16 @@ class ParameterDialog(QDialog):
         form = QFormLayout()
         form.setFieldGrowthPolicy(form.FieldsStayAtSizeHint)
         self.setLayout(form)
-        self.widgets = {}
         section_label = QLabel(section.get('label', 'missing label'), self)
         section_label.setTextFormat(Qt.RichText)
         section_label.setStyleSheet("QLabel {font-size: 16px;"
                                     "font-weight: bold; color: purple}")
         section_label.setFrameStyle(QFrame.Box | QFrame.Plain)
         section_label.setLineWidth(1)
-        self.widgets = {}
-        self.widgets['section_label'] = section_label
-        self.widgets['widgets'] = {}
+        # Maybe YAGNI ...
+        # self.widgets = {}
+        # self.widgets['section_label'] = section_label
+        # self.widgets['widgets'] = {}
         form.addRow(section_label)
         for field, field_props in section['fields'].items():
             txt = field_props.get('label', '[missing label]')
