@@ -38,7 +38,17 @@ def setup_dirs_and_state():
     for item in default_config:
         if item not in config:
             config[item] = default_config[item]
-    if not prefs.get('dashboards'):
+    if prefs.get('dashboards'):
+        # update prefs from any new app dashboards in state
+        app_dbds = state.get('app_dashboards')
+        if app_dbds:
+            for dash_name in app_dbds:
+                if dash_name not in prefs['dashboards']:
+                    prefs['dashboards'][dash_name] = deepcopy(app_dbds[
+                                                                dash_name])
+                    # append it to dashboard_names
+                    prefs['dashboard_names'].append(dash_name)
+    else:
         app_dbds = state.get('app_dashboards')
         if app_dbds:
             prefs['dashboards'] = deepcopy(app_dbds)
@@ -46,8 +56,6 @@ def setup_dirs_and_state():
             prefs['dashboards'] = {'Mass-Power-Data':
                         ['m_total', 'm', 'P_total', 'P', 'R_total', 'R_D']}
         prefs['dashboard_names'] = list(prefs['dashboards'].keys())
-        # orb.log.debug('* pref dashboards updated: {}'.format(str(
-                                            # prefs['dashboard_names'])))
     if not state.get('dashboard_name'):
         state['dashboard_name'] = prefs['dashboard_names'][0]
     # app config will have been loaded -- add any missing default_parameters or
