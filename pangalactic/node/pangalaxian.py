@@ -3089,9 +3089,6 @@ class Main(QtWidgets.QMainWindow):
 
     def setup_product_info_panel(self):
         self.product_info_panel = ProductInfoPanel(parent=self)
-        self.product_info_panel.size_policy = QtWidgets.QSizePolicy(
-                                    QtWidgets.QSizePolicy.Expanding,
-                                    QtWidgets.QSizePolicy.Expanding)
 
     def _setup_left_dock(self):
         """
@@ -3398,9 +3395,6 @@ class Main(QtWidgets.QMainWindow):
         # orb.log.debug('           creating new dashboard panel ...')
         self.dashboard_panel = QtWidgets.QWidget(self)
         self.dashboard_panel.setMinimumSize(500, 200)
-        self.dashboard_panel.size_policy = QtWidgets.QSizePolicy(
-                                    QtWidgets.QSizePolicy.Preferred,
-                                    QtWidgets.QSizePolicy.MinimumExpanding)
         dashboard_layout = QtWidgets.QVBoxLayout()
         self.dashboard_title_layout = QtWidgets.QHBoxLayout()
         self.dash_title = QtWidgets.QLabel()
@@ -3432,10 +3426,6 @@ class Main(QtWidgets.QMainWindow):
             self.dashboard.setStyleSheet('font-weight: bold; font-size: 16px')
         self.dashboard.setFrameStyle(QtWidgets.QFrame.Panel |
                                      QtWidgets.QFrame.Raised)
-        # self.dashboard.setMaximumSize(1000, 1000)
-        self.dashboard.size_policy = QtWidgets.QSizePolicy(
-                                        QtWidgets.QSizePolicy.Preferred,
-                                        QtWidgets.QSizePolicy.Ignored)
         dashboard_layout.addWidget(self.dashboard)
         title = 'Systems Dashboard: <font color="purple">{}</font>'.format(
                                                                self.project.id)

@@ -109,6 +109,7 @@ class SystemDashboard(QTreeView):
         dash_header.addAction(delete_dashboard_action)
         dash_header.setContextMenuPolicy(Qt.ActionsContextMenu)
         dash_header.sectionMoved.connect(self.on_section_moved)
+        dash_header.setStretchLastSection(False)
         # "successful_drop" refers to product drops on sys tree (for syncing)
         model.sourceModel().successful_drop.connect(self.on_successful_drop)
         dispatcher.connect(self.dash_node_expand, 'sys node expanded')
