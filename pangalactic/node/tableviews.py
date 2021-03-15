@@ -55,7 +55,7 @@ class ObjectTableView(QTableView):
             orb.log.info('  - for class: "{}"'.format(self.cname))
             if not self.view:
                 # if no view is specified, use the preferred view, if any
-                if prefs.get('db_views', {}).get(self.cname):
+                if (prefs.get('db_views') or {}).get(self.cname):
                     self.view = prefs['db_views'][self.cname][:]
         else:
             orb.log.info('  - no objects provided.')
@@ -167,7 +167,8 @@ class ObjectTableView(QTableView):
         orb.log.debug('* ObjectTableView: select_columns() ...')
         # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
         # original schema!!!
-        all_cols = orb.schemas.get(self.cname, {}).get('field_names', [])[:]
+        all_cols = ((orb.schemas.get(self.cname) or {}).get(
+                                                    'field_names') or [])[:]
         dlg = SelectColsDialog(all_cols, self.view, parent=self)
         if dlg.exec_() == QDialog.Accepted:
             # rebuild custom view from the selected columns

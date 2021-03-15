@@ -309,8 +309,8 @@ class DMTreeModel(QAbstractItemModel):
             return self.root_item.data(section)
         if role == Qt.ToolTipRole:
             pid = self.dm.schema[section]
-            txt = de_defz.get(pid, {}).get('description')
-            txt = txt or parm_defz.get(pid, {}).get('description')
+            txt = (de_defz.get(pid) or {}).get('description')
+            txt = txt or (parm_defz.get(pid) or {}).get('description')
             return txt or pid
         return None
 
@@ -416,8 +416,7 @@ class DMTreeModel(QAbstractItemModel):
             return False
         result = self.root_item.setData(section, value)
         if result:
-            orb.log.debug('  - DMTreeModel.setHeaderData({})'.format(section,
-                                                                     value))
+            orb.log.debug('  - DMTreeModel.setHeaderData({})'.format(value))
             self.headerDataChanged.emit(orientation, section, section)
         return result
 

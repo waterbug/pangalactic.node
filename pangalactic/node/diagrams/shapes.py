@@ -1324,7 +1324,7 @@ class PortBlock(QGraphicsItem):
     def tooltip_text(self):
         port_type_id = getattr(self.port.type_of_port, 'id')
         port_pid = PORT_TYPE_PARAMETERS.get(port_type_id, '')
-        port_parm = parameterz.get(self.port.oid, {}).get(port_pid)
+        port_parm = (parameterz.get(self.port.oid) or {}).get(port_pid)
         tooltip_text = self.port.abbreviation or self.port.name
         units = ''
         pval = ''

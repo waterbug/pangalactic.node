@@ -509,7 +509,7 @@ class FilterPanel(QWidget):
                 self.cname = 'Product'
         if self.cname:
             schema = orb.schemas[self.cname]
-            if not view and prefs.get('views', {}).get(self.cname):
+            if not view and (prefs.get('views') or {}).get(self.cname):
                 # if no view is provided and there is a preferred view, use it
                 view = prefs['views'][self.cname]
             else:

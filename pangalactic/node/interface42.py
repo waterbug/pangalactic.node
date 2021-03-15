@@ -587,8 +587,8 @@ class If42Forms(QWidget):
             number = int(widget.currentText())
             # print(f'object type to set number of: {obj_type}')
             # print(f'number: {number}')
-            button_box = self.widgets.get(widget.object_type, {}).get(
-                                                            'button_box')
+            button_box = (self.widgets.get(widget.object_type) or {}).get(
+                                                              'button_box')
             if button_box:
                 # try:
                 n = button_box.count()

@@ -99,7 +99,7 @@ class SystemDashboard(QTreeView):
         set_as_pref_action.triggered.connect(self.set_as_pref_dashboard)
         dash_header.addAction(set_as_pref_action)
         dash_name = state.get('dashboard_name')
-        if dash_name in state.get('app_dashboards', {}).keys():
+        if dash_name in (state.get('app_dashboards') or {}).keys():
             txt = f'use standard {dash_name} dashboard schema'
             use_app_dash_action = QAction(txt, dash_header)
             use_app_dash_action.triggered.connect(self.use_app_dash_schema)
@@ -370,7 +370,7 @@ class SystemDashboard(QTreeView):
         Handler for 'use standard [name] dashboard schema' context menu item.
         """
         dash_name = state['dashboard_name']
-        app_dash_schema = state.get('app_dashboards', {}).get(dash_name)
+        app_dash_schema = (state.get('app_dashboards') or {}).get(dash_name)
         if app_dash_schema:
             prefs['dashboards'][dash_name] = app_dash_schema
             dispatcher.send(signal='refresh tree and dash')

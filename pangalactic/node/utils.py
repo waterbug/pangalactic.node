@@ -606,7 +606,7 @@ def make_de_html(deid):
         return '<b>' + ' '.join(name_parts) + '</b>'
     elif deid == 'TRL':
         # yes, ugly :(
-        return f'<b>TRL</b>'
+        return '<b>TRL</b>'
     else:
         return f'<b>{deid.capitalize()}</b>'
 

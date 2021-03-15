@@ -285,7 +285,7 @@ class ObjectTableModel(ODTableModel):
         self.cname = ''
         if self.objs:
             self.cname = objs[0].__class__.__name__
-            self.schema = orb.schemas.get(self.cname, {})
+            self.schema = orb.schemas.get(self.cname) or {}
             if self.schema and self.view:
                 # sanity-check view
                 self.view = [a for a in self.view if a in self.schema['field_names']]

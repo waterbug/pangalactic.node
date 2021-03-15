@@ -159,7 +159,7 @@ class PgxnForm(QWidget):
             # orb.log.info('* [pgxo] building "parameters" form ...')
             base_ids = orb.get_ids(cname='ParameterDefinition')
             contingencies = [get_parameter_id(p, 'Ctgcy') for p in base_ids]
-            parmz = parameterz.get(obj.oid, {})
+            parmz = parameterz.get(obj.oid) or {}
             pids = sorted(list(parmz), key=str.lower)  # case-independent sort
             editables = [pid for pid in pids
                          if not parm_defz[pid].get('computed')
@@ -313,7 +313,7 @@ class PgxnForm(QWidget):
             # population process implemented in the "for field_name" loop
             # used for the other panels
             # orb.log.info('* [pgxo] building "data" form ...')
-            de_dict = data_elementz.get(obj.oid, {})
+            de_dict = data_elementz.get(obj.oid) or {}
             deids = sorted(list(de_dict))
             if deids:
                 # orb.log.info('* [pgxo] data elements found: {}'.format(
@@ -815,7 +815,11 @@ class PgxnObject(QDialog):
         self.new          = new
         self.component    = component
         self.embedded     = embedded
-        self.edit_mode    = edit_mode
+        # check perms, even if edit_mode is True
+        perms = get_perms(obj)
+        self.edit_mode    = False
+        if (new or ('modify' in perms)) and edit_mode:
+            self.edit_mode = True
         self.view_only    = view_only
         self.mode_widgets = {}
         self.mode_widgets['view'] = set()
@@ -907,7 +911,7 @@ class PgxnObject(QDialog):
             else:
                 orb.log.debug('            object is NOT frozen.')
                 self.frozen_action.setVisible(False)
-            # only global admins can 'thaw' an object -- see below
+            # only those with edit perms can 'thaw' an object -- see below
             self.toolbar.addAction(self.thaw_action)
             self.thaw_action.setVisible(False)
             self.toolbar.addAction(self.where_used_action)
@@ -1110,7 +1114,7 @@ class PgxnObject(QDialog):
             # First find the parameters to be displayed for this object ...
             contingencies = [p for p in parm_defz
                              if parm_defz[p]['context'] == 'Ctgcy']
-            parmz = parameterz.get(self.obj.oid, {})
+            parmz = parameterz.get(self.obj.oid) or {}
             # contingencies are not used in calculating the number of
             # parameters on the panel, since they do not have separate rows
             pids = [p for p in parmz if p not in contingencies]
@@ -1133,7 +1137,7 @@ class PgxnObject(QDialog):
             # All subclasses of Modelable except the ones in PGXN_HIDE_PARMS
             # get a 'data' panel
             # First find the data elements to be displayed for this object ...
-            de_dict = data_elementz.get(self.obj.oid, {})
+            de_dict = data_elementz.get(self.obj.oid) or {}
             deids = sorted(list(de_dict))
             # orb.log.debug('  [pgxo] data elements: {}'.format(deids))
             data_panel_contents = []
@@ -1144,7 +1148,7 @@ class PgxnObject(QDialog):
                 des = []
                 n = 0
                 for deid in deids:
-                    de_type = de_defz.get(deid, {}).get('range_datatype')
+                    de_type = (de_defz.get(deid) or {}).get('range_datatype')
                     if de_type == 'text':
                         n += 2
                     else:
@@ -1330,7 +1334,7 @@ class PgxnObject(QDialog):
         """
         # orb.log.debug('* [pxo] got "parameters recomputed" signal ...')
         # [1] find all computed parameters
-        parmz = parameterz.get(self.obj.oid, {})
+        parmz = parameterz.get(self.obj.oid) or {}
         pids = sorted(list(parmz), key=str.lower)  # case-independent sort
         computeds = [pid for pid in pids if parm_defz[pid].get('computed')]
         # if computeds:

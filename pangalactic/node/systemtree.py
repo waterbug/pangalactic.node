@@ -334,7 +334,7 @@ class SystemTreeModel(QAbstractItemModel):
     @property
     def cols(self):
         columns = ['System']
-        columns += prefs.get('dashboards', {}).get(self.dash_name, [])
+        columns += (prefs.get('dashboards') or {}).get(self.dash_name, [])
         return columns
 
     def col_def(self, pid):
