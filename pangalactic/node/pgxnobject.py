@@ -160,7 +160,15 @@ class PgxnForm(QWidget):
             base_ids = orb.get_ids(cname='ParameterDefinition')
             contingencies = [get_parameter_id(p, 'Ctgcy') for p in base_ids]
             parmz = parameterz.get(obj.oid) or {}
-            pids = sorted(list(parmz), key=str.lower)  # case-independent sort
+            # honor the sort order in "default_parms" if any are present, then
+            # add the rest in alphabetical sort order
+            pids = []
+            for pid in (state.get('default_parms') or []):
+                if pid in parmz:
+                    pids.append(pid)
+            for pid in sorted(list(parmz), key=str.lower):  # case-independent
+                if pid not in pids:
+                    pids.append(pid)
             editables = [pid for pid in pids
                          if not parm_defz[pid].get('computed')
                          or pid in contingencies]
@@ -1138,7 +1146,15 @@ class PgxnObject(QDialog):
             # get a 'data' panel
             # First find the data elements to be displayed for this object ...
             de_dict = data_elementz.get(self.obj.oid) or {}
-            deids = sorted(list(de_dict))
+            # honor the ordering of data elements in "default_data_elements",
+            # for any that are present, then add the rest in sort order
+            deids = []
+            for deid in (state.get('default_data_elements') or []):
+                if deid in de_dict:
+                    deids.append(deid)
+            for deid in sorted(list(de_dict)):
+                if deid not in deids:
+                    deids.append(deid)
             # orb.log.debug('  [pgxo] data elements: {}'.format(deids))
             data_panel_contents = []
             # only allow PARMS_NBR - 3 data elements on first data panel before

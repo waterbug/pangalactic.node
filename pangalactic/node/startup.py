@@ -38,9 +38,9 @@ def setup_dirs_and_state():
     for item in default_config:
         if item not in config:
             config[item] = default_config[item]
+    app_dbds = state.get('app_dashboards')
     if prefs.get('dashboards'):
         # update prefs from any new app dashboards in state
-        app_dbds = state.get('app_dashboards')
         if app_dbds:
             for dash_name in app_dbds:
                 if dash_name not in prefs['dashboards']:
@@ -49,7 +49,6 @@ def setup_dirs_and_state():
                     # append it to dashboard_names
                     prefs['dashboard_names'].append(dash_name)
     else:
-        app_dbds = state.get('app_dashboards')
         if app_dbds:
             prefs['dashboards'] = deepcopy(app_dbds)
         else:
@@ -59,17 +58,30 @@ def setup_dirs_and_state():
     if not state.get('dashboard_name'):
         state['dashboard_name'] = prefs['dashboard_names'][0]
     # app config will have been loaded -- add any missing default_parameters or
-    # default_data_elements using default config
-    if not prefs.get('default_parms'):
-        config_parms = config.get('default_parms')
-        if config_parms:
-            prefs['default_parms'] = config_parms[:]
+    # default_data_elements using state
+    app_parms = state.get('default_parms') or []
+    if prefs.get('default_parms'):
+        # update prefs from any new default_parms in state
+        if app_parms:
+            for pid in app_parms:
+                if pid not in prefs['default_parms']:
+                    prefs['default_parms'].append(pid)
+    else:
+        # create prefs from default_parms in state, if any
+        if app_parms:
+            prefs['default_parms'] = app_parms[:]
         else:
             prefs['default_parms'] = ['m', 'P', 'R_D', 'Cost']
-    if not prefs.get('default_data_elements'):
-        config_des = config.get('default_data_elements')
-        if config_des:
-            prefs['default_data_elements'] = config_des[:]
+    app_data_elements = state.get('default_data_elements') or []
+    if prefs.get('default_data_elements'):
+        # update data elements from any new ones in state
+        if app_data_elements:
+            for deid in app_data_elements:
+                if deid not in prefs['default_parms']:
+                    prefs['default_parms'].append(deid)
+    else:
+        if app_data_elements:
+            prefs['default_data_elements'] = app_data_elements[:]
         else:
             prefs['default_data_elements'] = ['Vendor']
     if not prefs.get('editor'):
