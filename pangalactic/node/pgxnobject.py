@@ -211,7 +211,7 @@ class PgxnForm(QWidget):
                             units_widget = UnitsWidget(field_name, units,
                                                        unit_choices)
                             units_widget.currentTextChanged.connect(
-                                                                self.on_set_units)
+                                                            self.on_set_units)
                         else:
                             units_widget = QLabel(units)
                     else:
@@ -553,7 +553,9 @@ class PgxnForm(QWidget):
             str_val = parm_widget.get_value()
             pval = get_pval_from_str(self.obj.oid, pid, str_val)
             applicable_units = self.previous_units[pid]
-            quant = pval * ureg.parse_expression(applicable_units)
+            dims = parm_defz[pid]['dimensions']
+            Q_ = ureg.Quantity
+            quant = Q_(pval, ureg.parse_expression(applicable_units))
             new_quant = quant.to(new_units)
             new_str_val = str(new_quant.magnitude)
         else:

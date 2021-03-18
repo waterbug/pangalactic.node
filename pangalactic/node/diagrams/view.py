@@ -357,8 +357,7 @@ class DiagramScene(QGraphicsScene):
         """
         Drill down to next level block diagram
         """
-        # NOTE:  drill-down only applies to a populated ObjectBlock (not a TBD
-        # ObjectBlock), and not to SubjectBlock (a subclass)
+        # NOTE:  drill-down only applies to an ObjectBlock, not to SubjectBlock
         # orb.log.debug('* DiagramScene: item_doubleclick()')
         # orb.log.debug('  item: {}'.format(str(item)))
         # if platform.platform().startswith('Darwin'):
