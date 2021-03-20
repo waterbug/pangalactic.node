@@ -1420,13 +1420,14 @@ class Main(QtWidgets.QMainWindow):
         if objs:
             orb.log.debug('  deserialize() returned {} object(s):'.format(
                                                                     len(objs)))
-            txt = str([o.id for o in objs])
+            txt = str([o.id for o in objs if o is not None])
             orb.log.debug('  {}'.format(txt))
         else:
             orb.log.debug('  deserialize() returned no objects --')
             orb.log.debug('  (any received were already in the local db).')
             return False
-        rep = '\n  '.join([obj.name + " (" + obj.__class__.__name__ + ")"
+        rep = '\n  '.join([(obj.name or obj.id or 'no name or id') +
+                            " (" + obj.__class__.__name__ + ")"
                            for obj in objs])
         orb.log.debug('  deserializes as:')
         orb.log.debug('  {}'.format(str(rep)))

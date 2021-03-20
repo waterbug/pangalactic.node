@@ -18,7 +18,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm.collections import InstrumentedList
 
 # pangalactic
-from pangalactic.core import state
+from pangalactic.core import prefs, state
 from pangalactic.core.access import get_perms, is_global_admin
 # NOTE:  PGXN_PARAMETERS does not seem to be needed here ...
 from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
@@ -34,7 +34,7 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           parm_defz, set_dval_from_str,
                                           set_pval_from_str)
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.units       import alt_units, ureg
+from pangalactic.core.units       import alt_units, in_si, ureg
 from pangalactic.core.utils.meta  import get_attr_ext_name
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import validate_all
@@ -196,16 +196,20 @@ class PgxnForm(QWidget):
                                                           # str(pids_on_panel)))
                 for pid in pids_on_panel:
                     field_name = pid
-                    parm = parmz[pid] or {}
                     pd = parm_defz[pid]
                     ext_name = pd.get('name', '') or '[unknown]'
                     # parm types are 'float', 'int', 'bool', or 'text'
                     parm_type = pd.get('range_datatype', 'float')
                     units = ''
                     if parm_type in ['int', 'float']:
-                        # units only apply to numeric types
-                        units = parm.get('units', '')
+                        # units only apply to numeric types and are set to
+                        # the user's preferred units
                         dimensions = pd.get('dimensions', '')
+                        if prefs.get('units'):
+                            units = prefs['units'].get(dimensions)
+                        if not units:
+                            # if preferred units are not set, use base units
+                            units = in_si.get(dimensions) or ''
                         unit_choices = alt_units.get(dimensions)
                         if unit_choices:
                             units_widget = UnitsWidget(field_name, units,
