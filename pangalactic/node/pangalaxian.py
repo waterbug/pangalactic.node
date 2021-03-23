@@ -4620,9 +4620,6 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug('* edit_prefs()')
         dlg = PrefsDialog(parent=self)
         if dlg.exec_():
-            # TODO:  use 'clear_rows' setting for data imported in data mode
-            prefs['clear_rows'] = dlg.get_clear_rows()
-            prefs['dash_no_row_colors'] = not dlg.get_dash_row_colors()
             orb.log.debug('  - edit_prefs dialog completed.')
 
     def do_admin_stuff(self):

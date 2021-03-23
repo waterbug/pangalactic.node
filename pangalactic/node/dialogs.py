@@ -407,7 +407,6 @@ class UnitPrefsDialog(QDialog):
             val = widget.get_value()
             prefs['units'][dims] = val
             orb.log.debug(f'  - {dims}: {val}')
-        # dispatcher.send('dashboard mod')
 
 
 class PrefsDialog(QDialog):
@@ -452,9 +451,6 @@ class PrefsDialog(QDialog):
         form.addRow(self.buttons)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
-
-    def get_clear_rows(self):
-        return self.clear_rows.isChecked()
 
     def set_num_fmt(self, index):
         """

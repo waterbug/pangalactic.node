@@ -410,6 +410,10 @@ class StringFieldWidget(QLineEdit):
         self.maxlen = maxlen
         if kw.get('placeholder'):
             self.setPlaceholderText(kw['placeholder'])
+        if self.parm_type == 'float':
+            self.setValidator(QDoubleValidator(self))
+        elif self.parm_type == 'int':
+            self.setValidator(QIntValidator(self))
         self.set_value(value)
 
     def set_value(self, value):

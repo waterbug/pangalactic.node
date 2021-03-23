@@ -15,11 +15,12 @@ from PyQt5.QtWidgets import (QDialog, QGraphicsItem, QGraphicsLineItem,
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core             import state
+from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import (data_elementz, get_dval,
-                                          get_pval, parameterz)
+                                          get_pval, parameterz, parm_defz)
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.units       import in_si
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
                                           get_flow_id, get_flow_name,
@@ -1326,11 +1327,20 @@ class PortBlock(QGraphicsItem):
         port_pid = PORT_TYPE_PARAMETERS.get(port_type_id, '')
         port_parm = (parameterz.get(self.port.oid) or {}).get(port_pid)
         tooltip_text = self.port.abbreviation or self.port.name
+        pd = parm_defz.get(port_pid) or {}
+        dims = pd.get('dimensions')
         units = ''
+        if dims and prefs.get('units'):
+            units = prefs['units'].get('dimensions')
+        if dims and not units:
+            # if preferred units are not set, use base units
+            units = in_si.get(dims) or ''
         pval = ''
         if port_parm:
-            units = port_parm.get('units')
-            pval = get_pval(self.port.oid, port_pid, units=units)
+            if units:
+                pval = get_pval(self.port.oid, port_pid, units=units)
+            else:
+                pval = get_pval(self.port.oid, port_pid)
         # only show pval if other than zero
         if port_type_id == 'digital_data' and self.port.description:
             if pval and units:
