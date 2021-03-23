@@ -297,8 +297,7 @@ class PgxnForm(QWidget):
                             self.u_widget_values[c_pid] = '%'
                             self.previous_units[c_pid] = '%'
                             c_parm = parmz.get(c_pid) or {}
-                            self.p_widget_values[c_pid] = str(c_parm.get(
-                                                                'value', ''))
+                            self.p_widget_values[c_pid] = str(c_parm)
                             c_widget.setSizePolicy(QSizePolicy.Minimum,
                                                    QSizePolicy.Minimum)
                             value_layout.addWidget(c_label)
