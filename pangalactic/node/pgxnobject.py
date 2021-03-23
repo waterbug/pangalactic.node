@@ -31,7 +31,8 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           get_parameter_id,
                                           get_dval_as_str, get_pval_as_str,
                                           get_pval_from_str, parameterz,
-                                          parm_defz, set_dval_from_str,
+                                          parm_defz, round_to,
+                                          set_dval_from_str,
                                           set_pval_from_str)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si, ureg
@@ -559,7 +560,7 @@ class PgxnForm(QWidget):
             Q_ = ureg.Quantity
             quant = Q_(pval, ureg.parse_expression(applicable_units))
             new_quant = quant.to(new_units)
-            new_str_val = str(new_quant.magnitude)
+            new_str_val = str(round_to(new_quant.magnitude))
         else:
             # view mode or read-only parm -> get cached parameter value and
             # convert it to the requested units for display
