@@ -455,6 +455,7 @@ class Main(QtWidgets.QMainWindow):
             self.subscribe_to_mbus_channels()
 
     def sync_with_services(self, force=False):
+        self.force = force
         self.synced = dtstamp()
         self.role_label.setText('syncing data ...')
         orb.log.debug('* calling rpc "vger.get_user_roles"')
@@ -481,30 +482,10 @@ class Main(QtWidgets.QMainWindow):
                             "Connection Lost", message,
                             QtWidgets.QMessageBox.Ok, self)
                 popup.show()
-        rpc.addCallback(self.on_get_user_roles_result)
-        rpc.addErrback(self.on_failure)
-        rpc.addCallback(self.subscribe_to_mbus_channels)
-        rpc.addErrback(self.on_failure)
-        # sync_user_created_objs_to_repo() requires callback on_sync_result()
-        rpc.addCallback(self.sync_user_created_objs_to_repo)
-        rpc.addErrback(self.on_failure)
-        rpc.addCallback(self.on_user_objs_sync_result)
-        rpc.addErrback(self.on_failure)
-        if force:
-            rpc.addCallback(self.force_sync_managed_objs)
-            rpc.addErrback(self.on_failure)
-            rpc.addCallback(self.on_force_sync_managed_result)
-            rpc.addErrback(self.on_failure)
-        else:
-            rpc.addCallback(self.sync_library_objs)
-            rpc.addErrback(self.on_failure)
-            rpc.addCallback(self.on_sync_library_result)
-            rpc.addErrback(self.on_failure)
-            # syncing of current project is now done by adding a callback of
-            # resync_current_project() when the last chunk of library data
-            # is being requested by on_get_library_objects_result()
+        rpc.addCallback(self.on_rpc_get_user_roles_result)
+        rpc.addErrback(self.on_rpc_get_user_roles_failure)
 
-    def on_get_user_roles_result(self, data):
+    def on_rpc_get_user_roles_result(self, data):
         """
         Handle result of the rpc 'vger.get_user_roles'.  The returned data has
         the structure:
@@ -605,13 +586,67 @@ class Main(QtWidgets.QMainWindow):
             self.role_label.setText('online [no project selected]')
         self.channels.append('vger.channel.public')
         dispatcher.send('sync progress', txt='user roles synced ...')
-        return self.channels
+        rpc = self.subscribe_to_mbus_channels(self.channels)
+        rpc.addErrback(self.on_failure)
+        # sync_user_created_objs_to_repo() requires callback on_sync_result()
+        rpc.addCallback(self.sync_user_created_objs_to_repo)
+        rpc.addErrback(self.on_failure)
+        rpc.addCallback(self.on_user_objs_sync_result)
+        rpc.addErrback(self.on_failure)
+        if self.force:
+            rpc.addCallback(self.force_sync_managed_objs)
+            rpc.addErrback(self.on_failure)
+            rpc.addCallback(self.on_force_sync_managed_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            rpc.addCallback(self.sync_library_objs)
+            rpc.addErrback(self.on_failure)
+            rpc.addCallback(self.on_sync_library_result)
+            rpc.addErrback(self.on_failure)
+            # syncing of current project is now done by adding a callback of
+            # resync_current_project() when the last chunk of library data
+            # is being requested by on_get_library_objects_result()
+
+    def on_rpc_get_user_roles_failure(self, f):
+        orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
+        if state['connected']:
+            orb.log.info('* disconnecting from message bus ...')
+            self.statusbar.showMessage(
+                                    'disconnecting from message bus ...')
+            if getattr(self.mbus, 'session', None) is not None:
+                self.mbus.session.leave()
+            if getattr(self.mbus, 'runner', None) is not None:
+                self.mbus.runner.stop()
+            orb.log.info('  message bus session disconnected.')
+            self.sync_project_action.setEnabled(False)
+            self.full_resync_action.setEnabled(False)
+            self.net_status.setPixmap(self.offline_icon)
+            self.net_status.setToolTip('offline')
+            self.mbus = None
+            self.synced = None
+            state['connected'] = False
+            state['done_with_progress'] = False
+            state['synced_projects'] = []
+            state['synced_oids'] = []
+        else:
+            orb.log.info('* already disconnected from message bus.')
+        if self.connect_to_bus_action.isChecked():
+            self.connect_to_bus_action.setChecked(False)
+        self.login_label.setText('Login: ')
+        self.connect_to_bus_action.setToolTip('Connect to the message bus')
+        self.update_project_role_labels()
+        html = '<h3>Repository Service Unavailable</h3>'
+        html += '<p><b><font color="red">Contact Administrator for status.'
+        html += '</font></b></p>'
+        dlg = NotificationDialog(html, parent=self)
+        dlg.show()
+        return
 
     def subscribe_to_mbus_channels(self, data):
         # NOTE: "data" is now ignored -- previously, it was "channels" and was
-        # passed in from on_get_user_roles_result(), but now channels are set
-        # as self.channels (mainly for use in re-subscribing when/if connection
-        # is lost ...)
+        # passed in from on_rpc_get_user_roles_result(), but now channels are
+        # set as self.channels (mainly for use in re-subscribing when/if
+        # connection is lost ...)
         self.channels = self.channels or ['vger.channel.public']
         orb.log.debug('* attempting to subscribe to channels:  %s' % str(
                                                                 self.channels))
