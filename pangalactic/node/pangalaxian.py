@@ -150,6 +150,8 @@ class Main(QtWidgets.QMainWindow):
         self.dashboard_rebuilt = False
         self.progress_value = 0
         self.proc_pool = pool
+        # set flag to monitor when connecting to server
+        self.attempting_to_connect = False
         # self.synced is set by dtstamp() when sync_with_services() is called
         self.synced = None
         # dict for states obtained from self.saveState() -- used for saving the
@@ -324,6 +326,7 @@ class Main(QtWidgets.QMainWindow):
             ###########################################################
             # Initialize message bus instance
             ###########################################################
+            self.attempting_to_connect = True
             self.mbus = PgxnMessageBus()
 
             @self.mbus.signal('onjoined')
@@ -405,6 +408,7 @@ class Main(QtWidgets.QMainWindow):
                     self.connect_to_bus_action.setChecked(False)
                     self.connect_to_bus_action.setToolTip(
                                                     'Connect to the message bus')
+            self.check_for_connection()
             self.login_label.setText('Logout: ')
         else:
             if state['connected']:
@@ -431,6 +435,29 @@ class Main(QtWidgets.QMainWindow):
             self.login_label.setText('Login: ')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
         self.update_project_role_labels()
+
+    def check_for_connection(self):
+        if self.attempting_to_connect:
+            orb.log.info('* checking for connection ...')
+            n = 0
+            while 1:
+                if state.get('connected'):
+                    orb.log.info('  connected.')
+                    return
+                elif n < 100000:
+                    n += 1
+                    QtWidgets.QApplication.processEvents()
+                    continue
+                else:
+                    orb.log.info('  connection failed.')
+                    html = '<h3>Cannot connect to the Repository Service</h3>'
+                    html += '<p><b><font color="red">Contact the Administrator '
+                    html += 'for status.</font></b></p>'
+                    dlg = NotificationDialog(html, news=False, parent=self)
+                    dlg.show()
+                    return
+        else:
+            return
 
     def on_mbus_joined(self):
         orb.log.info('* on_mbus_joined:  message bus session joined.')
