@@ -5,7 +5,7 @@ Pangalaxian (the PanGalactic GUI client) main window
 """
 import argparse, atexit, multiprocessing, os, platform, shutil, sys
 import time, traceback
-import urllib.parse, urllib.request, urllib.parse, urllib.error
+import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
 from pathlib  import Path
 
@@ -73,7 +73,7 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                ParmDefsDialog, PrefsDialog)
 from pangalactic.node.helpwidget       import HelpWidget
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
-from pangalactic.node.message_bus      import PgxnMessageBus
+from pangalactic.node.message_bus      import PgxnMessageBus, reachable
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
 from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.startup          import setup_dirs_and_state
@@ -305,9 +305,20 @@ class Main(QtWidgets.QMainWindow):
         server).
         """
         orb.log.debug('* set_bus_state() ...')
-        # TODO:  add a remote url configuration item
         if self.connect_to_bus_action.isChecked():
-            self.login_label.setText('Logout: ')
+            # first check whether crossbar is reachable ...
+            host = config.get('host', 'localhost')
+            port = config.get('port', '8080')
+            url = 'ws://{}:{}/ws'.format(host, port)
+            if not reachable(url):
+                self.connect_to_bus_action.setChecked(False)
+                html = '<p><b><font color="red">The Message Bus'
+                html += ' is not reachable ...</font></b></p>'
+                html += '<p><b>Either the server is down or '
+                html += 'there is a network connectivity issue.</b></p>'
+                dlg = NotificationDialog(html, news=False, parent=self)
+                dlg.show()
+                return
             ###########################################################
             # Initialize message bus instance
             ###########################################################
@@ -319,8 +330,6 @@ class Main(QtWidgets.QMainWindow):
                 dispatcher.send(signal='onjoined')
 
             self.statusbar.showMessage('connecting to the message bus ...')
-            host = config.get('host', 'localhost')
-            port = config.get('port', '8080')
             if self.auth_method == 'cryptosign':
                 orb.log.info('* using "cryptosign" (public key) auth ...')
                 if not os.path.exists(self.key_path):
@@ -393,6 +402,7 @@ class Main(QtWidgets.QMainWindow):
                     self.connect_to_bus_action.setChecked(False)
                     self.connect_to_bus_action.setToolTip(
                                                     'Connect to the message bus')
+            self.login_label.setText('Logout: ')
         else:
             if state['connected']:
                 orb.log.info('* disconnecting from message bus ...')
@@ -635,10 +645,10 @@ class Main(QtWidgets.QMainWindow):
         self.login_label.setText('Login: ')
         self.connect_to_bus_action.setToolTip('Connect to the message bus')
         self.update_project_role_labels()
-        html = '<h3>Repository Service Unavailable</h3>'
-        html += '<p><b><font color="red">Contact Administrator for status.'
-        html += '</font></b></p>'
-        dlg = NotificationDialog(html, parent=self)
+        html = '<h3>The Repository Service is Unavailable</h3>'
+        html += '<p><b><font color="red">Contact the Administrator '
+        html += 'for status.</font></b></p>'
+        dlg = NotificationDialog(html, news=False, parent=self)
         dlg.show()
         return
 

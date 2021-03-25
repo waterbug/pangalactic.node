@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import txaio
+import txaio, websocket
 txaio.use_twisted()
 
 from twisted.internet.defer import inlineCallbacks
@@ -7,6 +7,19 @@ from autobahn.twisted.wamp import (Application, ApplicationRunner,
                                    _ApplicationSession)
 from autobahn.wamp import cryptosign
 
+
+def reachable(url):
+    url = url or 'ws://localhost:8080/ws'
+    websocket.enableTrace(True)
+    s = websocket.WebSocket()
+    try:
+        s.connect(url)
+        s.recv()   # this will contain header info
+        s.close()
+    except websocket.WebSocketConnectionClosedException:
+        return True
+    except:
+        return False
 
 
 class PgxnAuthSession(_ApplicationSession):
