@@ -310,7 +310,9 @@ class Main(QtWidgets.QMainWindow):
             host = config.get('host', 'localhost')
             port = config.get('port', '8080')
             url = 'ws://{}:{}/ws'.format(host, port)
-            if not reachable(url):
+            if reachable(url):
+                orb.log.debug('* message bus is reachable.')
+            else:
                 self.connect_to_bus_action.setChecked(False)
                 html = '<p><b><font color="red">The Message Bus'
                 html += ' is not reachable ...</font></b></p>'
@@ -365,6 +367,7 @@ class Main(QtWidgets.QMainWindow):
                             return
                     else:
                         url = 'ws://{}:{}/ws'.format(host, port)
+                    orb.log.debug('  - setting up connection ...')
                     self.mbus.run(url, auth_method='cryptosign',
                                   realm='pangalactic-services',
                                   start_reactor=False, ssl=tls_options)
