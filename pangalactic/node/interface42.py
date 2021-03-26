@@ -6,7 +6,7 @@ import sys
 from PyQt5.QtCore import Qt, QSize, QVariant
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout,
                              QFrame, QMainWindow, QHBoxLayout, QVBoxLayout,
-                             QLabel, QScrollArea, QSizePolicy, QWidget)
+                             QLabel, QScrollArea, QWidget)
 
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
@@ -546,24 +546,32 @@ class If42Forms(QWidget):
                     self.form.addRow(field_label, hbox)
                 else:
                     if field_props.get('selections'):
+                        # if field has selectable values ("selections"),
+                        # represent it with a combo box
                         widget = QComboBox()
                         for val in field_props['selections']:
                             widget.addItem(val, QVariant())
                         if section in object_types:
-                            # special case for model "component" sections
+                            # special case for model "component" sections:
+                            # the combo box selects the number of components
+                            # of that "object type" -- each will get a button
+                            # that invokes a ParameterDialog that contains the
+                            # fields / parameters for that object type
                             widget.object_type = section
                             widget.activated.connect(
                                                 self.set_number_of_components)
                         else:
                             widget.activated.connect(self.set_selected_value)
                     else:
-                        if field_props.get('datatype') in ['float', 'int']:
-                            widget = StringFieldWidget(parent=self, width=80)
+                        if field_props.get('datatype') == 'float':
+                            widget = FloatFieldWidget(parent=self, width=80)
+                        elif field_props.get('datatype') == 'int':
+                            widget = IntegerFieldWidget(parent=self, width=80)
                         elif field_props.get('datatype') == 'str':
                             widget = StringFieldWidget(parent=self, width=200)
                     self.form.addRow(field_label, widget)
             # add a place for the buttons that invoke ParameterDialogs for
-            # objects of this type
+            # the objects of this type
             if section in object_types:
                 if not self.widgets[section].get('button_box'):
                     name = props.get('name', 'Unknown Name')
@@ -579,22 +587,37 @@ class If42Forms(QWidget):
                     button_panel.setLayout(button_box)
                     self.widgets[section]['button_box'] = button_box
                     self.form.addRow(button_panel)
+        save_cancel_box = QHBoxLayout()
+        self.save_button = SizedButton('Save')
+        self.save_button.clicked.connect(self.save)
+        self.cancel_button = SizedButton('Cancel')
+        self.cancel_button.clicked.connect(self.cancel)
+        save_cancel_box.addStretch(1)
+        save_cancel_box.addWidget(self.save_button)
+        save_cancel_box.addWidget(self.cancel_button)
+        self.form.addRow(save_cancel_box)
 
     def set_number_of_components(self, evt):
+        """
+        Set the number of components of the object type corresponding to the
+        combo box in which the number was selected -- this will populate the
+        relevant button box with a button for each object, which will invoke
+        a ParameterDialog for that object.
+        """
         widget = self.sender()
         if hasattr(widget, 'object_type'):
             obj_type = widget.object_type
             number = int(widget.currentText())
-            # print(f'object type to set number of: {obj_type}')
-            # print(f'number: {number}')
+            # orb.log.debug(f'object type to set number of: {obj_type}')
+            # orb.log.debug(f'number: {number}')
             button_box = (self.widgets.get(widget.object_type) or {}).get(
                                                               'button_box')
             if button_box:
                 # try:
                 n = button_box.count()
-                # print(f'{n} widgets in {obj_type} button box.')
+                # orb.log.debug(f'{n} widgets in {obj_type} button box.')
                 for idx in reversed(range(n)):
-                    # print(f'removing item at {idx}')
+                    # orb.log.debug(f'removing item at {idx}')
                     item = button_box.takeAt(idx)
                     if item is not None:
                         w = item.widget()
@@ -609,15 +632,33 @@ class If42Forms(QWidget):
                     placeholder.setAttribute(Qt.WA_DeleteOnClose)
                     button_box.addWidget(placeholder)
                 else:
-                    for x in range(number):
-                        button = SizedButton(f'{obj_type} {x}')
+                    for i in range(number):
+                        button = SizedButton(f'{obj_type} {i}')
+                        button.clicked.connect(self.parm_dialog)
                         button_box.addWidget(button)
                 button_box.addStretch(1)
         else:
-            print('could not determine sender.')
+            orb.log.debug('could not determine sender.')
 
     def set_selected_value(self, evt):
         pass
+
+    def parm_dialog(self):
+        button = self.sender()
+        txt = button.text()
+        object_type, n = txt.split(' ')
+        print(f'* button "{txt}" was clicked.')
+        print(f'  ... to invoke parm dlg for ({object_type}, {n})')
+        dlg = ParameterDialog(object_type, int(n), parent=self)
+        dlg.show()
+
+    def save(self):
+        # orb.log.info('* saving 42 data ...')
+        print('* saving 42 data ...')
+
+    def cancel(self):
+        # orb.log.info('* cancelling 42 data ...')
+        print('* cancelling 42 data ...')
 
 
 class ParameterDialog(QDialog):
