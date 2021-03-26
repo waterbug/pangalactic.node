@@ -2,6 +2,7 @@
 Interface to the "42" Attitude Control System modeling application
 """
 import sys
+import ruamel_yaml as yaml
 
 from PyQt5.QtCore import Qt, QSize, QVariant
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout,
@@ -734,6 +735,12 @@ class If42Window(QMainWindow):
 
     def sizeHint(self):
         return QSize(850, 900)
+
+
+def output():
+    f = open('/home/waterbug/SC42.yaml', 'w')
+    f.write(yaml.safe_dump(If42_SC, default_flow_style=False))
+    f.close()
 
 
 if __name__ == '__main__':
