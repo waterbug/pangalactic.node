@@ -526,7 +526,8 @@ class Main(QtWidgets.QMainWindow):
         rpc.addCallback(self.on_rpc_get_user_roles_result)
         rpc.addErrback(self.on_rpc_get_user_roles_failure)
 
-    def on_rpc_timeout(self, data):
+    def on_rpc_timeout(self, result, timeout):
+        orb.log.debug('* rpc timed out after {timeout} seconds')
         html = '<h3>The Repository Service is not responding</h3>'
         html += '<p><b><font color="red">Contact the Administrator '
         html += 'for status.</font></b></p>'
