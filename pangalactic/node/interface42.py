@@ -17,7 +17,7 @@ from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
 
 
 component_types = ['body', 'joint', 'wheel', 'mtb', 'thruster', 'gyro',
-                'magnetometer', 'css', 'fss', 'st', 'gps', 'accelerometer']
+                   'magnetometer', 'css', 'fss', 'st', 'gps', 'accelerometer']
 
 SC = dict(
    metadata=dict(
@@ -555,11 +555,10 @@ class SC_Form(QWidget):
                                                            width=200)
                         self.form.addRow(parm_label, widget)
             else:
-                # special case for component type sections:
-                # the combo box selects the number of components
-                # of that type -- each will get a button
-                # that invokes a ParameterDialog that contains the
-                # fields / parameters for that component type
+                # special case for component sections:
+                # the combo box selects the number of components of that type
+                # -- each will get a button that invokes a ParameterDialog that
+                # contains the fields / parameters for that component type
                 parm_props = SC_File[section].get('number_of')
                 parm_label_text = parm_props.get('label',
                                                  '[missing label]')
@@ -641,6 +640,35 @@ class SC_Form(QWidget):
                         button.clicked.connect(self.parm_dialog)
                         button_box.addWidget(button)
                 button_box.addStretch(1)
+            if comp_type == "body":
+                # number of joints is always 1 less than the number of bodies
+                button_box = (self.widgets.get("joint") or {}).get(
+                                                            'button_box')
+                if button_box:
+                    # try:
+                    n = button_box.count()
+                    # orb.log.debug(f'{n} widgets in joint button box.')
+                    for idx in reversed(range(n)):
+                        # orb.log.debug(f'removing item at {idx}')
+                        item = button_box.takeAt(idx)
+                        if item is not None:
+                            w = item.widget()
+                            if w:
+                                w.close()
+                            button_box.removeItem(item)
+                    if number < 2:
+                        placeholder = NameLabel(f'0 joint objects specified')
+                        placeholder.setStyleSheet("QLabel {font-size: 14px;"
+                                                  "font-weight: bold;"
+                                                  "color:purple}")
+                        placeholder.setAttribute(Qt.WA_DeleteOnClose)
+                        button_box.addWidget(placeholder)
+                    else:
+                        for i in range(number - 1):
+                            button = SizedButton(f'joint {i}')
+                            button.clicked.connect(self.parm_dialog)
+                            button_box.addWidget(button)
+                    button_box.addStretch(1)
         else:
             orb.log.debug('could not determine sender.')
 
