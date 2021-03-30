@@ -891,6 +891,7 @@ class PgxnObject(QDialog):
         self.vbox.addWidget(self.main_panel)
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
+        self.update()
 
     def init_toolbar(self):
         # self.toolbar = self.addToolBar('Tools')
@@ -1340,6 +1341,7 @@ class PgxnObject(QDialog):
             new_width = 500 + 80 * (len(self.tab_names) - 7)
             self.resize(new_width, self.height())
         self.set_current_tab()
+        self.update()
 
     def set_current_tab(self):
         if (hasattr(self, 'tabs') and getattr(self, 'tab_names', None)
