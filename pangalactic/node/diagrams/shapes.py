@@ -1420,7 +1420,7 @@ class PortBlock(QGraphicsItem):
                 port.of_product in assmbl_w_this):
                 # connected internal/external block ports can't be opposite
                 orb.log.debug(f'  an assembly port is "{other_port_dir}"')
-                if opposite_dir[other_port_dir] in allowed_dirs:
+                if opposite_dir.get(other_port_dir) in allowed_dirs:
                     allowed_dirs.remove(opposite_dir[other_port_dir])
             else:
                 # connected peer block ports can't be same directionality
