@@ -398,12 +398,13 @@ class StringFieldWidget(QLineEdit):
     to represent strings that can serve as programmatic names/tokens, i.e. not
     unicode).
     """
-    def __init__(self, parent=None, value=None, maxlen=None, width=None, **kw):
+    def __init__(self, parent=None, value=None, maxlen=None, width=None,
+                 parm_field=None, parm_type=None, **kw):
         super().__init__(parent=parent)
         self.setSizePolicy(QSizePolicy(
                            QSizePolicy.Fixed, QSizePolicy.Fixed))
-        self.parm_field = kw.get('parm_field')
-        self.parm_type = kw.get('parm_type')
+        self.parm_field = parm_field
+        self.parm_type = parm_type
         self.width = width
         if maxlen is not None:
             self.setMaxLength(maxlen)
@@ -430,7 +431,7 @@ class StringFieldWidget(QLineEdit):
         # TODO:  adjust this size in proportion to 'maxlen'
         if self.parm_field:
             if self.parm_type in ['int', 'float']:
-                return QSize(100, 25)
+                return QSize(60, 25)
         elif self.width:
             return QSize(self.width, 25)
         return QSize(250, 25)
@@ -513,7 +514,7 @@ class IntegerFieldWidget(QLineEdit):
         return int((self.text() or '0').replace(',', ''))
 
     def sizeHint(self):
-        return QSize(100, 25)
+        return QSize(60, 25)
 
 
 class FloatFieldWidget(QLineEdit):
@@ -542,7 +543,7 @@ class FloatFieldWidget(QLineEdit):
         return float(self.text() or 0.0)
 
     def sizeHint(self):
-        return QSize(100, 25)
+        return QSize(60, 25)
 
 
 class DateFieldWidget(QDateEdit):

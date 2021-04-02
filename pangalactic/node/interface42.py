@@ -16,250 +16,330 @@ from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
                                           StringFieldWidget)
 
 
+class FloatParmWidget(FloatFieldWidget):
+    def __init__(self, parent=None, value=None, pid='', i=0):
+        super().__init__(parent=parent, value=value)
+        self.pid = pid
+        self.i = i
+
+
+class IntParmWidget(IntegerFieldWidget):
+    def __init__(self, parent=None, value=None, pid='', i=0):
+        super().__init__(parent=parent, value=value)
+        self.pid = pid
+        self.i = i
+
+
+class StrParmWidget(StringFieldWidget):
+    """
+    Parameter field for string-valued (or untyped) parameters.
+
+    Keyword Args:
+        parent (QWidget): parent widget
+        value (str): initial value of the field
+        parm_type (str): datatype; if None, plain string is assumed; if "float"
+            or "int", the appropriate "validator" (mask) will be set so that
+            only values coercible to that type can be entered
+        pid (str): parameter id
+        i (int): for array-valued parameters, position of this field's value in
+            the array
+    """
+    def __init__(self, parent=None, value=None, pid='', i=0, parm_type=None,
+                 width=None):
+        super().__init__(parent=parent, value=value, parm_type=parm_type,
+                         width=width)
+        self.pid = pid
+        self.i = i
+
+
 component_types = ['body', 'joint', 'wheel', 'mtb', 'thruster', 'gyro',
                    'magnetometer', 'css', 'fss', 'st', 'gps', 'accelerometer']
 
 SC = dict(
    metadata=dict(
-      description=dict(label="Description", value="Simple generic S/C",
+      description=dict(label="Description", test="Simple generic S/C",
                         datatype='str'),
-      label=dict(label="Label", value='\"S/C\"', datatype='str'),
-      sprite_fn=dict(label="Sprite File Name", value="GenScSpriteAlpha.ppm",
+      label=dict(label="Label", test='\"S/C\"', datatype='str'),
+      sprite_fn=dict(label="Sprite File Name", test="GenScSpriteAlpha.ppm",
                         datatype='str'),
-      fsw_id=dict(label="Flight Software Identifier", value="PROTOTYPE_FSW",
+      fsw_id=dict(label="Flight Software Identifier", test="PROTOTYPE_FSW",
                         datatype='str'),
-      fsw_sample_t=dict(label="FSW Sample Time, sec", value="0.2",
+      fsw_sample_t=dict(label="FSW Sample Time, sec", test="0.2",
                         datatype='float')),
   orbit=dict(
       orbit=dict(label="Orbit Prop FIXED, EULER_HILL, ENCKE, or COWELL",
-                 value="FIXED", datatype='str',
+                 test="FIXED", datatype='str',
                  selections=["FIXED", "EULER_HILL", "ENCKE", "COWELL"]),
-      pos_of=dict(label="Pos of CM or ORIGIN, wrt F", value="CM",
+      pos_of=dict(label="Pos of CM or ORIGIN, wrt F", test="CM",
                   datatype='str', selections=["CM", "ORIGIN"]),
       position=dict(label="Pos wrt Formation (m), expressed in F",
-                    value=[0.0, 0.0, 0.0], datatype='array'),
+                    test=[0.0, 0.0, 0.0], datatype='array',
+                    postypes=['float', 'float', 'float']),
       velocity=dict(label="Vel wrt Formation (m/s), expressed in F",
-                    value=[0.0, 0.0, 0.0], datatype='array')),
+                    test=[0.0, 0.0, 0.0], datatype='array',
+                    postypes=['float', 'float', 'float'])),
   initial_attitude=dict(
       ang_vel_att_wrt=dict(label="Ang Vel wrt [NL], Att [QA] wrt [NLF]",
-                           value="NAN", datatype='str'),
+                           test="NAN", datatype='str'),
       omega=dict(label="Ang Vel (deg/sec)",
-                 value=[0.6, 0.5, 1.0], datatype='array'),
+                 test=[0.6, 0.5, 1.0], datatype='array',
+                 postypes=['float', 'float', 'float']),
       quaternion=dict(label="Quaternion",
-                      value=[0.0, 0.0, 0.0, 1.0], datatype='array'),
+                      test=[0.0, 0.0, 0.0, 1.0], datatype='array',
+                      postypes=['float', 'float', 'float', 'float']),
       angles=dict(label="Angles (deg) & Euler Sequence",
-                  value=[60.0, 50.0, 40.0, 213], datatype='array')),
+                  test=[60.0, 50.0, 40.0, 213], datatype='array',
+                  postypes=['float', 'float', 'float', 'int'])),
   dynamics_flags=dict(
       rotation=dict(label="Rotation STEADY, KIN_JOINT, or DYN_JOINT",
-                 value="DYN_JOINT", datatype='str',
+                 test="DYN_JOINT", datatype='str',
                  selections=["STEADY", "KIN_JOINT", "DYN_JOINT"]),
       joint_forces=dict(label="Passive Joint Forces and Torques Enabled",
-                 value="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
+                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
       compute_forces=dict(label="Compute Constraint Forces and Torques",
-                 value="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
+                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
       mass_props=dict(label="Mass Props referenced to REFPT_CM or REFPT_JOINT",
-                 value="REFPT_CM", datatype='str',
+                 test="REFPT_CM", datatype='str',
                  selections=["REFPT_CM", "REFPT_JOINT"]),
       flex_active=dict(label="Flex Active",
-                 value="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
+                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
       include_2nd_order=dict(label="Include 2nd Order Flex Terms",
-                 value="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
-      drag_coefficient=dict(label="Drag Coefficient", value=2.0,
+                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
+      drag_coefficient=dict(label="Drag Coefficient", test=2.0,
                             datatype='float')),
   components=dict(
     body=dict(
-      mass=dict(label="Mass", value="100.0", datatype='float'),
+      mass=dict(label="Mass", test="100.0", datatype='float'),
       I=dict(label="Moments of Inertia (kg-m^2)",
-             value=[100.0, 200.0, 300.0], datatype='array'),
+             test=[100.0, 200.0, 300.0], datatype='array',
+             postypes=['float', 'float', 'float']),
       PoI=dict(label="Products of Inertia (xy,xz,yz)",
-             value=[0.0, 0.0, 0.0], datatype='array'),
+             test=[0.0, 0.0, 0.0], datatype='array',
+             postypes=['float', 'float', 'float']),
       CoM=dict(label="Location of mass center, m",
-             value=[0.0, 0.0, 0.0], datatype='array'),
+             test=[0.0, 0.0, 0.0], datatype='array',
+             postypes=['float', 'float', 'float']),
       momentum=dict(label="Constant Embedded Momentum (Nms)",
-             value=[0.0, 0.0, 0.0], datatype='array'),
+             test=[0.0, 0.0, 0.0], datatype='array',
+             postypes=['float', 'float', 'float']),
       geom_fname=dict(label="Geometry Input File Name",
-             value="IonCruiser.obj", datatype='str'),
+             test="IonCruiser.obj", datatype='str'),
       flex_fname=dict(label="Flex File Name",
-             value="NONE", datatype='str')),
+             test="NONE", datatype='str')),
     joint=dict(
       inner_outer=dict(label="Inner, outer body indices",
-             value=[0, 1], datatype='array'),
+             test=[0, 1], datatype='array',
+             postypes=['int', 'int']),
       rot_dof=dict(label="RotDOF, Seq, GIMBAL or SPHERICAL",
-             value=[1, 213, "GIMBAL"], datatype='array'),
+             test=[1, 213, "GIMBAL"], datatype='array',
+             postypes=['int', 'int', 'str']),
       trn_dof=dict(label="TrnDOF, Seq",
-             value=[0, 123], datatype='array'),
+             test=[0, 123], datatype='array',
+             postypes=['int', 'int']),
       rot_dof_locked=dict(label="RotDOF Locked",
-             value=["FALSE", "FALSE", "FALSE"], datatype='array'),
+             test=["FALSE", "FALSE", "FALSE"], datatype='array',
+             postypes=['bool', 'bool', 'bool']),
       trn_dof_locked=dict(label="TrnDOF Locked",
-             value=["FALSE", "FALSE", "FALSE"], datatype='array'),
+             test=["FALSE", "FALSE", "FALSE"], datatype='array',
+             postypes=['bool', 'bool', 'bool']),
       initial_angles=dict(label="Initial Angles [deg]",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       initial_rates=dict(label="Initial Rates, deg/sec",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       initial_displ=dict(label="Initial Displacements [m]",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       initial_displ_rates=dict(label="Initial Displacement Rates, m/sec",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       bi_to_gi=dict(label="Bi to Gi Static Angles [deg] & Seq",
-                  value=[0.0, 0.0, 0.0, 312], datatype='array'),
+                  test=[0.0, 0.0, 0.0, 312], datatype='array',
+                  postypes=['float', 'float', 'float', 'int']),
       go_to_bo=dict(label="Go to Bo Static Angles [deg] & Seq",
-                  value=[0.0, 0.0, 0.0, 312], datatype='array'),
+                  test=[0.0, 0.0, 0.0, 312], datatype='array',
+                  postypes=['float', 'float', 'float', 'int']),
       pos_wrt_inner=dict(label="Position wrt inner body origin, m",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       pos_wrt_outer=dict(label="Position wrt outer body origin, m",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       rot_spring=dict(label="Rot Passive Spring Coefficients (Nm/rad)",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       rot_damping=dict(label="Rot Passive Damping Coefficients (Nms/rad)",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       trn_spring=dict(label="Trn Passive Spring Coefficients (N/m)",
-                  value=[0.0, 0.0, 0.0], datatype='array'),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float']),
       trn_damping=dict(label="Trn Passive Damping Coefficients (Ns/m)",
-                  value=[0.0, 0.0, 0.0], datatype='array')),
+                  test=[0.0, 0.0, 0.0], datatype='array',
+                  postypes=['float', 'float', 'float'])),
     wheel=dict(
       init_momentum=dict(label="Initial Momentum, N-m-sec",
-            value=0.0, datatype='float'),
+            test=0.0, datatype='float'),
       wheel_axis_comps=dict(label="Wheel Axis Components, [X, Y, Z]",
-            value=[1.0, 0.0, 0.0], datatype='array'),
+            test=[1.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
       max_torque_momentum=dict(
             label="Max Torque (N-m), Momentum (N-m-sec)",
-            value=[0.14, 50.0], datatype='array'),
+            test=[0.14, 50.0], datatype='array',
+            postypes=['float', 'float']),
       wheel_rotor_inertia=dict(label="Wheel Rotor Inertia, kg-m^2",
-             value=0.012, datatype='float'),
+             test=0.012, datatype='float'),
       static_imbalance=dict(label="Static Imbalance, g-cm",
-             value=0.48, datatype='float'),
+             test=0.48, datatype='float'),
       dynamic_imbalance=dict(label="Dynamic Imbalance, g-cm^2",
-             value=13.7, datatype='float'),
+             test=13.7, datatype='float'),
       flex_node_index=dict(label="Flex Node Index",
-                  value=0, datatype='int')),
+                  test=0, datatype='int')),
     mtb=dict(
       saturation=dict(label="Saturation (A-m^2)",
-            value=100.0, datatype='float'),
+            test=100.0, datatype='float'),
       mtb_axis_comps=dict(label="MTB Axis Components, [X, Y, Z]",
-            value=[1.0, 0.0, 0.0], datatype='array'),
+            test=[1.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
       flex_node_index=dict(label="Flex Node Index",
-            value=0, datatype='int')),
+            test=0, datatype='int')),
     thruster=dict(
       thrust_force=dict(label="Thrust Force (N)",
-            value=1.0, datatype='float'),
+            test=1.0, datatype='float'),
       body_thrust_axis=dict(label="Body, Thrust Axis",
-            value=[0, -1.0, 0.0, 0.0], datatype='array'),
+            test=[0, -1.0, 0.0, 0.0], datatype='array',
+            postypes=['int', 'float', 'float', 'float']),
       location_in_body=dict(label="Location in Body, m",
-            value=[1.0, 1.0, 1.0], datatype='array'),
+            test=[1.0, 1.0, 1.0], datatype='array',
+            postypes=['float', 'float', 'float']),
       flex_node_index=dict(label="Flex Node Index",
-                  value=0, datatype='int')),
+                  test=0, datatype='int')),
     gyro=dict(
       sample_time=dict(label="Sample Time,sec",
-            value=0.1, datatype='float'),
+            test=0.1, datatype='float'),
       axis_in_body=dict(label="Axis expressed in Body Frame",
-            value=[1.0, 0.0, 0.0], datatype='array'),
+            test=[1.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
       max_rate=dict(label="Max Rate, deg/sec",
-            value=1000.0, datatype='float'),
+            test=1000.0, datatype='float'),
       scale_factor_error=dict(label="Scale Factor Error, ppm",
-            value=100.0, datatype='float'),
+            test=100.0, datatype='float'),
       quantization=dict(label="Quantization, arcsec",
-            value=100.0, datatype='float'),
+            test=100.0, datatype='float'),
       angle_random_walk=dict(label="Angle Random Walk (deg/rt-hr)",
-            value=0.07, datatype='float'),
+            test=0.07, datatype='float'),
       bias_stability=dict(
             label="Bias Stability (deg/hr) over timespan (hr)",
-            value=[0.1, 1.0], datatype='array'),
+            test=[0.1, 1.0], datatype='array',
+            postypes=['float', 'float']),
       angle_noise=dict(label="Angle Noise, arcsec RMS",
-            value=0.1, datatype='float'),
+            test=0.1, datatype='float'),
       initial_bias=dict(label="Initial Bias (deg/hr)",
-            value=0.1, datatype='float'),
+            test=0.1, datatype='float'),
       flex_node_index=dict(label="Flex Node Index",
-                  value=0, datatype='int')),
+                  test=0, datatype='int')),
     magnetometer=dict(
       sample_time=dict(label="Sample Time,sec",
-            value=0.1, datatype='float'),
+            test=0.1, datatype='float'),
       axis_in_body=dict(label="Axis expressed in Body Frame",
-            value=[1.0, 0.0, 0.0], datatype='array'),
+            test=[1.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
       saturation=dict(label="Saturation, Tesla",
-            value=60.0E-6, datatype='float'),
+            test=60.0E-6, datatype='float'),
       scale_factor_error=dict(label="Scale Factor Error, ppm",
-            value=0.0, datatype='float'),
+            test=0.0, datatype='float'),
       quantization=dict(label="Quantization, Tesla",
-            value=1.0E-6, datatype='float'),
+            test=1.0E-6, datatype='float'),
       noise=dict(label="Noise, Tesla RMS",
-            value=1.0E-6, datatype='float'),
+            test=1.0E-6, datatype='float'),
       flex_node_index=dict(label="Flex Node Index",
-                  value=0, datatype='int')),
+                  test=0, datatype='int')),
     css=dict(
       sample_time=dict(label="Sample Time,sec",
-            value=0.1, datatype='float'),
+            test=0.1, datatype='float'),
       body_axis_in_body=dict(label="Body, Axis expressed in Body Frame",
-            value=[0, 1.0, 1.0, 1.0], datatype='array'),
+            test=[0, 1.0, 1.0, 1.0], datatype='array',
+            postypes=['int', 'float', 'float', 'float']),
       half_cone_angle=dict(label="Half-cone Angle, deg",
-            value=90.0, datatype='float'),
+            test=90.0, datatype='float'),
       scale_factor=dict(label="Scale Factor",
-            value=1.0, datatype='float'),
+            test=1.0, datatype='float'),
       quantization=dict(label="Quantization",
-            value=0.001, datatype='float'),
+            test=0.001, datatype='float'),
       flex_node_index=dict(label="Flex Node Index",
-                  value=0, datatype='int')),
+                  test=0, datatype='int')),
     fss=dict(
       sample_time=dict(label="Sample Time,sec",
-            value=0.1, datatype='float'),
+            test=0.1, datatype='float'),
       mounting_angles_seq=dict(label="Mounting Angles (deg), Seq in Body",
-            value=[70.0, 0.0, 0.0, 231], datatype='array'),
+            test=[70.0, 0.0, 0.0, 231], datatype='array',
+            postypes=['float', 'float', 'float', 'int']),
       fov_size=dict(label="X, Y FOV Size, deg",
-            value=[32.0, 32.0], datatype='array'),
+            test=[32.0, 32.0], datatype='array',
+            postypes=['float', 'float']),
       noise_equiv_angle=dict(label="Noise Equivalent Angle, deg RMS",
-            value=0.1, datatype='float'),
+            test=0.1, datatype='float'),
       quantization=dict(label="Quantization, deg",
-            value=0.5, datatype='float'),
+            test=0.5, datatype='float'),
       flex_node_index=dict(label="Flex Node Index",
-                  value=0, datatype='int')),
+            test=0, datatype='int')),
     st=dict(
       sample_time=dict(label="Sample Time,sec",
-            value=0.25, datatype='float'),
+            test=0.25, datatype='float'),
       mounting_angles_seq=dict(label="Mounting Angles (deg), Seq in Body",
-            value=[-90.0, 90.0, 00.0, 321], datatype='array'),
+            test=[-90.0, 90.0, 00.0, 321], datatype='array',
+            postypes=['float', 'float', 'float', 'int']),
       fov_size=dict(label="X, Y FOV Size, deg",
-            value=[8.0, 8.0], datatype='array'),
+            test=[8.0, 8.0], datatype='array',
+            postypes=['float', 'float']),
       sun_earth_moon_excl_angles=dict(
             label="Sun, Earth, Moon Exclusion Angles, deg",
-            value=[30.0, 10.0, 10.0], datatype='array'),
+            test=[30.0, 10.0, 10.0], datatype='array',
+            postypes=['float', 'float', 'float']),
       noise_equiv_angle=dict(label="Noise Equivalent Angle, arcsec RMS",
-            value=[2.0, 2.0, 20.0], datatype='array'),
+            test=[2.0, 2.0, 20.0], datatype='array',
+            postypes=['float', 'float', 'float']),
       flex_node_index=dict(label="Flex Node Index",
-                  value=1, datatype='int')),
+                  test=1, datatype='int')),
     gps=dict(
       sample_time=dict(label="Sample Time,sec",
-            value=0.25, datatype='float'),
+            test=0.25, datatype='float'),
       position_noise=dict(label="Position Noise, m RMS",
-            value=4.0, datatype='float'),
+            test=4.0, datatype='float'),
       velocity_noise=dict(label="Velocity Noise, m/sec RMS",
-            value=0.02, datatype='float'),
+            test=0.02, datatype='float'),
       time_noise=dict(label="Time Noise, sec RMS",
-            value=20.0E-9, datatype='float'),
+            test=20.0E-9, datatype='float'),
       flex_node_index=dict(label="Flex Node Index",
-                  value=0, datatype='int')),
+                  test=0, datatype='int')),
     accelerometer=dict(
       sample_time=dict(label="Sample Time,sec",
-            value=0.1, datatype='float'),
+            test=0.1, datatype='float'),
       position_in_b=dict(label="Position in B[0] (m)",
-                  value=[0.5, 1.0, 1.5], datatype='array'),
+            test=[0.5, 1.0, 1.5], datatype='array',
+            postypes=['float', 'float', 'float']),
       axis_in_body_frame=dict(label="Axis expressed in Body Frame",
-                  value=[1.0, 0.0, 0.0], datatype='array'),
+            test=[1.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
       max_acceleration=dict(label="Max Acceleration (m/s^2)",
-            value=1.0, datatype='float'),
+            test=1.0, datatype='float'),
       scale_factor_error=dict(label="Scale Factor Error, ppm",
-            value=0.0, datatype='float'),
+            test=0.0, datatype='float'),
       quantization=dict(label="Quantization, m/s^2",
-            value=0.05, datatype='float'),
+            test=0.05, datatype='float'),
       dv_random_walk=dict(label="DV Random Walk (m/s/rt-hr)",
-            value=0.0, datatype='float'),
+            test=0.0, datatype='float'),
       bias_stability=dict(
             label="Bias Stability (m/s^2) over timespan (hr)",
-            value=[0.0, 1.0], datatype='array'),
+            test=[0.0, 1.0], datatype='array',
+            postypes=['float', 'float']),
       dv_noise=dict(label="DV Noise, m/s",
-            value=0.0, datatype='float'),
+            test=0.0, datatype='float'),
       initial_bias=dict(label="Initial Bias (m/s^2)",
-            value=0.5, datatype='float'),
+            test=0.5, datatype='float'),
       flex_node_index=dict(label="Flex Node Index",
-                  value=0, datatype='int')))
+            test=0, datatype='int')))
     )
 
 
@@ -494,6 +574,22 @@ def get_component_headers(component_type, n):
                     header=f"{s1}{name} {n}{s2}")
 
 
+def gen_sc_data_structure():
+    data = {}
+    for section in SC:
+        data[section] = {}
+        number_of = {}
+        if section not in component_types:
+            for pid in SC[section]:
+                data[section][pid] = ''
+        else:
+            # component section -- number of components must be set
+            number_of[section] = 0
+            for pid in SC[section]:
+                data[section][pid] = ''
+    return data
+
+
 class SC_Form(QWidget):
     """
     A widget that provides a form for the specification of a 42 SC (Spacecraft)
@@ -501,6 +597,7 @@ class SC_Form(QWidget):
     """
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.data = gen_sc_data_structure()
         self.form = QFormLayout()
         self.form.setFieldGrowthPolicy(self.form.FieldsStayAtSizeHint)
         self.setLayout(self.form)
@@ -518,7 +615,7 @@ class SC_Form(QWidget):
             self.form.addRow(section_label)
             if section not in component_types:
                 # non-component section
-                for parm, parm_props in SC[section].items():
+                for pid, parm_props in SC[section].items():
                     parm_label_text = parm_props.get('label',
                                                      '[missing label]')
                     parm_label = NameLabel(parm_label_text)
@@ -530,7 +627,9 @@ class SC_Form(QWidget):
                         hbox = QHBoxLayout()
                         widgets = []
                         for i in range(len(parm_props['value'])):
-                            w = StringFieldWidget(parent=self, width=80)
+                            w = FloatParmWidget(pid=pid, i=i, width=60,
+                                                parent=self)
+                            w.textEdited.connect(self.update_data)
                             widgets.append(w)
                             hbox.addWidget(w)
                         self.form.addRow(parm_label, hbox)
@@ -545,14 +644,13 @@ class SC_Form(QWidget):
                                                     self.set_selected_value)
                         else:
                             if parm_props.get('datatype') == 'float':
-                                widget = FloatFieldWidget(parent=self,
-                                                          width=80)
+                                widget = FloatParmWidget(pid=pid, parent=self)
                             elif parm_props.get('datatype') == 'int':
-                                widget = IntegerFieldWidget(parent=self,
-                                                            width=80)
+                                widget = IntParmWidget(pid=pid, parent=self)
                             elif parm_props.get('datatype') == 'str':
-                                widget = StringFieldWidget(parent=self,
-                                                           width=200)
+                                widget = StrParmWidget(pid=pid, width=200,
+                                                       parent=self)
+                            widget.textEdited.connect(self.update_data)
                         self.form.addRow(parm_label, widget)
             else:
                 # special case for component sections:
@@ -599,6 +697,13 @@ class SC_Form(QWidget):
         save_cancel_box.addWidget(self.save_button)
         save_cancel_box.addWidget(self.cancel_button)
         self.form.addRow(save_cancel_box)
+
+    def update_data(self, evt):
+        widget = self.sender()
+        pid = widget.pid
+        i = widget.i
+        val = widget.get_value()
+        print(f'* parm "{pid}" (i={i}) set to {val}')
 
     def set_number_of_components(self, evt):
         """
@@ -657,7 +762,7 @@ class SC_Form(QWidget):
                                 w.close()
                             button_box.removeItem(item)
                     if number < 2:
-                        placeholder = NameLabel(f'0 joint objects specified')
+                        placeholder = NameLabel('0 joint objects specified')
                         placeholder.setStyleSheet("QLabel {font-size: 14px;"
                                                   "font-weight: bold;"
                                                   "color:purple}")
@@ -687,6 +792,10 @@ class SC_Form(QWidget):
     def save(self):
         # orb.log.info('* saving 42 data ...')
         print('* saving 42 data ...')
+        # TODO: a file dialog ...
+        f = open('/home/waterbug/SC42.yaml', 'w')
+        f.write(yaml.safe_dump(self.data, default_flow_style=False))
+        f.close()
 
     def cancel(self):
         # orb.log.info('* cancelling 42 data ...')
@@ -723,7 +832,7 @@ class ParameterDialog(QDialog):
         # self.widgets['section_label'] = section_label
         # self.widgets['widgets'] = {}
         form.addRow(section_label)
-        for parm, parm_props in SC['components'][component_type].items():
+        for pid, parm_props in SC['components'][component_type].items():
             txt = parm_props.get('label', '[missing label]')
             parm_label = NameLabel(txt)
             parm_label.setTextFormat(Qt.RichText)
@@ -734,7 +843,8 @@ class ParameterDialog(QDialog):
                 hbox = QHBoxLayout()
                 widgets = []
                 for i in range(len(parm_props['value'])):
-                    w = StringFieldWidget(parent=self, width=80)
+                    w = FloatParmWidget(pid=pid, i=i, parent=self)
+                    w.textEdited.connect(self.update_data)
                     widgets.append(w)
                     hbox.addWidget(w)
                 form.addRow(parm_label, hbox)
@@ -745,10 +855,14 @@ class ParameterDialog(QDialog):
                     for val in parm_props['selections']:
                         widget.addItem(val, QVariant())
                 else:
-                    widget = StringFieldWidget(parent=self, width=80)
+                    widget = StrParmWidget(pid=pid, parent=self, width=60)
+                    widget.textEdited.connect(self.update_data)
                 form.addRow(parm_label, widget)
 
     def set_selection(self, evt):
+        pass
+
+    def update_data(self, evt):
         pass
 
 
