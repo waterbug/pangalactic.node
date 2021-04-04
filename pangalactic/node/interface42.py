@@ -3,6 +3,7 @@ Interface to the "42" Attitude Control System modeling application
 """
 import sys
 import ruamel_yaml as yaml
+from pprint import pprint
 
 from PyQt5.QtCore import Qt, QSize, QVariant
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout,
@@ -17,15 +18,43 @@ from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
 
 
 class FloatParmWidget(FloatFieldWidget):
-    def __init__(self, parent=None, value=None, pid='', i=0):
+    """
+    Float Parameter input field.  The superclass, FloatFieldWidget, provides an
+    input "validator" that forces the field content to be only numeric strings
+    that can be coerced to "float" type.
+
+    Keyword Args:
+        parent (QWidget): parent widget
+        value (str): initial value of the field
+        section (str): name of the section in the SC data structure
+        pid (str): parameter identifier
+        i (int): for array-valued parameters, position of this field's value in
+            the array
+    """
+    def __init__(self, parent=None, value=None, section=None, pid='', i=0):
         super().__init__(parent=parent, value=value)
+        self.section = section
         self.pid = pid
         self.i = i
 
 
 class IntParmWidget(IntegerFieldWidget):
-    def __init__(self, parent=None, value=None, pid='', i=0):
+    """
+    Integer Parameter input field.  The superclass, IntegerFieldWidget,
+    provides an input "validator" that forces the field content to be only
+    numeric strings that can be coerced to "int" type.
+
+    Keyword Args:
+        parent (QWidget): parent widget
+        value (str): initial value of the field
+        section (str): name of the section in the SC data structure
+        pid (str): parameter identifier
+        i (int): for array-valued parameters, position of this field's value in
+            the array
+    """
+    def __init__(self, parent=None, value=None, section=None, pid='', i=0):
         super().__init__(parent=parent, value=value)
+        self.section = section
         self.pid = pid
         self.i = i
 
@@ -40,20 +69,28 @@ class StrParmWidget(StringFieldWidget):
         parm_type (str): datatype; if None, plain string is assumed; if "float"
             or "int", the appropriate "validator" (mask) will be set so that
             only values coercible to that type can be entered
-        pid (str): parameter id
+        pid (str): parameter identifier
         i (int): for array-valued parameters, position of this field's value in
             the array
     """
-    def __init__(self, parent=None, value=None, pid='', i=0, parm_type=None,
-                 width=None):
+    def __init__(self, parent=None, value=None, section=None, pid='', i=0,
+                 parm_type=None, width=None):
+        if parm_type in ['float', 'int', 'bool']:
+            width = 60
+        elif parm_type == 'str':
+            width = 200
         super().__init__(parent=parent, value=value, parm_type=parm_type,
                          width=width)
+        self.section = section
         self.pid = pid
         self.i = i
 
 
 component_types = ['body', 'joint', 'wheel', 'mtb', 'thruster', 'gyro',
                    'magnetometer', 'css', 'fss', 'st', 'gps', 'accelerometer']
+
+datatypes = {'str': str, 'float': float, 'int': int, 'bool': bool}
+
 
 SC = dict(
    metadata=dict(
@@ -69,9 +106,11 @@ SC = dict(
   orbit=dict(
       orbit=dict(label="Orbit Prop FIXED, EULER_HILL, ENCKE, or COWELL",
                  test="FIXED", datatype='str',
-                 selections=["FIXED", "EULER_HILL", "ENCKE", "COWELL"]),
+                 selections=["FIXED", "EULER_HILL", "ENCKE", "COWELL"],
+                 default="FIXED"),
       pos_of=dict(label="Pos of CM or ORIGIN, wrt F", test="CM",
-                  datatype='str', selections=["CM", "ORIGIN"]),
+                  datatype='str', selections=["CM", "ORIGIN"],
+                  default="CM"),
       position=dict(label="Pos wrt Formation (m), expressed in F",
                     test=[0.0, 0.0, 0.0], datatype='array',
                     postypes=['float', 'float', 'float']),
@@ -93,18 +132,23 @@ SC = dict(
   dynamics_flags=dict(
       rotation=dict(label="Rotation STEADY, KIN_JOINT, or DYN_JOINT",
                  test="DYN_JOINT", datatype='str',
-                 selections=["STEADY", "KIN_JOINT", "DYN_JOINT"]),
+                 selections=["STEADY", "KIN_JOINT", "DYN_JOINT"],
+                 default="FIXED"),
       joint_forces=dict(label="Passive Joint Forces and Torques Enabled",
-                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
+                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"],
+                 default="FALSE"),
       compute_forces=dict(label="Compute Constraint Forces and Torques",
                  test="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
       mass_props=dict(label="Mass Props referenced to REFPT_CM or REFPT_JOINT",
                  test="REFPT_CM", datatype='str',
-                 selections=["REFPT_CM", "REFPT_JOINT"]),
+                 selections=["REFPT_CM", "REFPT_JOINT"],
+                 default="REFPT_CM"),
       flex_active=dict(label="Flex Active",
-                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
+                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"],
+                 default="FALSE"),
       include_2nd_order=dict(label="Include 2nd Order Flex Terms",
-                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"]),
+                 test="FALSE", datatype='str', selections=["TRUE", "FALSE"],
+                 default="FALSE"),
       drag_coefficient=dict(label="Drag Coefficient", test=2.0,
                             datatype='float')),
   components=dict(
@@ -371,10 +415,11 @@ SC_File = dict(
 """************************************************************************
 ************************* Body Parameters ******************************
 ************************************************************************"""),
-    number_of=dict(label="Number of Bodies", value=1,
+    number_of=dict(label="Number of Bodies", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
-                               "8", "9"])
+                               "8", "9"],
+                   default="1")
     ),
   joint=dict(
     name="Joint",
@@ -392,7 +437,7 @@ SC_File = dict(
     label="Wheel Parameters",
     header=(
 "*************************** Wheel Parameters ***************************"),
-    number_of=dict(label="Number of Wheels", value=1,
+    number_of=dict(label="Number of Wheels", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -402,7 +447,7 @@ SC_File = dict(
     label="MTB Parameters",
     header=(
 "*************************** MTB Parameters ****************************"),
-    number_of=dict(label="Number of MTBs", value=1,
+    number_of=dict(label="Number of MTBs", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -412,7 +457,7 @@ SC_File = dict(
     label="Thruster Parameters",
     header=(
 "************************* Thruster Parameters **************************"),
-    number_of=dict(label="Number of Thrusters", value=1,
+    number_of=dict(label="Number of Thrusters", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -422,7 +467,7 @@ SC_File = dict(
     label="Gyro",
     header=(
 "******************************* Gyro ************************************"),
-    number_of=dict(label="Number of Gyros", value=1,
+    number_of=dict(label="Number of Gyros", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -432,7 +477,7 @@ SC_File = dict(
     label="Magnetometer",
     header=(
 "*************************** Magnetometer ********************************"),
-    number_of=dict(label="Number of Magnetometer Axes", value=1,
+    number_of=dict(label="Number of Magnetometer Axes", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -442,7 +487,7 @@ SC_File = dict(
     label="Coarse Sun Sensor",
     header=(
 "*********************** Coarse Sun Sensor *******************************"),
-    number_of=dict(label="Number of Coarse Sun Sensors", value=1,
+    number_of=dict(label="Number of Coarse Sun Sensors", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -452,7 +497,7 @@ SC_File = dict(
     label="Fine Sun Sensor",
     header=(
 "************************* Fine Sun Sensor *******************************"),
-    number_of=dict(label="Number of Fine Sun Sensors", value=1,
+    number_of=dict(label="Number of Fine Sun Sensors", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -462,7 +507,7 @@ SC_File = dict(
     label="Star Tracker",
     header=(
 "************************** Star Tracker *********************************"),
-    number_of=dict(label="Number of Star Trackers", value=1,
+    number_of=dict(label="Number of Star Trackers", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -472,7 +517,7 @@ SC_File = dict(
     label="GPS",
     header=(
 "****************************** GPS **************************************"),
-    number_of=dict(label="Number of GPS Receivers", value=1,
+    number_of=dict(label="Number of GPS Receivers", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -482,7 +527,7 @@ SC_File = dict(
     label="Accelerometer",
     header=(
 "*************************** Accelerometer *******************************"),
-    number_of=dict(label="Number of Accel Axes", value=1,
+    number_of=dict(label="Number of Accel Axes", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -492,7 +537,8 @@ SC_File = dict(
 
 def get_component_headers(component_type, n):
     """
-    Get the header data structures for the specified component type section.
+    Get the header data structures for the specified component type section in
+    the SC file.  This function is only used when generating the 42 input file.
     """
     if component_type == 'body':
         s1 = "================================ "
@@ -576,17 +622,17 @@ def get_component_headers(component_type, n):
 
 def gen_sc_data_structure():
     data = {}
+    # fill in default values for non-component sections
     for section in SC:
-        data[section] = {}
-        number_of = {}
-        if section not in component_types:
-            for pid in SC[section]:
-                data[section][pid] = ''
-        else:
-            # component section -- number of components must be set
-            number_of[section] = 0
-            for pid in SC[section]:
-                data[section][pid] = ''
+        if section != 'components':
+            data[section] = {}
+            # TODO:  add default values
+            # for pid in SC[section]:
+                # data[section][pid] = ''
+    # component sections contain a list of components of the specified type
+    data['components'] = {}
+    for component_type in SC['components']:
+        data['components'][component_type] = []
     return data
 
 
@@ -626,9 +672,11 @@ class SC_Form(QWidget):
                         # if array-valued, add an hbox to contain sub-fields
                         hbox = QHBoxLayout()
                         widgets = []
-                        for i in range(len(parm_props['value'])):
-                            w = FloatParmWidget(pid=pid, i=i, width=60,
-                                                parent=self)
+                        for i in range(len(parm_props['postypes'])):
+                            postype = parm_props['postypes'][i]
+                            w = StrParmWidget(section=section, pid=pid, i=i,
+                                              parm_type=postype,
+                                              parent=self)
                             w.textEdited.connect(self.update_data)
                             widgets.append(w)
                             hbox.addWidget(w)
@@ -644,18 +692,22 @@ class SC_Form(QWidget):
                                                     self.set_selected_value)
                         else:
                             if parm_props.get('datatype') == 'float':
-                                widget = FloatParmWidget(pid=pid, parent=self)
+                                widget = FloatParmWidget(section=section,
+                                                         pid=pid, parent=self)
                             elif parm_props.get('datatype') == 'int':
-                                widget = IntParmWidget(pid=pid, parent=self)
+                                widget = IntParmWidget(section=section,
+                                                       pid=pid, parent=self)
                             elif parm_props.get('datatype') == 'str':
-                                widget = StrParmWidget(pid=pid, width=200,
+                                widget = StrParmWidget(section=section,
+                                                       parm_type='str',
+                                                       pid=pid,
                                                        parent=self)
                             widget.textEdited.connect(self.update_data)
                         self.form.addRow(parm_label, widget)
             else:
                 # special case for component sections:
                 # the combo box selects the number of components of that type
-                # -- each will get a button that invokes a ParameterDialog that
+                # -- each will get a button that invokes a ComponentDialog that
                 # contains the fields / parameters for that component type
                 parm_props = SC_File[section].get('number_of')
                 parm_label_text = parm_props.get('label',
@@ -700,30 +752,46 @@ class SC_Form(QWidget):
 
     def update_data(self, evt):
         widget = self.sender()
+        section = widget.section
         pid = widget.pid
         i = widget.i
         val = widget.get_value()
-        print(f'* parm "{pid}" (i={i}) set to {val}')
+        print(f'* parm "{pid}" (i={i}) in section "{section}" set to {val}')
+        if SC[section][pid]['datatype'] == 'array':
+            # coerce to the positional datatype
+            postypes = SC[section][pid]['postypes']
+            if not self.data[section].get(pid):
+                self.data[section][pid] = []
+                # for now, add default "empty string" values
+                # TODO:  set default values for arrays ...
+                for dt in postypes:
+                    self.data[section][pid].append('')
+            dtype = datatypes.get(postypes[i]) or str
+            self.data[section][pid][i] = dtype(val)
+        else:
+            dtype = datatypes.get(SC[section][pid].get('datatype')) or str
+            self.data[section][pid] = dtype(val)
 
     def set_number_of_components(self, evt):
         """
         Set the number of components of the type corresponding to the combo box
         in which the number was selected -- this will populate the relevant
         button box with a button for each component, which will invoke a
-        ParameterDialog for that component.
+        ComponentDialog for that component.
         """
         widget = self.sender()
+        data = self.data
         if hasattr(widget, 'component_type'):
             comp_type = widget.component_type
             number = int(widget.currentText())
             # orb.log.debug(f'component type to set number of: {comp_type}')
             # orb.log.debug(f'number: {number}')
-            button_box = (self.widgets.get(widget.component_type) or {}).get(
-                                                              'button_box')
+            button_box = (self.widgets.get(comp_type) or {}).get('button_box')
             if button_box:
                 # try:
                 n = button_box.count()
                 # orb.log.debug(f'{n} widgets in {comp_type} button box.')
+                # remove any existing buttons ...
                 for idx in reversed(range(n)):
                     # orb.log.debug(f'removing item at {idx}')
                     item = button_box.takeAt(idx)
@@ -732,6 +800,7 @@ class SC_Form(QWidget):
                         if w:
                             w.close()
                         button_box.removeItem(item)
+                # add zero or more new buttons ...
                 if number == 0:
                     placeholder = NameLabel(f'0 {comp_type} objects specified')
                     placeholder.setStyleSheet("QLabel {font-size: 14px;"
@@ -739,12 +808,23 @@ class SC_Form(QWidget):
                                               "color:purple}")
                     placeholder.setAttribute(Qt.WA_DeleteOnClose)
                     button_box.addWidget(placeholder)
+                    data['components'][comp_type] = []
                 else:
+                    if len(data['components'][comp_type]) > number:
+                        # if number is less than components defined in the
+                        # data, trim the data down to number
+                        data['components'][comp_type] = data[
+                                        'components'][comp_type][:number]
                     for i in range(number):
                         button = SizedButton(f'{comp_type} {i}')
-                        button.clicked.connect(self.parm_dialog)
+                        button.clicked.connect(self.comp_dialog)
                         button_box.addWidget(button)
+                        if len(data['components'][comp_type]) <= i:
+                            # add an empty dict for each component that doesn't
+                            # have one
+                            data['components'][comp_type].append({})
                 button_box.addStretch(1)
+            # special case for "body": add "joint" buttons if appropriate ...
             if comp_type == "body":
                 # number of joints is always 1 less than the number of bodies
                 button_box = (self.widgets.get("joint") or {}).get(
@@ -768,11 +848,21 @@ class SC_Form(QWidget):
                                                   "color:purple}")
                         placeholder.setAttribute(Qt.WA_DeleteOnClose)
                         button_box.addWidget(placeholder)
+                        data['components']['joint'] = []
                     else:
+                        if len(data['components']['joint']) > number - 1:
+                            # if number - 1 is less than joints defined in the
+                            # data, trim the joint data down to number - 1
+                            data['components']['joint'] = data[
+                                            'components']['joint'][:number - 1]
                         for i in range(number - 1):
                             button = SizedButton(f'joint {i}')
-                            button.clicked.connect(self.parm_dialog)
+                            button.clicked.connect(self.comp_dialog)
                             button_box.addWidget(button)
+                            if len(data['components']['joint']) <= i:
+                                # add an empty dict for each joint that doesn't
+                                # have one
+                                data['components']['joint'].append({})
                     button_box.addStretch(1)
         else:
             orb.log.debug('could not determine sender.')
@@ -780,29 +870,30 @@ class SC_Form(QWidget):
     def set_selected_value(self, evt):
         pass
 
-    def parm_dialog(self):
+    def comp_dialog(self):
         button = self.sender()
         txt = button.text()
-        component_type, n = txt.split(' ')
+        comp_type, n = txt.split(' ')
         print(f'* button "{txt}" was clicked.')
-        print(f'  ... to invoke parm dlg for ({component_type}, {n})')
-        dlg = ParameterDialog(component_type, int(n), parent=self)
+        print(f'  ... to invoke parm dlg for ({comp_type}, {n})')
+        dlg = ComponentDialog(comp_type, int(n), parent=self)
         dlg.show()
 
     def save(self):
         # orb.log.info('* saving 42 data ...')
-        print('* saving 42 data ...')
+        print('* 42 data:')
+        pprint(self.data)
         # TODO: a file dialog ...
-        f = open('/home/waterbug/SC42.yaml', 'w')
-        f.write(yaml.safe_dump(self.data, default_flow_style=False))
-        f.close()
+        # f = open('/home/waterbug/SC42.yaml', 'w')
+        # f.write(yaml.safe_dump(self.data, default_flow_style=False))
+        # f.close()
 
     def cancel(self):
         # orb.log.info('* cancelling 42 data ...')
         print('* cancelling 42 data ...')
 
 
-class ParameterDialog(QDialog):
+class ComponentDialog(QDialog):
     """
     Dialog to display a form for specifying the parameters of a component in a
     42 model.
@@ -817,11 +908,15 @@ class ParameterDialog(QDialog):
     """
     def __init__(self, component_type, n, parent=None):
         super().__init__(parent=parent)
-        headers = get_component_headers(component_type, n)
+        self.comp_type = component_type
+        self.idx = n
+        self.data = parent.data
         form = QFormLayout()
         form.setFieldGrowthPolicy(form.FieldsStayAtSizeHint)
         self.setLayout(form)
-        section_label = QLabel(headers.get('label', 'missing label'), self)
+        comp_type_name = SC_File[component_type]['name']
+        label_text = f'{comp_type_name} {n} Parameters'
+        section_label = QLabel(label_text, self)
         section_label.setTextFormat(Qt.RichText)
         section_label.setStyleSheet("QLabel {font-size: 16px;"
                                     "font-weight: bold; color: purple}")
@@ -842,8 +937,11 @@ class ParameterDialog(QDialog):
                 # if array-valued, add an hbox to contain the sub-fields
                 hbox = QHBoxLayout()
                 widgets = []
-                for i in range(len(parm_props['value'])):
-                    w = FloatParmWidget(pid=pid, i=i, parent=self)
+                for i in range(len(parm_props['postypes'])):
+                    postype = parm_props['postypes'][i]
+                    w = StrParmWidget(section=component_type, pid=pid, i=i,
+                                      parm_type=postype,
+                                      parent=self)
                     w.textEdited.connect(self.update_data)
                     widgets.append(w)
                     hbox.addWidget(w)
@@ -855,7 +953,9 @@ class ParameterDialog(QDialog):
                     for val in parm_props['selections']:
                         widget.addItem(val, QVariant())
                 else:
-                    widget = StrParmWidget(pid=pid, parent=self, width=60)
+                    widget = StrParmWidget(section=component_type, pid=pid,
+                                           parm_type=parm_props['datatype'],
+                                           parent=self)
                     widget.textEdited.connect(self.update_data)
                 form.addRow(parm_label, widget)
 
@@ -863,7 +963,29 @@ class ParameterDialog(QDialog):
         pass
 
     def update_data(self, evt):
-        pass
+        widget = self.sender()
+        comp_type = self.comp_type
+        idx = self.idx
+        pid = widget.pid
+        i = widget.i
+        val = widget.get_value()
+        print(f'* parm "{pid}" (i={i}) in section "{comp_type}[{idx}]" set to {val}')
+        if SC['components'][comp_type][pid]['datatype'] == 'array':
+            # coerce to the positional datatype
+            postypes = SC['components'][comp_type][pid]['postypes']
+            if not self.data['components'][comp_type][idx].get(pid):
+                self.data['components'][comp_type][idx][pid] = []
+                # for now, add default "empty string" values
+                # TODO:  set default values for arrays ...
+                for dt in postypes:
+                    self.data['components'][comp_type][idx][pid].append('')
+            dtype = datatypes.get(postypes[i]) or str
+            self.data['components'][comp_type][idx][pid][i] = dtype(val)
+        else:
+            dtype = datatypes.get(SC['components'][comp_type][pid].get(
+                                                                'datatype'))
+            dtype = dtype or str
+            self.data['components'][comp_type][idx][pid] = dtype(val)
 
 
 class SC_Window(QMainWindow):
@@ -896,7 +1018,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = SC_Window()
     window.show()
-    # dlg = ParameterDialog('joint', '0')
+    # dlg = ComponentDialog('joint', '0')
     # dlg.show()
     sys.exit(app.exec_())
 
