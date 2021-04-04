@@ -72,6 +72,7 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog)
 from pangalactic.node.helpwidget       import HelpWidget
+from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
@@ -1694,6 +1695,12 @@ class Main(QtWidgets.QMainWindow):
                                 # icon='tools',
                                 # tip=conops_tip_text,
                                 # modes=['system'])
+        self.modeler42_action = self.create_action(
+                                "42 ACS Modeler",
+                                slot=self.sc_42_modeler,
+                                icon='lander',
+                                tip="42 Attitude Control System Modeler",
+                                modes=['system', 'component'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         self.product_lib_action = self.create_action(
                                     hw_lib_title,
@@ -2245,6 +2252,7 @@ class Main(QtWidgets.QMainWindow):
                                               system_tools_icon_file)
         system_tools_actions = [self.reqts_manager_action,
                                 # self.conops_modeler_action,
+                                self.modeler42_action,
                                 self.product_lib_action,
                                 self.template_lib_action,
                                 self.product_types_lib_action,
@@ -4084,6 +4092,12 @@ class Main(QtWidgets.QMainWindow):
     # def display_conops_modeler(self):
         # win = ConOpsModeler(parent=self)
         # win.show()
+
+    def sc_42_modeler(self):
+        w = 4 * self.geometry().width() / 5
+        h = self.geometry().height()
+        window = SC42Window(width=w, height=h, parent=self)
+        window.show()
 
     def product_types_library(self):
         dlg = LibraryDialog('ProductType',

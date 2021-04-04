@@ -988,12 +988,14 @@ class ComponentDialog(QDialog):
             self.data['components'][comp_type][idx][pid] = dtype(val)
 
 
-class SC_Window(QMainWindow):
+class SC42Window(QMainWindow):
     """
     Window containing the 42 SC (Spacecraft) Model forms.
     """
-    def __init__(self, parent=None):
+    def __init__(self, width=None, height=None, parent=None):
         super().__init__(parent=parent)
+        self.w = width or 850
+        self.h = height or 900
         self.forms = SC_Form()
         central_layout = QVBoxLayout()
         central_widget = QWidget()
@@ -1004,7 +1006,7 @@ class SC_Window(QMainWindow):
         self.setCentralWidget(central_widget)
 
     def sizeHint(self):
-        return QSize(850, 900)
+        return QSize(self.w, self.h)
 
 
 def output():
@@ -1016,7 +1018,7 @@ def output():
 if __name__ == '__main__':
     """Script mode for testing."""
     app = QApplication(sys.argv)
-    window = SC_Window()
+    window = SC42Window()
     window.show()
     # dlg = ComponentDialog('joint', '0')
     # dlg.show()
