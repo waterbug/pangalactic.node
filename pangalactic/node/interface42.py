@@ -1,16 +1,17 @@
 """
 Interface to the "42" Attitude Control System modeling application
 """
-import sys
+import sys, os
 import ruamel_yaml as yaml
-from pprint import pprint
 
 from PyQt5.QtCore import Qt, QSize, QVariant
-from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout,
-                             QFrame, QMainWindow, QHBoxLayout, QVBoxLayout,
-                             QLabel, QScrollArea, QWidget)
+from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
+                             QFormLayout, QFrame, QMainWindow, QHBoxLayout,
+                             QVBoxLayout, QLabel, QScrollArea, QWidget)
 
+from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.widgets     import NameLabel
 from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
@@ -641,8 +642,14 @@ class SC_Form(QWidget):
     A widget that provides a form for the specification of a 42 SC (Spacecraft)
     model, with the initial goal of generating the SC input file to 42.
     """
-    def __init__(self, parent=None):
+    def __init__(self, embedded=True, parent=None):
         super().__init__(parent)
+        if embedded:
+            self.log = orb.log.debug
+            self.home = orb.home
+        else:
+            self.log = print
+            self.home = ''
         self.data = gen_sc_data_structure()
         self.form = QFormLayout()
         self.form.setFieldGrowthPolicy(self.form.FieldsStayAtSizeHint)
@@ -756,7 +763,7 @@ class SC_Form(QWidget):
         pid = widget.pid
         i = widget.i
         val = widget.get_value()
-        print(f'* parm "{pid}" (i={i}) in section "{section}" set to {val}')
+        self.log(f'* parm "{pid}" (i={i}) in section "{section}" set to {val}')
         if SC[section][pid]['datatype'] == 'array':
             # coerce to the positional datatype
             postypes = SC[section][pid]['postypes']
@@ -784,16 +791,16 @@ class SC_Form(QWidget):
         if hasattr(widget, 'component_type'):
             comp_type = widget.component_type
             number = int(widget.currentText())
-            # orb.log.debug(f'component type to set number of: {comp_type}')
-            # orb.log.debug(f'number: {number}')
+            # self.log(f'component type to set number of: {comp_type}')
+            # self.log(f'number: {number}')
             button_box = (self.widgets.get(comp_type) or {}).get('button_box')
             if button_box:
                 # try:
                 n = button_box.count()
-                # orb.log.debug(f'{n} widgets in {comp_type} button box.')
+                # self.log(f'{n} widgets in {comp_type} button box.')
                 # remove any existing buttons ...
                 for idx in reversed(range(n)):
-                    # orb.log.debug(f'removing item at {idx}')
+                    # self.log(f'removing item at {idx}')
                     item = button_box.takeAt(idx)
                     if item is not None:
                         w = item.widget()
@@ -832,9 +839,9 @@ class SC_Form(QWidget):
                 if button_box:
                     # try:
                     n = button_box.count()
-                    # orb.log.debug(f'{n} widgets in joint button box.')
+                    # self.log(f'{n} widgets in joint button box.')
                     for idx in reversed(range(n)):
-                        # orb.log.debug(f'removing item at {idx}')
+                        # self.log(f'removing item at {idx}')
                         item = button_box.takeAt(idx)
                         if item is not None:
                             w = item.widget()
@@ -865,7 +872,7 @@ class SC_Form(QWidget):
                                 data['components']['joint'].append({})
                     button_box.addStretch(1)
         else:
-            orb.log.debug('could not determine sender.')
+            self.log('could not determine sender.')
 
     def set_selected_value(self, evt):
         pass
@@ -874,23 +881,36 @@ class SC_Form(QWidget):
         button = self.sender()
         txt = button.text()
         comp_type, n = txt.split(' ')
-        print(f'* button "{txt}" was clicked.')
-        print(f'  ... to invoke parm dlg for ({comp_type}, {n})')
+        self.log(f'* button "{txt}" was clicked.')
+        self.log(f'  ... to invoke parm dlg for ({comp_type}, {n})')
         dlg = ComponentDialog(comp_type, int(n), parent=self)
         dlg.show()
 
     def save(self):
-        # orb.log.info('* saving 42 data ...')
-        print('* 42 data:')
-        pprint(self.data)
-        # TODO: a file dialog ...
-        # f = open('/home/waterbug/SC42.yaml', 'w')
-        # f.write(yaml.safe_dump(self.data, default_flow_style=False))
-        # f.close()
+        """
+        Save the 42 SC model data to a yaml file.
+        """
+        self.log('* saving 42 data to file ...')
+        self.log('* 42 data:')
+        self.log(str(self.data))
+        dtstr = date2str(dtstamp())
+        if not state.get('last_42_path'):
+            state['last_42_path'] = self.home
+        file_path = os.path.join(state['last_42_path'],
+                                 'SC42-' + dtstr + '.yaml')
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Export Project to File',
+                                    file_path,
+                                    "YAML Files (*.yaml)")
+        if fpath:
+            self.log(f'  - file selected: "{fpath}"')
+            state['last_42_path'] = os.path.dirname(fpath)
+            f = open(fpath, 'w')
+            f.write(yaml.safe_dump(self.data, default_flow_style=False))
+            f.close()
 
     def cancel(self):
-        # orb.log.info('* cancelling 42 data ...')
-        print('* cancelling 42 data ...')
+        self.log('* cancelling 42 data ...')
 
 
 class ComponentDialog(QDialog):
@@ -969,7 +989,9 @@ class ComponentDialog(QDialog):
         pid = widget.pid
         i = widget.i
         val = widget.get_value()
-        print(f'* parm "{pid}" (i={i}) in section "{comp_type}[{idx}]" set to {val}')
+        msg = f'* parm "{pid}" (i={i}) in section "{comp_type}[{idx}]" '
+        msg += f'set to {val}'
+        self.log(msg)
         if SC['components'][comp_type][pid]['datatype'] == 'array':
             # coerce to the positional datatype
             postypes = SC['components'][comp_type][pid]['postypes']
@@ -992,11 +1014,11 @@ class SC42Window(QMainWindow):
     """
     Window containing the 42 SC (Spacecraft) Model forms.
     """
-    def __init__(self, width=None, height=None, parent=None):
+    def __init__(self, width=None, height=None, embedded=True, parent=None):
         super().__init__(parent=parent)
         self.w = width or 850
         self.h = height or 900
-        self.forms = SC_Form()
+        self.forms = SC_Form(embedded=embedded)
         central_layout = QVBoxLayout()
         central_widget = QWidget()
         self.scroll_area = QScrollArea()
@@ -1018,7 +1040,7 @@ def output():
 if __name__ == '__main__':
     """Script mode for testing."""
     app = QApplication(sys.argv)
-    window = SC42Window()
+    window = SC42Window(embedded=False)
     window.show()
     # dlg = ComponentDialog('joint', '0')
     # dlg.show()
