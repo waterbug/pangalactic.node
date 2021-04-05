@@ -418,14 +418,17 @@ class StringFieldWidget(QLineEdit):
         self.set_value(value)
 
     def set_value(self, value):
-        if value is not None:
-            self.setText(value)
-        else:
+        if value is None:
             self.setText('')
+        else:
+            self.setText(str(value))
 
     def get_value(self):
-        # NOTE: in py 3, asciify returns a "transliterated" string (unicode)
-        return asciify(str(self.text()))
+        if self.parm_type == 'float':
+            return float(self.text())
+        elif self.parm_type == 'int':
+            return int(self.text())
+        return self.text()
 
     def sizeHint(self):
         # TODO:  adjust this size in proportion to 'maxlen'

@@ -6,8 +6,9 @@ import ruamel_yaml as yaml
 
 from PyQt5.QtCore import Qt, QSize, QVariant
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
-                             QFormLayout, QFrame, QMainWindow, QHBoxLayout,
-                             QVBoxLayout, QLabel, QScrollArea, QWidget)
+                             QFormLayout, QFrame, QMainWindow, QMessageBox,
+                             QHBoxLayout, QVBoxLayout, QLabel, QScrollArea,
+                             QWidget)
 
 from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
@@ -644,6 +645,7 @@ class SC_Form(QWidget):
     """
     def __init__(self, embedded=True, parent=None):
         super().__init__(parent)
+        self.embedded = embedded
         if embedded:
             self.log = orb.log.debug
             self.home = orb.home
@@ -679,6 +681,8 @@ class SC_Form(QWidget):
                         # if array-valued, add an hbox to contain sub-fields
                         hbox = QHBoxLayout()
                         widgets = []
+                        # array parameters have a list of widgets
+                        self.widgets[section][pid] = widgets
                         for i in range(len(parm_props['postypes'])):
                             postype = parm_props['postypes'][i]
                             w = StrParmWidget(section=section, pid=pid, i=i,
@@ -710,6 +714,7 @@ class SC_Form(QWidget):
                                                        pid=pid,
                                                        parent=self)
                             widget.textEdited.connect(self.update_data)
+                        self.widgets[section][pid] = widget
                         self.form.addRow(parm_label, widget)
             else:
                 # special case for component sections:
@@ -756,6 +761,8 @@ class SC_Form(QWidget):
         save_cancel_box.addWidget(self.save_button)
         save_cancel_box.addWidget(self.cancel_button)
         self.form.addRow(save_cancel_box)
+        if self.data:
+            self.update_form_from_data()
 
     def update_data(self, evt):
         widget = self.sender()
@@ -778,6 +785,24 @@ class SC_Form(QWidget):
         else:
             dtype = datatypes.get(SC[section][pid].get('datatype')) or str
             self.data[section][pid] = dtype(val)
+
+    def update_form_from_data(self):
+        self.log('* updating SC form from data ...')
+        sections = [s for s in SC_File if s not in component_types]
+        for section in sections:
+            for pid in self.widgets[section]:
+                if pid in self.data[section]:
+                    self.log(f'  updating field(s) for "{pid}"')
+                    widget = self.widgets[section][pid]
+                    if isinstance(widget, list):
+                        # array-valued parameter
+                        for i, w in enumerate(widget):
+                            w.set_value(self.data[section][pid][i])
+                    elif hasattr(widget, 'set_value'):
+                        widget.set_value(self.data[section][pid])
+                    else:
+                        # combo box -- figure something out ...
+                        pass
 
     def set_number_of_components(self, evt):
         """
@@ -909,6 +934,55 @@ class SC_Form(QWidget):
             f.write(yaml.safe_dump(self.data, default_flow_style=False))
             f.close()
 
+    def load(self):
+        """
+        Load a 42 SC model data from a yaml file.
+        """
+        self.log('* load 42 SC model data from a file ...')
+        raw_data = None
+        message = ''
+        if not state.get('last_42_path'):
+            state['last_42_path'] = self.user_home
+        dialog = QFileDialog(self, 'Open File',
+                             state['last_path'],
+                             "YAML Files (*.yaml)")
+        fpath = ''
+        if dialog.exec_():
+            fpaths = dialog.selectedFiles()
+            if fpaths:
+                fpath = fpaths[0]
+            dialog.close()
+        if fpath:
+            self.log('  file path: {}'.format(fpath))
+            try:
+                f = open(fpath)
+                raw_data = f.read()
+                f.close()
+            except:
+                message = "File '%s' could not be opened." % fpath
+                popup = QMessageBox(
+                            QMessageBox.Warning,
+                            "Error in file path", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                return
+        else:
+            # no file was selected
+            return
+        if raw_data:
+            try:
+                self.data = yaml.safe_load(raw_data)
+            except:
+                message = "An error was encountered."
+                popup = QMessageBox(
+                            QMessageBox.Warning,
+                            "Error in Data Import", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                return
+        # TODO:  need a "clear" function to clear previous data ...
+        self.update_form_from_data()
+
     def cancel(self):
         self.log('* cancelling 42 data ...')
 
@@ -928,6 +1002,10 @@ class ComponentDialog(QDialog):
     """
     def __init__(self, component_type, n, parent=None):
         super().__init__(parent=parent)
+        if parent.embedded:
+            self.log = orb.log.debug
+        else:
+            self.log = print
         self.comp_type = component_type
         self.idx = n
         self.data = parent.data
@@ -942,10 +1020,7 @@ class ComponentDialog(QDialog):
                                     "font-weight: bold; color: purple}")
         section_label.setFrameStyle(QFrame.Box | QFrame.Plain)
         section_label.setLineWidth(1)
-        # Maybe YAGNI ...
-        # self.widgets = {}
-        # self.widgets['section_label'] = section_label
-        # self.widgets['widgets'] = {}
+        self.widgets = {}
         form.addRow(section_label)
         for pid, parm_props in SC['components'][component_type].items():
             txt = parm_props.get('label', '[missing label]')
@@ -957,6 +1032,7 @@ class ComponentDialog(QDialog):
                 # if array-valued, add an hbox to contain the sub-fields
                 hbox = QHBoxLayout()
                 widgets = []
+                self.widgets[pid] = widgets
                 for i in range(len(parm_props['postypes'])):
                     postype = parm_props['postypes'][i]
                     w = StrParmWidget(section=component_type, pid=pid, i=i,
@@ -977,7 +1053,10 @@ class ComponentDialog(QDialog):
                                            parm_type=parm_props['datatype'],
                                            parent=self)
                     widget.textEdited.connect(self.update_data)
+                self.widgets[pid] = widget
                 form.addRow(parm_label, widget)
+        if self.data:
+            self.update_form_from_data()
 
     def set_selection(self, evt):
         pass
@@ -1008,6 +1087,26 @@ class ComponentDialog(QDialog):
                                                                 'datatype'))
             dtype = dtype or str
             self.data['components'][comp_type][idx][pid] = dtype(val)
+
+    def update_form_from_data(self):
+        self.log('* updating component form from data ...')
+        idx = self.idx
+        for pid in self.widgets:
+            if self.data['components'][self.comp_type][idx]:
+                if pid in self.data['components'][self.comp_type][idx]:
+                    self.log(f'  updating field(s) for "{pid}"')
+                    widget = self.widgets[pid]
+                    if isinstance(widget, list):
+                        # array-valued parameter
+                        for i, w in enumerate(widget):
+                            w.set_value(self.data['components'][self.comp_type][
+                                                                   idx][pid][i])
+                    elif hasattr(widget, 'set_value'):
+                        widget.set_value(self.data['components'][self.comp_type][
+                                                                       idx][pid])
+                    else:
+                        # combo box -- figure something out ...
+                        pass
 
 
 class SC42Window(QMainWindow):
