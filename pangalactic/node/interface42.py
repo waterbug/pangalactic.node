@@ -68,6 +68,7 @@ class StrParmWidget(StringFieldWidget):
     Keyword Args:
         parent (QWidget): parent widget
         value (str): initial value of the field
+        section (str): name of the section in the SC data structure
         parm_type (str): datatype; if None, plain string is assumed; if "float"
             or "int", the appropriate "validator" (mask) will be set so that
             only values coercible to that type can be entered
@@ -86,6 +87,50 @@ class StrParmWidget(StringFieldWidget):
         self.section = section
         self.pid = pid
         self.i = i
+
+
+class ParmCombo(QComboBox):
+    """
+    Combo box for parameters with value "selections" specified.
+
+    Keyword Args:
+        parent (QWidget): parent widget
+        value (str): initial value of the field
+        section (str): name of the section in the SC data structure
+        parm_type (str): datatype; if None, plain string is assumed; if "float"
+            or "int", the appropriate "validator" (mask) will be set so that
+            only values coercible to that type can be entered
+        pid (str): parameter identifier
+        i (int): for array-valued parameters, position of this field's value in
+            the array
+    """
+    def __init__(self, parent=None, value=None, section=None, pid='', i=0,
+                 parm_type=None, width=None):
+        super().__init__(parent=parent)
+        self.section = section
+        self.pid = pid
+        self.i = i
+        self.parm_type = parm_type
+
+    def set_value(self, value):
+        try:
+            if self.parm_type == 'bool':
+                if value in [True, False]:
+                    if value:
+                        self.setCurrentText('TRUE')
+                    else:
+                        self.setCurrentText('FALSE')
+                else:
+                    self.setCurrentText(str(value))
+
+            else:
+                self.setCurrentText(str(value))
+        except:
+            # value not in list
+            pass
+
+    def get_value(self):
+        return self.currentText()
 
 
 component_types = ['body', 'joint', 'wheel', 'mtb', 'thruster', 'gyro',
@@ -696,11 +741,15 @@ class SC_Form(QWidget):
                         if parm_props.get('selections'):
                             # if field has selectable values ("selections"),
                             # represent it with a combo box
-                            widget = QComboBox()
+                            widget = ParmCombo(section=section, pid=pid,
+                                               parent=self)
                             for val in parm_props['selections']:
                                 widget.addItem(val, QVariant())
-                                widget.activated.connect(
-                                                    self.set_selected_value)
+                            # widget.activated.connect(
+                                                # self.set_selected_value)
+                            widget.activated.connect(self.update_data)
+                            # set initial default value
+                            self.data[section][pid] = widget.get_value()
                         else:
                             if parm_props.get('datatype') == 'float':
                                 widget = FloatParmWidget(section=section,
@@ -731,6 +780,8 @@ class SC_Form(QWidget):
                 if parm_props.get('selections'):
                     # if field has selectable values ("selections"),
                     # represent it with a combo box
+                    # NOTE: only component section that does NOT have
+                    # "selection" is the Joint section
                     widget = QComboBox()
                     for val in parm_props['selections']:
                         widget.addItem(val, QVariant())
@@ -765,6 +816,9 @@ class SC_Form(QWidget):
             self.update_form_from_data()
 
     def update_data(self, evt):
+        """
+        Update the data from the value set in a widget.
+        """
         widget = self.sender()
         section = widget.section
         pid = widget.pid
@@ -899,8 +953,10 @@ class SC_Form(QWidget):
         else:
             self.log('could not determine sender.')
 
-    def set_selected_value(self, evt):
-        pass
+    # def set_selected_value(self, evt):
+        # cb = self.sender()
+        # raw_val = cb.currentText()
+        # self.log(f'* "{raw_val}" was selected.')
 
     def comp_dialog(self):
         button = self.sender()
@@ -1044,10 +1100,14 @@ class ComponentDialog(QDialog):
                 form.addRow(parm_label, hbox)
             else:
                 if parm_props.get('selections'):
-                    widget = QComboBox()
-                    widget.activated.connect(self.set_selection)
+                    widget = ParmCombo(section=component_type, pid=pid,
+                                       parent=self)
+                    widget.activated.connect(self.update_data)
                     for val in parm_props['selections']:
                         widget.addItem(val, QVariant())
+                    # set initial default value
+                    self.data['components'][
+                                    component_type][pid] = widget.get_value()
                 else:
                     widget = StrParmWidget(section=component_type, pid=pid,
                                            parm_type=parm_props['datatype'],
@@ -1058,8 +1118,11 @@ class ComponentDialog(QDialog):
         if self.data:
             self.update_form_from_data()
 
-    def set_selection(self, evt):
-        pass
+    # NOTE: this was just for testing the combo box
+    # def set_selection(self, evt):
+        # cb = self.sender()
+        # raw_val = cb.currentText()
+        # self.log('* selection set to "{raw_val}"')
 
     def update_data(self, evt):
         widget = self.sender()

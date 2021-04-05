@@ -425,9 +425,17 @@ class StringFieldWidget(QLineEdit):
 
     def get_value(self):
         if self.parm_type == 'float':
-            return float(self.text())
+            try:
+                return float(self.text())
+            except:
+                # invalid
+                return 0
         elif self.parm_type == 'int':
-            return int(self.text())
+            try:
+                return int(self.text())
+            except:
+                # invalid
+                return 0
         return self.text()
 
     def sizeHint(self):
