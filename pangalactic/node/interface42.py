@@ -5,10 +5,11 @@ import sys, os
 import ruamel_yaml as yaml
 
 from PyQt5.QtCore import Qt, QSize, QVariant
-from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
-                             QFormLayout, QFrame, QMainWindow, QMessageBox,
-                             QHBoxLayout, QVBoxLayout, QLabel, QScrollArea,
-                             QWidget)
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
+                             QFileDialog, QFormLayout, QFrame, QMainWindow,
+                             QMenu, QMessageBox, QPushButton, QHBoxLayout,
+                             QVBoxLayout, QLabel, QScrollArea, QWidget)
 
 from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
@@ -783,9 +784,10 @@ class SC_Form(QWidget):
                     # NOTE: only component section that does NOT have
                     # "selection" is the Joint section
                     widget = QComboBox()
+                    self.widgets[section]['number_of'] = widget
                     for val in parm_props['selections']:
                         widget.addItem(val, QVariant())
-                    widget.activated.connect(
+                    widget.currentIndexChanged.connect(
                                         self.set_number_of_components)
                     widget.component_type = section
                     self.form.addRow(parm_label, widget)
@@ -843,6 +845,12 @@ class SC_Form(QWidget):
     def update_form_from_data(self):
         self.log('* updating SC form from data ...')
         sections = [s for s in SC_File if s not in component_types]
+        for comp_type in component_types:
+            comp_objs = self.data['components'].get(comp_type)
+            combo_box = self.widgets[comp_type].get('number_of')
+            if comp_objs and combo_box:
+                n = len(comp_objs)
+                combo_box.setCurrentText(str(n))
         for section in sections:
             for pid in self.widgets[section]:
                 if pid in self.data[section]:
@@ -998,9 +1006,9 @@ class SC_Form(QWidget):
         raw_data = None
         message = ''
         if not state.get('last_42_path'):
-            state['last_42_path'] = self.user_home
+            state['last_42_path'] = ''
         dialog = QFileDialog(self, 'Open File',
-                             state['last_path'],
+                             state['last_42_path'],
                              "YAML Files (*.yaml)")
         fpath = ''
         if dialog.exec_():
@@ -1009,6 +1017,7 @@ class SC_Form(QWidget):
                 fpath = fpaths[0]
             dialog.close()
         if fpath:
+            state['last_path'] = os.path.dirname(fpath)
             self.log('  file path: {}'.format(fpath))
             try:
                 f = open(fpath)
@@ -1172,6 +1181,33 @@ class ComponentDialog(QDialog):
                         pass
 
 
+class MenuButton(QPushButton):
+    """
+    A button to serve as a toolbar menu in the SC42Window.
+    """
+    def __init__(self, text, icon=None, tooltip='', actions=None, parent=None):
+        """
+        Args:
+            text (str):  text of button
+
+        Keyword Args:
+            icon (QIcon):  an icon for the button
+            tooltip (str):  text of tooltip
+            actions (iterable of QAction):  items for the menu
+        """
+        super().__init__(parent=parent)
+        self.setText(text)
+        if icon:
+            self.setIcon(icon)
+        if tooltip:
+            self.setToolTip(tooltip)
+        menu = QMenu(self)
+        if actions and hasattr(actions, '__iter__'):
+            for action in actions:
+                menu.addAction(action)
+        self.setMenu(menu)
+
+
 class SC42Window(QMainWindow):
     """
     Window containing the 42 SC (Spacecraft) Model forms.
@@ -1188,6 +1224,46 @@ class SC42Window(QMainWindow):
         central_layout.addWidget(self.scroll_area, 1)
         central_widget.setLayout(central_layout)
         self.setCentralWidget(central_widget)
+        self._create_actions()
+        self.init_toolbar()
+
+    def create_action(self, text, slot=None, icon=None, tip=None,
+                      checkable=False, modes=None):
+        action = QAction(text, self)
+        if icon is not None:
+            icon_file = icon + state.get('icon_type', '.png')
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
+            action.setIcon(QIcon(icon_path))
+        if tip is not None:
+            action.setToolTip(tip)
+            action.setStatusTip(tip)
+        if slot is not None:
+            action.triggered.connect(slot)
+        if checkable:
+            action.setCheckable(True)
+        return action
+
+    def _create_actions(self):
+        self.import_model_action = self.create_action(
+                                    "Import a saved model...",
+                                    slot=self.forms.load)
+        self.import_file_action = self.create_action(
+                                    "Import model from a file...",
+                                    slot=self.import_file)
+
+    def init_toolbar(self):
+        self.toolbar = self.addToolBar("Actions")
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        import_actions = [self.import_model_action,
+                          self.import_file_action]
+        import_button = MenuButton('Imports',
+                                   tooltip='Import Data or Objects',
+                                   actions=import_actions, parent=self)
+        self.toolbar.addWidget(import_button)
+
+    def import_file(self):
+        pass
 
     def sizeHint(self):
         return QSize(self.w, self.h)
