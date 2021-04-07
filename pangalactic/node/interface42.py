@@ -844,7 +844,7 @@ class SC_Form(QWidget):
 
     def update_form_from_data(self):
         self.log('* updating SC form from data ...')
-        sections = [s for s in SC_File if s not in component_types]
+        sections = [s for s in SC if s != 'components']
         for comp_type in component_types:
             comp_objs = self.data['components'].get(comp_type)
             combo_box = self.widgets[comp_type].get('number_of')
@@ -854,7 +854,7 @@ class SC_Form(QWidget):
         for section in sections:
             for pid in self.widgets[section]:
                 if pid in self.data[section]:
-                    self.log(f'  updating field(s) for "{pid}"')
+                    self.log(f'  updating "{pid}"')
                     widget = self.widgets[section][pid]
                     if isinstance(widget, list):
                         # array-valued parameter
@@ -863,8 +863,9 @@ class SC_Form(QWidget):
                     elif hasattr(widget, 'set_value'):
                         widget.set_value(self.data[section][pid])
                     else:
-                        # combo box -- figure something out ...
-                        pass
+                        # unknown type of widget ...
+                        self.log(f'* "{pid}" value not accessible, widget is ')
+                        self.log('  not array type nor has "set_value" ...')
 
     def set_number_of_components(self, evt):
         """
@@ -1002,7 +1003,7 @@ class SC_Form(QWidget):
         """
         Load a 42 SC model data from a yaml file.
         """
-        self.log('* load 42 SC model data from a file ...')
+        self.log('* loading 42 SC model data from yaml ...')
         raw_data = None
         message = ''
         if not state.get('last_42_path'):
@@ -1017,7 +1018,7 @@ class SC_Form(QWidget):
                 fpath = fpaths[0]
             dialog.close()
         if fpath:
-            state['last_path'] = os.path.dirname(fpath)
+            state['last_42_path'] = os.path.dirname(fpath)
             self.log('  file path: {}'.format(fpath))
             try:
                 f = open(fpath)
@@ -1046,6 +1047,118 @@ class SC_Form(QWidget):
                 popup.show()
                 return
         # TODO:  need a "clear" function to clear previous data ...
+        self.update_form_from_data()
+
+    def import_file(self):
+        """
+        Import data from a standard 42 Spacecraft Description File.
+        """
+        self.log('* importing data from 42 SC file ...')
+        raw_data = None
+        message = ''
+        if not state.get('last_42_path'):
+            state['last_42_path'] = ''
+        dialog = QFileDialog(self, 'Open File',
+                             state['last_42_path'],
+                             ".txt files (*.txt)")
+        fpath = ''
+        if dialog.exec_():
+            fpaths = dialog.selectedFiles()
+            if fpaths:
+                fpath = fpaths[0]
+            dialog.close()
+        if fpath:
+            state['last_path'] = os.path.dirname(fpath)
+            self.log('  file path: {}'.format(fpath))
+            try:
+                f = open(fpath)
+                raw_data = f.readlines()
+                f.close()
+            except:
+                message = "File '%s' could not be opened." % fpath
+                popup = QMessageBox(
+                            QMessageBox.Warning,
+                            "Error in file path", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                return
+        else:
+            # no file was selected
+            return
+        if raw_data:
+            # as a first cut, assume file is strictly formatted, meaning file
+            # contents have same ordering as SC_File dict, but check each
+            # section to make sure the initial parameter "label" is correct ...
+            sections = [s for s in SC.keys() if s != 'components']
+            n = 0
+            # first parse initial "sections" ...
+            for section in sections:
+                self.log(f'  - parsing section "{section}" ...')
+                for i, pid in enumerate(SC[section]):
+                    raw_value, raw_label = raw_data[i + n + 1].split('!')
+                    label = SC[section][pid].get('label')
+                    datatype = SC[section][pid].get('datatype')
+                    if label in raw_label:
+                        if datatype == 'array':
+                            values = raw_value.split()
+                            postypes = SC[section][pid].get('postypes')
+                            for k, v in enumerate(values):
+                                postype = postypes[k] 
+                                dtype = datatypes.get(postype) or str
+                                values[k] = dtype(v)
+                            self.data[section][pid] = values
+                            self.log(f'    assigned {values} to "{pid}"')
+                        else:
+                            dtype = datatypes.get(datatype) or str
+                            value = raw_value.rstrip().lstrip()
+                            self.data[section][pid] = dtype(value)
+                            if datatype == 'str':
+                                self.log(f'    assigned "{value}" to "{pid}"')
+                            else:
+                                self.log(f'    assigned {value} to "{pid}"')
+                    else:
+                        msg = f'expected label "{label}" not in "{raw_label}"'
+                        self.log(f'    {msg}')
+                n += i + 2
+            # then do components ...
+            n += 3    # "Body Parameters" heading spans 3 lines
+            for comp_type in component_types:
+                self.log(f'  - parsing component "{comp_type}" ...')
+                if comp_type != 'joint':
+                    # joint is the only one without a "number of" specified,
+                    # since it is 1 less than the number of bodies
+                    raw_value, raw_label = raw_data[n].split('!')
+                    number_of = int(raw_value.rstrip())
+                    self.log(f'    number of {comp_type}(s) is: {number_of}')
+                # WORKING HERE ...
+                for i, pid in enumerate(SC['components'][comp_type]):
+                    raw_value, raw_label = raw_data[i + n + 1].split('!')
+                    label = SC[section][pid].get('label')
+                    datatype = SC[section][pid].get('datatype')
+                    if label in raw_label:
+                        if datatype == 'array':
+                            values = raw_value.split()
+                            postypes = SC[section][pid].get('postypes')
+                            for k, v in enumerate(values):
+                                postype = postypes[k] 
+                                dtype = datatypes.get(postype) or str
+                                values[k] = dtype(v)
+                            self.data[section][pid] = values
+                            self.log(f'    assigned {values} to "{pid}"')
+                        else:
+                            dtype = datatypes.get(datatype) or str
+                            value = raw_value.rstrip().lstrip()
+                            self.data[section][pid] = dtype(value)
+                            if datatype == 'str':
+                                self.log(f'    assigned "{value}" to "{pid}"')
+                            else:
+                                self.log(f'    assigned {value} to "{pid}"')
+                    else:
+                        msg = f'expected label "{label}" not in "{raw_label}"'
+                        self.log(f'    {msg}')
+                n += i + 2
+        else:
+            self.log('* could not find any data in file.')
         self.update_form_from_data()
 
     def cancel(self):
@@ -1166,7 +1279,7 @@ class ComponentDialog(QDialog):
         for pid in self.widgets:
             if self.data['components'][self.comp_type][idx]:
                 if pid in self.data['components'][self.comp_type][idx]:
-                    self.log(f'  updating field(s) for "{pid}"')
+                    self.log(f'  updating "{pid}"')
                     widget = self.widgets[pid]
                     if isinstance(widget, list):
                         # array-valued parameter
@@ -1250,7 +1363,7 @@ class SC42Window(QMainWindow):
                                     slot=self.forms.load)
         self.import_file_action = self.create_action(
                                     "Import model from a file...",
-                                    slot=self.import_file)
+                                    slot=self.forms.import_file)
 
     def init_toolbar(self):
         self.toolbar = self.addToolBar("Actions")
@@ -1261,9 +1374,6 @@ class SC42Window(QMainWindow):
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)
         self.toolbar.addWidget(import_button)
-
-    def import_file(self):
-        pass
 
     def sizeHint(self):
         return QSize(self.w, self.h)
