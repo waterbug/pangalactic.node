@@ -485,7 +485,7 @@ SC_File = dict(
     label="Wheel Parameters",
     header=(
 "*************************** Wheel Parameters ***************************"),
-    number_of=dict(label="Number of Wheels", test=1,
+    number_of=dict(label="Number of wheels", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -494,7 +494,7 @@ SC_File = dict(
     name="MTB",
     label="MTB Parameters",
     header=(
-"*************************** MTB Parameters ****************************"),
+"**************************** MTB Parameters ****************************"),
     number_of=dict(label="Number of MTBs", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
@@ -514,8 +514,8 @@ SC_File = dict(
     name="Gyro",
     label="Gyro",
     header=(
-"******************************* Gyro ************************************"),
-    number_of=dict(label="Number of Gyros", test=1,
+"******************************* Gyro ***********************************"),
+    number_of=dict(label="Number of Gyro Axes", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
                                "8", "9"])
@@ -524,7 +524,7 @@ SC_File = dict(
     name="Magnetometer",
     label="Magnetometer",
     header=(
-"*************************** Magnetometer ********************************"),
+"*************************** Magnetometer *******************************"),
     number_of=dict(label="Number of Magnetometer Axes", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
@@ -534,7 +534,7 @@ SC_File = dict(
     name="Coarse Sun Sensor",
     label="Coarse Sun Sensor",
     header=(
-"*********************** Coarse Sun Sensor *******************************"),
+"*********************** Coarse Sun Sensor ******************************"),
     number_of=dict(label="Number of Coarse Sun Sensors", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
@@ -544,7 +544,7 @@ SC_File = dict(
     name="Fine Sun Sensor",
     label="Fine Sun Sensor",
     header=(
-"************************* Fine Sun Sensor *******************************"),
+"************************* Fine Sun Sensor ******************************"),
     number_of=dict(label="Number of Fine Sun Sensors", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
@@ -554,7 +554,7 @@ SC_File = dict(
     name="Star Tracker",
     label="Star Tracker",
     header=(
-"************************** Star Tracker *********************************"),
+"************************** Star Tracker ********************************"),
     number_of=dict(label="Number of Star Trackers", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
@@ -564,7 +564,7 @@ SC_File = dict(
     name="GPS",
     label="GPS",
     header=(
-"****************************** GPS **************************************"),
+"****************************** GPS *************************************"),
     number_of=dict(label="Number of GPS Receivers", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
@@ -574,7 +574,7 @@ SC_File = dict(
     name="Accelerometer",
     label="Accelerometer",
     header=(
-"*************************** Accelerometer *******************************"),
+"*************************** Accelerometer ******************************"),
     number_of=dict(label="Number of Accel Axes", test=1,
                    datatype='int',
                    selections=["0", "1", "2", "3", "4", "5", "6", "7",
@@ -616,42 +616,42 @@ def get_component_headers(component_type, n):
         name = "Thr"
         s1 = "==============================  "
         s2 = "  ================================="
-        return dict(label=f"{full_name} {n}",
+        return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'gyro':
         full_name = "Gyro Axis"
         name = "Axis"
         s1 = "============================== "
         s2 = " ==================================="
-        return dict(label=f"{full_name} {n}",
+        return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'magnetometer':
         full_name = "Magnetometer Axis"
         name = "Axis"
         s1 = "============================== "
         s2 = " ==================================="
-        return dict(label=f"{full_name} {n}",
+        return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'css':
         full_name = "Coarse Sun Sensor"
         name = "CSS"
         s1 = "============================== "
         s2 = " ===================================="
-        return dict(label=f"{full_name} {n}",
+        return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'fss':
         full_name = "Fine Sun Sensor"
         name = "FSS"
         s1 = "=============================== "
         s2 = " ==================================="
-        return dict(label=f"{full_name} {n}",
+        return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'st':
         full_name = "Star Tracker"
         name = "ST"
         s1 = "=============================== "
         s2 = " ===================================="
-        return dict(label=f"{full_name} {n}",
+        return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'gps':
         name = "GPSR"
@@ -660,11 +660,11 @@ def get_component_headers(component_type, n):
         return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'accelerometer':
-        full_name = "Accelerometer Axis"
+        full_name = "Accelerometer"
         name = "Axis"
         s1 = "============================== "
         s2 = " ==================================="
-        return dict(label=f"{full_name} {n}",
+        return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
 
 
@@ -746,8 +746,6 @@ class SC_Form(QWidget):
                                                parent=self)
                             for val in parm_props['selections']:
                                 widget.addItem(val, QVariant())
-                            # widget.activated.connect(
-                                                # self.set_selected_value)
                             widget.activated.connect(self.update_data)
                             # set initial default value
                             self.data[section][pid] = widget.get_value()
@@ -805,15 +803,16 @@ class SC_Form(QWidget):
                     button_panel.setLayout(button_box)
                     self.widgets[section]['button_box'] = button_box
                     self.form.addRow(button_panel)
-        save_cancel_box = QHBoxLayout()
-        self.save_button = SizedButton('Save')
-        self.save_button.clicked.connect(self.save)
-        self.cancel_button = SizedButton('Cancel')
-        self.cancel_button.clicked.connect(self.cancel)
-        save_cancel_box.addStretch(1)
-        save_cancel_box.addWidget(self.save_button)
-        save_cancel_box.addWidget(self.cancel_button)
-        self.form.addRow(save_cancel_box)
+        # NOTE: now using menus instead of Save/Cancel buttons
+        # save_cancel_box = QHBoxLayout()
+        # self.save_button = SizedButton('Save')
+        # self.save_button.clicked.connect(self.save)
+        # self.cancel_button = SizedButton('Cancel')
+        # self.cancel_button.clicked.connect(self.cancel)
+        # save_cancel_box.addStretch(1)
+        # save_cancel_box.addWidget(self.save_button)
+        # save_cancel_box.addWidget(self.cancel_button)
+        # self.form.addRow(save_cancel_box)
         if self.data:
             self.update_form_from_data()
 
@@ -854,7 +853,7 @@ class SC_Form(QWidget):
         for section in sections:
             for pid in self.widgets[section]:
                 if pid in self.data[section]:
-                    self.log(f'  updating "{pid}"')
+                    # self.log(f'  updating "{pid}"')
                     widget = self.widgets[section][pid]
                     if isinstance(widget, list):
                         # array-valued parameter
@@ -962,11 +961,6 @@ class SC_Form(QWidget):
         else:
             self.log('could not determine sender.')
 
-    # def set_selected_value(self, evt):
-        # cb = self.sender()
-        # raw_val = cb.currentText()
-        # self.log(f'* "{raw_val}" was selected.')
-
     def comp_dialog(self):
         button = self.sender()
         txt = button.text()
@@ -980,8 +974,8 @@ class SC_Form(QWidget):
         """
         Save the 42 SC model data to a yaml file.
         """
-        self.log('* saving 42 data to file ...')
-        self.log('* 42 data:')
+        self.log('* saving 42 model data to file ...')
+        self.log('* 42 model data:')
         self.log(str(self.data))
         dtstr = date2str(dtstamp())
         if not state.get('last_42_path'):
@@ -989,7 +983,7 @@ class SC_Form(QWidget):
         file_path = os.path.join(state['last_42_path'],
                                  'SC42-' + dtstr + '.yaml')
         fpath, filters = QFileDialog.getSaveFileName(
-                                    self, 'Export Project to File',
+                                    self, 'Save model data to file',
                                     file_path,
                                     "YAML Files (*.yaml)")
         if fpath:
@@ -1051,7 +1045,7 @@ class SC_Form(QWidget):
 
     def import_file(self):
         """
-        Import data from a standard 42 Spacecraft Description File.
+        Import data from a standard 42 Spacecraft Description (SC) File.
         """
         self.log('* importing data from 42 SC file ...')
         raw_data = None
@@ -1086,83 +1080,159 @@ class SC_Form(QWidget):
             # no file was selected
             return
         if raw_data:
-            # as a first cut, assume file is strictly formatted, meaning file
-            # contents have same ordering as SC_File dict, but check each
-            # section to make sure the initial parameter "label" is correct ...
+            # parse all raw data into label-value pairs ...
+            parsed_data = {}
+            for line in raw_data:
+                if '!' in line:
+                    raw_value, raw_label = line.split('!')
+                    parsed_data[raw_label] = raw_value.rstrip().lstrip()
+            # look for exact "label", regardless of where it is occurs in the
+            # file ...
             sections = [s for s in SC.keys() if s != 'components']
-            n = 0
-            # first parse initial "sections" ...
             for section in sections:
-                self.log(f'  - parsing section "{section}" ...')
+                self.log(f'  - finding parameters of section "{section}" ...')
                 for i, pid in enumerate(SC[section]):
-                    raw_value, raw_label = raw_data[i + n + 1].split('!')
                     label = SC[section][pid].get('label')
                     datatype = SC[section][pid].get('datatype')
-                    if label in raw_label:
-                        if datatype == 'array':
-                            values = raw_value.split()
-                            postypes = SC[section][pid].get('postypes')
-                            for k, v in enumerate(values):
-                                postype = postypes[k] 
-                                dtype = datatypes.get(postype) or str
-                                values[k] = dtype(v)
-                            self.data[section][pid] = values
-                            self.log(f'    assigned {values} to "{pid}"')
-                        else:
-                            dtype = datatypes.get(datatype) or str
-                            value = raw_value.rstrip().lstrip()
-                            self.data[section][pid] = dtype(value)
-                            if datatype == 'str':
-                                self.log(f'    assigned "{value}" to "{pid}"')
+                    for raw_label, raw_value in parsed_data.items():
+                        if label in raw_label:
+                            if datatype == 'array':
+                                values = raw_value.split()
+                                postypes = SC[section][pid].get('postypes')
+                                for k, v in enumerate(values):
+                                    postype = postypes[k] 
+                                    dtype = datatypes.get(postype) or str
+                                    values[k] = dtype(v)
+                                self.data[section][pid] = values
+                                self.log(f'    {pid} = {values}')
                             else:
-                                self.log(f'    assigned {value} to "{pid}"')
-                    else:
-                        msg = f'expected label "{label}" not in "{raw_label}"'
-                        self.log(f'    {msg}')
-                n += i + 2
-            # then do components ...
-            n += 3    # "Body Parameters" heading spans 3 lines
+                                dtype = datatypes.get(datatype) or str
+                                value = raw_value.rstrip().lstrip()
+                                self.data[section][pid] = dtype(value)
+                                if datatype == 'str':
+                                    self.log(f'    {pid} = "{value}"')
+                                else:
+                                    self.log(f'    {pid} = {value}')
+            # n_comps = {}   # seems to be unnecessary
             for comp_type in component_types:
-                self.log(f'  - parsing component "{comp_type}" ...')
+                self.log(f'  - searching for component "{comp_type}" ...')
+                n = 0
                 if comp_type != 'joint':
                     # joint is the only one without a "number of" specified,
-                    # since it is 1 less than the number of bodies
-                    raw_value, raw_label = raw_data[n].split('!')
-                    number_of = int(raw_value.rstrip())
-                    self.log(f'    number of {comp_type}(s) is: {number_of}')
-                # WORKING HERE ...
-                for i, pid in enumerate(SC['components'][comp_type]):
-                    raw_value, raw_label = raw_data[i + n + 1].split('!')
-                    label = SC[section][pid].get('label')
-                    datatype = SC[section][pid].get('datatype')
-                    if label in raw_label:
-                        if datatype == 'array':
-                            values = raw_value.split()
-                            postypes = SC[section][pid].get('postypes')
-                            for k, v in enumerate(values):
-                                postype = postypes[k] 
-                                dtype = datatypes.get(postype) or str
-                                values[k] = dtype(v)
-                            self.data[section][pid] = values
-                            self.log(f'    assigned {values} to "{pid}"')
-                        else:
-                            dtype = datatypes.get(datatype) or str
-                            value = raw_value.rstrip().lstrip()
-                            self.data[section][pid] = dtype(value)
-                            if datatype == 'str':
-                                self.log(f'    assigned "{value}" to "{pid}"')
-                            else:
-                                self.log(f'    assigned {value} to "{pid}"')
-                    else:
-                        msg = f'expected label "{label}" not in "{raw_label}"'
-                        self.log(f'    {msg}')
-                n += i + 2
+                    # since it is 1 less than the number of bodies, and when
+                    # the number of bodies is updated in the form, that will
+                    # set the number of joints also
+                    parm_props = SC_File[comp_type].get('number_of')
+                    n_of_label = parm_props.get('label')
+                    for raw_label, raw_value in parsed_data.items():
+                        if n_of_label in raw_label:
+                            n = int(raw_value.rstrip().lstrip())
+                            # n_comps[comp_type] = n
+                            self.log(f'    number of {comp_type}(s) = {n}')
+                for j in range(n):
+                    # NOTE: if n > 1, initial parse of raw data is invalid for
+                    # this component type, since it will only contain the
+                    # parameters of the last component of that type!
+                    # So: iterate over the raw_data again, looking for the
+                    # sections for each component of this type ... and now we
+                    # have to note the position of each section in the data ...
+                    this_component = {}
+                    comp_headers = get_component_headers(comp_type, j)
+                    comp_label = comp_headers.get('label')
+                    for m, line in enumerate(raw_data):
+                        if comp_label in line:
+                            self.log(f'    "{comp_label}" is at line {m}')
+                            comp_start = m + 1
+                    # parse the "component j" section ...
+                    comp_end = comp_start + len(SC['components'][comp_type])
+                    for line in raw_data[comp_start : comp_end]:
+                        raw_value, raw_label = line.split('!')
+                        for pid in SC['components'][comp_type]:
+                            label = SC['components'][comp_type][pid].get(
+                                                                    'label')
+                            datatype = SC['components'][comp_type][pid].get(
+                                                                    'datatype')
+                            if label in raw_label:
+                                if datatype == 'array':
+                                    values = raw_value.split()
+                                    postypes = SC['components'][comp_type][
+                                                        pid].get('postypes')
+                                    for k, v in enumerate(values):
+                                        postype = postypes[k] 
+                                        dtype = datatypes.get(postype) or str
+                                        values[k] = dtype(v)
+                                    this_component[pid] = values
+                                    self.log(f'    {pid} = {values}')
+                                else:
+                                    dtype = datatypes.get(datatype) or str
+                                    value = raw_value.rstrip().lstrip()
+                                    this_component[pid] = dtype(value)
+                                    if datatype == 'str':
+                                        self.log(f'    {pid} = "{value}"')
+                                    else:
+                                        self.log(f'    {pid} = {value}')
+                    self.data['components'][comp_type].append(this_component)
+            self.update_form_from_data()
         else:
             self.log('* could not find any data in file.')
-        self.update_form_from_data()
 
-    def cancel(self):
-        self.log('* cancelling 42 data ...')
+    def write_file(self):
+        """
+        Write model data to a standard 42 Spacecraft Description (SC) File.
+        """
+        self.log('* preparing to write model data to 42 SC file ...')
+        self.log('* 42 data:')
+        self.log(str(self.data))
+        dtstr = date2str(dtstamp())
+        if not state.get('last_42_path'):
+            state['last_42_path'] = self.home
+        file_path = os.path.join(state['last_42_path'],
+                                 'SC42-' + dtstr + '.txt')
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write model data to 42 SC File',
+                                    file_path,
+                                    "Text Files (*.txt)")
+        if fpath:
+            self.log(f'  - file selected: "{fpath}"')
+            state['last_42_path'] = os.path.dirname(fpath)
+            output = ''
+            for section, props in SC_File.items():
+                if section not in component_types:
+                    output += props['header'] + '\n'
+                    for pid, parm_props in SC[section].items():
+                        label = parm_props.get('label')
+                        if parm_props['datatype'] == 'array':
+                            # create a string of '  '-delimited values
+                            vals = [str(v) for v in self.data[section][pid]]
+                            val = '  '.join(vals)
+                        else:
+                            val = str(self.data[section][pid])
+                        val_part = '{:<30}'.format(val)
+                        output += val_part + '! ' + label + '\n'
+                else:
+                    self.log(f'* doing {section} ...')
+                    output += props['header'] + '\n'
+                    if section != 'joint':
+                        n_label = SC_File[section]['number_of']['label']
+                        number_of = len(self.data['components'][section])
+                        n_str = '{:<30}'.format(number_of)
+                        output += n_str + '! ' + n_label + '\n'
+                    for i, comp in enumerate(self.data['components'][section]):
+                        comp_h = get_component_headers(section, i)
+                        output += comp_h.get('header') + '\n'
+                        for pid, pprops in SC['components'][section].items():
+                            label = pprops.get('label')
+                            if pprops['datatype'] == 'array':
+                                # create a string of '  '-delimited values
+                                pval = comp[pid]
+                                vals = [str(v) for v in pval]
+                                val = '  '.join(vals)
+                            else:
+                                val = comp[pid]
+                            val_part = '{:<30}'.format(val)
+                            output += val_part + '! ' + label + '\n'
+            with open(fpath, 'w') as f:
+                f.write(output)
 
 
 class ComponentDialog(QDialog):
@@ -1279,19 +1349,17 @@ class ComponentDialog(QDialog):
         for pid in self.widgets:
             if self.data['components'][self.comp_type][idx]:
                 if pid in self.data['components'][self.comp_type][idx]:
-                    self.log(f'  updating "{pid}"')
+                    # self.log(f'  updating "{pid}"')
                     widget = self.widgets[pid]
                     if isinstance(widget, list):
                         # array-valued parameter
                         for i, w in enumerate(widget):
-                            w.set_value(self.data['components'][self.comp_type][
-                                                                   idx][pid][i])
+                            w.set_value(self.data['components'][
+                                        self.comp_type][idx][pid][i])
                     elif hasattr(widget, 'set_value'):
-                        widget.set_value(self.data['components'][self.comp_type][
-                                                                       idx][pid])
-                    else:
-                        # combo box -- figure something out ...
-                        pass
+                        # set_value() works for all fields, including ParmCombo
+                        widget.set_value(self.data['components'][
+                                         self.comp_type][idx][pid])
 
 
 class MenuButton(QPushButton):
@@ -1358,31 +1426,37 @@ class SC42Window(QMainWindow):
         return action
 
     def _create_actions(self):
-        self.import_model_action = self.create_action(
-                                    "Import a saved model...",
+        self.load_model_action = self.create_action(
+                                    "Load a saved model...",
                                     slot=self.forms.load)
         self.import_file_action = self.create_action(
-                                    "Import model from a file...",
+                                    "Import a model from a 42 SC file...",
                                     slot=self.forms.import_file)
+        self.save_model_action = self.create_action(
+                                    "Save model...",
+                                    slot=self.forms.save)
+        self.write_file_action = self.create_action(
+                                    "Write model to a 42 SC file...",
+                                    slot=self.forms.write_file)
 
     def init_toolbar(self):
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextOnly)
-        import_actions = [self.import_model_action,
+        import_actions = [self.load_model_action,
                           self.import_file_action]
         import_button = MenuButton('Imports',
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)
         self.toolbar.addWidget(import_button)
+        export_actions = [self.save_model_action,
+                          self.write_file_action]
+        export_button = MenuButton('Exports',
+                                   tooltip='Export Data or Objects',
+                                   actions=export_actions, parent=self)
+        self.toolbar.addWidget(export_button)
 
     def sizeHint(self):
         return QSize(self.w, self.h)
-
-
-def output():
-    f = open('/home/waterbug/SC42.yaml', 'w')
-    f.write(yaml.safe_dump(SC_File, default_flow_style=False))
-    f.close()
 
 
 if __name__ == '__main__':
