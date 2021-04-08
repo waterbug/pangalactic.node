@@ -612,42 +612,36 @@ def get_component_headers(component_type, n):
         return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'thruster':
-        full_name = "Thruster"
         name = "Thr"
         s1 = "==============================  "
         s2 = "  ================================="
         return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'gyro':
-        full_name = "Gyro Axis"
         name = "Axis"
         s1 = "============================== "
         s2 = " ==================================="
         return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'magnetometer':
-        full_name = "Magnetometer Axis"
         name = "Axis"
         s1 = "============================== "
         s2 = " ==================================="
         return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'css':
-        full_name = "Coarse Sun Sensor"
         name = "CSS"
         s1 = "============================== "
         s2 = " ===================================="
         return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'fss':
-        full_name = "Fine Sun Sensor"
         name = "FSS"
         s1 = "=============================== "
         s2 = " ==================================="
         return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'st':
-        full_name = "Star Tracker"
         name = "ST"
         s1 = "=============================== "
         s2 = " ===================================="
@@ -660,7 +654,6 @@ def get_component_headers(component_type, n):
         return dict(label=f"{name} {n}",
                     header=f"{s1}{name} {n}{s2}")
     elif component_type == 'accelerometer':
-        full_name = "Accelerometer"
         name = "Axis"
         s1 = "============================== "
         s2 = " ==================================="
@@ -1086,12 +1079,11 @@ class SC_Form(QWidget):
                 if '!' in line:
                     raw_value, raw_label = line.split('!')
                     parsed_data[raw_label] = raw_value.rstrip().lstrip()
-            # look for exact "label", regardless of where it is occurs in the
-            # file ...
+            # look for exact "label"
             sections = [s for s in SC.keys() if s != 'components']
             for section in sections:
                 self.log(f'  - finding parameters of section "{section}" ...')
-                for i, pid in enumerate(SC[section]):
+                for pid in SC[section]:
                     label = SC[section][pid].get('label')
                     datatype = SC[section][pid].get('datatype')
                     for raw_label, raw_value in parsed_data.items():
@@ -1113,7 +1105,9 @@ class SC_Form(QWidget):
                                     self.log(f'    {pid} = "{value}"')
                                 else:
                                     self.log(f'    {pid} = {value}')
-            # n_comps = {}   # seems to be unnecessary
+            # locations maps comp_type to location of its section label in the
+            # file, for use in scanning for instances of the component type
+            locations = {}
             for comp_type in component_types:
                 self.log(f'  - searching for component "{comp_type}" ...')
                 n = 0
@@ -1124,25 +1118,37 @@ class SC_Form(QWidget):
                     # set the number of joints also
                     parm_props = SC_File[comp_type].get('number_of')
                     n_of_label = parm_props.get('label')
-                    for raw_label, raw_value in parsed_data.items():
-                        if n_of_label in raw_label:
+                    for i, line in enumerate(raw_data):
+                    # for raw_label, raw_value in parsed_data.items():
+                        if n_of_label in line and '!' in line:
+                            raw_value, raw_label = line.split('!')
                             n = int(raw_value.rstrip().lstrip())
                             # n_comps[comp_type] = n
                             self.log(f'    number of {comp_type}(s) = {n}')
+                            locations[comp_type] = i
+                            break
+                # begin scanning for instances at the location where the
+                # component type section begins ...
+                begin = locations.get(comp_type) or 0
                 for j in range(n):
                     # NOTE: if n > 1, initial parse of raw data is invalid for
-                    # this component type, since it will only contain the
+                    # this component type because it will only contain the
                     # parameters of the last component of that type!
                     # So: iterate over the raw_data again, looking for the
                     # sections for each component of this type ... and now we
                     # have to note the position of each section in the data ...
+                    # NOTE: in 42, the component "instance" sections for gyro,
+                    # magnetometer, and accelerometer are all called "Axis n",
+                    # so begin scanning for that label at the position of that
+                    # component type section and break as soon as it is found.
                     this_component = {}
                     comp_headers = get_component_headers(comp_type, j)
                     comp_label = comp_headers.get('label')
-                    for m, line in enumerate(raw_data):
+                    for m, line in enumerate(raw_data[begin:]):
                         if comp_label in line:
                             self.log(f'    "{comp_label}" is at line {m}')
-                            comp_start = m + 1
+                            comp_start = begin + m + 1
+                            break
                     # parse the "component j" section ...
                     comp_end = comp_start + len(SC['components'][comp_type])
                     for line in raw_data[comp_start : comp_end]:
@@ -1158,7 +1164,7 @@ class SC_Form(QWidget):
                                     postypes = SC['components'][comp_type][
                                                         pid].get('postypes')
                                     for k, v in enumerate(values):
-                                        postype = postypes[k] 
+                                        postype = postypes[k]
                                         dtype = datatypes.get(postype) or str
                                         values[k] = dtype(v)
                                     this_component[pid] = values
