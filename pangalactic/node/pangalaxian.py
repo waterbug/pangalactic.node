@@ -445,7 +445,7 @@ class Main(QtWidgets.QMainWindow):
                 if state.get('connected'):
                     orb.log.info('  connected.')
                     return
-                elif n < 100000:
+                elif n < 300000:
                     n += 1
                     QtWidgets.QApplication.processEvents()
                     continue
