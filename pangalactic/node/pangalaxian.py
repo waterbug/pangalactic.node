@@ -523,12 +523,12 @@ class Main(QtWidgets.QMainWindow):
                             "Connection Lost", message,
                             QtWidgets.QMessageBox.Ok, self)
                 popup.show()
-        rpc.addTimeout(1, self.reactor, onTimeoutCancel=self.on_rpc_timeout)
+        rpc.addTimeout(3, self.reactor, onTimeoutCancel=self.on_rpc_timeout)
         rpc.addCallback(self.on_rpc_get_user_roles_result)
         rpc.addErrback(self.on_rpc_get_user_roles_failure)
 
     def on_rpc_timeout(self, result, timeout):
-        orb.log.debug('* rpc timed out after {timeout} seconds')
+        orb.log.debug(f'* rpc timed out after {timeout} seconds')
         html = '<h3>The Repository Service is not responding</h3>'
         html += '<p><b><font color="red">Contact the Administrator '
         html += 'for status.</font></b></p>'
