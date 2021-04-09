@@ -137,7 +137,7 @@ class ParmCombo(QComboBox):
 component_types = ['body', 'joint', 'wheel', 'mtb', 'thruster', 'gyro',
                    'magnetometer', 'css', 'fss', 'st', 'gps', 'accelerometer']
 
-datatypes = {'str': str, 'float': float, 'int': int, 'bool': bool}
+datatypes = {'str': str, 'float': float, 'int': int, 'bool': str}
 
 
 SC = dict(
@@ -435,6 +435,10 @@ SC = dict(
     )
 
 
+n_bodies_selections = [str(n) for n in range(17)]
+n_thrusters_selections = [str(n) for n in range(17)]
+
+
 SC_File = dict(
   metadata=dict(
     name="Spacecraft",
@@ -465,8 +469,7 @@ SC_File = dict(
 ************************************************************************"""),
     number_of=dict(label="Number of Bodies", test=1,
                    datatype='int',
-                   selections=["0", "1", "2", "3", "4", "5", "6", "7",
-                               "8", "9"],
+                   selections=n_bodies_selections,
                    default="1")
     ),
   joint=dict(
@@ -507,8 +510,7 @@ SC_File = dict(
 "************************* Thruster Parameters **************************"),
     number_of=dict(label="Number of Thrusters", test=1,
                    datatype='int',
-                   selections=["0", "1", "2", "3", "4", "5", "6", "7",
-                               "8", "9"])
+                   selections=n_thrusters_selections)
     ),
   gyro=dict(
     name="Gyro",
@@ -840,8 +842,9 @@ class SC_Form(QWidget):
         for comp_type in component_types:
             comp_objs = self.data['components'].get(comp_type)
             combo_box = self.widgets[comp_type].get('number_of')
-            if comp_objs and combo_box:
+            if combo_box:
                 n = len(comp_objs)
+                self.log(f'* setting number of {comp_type} to {n} ...')
                 combo_box.setCurrentText(str(n))
         for section in sections:
             for pid in self.widgets[section]:
@@ -1041,6 +1044,10 @@ class SC_Form(QWidget):
         Import data from a standard 42 Spacecraft Description (SC) File.
         """
         self.log('* importing data from 42 SC file ...')
+        # re-initialize internal data structure
+        self.data = None
+        self.data = gen_sc_data_structure()
+        self.update_form_from_data()
         raw_data = None
         message = ''
         if not state.get('last_42_path'):
@@ -1108,14 +1115,18 @@ class SC_Form(QWidget):
             # locations maps comp_type to location of its section label in the
             # file, for use in scanning for instances of the component type
             locations = {}
+            number_of_joints = 0
             for comp_type in component_types:
                 self.log(f'  - searching for component "{comp_type}" ...')
                 n = 0
-                if comp_type != 'joint':
+                if comp_type == 'joint':
                     # joint is the only one without a "number of" specified,
                     # since it is 1 less than the number of bodies, and when
                     # the number of bodies is updated in the form, that will
                     # set the number of joints also
+                    if number_of_joints:   # set from number of bodies
+                        n = number_of_joints
+                else:
                     parm_props = SC_File[comp_type].get('number_of')
                     n_of_label = parm_props.get('label')
                     for i, line in enumerate(raw_data):
@@ -1126,6 +1137,8 @@ class SC_Form(QWidget):
                             # n_comps[comp_type] = n
                             self.log(f'    number of {comp_type}(s) = {n}')
                             locations[comp_type] = i
+                            if comp_type == 'body' and n > 1:
+                                number_of_joints = n - 1
                             break
                 # begin scanning for instances at the location where the
                 # component type section begins ...
