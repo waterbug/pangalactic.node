@@ -28,6 +28,7 @@ class FloatParmWidget(FloatFieldWidget):
 
     Keyword Args:
         parent (QWidget): parent widget
+        parm_type (str): datatype of the parameter
         value (str): initial value of the field
         section (str): name of the section in the SC data structure
         pid (str): parameter identifier
@@ -49,6 +50,7 @@ class IntParmWidget(IntegerFieldWidget):
 
     Keyword Args:
         parent (QWidget): parent widget
+        parm_type (str): datatype of the parameter
         value (str): initial value of the field
         section (str): name of the section in the SC data structure
         pid (str): parameter identifier
@@ -70,24 +72,32 @@ class StrParmWidget(StringFieldWidget):
         parent (QWidget): parent widget
         value (str): initial value of the field
         section (str): name of the section in the SC data structure
-        parm_type (str): datatype; if None, plain string is assumed; if "float"
-            or "int", the appropriate "validator" (mask) will be set so that
-            only values coercible to that type can be entered
         pid (str): parameter identifier
         i (int): for array-valued parameters, position of this field's value in
             the array
     """
     def __init__(self, parent=None, value=None, section=None, pid='', i=0,
-                 parm_type=None, width=None):
-        if parm_type in ['float', 'int', 'bool']:
-            width = 60
-        elif parm_type == 'str':
-            width = 200
-        super().__init__(parent=parent, value=value, parm_type=parm_type,
+                 width=None):
+        width = 200
+        super().__init__(parent=parent, value=value, parm_type='str',
                          width=width)
         self.section = section
         self.pid = pid
         self.i = i
+
+
+def get_widget_class(dtype):
+    """
+    Return the appropriate parameter field for specified datatype.
+
+    Args:
+        dtype (str): datatype; if None, 'str' is assumed
+    """
+    if dtype == 'float':
+        return FloatParmWidget
+    elif dtype == 'int':
+        return IntParmWidget
+    return StrParmWidget
 
 
 class ParmCombo(QComboBox):
@@ -726,9 +736,9 @@ class SC_Form(QWidget):
                         self.widgets[section][pid] = widgets
                         for i in range(len(parm_props['postypes'])):
                             postype = parm_props['postypes'][i]
-                            w = StrParmWidget(section=section, pid=pid, i=i,
-                                              parm_type=postype,
-                                              parent=self)
+                            w_class = get_widget_class(postype)
+                            w = w_class(section=section, pid=pid, i=i,
+                                        parent=self)
                             w.textEdited.connect(self.update_data)
                             widgets.append(w)
                             hbox.addWidget(w)
@@ -745,17 +755,10 @@ class SC_Form(QWidget):
                             # set initial default value
                             self.data[section][pid] = widget.get_value()
                         else:
-                            if parm_props.get('datatype') == 'float':
-                                widget = FloatParmWidget(section=section,
-                                                         pid=pid, parent=self)
-                            elif parm_props.get('datatype') == 'int':
-                                widget = IntParmWidget(section=section,
-                                                       pid=pid, parent=self)
-                            elif parm_props.get('datatype') == 'str':
-                                widget = StrParmWidget(section=section,
-                                                       parm_type='str',
-                                                       pid=pid,
-                                                       parent=self)
+                            dtype = parm_props.get('datatype')
+                            w_class = get_widget_class(dtype)
+                            widget = w_class(section=section,
+                                             pid=pid, parent=self)
                             widget.textEdited.connect(self.update_data)
                         self.widgets[section][pid] = widget
                         self.form.addRow(parm_label, widget)
@@ -1302,9 +1305,9 @@ class ComponentDialog(QDialog):
                 self.widgets[pid] = widgets
                 for i in range(len(parm_props['postypes'])):
                     postype = parm_props['postypes'][i]
-                    w = StrParmWidget(section=component_type, pid=pid, i=i,
-                                      parm_type=postype,
-                                      parent=self)
+                    w_class = get_widget_class(postype)
+                    w = w_class(section=component_type, pid=pid, i=i,
+                                parent=self)
                     w.textEdited.connect(self.update_data)
                     widgets.append(w)
                     hbox.addWidget(w)
@@ -1320,9 +1323,9 @@ class ComponentDialog(QDialog):
                     self.data['components'][
                                     component_type][pid] = widget.get_value()
                 else:
-                    widget = StrParmWidget(section=component_type, pid=pid,
-                                           parm_type=parm_props['datatype'],
-                                           parent=self)
+                    w_class = get_widget_class(parm_props['datatype'])
+                    widget = w_class(section=component_type, pid=pid,
+                                     parent=self)
                     widget.textEdited.connect(self.update_data)
                 self.widgets[pid] = widget
                 form.addRow(parm_label, widget)

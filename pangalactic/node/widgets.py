@@ -248,7 +248,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
                nullable=True, maxlen=50, obj_pk='', external_name='',
                related_cname=None, placeholder=None, choices=None,
                tooltip=None, parm_field=False, parm_type='float',
-               de_field=False, de_type='float'):
+               de_field=False, de_type='str'):
     """
     Get the appropriate widget for a specified field_type -- main use is for
     `PgxnObject`.
@@ -398,51 +398,39 @@ class StringFieldWidget(QLineEdit):
     to represent strings that can serve as programmatic names/tokens, i.e. not
     unicode).
     """
-    def __init__(self, parent=None, value=None, maxlen=None, width=None,
-                 parm_field=None, parm_type=None, **kw):
+    def __init__(self, parent=None, value=None, maxlen=None, width=None, **kw):
         super().__init__(parent=parent)
         self.setSizePolicy(QSizePolicy(
                            QSizePolicy.Fixed, QSizePolicy.Fixed))
-        self.parm_field = parm_field
-        self.parm_type = parm_type
+        self.parm_field = kw.get('parm_field')
+        self.parm_type = kw.get('parm_type')
         self.width = width
         if maxlen is not None:
             self.setMaxLength(maxlen)
         self.maxlen = maxlen
         if kw.get('placeholder'):
             self.setPlaceholderText(kw['placeholder'])
-        if self.parm_type == 'float':
-            self.setValidator(QDoubleValidator(self))
-        elif self.parm_type == 'int':
+        if self.parm_field and self.parm_type == 'int':
             self.setValidator(QIntValidator(self))
+        elif self.parm_field and self.parm_type == 'float':
+            self.setValidator(QDoubleValidator(self))
         self.set_value(value)
 
     def set_value(self, value):
-        if value is None:
-            self.setText('')
+        if value is not None:
+            self.setText(value)
         else:
-            self.setText(str(value))
+            self.setText('')
 
     def get_value(self):
-        if self.parm_type == 'float':
-            try:
-                return float(self.text())
-            except:
-                # invalid
-                return 0
-        elif self.parm_type == 'int':
-            try:
-                return int(self.text())
-            except:
-                # invalid
-                return 0
-        return self.text()
+        # NOTE: in py 3, asciify returns a "transliterated" string (unicode)
+        return asciify(str(self.text()))
 
     def sizeHint(self):
         # TODO:  adjust this size in proportion to 'maxlen'
         if self.parm_field:
             if self.parm_type in ['int', 'float']:
-                return QSize(60, 25)
+                return QSize(100, 25)
         elif self.width:
             return QSize(self.width, 25)
         return QSize(250, 25)
@@ -525,7 +513,7 @@ class IntegerFieldWidget(QLineEdit):
         return int((self.text() or '0').replace(',', ''))
 
     def sizeHint(self):
-        return QSize(60, 25)
+        return QSize(100, 25)
 
 
 class FloatFieldWidget(QLineEdit):
@@ -554,7 +542,7 @@ class FloatFieldWidget(QLineEdit):
         return float(self.text() or 0.0)
 
     def sizeHint(self):
-        return QSize(60, 25)
+        return QSize(100, 25)
 
 
 class DateFieldWidget(QDateEdit):
