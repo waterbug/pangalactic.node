@@ -1042,6 +1042,9 @@ class SC_Form(QWidget):
         # TODO:  need a "clear" function to clear previous data ...
         self.update_form_from_data()
 
+    # BROKEN:  must be reorganized to use the section "marker" lines to
+    # identify sections and then to identify parameters by their position (line
+    # sequence) within the section ...
     def import_file(self):
         """
         Import data from a standard 42 Spacecraft Description (SC) File.
@@ -1219,10 +1222,12 @@ class SC_Form(QWidget):
             state['last_42_path'] = os.path.dirname(fpath)
             output = ''
             for section, props in SC_File.items():
+                self.log(f'* writing section "{section}" ...')
                 if section not in component_types:
                     output += props['header'] + '\n'
                     for pid, parm_props in SC[section].items():
                         label = parm_props.get('label')
+                        self.log(f'  parameter "{pid}" ("{label}")')
                         if parm_props['datatype'] == 'array':
                             # create a string of '  '-delimited values
                             vals = [str(v) for v in self.data[section][pid]]
@@ -1232,7 +1237,6 @@ class SC_Form(QWidget):
                         val_part = '{:<30}'.format(val)
                         output += val_part + '! ' + label + '\n'
                 else:
-                    self.log(f'* doing {section} ...')
                     output += props['header'] + '\n'
                     if section != 'joint':
                         n_label = SC_File[section]['number_of']['label']
@@ -1244,6 +1248,7 @@ class SC_Form(QWidget):
                         output += comp_h.get('header') + '\n'
                         for pid, pprops in SC['components'][section].items():
                             label = pprops.get('label')
+                            self.log(f'  parameter "{pid}" ("{label}")')
                             if pprops['datatype'] == 'array':
                                 # create a string of '  '-delimited values
                                 pval = comp[pid]
