@@ -15,7 +15,6 @@ from pangalactic.core            import state
 from pangalactic.core.meta       import TEXT_PROPERTIES, SELECTABLE_VALUES
 ### uncomment orb if debug logging is needed ...
 from pangalactic.core.uberorb    import orb
-from pangalactic.core.utils.meta import asciify
 from pangalactic.node.buttons    import FkButton, UrlButton
 from pangalactic.node.utils      import make_de_html, make_parm_html
 
@@ -423,14 +422,21 @@ class StringFieldWidget(QLineEdit):
         self.set_value(value)
 
     def set_value(self, value):
+        """
+        Args:
+            value (str):  value of the field
+        """
         if value is not None:
             self.setText(value)
         else:
             self.setText('')
 
     def get_value(self):
-        # NOTE: in py 3, asciify returns a "transliterated" string (unicode)
-        return asciify(str(self.text()))
+        """
+        Returns:
+            value (str):  value of the field, cast to string
+        """
+        return str(self.text())
 
     def sizeHint(self):
         # TODO:  adjust this size in proportion to 'maxlen'
@@ -460,7 +466,7 @@ class StringSelectWidget(QComboBox):
             self.setCurrentIndex(self.valid_values.index(value))
 
     def get_value(self):
-        return asciify(str(self.valid_values[self.currentIndex()]))
+        return str(self.valid_values[self.currentIndex()])
 
 
 class UnicodeFieldWidget(QLineEdit):
