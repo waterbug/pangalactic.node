@@ -397,6 +397,12 @@ class StringFieldWidget(QLineEdit):
     Widget for `String` field (maps to `token` datatype in ontology -- intended
     to represent strings that can serve as programmatic names/tokens, i.e. not
     unicode).
+
+    Keyword Args:
+        parent (QWidget):  parent widget
+        value (str):  value of the field
+        maxlen (int):  length of the field in characters
+        width (int):  width of the field in pixels
     """
     def __init__(self, parent=None, value=None, maxlen=None, width=None, **kw):
         super().__init__(parent=parent)
@@ -459,7 +465,8 @@ class StringSelectWidget(QComboBox):
 
 class UnicodeFieldWidget(QLineEdit):
     """
-    Widget for `Unicode` field.
+    Widget for `Unicode` field.  (Not needed -- python 3 strings are unicode --
+    but retained for legacy; may be removed in the future.)
     """
     def __init__(self, parent=None, value=None, maxlen=None, **kw):
         super().__init__(parent=parent)
@@ -492,6 +499,12 @@ class IntegerFieldWidget(QLineEdit):
     and `SmallIntegerField`.
     """
     def __init__(self, parent=None, value=None, **kw):
+        """
+        Keyword Args:
+            parent (QWidget):  parent widget
+            value (str):  value of the field (can be an int, in which case it
+                will be converted to str)
+        """
         super().__init__(parent=parent)
         if kw.get('placeholder'):
             self.setPlaceholderText(kw['placeholder'])
@@ -499,18 +512,23 @@ class IntegerFieldWidget(QLineEdit):
         self.setValidator(QIntValidator(self))
 
     def set_value(self, value):
+        """
+        Args:
+            value (str):  value of the field (can be an int, in which case it
+                will be converted to str)
+        """
         if value is not None:
-            try:
-                self.setText(str(int(value)))
-            except:
-                # if value cannot be cast to int, set to null string
-                self.setText('')
+            self.setText(str(value))
         else:
             self.setText('')
 
     def get_value(self):
+        """
+        Returns:
+            value (str):  value of the field (int) as a string
+        """
         # in case we get commas, remove them before cast
-        return int((self.text() or '0').replace(',', ''))
+        return (self.text() or '0').replace(',', '')
 
     def sizeHint(self):
         return QSize(100, 25)
@@ -521,6 +539,12 @@ class FloatFieldWidget(QLineEdit):
     Widget for `FloatField`.
     """
     def __init__(self, parent=None, value=None, **kw):
+        """
+        Keyword Args:
+            parent (QWidget):  parent widget
+            value (str):  value of the field (can be a float) -- must be
+                castable to a float or it will be ignored
+        """
         super().__init__(parent=parent)
         if kw.get('placeholder'):
             self.setPlaceholderText(kw['placeholder'])
@@ -528,6 +552,11 @@ class FloatFieldWidget(QLineEdit):
         self.setValidator(QDoubleValidator(self))
 
     def set_value(self, value):
+        """
+        Args:
+            value (str):  value of the field (can be an int, in which case it
+                will be converted to str)
+        """
         if value is not None:
             # TODO:  might need to set significant digits, etc.
             try:
@@ -539,7 +568,11 @@ class FloatFieldWidget(QLineEdit):
             self.setText('')
 
     def get_value(self):
-        return float(self.text() or 0.0)
+        """
+        Returns:
+            value (str):  value of the field (float) as a string
+        """
+        return self.text() or '0.0'
 
     def sizeHint(self):
         return QSize(100, 25)
