@@ -237,7 +237,10 @@ class ReqParmDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
 
     def on_save(self):
-        setattr(self.req, self.parm, self.parm_field.get_value())
+        # NOTE: float() cast is needed because (for now)
+        # FloatFieldWidget.get_value() returns a string (guaranteed to be
+        # castable to a float, at least ;)
+        setattr(self.req, self.parm, float(self.parm_field.get_value()))
         # re-generate requirement 'description'
         self.req.description = ' '.join([str(self.req.req_subject),
                                          str(self.req.req_predicate),
@@ -269,7 +272,7 @@ class AssemblyNodeDialog(QDialog):
         if not system:
             quantity_label = QLabel('Quantity', self)
             self.quantity_field = IntegerFieldWidget(parent=self,
-                                                   value=self.quantity)
+                                                     value=self.quantity)
             form.addRow(quantity_label, self.quantity_field)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
@@ -282,7 +285,7 @@ class AssemblyNodeDialog(QDialog):
     def on_save(self):
         self.ref_des = self.ref_des_field.get_value()
         if hasattr(self, 'quantity_field'):
-            self.quantity = self.quantity_field.get_value()
+            self.quantity = int(self.quantity_field.get_value())
         self.accept()
 
 

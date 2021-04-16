@@ -1840,11 +1840,10 @@ class Main(QtWidgets.QMainWindow):
                                 modes=['system', 'component', 'data', 'db'])
         # actions accessible via the 'Import Data or Objects' toolbar menu:
         # * import_excel_data_action
-        # * import_objects (import project or other serialized objs)
-        # * load_test_objects
         self.import_excel_data_action = self.create_action(
                                     "Import Data from Excel...",
                                     slot=self.import_excel_data)
+        # * import_objects (import project or other serialized objs)
         self.import_objects_action = self.create_action(
                                     "Import Objects from a File...",
                                     slot=self.import_objects,
@@ -1855,6 +1854,7 @@ class Main(QtWidgets.QMainWindow):
                             slot=self.import_reqts_from_file,
                             tip="Import Project Requirements from a File...",
                             modes=['system'])
+        # * load_test_objects
         # Load Test Objects needs more work -- make it local, or at least
         # non-polluting somehow ...
         self.load_test_objects_action = self.create_action(
@@ -2203,17 +2203,20 @@ class Main(QtWidgets.QMainWindow):
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         import_icon_path = os.path.join(icon_dir, import_icon_file)
         import_actions = [
-                          self.import_excel_data_action,
+                          # Import Excel deactivated for now ...
+                          # self.import_excel_data_action,
                           self.import_objects_action,
                           self.import_reqts_from_file_action
                           # Load Test Objects is currently flaky unless ONLY
                           # operating in standalone mode ...
                           # self.load_test_objects_action,
+                          # "Exit" is really superfluous -- use window
+                          # manager's "close" on the window
                           # self.exit_action
                           ]
         # Import Excel deactivated until mapping is implemented, and/or support
         # for "data sets" is revised (hdf5 was breaking) ...
-        self.import_excel_data_action.setEnabled(True)
+        # self.import_excel_data_action.setEnabled(True)
         import_button = MenuButton(QtGui.QIcon(import_icon_path),
                                    text='Input',
                                    tooltip='Import Data or Objects',
