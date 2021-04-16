@@ -119,6 +119,7 @@ class ObjectTableView(QTableView):
         column_header.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def main_table_row_double_clicked(self, clicked_index):
+        # orb.log.debug('* ObjectTableView: main_table_row_double_clicked()')
         # NOTE: maybe not the most elegant way to do this ... look again later
         mapped_row = self.main_table_proxy.mapToSource(clicked_index).row()
         orb.log.debug(

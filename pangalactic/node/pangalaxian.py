@@ -3774,13 +3774,15 @@ class Main(QtWidgets.QMainWindow):
         # orb.log.debug('  - mode: "{}"'.format(self.mode))
         # orb.log.debug('  - selected index: "%i"' % idx)
         # try:
+        cur_cname = state.get('current_cname')
         if idx == -1:
             cname = state.get('current_cname', 'HardwareProduct')
         else:
             cname = self.cnames[idx]
-        state['current_cname'] = str(cname)
-        orb.log.debug('  - class: "%s"' % cname)
-        self.set_object_table_for(cname)
+        if not cname == cur_cname:
+            state['current_cname'] = str(cname)
+            orb.log.debug('  - class: "%s"' % cname)
+            self.set_object_table_for(cname)
 
     def set_object_table_for(self, cname):
         orb.log.debug('* setting object table for {}'.format(cname))
