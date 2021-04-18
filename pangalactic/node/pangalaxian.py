@@ -217,10 +217,10 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_local_mel_modified, 'mel modified')
-        dispatcher.connect(self.on_pval_set, 'pval set')
-        dispatcher.connect(self.on_dval_set, 'dval set')
-        dispatcher.connect(self.on_remote_pval_set, 'remote pval set')
-        dispatcher.connect(self.on_remote_dval_set, 'remote dval set')
+        # dispatcher.connect(self.on_pval_set, 'pval set')
+        # dispatcher.connect(self.on_dval_set, 'dval set')
+        # dispatcher.connect(self.on_remote_pval_set, 'remote pval set')
+        # dispatcher.connect(self.on_remote_dval_set, 'remote dval set')
         dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
@@ -1347,10 +1347,10 @@ class Main(QtWidgets.QMainWindow):
             elif subject == 'deleted':
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: deleted", content=content)
-            elif subject == 'parameter set':
-                dispatcher.send(signal="remote pval set", content=content)
-            elif subject == 'data element set':
-                dispatcher.send(signal="remote dval set", content=content)
+            # elif subject == 'parameter set':
+                # dispatcher.send(signal="remote pval set", content=content)
+            # elif subject == 'data element set':
+                # dispatcher.send(signal="remote dval set", content=content)
 
     def on_remote_new_or_decloaked_signal(self, content=None):
         """
@@ -2646,9 +2646,11 @@ class Main(QtWidgets.QMainWindow):
         if not objs:
             orb.log.debug('  (all objs received were already in the local db')
             orb.log.debug('   so deserialize() returned nothing)')
+        mod_oids = []
         for n, obj in enumerate(objs):
             # same as for local 'modified object' but without the remote
             # calls ...
+            mod_oids.append(obj.oid)
             cname = obj.__class__.__name__
             orb.log.debug('  received:')
             orb.log.debug('  ({}) [{}] "{}"'.format(n, cname, obj.id or 'no id'))
@@ -2705,6 +2707,10 @@ class Main(QtWidgets.QMainWindow):
                 self.set_object_table_for(cname)
         if refresh_diagram:
             dispatcher.send('refresh diagram')
+        if mod_oids:
+            orb.log.info('  - dispatching signal "update pgxno"')
+            orb.log.info(f'    with oids: {str(mod_oids)}')
+            dispatcher.send('update pgxno', mod_oids=mod_oids)
         self.update_project_role_labels()
 
     def on_new_object_signal(self, obj=None, cname=''):
@@ -2817,6 +2823,7 @@ class Main(QtWidgets.QMainWindow):
 
     def on_set_value_result(self, stuff):
         # orb.log.debug('  rpc result: {}'.format(stuff))
+        # NOTE:  this gets VERY verbose
         # TODO:  add more detailed status message ...
         pass
 
@@ -2830,41 +2837,38 @@ class Main(QtWidgets.QMainWindow):
             self.data_widget = DataGrid(self.project, name="MEL")
             self.setCentralWidget(self.data_widget)
 
-    def on_pval_set(self, oid=None, pid=None, value=None, units=None,
-                    local=True):
-        if local:
-            rpc = self.mbus.session.call('vger.set_parameter',
-                                 oid=oid, pid=pid, value=value,
-                                 units=units)
-            rpc.addCallback(self.on_set_value_result)
-            rpc.addErrback(self.on_failure)
+    # def on_pval_set(self, oid=None, pid=None, value=None, local=True):
+        # if local:
+            # rpc = self.mbus.session.call('vger.set_parameter',
+                                 # oid=oid, pid=pid, value=value,
+                                 # units=units)
+            # rpc.addCallback(self.on_set_value_result)
+            # rpc.addErrback(self.on_failure)
 
-    def on_dval_set(self, oid=None, deid=None, value=None, units=None,
-                    local=True):
-        if local:
-            rpc = self.mbus.session.call('vger.set_data_element',
-                                     oid=oid, deid=deid, value=value,
-                                     units=units)
-            rpc.addCallback(self.on_set_value_result)
-            rpc.addErrback(self.on_failure)
+    # def on_dval_set(self, oid=None, deid=None, value=None, local=True):
+        # if local:
+            # rpc = self.mbus.session.call('vger.set_data_element',
+                                     # oid=oid, deid=deid, value=value)
+            # rpc.addCallback(self.on_set_value_result)
+            # rpc.addErrback(self.on_failure)
 
-    def on_remote_pval_set(self, content=None):
-        """
-        Handle dispatcher signal for "remote pval set".
-        """
-        # orb.log.info('* received "remote pval set" signal')
-        if content is not None:
-            oid, pid, value, units = content
-            set_pval(oid, pid, value, units=units, local=False)
+    # def on_remote_pval_set(self, content=None):
+        # """
+        # Handle dispatcher signal for "remote pval set".
+        # """
+        # # orb.log.info('* received "remote pval set" signal')
+        # if content is not None:
+            # oid, pid, value, units = content
+            # set_pval(oid, pid, value, units=units, local=False)
 
-    def on_remote_dval_set(self, content=None):
-        """
-        Handle dispatcher signal for "remote dval set".
-        """
-        # orb.log.info('* received "remote dval set" signal')
-        if content is not None:
-            oid, deid, value, units = content
-            set_dval(oid, deid, value, units=units, local=False)
+    # def on_remote_dval_set(self, content=None):
+        # """
+        # Handle dispatcher signal for "remote dval set".
+        # """
+        # # orb.log.info('* received "remote dval set" signal')
+        # if content is not None:
+            # oid, deid, value, units = content
+            # set_dval(oid, deid, value, units=units, local=False)
 
     def on_entity_saved(self, e=None):
         """

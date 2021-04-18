@@ -41,7 +41,6 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import validate_all
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.dialogs     import (ObjectSelectionDialog,
-                                          ProgressDialog,
                                           ValidationDialog)
 from pangalactic.node.utils       import (clone, get_object_title,
                                           extract_mime_data)
@@ -861,8 +860,6 @@ class PgxnObject(QDialog):
         if not self.new and obj_idv in self.all_idvs:
             # if not a new object, remove its (id, version) from all_idvs
             self.all_idvs.remove(obj_idv)
-        self.progress_value = 0
-        dispatcher.connect(self.update_save_progress, 'obj parms cached')
         if not self.schema:
             # TODO:  more intelligent error handling
             orb.log.info('* [pgxo] oops, no schema found for "%s"!' %
@@ -874,242 +871,29 @@ class PgxnObject(QDialog):
                                                         self.obj, 'version',
                                                         '[not applicable]'))
         orb.log.info('* [pgxo] cname: "%s"' % self.cname)
-        self.setWindowTitle('Object Viewer / Editor')
-        # set min width so text fields don't get truncated
-        self.setMinimumWidth(500)
-        # self.setMinimumHeight(300)
-        self.vbox = QVBoxLayout()
-        self.title = QLabel()
-        self.title.setSizePolicy(QSizePolicy.Minimum,
-                                 QSizePolicy.Minimum)
-        self.vbox.addWidget(self.title)
         self.build_from_object()
-        self.main_panel = QWidget()
-        self.setLayout(self.vbox)
-        self.init_toolbar()
-        # self.setCentralWidget(self.main_panel)
-        self.vbox.addWidget(self.main_panel)
+        dispatcher.connect(self.on_update_pgxno, 'update pgxno')
+        # NOTE:  commented out because not doing anything ... :P
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
-        self.update()
-
-    def init_toolbar(self):
-        # self.toolbar = self.addToolBar('Tools')
-        self.toolbar = QToolBar('Tools')
-        class_label = SizedButton(self.cname, color='green')
-        self.toolbar.addWidget(class_label)
-        if isinstance(self.obj, orb.classes['Product']):
-            self.freeze_action = self.create_action('freeze',
-                                    slot=self.freeze, icon='freeze_16',
-                                    tip='Freeze this object',
-                                    modes=['edit', 'view'])
-            self.frozen_action = self.create_action('frozen',
-                                    slot=self.frozen, icon='frozen_16',
-                                    tip='This object is frozen',
-                                    modes=['edit', 'view'])
-            self.thaw_action = self.create_action('thaw',
-                                    slot=self.thaw, icon='thaw_16',
-                                    tip='Thaw this object',
-                                    modes=['edit', 'view'])
-            self.where_used_action = self.create_action('where used',
-                                    slot=self.show_where_used, icon='system',
-                                    tip='Show where this object is used ...',
-                                    modes=['edit', 'view'])
-            # only users who can modify an object can 'freeze' it
-            self.toolbar.addAction(self.freeze_action)
-            self.freeze_action.setVisible(False)
-            self.toolbar.addAction(self.frozen_action)
-            if self.obj.frozen:
-                orb.log.debug('            object is frozen.')
-                self.frozen_action.setVisible(True)
-            else:
-                orb.log.debug('            object is NOT frozen.')
-                self.frozen_action.setVisible(False)
-            # only those with edit perms can 'thaw' an object -- see below
-            self.toolbar.addAction(self.thaw_action)
-            self.thaw_action.setVisible(False)
-            self.toolbar.addAction(self.where_used_action)
-            perms = get_perms(self.obj)
-            # orb.log.debug('            user perms: {}'.format(str(perms)))
-            if 'modify' in perms:
-                if self.obj.frozen:
-                    self.freeze_action.setVisible(False)
-                    if is_global_admin(orb.get(state.get('local_user_oid'))):
-                        # only a global admin can "thaw"
-                        self.thaw_action.setVisible(True)
-                else:
-                    # orb.log.debug('            object is NOT frozen.')
-                    self.frozen_action.setVisible(False)
-                    self.freeze_action.setVisible(True)
-                # only users who can modify an object can create a new version
-                self.new_version_action = self.create_action('new version',
-                                    slot=self.on_new_version, icon='new_part',
-                                    tip='Create new version by cloning',
-                                    modes=['edit', 'view'])
-                self.toolbar.addAction(self.new_version_action)
-            self.clone_action = self.create_action('clone',
-                                    slot=self.on_clone, icon='clone_16',
-                                    tip='Clone this object',
-                                    modes=['edit', 'view'])
-            self.toolbar.addAction(self.clone_action)
-        # NOTE: viewer may be reactivated later ...
-        # self.viewer_action = self.create_action('viewer',
-                                # slot=self.open_viewer, icon='view_16',
-                                # tip='View models of this object',
-                                # modes=['edit', 'view'])
-        # self.toolbar.addAction(self.viewer_action)
-        self.vbox.insertWidget(0, self.toolbar)
-
-    def create_action(self, text, slot=None, icon=None, tip=None,
-                      checkable=False, modes=None):
-        action = QAction(text, self)
-        if icon is not None:
-            icon_file = icon + state.get('icon_type', '.png')
-            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-            icon_path = os.path.join(icon_dir, icon_file)
-            action.setIcon(QIcon(icon_path))
-        if tip is not None:
-            action.setToolTip(tip)
-            action.setStatusTip(tip)
-        if slot is not None:
-            action.triggered.connect(slot)
-        if checkable:
-            action.setCheckable(True)
-        if modes:
-            # modes in which action applies: 'view', 'edit'; default: 'view'
-            for mode in modes:
-                self.mode_widgets[mode].add(action)
-            else:
-                self.mode_widgets['view'].add(action)
-        return action
-
-    def freeze(self):
-        """
-        Freeze an object, making it read-only.  NOTE: this action should only
-        be accessible to users who have 'modify' permission on the object.
-        """
-        if (isinstance(self.obj, orb.classes['Product'])
-            and not self.obj.frozen):
-            self.freeze_action.setVisible(False)
-            self.frozen_action.setVisible(True)
-            self.obj.frozen = True
-            if is_global_admin(orb.get(state.get('local_user_oid'))):
-                # only a global admin can "thaw"
-                self.thaw_action.setVisible(True)
-            orb.save([self.obj])
-            self.build_from_object()
-
-    def frozen(self):
-        pass
-
-    def thaw(self):
-        """
-        Thaw a frozen object.  NOTE: this action should only be accessible to
-        global admins.
-        """
-        if (isinstance(self.obj, orb.classes['Product'])
-            and self.obj.frozen):
-            if getattr(self.obj, 'where_used', None):
-                txt = 'Thawing this Product may violate CM --\n'
-                txt += 'it is a component in the following assemblies:'
-                notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
-                                     QMessageBox.Ok, self)
-                assemblies = [acu.assembly for acu in self.obj.where_used]
-                text = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
-                           a.name, a.oid) for a in assemblies if a]))
-                notice.setInformativeText(text)
-                notice.show()
-            elif getattr(self.obj, 'projects_using_system', None):
-                txt = 'Thawing this Product may violate CM --\n'
-                txt += 'it is being used as a system in the following project(s):'
-                notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
-                                     QMessageBox.Ok, self)
-                p_ids = [psu.project.id for psu in self.obj.projects_using_system]
-                notice.setInformativeText('<p><ul>{}</ul></p>'.format('\n'.join(
-                                          ['<li><b>{}</b></li>'.format(p_id) for
-                                          p_id in p_ids])))
-                notice.show()
-            self.freeze_action.setVisible(True)
-            self.frozen_action.setVisible(False)
-            self.thaw_action.setVisible(False)
-            self.obj.frozen = False
-            orb.save([self.obj])
-            self.build_from_object()
-
-    def show_where_used(self):
-        if hasattr(self.obj, 'where_used'):
-            assemblies = set([acu.assembly for acu in self.obj.where_used])
-            if assemblies:
-                txt = 'This is a component in the following assemblies:'
-            else:
-                txt = 'This is not used in any assemblies.'
-            notice = QMessageBox(QMessageBox.Information, 'Where Used', txt,
-                                 QMessageBox.Ok, self)
-            if assemblies and len(assemblies) > 0:
-                info = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
-                           a.name, a.oid) for a in assemblies if a]))
-                notice.setInformativeText(info)
-            notice.show()
-
-    def on_clone(self):
-        """
-        Respond to 'clone' action by cloning the current object.
-        """
-        if isinstance(self.obj, orb.classes['Product']):
-            new_obj = clone(self.obj, id='new-id', derived_from=self.obj,
-                            version='1', version_sequence=1)
-        else:
-            new_obj = clone(self.obj, id='new-id')
-        orb.save([new_obj])
-        self.obj = new_obj
-        self.go_to_tab = 3
-        self.build_from_object()
-        self.on_edit()
-        # if in component mode, set state and refresh diagram
-        if state.get('mode') == 'component':
-            state['product'] = new_obj.oid
-            dispatcher.send('refresh diagram')
-
-    def on_new_version(self):
-        """
-        Respond to 'new version' action by cloning the current object using the
-        same 'id' and incremented version.  NOTE: only applicable to subclasses
-        of 'Product' -- "new version" menu option will not be displayed
-        otherwise.
-        """
-        if not isinstance(self.obj, orb.classes['Product']):
-            msg = '"{}" is not a Product -> not versionable.'.format(
-                                                            self.obj.id)
-            orb.log.debug('* [pgxo] on_new_version(): {}'.format(msg))
-            return
-        if not isinstance(self.obj.version_sequence, int):
-            self.obj.version_sequence = 1
-        ver_seq = self.obj.version_sequence + 1
-        new_obj = clone(self.obj, id=self.obj.id, derived_from=self.obj,
-                        version_sequence=ver_seq)
-        orb.save([new_obj])
-        self.obj = new_obj
-        self.go_to_tab = 3
-        self.build_from_object()
-        self.on_edit()
-
-    @property
-    def ded_disallowed_names(self):
-        """
-        List of lower-case versions of all "id" and "name" attributes of all
-        current ParameterDefinitions and DataElementDefinitions.
-        """
-        names = list(parm_defz) + list(de_defz)
-        names += [pd['name'] for pd in parm_defz.values()]
-        names += [ded['name'] for ded in de_defz.values()]
-        return [n.lower() for n in names]
 
     def build_from_object(self):
         """
         Build tabbed forms from the supplied object
         """
+        self.setWindowTitle('Object Viewer / Editor')
+        # set min width so text fields don't get truncated
+        self.setMinimumWidth(500)
+        # self.setMinimumHeight(300)
+        # destroy the existing stuff, if necessary ...
+        if not getattr(self, 'vbox', None):
+            self.vbox = QVBoxLayout()
+        if not getattr(self, 'title', None):
+            self.title = QLabel()
+        self.title.setAttribute(Qt.WA_DeleteOnClose)
+        self.title.setSizePolicy(QSizePolicy.Minimum,
+                                 QSizePolicy.Minimum)
+        self.vbox.addWidget(self.title)
         self.title_text = get_object_title(self.obj, new=self.new)
         self.title.setText(self.title_text)
         tab_names = ['main', 'info', 'narrative', 'admin']
@@ -1334,14 +1118,232 @@ class PgxnObject(QDialog):
             and self.cname == 'DataElementDefinition'):
             self.name_widget = self.editable_widgets['name']
             self.name_widget.textEdited.connect(self.on_ded_name_edited)
-
         # self.adjustSize()
         if len(self.tab_names) > 7:
             # if there are more than 7 tabs, add width for each extra tab
             new_width = 500 + 80 * (len(self.tab_names) - 7)
             self.resize(new_width, self.height())
         self.set_current_tab()
+        self.setLayout(self.vbox)
+        if not getattr(self, 'toolbar', None):
+            self.init_toolbar()
+        if not getattr(self, 'main_panel', None):
+            self.main_panel = QWidget()
+        self.vbox.addWidget(self.main_panel)
         self.update()
+
+    def init_toolbar(self):
+        # self.toolbar = self.addToolBar('Tools')
+        self.toolbar = QToolBar('Tools')
+        class_label = SizedButton(self.cname, color='green')
+        self.toolbar.addWidget(class_label)
+        if isinstance(self.obj, orb.classes['Product']):
+            self.freeze_action = self.create_action('freeze',
+                                    slot=self.freeze, icon='freeze_16',
+                                    tip='Freeze this object',
+                                    modes=['edit', 'view'])
+            self.frozen_action = self.create_action('frozen',
+                                    slot=self.frozen, icon='frozen_16',
+                                    tip='This object is frozen',
+                                    modes=['edit', 'view'])
+            self.thaw_action = self.create_action('thaw',
+                                    slot=self.thaw, icon='thaw_16',
+                                    tip='Thaw this object',
+                                    modes=['edit', 'view'])
+            self.where_used_action = self.create_action('where used',
+                                    slot=self.show_where_used, icon='system',
+                                    tip='Show where this object is used ...',
+                                    modes=['edit', 'view'])
+            # only users who can modify an object can 'freeze' it
+            self.toolbar.addAction(self.freeze_action)
+            self.freeze_action.setVisible(False)
+            self.toolbar.addAction(self.frozen_action)
+            if self.obj.frozen:
+                orb.log.debug('            object is frozen.')
+                self.frozen_action.setVisible(True)
+            else:
+                orb.log.debug('            object is NOT frozen.')
+                self.frozen_action.setVisible(False)
+            # only those with edit perms can 'thaw' an object -- see below
+            self.toolbar.addAction(self.thaw_action)
+            self.thaw_action.setVisible(False)
+            self.toolbar.addAction(self.where_used_action)
+            perms = get_perms(self.obj)
+            # orb.log.debug('            user perms: {}'.format(str(perms)))
+            if 'modify' in perms:
+                if self.obj.frozen:
+                    self.freeze_action.setVisible(False)
+                    if is_global_admin(orb.get(state.get('local_user_oid'))):
+                        # only a global admin can "thaw"
+                        self.thaw_action.setVisible(True)
+                else:
+                    # orb.log.debug('            object is NOT frozen.')
+                    self.frozen_action.setVisible(False)
+                    self.freeze_action.setVisible(True)
+                # only users who can modify an object can create a new version
+                self.new_version_action = self.create_action('new version',
+                                    slot=self.on_new_version, icon='new_part',
+                                    tip='Create new version by cloning',
+                                    modes=['edit', 'view'])
+                self.toolbar.addAction(self.new_version_action)
+            self.clone_action = self.create_action('clone',
+                                    slot=self.on_clone, icon='clone_16',
+                                    tip='Clone this object',
+                                    modes=['edit', 'view'])
+            self.toolbar.addAction(self.clone_action)
+        # NOTE: viewer may be reactivated later ...
+        # self.viewer_action = self.create_action('viewer',
+                                # slot=self.open_viewer, icon='view_16',
+                                # tip='View models of this object',
+                                # modes=['edit', 'view'])
+        # self.toolbar.addAction(self.viewer_action)
+        self.vbox.insertWidget(0, self.toolbar)
+
+    def create_action(self, text, slot=None, icon=None, tip=None,
+                      checkable=False, modes=None):
+        action = QAction(text, self)
+        if icon is not None:
+            icon_file = icon + state.get('icon_type', '.png')
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
+            action.setIcon(QIcon(icon_path))
+        if tip is not None:
+            action.setToolTip(tip)
+            action.setStatusTip(tip)
+        if slot is not None:
+            action.triggered.connect(slot)
+        if checkable:
+            action.setCheckable(True)
+        if modes:
+            # modes in which action applies: 'view', 'edit'; default: 'view'
+            for mode in modes:
+                self.mode_widgets[mode].add(action)
+            else:
+                self.mode_widgets['view'].add(action)
+        return action
+
+    def freeze(self):
+        """
+        Freeze an object, making it read-only.  NOTE: this action should only
+        be accessible to users who have 'modify' permission on the object.
+        """
+        if (isinstance(self.obj, orb.classes['Product'])
+            and not self.obj.frozen):
+            self.freeze_action.setVisible(False)
+            self.frozen_action.setVisible(True)
+            self.obj.frozen = True
+            if is_global_admin(orb.get(state.get('local_user_oid'))):
+                # only a global admin can "thaw"
+                self.thaw_action.setVisible(True)
+            orb.save([self.obj])
+            self.build_from_object()
+
+    def frozen(self):
+        pass
+
+    def thaw(self):
+        """
+        Thaw a frozen object.  NOTE: this action should only be accessible to
+        global admins.
+        """
+        if (isinstance(self.obj, orb.classes['Product'])
+            and self.obj.frozen):
+            if getattr(self.obj, 'where_used', None):
+                txt = 'Thawing this Product may violate CM --\n'
+                txt += 'it is a component in the following assemblies:'
+                notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
+                                     QMessageBox.Ok, self)
+                assemblies = [acu.assembly for acu in self.obj.where_used]
+                text = '<p><ul>{}</ul></p>'.format('\n'.join(
+                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
+                           a.name, a.oid) for a in assemblies if a]))
+                notice.setInformativeText(text)
+                notice.show()
+            elif getattr(self.obj, 'projects_using_system', None):
+                txt = 'Thawing this Product may violate CM --\n'
+                txt += 'it is being used as a system in the following project(s):'
+                notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
+                                     QMessageBox.Ok, self)
+                p_ids = [psu.project.id for psu in self.obj.projects_using_system]
+                notice.setInformativeText('<p><ul>{}</ul></p>'.format('\n'.join(
+                                          ['<li><b>{}</b></li>'.format(p_id) for
+                                          p_id in p_ids])))
+                notice.show()
+            self.freeze_action.setVisible(True)
+            self.frozen_action.setVisible(False)
+            self.thaw_action.setVisible(False)
+            self.obj.frozen = False
+            orb.save([self.obj])
+            self.build_from_object()
+
+    def show_where_used(self):
+        if hasattr(self.obj, 'where_used'):
+            assemblies = set([acu.assembly for acu in self.obj.where_used])
+            if assemblies:
+                txt = 'This is a component in the following assemblies:'
+            else:
+                txt = 'This is not used in any assemblies.'
+            notice = QMessageBox(QMessageBox.Information, 'Where Used', txt,
+                                 QMessageBox.Ok, self)
+            if assemblies and len(assemblies) > 0:
+                info = '<p><ul>{}</ul></p>'.format('\n'.join(
+                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
+                           a.name, a.oid) for a in assemblies if a]))
+                notice.setInformativeText(info)
+            notice.show()
+
+    def on_clone(self):
+        """
+        Respond to 'clone' action by cloning the current object.
+        """
+        if isinstance(self.obj, orb.classes['Product']):
+            new_obj = clone(self.obj, id='new-id', derived_from=self.obj,
+                            version='1', version_sequence=1)
+        else:
+            new_obj = clone(self.obj, id='new-id')
+        orb.save([new_obj])
+        self.obj = new_obj
+        self.go_to_tab = 3
+        self.build_from_object()
+        self.on_edit()
+        # if in component mode, set state and refresh diagram
+        if state.get('mode') == 'component':
+            state['product'] = new_obj.oid
+            dispatcher.send('refresh diagram')
+
+    def on_new_version(self):
+        """
+        Respond to 'new version' action by cloning the current object using the
+        same 'id' and incremented version.  NOTE: only applicable to subclasses
+        of 'Product' -- "new version" menu option will not be displayed
+        otherwise.
+        """
+        if not isinstance(self.obj, orb.classes['Product']):
+            msg = '"{}" is not a Product -> not versionable.'.format(
+                                                            self.obj.id)
+            orb.log.debug('* [pgxo] on_new_version(): {}'.format(msg))
+            return
+        if not isinstance(self.obj.version_sequence, int):
+            self.obj.version_sequence = 1
+        ver_seq = self.obj.version_sequence + 1
+        new_obj = clone(self.obj, id=self.obj.id, derived_from=self.obj,
+                        version_sequence=ver_seq)
+        orb.save([new_obj])
+        self.obj = new_obj
+        self.go_to_tab = 3
+        self.build_from_object()
+        self.on_edit()
+
+    @property
+    def ded_disallowed_names(self):
+        """
+        List of lower-case versions of all "id" and "name" attributes of all
+        current ParameterDefinitions and DataElementDefinitions.
+        """
+        names = list(parm_defz) + list(de_defz)
+        names += [pd['name'] for pd in parm_defz.values()]
+        names += [ded['name'] for ded in de_defz.values()]
+        return [n.lower() for n in names]
 
     def set_current_tab(self):
         if (hasattr(self, 'tabs') and getattr(self, 'tab_names', None)
@@ -1349,6 +1351,17 @@ class PgxnObject(QDialog):
             tab_name = self.tab_names[self.go_to_tab]
             orb.log.debug(f'* [pgxo] setting tab to "{tab_name}"')
             self.tabs.setCurrentIndex(self.go_to_tab)
+
+    def on_update_pgxno(self, mod_oids=None):
+        orb.log.debug('* [pxo] got "update pgxno" signal')
+        if mod_oids and self.obj.oid in mod_oids:
+            orb.log.debug('  - matched, updating ...')
+            if not self.embedded:
+                # this might not work if we are embedded in Component Modeler
+                self.activateWindow()
+            self.build_from_object()
+        else:
+            orb.log.debug('  - no match, ignoring.')
 
     def on_parameters_recomputed(self):
         """
@@ -1538,16 +1551,17 @@ class PgxnObject(QDialog):
         # orb.db.rollback()
         self.close()
 
-    def update_save_progress(self, name=''):
-        try:
-            if getattr(self, 'progress_dialog', None):
-                self.progress_value += 1
-                self.progress_dialog.setValue(self.progress_value)
-                self.progress_dialog.setLabelText(
-                    'parameters cached for: {}'.format(name))
-        except:
-            # oops -- my C++ object probably got deleted
-            pass
+    # TODO:  remove -- wasn't doing anything!
+    # def update_save_progress(self, name=''):
+        # try:
+            # if getattr(self, 'progress_dialog', None):
+                # self.progress_value += 1
+                # self.progress_dialog.setValue(self.progress_value)
+                # self.progress_dialog.setLabelText(
+                    # 'parameters cached for: {}'.format(name))
+        # except:
+            # # oops -- my C++ object probably got deleted
+            # pass
 
     def on_save_and_close(self):
         self.closing = True
@@ -1628,21 +1642,7 @@ class PgxnObject(QDialog):
             dlg = ValidationDialog(msg_dict)
             if dlg.exec_():
                 return
-        caching_parameters = False
-        if (isinstance(self.obj, orb.classes['Modelable'])
-            and not isinstance(self.obj, orb.classes['ParameterDefinition'])):
-            caching_parameters = True
-            progress_max = orb.get_count('Modelable') + 3
-            self.progress_dialog = ProgressDialog(title='Save',
-                                              label='Saving...',
-                                              maximum=progress_max,
-                                              parent=self)
-            self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
-        else:
-            self.progress_dialog = None
         NOW = dtstamp()
-        if caching_parameters:
-            self.progress_dialog.setValue(1)
         for name, val in fields_dict.items():
             setattr(self.obj, name, val)
             # orb.log.debug('  [pgxo] - {}: {}'.format(
@@ -1672,10 +1672,7 @@ class PgxnObject(QDialog):
                     set_dval_from_str(self.obj.oid, deid, str_val)
             for p_id in self.p_widgets:
                 # if p is computed, its widget is a label (no 'get_value')
-                # DO NOT MODIFY units/values ... but:
-                # TODO:  set display units for all related parameters (same
-                #        variable) when user sets it for any one of them.
-                #        *AND* set it in user prefs for that parameter.
+                # DO NOT MODIFY values
                 if hasattr(self.p_widgets[p_id], 'get_value'):
                     str_val = self.p_widgets[p_id].get_value()
                     # u_cur -> current units setting
@@ -1685,23 +1682,18 @@ class PgxnObject(QDialog):
                         u_cur = self.u_widgets[p_id].currentText()
                         # orb.log.debug('  - units widget set to {}'.format(
                                                                     # u_cur))
-                    # set parameter values/units for ALL editable
+                    # set parameter values for ALL editable
                     # parameters (faster/simpler than checking for mods)
                     # orb.log.debug('  - setting {} to {} {}'.format(
                                   # p_id, str_val, u_cur))
                     set_pval_from_str(self.obj.oid, p_id, str_val,
                                       units=u_cur)
-        if caching_parameters:
-            self.progress_dialog.setValue(2)
         user_obj = orb.get(state.get('local_user_oid'))
         if self.new:
             self.obj.creator = user_obj
             self.obj.create_datetime = NOW
         self.obj.modifier = user_obj
         self.obj.mod_datetime = NOW
-        if caching_parameters:
-            self.progress_value = 3
-            self.progress_dialog.setValue(self.progress_value)
         # for instances of HardwareProduct, the last step is to generate
         # an 'id': even if it is an existing object, its 'id' might change
         # depending on its 'owner' and 'product_type' ... if the
@@ -1741,11 +1733,6 @@ class PgxnObject(QDialog):
             if isinstance(self.obj, orb.classes['Activity']):
                 dispatcher.send(signal="modified activity",
                                 activity=self.obj)
-        if caching_parameters:
-            QApplication.processEvents()
-            self.progress_dialog.setValue(progress_max)
-            self.progress_dialog.done(0)
-            self.progress_value = 0
         parent = self.parent()
         if parent:
             parent.setFocus()
