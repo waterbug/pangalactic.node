@@ -1356,9 +1356,6 @@ class PgxnObject(QDialog):
         orb.log.debug('* [pxo] got "update pgxno" signal')
         if mod_oids and self.obj.oid in mod_oids:
             orb.log.debug('  - matched, updating ...')
-            if not self.embedded:
-                # this might not work if we are embedded in Component Modeler
-                self.activateWindow()
             self.build_from_object()
         else:
             orb.log.debug('  - no match, ignoring.')
