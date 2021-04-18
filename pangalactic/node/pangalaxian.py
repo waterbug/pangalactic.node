@@ -47,6 +47,8 @@ from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (data_elementz, node_count,
+                                               delete_parameter,
+                                               delete_data_element,
                                                parameterz, save_data_elementz,
                                                save_parmz)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
@@ -216,6 +218,8 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        dispatcher.connect(self.on_parm_del, 'parm del')
+        dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_local_mel_modified, 'mel modified')
         dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
@@ -241,6 +245,8 @@ class Main(QtWidgets.QMainWindow):
                                                     'remote: new')
         dispatcher.connect(self.on_remote_modified_signal,
                                                     'remote: modified')
+        dispatcher.connect(self.on_remote_parm_del, 'remote: parm del')
+        dispatcher.connect(self.on_remote_de_del, 'remote: de del')
         dispatcher.connect(self.on_remote_deleted_signal,
                                                     'remote: deleted')
         dispatcher.connect(self.on_set_current_project_signal,
@@ -1343,6 +1349,12 @@ class Main(QtWidgets.QMainWindow):
             elif subject == 'deleted':
                 self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: deleted", content=content)
+            elif subject == 'de del':
+                self.statusbar.showMessage(msg)
+                dispatcher.send(signal="remote: de del", content=content)
+            elif subject == 'parm del':
+                self.statusbar.showMessage(msg)
+                dispatcher.send(signal="remote: parm del", content=content)
             # elif subject == 'parameter set':
                 # dispatcher.send(signal="remote pval set", content=content)
             # elif subject == 'data element set':
@@ -2765,6 +2777,65 @@ class Main(QtWidgets.QMainWindow):
                 rpc.addErrback(self.on_failure)
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
+
+    def on_parm_del(self, oid='', pid=''):
+        """
+        Handle local dispatcher signal "parm del".
+        """
+        if oid and pid:
+            rpc = self.mbus.session.call('vger.del_parm', oid=oid,
+                                         pid=pid)
+            rpc.addCallback(self.on_vger_del_parm_result)
+            rpc.addErrback(self.on_failure)
+
+    def on_vger_del_parm_result(self, msg):
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+
+    def on_remote_parm_del(self, content):
+        """
+        Handle dispatcher "remote: parm del" (triggered by vger mbus msg "parm
+        del").
+        """
+        try:
+            oid, pid = content
+            orb.log.debug(f'* vger: del parameter "{pid}" from "{oid}"')
+            # local=False is *extremely* important here, to avoid cycles!
+            delete_parameter(oid, pid, local=False)
+        except:
+            orb.log.info('* malformed "remote: parm del" message:')
+            orb.log.info(f'  content: {str(content)}')
+
+    def on_vger_del_parm_result(self, msg):
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+
+    def on_de_del(self, oid='', deid=''):
+        """
+        Handle local dispatcher signal "de del".
+        """
+        if oid and deid:
+            rpc = self.mbus.session.call('vger.del_de', oid=oid, deid=deid)
+            rpc.addCallback(self.on_vger_del_de_result)
+            rpc.addErrback(self.on_failure)
+
+    def on_vger_del_de_result(self, msg):
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+
+    def on_remote_de_del(self, content):
+        """
+        Handle dispatcher "remote: de del" (triggered by vger mbus msg "de
+        del").
+        """
+        try:
+            oid, deid = content
+            orb.log.debug(f'* vger: del data element "{deid}" from "{oid}"')
+            # local=False is *extremely* important here, to avoid cycles!
+            delete_data_element(oid, deid, local=False)
+        except:
+            orb.log.info('* malformed "remote: de del" message:')
+            orb.log.info(f'  content: {str(content)}')
 
     # def on_null_result(self):
         # orb.log.debug('  rpc success.')
