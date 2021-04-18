@@ -872,10 +872,10 @@ class PgxnObject(QDialog):
                                                         '[not applicable]'))
         orb.log.info('* [pgxo] cname: "%s"' % self.cname)
         self.build_from_object()
-        dispatcher.connect(self.on_update_pgxno, 'update pgxno')
         # NOTE:  commented out because not doing anything ... :P
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
+        dispatcher.connect(self.on_update_pgxno, 'update pgxno')
 
     def build_from_object(self):
         """
@@ -1352,14 +1352,6 @@ class PgxnObject(QDialog):
             orb.log.debug(f'* [pgxo] setting tab to "{tab_name}"')
             self.tabs.setCurrentIndex(self.go_to_tab)
 
-    def on_update_pgxno(self, mod_oids=None):
-        orb.log.debug('* [pxo] got "update pgxno" signal')
-        if mod_oids and self.obj.oid in mod_oids:
-            orb.log.debug('  - matched, updating ...')
-            self.build_from_object()
-        else:
-            orb.log.debug('  - no match, ignoring.')
-
     def on_parameters_recomputed(self):
         """
         Handler for dispatcher signal "parameters recomputed" -- updates all
@@ -1376,6 +1368,45 @@ class PgxnObject(QDialog):
             # orb.log.debug(' + no computed parameters found.')
         # [2] find their fields and update them ...
         for pid in computeds:
+            parm_widget = self.p_widgets.get(pid)
+            # if parm_widget:
+                # orb.log.debug(f' + found parm_widget for "{pid}"')
+            # else:
+                # orb.log.debug(f' + got no parm_widget for "{pid}"')
+            units_widget = self.u_widgets.get(pid)
+            try:
+                units = units_widget.get_value()
+            except:
+                # C++ obj got deleted
+                units = None   # use base units
+            str_val = get_pval_as_str(self.obj.oid, pid, units=units)
+            # orb.log.debug(f' + got str val of "{str_val}" for "{pid}"')
+            if hasattr(parm_widget, 'setText'):
+                # if pid == 'm[CBE]':
+                    # orb.log.debug(' + parm widget has "setText()"')
+                    # orb.log.debug(' + setting m[CBE] to: {str_val}')
+                try:
+                    parm_widget.setText(str_val)
+                except:
+                    # C++ obj got deleted
+                    continue
+        try:
+            self.update()
+        except:
+            # C++ obj got deleted
+            pass
+
+    def on_update_pgxno(self, mod_oids=None):
+        """
+        Handler for dispatcher signal "update pgxno" -- updates all
+        parameter and data element values.
+        """
+        orb.log.debug('* [pxo] got "update pgxno" signal ...')
+        # [1] find all parameters
+        parmz = parameterz.get(self.obj.oid) or {}
+        pids = sorted(list(parmz), key=str.lower)  # case-independent sort
+        # [2] find their fields and update them ...
+        for pid in pids:
             parm_widget = self.p_widgets.get(pid)
             # if parm_widget:
                 # orb.log.debug(f' + found parm_widget for "{pid}"')

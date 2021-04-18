@@ -48,7 +48,7 @@ from pangalactic.core.access           import get_perms
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (data_elementz, node_count,
                                                parameterz, save_data_elementz,
-                                               save_parmz, set_dval, set_pval)
+                                               save_parmz)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
                                                deserialize, serialize)
@@ -217,10 +217,6 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_local_mel_modified, 'mel modified')
-        # dispatcher.connect(self.on_pval_set, 'pval set')
-        # dispatcher.connect(self.on_dval_set, 'dval set')
-        # dispatcher.connect(self.on_remote_pval_set, 'remote pval set')
-        # dispatcher.connect(self.on_remote_dval_set, 'remote dval set')
         dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
@@ -1760,12 +1756,12 @@ class Main(QtWidgets.QMainWindow):
                                     icon='new_part',
                                     tip="Create a New System or Component",
                                     modes=['system', 'component', 'db'])
-        self.new_product_type_action = self.create_action(
-                                    "New Product Type",
-                                    slot=self.new_product_type,
-                                    icon="new_doc",
-                                    tip="Create a New Product Type",
-                                    modes=['system', 'component', 'db'])
+        # self.new_product_type_action = self.create_action(
+                                    # "New Product Type",
+                                    # slot=self.new_product_type,
+                                    # icon="new_doc",
+                                    # tip="Create a New Product Type",
+                                    # modes=['system', 'component', 'db'])
         self.new_model_action = self.create_action(
                                 "New Design or Analysis Model",
                                 slot=self.new_model,
@@ -1784,12 +1780,12 @@ class Main(QtWidgets.QMainWindow):
                                     icon="new_doc",
                                     tip="Create a New Requirement",
                                     modes=["system"])
-        self.data_element_action = self.create_action(
-                                    "New Data Element",
-                                    slot=self.new_data_element,
-                                    icon="new_doc",
-                                    tip="Create a New Data Element",
-                                    modes=['system', 'component', 'db'])
+        # self.data_element_action = self.create_action(
+                                    # "New Data Element",
+                                    # slot=self.new_data_element,
+                                    # icon="new_doc",
+                                    # tip="Create a New Data Element",
+                                    # modes=['system', 'component', 'db'])
         self.new_test_action = self.create_action(
                                     "New Test",
                                     slot=self.new_test,
@@ -2242,7 +2238,7 @@ class Main(QtWidgets.QMainWindow):
                               # self.new_product_type_action,
                               self.new_functional_requirement_action,
                               self.new_performance_requirement_action,
-                              self.data_element_action,
+                              # self.data_element_action,
                               self.new_test_action]
         new_object_button = MenuButton(QtGui.QIcon(new_object_icon_path),
                                    text='Create',
@@ -2836,39 +2832,6 @@ class Main(QtWidgets.QMainWindow):
             # replace and rebuild the data_widget
             self.data_widget = DataGrid(self.project, name="MEL")
             self.setCentralWidget(self.data_widget)
-
-    # def on_pval_set(self, oid=None, pid=None, value=None, local=True):
-        # if local:
-            # rpc = self.mbus.session.call('vger.set_parameter',
-                                 # oid=oid, pid=pid, value=value,
-                                 # units=units)
-            # rpc.addCallback(self.on_set_value_result)
-            # rpc.addErrback(self.on_failure)
-
-    # def on_dval_set(self, oid=None, deid=None, value=None, local=True):
-        # if local:
-            # rpc = self.mbus.session.call('vger.set_data_element',
-                                     # oid=oid, deid=deid, value=value)
-            # rpc.addCallback(self.on_set_value_result)
-            # rpc.addErrback(self.on_failure)
-
-    # def on_remote_pval_set(self, content=None):
-        # """
-        # Handle dispatcher signal for "remote pval set".
-        # """
-        # # orb.log.info('* received "remote pval set" signal')
-        # if content is not None:
-            # oid, pid, value, units = content
-            # set_pval(oid, pid, value, units=units, local=False)
-
-    # def on_remote_dval_set(self, content=None):
-        # """
-        # Handle dispatcher signal for "remote dval set".
-        # """
-        # # orb.log.info('* received "remote dval set" signal')
-        # if content is not None:
-            # oid, deid, value, units = content
-            # set_dval(oid, deid, value, units=units, local=False)
 
     def on_entity_saved(self, e=None):
         """
@@ -4006,15 +3969,15 @@ class Main(QtWidgets.QMainWindow):
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
 
-    def new_data_element(self):
-        # TODO:  Wizard for data element -- needed to check uniqueness of "id"
-        de_def = clone('DataElementDefinition')
-        panels = ['main', 'admin']
-        required = ['id', 'name', 'abbreviation', 'description',
-                    'range_datatype']
-        pxo = PgxnObject(de_def, edit_mode=True, new=True, modal_mode=True,
-                         required=required, panels=panels, parent=self)
-        pxo.show()
+    # def new_data_element(self):
+        # # TODO:  Wizard for data element -- needed to check uniqueness of "id"
+        # de_def = clone('DataElementDefinition')
+        # panels = ['main', 'admin']
+        # required = ['id', 'name', 'abbreviation', 'description',
+                    # 'range_datatype']
+        # pxo = PgxnObject(de_def, edit_mode=True, new=True, modal_mode=True,
+                         # required=required, panels=panels, parent=self)
+        # pxo.show()
 
     def new_test(self):
         # TODO:  Wizard for Test?
@@ -4030,14 +3993,14 @@ class Main(QtWidgets.QMainWindow):
                          panels=panels, parent=self)
         pxo.show()
 
-    def new_product_type(self):
-        product_type = clone('ProductType')
-        view = ['id', 'name', 'abbreviation', 'description']
-        panels = ['main']
-        # modal_mode -> 'cancel' closes dialog
-        pxo = PgxnObject(product_type, edit_mode=True, new=True, view=view,
-                         panels=panels, modal_mode=True, parent=self)
-        pxo.show()
+    # def new_product_type(self):
+        # product_type = clone('ProductType')
+        # view = ['id', 'name', 'abbreviation', 'description']
+        # panels = ['main']
+        # # modal_mode -> 'cancel' closes dialog
+        # pxo = PgxnObject(product_type, edit_mode=True, new=True, view=view,
+                         # panels=panels, modal_mode=True, parent=self)
+        # pxo.show()
 
     def parameter_library(self):
         # view = ['id', 'name', 'range_datatype', 'dimensions', 'description']
