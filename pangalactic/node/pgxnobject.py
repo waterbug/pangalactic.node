@@ -1133,24 +1133,24 @@ class PgxnObject(QDialog):
         self.update()
 
     def init_toolbar(self):
-        # self.toolbar = self.addToolBar('Tools')
         self.toolbar = QToolBar('Tools')
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         class_label = SizedButton(self.cname, color='green')
         self.toolbar.addWidget(class_label)
         if isinstance(self.obj, orb.classes['Product']):
-            self.freeze_action = self.create_action('freeze',
+            self.freeze_action = self.create_action('Freeze',
                                     slot=self.freeze, icon='freeze_16',
                                     tip='Freeze this object',
                                     modes=['edit', 'view'])
-            self.frozen_action = self.create_action('frozen',
+            self.frozen_action = self.create_action('Frozen',
                                     slot=self.frozen, icon='frozen_16',
                                     tip='This object is frozen',
                                     modes=['edit', 'view'])
-            self.thaw_action = self.create_action('thaw',
+            self.thaw_action = self.create_action('Thaw',
                                     slot=self.thaw, icon='thaw_16',
                                     tip='Thaw this object',
                                     modes=['edit', 'view'])
-            self.where_used_action = self.create_action('where used',
+            self.where_used_action = self.create_action('Where Used',
                                     slot=self.show_where_used, icon='system',
                                     tip='Show where this object is used ...',
                                     modes=['edit', 'view'])
@@ -1181,12 +1181,12 @@ class PgxnObject(QDialog):
                     self.frozen_action.setVisible(False)
                     self.freeze_action.setVisible(True)
                 # only users who can modify an object can create a new version
-                self.new_version_action = self.create_action('new version',
-                                    slot=self.on_new_version, icon='new_part',
-                                    tip='Create new version by cloning',
-                                    modes=['edit', 'view'])
-                self.toolbar.addAction(self.new_version_action)
-            self.clone_action = self.create_action('clone',
+                # self.new_version_action = self.create_action('new version',
+                                    # slot=self.on_new_version, icon='new_part',
+                                    # tip='Create new version by cloning',
+                                    # modes=['edit', 'view'])
+                # self.toolbar.addAction(self.new_version_action)
+            self.clone_action = self.create_action('Clone',
                                     slot=self.on_clone, icon='clone_16',
                                     tip='Clone this object',
                                     modes=['edit', 'view'])
@@ -1255,13 +1255,13 @@ class PgxnObject(QDialog):
                                      QMessageBox.Ok, self)
                 assemblies = [acu.assembly for acu in self.obj.where_used]
                 text = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
-                           a.name, a.oid) for a in assemblies if a]))
+                           ['<li><b>{}</b><br>({})</li>'.format(
+                           a.name, a.id) for a in assemblies if a]))
                 notice.setInformativeText(text)
                 notice.show()
             elif getattr(self.obj, 'projects_using_system', None):
                 txt = 'Thawing this Product may violate CM --\n'
-                txt += 'it is being used as a system in the following project(s):'
+                txt += 'it is a top-level system in the following project(s):'
                 notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
                                      QMessageBox.Ok, self)
                 p_ids = [psu.project.id for psu in self.obj.projects_using_system]
@@ -1277,20 +1277,40 @@ class PgxnObject(QDialog):
             self.build_from_object()
 
     def show_where_used(self):
-        if hasattr(self.obj, 'where_used'):
+        info = ''
+        where_used = getattr(self.obj, 'where_used', None)
+        if where_used:
             assemblies = set([acu.assembly for acu in self.obj.where_used])
-            if assemblies:
-                txt = 'This is a component in the following assemblies:'
-            else:
-                txt = 'This is not used in any assemblies.'
-            notice = QMessageBox(QMessageBox.Information, 'Where Used', txt,
-                                 QMessageBox.Ok, self)
-            if assemblies and len(assemblies) > 0:
-                info = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br>({})</li>'.format(
-                           a.name, a.id) for a in assemblies if a]))
-                notice.setInformativeText(info)
-            notice.show()
+            # if assemblies and len(assemblies) > 0:
+            txt = 'This product is used as a component '
+            txt += 'in the following assemblies:'
+            assmb_info = '<p><ul>{}</ul></p>'.format('\n'.join(
+                       ['<li><b>{}</b><br>({})</li>'.format(
+                       a.name, a.id) for a in assemblies if a]))
+        projects_using = getattr(self.obj, 'projects_using_system', None)
+        if projects_using:
+            txt = 'This product is used as a top-level system '
+            txt += 'in the following project(s):'
+            p_ids = [psu.project.id for psu in self.obj.projects_using_system]
+            proj_info = '<p><ul>{}</ul></p>'.format('\n'.join(
+                                      ['<li><b>{}</b></li>'.format(p_id) for
+                                      p_id in p_ids]))
+        if where_used and projects_using:
+            txt = 'This product is used as a component '
+            txt += 'in the following assemblies and '
+            txt += 'as a top-level system '
+            txt += 'in the following project(s):'
+            info = assmb_info + proj_info
+        elif where_used:
+            info = assmb_info
+        elif projects_using:
+            info = proj_info
+        else:
+            txt = 'This product is not used in any assemblies or projects.'
+        notice = QMessageBox(QMessageBox.Information, 'Where Used',
+                             txt, QMessageBox.Ok, self)
+        notice.setInformativeText(info)
+        notice.show()
 
     def on_clone(self):
         """
