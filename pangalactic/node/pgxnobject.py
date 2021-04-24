@@ -1287,8 +1287,8 @@ class PgxnObject(QDialog):
                                  QMessageBox.Ok, self)
             if assemblies and len(assemblies) > 0:
                 info = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br>(oid: "{}")</li>'.format(
-                           a.name, a.oid) for a in assemblies if a]))
+                           ['<li><b>{}</b><br>({})</li>'.format(
+                           a.name, a.id) for a in assemblies if a]))
                 notice.setInformativeText(info)
             notice.show()
 

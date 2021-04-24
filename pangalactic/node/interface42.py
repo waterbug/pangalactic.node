@@ -755,8 +755,8 @@ class SC_Form(QWidget):
                             # set initial default value
                             self.data[section][pid] = widget.get_value()
                         else:
-                            dtype = parm_props.get('datatype')
-                            w_class = get_widget_class(dtype)
+                            datatype = parm_props.get('datatype')
+                            w_class = get_widget_class(datatype)
                             widget = w_class(section=section,
                                              pid=pid, parent=self)
                             widget.textEdited.connect(self.update_data)
@@ -834,10 +834,31 @@ class SC_Form(QWidget):
                 for dt in postypes:
                     self.data[section][pid].append('')
             dtype = datatypes.get(postypes[i]) or str
-            self.data[section][pid][i] = dtype(val)
+            try:
+                self.data[section][pid][i] = dtype(val)
+                # NOTE: for intensive debugging ...
+                msg = f'* parm "{pid}[{i}] in section "{section}'
+                msg += f' set to {val}'
+                self.log(msg)
+            except:
+                # value not updated because cast to dtype failed -- this can
+                # happen with legitimate user input, e.g., if field contains a
+                # single decimal point, ".", for which cast to float will fail
+                pass
         else:
             dtype = datatypes.get(SC[section][pid].get('datatype')) or str
-            self.data[section][pid] = dtype(val)
+            try:
+                self.data[section][pid] = dtype(val)
+                # NOTE: for intensive debugging ...
+                # not an array-valued parm, so i is meaningless
+                msg = f'* parm "{pid}" in section "{section}"'
+                msg += f' set to {val}'
+                self.log(msg)
+            except:
+                # value not updated because cast to dtype failed -- this can
+                # happen with legitimate user input, e.g., if field contains a
+                # single decimal point, ".", for which cast to float will fail
+                pass
 
     def update_form_from_data(self):
         self.log('* updating SC form from data ...')
@@ -1350,9 +1371,6 @@ class ComponentDialog(QDialog):
         pid = widget.pid
         i = widget.i
         val = widget.get_value()
-        msg = f'* parm "{pid}" (i={i}) in section "{comp_type}[{idx}]" '
-        msg += f'set to {val}'
-        self.log(msg)
         if SC['components'][comp_type][pid]['datatype'] == 'array':
             # coerce to the positional datatype
             postypes = SC['components'][comp_type][pid]['postypes']
@@ -1363,12 +1381,33 @@ class ComponentDialog(QDialog):
                 for dt in postypes:
                     self.data['components'][comp_type][idx][pid].append('')
             dtype = datatypes.get(postypes[i]) or str
-            self.data['components'][comp_type][idx][pid][i] = dtype(val)
+            try:
+                self.data['components'][comp_type][idx][pid][i] = dtype(val)
+                # NOTE: for intensive debugging ...
+                msg = f'* parm "{pid}[{i}] in section "{comp_type} {idx}"'
+                msg += f' set to {val}'
+                self.log(msg)
+            except:
+                # value not updated because cast to dtype failed -- this can
+                # happen with legitimate user input, e.g., if field contains a
+                # single decimal point, ".", for which cast to float will fail
+                pass
         else:
             dtype = datatypes.get(SC['components'][comp_type][pid].get(
                                                                 'datatype'))
             dtype = dtype or str
-            self.data['components'][comp_type][idx][pid] = dtype(val)
+            try:
+                self.data['components'][comp_type][idx][pid] = dtype(val)
+                # NOTE: for intensive debugging ...
+                # not an array-valued parm, so i is meaningless
+                msg = f'* parm "{pid}" in section "{comp_type} {idx}"'
+                msg += f' set to {val}'
+                self.log(msg)
+            except:
+                # value not updated because cast to dtype failed -- this can
+                # happen with legitimate user input, e.g., if field contains a
+                # single decimal point, ".", for which cast to float will fail
+                pass
 
     def update_form_from_data(self):
         self.log('* updating component form from data ...')
