@@ -40,7 +40,8 @@ from pangalactic.core.utils.meta  import get_attr_ext_name
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import validate_all
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import (ObjectSelectionDialog,
+from pangalactic.node.dialogs     import (CloningDialog,
+                                          ObjectSelectionDialog,
                                           ValidationDialog)
 from pangalactic.node.utils       import (clone, get_object_title,
                                           extract_mime_data)
@@ -1316,20 +1317,31 @@ class PgxnObject(QDialog):
         """
         Respond to 'clone' action by cloning the current object.
         """
+        orb.log.debug('* [pgxo] on_clone()')
+        new_obj = None
         if isinstance(self.obj, orb.classes['Product']):
-            new_obj = clone(self.obj, id='new-id', derived_from=self.obj,
-                            version='1', version_sequence=1)
+            if self.obj.components:
+                orb.log.debug('  - components -> show dialog ...')
+                # if the product has components, bring up the cloning dlg.
+                dlg = CloningDialog(self.obj, parent=self)
+                if dlg.exec_():
+                    orb.log.debug('  - dialog accepted.')
+            else:
+                orb.log.debug('  - no components -> cloning ...')
+                new_obj = clone(self.obj, id='new-id', derived_from=self.obj,
+                                version='1', version_sequence=1)
         else:
             new_obj = clone(self.obj, id='new-id')
-        orb.save([new_obj])
-        self.obj = new_obj
-        self.go_to_tab = 3
-        self.build_from_object()
-        self.on_edit()
-        # if in component mode, set state and refresh diagram
-        if state.get('mode') == 'component':
-            state['product'] = new_obj.oid
-            dispatcher.send('refresh diagram')
+        if new_obj:
+            orb.save([new_obj])
+            self.obj = new_obj
+            self.go_to_tab = 3
+            self.build_from_object()
+            self.on_edit()
+            # if in component mode, set state and refresh diagram
+            if state.get('mode') == 'component':
+                state['product'] = new_obj.oid
+                dispatcher.send('refresh diagram')
 
     def on_new_version(self):
         """

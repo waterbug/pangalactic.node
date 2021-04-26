@@ -642,6 +642,70 @@ class DeleteColsDialog(QDialog):
         return col_names
 
 
+class CloningDialog(QDialog):
+    """
+    Dialog for selecting options to use when cloning a product that has
+    components: black box or white box; if black box, option to roll up CBE
+    values of components into clone's parameters; if white box, it will include
+    refs (new Acus) to selected components of the cloned object.
+    """
+    def __init__(self, obj, parent=None):
+        super().__init__(parent)
+        orb.log.debug(f'* CloningDialog({obj.id})')
+        self.setWindowTitle("Clone")
+        self.obj = obj
+        main_layout = QVBoxLayout(self)
+        blackwhite_layout = QVBoxLayout()
+        self.blackwhite_buttons = QButtonGroup()
+        self.black_button = QRadioButton('black box')
+        self.white_button = QRadioButton('white box')
+        self.blackwhite_buttons.addButton(self.black_button)
+        self.blackwhite_buttons.addButton(self.white_button)
+        blackwhite_layout.addWidget(self.black_button)
+        blackwhite_layout.addWidget(self.white_button)
+        main_layout.addLayout(blackwhite_layout)
+        form = QFormLayout()
+        self.white_box_panel = QWidget()
+        self.white_box_panel.setLayout(form)
+        self.comp_checkboxes = {}
+        comps = [acu.component for acu in obj.components]
+        self.cb_all = QCheckBox(self)
+        self.cb_all.clicked.connect(self.on_check_all)
+        cb_all_txt = "SELECT ALL / CLEAR SELECTIONS"
+        cb_all_label = QLabel(cb_all_txt, self)
+        form.addRow(self.cb_all, cb_all_label)
+        for comp in comps:
+            id_str = '(' + comp.id + ')'
+            label_text = '\n'.join([comp.name, id_str])
+            label = QLabel(label_text, self)
+            self.comp_checkboxes[comp.oid] = QCheckBox(self)
+            self.comp_checkboxes[comp.oid].setChecked(False)
+            form.addRow(self.comp_checkboxes[comp.oid], label)
+        main_layout.addWidget(self.white_box_panel)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+    def on_check_all(self):
+        if self.cb_all.isChecked():
+            for cb in self.comp_checkboxes.values():
+                cb.setChecked(True)
+        else:
+            for cb in self.comp_checkboxes.values():
+                cb.setChecked(False)
+
+    def accept(self):
+        for comp_oid, cb in self.comp_checkboxes.items():
+            if cb.isChecked():
+                comp = orb.get(comp_oid)
+                # include a new acu for this component
+        super().accept()
+
+
 class ConnectionsDialog(QDialog):
     """
     Dialog for selecting, inspecting, and deleting connections (diagram objects
