@@ -34,6 +34,7 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.trees       import ParmDefTreeView
+from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
                                           StringFieldWidget)
@@ -684,9 +685,14 @@ of the original item to be components of the clone:
 
 black_box_heading = """
 <h3>Black Box Clone</h3>
-You have the option of setting the <i>Mass</i>, <i>Power</i>,<br>
-and <i>Data Rate</i> of the clone to be the <i>CBE</i> values<br>
-of those parameters in the original item.</li>
+<p>You can <b>flatten</b> the original object to create the clone:<br>
+i.e. set the <i>Mass</i>, <i>Power</i>, and <i>Data Rate</i><br>
+of the clone from the <i>CBE</i> values of those parameters<br>
+in the original object (which are the summed values of those<br>
+parameters over its components).</p>
+<p>If you do <i>not</i> choose <b>flatten</b>, all parameter and data<br>
+element values of the original object will simply be copied over<br>
+to the clone.</p>
 """
 
 
@@ -710,14 +716,14 @@ class CloningDialog(QDialog):
         self.main_layout.addWidget(self.instructions_label)
         self.blackwhite_layout = QVBoxLayout()
         self.blackwhite_buttons = QButtonGroup()
-        self.white_button = QRadioButton('White Box Clone')
-        self.white_button.clicked.connect(self.set_white_box)
-        self.black_button = QRadioButton('Black Box Clone')
-        self.black_button.clicked.connect(self.set_black_box)
-        self.blackwhite_buttons.addButton(self.white_button)
-        self.blackwhite_buttons.addButton(self.black_button)
-        self.blackwhite_layout.addWidget(self.white_button)
-        self.blackwhite_layout.addWidget(self.black_button)
+        self.white_box_button = QRadioButton('Create White Box Clone')
+        self.white_box_button.clicked.connect(self.set_white_box)
+        self.black_box_button = QRadioButton('Create Black Box Clone')
+        self.black_box_button.clicked.connect(self.set_black_box)
+        self.blackwhite_buttons.addButton(self.white_box_button)
+        self.blackwhite_buttons.addButton(self.black_box_button)
+        self.blackwhite_layout.addWidget(self.white_box_button)
+        self.blackwhite_layout.addWidget(self.black_box_button)
         self.main_layout.addLayout(self.blackwhite_layout)
 
     def set_white_box(self):
@@ -727,20 +733,25 @@ class CloningDialog(QDialog):
         heading = QLabel(white_box_heading)
         self.main_layout.addWidget(heading)
         self.comp_checkboxes = {}
-        comps = [acu.component for acu in self.obj.components]
         self.cb_all = QCheckBox(self)
         self.cb_all.clicked.connect(self.on_check_all)
         cb_all_txt = "SELECT ALL / CLEAR SELECTIONS"
         cb_all_label = QLabel(cb_all_txt, self)
         white_box_form = QFormLayout()
         white_box_form.addRow(self.cb_all, cb_all_label)
-        for comp in comps:
+        for acu in self.obj.components:
+            comp = acu.component
+            ptype = getattr(comp.product_type, 'abbreviation')
+            ptype = ptype or getattr(comp.product_type, 'id',
+                                     '[unknown type]')
+            refdes = acu.reference_designator or ptype
+            name_str = '[' + refdes + '] ' + comp.name
             id_str = '(' + comp.id + ')'
-            label_text = '\n'.join([comp.name, id_str])
+            label_text = '\n'.join([name_str, id_str])
             label = QLabel(label_text, self)
-            self.comp_checkboxes[comp.oid] = QCheckBox(self)
-            self.comp_checkboxes[comp.oid].setChecked(False)
-            white_box_form.addRow(self.comp_checkboxes[comp.oid], label)
+            self.comp_checkboxes[acu.oid] = QCheckBox(self)
+            self.comp_checkboxes[acu.oid].setChecked(False)
+            white_box_form.addRow(self.comp_checkboxes[acu.oid], label)
         self.white_box_panel = Panel()
         self.white_box_panel.setLayout(white_box_form)
         self.white_box_scroll_area = ScrollArea()
@@ -760,13 +771,17 @@ class CloningDialog(QDialog):
         self.main_layout.removeItem(self.blackwhite_layout)
         self.main_layout.removeWidget(self.instructions_label)
         self.instructions_label.close()
-        heading = QLabel(white_box_heading)
+        self.white_box_button.close()
+        self.black_box_button.close()
+        heading = QLabel(black_box_heading)
         self.main_layout.addWidget(heading)
         black_box_form = QFormLayout()
         self.black_box_panel = Panel()
         self.black_box_panel.setLayout(black_box_form)
+        self.flatten_cb = QCheckBox(self)
+        label = QLabel('flatten', self)
+        black_box_form.addRow(self.flatten_cb, label)
         self.main_layout.addWidget(self.black_box_panel)
-        self.black_box_panel.setVisible(False)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -785,10 +800,28 @@ class CloningDialog(QDialog):
                 cb.setChecked(False)
 
     def accept(self):
-        for comp_oid, cb in self.comp_checkboxes.items():
-            if cb.isChecked():
-                comp = orb.get(comp_oid)
-                # include a new acu for this component
+        if self.white_box_button.isChecked():
+            orb.log.debug('  - creating white box clone ...')
+            if self.cb_all.isChecked():
+                # original clone() -- include all components
+                self.new_obj = clone(self.obj)
+            else:
+                acus = []
+                for acu_oid, cb in self.comp_checkboxes.items():
+                    if cb.isChecked():
+                        acu = orb.get(acu_oid)
+                        acus.append(acu)
+                sel_comps = str([acu.reference_designator for acu in acus])
+                orb.log.debug(f'  - selected components: {sel_comps}')
+                self.new_obj = clone(self.obj,
+                                     include_specified_components=acus)
+        elif self.black_box_button.isChecked():
+            orb.log.debug('  - creating black box clone ...')
+            if self.flatten_cb.isChecked():
+                self.new_obj = clone(self.obj, include_components=False,
+                                     flatten=True)
+            else:
+                self.new_obj = clone(self.obj, include_components=False)
         super().accept()
 
 

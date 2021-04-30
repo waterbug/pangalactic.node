@@ -217,6 +217,7 @@ class Main(QtWidgets.QMainWindow):
                                                          'sys node selected')
         dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_object_signal, 'new object')
+        dispatcher.connect(self.on_new_clone_signal, 'new clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
@@ -2806,10 +2807,6 @@ class Main(QtWidgets.QMainWindow):
             orb.log.info('* malformed "remote: parm del" message:')
             orb.log.info(f'  content: {str(content)}')
 
-    def on_vger_del_parm_result(self, msg):
-        if msg:
-            orb.log.info(f'* vger: {msg}.')
-
     def on_de_del(self, oid='', deid=''):
         """
         Handle local dispatcher signal "de del".
@@ -3973,6 +3970,10 @@ class Main(QtWidgets.QMainWindow):
         pxo = PgxnObject(model, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self)
         pxo.show()
+
+    def on_new_clone_signal(self):
+        # go to component mode when pgxno sends "new clone" signal
+        self.component_mode_action.trigger()
 
     def new_product_wizard(self):
         """

@@ -161,21 +161,21 @@ class Node(object):
     @property
     def tooltip(self):
         if not self.refdes:
-            return self.obj.name or self.obj.id or 'unidentified'
+            return self.obj.id or 'unidentified'
         else:
             if (self.link and
                 ((getattr(self.link, 'component', None) == self.obj)
                  or (getattr(self.link, 'system', None) == self.obj))):
                 if getattr(self.link, 'reference_designator', None):
                     return (self.link.reference_designator + ' : '
-                            + (self.obj.name or 'Unnamed'))
+                            + (self.obj.id or 'Unidentified'))
                 elif hasattr(self.link, 'system_role'):
                     return ((self.link.system_role or 'System') + ' : '
-                            + (self.obj.name or 'Unnamed'))
+                             + (self.obj.id or 'Unidentified'))
                 else:
-                    return self.obj.name or 'Unnamed'
+                    return self.obj.id or 'Unidentified'
             else:
-                return self.obj.name or 'Unnamed'
+                return self.obj.id or 'Unidentified'
 
     @property
     def is_traversed(self):

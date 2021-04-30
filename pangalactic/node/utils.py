@@ -27,15 +27,16 @@ from pangalactic.core.utils.meta  import (get_display_name, get_acu_id,
                                           to_media_name)
 from pangalactic.core.parametrics import (add_default_data_elements,
                                           add_default_parameters,
-                                          data_elementz,
-                                          parameterz,
+                                          data_elementz, get_pval,
+                                          parameterz, set_pval,
                                           refresh_componentz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 
 
 def clone(what, include_ports=True, include_components=True,
-          generate_id=False, **kw):
+          include_specified_components=None, generate_id=False,
+          flatten=False, **kw):
     """
     Create a new object either (1) from keywords or (2) by copying an
     existing object.  NOTE:  clone() does not save/commit the object, so
@@ -69,10 +70,16 @@ def clone(what, include_ports=True, include_components=True,
     Keyword Args:
         include_ports (bool): if an object with ports is being cloned, give the
             clone the same ports
-        include_components (bool): if an object with components is being
-            cloned, give the clone the same components
+        include_components (bool): if the object being cloned has components,
+            create new Acus for the clone to have all the same components
+        include_specified_components (list of Acu instances or None): create
+            new Acus for the clone to have ONLY the specified components (NOTE
+            THAT include_specified_components OVERRIDES include_components)
         generate_id (bool): if True, an id will be auto-generated -- always
             True if obj is a subclass of Product
+        flatten (bool):  for a black box clone (no components), populate the
+            Mass, Power, and Data Rate parameters with the corresponding 'CBE'
+            parameter values from the original object
         kw (dict):  attributes for the clone
     """
     orb.log.info('* clone({})'.format(what))
@@ -202,7 +209,31 @@ def clone(what, include_ports=True, include_components=True,
                              mod_datetime=NOW)
                     new_ports.append(p)
             # if we are including components, add them ...
-            if include_components and getattr(obj, 'components', None):
+            # NOTE:  "include_specified_components" overrides
+            # "include_components" -- if components are specified, ONLY those
+            # components will be included
+            if (include_specified_components and
+                isinstance(include_specified_components, list)):
+                orb.log.debug('  - include_specified_components ...')
+                Acu = orb.classes['Acu']
+                for acu in include_specified_components:
+                    if not isinstance(acu, orb.classes['Acu']):
+                        orb.log.debug(f'    non-Acu skipped: {acu.id}')
+                        continue
+                    acu_oid = str(uuid4())
+                    ref_des = get_next_ref_des(new_obj, acu.component)
+                    acu = Acu(oid=acu_oid,
+                              id=get_acu_id(new_obj.id, ref_des),
+                              name=get_acu_name(new_obj.name, ref_des),
+                              assembly=new_obj, component=acu.component,
+                              product_type_hint=acu.product_type_hint,
+                              reference_designator=ref_des,
+                              creator=new_obj.creator,
+                              modifier=new_obj.creator, create_datetime=NOW,
+                              mod_datetime=NOW)
+                    new_acus.append(acu)
+                refresh_componentz(new_obj)
+            elif include_components and getattr(obj, 'components', None):
                 Acu = orb.classes['Acu']
                 for acu in obj.components:
                     acu_oid = str(uuid4())
@@ -218,6 +249,14 @@ def clone(what, include_ports=True, include_components=True,
                               mod_datetime=NOW)
                     new_acus.append(acu)
                 refresh_componentz(new_obj)
+            elif (not include_components and not include_specified_components
+                  and flatten):
+                # black box clone with m, P, R_D assigned the CBE values from
+                # the original object
+                for pid in ['m', 'P', 'R_D']:
+                    pid_cbe = pid + '[CBE]'
+                    cbe_val = get_pval(obj.oid, pid_cbe)
+                    set_pval(new_obj.oid, pid, cbe_val)
         # the 'id' must be generated *after* the product_type is assigned
         if not isinstance(new_obj, orb.classes['Requirement']):
             # Requirements are a special case -- their id is generated in the

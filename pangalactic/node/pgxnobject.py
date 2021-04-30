@@ -1192,6 +1192,12 @@ class PgxnObject(QDialog):
                                     tip='Clone this object',
                                     modes=['edit', 'view'])
             self.toolbar.addAction(self.clone_action)
+            if state.get('connected'):
+                self.clone_action.setEnabled(True)
+            else:
+                # do not allow cloning when not connected to repo
+                # NOTE: may allow in future when some offline ops are allowed
+                self.clone_action.setEnabled(False)
         # NOTE: viewer may be reactivated later ...
         # self.viewer_action = self.create_action('viewer',
                                 # slot=self.open_viewer, icon='view_16',
@@ -1321,27 +1327,33 @@ class PgxnObject(QDialog):
         new_obj = None
         if isinstance(self.obj, orb.classes['Product']):
             if self.obj.components:
+                # if the product has components, bring up the cloning dlg. with
+                # options to create white box or black box clone ...
                 orb.log.debug('  - components -> show dialog ...')
-                # if the product has components, bring up the cloning dlg.
                 dlg = CloningDialog(self.obj, parent=self)
                 if dlg.exec_():
                     orb.log.debug('  - dialog accepted.')
+                    new_obj = getattr(dlg, 'new_obj', None)
             else:
-                orb.log.debug('  - no components -> cloning ...')
+                orb.log.debug('  - black box -> cloning ...')
                 new_obj = clone(self.obj, id='new-id', derived_from=self.obj,
                                 version='1', version_sequence=1)
         else:
             new_obj = clone(self.obj, id='new-id')
         if new_obj:
             orb.save([new_obj])
-            self.obj = new_obj
-            self.go_to_tab = 3
-            self.build_from_object()
-            self.on_edit()
-            # if in component mode, set state and refresh diagram
+            state['product'] = new_obj.oid
             if state.get('mode') == 'component':
-                state['product'] = new_obj.oid
+                # if in component mode, set object and refresh diagram
+                self.obj = new_obj
+                self.build_from_object()
+                self.on_edit()
                 dispatcher.send('refresh diagram')
+            else:
+                # otherwise, send "new clone" signal, causing pangalaxian to
+                # switch to component mode
+                dispatcher.send('new clone')
+                self.close()
 
     def on_new_version(self):
         """

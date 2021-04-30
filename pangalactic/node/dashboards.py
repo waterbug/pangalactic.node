@@ -4,20 +4,25 @@ Dashboards:  a dashboard in Pangalaxian is a dockable widget in the top section
 of the main window, in which columns can be added to display the current values
 and realtime updates of specified parameters of a system that is being modeled.
 """
+import os
 from louie import dispatcher
 
 from PyQt5.QtCore    import Qt, QModelIndex, QItemSelectionModel
-from PyQt5.QtWidgets import QAction, QDialog, QMessageBox, QTreeView
+from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QMessageBox,
+                             QTreeView)
 
 # pangalactic
-from pangalactic.core             import prefs, state
-from pangalactic.core.parametrics import parm_defz
-from pangalactic.core.uberorb     import orb
-from pangalactic.node.utils       import extract_mime_data
-from pangalactic.node.dialogs     import (CustomizeColsDialog,
-                                          DeleteColsDialog,
-                                          NewDashboardDialog,
-                                          UnitPrefsDialog)
+from pangalactic.core                 import prefs, state
+from pangalactic.core.parametrics     import parm_defz
+from pangalactic.core.uberorb         import orb
+from pangalactic.core.utils.datetimes import dtstamp, date2str
+from pangalactic.core.utils.reports   import write_mel_to_tsv
+from pangalactic.node.utils           import extract_mime_data
+from pangalactic.node.dialogs         import (CustomizeColsDialog,
+                                              DeleteColsDialog,
+                                              NewDashboardDialog,
+                                              NotificationDialog,
+                                              UnitPrefsDialog)
 
 
 class SystemDashboard(QTreeView):
@@ -107,6 +112,10 @@ class SystemDashboard(QTreeView):
         delete_dashboard_action = QAction('delete dashboard', dash_header)
         delete_dashboard_action.triggered.connect(self.delete_dashboard)
         dash_header.addAction(delete_dashboard_action)
+        export_dashboard_action = QAction('export dashboard to tsv file',
+                                          dash_header)
+        export_dashboard_action.triggered.connect(self.export_tsv)
+        dash_header.addAction(export_dashboard_action)
         dash_header.setContextMenuPolicy(Qt.ActionsContextMenu)
         dash_header.sectionMoved.connect(self.on_section_moved)
         dash_header.setStretchLastSection(False)
@@ -396,6 +405,42 @@ class SystemDashboard(QTreeView):
                 # create a "TBD" dashboard) 
                 state['dashboard_name'] = ''
             dispatcher.send(signal='dashboard mod')
+
+    def export_tsv(self):
+        """
+        Handler for 'export dashboard to tsv file' context menu item.
+        I.e. write the dashboard content to a tab-separated-values file.
+        """
+        orb.log.debug('* export_tsv()')
+        proxy_model = self.model()
+        model = proxy_model.sourceModel()
+        proj_id = model.project.id
+        dtstr = date2str(dtstamp())
+        dash_name = state.get('dashboard_name') or 'unknown'
+        fname = proj_id + '-' + dash_name + '-dashboard-' + dtstr + '.tsv'
+        state_path = state.get('dashboard_last_path') or ''
+        suggested_fpath = os.path.join(state_path, fname)
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to tsv File',
+                                    suggested_fpath, '(*.tsv)')
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            fpath = str(fpath)   # extra-cautious :)
+            state['dashboard_last_path'] = os.path.dirname(fpath)
+            # get dashboard content
+            # cols() returns a list of strings
+            data_cols = proxy_model.cols[1:]
+            orb.log.debug(f'  - data cols: "{str(data_cols)}"')
+            write_mel_to_tsv(model.project, schema=data_cols, file_path=fpath)
+            html = '<h3>Success!</h3>'
+            msg = 'Dashboard contents exported to file:'
+            html += f'<p><b><font color="green">{msg}</font></b><br>'
+            html += f'<b><font color="blue">{fpath}</font></b></p>'
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+        else:
+            orb.log.debug('  ... export to tsv cancelled.')
+            return
 
     def on_successful_drop(self):
         """
