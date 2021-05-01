@@ -9,9 +9,9 @@ from functools import partial
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
-                             QFormLayout, QHBoxLayout, QLabel, QMessageBox,
-                             QSizePolicy, QTabWidget, QToolBar, QVBoxLayout,
-                             QWidget)
+                             QFileDialog, QFormLayout, QHBoxLayout, QLabel,
+                             QMessageBox, QSizePolicy, QTabWidget, QToolBar,
+                             QVBoxLayout, QWidget)
 
 from louie      import dispatcher
 from sqlalchemy import ForeignKey
@@ -20,7 +20,6 @@ from sqlalchemy.orm.collections import InstrumentedList
 # pangalactic
 from pangalactic.core import prefs, state
 from pangalactic.core.access import get_perms, is_global_admin
-# NOTE:  PGXN_PARAMETERS does not seem to be needed here ...
 from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
                                    PGXN_MASK, PGXN_PLACEHOLDERS, PGXN_VIEWS,
                                    PGXN_REQD, SELECTION_FILTERS)
@@ -34,18 +33,20 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           parm_defz, round_to,
                                           set_dval_from_str,
                                           set_pval_from_str)
-from pangalactic.core.uberorb     import orb
-from pangalactic.core.units       import alt_units, in_si, ureg
-from pangalactic.core.utils.meta  import get_attr_ext_name
-from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.validation  import validate_all
-from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import (CloningDialog,
-                                          ObjectSelectionDialog,
-                                          ValidationDialog)
-from pangalactic.node.utils       import (clone, get_object_title,
-                                          extract_mime_data)
-from pangalactic.node.widgets     import get_widget, UnitsWidget
+from pangalactic.core.uberorb         import orb
+from pangalactic.core.units           import alt_units, in_si, ureg
+from pangalactic.core.utils.datetimes import dtstamp, date2str
+from pangalactic.core.utils.meta      import get_attr_ext_name
+from pangalactic.core.utils.reports   import write_mel_to_tsv
+from pangalactic.core.validation      import validate_all
+from pangalactic.node.buttons         import SizedButton
+from pangalactic.node.dialogs         import (CloningDialog,
+                                              NotificationDialog,
+                                              ObjectSelectionDialog,
+                                              ValidationDialog)
+from pangalactic.node.utils           import (clone, get_object_title,
+                                              extract_mime_data)
+from pangalactic.node.widgets         import get_widget, UnitsWidget
 
 
 PARMS_NBR = 9
@@ -1138,7 +1139,7 @@ class PgxnObject(QDialog):
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         class_label = SizedButton(self.cname, color='green')
         self.toolbar.addWidget(class_label)
-        if isinstance(self.obj, orb.classes['Product']):
+        if isinstance(self.obj, orb.classes['HardwareProduct']):
             self.freeze_action = self.create_action('Freeze',
                                     slot=self.freeze, icon='freeze_16',
                                     tip='Freeze this object',
@@ -1198,6 +1199,12 @@ class PgxnObject(QDialog):
                 # do not allow cloning when not connected to repo
                 # NOTE: may allow in future when some offline ops are allowed
                 self.clone_action.setEnabled(False)
+        if isinstance(self.obj, orb.classes['HardwareProduct']):
+            self.mini_mel_action = self.create_action('Mini MEL',
+                                    slot=self.gen_mini_mel, icon='data',
+                                    tip='Generate a mini-MEL for this object',
+                                    modes=['edit', 'view'])
+            self.toolbar.addAction(self.mini_mel_action)
         # NOTE: viewer may be reactivated later ...
         # self.viewer_action = self.create_action('viewer',
                                 # slot=self.open_viewer, icon='view_16',
@@ -1321,7 +1328,7 @@ class PgxnObject(QDialog):
 
     def on_clone(self):
         """
-        Respond to 'clone' action by cloning the current object.
+        Handle 'clone' action.
         """
         orb.log.debug('* [pgxo] on_clone()')
         new_obj = None
@@ -1354,6 +1361,47 @@ class PgxnObject(QDialog):
                 # switch to component mode
                 dispatcher.send('new clone')
                 self.close()
+
+    def gen_mini_mel(self):
+        """
+        Generate a tsv MEL for the current object when 'Mini MEL' action is
+        selected.
+        """
+        orb.log.debug('* [pgxo] gen_mini_mel()')
+        dtstr = date2str(dtstamp())
+        dash_name = state.get('dashboard_name') or 'MEL'
+        if 'MEL' not in dash_name:
+            # replace spaces (if any) in dash_name with hyphens
+            dname = dash_name.replace(' ', '-')
+            mel_name = '-' + dname + '-MEL-'
+        else:
+            mel_name = '-MEL-'
+        fname = self.obj.id + mel_name + dtstr + '.tsv'
+        state_path = state.get('mini_mel_last_path') or ''
+        suggested_fpath = os.path.join(state_path, fname)
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to tsv File',
+                                    suggested_fpath, '(*.tsv)')
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            fpath = str(fpath)   # extra-cautious :)
+            state['mini_mel_last_path'] = os.path.dirname(fpath)
+            # get dashboard content
+            # cols() returns a list of strings
+            dash_schemas = prefs.get('dashboards') or {}
+            data_cols = dash_schemas.get(dash_name)
+            data_cols = data_cols or prefs.get('default_parms')
+            orb.log.debug(f'  - data columns: "{str(data_cols)}"')
+            write_mel_to_tsv(self.obj, schema=data_cols, file_path=fpath)
+            html = '<h3>Success!</h3>'
+            msg = 'Dashboard contents exported to file:'
+            html += f'<p><b><font color="green">{msg}</font></b><br>'
+            html += f'<b><font color="blue">{fpath}</font></b></p>'
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+        else:
+            orb.log.debug('  ... export to tsv cancelled.')
+            return
 
     def on_new_version(self):
         """
