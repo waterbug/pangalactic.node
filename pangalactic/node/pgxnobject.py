@@ -44,7 +44,8 @@ from pangalactic.node.dialogs         import (CloningDialog,
                                               NotificationDialog,
                                               ObjectSelectionDialog,
                                               ValidationDialog)
-from pangalactic.node.utils           import (clone, get_object_title,
+from pangalactic.node.utils           import (clone, get_all_project_usages,
+                                              get_object_title,
                                               extract_mime_data)
 from pangalactic.node.widgets         import get_widget, UnitsWidget
 
@@ -885,7 +886,7 @@ class PgxnObject(QDialog):
         """
         self.setWindowTitle('Object Viewer / Editor')
         # set min width so text fields don't get truncated
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(550)
         # self.setMinimumHeight(300)
         # destroy the existing stuff, if necessary ...
         if not getattr(self, 'vbox', None):
@@ -1152,10 +1153,14 @@ class PgxnObject(QDialog):
                                     slot=self.thaw, icon='thaw_16',
                                     tip='Thaw this object',
                                     modes=['edit', 'view'])
-            self.where_used_action = self.create_action('Where Used',
-                                    slot=self.show_where_used, icon='system',
-                                    tip='Show where this object is used ...',
-                                    modes=['edit', 'view'])
+            self.where_used_action = self.create_action('Where\nUsed',
+                            slot=self.show_where_used, icon='system',
+                            tip='Assemblies in which this object occurs ...',
+                            modes=['edit', 'view'])
+            self.project_usage_action = self.create_action('Project\nUsage',
+                            slot=self.show_project_usage, icon='favicon',
+                            tip='Projects using this product ...',
+                            modes=['edit', 'view'])
             # only users who can modify an object can 'freeze' it
             self.toolbar.addAction(self.freeze_action)
             self.freeze_action.setVisible(False)
@@ -1170,6 +1175,7 @@ class PgxnObject(QDialog):
             self.toolbar.addAction(self.thaw_action)
             self.thaw_action.setVisible(False)
             self.toolbar.addAction(self.where_used_action)
+            self.toolbar.addAction(self.project_usage_action)
             perms = get_perms(self.obj)
             # orb.log.debug('            user perms: {}'.format(str(perms)))
             if 'modify' in perms:
@@ -1199,8 +1205,10 @@ class PgxnObject(QDialog):
                 # do not allow cloning when not connected to repo
                 # NOTE: may allow in future when some offline ops are allowed
                 self.clone_action.setEnabled(False)
-        if isinstance(self.obj, orb.classes['HardwareProduct']):
-            self.mini_mel_action = self.create_action('Mini MEL',
+        if (isinstance(self.obj, orb.classes['HardwareProduct'])
+            and self.obj.components):
+            # the "Mini MEL" action only makes sense for white box objects
+            self.mini_mel_action = self.create_action('Mini\nMEL',
                                     slot=self.gen_mini_mel, icon='data',
                                     tip='Generate a mini-MEL for this object',
                                     modes=['edit', 'view'])
@@ -1322,6 +1330,26 @@ class PgxnObject(QDialog):
         else:
             txt = 'This product is not used in any assemblies or projects.'
         notice = QMessageBox(QMessageBox.Information, 'Where Used',
+                             txt, QMessageBox.Ok, self)
+        notice.setInformativeText(info)
+        notice.show()
+
+    def show_project_usage(self):
+        info = ''
+        projects = get_all_project_usages(self.obj)
+        psus = getattr(self.obj, 'projects_using_system', None)
+        projects |= set(psu.project for psu in psus)
+        if projects:
+            p_ids = [project.id for project in projects]
+            proj_info = '<p><ul>{}</ul></p>'.format('\n'.join(
+                                      ['<li><b>{}</b></li>'.format(p_id) for
+                                      p_id in p_ids]))
+            txt = 'This product is used as a component '
+            txt += 'or system in the following project(s):'
+            info = proj_info
+        else:
+            txt = 'This product is not used in any projects.'
+        notice = QMessageBox(QMessageBox.Information, 'Project Usage',
                              txt, QMessageBox.Ok, self)
         notice.setInformativeText(info)
         notice.show()

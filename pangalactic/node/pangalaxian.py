@@ -253,6 +253,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_set_current_project_signal,
                                                    'set current project')
         dispatcher.connect(self.set_product, 'drop on product info')
+        dispatcher.connect(self.on_drill_down, 'diagram object drill down')
         # connect dispatcher signals for message bus events
         dispatcher.connect(self.on_mbus_joined, 'onjoined')
         # 'set current product' only affects 'component mode' (the "product
@@ -2170,6 +2171,18 @@ class Main(QtWidgets.QMainWindow):
 
     product = property(get_product, set_product, del_product,
                        "product property")
+
+    def on_drill_down(self, usage=None):
+        """
+        Handle dispatcher signal for "diagram object drill down" (sent by
+        DiagramScene).
+        """
+        # only trigger if in 'component' mode
+        if state.get('mode') == 'component':
+            if getattr(usage, 'component', None):
+                self.product = usage.component
+            elif getattr(usage, 'system', None):
+                self.product = usage.system
 
     def on_system_selected_signal(self, system=None):
         """

@@ -272,6 +272,33 @@ def clone(what, include_ports=True, include_components=True,
         orb.recompute_parmz()
     return new_obj
 
+def get_all_usages(usage):
+    """
+    For the specified product usage, trace back to all assemblies in which it
+    occurs.
+
+    Args:
+        usage (Acu):  the specified usage
+    """
+    usages = set()
+    for acu in usage.assembly.where_used:
+        usages.add(acu)
+        for usage in get_all_usages(acu):
+            usages.add(usage)
+    return usages
+
+def get_all_project_usages(product):
+    all_usages = set()
+    projects = set()
+    for acu in product.where_used:
+        all_usages |= get_all_usages(acu)
+    all_assemblies = set([acu.assembly for acu in all_usages])
+    for a in all_assemblies:
+        if a.projects_using_system:
+            for psu in a.projects_using_system:
+                projects.add(psu.project)
+    return projects
+
 def create_template_from_product(product):
     """
     Create a template from the specified product.

@@ -702,6 +702,11 @@ class CloningDialog(QDialog):
     components: black box or white box; if black box, option to roll up CBE
     values of components into clone's parameters; if white box, it will include
     refs (new Acus) to selected components of the cloned object.
+
+    NOTE:  calling clone() (as this dialog does) automatically signals the
+    "pangalaxian" interface to go into "Component Modeler" mode, so that the
+    clone can have its properties edited and components can be added or
+    modified.
     """
     def __init__(self, obj, parent=None):
         super().__init__(parent)
@@ -813,11 +818,15 @@ class CloningDialog(QDialog):
                         acus.append(acu)
                 sel_comps = str([acu.reference_designator for acu in acus])
                 orb.log.debug(f'  - selected components: {sel_comps}')
+                # NOTE:  calling clone() will automatically put pangalaxian
+                # into "Component Modeler" mode
                 self.new_obj = clone(self.obj,
                                      include_specified_components=acus)
         elif self.black_box_button.isChecked():
             orb.log.debug('  - creating black box clone ...')
             if self.flatten_cb.isChecked():
+                # NOTE:  calling clone() will automatically put pangalaxian
+                # into "Component Modeler" mode
                 self.new_obj = clone(self.obj, include_components=False,
                                      flatten=True)
             else:
