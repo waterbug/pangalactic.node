@@ -153,6 +153,8 @@ class Main(QtWidgets.QMainWindow):
         self.dashboard_rebuilt = False
         self.progress_value = 0
         self.proc_pool = pool
+        # initialize internal "_product" attr, so getter for "product" works
+        self._product = None
         # set flag to monitor when connecting to server
         self.attempting_to_connect = False
         # self.synced is set by dtstamp() when sync_with_services() is called
@@ -254,6 +256,7 @@ class Main(QtWidgets.QMainWindow):
                                                    'set current project')
         dispatcher.connect(self.set_product, 'drop on product info')
         dispatcher.connect(self.on_drill_down, 'diagram object drill down')
+        dispatcher.connect(self.on_comp_back, 'comp modeler back')
         # connect dispatcher signals for message bus events
         dispatcher.connect(self.on_mbus_joined, 'onjoined')
         # 'set current product' only affects 'component mode' (the "product
@@ -2150,7 +2153,9 @@ class Main(QtWidgets.QMainWindow):
         """
         Get the current product.
         """
-        return orb.get(state.get('product'))
+        if not self._product:
+            self._product = orb.get(state.get('product'))
+        return self._product
 
     def set_product(self, p):
         """
@@ -2159,10 +2164,28 @@ class Main(QtWidgets.QMainWindow):
         Args:
             p (Product):  the product to be set.
         """
+        orb.log.debug('* setting state["product"] ...')
         oid = getattr(p, 'oid', None)
-        orb.log.debug('* setting product: {}'.format(oid))
-        state['product'] = str(oid)
-        # orb.log.debug('  - dispatching "set current product" ...')
+        orb.log.debug(f'  product: "{p.id}" ({oid})')
+        if self._product and not state.get('comp_modeler_back'):
+            # if there was a product set before, add it to history unless
+            # 'comp_modeler_back' is True (-> back navigation)
+            prev_oid = self._product.oid
+            prev_id = self._product.id
+            orb.log.debug(f'  adding to cmh: "{prev_id}" ({prev_oid})')
+            if state.get('component_modeler_history'):
+                state['component_modeler_history'].append(prev_oid)
+            else:
+                state['component_modeler_history'] = [prev_oid]
+        else:
+            # if comp_modeler_back was True, reset it to False
+            orb.log.debug('  "comp modeler back" was called')
+            state['comp_modeler_back'] = False
+        cmh = state.get('component_modeler_history', [])
+        orb.log.debug(f'  cmh is now: {str(cmh)}')
+        state['product'] = oid
+        self._product = p
+        orb.log.debug('  - dispatching "set current product" ...')
         dispatcher.send(signal="set current product",
                         sender='set_product', product=p)
 
@@ -2172,12 +2195,25 @@ class Main(QtWidgets.QMainWindow):
     product = property(get_product, set_product, del_product,
                        "product property")
 
+    def on_comp_back(self, oid=None):
+        """
+        Handle dispatcher signal for "comp modeler back" (sent by
+        ProductInfoPanel): load the last product from history and remove it
+        from the stack.
+        """
+        if state.get('component_modeler_history'):
+            oid = state['component_modeler_history'].pop()
+            # 'comp_modeler_back' tells set_product() not to add this to
+            # history (we just removed it!)
+            state['comp_modeler_back'] = True
+            self.product = orb.get(oid)
+
     def on_drill_down(self, usage=None):
         """
         Handle dispatcher signal for "diagram object drill down" (sent by
         DiagramScene).
         """
-        # only trigger if in 'component' mode
+        # only trigger setting of self.product if in 'component' mode
         if state.get('mode') == 'component':
             if getattr(usage, 'component', None):
                 self.product = usage.component

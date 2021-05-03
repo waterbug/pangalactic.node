@@ -7,8 +7,8 @@ from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QModelIndex, QSize
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
-                             QLayout, QMainWindow, QSizePolicy, QVBoxLayout,
-                             QWidget)
+                             QLayout, QMainWindow, QPushButton, QSizePolicy,
+                             QVBoxLayout, QWidget)
 from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
@@ -654,23 +654,36 @@ class ProductInfoPanel(QWidget):
         title = NameLabel('Product')
         title.setStyleSheet('font-weight: bold; font-size: 18px')
         product_frame_vbox.addWidget(title)
-        # product_info_layout = QGridLayout()
         product_info_layout = QHBoxLayout()
         product_info_layout.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+        icon_file = 'back.png'
+        icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+        icon_path = os.path.join(icon_dir, icon_file)
+        back_icon = QIcon(icon_path)
+        self.back_button = QPushButton(back_icon, 'Back')
+        self.back_button.setToolTip('Back')
+        self.back_button.clicked.connect(self.load_last_product)
+        product_info_layout.addWidget(self.back_button)
+        self.clear_hist_button = QPushButton('Clear History')
+        self.clear_hist_button.setToolTip('Clear the modeler history')
+        self.clear_hist_button.clicked.connect(self.clear_history)
+        product_info_layout.addWidget(self.clear_hist_button)
+        if state.get('component_modeler_history'):
+            self.back_button.setEnabled(True)
+            self.clear_hist_button.setEnabled(True)
+        else:
+            self.back_button.setEnabled(False)
+            self.clear_hist_button.setEnabled(False)
         product_id_label = NameLabel('id:')
         product_id_label.setStyleSheet('font-weight: bold')
-        # product_info_layout.addWidget(product_id_label, 0, 0)
         product_info_layout.addWidget(product_id_label)
         self.product_id_value_label = ValueLabel('No Product Selected', w=200)
-        # product_info_layout.addWidget(self.product_id_value_label, 0, 1)
         product_info_layout.addWidget(self.product_id_value_label)
         product_name_label = NameLabel('name:')
         product_name_label.setStyleSheet('font-weight: bold')
-        # product_info_layout.addWidget(product_name_label, 0, 2)
         product_info_layout.addWidget(product_name_label)
         self.product_name_value_label = ValueLabel(
                                 'Drag/Drop a Product from Library ...', w=320)
-        # product_info_layout.addWidget(self.product_name_value_label, 0, 3)
         product_info_layout.addWidget(self.product_name_value_label)
         product_version_label = NameLabel('version:')
         product_version_label.setStyleSheet('font-weight: bold')
@@ -687,6 +700,16 @@ class ProductInfoPanel(QWidget):
         # pangalaxian.Main.set_product()
         self.set_product(product=orb.get(state.get('product')))
         dispatcher.connect(self.on_update, 'update product modeler')
+
+    def load_last_product(self):
+        # pangalaxian will pop the previous product in history and set it as
+        # product
+        dispatcher.send('comp modeler back')
+
+    def clear_history(self):
+        state['component_modeler_history'] = []
+        self.back_button.setEnabled(False)
+        self.clear_hist_button.setEnabled(False)
 
     def on_update(self, obj=None):
         if obj:

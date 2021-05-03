@@ -4,7 +4,6 @@ A set of custom TableModels for use with QTableView.
 # stdlib
 import os, re
 # import sys  # only needed for testing stuff
-from collections import OrderedDict
 
 # SqlAlchemy
 from sqlalchemy import ForeignKey
@@ -35,9 +34,9 @@ from pangalactic.core.utils.meta  import (display_id, pname_to_header_label,
 from pangalactic.node.utils       import get_pixmap
 
 
-test_od = [OrderedDict([('spam','00'), ('eggs','01'), ('more spam','02')]),
-           OrderedDict([('spam','10'), ('eggs','11'), ('more spam','12')]),
-           OrderedDict([('spam','20'), ('eggs','21'), ('more spam','22')])]
+test_od = [dict([('spam','00'), ('eggs','01'), ('more spam','02')]),
+           dict([('spam','10'), ('eggs','11'), ('more spam','12')]),
+           dict([('spam','20'), ('eggs','21'), ('more spam','22')])]
 
 # test_df = pandas.DataFrame(test_od)
 
@@ -72,13 +71,15 @@ class ListTableModel(QAbstractTableModel):
 
 class ODTableModel(QAbstractTableModel):
     """
-    A table model based on a list of OrderedDict instances.
+    A table model based on a list of dict instances.  (In the python 2 version,
+    this was based on OrderedDict; in python 3, the builtin dict is ordered so
+    OrderedDict is unnecessary.)
     """
-    def __init__(self, ods, as_library=False, icons=None, parent=None,
+    def __init__(self, ds, as_library=False, icons=None, parent=None,
                  **kwargs):
         """
         Args:
-            ods (list):  list of OrderedDict instances
+            ds (list):  list of dict instances
 
         Keyword Args:
             as_library (bool): (default: False) if True, provide icons, etc.
@@ -88,13 +89,13 @@ class ODTableModel(QAbstractTableModel):
         # TODO: some validity checking on the data ...
         self.icons = icons or []
         self.as_library = as_library
-        self.ods = ods or [{0:'no data'}]
+        self.ds = ds or [{0:'no data'}]
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         self.default_icon = QIcon(QPixmap(os.path.join(icon_dir,
                                   'box'+state.get('icon_type', '.png'))))
 
     def columns(self):
-        return list(self.ods[0].keys())
+        return list(self.ds[0].keys())
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -102,21 +103,21 @@ class ODTableModel(QAbstractTableModel):
         return QAbstractTableModel.headerData(self, section, orientation, role)
 
     def rowCount(self, parent=QModelIndex()):
-        return len(self.ods)
+        return len(self.ds)
 
     def columnCount(self, parent):
         try:
-            return len(self.ods[0])
+            return len(self.ds[0])
         except:
             return 1
 
     def setData(self, index, value, role=Qt.UserRole):
         """
-        Reimplementation in which 'value' is an OrderedDict.
+        Reimplementation in which 'value' is a dict.
         """
         if index.isValid():
-            if index.row() < len(self.ods):
-                self.ods[index.row()] = value
+            if index.row() < len(self.ds):
+                self.ds[index.row()] = value
             else:
                 orb.log.debug('* setData(): index is out of range')
             # NOTE the 3rd arg is an empty list -- reqd for pyqt5
@@ -126,10 +127,10 @@ class ODTableModel(QAbstractTableModel):
         return False
 
     def removeRows(self, row, count, parent=QModelIndex()):
-        if row < len(self.ods):
+        if row < len(self.ds):
             # self.beginRemoveRows()
             self.beginResetModel()
-            del self.ods[row]
+            del self.ds[row]
             # self.endRemoveRows()
             self.endResetModel()
             # NOTE the 3rd arg is an empty list -- reqd for pyqt5
@@ -151,14 +152,14 @@ class ODTableModel(QAbstractTableModel):
                 return self.default_icon
         elif role != Qt.DisplayRole:
             return QVariant()
-        return self.ods[index.row()].get(
+        return self.ds[index.row()].get(
                        self.columns()[index.column()], '')
 
 
 class DMTableModel(QAbstractTableModel):
     """
-    A table model based on a DataMatrix -- an OrderedDict containing rows that
-    are dicts.
+    A table model based on a DataMatrix -- a dict containing rows that are
+    dicts.
     """
     def __init__(self, dm=None, parent=None):
         """
@@ -200,7 +201,7 @@ class DMTableModel(QAbstractTableModel):
 
     def setData(self, index, value, role=Qt.UserRole):
         """
-        Reimplementation in which 'value' is an OrderedDict.
+        Reimplementation in which 'value' is a dict.
         """
         if index.isValid():
             if index.row() < len(self.dm):
@@ -307,10 +308,10 @@ class ObjectTableModel(ODTableModel):
                 self.objs.insert(0, null_obj)
             # NOTE:  this works but may need performance optimization when
             # the table holds a large number of objects
-            ods = [self.get_odict_for_obj(o, self.view) for o in self.objs]
+            ds = [self.get_odict_for_obj(o, self.view) for o in self.objs]
             self.column_labels = [pname_to_header_label(x) for x in self.view]
         else:
-            ods = [{0:'no data'}]
+            ds = [{0:'no data'}]
             self.view = ['id']
             if with_none:
                 null_obj = NullObject()
@@ -320,17 +321,17 @@ class ObjectTableModel(ODTableModel):
                         val = 'None'
                     setattr(null_obj, name, val)
                 self.objs = [null_obj]
-                odict = OrderedDict()
-                odict['id'] = 'None'
-                ods = [odict]
-        super().__init__(ods, as_library=as_library, icons=icons,
+                d = dict()
+                d['id'] = 'None'
+                ds = [d]
+        super().__init__(ds, as_library=as_library, icons=icons,
                          parent=parent, **kwargs)
 
     def get_odict_for_obj(self, obj, view):
         """
-        Return the OrderedDict representation of an object.
+        Return the dict representation of an object.
         """
-        odict = OrderedDict()
+        d = dict()
         for name in view:
             if name not in self.schema['fields']:
                 val = '-'
@@ -345,8 +346,8 @@ class ObjectTableModel(ODTableModel):
                        or getattr(getattr(obj, name), 'id', '[None]'))
             else:
                 val = str(getattr(obj, name))
-            odict[name] = val
-        return odict
+            d[name] = val
+        return d
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -356,10 +357,10 @@ class ObjectTableModel(ODTableModel):
     def setData(self, index, obj, role=Qt.UserRole):
         """
         Reimplementation using an object as the 'value' (based on underlying
-        ODTableModel setData, which takes an OrderedDict).
+        ODTableModel setData, which takes an dict).
         """
         try:
-            # apply ODTableModel.setData, which takes an OrderedDict as value
+            # apply ODTableModel.setData, which takes a dict as value
             super().setData(index, self.get_odict_for_obj(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
@@ -431,24 +432,24 @@ class CompareTableModel(ODTableModel):
         self.parameters = parameters
         self.column_labels = ['Parameter']
         if objs:
-            self.ods = []
+            self.ds = []
             for pid in self.parameters:
-                row_dict = OrderedDict()
+                row_dict = {}
                 pd = orb.select('ParameterDefinition', id=pid)
                 row_dict['Parameter'] = pd.name
                 for o in self.objs:
                     val = get_pval_as_str(o.oid, pid)
                     row_dict[o.oid] = val
-                self.ods.append(row_dict)
+                self.ds.append(row_dict)
             if self.objs:
                 self.column_labels = [pname_to_header_label(o.name)
                                       for o in self.objs]
                 self.column_labels.insert(0, 'Parameter')
             else:
-                self.column_labels = list(self.ods[0].keys())
+                self.column_labels = list(self.ds[0].keys())
         else:
-            self.ods = [{0:'no data'}]
-        super().__init__(self.ods, parent=parent, **kwargs)
+            self.ds = [{0:'no data'}]
+        super().__init__(self.ds, parent=parent, **kwargs)
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
