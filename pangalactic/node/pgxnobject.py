@@ -1158,7 +1158,7 @@ class PgxnObject(QDialog):
                             tip='Assemblies in which this object occurs ...',
                             modes=['edit', 'view'])
             self.project_usage_action = self.create_action('Project\nUsage',
-                            slot=self.show_project_usage, icon='favicon',
+                            slot=self.show_projects_using, icon='favicon',
                             tip='Projects using this product ...',
                             modes=['edit', 'view'])
             # only users who can modify an object can 'freeze' it
@@ -1306,7 +1306,8 @@ class PgxnObject(QDialog):
             # if assemblies and len(assemblies) > 0:
             txt = 'This product is used as a component '
             txt += 'in the following assemblies:'
-            assmb_info = '<p><ul>{}</ul></p>'.format('\n'.join(
+            assmb_info = '<p><b>Assemblies:</b></p>'
+            assmb_info += '<p><ul>{}</ul></p>'.format('\n'.join(
                        ['<li><b>{}</b><br>({})</li>'.format(
                        a.name, a.id) for a in assemblies if a]))
         projects_using = getattr(self.obj, 'projects_using_system', None)
@@ -1314,7 +1315,8 @@ class PgxnObject(QDialog):
             txt = 'This product is used as a top-level system '
             txt += 'in the following project(s):'
             p_ids = [psu.project.id for psu in self.obj.projects_using_system]
-            proj_info = '<p><ul>{}</ul></p>'.format('\n'.join(
+            proj_info = '<p><b>A Top Level System in Projects:</b></p>'
+            proj_info += '<p><ul>{}</ul></p>'.format('\n'.join(
                                       ['<li><b>{}</b></li>'.format(p_id) for
                                       p_id in p_ids]))
         if where_used and projects_using:
@@ -1334,9 +1336,13 @@ class PgxnObject(QDialog):
         notice.setInformativeText(info)
         notice.show()
 
-    def show_project_usage(self):
+    def show_projects_using(self):
         info = ''
         projects = get_all_project_usages(self.obj)
+        if getattr(self.obj, 'projects_using_system', None):
+            system_in_projects = set(psu.project for psu
+                                     in self.obj.projects_using_system)
+            projects |= system_in_projects
         if projects:
             p_ids = [project.id for project in projects]
             proj_info = '<p><ul>{}</ul></p>'.format('\n'.join(
