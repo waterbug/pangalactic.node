@@ -180,7 +180,20 @@ class UrlButton(QPushButton):
             value (str): a url
         """
         self.value = value
-        self.setText(value)
+        self.setToolTip(value)
+        self.setStyleSheet(
+                        "QToolTip { color: #ffffff; "
+                        "background-color: #2a82da; "
+                        "border: 1px solid white; }")
+        txt = 'none'
+        try:
+            if value and len(value) > 40:
+                txt = value[:40] + '...'
+            else:
+                txt = value
+        except:
+            pass
+        self.setText(txt)
 
     def open_url(self, evt):
         if self.value:
