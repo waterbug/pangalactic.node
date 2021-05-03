@@ -4,7 +4,7 @@
 Pangalaxian (the PanGalactic GUI client) main window
 """
 import argparse, atexit, multiprocessing, os, platform, shutil, sys
-import time, traceback
+import time, traceback, webbrowser
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
 from pathlib  import Path
@@ -73,7 +73,7 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog)
-from pangalactic.node.helpwidget       import HelpWidget
+# from pangalactic.node.helpwidget       import HelpWidget
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
@@ -1659,11 +1659,15 @@ class Main(QtWidgets.QMainWindow):
                                     "About",
                                     slot=self.show_about,
                                     tip="About {}".format(app_name))
-        self.help_action = self.create_action(
-                                    "Help",
-                                    slot=self.show_help,
+        self.user_guide_action = self.create_action(
+                                    "User Guide",
+                                    slot=self.show_user_guide,
                                     icon='tardis',
-                                    tip="Help")
+                                    tip="User Guide / Getting Started")
+        self.reference_action = self.create_action(
+                                    "Reference Manual",
+                                    slot=self.show_ref_manual,
+                                    tip="Reference Manual")
         self.new_project_action = self.create_action(
                                     "Create New Project",
                                     slot=self.new_project,
@@ -2339,7 +2343,8 @@ class Main(QtWidgets.QMainWindow):
         self.toolbar.addWidget(system_tools_button)
         help_icon_file = 'tardis' + state['icon_type']
         help_icon_path = os.path.join(icon_dir, help_icon_file)
-        help_actions = [self.help_action,
+        help_actions = [self.user_guide_action,
+                        self.reference_action,
                         self.about_action]
         help_button = MenuButton(QtGui.QIcon(help_icon_path),
                                  text='Help',
@@ -3901,11 +3906,18 @@ class Main(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.about(self, "Some call me...",
             '<html><p><b>{} {}</b></p></html>'.format(app_name, version))
 
-    def show_help(self):
-        ug_path = os.path.join(orb.home, 'doc', 'user_guide.html')
-        help_url = urllib.parse.urljoin('file:', urllib.request.pathname2url(ug_path))
-        help_widget = HelpWidget(help_url, parent=self)
-        help_widget.show()
+    def show_user_guide(self):
+        # ug_path = os.path.join(orb.home, 'doc', 'user_guide.html')
+        # help_url = urllib.parse.urljoin('file:',
+                                    # urllib.request.pathname2url(ug_path))
+        # help_widget = HelpWidget(help_url, parent=self)
+        # help_widget.show()
+        ug_url = 'https://pangalactic.us/cattens_doc/user_guide.html'
+        webbrowser.open_new(ug_url)
+
+    def show_ref_manual(self):
+        ref_url = 'https://pangalactic.us/cattens_doc/reference.html'
+        webbrowser.open_new(ref_url)
 
     def view_cad(self, file_path=None):
         orb.log.info('* view_cad(file_path="{}")'.format(file_path))

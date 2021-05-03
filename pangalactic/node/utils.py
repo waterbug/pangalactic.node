@@ -274,13 +274,14 @@ def clone(what, include_ports=True, include_components=True,
 
 def get_all_usages(usage):
     """
-    For the specified product usage, trace back to all assemblies in which it
-    occurs.
+    For the specified product usage, trace back to all usages that appear in
+    assemblies in which it occurs as a component.
 
     Args:
         usage (Acu):  the specified usage
     """
-    usages = set()
+    # include this usage too!
+    usages = set([usage])
     for acu in usage.assembly.where_used:
         usages.add(acu)
         for usage in get_all_usages(acu):

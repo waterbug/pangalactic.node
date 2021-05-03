@@ -1337,8 +1337,6 @@ class PgxnObject(QDialog):
     def show_project_usage(self):
         info = ''
         projects = get_all_project_usages(self.obj)
-        psus = getattr(self.obj, 'projects_using_system', None)
-        projects |= set(psu.project for psu in psus)
         if projects:
             p_ids = [project.id for project in projects]
             proj_info = '<p><ul>{}</ul></p>'.format('\n'.join(
