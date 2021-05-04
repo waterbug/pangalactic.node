@@ -41,6 +41,7 @@ from pangalactic.core.utils.reports   import write_mel_to_tsv
 from pangalactic.core.validation      import validate_all
 from pangalactic.node.buttons         import SizedButton
 from pangalactic.node.dialogs         import (CloningDialog,
+                                              MiniMelDialog, 
                                               NotificationDialog,
                                               ObjectSelectionDialog,
                                               ValidationDialog)
@@ -1209,7 +1210,7 @@ class PgxnObject(QDialog):
             and self.obj.components):
             # the "Mini MEL" action only makes sense for white box objects
             self.mini_mel_action = self.create_action('Mini\nMEL',
-                                    slot=self.gen_mini_mel, icon='data',
+                                    slot=self.display_mini_mel, icon='data',
                                     tip='Generate a mini-MEL for this object',
                                     modes=['edit', 'view'])
             self.toolbar.addAction(self.mini_mel_action)
@@ -1394,10 +1395,20 @@ class PgxnObject(QDialog):
                 dispatcher.send('new clone')
                 self.close()
 
-    def gen_mini_mel(self):
+    def display_mini_mel(self):
         """
-        Generate a tsv MEL for the current object when 'Mini MEL' action is
+        Display a "Mini MEL" for the current object when 'Mini MEL' action is
         selected.
+        """
+        dlg = MiniMelDialog(self.obj, parent=self)
+        dlg.show()
+
+    def gen_mini_mel(self, dash_name=None):
+        """
+        Generate a tsv MEL for the current object.
+
+        Keyword Args:
+            dash_name (str):  name of the dashboard whose schema is to be used
         """
         orb.log.debug('* [pgxo] gen_mini_mel()')
         dtstr = date2str(dtstamp())
@@ -1418,8 +1429,6 @@ class PgxnObject(QDialog):
             orb.log.debug(f'  - file selected: "{fpath}"')
             fpath = str(fpath)   # extra-cautious :)
             state['mini_mel_last_path'] = os.path.dirname(fpath)
-            # get dashboard content
-            # cols() returns a list of strings
             dash_schemas = prefs.get('dashboards') or {}
             data_cols = dash_schemas.get(dash_name)
             data_cols = data_cols or prefs.get('default_parms')
