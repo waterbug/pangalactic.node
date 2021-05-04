@@ -329,12 +329,36 @@ class MiniMelDialog(QDialog):
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
         self.obj = obj
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.dash_name = state.get('dashboard_name') or 'MEL'
         dash_schemas = prefs.get('dashboards') or {}
-        # TODO:  add a dashboard selector (combo box)
-        dash_name = state.get('dashboard_name') or 'MEL'
-        data_cols = dash_schemas.get(dash_name)
-        data_cols = data_cols or prefs.get('default_parms')
-        self.mel_data = get_mel_data(self.obj, schema=data_cols)
+        self.data_cols = dash_schemas.get(self.dash_name)
+        # set up dashboard selector
+        # TODO:  in addition to dashboard names, give options to use all
+        # default parameters or all parameters defined for self.obj
+        self.dash_select = QComboBox()
+        self.dash_select.setStyleSheet(
+                            'font-weight: bold; font-size: 14px')
+        for dash_name in prefs['dashboard_names']:
+            self.dash_select.addItem(dash_name, QVariant)
+        self.dash_select.setCurrentIndex(0)
+        self.dash_select.activated.connect(self.on_dash_select)
+        layout.addWidget(self.dash_select)
+        # set up mel table
+        self.set_mini_mel_table()
+
+    def on_dash_select(self, index):
+        self.dash_name = prefs['dashboard_names'][index]
+        dash_schemas = prefs.get('dashboards') or {}
+        self.data_cols = dash_schemas.get(self.dash_name)
+        self.set_mini_mel_table()
+
+    def set_mini_mel_table(self):
+        layout = self.layout()
+        # if getattr(self, 'mini_mel_table', None):
+            # remove and close current table
+        self.mel_data = get_mel_data(self.obj, schema=self.data_cols)
         mini_mel_model = ODTableModel(self.mel_data)
         self.mini_mel_table = QTableView()
         self.mini_mel_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
@@ -350,9 +374,7 @@ class MiniMelDialog(QDialog):
         self.mini_mel_table.setSizePolicy(QSizePolicy.Expanding,
                                           QSizePolicy.Expanding)
         QTimer.singleShot(0, self.mini_mel_table.resizeColumnsToContents)
-        layout = QVBoxLayout()
         layout.addWidget(self.mini_mel_table)
-        self.setLayout(layout)
 
     def item_selected(self, clicked_index):
         """

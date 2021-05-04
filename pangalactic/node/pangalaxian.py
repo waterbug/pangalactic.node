@@ -3536,7 +3536,6 @@ class Main(QtWidgets.QMainWindow):
             self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
             self.dash_select.close()
             self.dash_select = None
-
             orb.log.debug('  - creating new dash selector ...')
             new_dash_select = QtWidgets.QComboBox()
             new_dash_select.setStyleSheet(
