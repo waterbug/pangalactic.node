@@ -10,7 +10,7 @@ Various dialogs.
 
 import sys
 
-from PyQt5.QtCore import (Qt, QPoint, QRectF, QSize, QVariant)
+from PyQt5.QtCore import Qt, QPoint, QRectF, QSize, QTimer, QVariant
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                              QDialog, QDialogButtonBox, QFormLayout, QFrame,
@@ -346,11 +346,10 @@ class MiniMelDialog(QDialog):
         self.mini_mel_table.verticalHeader().hide()
         self.mini_mel_table.clicked.connect(self.item_selected)
         col_header = self.mini_mel_table.horizontalHeader()
-        col_header.setSectionResizeMode(col_header.Stretch)
         col_header.setStyleSheet('font-weight: bold')
-        # self.mini_mel_table.setSizePolicy(QSizePolicy.Expanding,
-                                     # QSizePolicy.Expanding)
-        self.mini_mel_table.resizeColumnsToContents()
+        self.mini_mel_table.setSizePolicy(QSizePolicy.Expanding,
+                                          QSizePolicy.Expanding)
+        QTimer.singleShot(0, self.mini_mel_table.resizeColumnsToContents)
         layout = QVBoxLayout()
         layout.addWidget(self.mini_mel_table)
         self.setLayout(layout)
