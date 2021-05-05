@@ -451,10 +451,10 @@ class SystemDashboard(QTreeView):
 
     def export_tsv_pref(self):
         """
-        Handler for 'export to .tsv file (preferred units)' context menu item.  I.e.
-        write the dashboard content to a tab-separated-values file.  Parameter
-        values will be expressed in the user's preferred units, and headers will
-        be explicitly annotated with units.
+        [Handler for 'export to .tsv file (preferred units)' menu item]
+        Write the dashboard content to a tab-separated-values file.  Parameter
+        values will be expressed in the user's preferred units, and headers
+        will be explicitly annotated with units.
         """
         orb.log.debug('* export_tsv_pref()')
         proxy_model = self.model()

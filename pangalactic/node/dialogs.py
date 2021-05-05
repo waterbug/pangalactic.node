@@ -8,16 +8,17 @@ Various dialogs.
 # from pangalactic.node.threads     import threadpool, Worker
 # from pangalactic.node.process     import run_conda
 
-import sys
+import os, sys
 from textwrap import wrap
 
 from PyQt5.QtCore import Qt, QPoint, QRectF, QSize, QTimer, QVariant
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
-                             QDialog, QDialogButtonBox, QFormLayout, QFrame,
-                             QHBoxLayout, QLabel, QLineEdit, QProgressDialog,
-                             QRadioButton, QScrollArea, QSizePolicy,
-                             QTableView, QVBoxLayout, QWidget)
+                             QDialog, QDialogButtonBox, QFileDialog,
+                             QFormLayout, QFrame, QHBoxLayout, QLabel,
+                             QLineEdit, QProgressDialog, QRadioButton,
+                             QScrollArea, QSizePolicy, QTableView,
+                             QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
@@ -29,10 +30,10 @@ from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
                                           get_dval, set_dval)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
-from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
-from pangalactic.core.utils.reports import get_mel_data
+from pangalactic.core.utils.reports import get_mel_data, write_mel_to_tsv
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.tablemodels import ObjectTableModel, ODTableModel
 from pangalactic.node.trees       import ParmDefTreeView
@@ -345,7 +346,13 @@ class MiniMelDialog(QDialog):
             self.dash_select.addItem(dash_name, QVariant)
         self.dash_select.setCurrentIndex(0)
         self.dash_select.activated.connect(self.on_dash_select)
-        layout.addWidget(self.dash_select)
+        self.export_tsv_button = SizedButton("Export as tsv")
+        self.export_tsv_button.clicked.connect(self.export_tsv)
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(self.dash_select)
+        top_layout.addWidget(self.export_tsv_button)
+        top_layout.addStretch(1)
+        layout.addLayout(top_layout)
         # set up mel table
         self.set_mini_mel_table()
 
@@ -354,6 +361,40 @@ class MiniMelDialog(QDialog):
         dash_schemas = prefs.get('dashboards') or {}
         self.data_cols = dash_schemas.get(self.dash_name)
         self.set_mini_mel_table()
+
+    def export_tsv(self):
+        """
+        [Handler for 'export as tsv' button]  Write the dashboard content to a
+        tab-separated-values file.  Parameter values will be expressed in the
+        user's preferred units, and headers will be explicitly annotated with
+        units.
+        """
+        orb.log.debug('* export_tsv()')
+        dtstr = date2str(dtstamp())
+        name = '-' + self.dash_name + '-'
+        fname = self.obj.id + name + dtstr + '.tsv'
+        state_path = state.get('mini_mel_last_path') or ''
+        suggested_fpath = os.path.join(state_path, fname)
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to tsv File',
+                                    suggested_fpath, '(*.tsv)')
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            fpath = str(fpath)   # extra-cautious :)
+            state['mini_mel_last_path'] = os.path.dirname(fpath)
+            data_cols = prefs['dashboards'].get(self.dash_name)
+            orb.log.debug(f'  - data cols: "{str(data_cols)}"')
+            write_mel_to_tsv(self.obj, schema=data_cols, pref_units=True,
+                             file_path=fpath)
+            html = '<h3>Success!</h3>'
+            msg = 'Mini MEL exported to file:'
+            html += f'<p><b><font color="green">{msg}</font></b><br>'
+            html += f'<b><font color="blue">{fpath}</font></b></p>'
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+        else:
+            orb.log.debug('  ... export to tsv cancelled.')
+            return
 
     def set_mini_mel_table(self):
         layout = self.layout()
