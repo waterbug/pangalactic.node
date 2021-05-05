@@ -9,6 +9,7 @@ Various dialogs.
 # from pangalactic.node.process     import run_conda
 
 import sys
+from textwrap import wrap
 
 from PyQt5.QtCore import Qt, QPoint, QRectF, QSize, QTimer, QVariant
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
@@ -356,12 +357,19 @@ class MiniMelDialog(QDialog):
 
     def set_mini_mel_table(self):
         layout = self.layout()
-        # if getattr(self, 'mini_mel_table', None):
+        if getattr(self, 'mini_mel_table', None):
             # remove and close current table
-        self.mel_data = get_mel_data(self.obj, schema=self.data_cols)
+            layout.removeWidget(self.mini_mel_table)
+            self.mini_mel_table.parent = None
+            self.mini_mel_table.close()
+        raw_data = get_mel_data(self.obj, schema=self.data_cols)
+        # transform keys to formatted headers with units
+        self.mel_data = [{self.get_header(col_id) : row[col_id]
+                          for col_id in row}
+                          for row in raw_data]
         mini_mel_model = ODTableModel(self.mel_data)
         self.mini_mel_table = QTableView()
-        self.mini_mel_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
+        self.mini_mel_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mini_mel_table.setModel(mini_mel_model)
         self.mini_mel_table.setAlternatingRowColors(True)
         self.mini_mel_table.setShowGrid(False)
@@ -373,8 +381,28 @@ class MiniMelDialog(QDialog):
         col_header.setStyleSheet('font-weight: bold')
         self.mini_mel_table.setSizePolicy(QSizePolicy.Expanding,
                                           QSizePolicy.Expanding)
+        self.mini_mel_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
         QTimer.singleShot(0, self.mini_mel_table.resizeColumnsToContents)
         layout.addWidget(self.mini_mel_table)
+
+    def get_header(self, col_id):
+        # code borrowed from systemtree.py, modified
+        pd = parm_defz.get(col_id)
+        if pd:
+            units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                    pd['dimensions'], '')
+            if units:
+                units = '(' + units + ')'
+            return '   \n   '.join(wrap(pd['name'], width=7,
+                                   break_long_words=False) + [units])
+        elif col_id in de_defz:
+            de_def = de_defz.get(col_id, '')
+            if de_def:
+                return '   \n   '.join(wrap(de_def['name'], width=7,
+                                       break_long_words=False))
+        else:
+            txt = ' '.join([s.capitalize() for s in col_id.split('_')])
+            return txt
 
     def item_selected(self, clicked_index):
         """

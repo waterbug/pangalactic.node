@@ -79,7 +79,6 @@ class ObjectTableView(QTableView):
         column_header.sectionMoved.connect(self.on_section_moved)
         # NOTE:  the following line will make table width fit into window
         #        ... but it also makes column widths non-adjustable
-        # column_header.setSectionResizeMode(column_header.Stretch)
         # row_header = self.verticalHeader()
         # NOTE:  enable sorting *after* setting model but *before* resizing to
         # contents (so column sizing includes sort indicators)
