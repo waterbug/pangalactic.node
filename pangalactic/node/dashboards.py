@@ -112,10 +112,15 @@ class SystemDashboard(QTreeView):
         delete_dashboard_action = QAction('delete dashboard', dash_header)
         delete_dashboard_action.triggered.connect(self.delete_dashboard)
         dash_header.addAction(delete_dashboard_action)
-        export_dashboard_action = QAction('export dashboard to tsv file',
-                                          dash_header)
-        export_dashboard_action.triggered.connect(self.export_tsv)
-        dash_header.addAction(export_dashboard_action)
+        export_tsv_mks_action = QAction('export to .tsv file (mks units)',
+                                        dash_header)
+        export_tsv_mks_action.triggered.connect(self.export_tsv_mks)
+        dash_header.addAction(export_tsv_mks_action)
+        export_tsv_pref_action = QAction(
+                                    'export to .tsv file (preferred units)',
+                                    dash_header)
+        export_tsv_pref_action.triggered.connect(self.export_tsv_pref)
+        dash_header.addAction(export_tsv_pref_action)
         dash_header.setContextMenuPolicy(Qt.ActionsContextMenu)
         dash_header.sectionMoved.connect(self.on_section_moved)
         dash_header.setStretchLastSection(False)
@@ -406,12 +411,14 @@ class SystemDashboard(QTreeView):
                 state['dashboard_name'] = ''
             dispatcher.send(signal='dashboard mod')
 
-    def export_tsv(self):
+    def export_tsv_mks(self):
         """
-        Handler for 'export dashboard to tsv file' context menu item.
-        I.e. write the dashboard content to a tab-separated-values file.
+        Handler for 'export to .tsv file (mks units)' context menu item.  I.e.
+        write the dashboard content to a tab-separated-values file.  Parameter
+        values will be expressed in the base mks units, and headers will be
+        explicitly annotated with units.
         """
-        orb.log.debug('* export_tsv()')
+        orb.log.debug('* export_tsv_mks()')
         proxy_model = self.model()
         model = proxy_model.sourceModel()
         proj_id = model.project.id
@@ -432,6 +439,45 @@ class SystemDashboard(QTreeView):
             data_cols = proxy_model.cols[1:]
             orb.log.debug(f'  - data cols: "{str(data_cols)}"')
             write_mel_to_tsv(model.project, schema=data_cols, file_path=fpath)
+            html = '<h3>Success!</h3>'
+            msg = 'Dashboard contents exported to file:'
+            html += f'<p><b><font color="green">{msg}</font></b><br>'
+            html += f'<b><font color="blue">{fpath}</font></b></p>'
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+        else:
+            orb.log.debug('  ... export to tsv cancelled.')
+            return
+
+    def export_tsv_pref(self):
+        """
+        Handler for 'export to .tsv file (preferred units)' context menu item.  I.e.
+        write the dashboard content to a tab-separated-values file.  Parameter
+        values will be expressed in the user's preferred units, and headers will
+        be explicitly annotated with units.
+        """
+        orb.log.debug('* export_tsv_pref()')
+        proxy_model = self.model()
+        model = proxy_model.sourceModel()
+        proj_id = model.project.id
+        dtstr = date2str(dtstamp())
+        dash_name = state.get('dashboard_name') or 'unknown'
+        fname = proj_id + '-' + dash_name + '-dashboard-' + dtstr + '.tsv'
+        state_path = state.get('dashboard_last_path') or ''
+        suggested_fpath = os.path.join(state_path, fname)
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to tsv File',
+                                    suggested_fpath, '(*.tsv)')
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            fpath = str(fpath)   # extra-cautious :)
+            state['dashboard_last_path'] = os.path.dirname(fpath)
+            # get dashboard content
+            # cols() returns a list of strings
+            data_cols = proxy_model.cols[1:]
+            orb.log.debug(f'  - data cols: "{str(data_cols)}"')
+            write_mel_to_tsv(model.project, schema=data_cols, pref_units=True,
+                             file_path=fpath)
             html = '<h3>Success!</h3>'
             msg = 'Dashboard contents exported to file:'
             html += f'<p><b><font color="green">{msg}</font></b><br>'
