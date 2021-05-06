@@ -869,6 +869,10 @@ class PgxnObject(QDialog):
             orb.log.info('* [pgxo] oops, no schema found for "%s"!' %
                                                                     self.cname)
             return
+        # In case the object has been deleted but is hanging around, replace it
+        # with the TBD object ...
+        if self.obj.oid in (state.get('deleted_oids') or []):
+            self.obj = orb.get('pgefobjects:TBD')
         orb.log.info('* [pgxo] object oid: "%s"' % self.obj.oid)
         orb.log.info('* [pgxo] object id: "%s"' % self.obj.id)
         orb.log.info('* [pgxo] object version: "%s"' % getattr(
@@ -1374,26 +1378,34 @@ class PgxnObject(QDialog):
                 if dlg.exec_():
                     orb.log.debug('  - dialog accepted.')
                     new_obj = getattr(dlg, 'new_obj', None)
+                    orb.log.debug(f'    got clone [a]: "{new_obj.id}"')
             else:
                 orb.log.debug('  - black box -> cloning ...')
                 new_obj = clone(self.obj, id='new-id', derived_from=self.obj,
                                 version='1', version_sequence=1)
+                orb.log.debug(f'    got black box clone [b]: "{new_obj.id}"')
         else:
             new_obj = clone(self.obj, id='new-id')
-        if new_obj:
-            orb.save([new_obj])
-            state['product'] = new_obj.oid
-            if state.get('mode') == 'component':
-                # if in component mode, set object and refresh diagram
-                self.obj = new_obj
-                self.build_from_object()
-                self.on_edit()
-                dispatcher.send('refresh diagram')
-            else:
-                # otherwise, send "new clone" signal, causing pangalaxian to
-                # switch to component mode
-                dispatcher.send('new clone')
-                self.close()
+        if new_obj and not isinstance(new_obj, orb.classes['HardwareProduct']):
+            # if HardwareProduct, "component mode" will be triggered; otherwise
+            # just replace the current object in the viewer with the clone ...
+            self.obj = new_obj
+            self.build_from_object()
+            self.on_edit()
+        # NOTE: all below stuff is now handled by the clone() function
+        # dispatching the "new hardware clone" signal to pangalaxian ...
+        ################################################################
+        # if new_obj and isinstance(new_obj, orb.classes['Product']):
+            # state['product'] = new_obj.oid
+            # if state.get('mode') == 'component':
+                # # if in component mode, set object and refresh diagram
+                # self.obj = new_obj
+                # self.build_from_object()
+                # self.on_edit()
+                # dispatcher.send('refresh diagram')
+            # else:
+                # # otherwise, close
+                # self.close()
 
     def display_mini_mel(self):
         """
@@ -1669,18 +1681,21 @@ class PgxnObject(QDialog):
             cname = self.obj.__class__.__name__
             # orb.delete will add serialized object to trash
             orb.delete([self.obj])
-            # if embedded in the component modeler, set the 'product' state
-            # (oid) to empty string so modeler window will reset to
-            # placeholders
-            if self.component:
-                state['product'] = ''
-            # the 'deleted object' signal will notify the repository to delete
-            # the object from the repository and pangalaxian will remove it
-            # from the state['syced_oids'] list.
+            # if embedded in the component modeler and there are product oids
+            # in the "component_modeler_history", set the 'product' state
+            # (oid) to the next oid in the history ...
+            # NOTE:  this isn't working any more -- putting it into pangalaxian
+            # in "on_deleted_object_signal" and commenting here ...
+            # if self.component:
+                # if state.get('component_modeler_history'):
+                    # hist = state['component_modeler_history']
+                    # state['product'] = hist.pop()
+                # else:
+                    # # otherwise, set to empty string
+                    # state['product'] = ''
+            # the 'deleted object' signal will notify pangalaxian which will
+            # reset the 'component modeler' mode if we are in it
             dispatcher.send(signal='deleted object', oid=obj_oid, cname=cname)
-            if not self.embedded:
-                # orb.log.info('* [pgxo] non-embedded mode, exiting ...')
-                self.close()
 
     def on_del_parameter(self, pid=None):
         delete_parameter(self.obj.oid, pid)

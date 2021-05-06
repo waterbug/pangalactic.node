@@ -955,6 +955,7 @@ class CloningDialog(QDialog):
     def accept(self):
         if self.white_box_button.isChecked():
             orb.log.debug('  - creating white box clone ...')
+            # TODO:  progress bar -- cloning takes time!
             if self.cb_all.isChecked():
                 # original clone() -- include all components
                 self.new_obj = clone(self.obj)

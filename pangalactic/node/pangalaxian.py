@@ -219,7 +219,7 @@ class Main(QtWidgets.QMainWindow):
                                                          'sys node selected')
         dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_object_signal, 'new object')
-        dispatcher.connect(self.on_new_clone_signal, 'new clone')
+        dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
@@ -924,7 +924,7 @@ class Main(QtWidgets.QMainWindow):
             sync_type = 'user objs'
         # orb.log.debug('       data: {}'.format(str(data)))
         try:
-            (sobjs, same_dts, to_update, local_only, deleted_oids,
+            (sobjs, same_dts, to_update, local_only, server_deleted_oids,
              parm_data, de_data) = data
         except:
             orb.log.info('  unable to unpack "{}"'.format(data))
@@ -989,11 +989,13 @@ class Main(QtWidgets.QMainWindow):
             # (which will update the 'role_label' with the project etc.)
             state['project_sync'] = True
             self._update_views()
-        if deleted_oids:
-            n = len(deleted_oids)
+        if server_deleted_oids:
+            n = len(server_deleted_oids)
             orb.log.debug(f'* sync: {n} deleted oids received from server.')
-            state['deleted_oids'] = deleted_oids
-            local_objs_to_del = orb.get(oids=deleted_oids)
+            deleted = list(set((state.get('deleted_oids') or []) +
+                               (server_deleted_oids or [])))
+            state['deleted_oids'] = deleted
+            local_objs_to_del = orb.get(oids=server_deleted_oids)
             if local_objs_to_del:
                 n = len(local_objs_to_del)
                 orb.log.debug(f'        {n} were found in local db ...')
@@ -3012,6 +3014,22 @@ class Main(QtWidgets.QMainWindow):
         # cname is needed here because at this point the local object has
         # already been deleted
         orb.log.debug(f'  cname="{cname}", oid="{oid}"')
+        # always fix state['product'] and state['system'] if either matches the
+        # deleted oid
+        if state.get('system') == oid:
+            orb.log.debug('  state "system" oid matched, setting to empty ...')
+            state['system'] = ''
+        if state.get('product') == oid:
+            orb.log.debug('  state "product" oid matched, resetting ...')
+            if state.get('component_modeler_history'):
+                hist = state['component_modeler_history']
+                next_oid = hist.pop()
+                orb.log.debug(f'  to next comp history oid: "{next_oid}"')
+                state['product'] = next_oid
+            else:
+                # otherwise, set to empty string
+                orb.log.debug('  to empty')
+                state['product'] = ''
         # only attempt to update tree and dashboard if in "system" mode ...
         if ((self.mode == 'system') and
             cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
@@ -3035,25 +3053,18 @@ class Main(QtWidgets.QMainWindow):
         # and update themselves, so no need to call them.
         if self.mode == 'db':
             self.set_db_interface()
-        elif (self.mode == 'component' and
-              cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                        'Port', 'Flow']):
-            # DIAGRAM NEEDS UPDATING
+        if (self.mode == 'component' and
+            cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                      'Port', 'Flow']):
+            # DIAGRAM MAY NEED UPDATING
             # update state['product'] if needed, and regenerate diagram
-            current_product = orb.get(state.get('product'))
-            if current_product and current_product.oid == oid:
-                # -> the currently selected product was deleted ...
-                state['product'] = ''
             # this will set placeholders in place of PgxnObject and diagram
+            dispatcher.send('refresh diagram')
             self.set_product_modeler_interface()
-        elif (self.mode == 'system' and
+        if (self.mode == 'system' and
               cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                         'Port', 'Flow']):
-            # DIAGRAM NEEDS UPDATING
-            # update state['system'] if needed, and regenerate diagram
-            current_product = orb.get(state.get('system'))
-            if current_product and current_product.oid == oid:
-                state['system'] = ''
+            # DIAGRAM MAY NEED UPDATING
             # regenerate diagram
             dispatcher.send('refresh diagram')
         if not remote and state.get('connected'):
@@ -4031,9 +4042,20 @@ class Main(QtWidgets.QMainWindow):
                          panels=panels, modal_mode=True, parent=self)
         pxo.show()
 
-    def on_new_clone_signal(self):
-        # go to component mode when pgxno sends "new clone" signal
+    def on_new_hardware_clone(self, product=None, objs=None):
+        # go to component mode when clone() sends "new hardware clone" signal
+        # NOTE: "new object" etc. is unnecessary since a new clone has no
+        # connections to any existing systems, etc.
+        orb.db.commit()
+        self.product = product
+        objs = objs or []
         self.component_mode_action.trigger()
+        if state.get('connected'):
+            # ... which has to be true to enable cloning ...
+            sobjs = serialize(orb, [product] + objs)
+            rpc = self.mbus.session.call('vger.save', sobjs)
+            rpc.addCallback(self.on_vger_save_result)
+            rpc.addErrback(self.on_failure)
 
     def new_product_wizard(self):
         """

@@ -38,9 +38,9 @@ def clone(what, include_ports=True, include_components=True,
           include_specified_components=None, generate_id=False,
           flatten=False, **kw):
     """
-    Create a new object either (1) from keywords or (2) by copying an
-    existing object.  NOTE:  clone() does not save/commit the object, so
-    orb.save() or orb.db.commit() must be called after cloning.
+    Create a new object either (1) from a class using keywords or (2) by
+    copying an existing object.  NOTE:  clone() does not save/commit the
+    object, so orb.save() or orb.db.commit() must be called after cloning.
 
     (1) If `what` is a string, create a new instance of the class with
     that name, and assign it the values in the `kw` dict.  If the named
@@ -53,10 +53,9 @@ def clone(what, include_ports=True, include_components=True,
     checked for 'version' -- if not None, it is versioned.
 
     Any keyword arguments supplied will be used as attributes if they are
-    in the schema (overriding those of the provided object in case 2).
-    If a oid is not provided, a new oid guaranteed to be unique will be
-    auto-generated.  If not specified, the following attributes will also
-    be auto-generated:
+    in the schema (overriding those of the provided object in case 2).  If a
+    oid is not provided, a new oid guaranteed to be unique will be generated.
+    If not specified, the following attributes will also be generated:
 
         creator and modifier = local_user
         owner = current project or PGANA
@@ -83,13 +82,13 @@ def clone(what, include_ports=True, include_components=True,
         kw (dict):  attributes for the clone
     """
     orb.log.info('* clone({})'.format(what))
-    new = False
+    from_object = True
     recompute_needed = False
     if what in orb.classes:
         # 'what' is a class name -- create a new instance from scratch
         # TODO:  validation: every new object *must* have 'id' value, which
         # *should* be unique (at least within its Class of objects)
-        new = True
+        from_object = False
         cname = what
         schema = orb.schemas[cname]
         fields = schema['fields']
@@ -143,7 +142,7 @@ def clone(what, include_ports=True, include_components=True,
             newkw['creator'] = local_user
         if 'modifier' in fields:
             newkw['modifier'] = local_user
-    if not new and issubclass(cls, orb.classes['Product']):
+    if from_object and issubclass(cls, orb.classes['Product']):
         # TODO:  add interface functions for "clone to create new version"
         # current clone "copies" (i.e. creates a new object, not a version)
         ver_seq = kw.get('version_sequence')
@@ -170,25 +169,19 @@ def clone(what, include_ports=True, include_components=True,
     orb.db.add(new_obj)
     # When cloning an existing object that has parameters or data elements,
     # copy them to the clone
-    if not new and parameterz.get(getattr(obj, 'oid', None)):
+    if from_object and parameterz.get(getattr(obj, 'oid', None)):
         new_parameters = deepcopy(parameterz[obj.oid])
         parameterz[newkw['oid']] = new_parameters
         recompute_needed = True
-    if not new and data_elementz.get(getattr(obj, 'oid', None)):
+    if from_object and data_elementz.get(getattr(obj, 'oid', None)):
         new_data = deepcopy(data_elementz[obj.oid])
         data_elementz[newkw['oid']] = new_data
-    # operations specific to Products ...
-    new_ports = []
-    new_acus = []
-    if isinstance(new_obj, orb.classes['Product']):
+    # operations specific to HardwareProducts ...
+    if isinstance(new_obj, orb.classes['HardwareProduct']):
+        new_ports = []
+        new_acus = []
         recompute_needed = True
-        if new:
-            # NOTE:  this will add both class-specific and ProductType-specific
-            # default parameters, as well as any custom parameters specified in
-            # "config" and "prefs" for HardwareProduct instances ...
-            add_default_data_elements(new_obj)
-            add_default_parameters(new_obj)
-        else:
+        if from_object:
             # the clone gets the product_type of the original object
             new_obj.product_type = obj.product_type
             new_obj.derived_from = obj
@@ -208,6 +201,7 @@ def clone(what, include_ports=True, include_components=True,
                              modifier=new_obj.creator, create_datetime=NOW,
                              mod_datetime=NOW)
                     new_ports.append(p)
+                    orb.db.add(p)
             # if we are including components, add them ...
             # NOTE:  "include_specified_components" overrides
             # "include_components" -- if components are specified, ONLY those
@@ -232,6 +226,7 @@ def clone(what, include_ports=True, include_components=True,
                               modifier=new_obj.creator, create_datetime=NOW,
                               mod_datetime=NOW)
                     new_acus.append(acu)
+                    orb.db.add(acu)
                 refresh_componentz(new_obj)
             elif include_components and getattr(obj, 'components', None):
                 Acu = orb.classes['Acu']
@@ -248,6 +243,7 @@ def clone(what, include_ports=True, include_components=True,
                               modifier=new_obj.creator, create_datetime=NOW,
                               mod_datetime=NOW)
                     new_acus.append(acu)
+                    orb.db.add(acu)
                 refresh_componentz(new_obj)
             elif (not include_components and not include_specified_components
                   and flatten):
@@ -257,17 +253,19 @@ def clone(what, include_ports=True, include_components=True,
                     pid_cbe = pid + '[CBE]'
                     cbe_val = get_pval(obj.oid, pid_cbe)
                     set_pval(new_obj.oid, pid, cbe_val)
+        else:   # NOT from_object -- new_obj is a brand-new Product
+            # NOTE:  this will add both class-specific and ProductType-specific
+            # default parameters, as well as any custom parameters specified in
+            # "config" and "prefs" for HardwareProduct instances ...
+            add_default_data_elements(new_obj)
+            add_default_parameters(new_obj)
         # the 'id' must be generated *after* the product_type is assigned
-        if not isinstance(new_obj, orb.classes['Requirement']):
-            # Requirements are a special case -- their id is generated in the
-            # RequirementWizard and supplied in the 'id' kw arg
-            new_obj.id = orb.gen_product_id(new_obj)
-    if new_ports:
-        for new_port in new_ports:
-            dispatcher.send(signal='new object', obj=new_port)
-    if new_acus:
-        for new_acu in new_acus:
-            dispatcher.send(signal='new object', obj=new_acu)
+        new_obj.id = orb.gen_product_id(new_obj)
+        new_objs = []
+        new_objs += new_ports
+        new_objs += new_acus
+        dispatcher.send(signal='new hardware clone', product=new_obj,
+                        objs=new_objs)
     if recompute_needed:
         orb.recompute_parmz()
     return new_obj
