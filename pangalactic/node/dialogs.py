@@ -956,21 +956,17 @@ class CloningDialog(QDialog):
         if self.white_box_button.isChecked():
             orb.log.debug('  - creating white box clone ...')
             # TODO:  progress bar -- cloning takes time!
-            if self.cb_all.isChecked():
-                # original clone() -- include all components
-                self.new_obj = clone(self.obj)
-            else:
-                acus = []
-                for acu_oid, cb in self.comp_checkboxes.items():
-                    if cb.isChecked():
-                        acu = orb.get(acu_oid)
-                        acus.append(acu)
-                sel_comps = str([acu.reference_designator for acu in acus])
-                orb.log.debug(f'  - selected components: {sel_comps}')
-                # NOTE:  calling clone() will automatically put pangalaxian
-                # into "Component Modeler" mode
-                self.new_obj = clone(self.obj,
-                                     include_specified_components=acus)
+            acus = []
+            for acu_oid, cb in self.comp_checkboxes.items():
+                if cb.isChecked():
+                    acu = orb.get(acu_oid)
+                    acus.append(acu)
+            sel_comps = str([acu.reference_designator for acu in acus])
+            orb.log.debug(f'  - selected components: {sel_comps}')
+            # NOTE:  calling clone() will automatically put pangalaxian
+            # into "Component Modeler" mode
+            self.new_obj = clone(self.obj,
+                                 include_specified_components=acus)
         elif self.black_box_button.isChecked():
             orb.log.debug('  - creating black box clone ...')
             if self.flatten_cb.isChecked():

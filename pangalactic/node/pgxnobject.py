@@ -827,6 +827,7 @@ class PgxnObject(QDialog):
             parent (QWidget): parent widget of this dialog (default: None)
         """
         super().__init__(parent=parent)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.obj          = obj
         self.new          = new
         self.component    = component
@@ -1387,25 +1388,21 @@ class PgxnObject(QDialog):
         else:
             new_obj = clone(self.obj, id='new-id')
         if new_obj and not isinstance(new_obj, orb.classes['HardwareProduct']):
-            # if HardwareProduct, "component mode" will be triggered; otherwise
-            # just replace the current object in the viewer with the clone ...
+            # if not a HardwareProduct, just replace the current object in the
+            # viewer with the clone ...
             self.obj = new_obj
             self.build_from_object()
             self.on_edit()
-        # NOTE: all below stuff is now handled by the clone() function
-        # dispatching the "new hardware clone" signal to pangalaxian ...
-        ################################################################
-        # if new_obj and isinstance(new_obj, orb.classes['Product']):
-            # state['product'] = new_obj.oid
-            # if state.get('mode') == 'component':
-                # # if in component mode, set object and refresh diagram
-                # self.obj = new_obj
-                # self.build_from_object()
-                # self.on_edit()
-                # dispatcher.send('refresh diagram')
-            # else:
-                # # otherwise, close
-                # self.close()
+        elif (new_obj and isinstance(new_obj, orb.classes['HardwareProduct'])
+              and not self.component):
+            # if a HardwareProduct and not in "component mode", call close(),
+            # because component mode will be triggered and the embedded editor
+            # will be used ...
+            try:
+                self.close()
+            except:
+                # we lost our C++ object
+                pass
 
     def display_mini_mel(self):
         """
@@ -1696,6 +1693,13 @@ class PgxnObject(QDialog):
             # the 'deleted object' signal will notify pangalaxian which will
             # reset the 'component modeler' mode if we are in it
             dispatcher.send(signal='deleted object', oid=obj_oid, cname=cname)
+            # if not in component mode, we should close ...
+            if not self.component:
+                try:
+                    self.close()
+                except:
+                    # lost our C++ object
+                    pass
 
     def on_del_parameter(self, pid=None):
         delete_parameter(self.obj.oid, pid)
