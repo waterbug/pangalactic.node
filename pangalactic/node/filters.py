@@ -821,13 +821,13 @@ class FilterPanel(QWidget):
             orb.log.debug('                ... object not found')
 
     def on_new_object_signal(self, obj=None, cname=''):
-        orb.log.debug('* [FilterPanel] received local "new object" signal')
+        orb.log.debug('* [filters] received "new object" signal')
         if obj and obj.__class__.__name__ == self.cname:
             orb.log.debug('               ... on obj: {}'.format(obj.id))
             self.add_object(obj)
 
     def on_mod_object_signal(self, obj=None, cname=''):
-        orb.log.info('* [FilterPanel] received local "modified object" signal')
+        orb.log.info('* [filters] received "modified object" signal')
         orb.log.debug('               on obj: {}'.format(obj.id))
         if obj and isinstance(obj, orb.classes.get(self.cname)):
             oids = [o.oid for o in self.objs]
@@ -840,8 +840,8 @@ class FilterPanel(QWidget):
                 orb.log.debug('               ... not in filtered objs.')
 
     def on_del_object_signal(self, oid='', cname=''):
-        orb.log.info('* [FilterPanel] received local "deleted object" signal')
-        orb.log.debug('               ... on oid: {}'.format(oid))
+        orb.log.info('* [filters] received "deleted object" signal')
+        orb.log.debug('            ... on oid: {}'.format(oid))
         self.delete_object(oid)
 
 

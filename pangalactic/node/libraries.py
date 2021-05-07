@@ -351,12 +351,13 @@ class LibraryListWidget(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         # self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Expanding)
-        dispatcher.connect(self.refresh, 'deleted object')
-        dispatcher.connect(self.refresh, 'new object')
-        dispatcher.connect(self.refresh, 'modified object')
-        dispatcher.connect(self.refresh, 'remote: decloaked')
-        dispatcher.connect(self.refresh, 'remote: modified')
-        dispatcher.connect(self.refresh, 'remote: deleted')
+        dispatcher.connect(self.refresh_del, 'deleted object')
+        dispatcher.connect(self.refresh_new, 'new object')
+        dispatcher.connect(self.refresh_mod, 'modified object')
+        dispatcher.connect(self.refresh_decloak, 'remote: decloaked')
+        dispatcher.connect(self.refresh_remote_mod, 'remote: modified')
+        # don't need "remote: deleted" because it triggers "object deleted"
+        # dispatcher.connect(self.refresh, 'remote: deleted')
 
     def create_lib_widget(self, cname, include_subtypes=True, icon_size=None,
                           min_width=None):
@@ -452,6 +453,26 @@ class LibraryListWidget(QWidget):
             self.expand_button.setText('Collapse')
             expand = True
         dispatcher.send('toggle library size', expand=expand)
+
+    def refresh_del(self, cname=None, **kw):
+        orb.log.debug('* library: received "object deleted" signal')
+        self.refresh(cname=cname, **kw)
+
+    def refresh_new(self, cname=None, **kw):
+        orb.log.debug('* library: received "new object" signal')
+        self.refresh(cname=cname, **kw)
+
+    def refresh_mod(self, cname=None, **kw):
+        orb.log.debug('* library: received "modified object" signal')
+        self.refresh(cname=cname, **kw)
+
+    def refresh_decloak(self, cname=None, **kw):
+        orb.log.debug('* library: received "remote: decloaked" signal')
+        self.refresh(cname=cname, **kw)
+
+    def refresh_remote_mod(self, cname=None, **kw):
+        orb.log.debug('* library: received "remote: modified" signal')
+        self.refresh(cname=cname, **kw)
 
     def refresh(self, cname=None, **kw):
         # orb.log.debug("* LibraryListWidget.refresh(cname={})".format(cname))

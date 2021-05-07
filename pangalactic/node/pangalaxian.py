@@ -151,6 +151,10 @@ class Main(QtWidgets.QMainWindow):
         self.app_version = app_version
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
+        # "new_remote_deletes":  flag for indicating deletions occurred during
+        # sync process, and "remote: deleted" signal needs to be dispatched for
+        # them at the end of the sync process
+        # self.new_remote_deletes = []
         self.progress_value = 0
         self.proc_pool = pool
         # initialize internal "_product" attr, so getter for "product" works
@@ -997,12 +1001,16 @@ class Main(QtWidgets.QMainWindow):
             state['deleted_oids'] = deleted
             local_objs_to_del = orb.get(oids=server_deleted_oids)
             if local_objs_to_del:
+                # self.new_remote_deletes = [o.oid for o in local_objs_to_del]
+                deleted_oids = [o.oid for o in local_objs_to_del]
                 n = len(local_objs_to_del)
                 orb.log.debug(f'        {n} were found in local db ...')
                 for obj_oid in local_objs_to_del:
                     orb.log.debug(f'         {obj_oid}')
-                orb.delete(local_objs_to_del)
-                orb.log.debug('        deleted.')
+                # delete the objects using the "remote: deleted" signal -- it
+                # must be done that way so all widgets get refreshed properly
+                for oid in deleted_oids:
+                    dispatcher.send('remote: deleted', content=oid)
             else:
                 orb.log.debug('        none were found in local db.')
         if user_objs_sync:
@@ -1148,7 +1156,14 @@ class Main(QtWidgets.QMainWindow):
             rpc.addCallback(self.on_get_library_objects_result)
             rpc.addErrback(self.on_failure)
         else:
-            # if this was the last chunk, sync current project
+            # if this was the last chunk:
+            # - send "remote: deleted" signal for any deletions
+            # - sync current project
+            # if self.new_remote_deletes:
+                # oids = self.new_remote_deletes
+                # self.new_remote_deletes = []
+                # for oid in oids:
+                    # dispatcher.send('remote: deleted', content=oid)
             self.resync_current_project()
 
     def on_force_sync_managed_result(self, data, project_sync=False):
@@ -3010,9 +3025,6 @@ class Main(QtWidgets.QMainWindow):
         origin = 'local'
         if remote:
             origin = 'remote'
-            obj = orb.get(oid)
-            if obj:
-                orb.delete([obj])
         orb.log.debug(f'* received {origin} "deleted object" signal on:')
         # cname is needed here because at this point the local object has
         # already been deleted
@@ -3070,6 +3082,7 @@ class Main(QtWidgets.QMainWindow):
             # DIAGRAM MAY NEED UPDATING
             # regenerate diagram
             dispatcher.send('refresh diagram')
+        # the "not remote" here is *extremely* important, to prevent a cycle ...
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
@@ -3499,40 +3512,6 @@ class Main(QtWidgets.QMainWindow):
         # self.left_dock.setWidget(self.sys_tree)
         self.left_dock.setWidget(sys_tree_panel)
         self.end_progress()
-        # check if the selected object and selected link exist in the tree
-        # selected_obj = None
-        # msg = '* refresh_tree_views: attempting to restore selection ...'
-        # orb.log.debug(msg)
-        # if selected_link_oid:
-            # selected_link = orb.get(selected_link_oid)
-            # if selected_link:
-                # msg = '  - previously selected link found'
-                # orb.log.debug(msg)
-                # idxs = self.sys_tree.link_indexes_in_tree(selected_link)
-                # if idxs:
-                    # if isinstance(selected_link, orb.classes['Acu']):
-                        # selected_obj = selected_link.component
-                    # elif isinstance(selected_link,
-                                    # orb.classes['ProjectSystemUsage']):
-                        # selected_obj = selected_link.system
-                    # if self.mode == 'system':
-                        # state['system'] = getattr(selected_obj, 'oid', None)
-                    # elif self.mode == 'component':
-                        # state['product'] = getattr(selected_obj, 'oid', None)
-                    # msg = '  - link index found in tree, setting ...'
-                    # orb.log.debug(msg)
-                    # proxy_i = self.sys_tree.proxy_model.mapFromSource(idxs[0])
-                    # self.sys_tree.sys_node_select(proxy_i)
-        # elif state.get("system"):
-            # system = orb.get(state["system"])
-            # if system:
-                # selected_obj = system
-                # msg = '  - state["system"]: oid "{}", id "{}".'.format(
-                                                        # system.oid, system.id)
-                # orb.log.debug(msg)
-        # else:
-            # msg = 'found neither previously selected link nor state["system"]'
-            # orb.log.debug('  - {}'.format(msg))
         self.set_system_model_window()
 
     def set_systree_expansion(self, index):
