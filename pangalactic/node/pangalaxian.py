@@ -2170,6 +2170,9 @@ class Main(QtWidgets.QMainWindow):
         Args:
             p (Product):  the product to be set.
         """
+        if not p:
+            # if we get a None product, set TBD as placeholder
+            p = orb.get('pgefobjects:TBD')
         orb.log.debug('* setting state["product"] ...')
         oid = getattr(p, 'oid', None)
         orb.log.debug(f'  product: "{p.id}" ({oid})')

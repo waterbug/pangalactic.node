@@ -1543,39 +1543,48 @@ class PgxnObject(QDialog):
         Handler for dispatcher signal "update pgxno" -- updates all
         parameter and data element values.
         """
-        orb.log.debug('* [pxo] got "update pgxno" signal ...')
-        # [1] find all parameters
-        parmz = parameterz.get(self.obj.oid) or {}
-        pids = sorted(list(parmz), key=str.lower)  # case-independent sort
-        # [2] find their fields and update them ...
-        for pid in pids:
-            parm_widget = self.p_widgets.get(pid)
-            # if parm_widget:
-                # orb.log.debug(f' + found parm_widget for "{pid}"')
-            # else:
-                # orb.log.debug(f' + got no parm_widget for "{pid}"')
-            units_widget = self.u_widgets.get(pid)
-            try:
-                units = units_widget.get_value()
-            except:
-                # C++ obj got deleted
-                units = None   # use base units
-            str_val = get_pval_as_str(self.obj.oid, pid, units=units)
-            # orb.log.debug(f' + got str val of "{str_val}" for "{pid}"')
-            if hasattr(parm_widget, 'setText'):
-                # if pid == 'm[CBE]':
-                    # orb.log.debug(' + parm widget has "setText()"')
-                    # orb.log.debug(' + setting m[CBE] to: {str_val}')
+        orb.log.debug('* [pxo] got "update pgxno" signal')
+        oids_list = str(mod_oids)
+        orb.log.debug(f'        on oids {oids_list}')
+        if self.obj.oid in (mod_oids or []):
+            oid = self.obj.oid
+            self.obj = orb.get(oid)
+            # NOTE: ugh, can't update title because its C++ obj got deleted
+            # [0] make sure title is correct
+            # title_text = get_object_title(self.obj)
+            # self.title.setText(title_text)
+            # [1] find all parameters
+            parmz = parameterz.get(self.obj.oid) or {}
+            pids = sorted(list(parmz), key=str.lower)  # case-independent sort
+            # [2] find their fields and update them ...
+            for pid in pids:
+                parm_widget = self.p_widgets.get(pid)
+                # if parm_widget:
+                    # orb.log.debug(f' + found parm_widget for "{pid}"')
+                # else:
+                    # orb.log.debug(f' + got no parm_widget for "{pid}"')
+                units_widget = self.u_widgets.get(pid)
                 try:
-                    parm_widget.setText(str_val)
+                    units = units_widget.get_value()
                 except:
                     # C++ obj got deleted
-                    continue
-        try:
-            self.update()
-        except:
-            # C++ obj got deleted
-            pass
+                    units = None   # use base units
+                str_val = get_pval_as_str(self.obj.oid, pid, units=units)
+                # orb.log.debug(f' + got str val of "{str_val}" for "{pid}"')
+                if hasattr(parm_widget, 'setText'):
+                    # if pid == 'm[CBE]':
+                        # orb.log.debug(' + parm widget has "setText()"')
+                        # orb.log.debug(' + setting m[CBE] to: {str_val}')
+                    try:
+                        parm_widget.setText(str_val)
+                    except:
+                        # C++ obj got deleted
+                        continue
+            try:
+                self.update()
+            except:
+                # C++ obj got deleted
+                pass
 
     def on_ded_id_edited(self):
         """
