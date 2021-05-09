@@ -875,11 +875,11 @@ class PgxnObject(QDialog):
         if self.obj.oid in (state.get('deleted_oids') or []):
             self.obj = orb.get('pgefobjects:TBD')
         orb.log.info('* [pgxo] object oid: "%s"' % self.obj.oid)
-        orb.log.info('* [pgxo] object id: "%s"' % self.obj.id)
-        orb.log.info('* [pgxo] object version: "%s"' % getattr(
+        orb.log.info('  [pgxo] object id: "%s"' % self.obj.id)
+        orb.log.info('  [pgxo] object version: "%s"' % getattr(
                                                         self.obj, 'version',
                                                         '[not applicable]'))
-        orb.log.info('* [pgxo] cname: "%s"' % self.cname)
+        orb.log.info('  [pgxo] cname: "%s"' % self.cname)
         self.build_from_object()
         # NOTE:  commented out because not doing anything ... :P
         dispatcher.connect(self.on_parameters_recomputed,
@@ -1069,7 +1069,13 @@ class PgxnObject(QDialog):
                         pass
                 self.save_button = self.bbox.addButton('Save',
                                                    QDialogButtonBox.ActionRole)
-                if 'delete' in perms and self.enable_delete:
+                # deletion is not allowed if the object is a product that is
+                # referenced in the "derived_from" of another product (deletion
+                # will cause an fk violation error in postgresql)
+                deriveds = orb.search_exact(derived_from=self.obj)
+                if deriveds:
+                    orb.log.debug('  [pgxo] cannot delete: derived products')
+                if 'delete' in perms and not deriveds and self.enable_delete:
                     self.delete_button = self.bbox.addButton('Delete',
                                                    QDialogButtonBox.ActionRole)
             else:
@@ -1083,7 +1089,7 @@ class PgxnObject(QDialog):
             self.modal_mode = True
             # orb.log.debug('* [pgxo] external window: always modal mode)')
             if self.edit_mode:
-                # orb.log.debug('            setting up edit mode ...')
+                # orb.log.debug('  [pgxo] setting up edit mode ...')
                 # Cancel button cancels edits and switches to view mode
                 self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
                 self.save_button = self.bbox.addButton('Save',
@@ -1091,7 +1097,10 @@ class PgxnObject(QDialog):
                 self.save_and_close_button = self.bbox.addButton(
                                                'Save and Close',
                                                QDialogButtonBox.ActionRole)
-                if 'delete' in perms and self.enable_delete:
+                deriveds = orb.search_exact(derived_from=self.obj)
+                if deriveds:
+                    orb.log.debug('  [pgxo] cannot delete: derived products')
+                if 'delete' in perms and not deriveds and self.enable_delete:
                     self.delete_button = self.bbox.addButton('Delete',
                                                QDialogButtonBox.ActionRole)
                 # if hasattr(self, 'edit_button'):
@@ -1643,7 +1652,22 @@ class PgxnObject(QDialog):
 
     def on_delete(self):
         # orb.log.info('* [pgxo] delete action selected ...')
-        if getattr(self.obj, 'where_used', None):
+        # NOTE: the delete button will not be present if the "deriveds"
+        # condition holds, but it is here for extra caution
+        deriveds = orb.search_exact(derived_from=self.obj)
+        if deriveds:
+            txt = 'This Product cannot be deleted:\n'
+            txt += 'some other products are derived from it.'
+            notice = QMessageBox(QMessageBox.Warning, 'Cannot Delete', txt,
+                                 QMessageBox.Ok, self)
+            assemblies = [acu.assembly for acu in self.obj.where_used]
+            text = '<p><ul>{}</ul></p>'.format('\n'.join(
+                           ['<li><b>{}</b><br></li>'.format(
+                           p.id) for p in deriveds]))
+            notice.setInformativeText(text)
+            notice.show()
+            return
+        elif getattr(self.obj, 'where_used', None):
             txt = 'This Product cannot be deleted:\n'
             txt += 'it is a component in the following assemblies:'
             notice = QMessageBox(QMessageBox.Warning, 'Cannot Delete', txt,
