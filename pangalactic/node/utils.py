@@ -120,6 +120,13 @@ def clone(what, include_ports=True, include_components=True,
         newkw['abbreviation'] = 'cloned-' + (obj.abbreviation or 'obj')
         newkw['description'] = 'cloned description: ' + (obj.description
                                                          or '[empty]')
+        clone_comment = 'cloned from ' + obj.id
+        if obj.comment:
+            new_comment = '\n'.join([clone_comment, '[original comment was:',
+                                     obj.comment + ']'])
+        else:
+            new_comment = clone_comment
+        newkw['comment'] = new_comment
     # generate a unique oid if one is not provided
     if not newkw.get('oid'):
         newkw['oid'] = str(uuid4())
@@ -184,7 +191,10 @@ def clone(what, include_ports=True, include_components=True,
         if from_object:
             # the clone gets the product_type of the original object
             new_obj.product_type = obj.product_type
-            new_obj.derived_from = obj
+            # DO NOT do this!  It creates an FK relationship that prohibits the
+            # original object from being deleted -- the "derived_from"
+            # attribute is deprecated and will be removed at some point.
+            # new_obj.derived_from = obj
             # if we are including ports, add them ...
             if include_ports and getattr(obj, 'ports', None):
                 Port = orb.classes['Port']
@@ -323,8 +333,7 @@ def create_template_from_product(product):
         template_name = ' '.join([pt_name, 'Template'])
     orb.log.info('* creating template from product ...')
     template = clone('Template', id=template_id, name=template_name,
-                     product_type=tmpl_product_type,
-                     derived_from=product, public=True)
+                     product_type=tmpl_product_type, public=True)
     tbd = orb.get('pgefobjects:TBD')
     if product.components:
         for acu in product.components:
@@ -374,9 +383,7 @@ def create_product_from_template(template):
     orb.log.info('* creating product from template ...')
     product = clone('HardwareProduct', id=product_id,
                     name=product_name, description=product_desc,
-                    product_type=template.product_type,
-                    derived_from=template,
-                    public=True)
+                    product_type=template.product_type, public=True)
     new_comps = 0
     if template.components:
         for acu in template.components:

@@ -170,8 +170,13 @@ class Main(QtWidgets.QMainWindow):
         # directory and related directories (added to state)
         orb.start(home=home, console=console, debug=debug)
         self.add_splash_msg('... database initialized ...')
-        # orb loads reference data when it starts up, which includes parameter
-        # definitions
+        # orb.start() calls load_reference_data(), which includes parameter
+        # definitions ... NOTE: load_reference_data() also loads the data from
+        # "parameters.json" and "data_elements.json" into the "parameterz" and
+        # "data_elementz" caches -- if either of the those .json files is
+        # missing or unreadable, the user will be informed at startup that
+        # parameters and/or data_elements will be unavailable until the next
+        # repository sync.
         setup_dirs_and_state()
         self.get_or_create_local_user()
         self.add_splash_msg('... logging started ...')
@@ -283,6 +288,28 @@ class Main(QtWidgets.QMainWindow):
             # self.data_mode_action.trigger()
             pass
         state['done_with_progress'] = False
+        parm_des_unavail = ''
+        parms_unavail = orb.parmz_status in ['fail', 'not found']
+        des_unavail = orb.data_elementz_status in ['fail', 'not found']
+        if parms_unavail and des_unavail:
+            parm_des_unavail = 'Parameters and Data Elements are unavailable'
+        elif parms_unavail:
+            parm_des_unavail = 'Parameters are unavailable'
+        elif des_unavail:
+            parm_des_unavail = 'Data Elements are unavailable'
+        # detect whether we have logged into the repository ...
+        if not (state.get('local_user_oid', 'me') == 'me'):
+            # if still "me", then either it is initial startup or we have not
+            # yet logged into the repo -- in which case don't worry about the
+            # parameter or data element caches as they are not meaningful
+            if parm_des_unavail:
+                # parameters or data elements for non-reference data are
+                # unavailable until next repo sync
+                html = f'<p><b><font color="red">{parm_des_unavail}</font>'
+                html += '</b></p><p><b>They will be restored during the next'
+                html += 'login and repository sync process.</b></p>'
+                dlg = NotificationDialog(html, news=False, parent=self)
+                dlg.show()
 
     def on_log_info_msg(self, msg=''):
         orb.log.info(msg)
