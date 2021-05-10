@@ -109,7 +109,8 @@ def clone(what, include_ports=True, include_components=True,
         # populate all fields passed in kw args and all non-fk fields from obj
         # -- fk fields will be handled in special cases ...
         for a in fields:
-            if a in kw:
+            # exclude "derived_from"
+            if a in kw and a != 'derived_from':
                 newkw[a] = kw[a]
             elif a in non_fk_fields:
                 newkw[a] = getattr(obj, a)

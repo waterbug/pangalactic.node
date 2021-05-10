@@ -1391,8 +1391,8 @@ class PgxnObject(QDialog):
                     orb.log.debug(f'    got clone [a]: "{new_obj.id}"')
             else:
                 orb.log.debug('  - black box -> cloning ...')
-                new_obj = clone(self.obj, id='new-id', derived_from=self.obj,
-                                version='1', version_sequence=1)
+                new_obj = clone(self.obj, id='new-id', version='1',
+                                version_sequence=1)
                 orb.log.debug(f'    got black box clone [b]: "{new_obj.id}"')
         else:
             new_obj = clone(self.obj, id='new-id')
@@ -1477,8 +1477,7 @@ class PgxnObject(QDialog):
         if not isinstance(self.obj.version_sequence, int):
             self.obj.version_sequence = 1
         ver_seq = self.obj.version_sequence + 1
-        new_obj = clone(self.obj, id=self.obj.id, derived_from=self.obj,
-                        version_sequence=ver_seq)
+        new_obj = clone(self.obj, id=self.obj.id, version_sequence=ver_seq)
         orb.save([new_obj])
         self.obj = new_obj
         self.go_to_tab = 3
