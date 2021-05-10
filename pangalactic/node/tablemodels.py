@@ -75,19 +75,26 @@ class ODTableModel(QAbstractTableModel):
     this was based on OrderedDict; in python 3, the builtin dict is ordered so
     OrderedDict is unnecessary.)
     """
-    def __init__(self, ds, as_library=False, icons=None, parent=None,
-                 **kwargs):
+    def __init__(self, ds, as_library=False, icons=None, aligns=None,
+                 parent=None, **kwargs):
         """
         Args:
             ds (list):  list of dict instances
 
         Keyword Args:
             as_library (bool): (default: False) if True, provide icons, etc.
+            icons (list of icons):  list of icons by row
+            aligns (list of str):  list of alignments ("left", "right", or
+                "center") for each column
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent, **kwargs)
         # TODO: some validity checking on the data ...
         self.icons = icons or []
+        _aligns = dict(left=Qt.AlignLeft, right=Qt.AlignRight,
+                       center=Qt.AlignHCenter)
+        aligns = aligns or []
+        self.aligns = [_aligns.get(a, Qt.AlignLeft) for a in aligns]
         self.as_library = as_library
         self.ds = ds or [{0:'no data'}]
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
@@ -150,6 +157,11 @@ class ODTableModel(QAbstractTableModel):
                 return self.icons[index.row()]
             except IndexError:
                 return self.default_icon
+        elif role == Qt.TextAlignmentRole:
+            try:
+                return self.aligns[index.column()]
+            except IndexError:
+                return Qt.AlignLeft
         elif role != Qt.DisplayRole:
             return QVariant()
         return self.ds[index.row()].get(

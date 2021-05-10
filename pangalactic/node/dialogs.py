@@ -408,7 +408,11 @@ class MiniMelDialog(QDialog):
         self.mel_data = [{self.get_header(col_id) : row[col_id]
                           for col_id in row}
                           for row in raw_data]
-        mini_mel_model = ODTableModel(self.mel_data)
+        # right-align parm data; left align everything else
+        cols = list(raw_data[0])
+        aligns = ['right' if col in parm_defz else 'left'
+                  for col in cols]
+        mini_mel_model = ODTableModel(self.mel_data, aligns=aligns)
         self.mini_mel_table = QTableView()
         self.mini_mel_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mini_mel_table.setModel(mini_mel_model)
