@@ -935,19 +935,21 @@ class SystemTreeModel(QAbstractItemModel):
                                         'project {1}'.format(
                                         dropped_item.name, drop_target.id))
                     else:
-                        psu_id = ('psu-' + dropped_item.id + '-' +
-                                  drop_target.id)
-                        psu_name = ('psu: ' + dropped_item.name +
-                                    ' (system used on) ' + drop_target.name)
-                        psu_role = getattr(dropped_item.product_type, 'name',
-                                           'System')
-                        new_psu = clone('ProjectSystemUsage',
-                                        id=psu_id,
-                                        name=psu_name,
-                                        system_role=psu_role,
-                                        project=drop_target,
-                                        system=dropped_item)
-                        if 'modify' in get_perms(new_psu):
+                        # user must have 'modify' perm on project -- i.e.,
+                        # Admin, LE or SE
+                        if 'modify' in get_perms(drop_target):
+                            psu_id = ('psu-' + dropped_item.id + '-' +
+                                      drop_target.id)
+                            psu_name = ('psu: ' + dropped_item.name +
+                                        ' (system used on) ' + drop_target.name)
+                            psu_role = getattr(dropped_item.product_type, 'name',
+                                               'System')
+                            new_psu = clone('ProjectSystemUsage',
+                                            id=psu_id,
+                                            name=psu_name,
+                                            system_role=psu_role,
+                                            project=drop_target,
+                                            system=dropped_item)
                             orb.save([new_psu])
                             # orb.log.debug('      ProjectSystemUsage created: %s'
                                           # % psu_name)
@@ -958,7 +960,6 @@ class SystemTreeModel(QAbstractItemModel):
                             self.successful_drop.emit()
                             dispatcher.send('new object', obj=new_psu)
                         else:
-                            orb.db.rollback()
                             txt = "User's roles do not permit this operation"
                             ret = QMessageBox.critical(
                                       self.parent,
@@ -1234,7 +1235,8 @@ class SystemTreeView(QTreeView):
                     if 'delete' in link_perms:
                         menu.addAction(self.del_function_action)
                 elif isinstance(link, orb.classes['ProjectSystemUsage']):
-                    if 'delete' in link_perms:
+                    perms = get_perms(self.project)
+                    if 'delete' in perms:
                         menu.addAction(self.del_system_action)
                 menu.exec_(QCursor().pos())
 
