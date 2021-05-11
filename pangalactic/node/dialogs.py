@@ -898,12 +898,20 @@ class CloningDialog(QDialog):
         white_box_form.addRow(self.cb_all, cb_all_label)
         for acu in self.obj.components:
             comp = acu.component
-            ptype = getattr(comp.product_type, 'abbreviation')
-            ptype = ptype or getattr(comp.product_type, 'id',
-                                     '[unknown type]')
-            refdes = acu.reference_designator or ptype
-            name_str = '[' + refdes + '] ' + comp.name
-            id_str = '(' + comp.id + ')'
+            if comp is None:
+                # ignore "None" components
+                continue
+            if comp.oid == 'pgefobjects:TBD':
+                refdes = acu.reference_designator or ''
+                name_str = '[' + refdes + '] ' + '(unpopulated)'
+                id_str = '(TBD)'
+            else:
+                ptype = getattr(comp.product_type, 'abbreviation', None)
+                ptype = ptype or getattr(comp.product_type, 'id',
+                                         '[unknown type]')
+                refdes = acu.reference_designator or ptype
+                name_str = '[' + refdes + '] ' + comp.name
+                id_str = '(' + comp.id + ')'
             label_text = '\n'.join([name_str, id_str])
             label = QLabel(label_text, self)
             self.comp_checkboxes[acu.oid] = QCheckBox(self)

@@ -192,9 +192,10 @@ def clone(what, include_ports=True, include_components=True,
         if from_object:
             # the clone gets the product_type of the original object
             new_obj.product_type = obj.product_type
-            # DO NOT do this!  It creates an FK relationship that prohibits the
-            # original object from being deleted -- the "derived_from"
-            # attribute is deprecated and will be removed at some point.
+            # DO NOT use "derived_from"!  It creates an FK relationship that
+            # prohibits the original object from being deleted -- the
+            # "derived_from" attribute is deprecated and will be removed at
+            # some point.
             # new_obj.derived_from = obj
             # if we are including ports, add them ...
             if include_ports and getattr(obj, 'ports', None):
