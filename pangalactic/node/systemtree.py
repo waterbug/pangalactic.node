@@ -947,15 +947,25 @@ class SystemTreeModel(QAbstractItemModel):
                                         system_role=psu_role,
                                         project=drop_target,
                                         system=dropped_item)
-                        orb.save([new_psu])
-                        # orb.log.debug('      ProjectSystemUsage created: %s'
-                                      # % psu_name)
-                        self.add_nodes([self.node_for_object(
-                                   dropped_item, parent=self.get_node(parent),
-                                   link=new_psu)], parent)
-                        self.successful_drop_index = parent
-                        self.successful_drop.emit()
-                        dispatcher.send('new object', obj=new_psu)
+                        if 'modify' in get_perms(new_psu):
+                            orb.save([new_psu])
+                            # orb.log.debug('      ProjectSystemUsage created: %s'
+                                          # % psu_name)
+                            self.add_nodes([self.node_for_object(
+                                       dropped_item, parent=self.get_node(parent),
+                                       link=new_psu)], parent)
+                            self.successful_drop_index = parent
+                            self.successful_drop.emit()
+                            dispatcher.send('new object', obj=new_psu)
+                        else:
+                            orb.db.rollback()
+                            txt = "User's roles do not permit this operation"
+                            ret = QMessageBox.critical(
+                                      self.parent,
+                                      "Unauthorized Operation", txt,
+                                      QMessageBox.Ok)
+                            if ret == QMessageBox.Ok:
+                                return False
                 else:
                     # orb.log.debug('    + target is not a Project or Product '
                                   # '-- no action taken.')

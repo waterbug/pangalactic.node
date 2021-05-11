@@ -2617,16 +2617,27 @@ class Main(QtWidgets.QMainWindow):
         obj = orb.get(obj_oid)
         selected_link_oid = None
         if obj:
-            orb.log.debug('  object exists in local db ...')
             cname = obj.__class__.__name__
-            if (cname in ['Acu', 'ProjectSystemUsage']):
-                tree_and_dash_refreshed = False
-                sys_delete = False
+            orb.log.debug(f'  deleted {cname} exists in local db ...')
+            if ((cname in ['Acu', 'ProjectSystemUsage'])
+                 and self.mode == 'system'):
+                # ===========================================================
+                ### NOTE: the object definitely gets deleted within the scope
+                ### of this "if" clause ...
+                # ===========================================================
+                # the use of "tree_and_dash_refreshed" seems to be OBE
+                # tree_and_dash_refreshed = False
+                # the use of "sys_delete" was OBE I think
+                # sys_delete = False
                 if getattr(self, 'sys_tree', None):
                     # (1) identify the current selection in the tree, so the
                     #     selection can be restored after the deletion (assuming
                     #     it's not the deleted object, of course)
-                    i = self.sys_tree.selectedIndexes()[0]
+                    try:
+                        i = self.sys_tree.selectedIndexes()[0]
+                    except:
+                        # probably tree lost its C/C++ object
+                        i = None
                     if i:
                         mapped_i = self.sys_tree.proxy_model.mapToSource(i)
                         selected_link_oid = getattr(
@@ -2637,7 +2648,11 @@ class Main(QtWidgets.QMainWindow):
                             # use it
                             selected_link_oid = None
                     # (2) identify the index of the deleted Acu or PSU
-                    idxs = self.sys_tree.link_indexes_in_tree(obj)
+                    try:
+                        idxs = self.sys_tree.link_indexes_in_tree(obj)
+                    except:
+                        # probably tree lost its C/C++ object
+                        idxs = []
                     if len(idxs) == 1:
                         # if the link occurs exactly once in the tree, remove it
                         idx = idxs[0]
@@ -2670,37 +2685,55 @@ class Main(QtWidgets.QMainWindow):
                         # this will resize dashboard columns if necessary
                         # self.refresh_dashboard()
                     elif len(idxs) > 1:
-                        # NOTE:  refreshing the whole tree is very disruptive but is
-                        # necessary if the link occurs multiple times in the tree
+                        # NOTE:  refreshing the whole tree is very disruptive
+                        # but is necessary if the link occurs multiple times in
+                        # the tree
                         # msg = 'calling orb.delete() and refreshing tree ...'
                         # orb.log.debug(f'  {msg}')
                         orb.delete([obj])
                         orb.log.debug('  deleted.')
-                        tree_and_dash_refreshed = True
+                        # the use of "tree_and_dash_refreshed" seems to be OBE
+                        # tree_and_dash_refreshed = True
                         self.refresh_tree_and_dashboard(
                                             selected_link_oid=selected_link_oid)
-                else:
-                    # if there is currently no tree being shown, just delete
-                    # the Acu or PSU
-                    # msg = 'calling orb.delete() (not displaying tree) ...'
-                    # orb.log.debug(f'  {msg}')
-                    orb.delete([obj])
-                    orb.log.debug('  deleted.')
-                if getattr(self, 'system_model_window', None):
-                    # rebuild diagram in case object corresponded to a
-                    # block in the current diagram
-                    if cname == 'ProjectSystemUsage':
-                        # if a psu is deleted, display the project diagram
-                        msg = 'system delete;  tree & dash will be refreshed.'
-                        orb.log.debug(f'  {msg}.')
-                        sys_delete = True
                     else:
-                        # if an acu, just reset with the current state system
-                        orb.log.debug('  acu deleted; reset model window.')
-                        self.set_system_model_window()
-                if (sys_delete and getattr(self, 'sys_tree', None)
-                    and not tree_and_dash_refreshed):
-                    self.refresh_tree_and_dashboard()
+                        # link not found in the tree, or else there was no
+                        # tree, so just delete and send "deleted object" signal
+                        orb.delete([obj])
+                        orb.log.debug('  deleted.')
+                        dispatcher.send('deleted object', oid=obj_oid,
+                                        cname=cname, remote=True)
+                # ===========================================================
+                # NOTE: this section should be unnecessary because "delete
+                # object" signal causes the diagram to get refreshed ...
+                # ===========================================================
+                # if getattr(self, 'system_model_window', None):
+                    # # rebuild diagram in case object corresponded to a
+                    # # block in the current diagram
+                    # if cname == 'ProjectSystemUsage':
+                        # # if a psu is deleted, display the project diagram
+                        # msg = 'Project system deleted; refresh diagram ...'
+                        # orb.log.debug(f'  {msg}.')
+                        # self.set_system_model_window(system=self.project)
+                        # sys_delete = True
+                    # else:
+                        # # if an acu, just reset with the current state system
+                        # orb.log.debug('  Acu deleted; reset model window.')
+                        # self.set_system_model_window()
+                # ===========================================================
+                ### NOTE: I think this is unnecessary too ...
+                # ===========================================================
+                # if (sys_delete and getattr(self, 'sys_tree', None)
+                    # and not tree_and_dash_refreshed):
+                    # self.refresh_tree_and_dashboard()
+            elif (cname == 'HardwareProduct') and (self.mode == 'component'):
+                if (state.get('component_modeler_history')
+                    and obj_oid in state['component_modeler_history']):
+                    state['component_modeler_history'].remove(obj_oid)
+                orb.delete([obj])
+                orb.log.debug('  deleted.')
+                dispatcher.send('deleted object', oid=obj_oid, cname=cname,
+                                remote=True)
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
