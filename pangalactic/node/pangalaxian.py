@@ -2638,7 +2638,7 @@ class Main(QtWidgets.QMainWindow):
                     except:
                         # probably tree lost its C/C++ object
                         i = None
-                    if i:
+                    if i is not None:
                         mapped_i = self.sys_tree.proxy_model.mapToSource(i)
                         selected_link_oid = getattr(
                                               self.sys_tree.source_model.get_node(
