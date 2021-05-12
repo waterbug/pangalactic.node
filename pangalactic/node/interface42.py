@@ -1107,118 +1107,234 @@ class SC_Form(QWidget):
             # no file was selected
             return
         if raw_data:
-            # parse all raw data into label-value pairs ...
-            parsed_data = {}
-            for line in raw_data:
-                if '!' in line:
-                    raw_value, raw_label = line.split('!')
-                    parsed_data[raw_label] = raw_value.rstrip().lstrip()
-            # look for exact "label"
-            sections = [s for s in SC.keys() if s != 'components']
-            for section in sections:
-                self.log(f'  - finding parameters of section "{section}" ...')
-                for pid in SC[section]:
-                    label = SC[section][pid].get('label')
-                    datatype = SC[section][pid].get('datatype')
-                    for raw_label, raw_value in parsed_data.items():
-                        if label in raw_label:
-                            if datatype == 'array':
-                                values = raw_value.split()
-                                postypes = SC[section][pid].get('postypes')
-                                for k, v in enumerate(values):
-                                    postype = postypes[k] 
-                                    dtype = datatypes.get(postype) or str
-                                    values[k] = dtype(v)
-                                self.data[section][pid] = values
-                                self.log(f'    {pid} = {values}')
-                            else:
-                                dtype = datatypes.get(datatype) or str
-                                value = raw_value.rstrip().lstrip()
-                                self.data[section][pid] = dtype(value)
-                                if datatype == 'str':
-                                    self.log(f'    {pid} = "{value}"')
-                                else:
-                                    self.log(f'    {pid} = {value}')
-            # locations maps comp_type to location of its section label in the
-            # file, for use in scanning for instances of the component type
-            locations = {}
-            number_of_joints = 0
-            for comp_type in component_types:
-                self.log(f'  - searching for component "{comp_type}" ...')
-                n = 0
-                if comp_type == 'joint':
-                    # joint is the only one without a "number of" specified,
-                    # since it is 1 less than the number of bodies, and when
-                    # the number of bodies is updated in the form, that will
-                    # set the number of joints also
-                    if number_of_joints:   # set from number of bodies
-                        n = number_of_joints
-                else:
-                    parm_props = SC_File[comp_type].get('number_of')
-                    n_of_label = parm_props.get('label')
-                    for i, line in enumerate(raw_data):
+            # look for sections by "marker" lines
+            n_of_bodies = 0
+            n_of_joints = 0
+            body_parms_line = 0
+            n_of_comps = {comp : 0 for comp in component_types
+                          if comp not in ['body', 'joint']}
+            for n, line in enumerate(raw_data):
+                for section in SC_File:
+                    section_label = SC_File[section]['label']
+                    if (section_label in line and
+                        ('***' in line or '<<<' in line)):
+                        self.log(f'* Found {section} section (line {n})')
+                        if section not in component_types:
+                            # non-component section
+                            i = n
+                            for k, pid in enumerate(SC[section]):
+                                txt = raw_data[i+k+1]
+                                try:
+                                    val, cmt = txt.split('!')
+                                    val = val.strip()
+                                    self.log(f'  {section} {pid} = {val}')
+                                except:
+                                    self.log(f"  can't parse line {i+k+1}:")
+                                    self.log(f'  "{txt}"')
+                        elif section_label == "Body Parameters":
+                            # make a note of the body parameters section line
+                            body_parms_line = n
+                            # look for number of bodies ...
+                            i = n + 2
+                            n_of_bodies, cmt = raw_data[i].split('!')
+                            try:
+                                n_of_bodies = int(n_of_bodies)
+                                self.log(f'  # of bodies = {n_of_bodies}')
+                                if n_of_bodies > 1:
+                                    n_of_joints = n_of_bodies - 1
+                            except:
+                                self.log('  could not parse # of bodies.')
+                        elif section_label == "Joint Parameters":
+                            # ignore for now -- look for joints in next pass
+                            pass
+                        elif section in component_types:
+                            # look for number of that component type ...
+                            i = n + 1
+                            n_of_comp, cmt = raw_data[i].split('!')
+                            try:
+                                n_of_comps[section] = int(n_of_comp)
+                                self.log(f'  # of {section} = {n_of_comp}')
+                            except:
+                                self.log('  could not parse # of {section}s.')
+            # do another scan to find component section parameters
+            if n_of_bodies and body_parms_line:
+                # look for body parameter sections
+                bod = 'body'
+                if n_of_bodies > 1:
+                    bod = 'bodies'
+                self.log(f'* Looking for {n_of_bodies} {bod}')
+                start = body_parms_line + 4
+                for i in range(n_of_bodies):
+                    # body parameter sections always appear at fixed intervals
+                    self.log(f'* Getting parameters for body {i}')
+                    self.log(f'  (starting at line {start} ...)')
+                    for k, pid in enumerate(
+                                        SC['components']['body']):
+                        txt = raw_data[start+k]
+                        try:
+                            val, cmt = txt.split('!')
+                            val = val.strip()
+                            self.log(f'  body {pid} = {val}')
+                        except:
+                            self.log(f"  can't parse line {n+k+1}")
+                            self.log(f'  "{txt}"')
+                    start += len(SC['components']['body']) + 1
+            if n_of_joints:
+                # look for body parameter sections
+                joint = 'joint'
+                if n_of_joints > 1:
+                    joint = 'joints'
+                self.log(f'* Looking for {n_of_joints} {joint}')
+                for i in range(n_of_joints):
+                    label = get_component_headers('joint', i).get('label')
+                    # add a space to matching label in case more than 10!
+                    label = label + ' '
+                    for n, line in enumerate(raw_data):
+                        if label in line and '===' in line:
+                            self.log(f'* Found {label} (line {n})')
+                            for k, pid in enumerate(
+                                                SC['components']['joint']):
+                                txt = raw_data[n+k+1]
+                                try:
+                                    val, cmt = txt.split('!')
+                                    val = val.strip()
+                                    self.log(f'  joint {pid} = {val}')
+                                except:
+                                    self.log(f"  can't parse line {n+k+1}")
+                                    self.log(f'  "{txt}"')
+            for comp, n_of_comp in n_of_comps.items():
+                if n_of_comp:
+                    # find comp parameter sections
+                    for i in range(n_of_comp):
+                        label = get_component_headers(comp, i).get('label')
+                        # add a space to matching label in case more than 10!
+                        label = label + ' '
+                        for n, line in enumerate(raw_data):
+                            if label in line and '===' in line:
+                                self.log(f'* Found {label} (line {n})')
+                                for k, pid in enumerate(
+                                                    SC['components'][comp]):
+                                    txt = raw_data[n+k+1]
+                                    try:
+                                        val, cmt = txt.split('!')
+                                        val = val.strip()
+                                        self.log(f'  {section} {pid} = {val}')
+                                    except:
+                                        self.log(f"  can't parse line {n+k+1}")
+                                        self.log(f'  "{txt}"')
+
+
+
+
+                # if '!' in line:
+                    # raw_value, raw_label = line.split('!')
+                    # parsed_data[raw_label] = raw_value.rstrip().lstrip()
+            # # look for exact "label"
+            # sections = [s for s in SC.keys() if s != 'components']
+            # for section in sections:
+                # self.log(f'  - finding parameters of section "{section}" ...')
+                # for pid in SC[section]:
+                    # label = SC[section][pid].get('label')
+                    # datatype = SC[section][pid].get('datatype')
                     # for raw_label, raw_value in parsed_data.items():
-                        if n_of_label in line and '!' in line:
-                            raw_value, raw_label = line.split('!')
-                            n = int(raw_value.rstrip().lstrip())
-                            # n_comps[comp_type] = n
-                            self.log(f'    number of {comp_type}(s) = {n}')
-                            locations[comp_type] = i
-                            if comp_type == 'body' and n > 1:
-                                number_of_joints = n - 1
-                            break
-                # begin scanning for instances at the location where the
-                # component type section begins ...
-                begin = locations.get(comp_type) or 0
-                for j in range(n):
-                    # NOTE: if n > 1, initial parse of raw data is invalid for
-                    # this component type because it will only contain the
-                    # parameters of the last component of that type!
-                    # So: iterate over the raw_data again, looking for the
-                    # sections for each component of this type ... and now we
-                    # have to note the position of each section in the data ...
-                    # NOTE: in 42, the component "instance" sections for gyro,
-                    # magnetometer, and accelerometer are all called "Axis n",
-                    # so begin scanning for that label at the position of that
-                    # component type section and break as soon as it is found.
-                    this_component = {}
-                    comp_headers = get_component_headers(comp_type, j)
-                    comp_label = comp_headers.get('label')
-                    for m, line in enumerate(raw_data[begin:]):
-                        if comp_label in line:
-                            self.log(f'    "{comp_label}" is at line {m}')
-                            comp_start = begin + m + 1
-                            break
-                    # parse the "component j" section ...
-                    comp_end = comp_start + len(SC['components'][comp_type])
-                    for line in raw_data[comp_start : comp_end]:
-                        raw_value, raw_label = line.split('!')
-                        for pid in SC['components'][comp_type]:
-                            label = SC['components'][comp_type][pid].get(
-                                                                    'label')
-                            datatype = SC['components'][comp_type][pid].get(
-                                                                    'datatype')
-                            if label in raw_label:
-                                if datatype == 'array':
-                                    values = raw_value.split()
-                                    postypes = SC['components'][comp_type][
-                                                        pid].get('postypes')
-                                    for k, v in enumerate(values):
-                                        postype = postypes[k]
-                                        dtype = datatypes.get(postype) or str
-                                        values[k] = dtype(v)
-                                    this_component[pid] = values
-                                    self.log(f'    {pid} = {values}')
-                                else:
-                                    dtype = datatypes.get(datatype) or str
-                                    value = raw_value.rstrip().lstrip()
-                                    this_component[pid] = dtype(value)
-                                    if datatype == 'str':
-                                        self.log(f'    {pid} = "{value}"')
-                                    else:
-                                        self.log(f'    {pid} = {value}')
-                    self.data['components'][comp_type].append(this_component)
-            self.update_form_from_data()
+                        # if label in raw_label:
+                            # if datatype == 'array':
+                                # values = raw_value.split()
+                                # postypes = SC[section][pid].get('postypes')
+                                # for k, v in enumerate(values):
+                                    # postype = postypes[k] 
+                                    # dtype = datatypes.get(postype) or str
+                                    # values[k] = dtype(v)
+                                # self.data[section][pid] = values
+                                # self.log(f'    {pid} = {values}')
+                            # else:
+                                # dtype = datatypes.get(datatype) or str
+                                # value = raw_value.rstrip().lstrip()
+                                # self.data[section][pid] = dtype(value)
+                                # if datatype == 'str':
+                                    # self.log(f'    {pid} = "{value}"')
+                                # else:
+                                    # self.log(f'    {pid} = {value}')
+            # # locations maps comp_type to location of its section label in the
+            # # file, for use in scanning for instances of the component type
+            # locations = {}
+            # number_of_joints = 0
+            # for comp_type in component_types:
+                # self.log(f'  - searching for component "{comp_type}" ...')
+                # n = 0
+                # if comp_type == 'joint':
+                    # # joint is the only one without a "number of" specified,
+                    # # since it is 1 less than the number of bodies, and when
+                    # # the number of bodies is updated in the form, that will
+                    # # set the number of joints also
+                    # if number_of_joints:   # set from number of bodies
+                        # n = number_of_joints
+                # else:
+                    # parm_props = SC_File[comp_type].get('number_of')
+                    # n_of_label = parm_props.get('label')
+                    # for i, line in enumerate(raw_data):
+                    # # for raw_label, raw_value in parsed_data.items():
+                        # if n_of_label in line and '!' in line:
+                            # raw_value, raw_label = line.split('!')
+                            # n = int(raw_value.rstrip().lstrip())
+                            # # n_comps[comp_type] = n
+                            # self.log(f'    number of {comp_type}(s) = {n}')
+                            # locations[comp_type] = i
+                            # if comp_type == 'body' and n > 1:
+                                # number_of_joints = n - 1
+                            # break
+                # # begin scanning for instances at the location where the
+                # # component type section begins ...
+                # begin = locations.get(comp_type) or 0
+                # for j in range(n):
+                    # # NOTE: if n > 1, initial parse of raw data is invalid for
+                    # # this component type because it will only contain the
+                    # # parameters of the last component of that type!
+                    # # So: iterate over the raw_data again, looking for the
+                    # # sections for each component of this type ... and now we
+                    # # have to note the position of each section in the data ...
+                    # # NOTE: in 42, the component "instance" sections for gyro,
+                    # # magnetometer, and accelerometer are all called "Axis n",
+                    # # so begin scanning for that label at the position of that
+                    # # component type section and break as soon as it is found.
+                    # this_component = {}
+                    # comp_headers = get_component_headers(comp_type, j)
+                    # comp_label = comp_headers.get('label')
+                    # for m, line in enumerate(raw_data[begin:]):
+                        # if comp_label in line:
+                            # self.log(f'    "{comp_label}" is at line {m}')
+                            # comp_start = begin + m + 1
+                            # break
+                    # # parse the "component j" section ...
+                    # comp_end = comp_start + len(SC['components'][comp_type])
+                    # for line in raw_data[comp_start : comp_end]:
+                        # raw_value, raw_label = line.split('!')
+                        # for pid in SC['components'][comp_type]:
+                            # label = SC['components'][comp_type][pid].get(
+                                                                    # 'label')
+                            # datatype = SC['components'][comp_type][pid].get(
+                                                                    # 'datatype')
+                            # if label in raw_label:
+                                # if datatype == 'array':
+                                    # values = raw_value.split()
+                                    # postypes = SC['components'][comp_type][
+                                                        # pid].get('postypes')
+                                    # for k, v in enumerate(values):
+                                        # postype = postypes[k]
+                                        # dtype = datatypes.get(postype) or str
+                                        # values[k] = dtype(v)
+                                    # this_component[pid] = values
+                                    # self.log(f'    {pid} = {values}')
+                                # else:
+                                    # dtype = datatypes.get(datatype) or str
+                                    # value = raw_value.rstrip().lstrip()
+                                    # this_component[pid] = dtype(value)
+                                    # if datatype == 'str':
+                                        # self.log(f'    {pid} = "{value}"')
+                                    # else:
+                                        # self.log(f'    {pid} = {value}')
+                    # self.data['components'][comp_type].append(this_component)
+            # self.update_form_from_data()
         else:
             self.log('* could not find any data in file.')
 
