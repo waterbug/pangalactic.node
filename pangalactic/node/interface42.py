@@ -452,26 +452,31 @@ n_thrusters_selections = [str(n) for n in range(17)]
 SC_File = dict(
   metadata=dict(
     name="Spacecraft",
+    start=1,
     label="42: Spacecraft Description File",
     header=(
 "<<<<<<<<<<<<<<<<<  42: Spacecraft Description File   >>>>>>>>>>>>>>>>>")),
   orbit=dict(
     name="Orbit",
+    start=7,
     label="Orbit Parameters",
     header=(
 "************************* Orbit Parameters ****************************")),
   initial_attitude=dict(
     name="Initial Attitude",
+    start=12,
     label="Initial Attitude",
     header=(
 "*************************** Initial Attitude ***************************")),
   dynamics_flags=dict(
     name="Dynamics Flags",
+    start=17,
     label="Dynamics Flags",
     header=(
 "***************************  Dynamics Flags  ***************************")),
   body=dict(
     name="Body",
+    start=27,
     label="Body Parameters",
     header=(
 """************************************************************************
@@ -1063,9 +1068,43 @@ class SC_Form(QWidget):
         # TODO:  need a "clear" function to clear previous data ...
         self.update_form_from_data()
 
-    # BROKEN:  must be reorganized to use the section "marker" lines to
-    # identify sections and then to identify parameters by their position (line
-    # sequence) within the section ...
+    def parse_value(self, section, pid, raw_value, datatype, compdict):
+        """
+        Parse a parameter value from a raw data string and assign it to the
+        pertinent item in self.data.
+
+        Args:
+            section (str):  name of the section in the SC structure
+            pid (str):  id of the parameter
+            raw_value (str):  the stripped left part from a line in an SC file
+            datatype (str):  datatype of the parameter
+            compdict (dict):  dict for the component that owns the parameter
+        """
+        if datatype == 'array':
+            values = raw_value.split()
+            if section in component_types:
+                postypes = SC['components'][section][pid].get('postypes')
+            else:
+                postypes = SC[section][pid].get('postypes')
+            for k, v in enumerate(values):
+                postype = postypes[k] 
+                dtype = datatypes.get(postype) or str
+                values[k] = dtype(v)
+            if section in component_types:
+                compdict[pid] = values
+            else:
+                self.data[section][pid] = values
+            parsed_value = values
+        else:
+            dtype = datatypes.get(datatype) or str
+            value = raw_value.rstrip().lstrip()
+            if section in component_types:
+                compdict[pid] = dtype(value)
+            else:
+                self.data[section][pid] = dtype(value)
+            parsed_value = value
+        return parsed_value
+
     def import_file(self):
         """
         Import data from a standard 42 Spacecraft Description (SC) File.
@@ -1107,234 +1146,160 @@ class SC_Form(QWidget):
             # no file was selected
             return
         if raw_data:
-            # look for sections by "marker" lines
+            # look for sections by line numbers
             n_of_bodies = 0
             n_of_joints = 0
             body_parms_line = 0
             n_of_comps = {comp : 0 for comp in component_types
                           if comp not in ['body', 'joint']}
-            for n, line in enumerate(raw_data):
-                for section in SC_File:
-                    section_label = SC_File[section]['label']
-                    if (section_label in line and
-                        ('***' in line or '<<<' in line)):
-                        self.log(f'* Found {section} section (line {n})')
-                        if section not in component_types:
-                            # non-component section
-                            i = n
-                            for k, pid in enumerate(SC[section]):
-                                txt = raw_data[i+k+1]
-                                try:
-                                    val, cmt = txt.split('!')
-                                    val = val.strip()
-                                    self.log(f'  {section} {pid} = {val}')
-                                except:
-                                    self.log(f"  can't parse line {i+k+1}:")
-                                    self.log(f'  "{txt}"')
-                        elif section_label == "Body Parameters":
-                            # make a note of the body parameters section line
-                            body_parms_line = n
-                            # look for number of bodies ...
-                            i = n + 2
-                            n_of_bodies, cmt = raw_data[i].split('!')
-                            try:
-                                n_of_bodies = int(n_of_bodies)
-                                self.log(f'  # of bodies = {n_of_bodies}')
-                                if n_of_bodies > 1:
-                                    n_of_joints = n_of_bodies - 1
-                            except:
-                                self.log('  could not parse # of bodies.')
-                        elif section_label == "Joint Parameters":
-                            # ignore for now -- look for joints in next pass
-                            pass
-                        elif section in component_types:
-                            # look for number of that component type ...
-                            i = n + 1
-                            n_of_comp, cmt = raw_data[i].split('!')
-                            try:
-                                n_of_comps[section] = int(n_of_comp)
-                                self.log(f'  # of {section} = {n_of_comp}')
-                            except:
-                                self.log('  could not parse # of {section}s.')
+            for section in ['metadata', 'orbit', 'initial_attitude',
+                            'dynamics_flags', 'body']:
+                # section labels are irrelevant -- only line numbers matter
+                # section_label = SC_File[section]['label']
+                start = SC_File[section]['start']
+                self.log(f'* "{section}" starts at line {start}')
+                if section == "body":
+                    # look for number of bodies ...
+                    n_of_bodies, cmt = raw_data[start].split('!')
+                    try:
+                        n_of_bodies = int(n_of_bodies.rstrip().lstrip())
+                        self.log(f'# of bodies = {n_of_bodies}')
+                        if n_of_bodies > 1:
+                            n_of_joints = n_of_bodies - 1
+                    except:
+                        self.log('* could not parse # of bodies.')
+                    body_parms_line = start + 2
+                else:
+                    # metadata sections
+                    i = start
+                    for k, pid in enumerate(SC[section]):
+                        datatype = SC[section][pid].get('datatype')
+                        txt = raw_data[i+k]
+                        try:
+                            spam, eggs = txt.split('!')
+                            raw_value = spam.rstrip().lstrip()
+                            val = self.parse_value(section, pid, raw_value,
+                                                   datatype, None)
+                            if datatype == 'str':
+                                self.log(f'  {pid} = "{val}"')
+                            else:
+                                self.log(f'  {pid} = {val}')
+                        except:
+                            self.log(f"  can't parse line {i+k}:")
+                            self.log(f'  "{txt}"')
             # do another scan to find component section parameters
             if n_of_bodies and body_parms_line:
                 # look for body parameter sections
                 bod = 'body'
                 if n_of_bodies > 1:
                     bod = 'bodies'
-                self.log(f'* Looking for {n_of_bodies} {bod}')
-                start = body_parms_line + 4
+                self.log(f'* Looking for {n_of_bodies} {bod} ...')
+                start = body_parms_line
+                # blen is the number of body parameters; add 1 for the header
+                blen = len(SC['components']['body'])
                 for i in range(n_of_bodies):
+                    compdict = {}
+                    self.data['components']['body'].append(compdict)
                     # body parameter sections always appear at fixed intervals
-                    self.log(f'* Getting parameters for body {i}')
-                    self.log(f'  (starting at line {start} ...)')
+                    self.log(f'* Body {i} (line {start})')
                     for k, pid in enumerate(
                                         SC['components']['body']):
-                        txt = raw_data[start+k]
+                        datatype = SC['components']['body'][pid].get(
+                                                                'datatype')
+                        txt = raw_data[start + k]
                         try:
-                            val, cmt = txt.split('!')
-                            val = val.strip()
-                            self.log(f'  body {pid} = {val}')
+                            spam, eggs = txt.split('!')
+                            raw_value = spam.rstrip().lstrip()
+                            val = self.parse_value('body', pid, raw_value,
+                                                   datatype, compdict)
+                            if datatype == 'str':
+                                self.log(f'  {pid} = "{val}"')
+                            else:
+                                self.log(f'  {pid} = {val}')
                         except:
-                            self.log(f"  can't parse line {n+k+1}")
+                            self.log(f"  can't parse line {start+k+1}")
                             self.log(f'  "{txt}"')
-                    start += len(SC['components']['body']) + 1
+                    start += blen + 1
+                start += 4
+            jlen = len(SC['components']['joint'])
             if n_of_joints:
-                # look for body parameter sections
+                # joint parameter sections begin after last body section
                 joint = 'joint'
                 if n_of_joints > 1:
                     joint = 'joints'
                 self.log(f'* Looking for {n_of_joints} {joint}')
+                # jlen is the number of joint parameters; add 1 for the header
                 for i in range(n_of_joints):
-                    label = get_component_headers('joint', i).get('label')
-                    # add a space to matching label in case more than 10!
-                    label = label + ' '
-                    for n, line in enumerate(raw_data):
-                        if label in line and '===' in line:
-                            self.log(f'* Found {label} (line {n})')
-                            for k, pid in enumerate(
-                                                SC['components']['joint']):
-                                txt = raw_data[n+k+1]
-                                try:
-                                    val, cmt = txt.split('!')
-                                    val = val.strip()
-                                    self.log(f'  joint {pid} = {val}')
-                                except:
-                                    self.log(f"  can't parse line {n+k+1}")
-                                    self.log(f'  "{txt}"')
+                    compdict = {}
+                    self.data['components']['joint'].append(compdict)
+                    self.log(f'* Joint {i} (line {start})')
+                    for k, pid in enumerate(
+                                        SC['components']['joint']):
+                        lineno = start + k
+                        datatype = SC['components']['joint'][pid].get(
+                                                                'datatype')
+                        txt = raw_data[lineno]
+                        # try:
+                        spam, eggs = txt.split('!')
+                        raw_value = spam.rstrip().lstrip()
+                        val = self.parse_value('joint', pid, raw_value,
+                                               datatype, compdict)
+                        if datatype == 'str':
+                            self.log(f'  {pid} = "{val}"')
+                        else:
+                            self.log(f'  {pid} = {val}')
+                        # except:
+                            # self.log(f"  can't parse line {lineno}")
+                            # self.log(f'  "{txt}"')
+                    start += jlen + 1
+            else:
+                # NOTE: there is always at least 1 joint section
+                self.log(f'# of joints = {n_of_joints}')
+                start += jlen + 1
             for comp, n_of_comp in n_of_comps.items():
+                # first look for how many of that component type
+                clen = len(SC['components'][comp])
+                txt = raw_data[start]
+                try:
+                    val, cmt = txt.split('!')
+                    n_of_comp = int(val.strip())
+                    n_of_comps[comp] = n_of_comp
+                    self.log(f'# of {comp} = {n_of_comp}')
+                except:
+                    self.log(f'* could not parse # of {comp} at line {start}:')
+                    self.log(f'  "{txt}"')
+                start += 2
                 if n_of_comp:
-                    # find comp parameter sections
+                    comp_label = SC_File[comp]['label']
+                    # clen is length of this comp parameter section
                     for i in range(n_of_comp):
-                        label = get_component_headers(comp, i).get('label')
-                        # add a space to matching label in case more than 10!
-                        label = label + ' '
-                        for n, line in enumerate(raw_data):
-                            if label in line and '===' in line:
-                                self.log(f'* Found {label} (line {n})')
-                                for k, pid in enumerate(
-                                                    SC['components'][comp]):
-                                    txt = raw_data[n+k+1]
-                                    try:
-                                        val, cmt = txt.split('!')
-                                        val = val.strip()
-                                        self.log(f'  {section} {pid} = {val}')
-                                    except:
-                                        self.log(f"  can't parse line {n+k+1}")
-                                        self.log(f'  "{txt}"')
-
-
-
-
-                # if '!' in line:
-                    # raw_value, raw_label = line.split('!')
-                    # parsed_data[raw_label] = raw_value.rstrip().lstrip()
-            # # look for exact "label"
-            # sections = [s for s in SC.keys() if s != 'components']
-            # for section in sections:
-                # self.log(f'  - finding parameters of section "{section}" ...')
-                # for pid in SC[section]:
-                    # label = SC[section][pid].get('label')
-                    # datatype = SC[section][pid].get('datatype')
-                    # for raw_label, raw_value in parsed_data.items():
-                        # if label in raw_label:
-                            # if datatype == 'array':
-                                # values = raw_value.split()
-                                # postypes = SC[section][pid].get('postypes')
-                                # for k, v in enumerate(values):
-                                    # postype = postypes[k] 
-                                    # dtype = datatypes.get(postype) or str
-                                    # values[k] = dtype(v)
-                                # self.data[section][pid] = values
-                                # self.log(f'    {pid} = {values}')
-                            # else:
-                                # dtype = datatypes.get(datatype) or str
-                                # value = raw_value.rstrip().lstrip()
-                                # self.data[section][pid] = dtype(value)
-                                # if datatype == 'str':
-                                    # self.log(f'    {pid} = "{value}"')
-                                # else:
-                                    # self.log(f'    {pid} = {value}')
-            # # locations maps comp_type to location of its section label in the
-            # # file, for use in scanning for instances of the component type
-            # locations = {}
-            # number_of_joints = 0
-            # for comp_type in component_types:
-                # self.log(f'  - searching for component "{comp_type}" ...')
-                # n = 0
-                # if comp_type == 'joint':
-                    # # joint is the only one without a "number of" specified,
-                    # # since it is 1 less than the number of bodies, and when
-                    # # the number of bodies is updated in the form, that will
-                    # # set the number of joints also
-                    # if number_of_joints:   # set from number of bodies
-                        # n = number_of_joints
-                # else:
-                    # parm_props = SC_File[comp_type].get('number_of')
-                    # n_of_label = parm_props.get('label')
-                    # for i, line in enumerate(raw_data):
-                    # # for raw_label, raw_value in parsed_data.items():
-                        # if n_of_label in line and '!' in line:
-                            # raw_value, raw_label = line.split('!')
-                            # n = int(raw_value.rstrip().lstrip())
-                            # # n_comps[comp_type] = n
-                            # self.log(f'    number of {comp_type}(s) = {n}')
-                            # locations[comp_type] = i
-                            # if comp_type == 'body' and n > 1:
-                                # number_of_joints = n - 1
-                            # break
-                # # begin scanning for instances at the location where the
-                # # component type section begins ...
-                # begin = locations.get(comp_type) or 0
-                # for j in range(n):
-                    # # NOTE: if n > 1, initial parse of raw data is invalid for
-                    # # this component type because it will only contain the
-                    # # parameters of the last component of that type!
-                    # # So: iterate over the raw_data again, looking for the
-                    # # sections for each component of this type ... and now we
-                    # # have to note the position of each section in the data ...
-                    # # NOTE: in 42, the component "instance" sections for gyro,
-                    # # magnetometer, and accelerometer are all called "Axis n",
-                    # # so begin scanning for that label at the position of that
-                    # # component type section and break as soon as it is found.
-                    # this_component = {}
-                    # comp_headers = get_component_headers(comp_type, j)
-                    # comp_label = comp_headers.get('label')
-                    # for m, line in enumerate(raw_data[begin:]):
-                        # if comp_label in line:
-                            # self.log(f'    "{comp_label}" is at line {m}')
-                            # comp_start = begin + m + 1
-                            # break
-                    # # parse the "component j" section ...
-                    # comp_end = comp_start + len(SC['components'][comp_type])
-                    # for line in raw_data[comp_start : comp_end]:
-                        # raw_value, raw_label = line.split('!')
-                        # for pid in SC['components'][comp_type]:
-                            # label = SC['components'][comp_type][pid].get(
-                                                                    # 'label')
-                            # datatype = SC['components'][comp_type][pid].get(
-                                                                    # 'datatype')
-                            # if label in raw_label:
-                                # if datatype == 'array':
-                                    # values = raw_value.split()
-                                    # postypes = SC['components'][comp_type][
-                                                        # pid].get('postypes')
-                                    # for k, v in enumerate(values):
-                                        # postype = postypes[k]
-                                        # dtype = datatypes.get(postype) or str
-                                        # values[k] = dtype(v)
-                                    # this_component[pid] = values
-                                    # self.log(f'    {pid} = {values}')
-                                # else:
-                                    # dtype = datatypes.get(datatype) or str
-                                    # value = raw_value.rstrip().lstrip()
-                                    # this_component[pid] = dtype(value)
-                                    # if datatype == 'str':
-                                        # self.log(f'    {pid} = "{value}"')
-                                    # else:
-                                        # self.log(f'    {pid} = {value}')
-                    # self.data['components'][comp_type].append(this_component)
-            # self.update_form_from_data()
+                        compdict = {}
+                        self.data['components'][comp].append(compdict)
+                        lineno = start + (i * (clen + 1))
+                        self.log(f'* {comp_label} {i} (line {lineno})')
+                        for k, pid in enumerate(
+                                            SC['components'][comp]):
+                            lineno = start + k + (i * (clen + 1))
+                            datatype = SC['components'][comp][pid].get(
+                                                                'datatype')
+                            txt = raw_data[lineno]
+                            try:
+                                spam, eggs = txt.split('!')
+                                raw_value = spam.rstrip().lstrip()
+                                val = self.parse_value(comp, pid, raw_value,
+                                                       datatype, compdict)
+                                if datatype == 'str':
+                                    self.log(f'  {pid} = "{val}"')
+                                else:
+                                    self.log(f'  {pid} = {val}')
+                            except:
+                                self.log(f"  can't parse line {lineno}")
+                                self.log(f'  "{txt}"')
+                    start += clen + 1 + ((n_of_comp - 1) * (clen + 1))
+                else:
+                    # NOTE: there is always at least 1 comp section
+                    start += clen + 1
+            self.update_form_from_data()
         else:
             self.log('* could not find any data in file.')
 
@@ -1361,6 +1326,7 @@ class SC_Form(QWidget):
             for section, props in SC_File.items():
                 self.log(f'* writing section "{section}" ...')
                 if section not in component_types:
+                    # SC "metadata" sections ...
                     output += props['header'] + '\n'
                     for pid, parm_props in SC[section].items():
                         label = parm_props.get('label')
@@ -1374,6 +1340,7 @@ class SC_Form(QWidget):
                         val_part = '{:<30}'.format(val)
                         output += val_part + '! ' + label + '\n'
                 else:
+                    # component sections ...
                     output += props['header'] + '\n'
                     if section != 'joint':
                         n_label = SC_File[section]['number_of']['label']
@@ -1395,6 +1362,10 @@ class SC_Form(QWidget):
                                 val = comp[pid]
                             val_part = '{:<30}'.format(val)
                             output += val_part + '! ' + label + '\n'
+                    if not self.data['components'][section]:
+                        # if there are 0 of this component type, the file still
+                        # has to have a "dummy" component of that type ...
+                        output += DUMMY_COMPS[section]
             with open(fpath, 'w') as f:
                 f.write(output)
 
@@ -1640,6 +1611,113 @@ class SC42Window(QMainWindow):
     def sizeHint(self):
         return QSize(self.w, self.h)
 
+DUMMY_COMPS = dict(
+joint="""============================== Joint 0 ================================
+0 1                           ! Inner, outer body indices
+1   213   GIMBAL              ! RotDOF, Seq, GIMBAL or SPHERICAL
+0   123                       ! TrnDOF, Seq
+FALSE  FALSE  FALSE           ! RotDOF Locked
+FALSE  FALSE  FALSE           ! TrnDOF Locked
+0.0    0.0    0.0             ! Initial Angles [deg]
+0.0    0.0    0.0             ! Initial Rates, deg/sec
+0.0    0.0    0.0             ! Initial Displacements [m]
+0.0    0.0    0.0             ! Initial Displacement Rates, m/sec
+0.0   0.0  0.0  312           ! Bi to Gi Static Angles [deg] & Seq
+0.0   0.0  0.0  312           ! Go to Bo Static Angles [deg] & Seq
+0.0   0.0  0.0                ! Position wrt inner body origin, m
+0.0   0.0  0.0                ! Position wrt outer body origin, m
+0.0   0.0  0.0                ! Rot Passive Spring Coefficients (Nm/rad)
+0.0   0.0  0.0                ! Rot Passive Damping Coefficients (Nms/rad)
+0.0   0.0  0.0                ! Trn Passive Spring Coefficients (N/m)
+0.0   0.0  0.0                ! Trn Passive Damping Coefficients (Ns/m)
+""",
+wheel="""=============================  Wheel 0  ================================
+0.0                           ! Initial Momentum, N-m-sec
+1.0   0.0   0.0               ! Wheel Axis Components, [X, Y, Z]
+0.14   50.0                   ! Max Torque (N-m), Momentum (N-m-sec)
+0.012                         ! Wheel Rotor Inertia, kg-m^2
+0.48                          ! Static Imbalance, g-cm
+13.7                          ! Dynamic Imbalance, g-cm^2
+0                             ! Flex Node Index
+""",
+mtb="""==============================  MTB 0  =================================
+180.0                         ! Saturation (A-m^2)
+1.0   0.0   0.0               ! MTB Axis Components, [X, Y, Z]
+0                             ! Flex Node Index
+""",
+thruster="""==============================  Thr 0  =================================
+ 1.0                          ! Thrust Force (N)
+0  -1.0  0.0  0.0             ! Body, Thrust Axis 
+ 1.0  1.0  1.0                ! Location in Body, m
+0                             ! Flex Node Index
+""",
+gyro="""============================== Axis 0 ===================================
+0.1                           ! Sample Time,sec
+1.0  0.0  0.0                 ! Axis expressed in Body Frame
+1000.0                        ! Max Rate, deg/sec
+100.0                         ! Scale Factor Error, ppm
+1.0                           ! Quantization, arcsec 
+0.07                          ! Angle Random Walk (deg/rt-hr)
+0.1  1.0                      ! Bias Stability (deg/hr) over timespan (hr)
+0.1                           ! Angle Noise, arcsec RMS
+0.1                           ! Initial Bias (deg/hr)
+1                             ! Flex Node Index
+""",
+magnetometer="""============================== Axis 0 ===================================
+0.1                           ! Sample Time,sec
+1.0  0.0  0.0                 ! Axis expressed in Body Frame
+60.0E-6                       ! Saturation, Tesla
+0.0                           ! Scale Factor Error, ppm
+1.0E-6                        ! Quantization, Tesla 
+1.0E-6                        ! Noise, Tesla RMS
+1                             ! Flex Node Index
+""",
+css="""============================== CSS 0 ====================================
+0.1                           ! Sample Time,sec
+0    1.0  1.0  1.0            ! Body, Axis expressed in Body Frame
+90.0                          ! Half-cone Angle, deg
+1.0                           ! Scale Factor
+0.001                         ! Quantization
+0                             ! Flex Node Index
+""",
+fss="""=============================== FSS 0 ===================================
+0.2                           ! Sample Time,sec
+70.0  0.0  0.0  231           ! Mounting Angles (deg), Seq in Body
+32.0   32.0                   ! X, Y FOV Size, deg
+0.1                           ! Noise Equivalent Angle, deg RMS
+0.5                           ! Quantization, deg
+0                             ! Flex Node Index
+""",
+st="""=============================== ST 0 ====================================
+0.25                          ! Sample Time,sec
+-90.0  90.0  00.0  321        ! Mounting Angles (deg), Seq in Body
+8.0   8.0                     ! X, Y FOV Size, deg
+30.0  10.0  10.0              ! Sun, Earth, Moon Exclusion Angles, deg
+2.0  2.0  20.0                ! Noise Equivalent Angle, arcsec RMS
+1                             ! Flex Node Index
+""",
+gps="""============================= GPSR 0 ====================================
+0.25                          ! Sample Time,sec
+4.0                           ! Position Noise, m RMS
+0.02                          ! Velocity Noise, m/sec RMS
+20.0E-9                       ! Time Noise, sec RMS
+0                             ! Flex Node Index
+""",
+accelerometer="""============================== Axis 0 ===================================
+0.1                           ! Sample Time,sec
+0.5  1.0  1.5                 ! Position in B[0] (m)
+1.0  0.0  0.0                 ! Axis expressed in Body Frame
+1.0                           ! Max Acceleration (m/s^2)
+0.0                           ! Scale Factor Error, ppm
+0.05                          ! Quantization, m/s^2
+0.0                           ! DV Random Walk (m/s/rt-hr)
+0.0 1.0                       ! Bias Stability (m/s^2) over timespan (hr)
+0.0                           ! DV Noise, m/s
+0.5                           ! Initial Bias (m/s^2)
+0                             ! Flex Node Index
+""")
+
+
 
 if __name__ == '__main__':
     """Script mode for testing."""
@@ -1649,4 +1727,118 @@ if __name__ == '__main__':
     # dlg = ComponentDialog('joint', '0')
     # dlg.show()
     sys.exit(app.exec_())
+
+# ==============================================================================
+# Deprecated code from import_file(), which used the labels and headers to
+# identify sections of the file -- but 42 reads them based on line numbers, so
+# the new import_file() code does that!
+
+                # if '!' in line:
+                    # raw_value, raw_label = line.split('!')
+                    # parsed_data[raw_label] = raw_value.rstrip().lstrip()
+            # # look for exact "label"
+            # sections = [s for s in SC.keys() if s != 'components']
+            # for section in sections:
+                # self.log(f'  - finding parameters of section "{section}" ...')
+                # for pid in SC[section]:
+                    # label = SC[section][pid].get('label')
+                    # datatype = SC[section][pid].get('datatype')
+                    # for raw_label, raw_value in parsed_data.items():
+                        # if label in raw_label:
+                            # if datatype == 'array':
+                                # values = raw_value.split()
+                                # postypes = SC[section][pid].get('postypes')
+                                # for k, v in enumerate(values):
+                                    # postype = postypes[k] 
+                                    # dtype = datatypes.get(postype) or str
+                                    # values[k] = dtype(v)
+                                # self.data[section][pid] = values
+                                # self.log(f'    {pid} = {values}')
+                            # else:
+                                # dtype = datatypes.get(datatype) or str
+                                # value = raw_value.rstrip().lstrip()
+                                # self.data[section][pid] = dtype(value)
+                                # if datatype == 'str':
+                                    # self.log(f'    {pid} = "{value}"')
+                                # else:
+                                    # self.log(f'    {pid} = {value}')
+            # # locations maps comp_type to location of its section label in the
+            # # file, for use in scanning for instances of the component type
+            # locations = {}
+            # number_of_joints = 0
+            # for comp_type in component_types:
+                # self.log(f'  - searching for component "{comp_type}" ...')
+                # n = 0
+                # if comp_type == 'joint':
+                    # # joint is the only one without a "number of" specified,
+                    # # since it is 1 less than the number of bodies, and when
+                    # # the number of bodies is updated in the form, that will
+                    # # set the number of joints also
+                    # if number_of_joints:   # set from number of bodies
+                        # n = number_of_joints
+                # else:
+                    # parm_props = SC_File[comp_type].get('number_of')
+                    # n_of_label = parm_props.get('label')
+                    # for i, line in enumerate(raw_data):
+                    # # for raw_label, raw_value in parsed_data.items():
+                        # if n_of_label in line and '!' in line:
+                            # raw_value, raw_label = line.split('!')
+                            # n = int(raw_value.rstrip().lstrip())
+                            # # n_comps[comp_type] = n
+                            # self.log(f'    number of {comp_type}(s) = {n}')
+                            # locations[comp_type] = i
+                            # if comp_type == 'body' and n > 1:
+                                # number_of_joints = n - 1
+                            # break
+                # # begin scanning for instances at the location where the
+                # # component type section begins ...
+                # begin = locations.get(comp_type) or 0
+                # for j in range(n):
+                    # # NOTE: if n > 1, initial parse of raw data is invalid for
+                    # # this component type because it will only contain the
+                    # # parameters of the last component of that type!
+                    # # So: iterate over the raw_data again, looking for the
+                    # # sections for each component of this type ... and now we
+                    # # have to note the position of each section in the data ...
+                    # # NOTE: in 42, the component "instance" sections for gyro,
+                    # # magnetometer, and accelerometer are all called "Axis n",
+                    # # so begin scanning for that label at the position of that
+                    # # component type section and break as soon as it is found.
+                    # this_component = {}
+                    # comp_headers = get_component_headers(comp_type, j)
+                    # comp_label = comp_headers.get('label')
+                    # for m, line in enumerate(raw_data[begin:]):
+                        # if comp_label in line:
+                            # self.log(f'    "{comp_label}" is at line {m}')
+                            # comp_start = begin + m + 1
+                            # break
+                    # # parse the "component j" section ...
+                    # comp_end = comp_start + len(SC['components'][comp_type])
+                    # for line in raw_data[comp_start : comp_end]:
+                        # raw_value, raw_label = line.split('!')
+                        # for pid in SC['components'][comp_type]:
+                            # label = SC['components'][comp_type][pid].get(
+                                                                    # 'label')
+                            # datatype = SC['components'][comp_type][pid].get(
+                                                                    # 'datatype')
+                            # if label in raw_label:
+                                # if datatype == 'array':
+                                    # values = raw_value.split()
+                                    # postypes = SC['components'][comp_type][
+                                                        # pid].get('postypes')
+                                    # for k, v in enumerate(values):
+                                        # postype = postypes[k]
+                                        # dtype = datatypes.get(postype) or str
+                                        # values[k] = dtype(v)
+                                    # this_component[pid] = values
+                                    # self.log(f'    {pid} = {values}')
+                                # else:
+                                    # dtype = datatypes.get(datatype) or str
+                                    # value = raw_value.rstrip().lstrip()
+                                    # this_component[pid] = dtype(value)
+                                    # if datatype == 'str':
+                                        # self.log(f'    {pid} = "{value}"')
+                                    # else:
+                                        # self.log(f'    {pid} = {value}')
+                    # self.data['components'][comp_type].append(this_component)
 
