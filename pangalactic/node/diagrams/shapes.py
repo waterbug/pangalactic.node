@@ -133,8 +133,6 @@ class Block(QGraphicsItem):
             scene.addItem(self)
         self.setSelected(True)
         self.setFocus()
-        global Dirty
-        Dirty = True
 
     @property
     def obj(self):
@@ -180,8 +178,6 @@ class Block(QGraphicsItem):
         self.style = style
         # NOTE: update() schedules a repaint of the area covered by the block
         self.update()
-        global Dirty
-        Dirty = True
 
     @property
     def ordered_ports(self):
@@ -293,8 +289,6 @@ class ObjectBlock(Block):
         # NOTE: update() repaints the area covered by the block
         self.update()
         dispatcher.connect(self.on_block_mod_signal, 'block mod')
-        global Dirty
-        Dirty = True
 
     @property
     def obj(self):
@@ -434,8 +428,6 @@ class ObjectBlock(Block):
         self.style = style
         # NOTE: update() repaints the area covered by the block
         self.update()
-        global Dirty
-        Dirty = True
 
     def contextMenuEvent(self, event):
         orb.log.debug("* ObjectBlock: context menu evt")
@@ -858,8 +850,6 @@ class SubjectBlock(Block):
         z_value = 0.0
         self.setZValue(z_value)
         dispatcher.connect(self.on_block_mod_signal, 'block mod')
-        global Dirty
-        Dirty = True
 
     def rebuild(self):
         name = getattr(self.obj, 'name', None) or self.obj.id
@@ -1318,8 +1308,6 @@ class PortBlock(QGraphicsItem):
         # (so they get precedence for mouse events)
         z_value = 2.0
         self.setZValue(z_value)
-        global Dirty
-        Dirty = True
 
     @property
     def tooltip_text(self):
@@ -1625,8 +1613,6 @@ class EntityBlock(Block):
         scene.clearSelection()
         self.setSelected(True)
         self.setFocus()
-        global Dirty
-        Dirty = True
 
     def parentWidget(self):
         return self.scene().views()[0]
@@ -1672,8 +1658,6 @@ class EntityBlock(Block):
         self.style = style
         # NOTE: update() repaints the area covered by the block
         self.update()
-        global Dirty
-        Dirty = True
 
     def add_connector(self, connector):
         self.connectors.append(connector)
@@ -2103,7 +2087,7 @@ class BlockLabel(QGraphicsTextItem):
 
     def set_text(self, text, font_name=None, point_size=None,
                  weight=None, color=None):
-        self.setHtml('<h2>{}</h2>'.format(text))
+        self.setHtml(f'<h2>{text}</h2>')
         if color in QTCOLORS:
             self.setDefaultTextColor(getattr(Qt, color))
         self.font_name = font_name or getattr(self, 'font_name', "Arial")
@@ -2170,9 +2154,6 @@ class TextLabel(QGraphicsTextItem):
         self.document().setDefaultTextOption(self.text_option)
 
     def itemChange(self, change, variant):
-        if change != QGraphicsItem.ItemSelectedChange:
-            global Dirty
-            Dirty = True
         return QGraphicsTextItem.itemChange(self, change, variant)
 
 
@@ -2205,15 +2186,10 @@ class TextItem(QGraphicsTextItem):
         scene.clearSelection()
         scene.addItem(self)
         self.setSelected(True)
-        global Dirty
-        Dirty = True
 
     def parentWidget(self):
         return self.scene().views()[0]
 
     def itemChange(self, change, variant):
-        if change != QGraphicsItem.ItemSelectedChange:
-            global Dirty
-            Dirty = True
         return QGraphicsTextItem.itemChange(self, change, variant)
 

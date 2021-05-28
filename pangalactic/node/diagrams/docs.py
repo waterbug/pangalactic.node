@@ -28,7 +28,6 @@ PAGE_SIZE = (612, 792)
 POINT_SIZE = 10
 MagicNumber = 0x70616765
 FileVersion = 1
-Dirty = False
 
 
 class BoxItem(QtWidgets.QGraphicsItem):
@@ -49,8 +48,6 @@ class BoxItem(QtWidgets.QGraphicsItem):
         scene.addItem(self)
         self.setSelected(True)
         self.setFocus()
-        global Dirty
-        Dirty = True
 
     def parentWidget(self):
         return self.scene().views()[0]
@@ -68,9 +65,6 @@ class BoxItem(QtWidgets.QGraphicsItem):
         painter.drawRect(self.rect)
 
     def itemChange(self, change, variant):
-        if change != QtWidgets.QGraphicsItem.ItemSelectedChange:
-            global Dirty
-            Dirty = True
         return QtWidgets.QGraphicsItem.itemChange(self, change, variant)
 
     def contextMenuEvent(self, event):
@@ -90,8 +84,6 @@ class BoxItem(QtWidgets.QGraphicsItem):
     def setStyle(self, style):
         self.style = style
         self.update()
-        global Dirty
-        Dirty = True
 
     def keyPressEvent(self, event):
         factor = POINT_SIZE // 4
@@ -111,8 +103,6 @@ class BoxItem(QtWidgets.QGraphicsItem):
                 changed = True
         if changed:
             self.update()
-            global Dirty
-            Dirty = True
         else:
             QtWidgets.QGraphicsItem.keyPressEvent(self, event)
 
@@ -236,17 +226,17 @@ class DocForm(QtWidgets.QDialog):
         self.accept()
 
     def accept(self):
-        self.offerSave()
+        # self.offerSave()
         QtWidgets.QDialog.accept(self)
 
-    def offerSave(self):
-        if (Dirty and
-            QtWidgets.QMessageBox.question(self,
-                "Page Designer - Unsaved Changes",
-                "Save unsaved changes?",
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) ==
-                QtWidgets.QMessageBox.Yes):
-            self.save()
+    # def offerSave(self):
+        # if (Dirty and
+            # QtWidgets.QMessageBox.question(self,
+                # "Page Designer - Unsaved Changes",
+                # "Save unsaved changes?",
+                # QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No) ==
+                # QtWidgets.QMessageBox.Yes):
+            # self.save()
 
     def position(self):
         """
@@ -291,8 +281,6 @@ class DocForm(QtWidgets.QDialog):
         self.scene.clearSelection()
         self.scene.addItem(item)
         item.setSelected(True)
-        global Dirty
-        Dirty = True
 
     def selectedItem(self):
         items = self.scene.selectedItems()
@@ -341,8 +329,6 @@ class DocForm(QtWidgets.QDialog):
                 item = items.pop()
                 self.scene.removeItem(item)
                 del item
-            global Dirty
-            Dirty = True
 
     def write_image(self):
         fpath = os.path.join(orb.home, 'diagram.png')
@@ -372,7 +358,7 @@ class DocForm(QtWidgets.QDialog):
             self.scene.render(painter)
 
     def open(self):
-        self.offerSave()
+        # self.offerSave()
         path = (QtCore.QFileInfo(self.filename).path()
                 if self.filename else ".")
         fname, f = QtWidgets.QFileDialog.getOpenFileName(self,
@@ -408,8 +394,6 @@ class DocForm(QtWidgets.QDialog):
         finally:
             if file is not None:
                 file.close()
-        global Dirty
-        Dirty = False
 
     def save(self):
         if not self.filename:
@@ -439,8 +423,6 @@ class DocForm(QtWidgets.QDialog):
         finally:
             if file is not None:
                 file.close()
-        global Dirty
-        Dirty = False
 
     def readItemFromStream(self, stream, offset=0):
         type = ''
