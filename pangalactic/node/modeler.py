@@ -475,19 +475,13 @@ class ModelWindow(QMainWindow):
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
         block_ordering = diagramz.get(self.obj.oid)
-        usages = []
-        if hasattr(self.obj, 'components') and self.obj.components:
-            usages = self.obj.components
-        elif hasattr(self.obj, 'systems') and len(self.obj.systems):
-            # self.obj is a Project
-            usages = self.obj.systems
         if block_ordering:
             # orb.log.debug('  - generating diagram with ordering ...')
-            scene.generate_ibd(usages, ordering=block_ordering)
+            scene.generate_ibd(self.obj, ordering=block_ordering)
         else:
             # orb.log.debug('  - generating new block diagram ...')
             # orb.log.debug('  - generating diagram (cache disabled for testing)')
-            scene.generate_ibd(usages)
+            scene.generate_ibd(self.obj)
             # create a block Model object if self.obj doesn't have one
             block_model_type = orb.get(BLOCK_OID)
             if self.obj.has_models:

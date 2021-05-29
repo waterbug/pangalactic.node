@@ -120,7 +120,7 @@ class Block(QGraphicsItem):
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
-        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE, 24 * POINT_SIZE, 24 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         # TODO:  notify the user if 'obj' is not a Product instance ... that
         # will cause errors
@@ -271,7 +271,7 @@ class ObjectBlock(Block):
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
-        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE, 24 * POINT_SIZE, 24 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.color = color or Qt.black
         self.right_ports = right_ports
@@ -1590,7 +1590,7 @@ class EntityBlock(Block):
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
-        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE, 24 * POINT_SIZE, 24 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.obj = obj
         self.has_sub_diagram = False
@@ -1606,7 +1606,7 @@ class EntityBlock(Block):
         self.name_label = BlockLabel(name, self)
         self.title_separator = QGraphicsLineItem(
                                         0.0, 2.0 * POINT_SIZE,
-                                        20.0 * POINT_SIZE, 2.0 * POINT_SIZE,
+                                        24.0 * POINT_SIZE, 2.0 * POINT_SIZE,
                                         parent=self)
         self.description_label = TextLabel(description, self)
         self.description_label.setPos(0.0 * POINT_SIZE, 3.0 * POINT_SIZE)
@@ -1680,7 +1680,7 @@ class EntityBlock(Block):
 
 
 def segment_bounding_rect(segment):
-    extra = 20
+    extra = 24
     p1 = segment.p1()
     p2 = segment.p2()
     # orb.log.debug("  - (%f, %f) to (%f, %f)" % (
@@ -1858,7 +1858,7 @@ class RoutedConnector(QGraphicsItem):
     def boundingRect(self):
         # orb.log.debug("RoutedConnector.boundingRect ...")
         # extra = (self.pen.width() + 20) / 2.0
-        extra = (self.pen.width() + 20)
+        extra = (self.pen.width() + 24)
         p1 = self.p1()
         p2 = self.p2()
         # orb.log.debug("  - (%f, %f) to (%f, %f)" % (

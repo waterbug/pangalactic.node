@@ -44,8 +44,11 @@ class DiagramScene(QGraphicsScene):
             subject (ManagedObject):  object that is the subject of the diagram
         """
         super().__init__(parent)
-        w = 1600
-        h = 7000
+        # w = 1600
+        # h = 7000
+        # defaults: w, h of empty subject block + 100
+        w = 1100
+        h = 700
         self.setSceneRect(QRectF(0, 0, w, h))
         self.subject = subject
         self.line = None
@@ -425,19 +428,20 @@ class DiagramScene(QGraphicsScene):
             # set min w, h to 1000, 600 (SCW 2020-11-26)
             sb_width = 1000
             sb_height = 600
+        # set the scene dimensions accordingly
+        self.setSceneRect(QRectF(0, 0, sb_width + 100, sb_height + 100))
         return self.create_block(SubjectBlock, obj=self.subject,
                                  pos=QPointF(20, 20),
                                  width=sb_width, height=sb_height)
 
-    def generate_ibd(self, usages, ordering=None):
+    def generate_ibd(self, obj, ordering=None):
         """
-        Create an Internal Block Diagram (IBD) for a list of usages (Acu or
-        ProjectSystemUsage instances).  If an ordering is specified, use the
-        ordering.
+        Create an Internal Block Diagram (IBD) for a Product or Project
+        instance.  If an ordering is specified, use the ordering when placing
+        the internal blocks.
 
         Args:
-            usages (list of (Acu or ProjectSystemUsage): usages to create
-                blocks for
+            obj (Product or Project): object to create the IBD for
 
         Keyword Args:
             ordering (list):  a list containing 2 lists: [0] oids of usages of
@@ -446,6 +450,14 @@ class DiagramScene(QGraphicsScene):
                 get_block_ordering()).
         """
         # orb.log.debug('* DiagramScene: generate_ibd()')
+        usages = []
+        if hasattr(obj, 'components') and obj.components:
+            # obj is a Product
+            usages = obj.components
+            # check for internal flows ...
+        elif hasattr(obj, 'systems') and len(obj.systems):
+            # obj is a Project
+            usages = obj.systems
         w = 100
         h = 150
         i = 1.0
