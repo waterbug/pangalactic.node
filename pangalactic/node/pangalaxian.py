@@ -230,6 +230,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        dispatcher.connect(self.on_freeze_signal, 'freeze')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_local_mel_modified, 'mel modified')
@@ -1343,6 +1344,19 @@ class Main(QtWidgets.QMainWindow):
                         msg += "{} [{}]".format(obj_id, pth)
                 else:
                     msg += obj_id
+            elif subject == 'frozen':
+                oids = content
+                if oids:
+                    orb.log.info('* msg received on public channel:')
+                    orb.log.info(f'  vger: {len(oids)} objects were frozen.')
+                    objs = orb.get(oids=oids)
+                    if objs:
+                        for obj in objs:
+                            obj.frozen = True
+                        orb.db.commit()
+                        # "frozen" signal is monitored by PgxnObject ...
+                        orb.log.debug('  dispatching "frozen" signal ...')
+                        dispatcher.send("frozen", oids=oids)
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
@@ -2856,6 +2870,12 @@ class Main(QtWidgets.QMainWindow):
             dispatcher.send('update pgxno', mod_oids=mod_oids)
         self.update_project_role_labels()
 
+    def on_freeze_signal(self, oids=None):
+        if state.get('connected') and oids:
+            rpc = self.mbus.session.call('vger.freeze', oids)
+            rpc.addCallback(self.on_result)
+            rpc.addErrback(self.on_failure)
+
     def on_new_object_signal(self, obj=None, cname=''):
         """
         Handle local dispatcher signal for "new object".
@@ -2893,7 +2913,7 @@ class Main(QtWidgets.QMainWindow):
             # elif self.mode == 'db':
                 # self.refresh_cname_list()
                 # self.set_object_table_for(cname)
-            if (state['connected']
+            if (state.get('connected')
                 and not getattr(obj, 'project', None) is self.sandbox):
                 # SANDBOX PSUs are not saved to the server
                 serialized_objs = serialize(orb, [obj])

@@ -885,6 +885,7 @@ class PgxnObject(QDialog):
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
         dispatcher.connect(self.on_update_pgxno, 'update pgxno')
+        dispatcher.connect(self.on_remote_frozen, 'frozen')
 
     def build_from_object(self):
         """
@@ -1259,21 +1260,43 @@ class PgxnObject(QDialog):
                 self.mode_widgets['view'].add(action)
         return action
 
-    def freeze(self):
+    def freeze(self, remote=False):
         """
         Freeze an object, making it read-only.  NOTE: this action should only
         be accessible to users who have 'modify' permission on the object.
         """
+        orb.log.debug('* freeze called ...')
         if (isinstance(self.obj, orb.classes['Product'])
             and not self.obj.frozen):
-            self.freeze_action.setVisible(False)
-            self.frozen_action.setVisible(True)
-            self.obj.frozen = True
-            if is_global_admin(orb.get(state.get('local_user_oid'))):
-                # only a global admin can "thaw"
-                self.thaw_action.setVisible(True)
-            orb.save([self.obj])
-            self.build_from_object()
+            perms = get_perms(self.obj)
+            if 'modify' in perms:
+                orb.log.debug(f'  freezing {self.obj.id}')
+                self.freeze_action.setVisible(False)
+                self.frozen_action.setVisible(True)
+                self.obj.frozen = True
+                orb.db.commit()
+                if is_global_admin(orb.get(state.get('local_user_oid'))):
+                    # only a global admin can "thaw"
+                    self.thaw_action.setVisible(True)
+                dispatcher.send(signal="freeze", oids=[self.obj.oid])
+                self.build_from_object()
+            else:
+                orb.log.debug('  user does not have permission to freeze.')
+        else:
+            orb.log.debug('  object is not a Product, cannot be frozen.')
+
+    def on_remote_frozen(self, oids=None):
+        orb.log.debug('* pgxnobj received "frozen" signal on:')
+        orb.log.debug(f'  {str(oids)}')
+        oids = oids or []
+        if self.obj.oid in oids:
+            orb.log.debug('  aha, that is my object!')
+            # frozen has been set to True by pangalaxian
+            txt = 'This object has been frozen in the repository.'
+            notice = QMessageBox(QMessageBox.Information, 'Frozen',
+                                 txt, QMessageBox.Ok, self)
+            notice.show()
+            # self.build_from_object()
 
     def frozen(self):
         pass
