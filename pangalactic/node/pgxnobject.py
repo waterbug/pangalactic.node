@@ -1187,7 +1187,7 @@ class PgxnObject(QDialog):
             else:
                 orb.log.debug('            object is NOT frozen.')
                 self.frozen_action.setVisible(False)
-            # only those with edit perms can 'thaw' an object -- see below
+            # only global admins can 'thaw' an object -- see below
             self.toolbar.addAction(self.thaw_action)
             self.thaw_action.setVisible(False)
             self.toolbar.addAction(self.where_used_action)
@@ -1197,9 +1197,6 @@ class PgxnObject(QDialog):
             if 'modify' in perms:
                 if self.obj.frozen:
                     self.freeze_action.setVisible(False)
-                    if is_global_admin(orb.get(state.get('local_user_oid'))):
-                        # only a global admin can "thaw"
-                        self.thaw_action.setVisible(True)
                 else:
                     # orb.log.debug('            object is NOT frozen.')
                     self.frozen_action.setVisible(False)
@@ -1210,6 +1207,10 @@ class PgxnObject(QDialog):
                                     # tip='Create new version by cloning',
                                     # modes=['edit', 'view'])
                 # self.toolbar.addAction(self.new_version_action)
+            if (self.obj.frozen and
+                is_global_admin(orb.get(state.get('local_user_oid')))):
+                # only a global admin can "thaw"
+                self.thaw_action.setVisible(True)
             self.clone_action = self.create_action('Clone',
                                     slot=self.on_clone, icon='clone_16',
                                     tip='Clone this object',
