@@ -231,6 +231,7 @@ class Main(QtWidgets.QMainWindow):
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
+        dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_local_mel_modified, 'mel modified')
@@ -1348,7 +1349,7 @@ class Main(QtWidgets.QMainWindow):
                 oids = content
                 if oids:
                     orb.log.info('* msg received on public channel:')
-                    orb.log.info(f'  vger: {len(oids)} objects were frozen.')
+                    orb.log.info(f'  vger: {len(oids)} object(s) frozen.')
                     objs = orb.get(oids=oids)
                     if objs:
                         for obj in objs:
@@ -1357,6 +1358,19 @@ class Main(QtWidgets.QMainWindow):
                         # "frozen" signal is monitored by PgxnObject ...
                         orb.log.debug('  dispatching "frozen" signal ...')
                         dispatcher.send("frozen", oids=oids)
+            elif subject == 'thawed':
+                oids = content
+                if oids:
+                    orb.log.info('* msg received on public channel:')
+                    orb.log.info(f'  vger: {len(oids)} object(s) thawed.')
+                    objs = orb.get(oids=oids)
+                    if objs:
+                        for obj in objs:
+                            obj.thawed = True
+                        orb.db.commit()
+                        # "thawed" signal is monitored by PgxnObject ...
+                        orb.log.debug('  dispatching "thawed" signal ...')
+                        dispatcher.send("thawed", oids=oids)
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
@@ -2873,6 +2887,12 @@ class Main(QtWidgets.QMainWindow):
     def on_freeze_signal(self, oids=None):
         if state.get('connected') and oids:
             rpc = self.mbus.session.call('vger.freeze', oids)
+            rpc.addCallback(self.on_result)
+            rpc.addErrback(self.on_failure)
+
+    def on_thaw_signal(self, oids=None):
+        if state.get('connected') and oids:
+            rpc = self.mbus.session.call('vger.thaw', oids)
             rpc.addCallback(self.on_result)
             rpc.addErrback(self.on_failure)
 

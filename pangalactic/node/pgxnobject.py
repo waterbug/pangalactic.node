@@ -886,6 +886,7 @@ class PgxnObject(QDialog):
                            'parameters recomputed')
         dispatcher.connect(self.on_update_pgxno, 'update pgxno')
         dispatcher.connect(self.on_remote_frozen, 'frozen')
+        dispatcher.connect(self.on_remote_thawed, 'thawed')
 
     def build_from_object(self):
         """
@@ -1207,7 +1208,7 @@ class PgxnObject(QDialog):
                                     # tip='Create new version by cloning',
                                     # modes=['edit', 'view'])
                 # self.toolbar.addAction(self.new_version_action)
-            if (self.obj.frozen and
+            if (self.obj.frozen and state.get('connected') and
                 is_global_admin(orb.get(state.get('local_user_oid')))):
                 # only a global admin can "thaw"
                 self.thaw_action.setVisible(True)
@@ -1276,7 +1277,8 @@ class PgxnObject(QDialog):
                 self.frozen_action.setVisible(True)
                 self.obj.frozen = True
                 orb.db.commit()
-                if is_global_admin(orb.get(state.get('local_user_oid'))):
+                if (state.get('connected') and
+                    is_global_admin(orb.get(state.get('local_user_oid')))):
                     # only a global admin can "thaw"
                     self.thaw_action.setVisible(True)
                 dispatcher.send(signal="freeze", oids=[self.obj.oid])
@@ -1296,8 +1298,21 @@ class PgxnObject(QDialog):
             txt = 'This object has been frozen in the repository.'
             notice = QMessageBox(QMessageBox.Information, 'Frozen',
                                  txt, QMessageBox.Ok, self)
-            notice.show()
-            # self.build_from_object()
+            if notice.exec_():
+                self.build_from_object()
+
+    def on_remote_thawed(self, oids=None):
+        orb.log.debug('* pgxnobj received "thawed" signal on:')
+        orb.log.debug(f'  {str(oids)}')
+        oids = oids or []
+        if self.obj.oid in oids:
+            orb.log.debug('  aha, that is my object!')
+            # thawed has been set to True by pangalaxian
+            txt = 'This object has been thawed in the repository.'
+            notice = QMessageBox(QMessageBox.Information, 'Thawed',
+                                 txt, QMessageBox.Ok, self)
+            if notice.exec_():
+                self.build_from_object()
 
     def frozen(self):
         pass
@@ -1307,35 +1322,43 @@ class PgxnObject(QDialog):
         Thaw a frozen object.  NOTE: this action should only be accessible to
         global admins.
         """
+        notice = None
+        ok = False
         if (isinstance(self.obj, orb.classes['Product'])
             and self.obj.frozen):
             if getattr(self.obj, 'where_used', None):
                 txt = 'Thawing this Product may violate CM --\n'
                 txt += 'it is a component in the following assemblies:'
                 notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
-                                     QMessageBox.Ok, self)
+                                     QMessageBox.Ok | QMessageBox.Cancel,
+                                     self)
                 assemblies = [acu.assembly for acu in self.obj.where_used]
                 text = '<p><ul>{}</ul></p>'.format('\n'.join(
                            ['<li><b>{}</b><br>({})</li>'.format(
                            a.name, a.id) for a in assemblies if a]))
                 notice.setInformativeText(text)
-                notice.show()
             elif getattr(self.obj, 'projects_using_system', None):
                 txt = 'Thawing this Product may violate CM --\n'
                 txt += 'it is a top-level system in the following project(s):'
                 notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
-                                     QMessageBox.Ok, self)
+                                     QMessageBox.Ok | QMessageBox.Cancel,
+                                     self)
                 p_ids = [psu.project.id for psu in self.obj.projects_using_system]
                 notice.setInformativeText('<p><ul>{}</ul></p>'.format('\n'.join(
                                           ['<li><b>{}</b></li>'.format(p_id) for
                                           p_id in p_ids])))
-                notice.show()
-            self.freeze_action.setVisible(True)
-            self.frozen_action.setVisible(False)
-            self.thaw_action.setVisible(False)
-            self.obj.frozen = False
-            orb.save([self.obj])
-            self.build_from_object()
+            else:
+                ok = True
+            if ok or notice.exec_() == QMessageBox.Ok:
+                self.freeze_action.setVisible(True)
+                self.frozen_action.setVisible(False)
+                self.thaw_action.setVisible(False)
+                self.obj.frozen = False
+                orb.db.commit()
+                dispatcher.send(signal="thaw", oids=[self.obj.oid])
+                self.build_from_object()
+            else:
+                orb.log.debug('* thaw cancelled.')
 
     def show_where_used(self):
         info = ''
