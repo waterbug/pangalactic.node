@@ -30,7 +30,7 @@ class FloatParmWidget(FloatFieldWidget):
         parent (QWidget): parent widget
         parm_type (str): datatype of the parameter
         value (str): initial value of the field
-        section (str): name of the section in the SC data structure
+        section (str): name of the section in the data structure
         pid (str): parameter identifier
         i (int): for array-valued parameters, position of this field's value in
             the array
@@ -52,7 +52,7 @@ class IntParmWidget(IntegerFieldWidget):
         parent (QWidget): parent widget
         parm_type (str): datatype of the parameter
         value (str): initial value of the field
-        section (str): name of the section in the SC data structure
+        section (str): name of the section in the data structure
         pid (str): parameter identifier
         i (int): for array-valued parameters, position of this field's value in
             the array
@@ -71,7 +71,7 @@ class StrParmWidget(StringFieldWidget):
     Keyword Args:
         parent (QWidget): parent widget
         value (str): initial value of the field
-        section (str): name of the section in the SC data structure
+        section (str): name of the section in the data structure
         pid (str): parameter identifier
         i (int): for array-valued parameters, position of this field's value in
             the array
@@ -107,7 +107,7 @@ class ParmCombo(QComboBox):
     Keyword Args:
         parent (QWidget): parent widget
         value (str): initial value of the field
-        section (str): name of the section in the SC data structure
+        section (str): name of the section in the data structure
         parm_type (str): datatype; if None, plain string is assumed; if "float"
             or "int", the appropriate "validator" (mask) will be set so that
             only values coercible to that type can be entered
@@ -148,6 +148,188 @@ component_types = ['body', 'joint', 'wheel', 'mtb', 'thruster', 'gyro',
                    'magnetometer', 'css', 'fss', 'st', 'gps', 'accelerometer']
 
 datatypes = {'str': str, 'float': float, 'int': int, 'bool': str}
+
+
+Orb = dict(
+    metadata=dict(
+        description=dict(label="Description", test="Eccentric Earth Orbit",
+                         datatype='str'),
+        orbit_type=dict(
+            label="Orbit Type (ZERO, FLIGHT, CENTRAL, THREE_BODY)",
+            test="CENTRAL", datatype='str',
+            selections=["ZERO", "FLIGHT", "CENTRAL", "THREE_BODY"])),
+    ZERO=dict(
+        world=dict(label="World", test="MINORBODY_2", datatype='str'),
+        poly_grav=dict(label="Use Polyhedron Gravity",
+            test="FALSE", datatype='str', selections=["TRUE", "FALSE"],
+            default="FALSE")),
+    FLIGHT=dict(
+        region=dict(label="Region Number", test=0, datatype='int'),
+        poly_grav=dict(label="Use Polyhedron Gravity",
+            test="FALSE", datatype='str', selections=["TRUE", "FALSE"],
+            default="FALSE")),
+    CENTRAL=dict(
+        center=dict(label="Orbit Center", test="EARTH", datatype='str'),
+        sec_orb_drift=dict(
+            label="Secular Orbit Drift Due to J2",
+            test="FALSE", datatype='str', selections=["TRUE", "FALSE"],
+            default="FALSE"),
+        keplerian_elements=dict(
+            label="Use Keplerian elements (KEP) or (RV) or FILE",
+            test="KEP", datatype='str',
+            selections=["KEP", "RV", "FILE"]),
+        peri_or_min_alt=dict(
+            label="Use Peri/Apoapsis (PA) or min alt/ecc (AE)",
+            test="PA", datatype='str',
+            selections=["PA", "AE"]),
+        peri_and_apo_alt=dict(
+            label="Periapsis & Apoapsis Altitude, km",
+            test=[185.0, 2000.0], datatype='array',
+            postypes=['float', 'float']),
+        min_alt_eccentricity=dict(
+            label="Min Altitude (km), Eccentricity",
+            test=[400.0, 2.0], datatype='array',
+            postypes=['float', 'float']),
+        inclination=dict(label="Inclination (deg)", test=52.0,
+            datatype='float'),
+        right_ascension=dict(
+            label="Right Ascension of Ascending Node (deg)",
+            test="180.0", datatype='float'),
+        arg_of_periapsis=dict(
+            label="Argument of Periapsis (deg)",
+            test=0.0, datatype='float'),
+        true_anomaly=dict(
+            label="True Anomaly",
+            test=0.0, datatype='float'),
+        rv_initial_position=dict(
+            label="RV Initial Position (km)",
+            test=[0.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
+        rv_initial_velocity=dict(
+            label="RV Initial Velocity (km/sec)",
+            test=[0.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
+        tle_trv_label=dict(
+            label="TLE or TRV format, Label to find in file",
+            test=["TRV", "ORB_ID"], datatype='array',
+            postypes=['str', 'str']),
+        file_name=dict(
+            label="File name",
+            test="TRV.txt", datatype='str')),
+    THREE_BODY=dict(
+        lagrange_system=dict(
+            label="Lagrange system",
+            test="SUNEARTH", datatype='str'),
+        propagation=dict(
+            label="Propagate using LAGDOF_MODES or LAGDOF_COWELL or LAGDOF_SPLINE",
+            test="LAGDOF_MODES", datatype='str',
+            selections=["LAGDOF_MODES", "LAGDOF_COWELL", "LAGDOF_SPLINE"]),
+        initialization=dict(
+            label="Initialize with MODES or XYZ or FILE",
+            test="MODES", datatype='str',
+            selections=["MODES", "XYZ", "FILE"]),
+        libration_point=dict(
+            label="Libration point (L1, L2, L3, L4, L5)",
+            test="MODES", datatype='str',
+            selections=["L1", "L2", "L3", "L4", "L5"]),
+        xy_semi_major_axis=dict(
+            label="XY Semi-major axis, km",
+            test=800000.0, datatype='float'),
+        initial_xy_phase=dict(
+            label="Initial XY Phase, deg  (CCW from -Y)",
+            test=45.0, datatype='float'),
+        initial_xy_sense=dict(
+            label="Sense (CW, CCW), viewed from +Z",
+            test="CW", datatype='str',
+            selections=["CW", "CCW"]),
+        second_xy_semi_major_axis=dict(
+            label="Second XY Mode Semi-major Axis, km (L4, L5 only)",
+            test=0.0, datatype='float'),
+        second_xy_initial_phase=dict(
+            label="Second XY Mode Initial Phase, deg (L4, L5 only)",
+            test=0.0, datatype='float'),
+        second_xy_sense=dict(
+            label="Sense (CW, CCW), viewed from +Z (L4, L5 only)",
+            test="CW", datatype='str',
+            selections=["CW", "CCW"]),
+        z_semi_major_axis=dict(
+            label="Z Semi-axis, km",
+            test=400000.0, datatype='float'),
+        initial_z_phase=dict(
+            label="Initial Z Phase, deg",
+            test=60.0, datatype='float'),
+        initial_xyz=dict(
+            label="Initial X, Y, Z (Non-dimensional)",
+            test=[1.05, 0.5, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
+        initial_xyz_dots=dict(
+            label="Initial Xdot, Ydot, Zdot (Non-dimensional)",
+            test=[0.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']),
+        tle_trv_label=dict(
+            label="TLE or TRV format, Label to find in file",
+            test=["TRV", "ORB_ID"], datatype='array',
+            postypes=['str', 'str']),
+        file_name=dict(
+            label="File name",
+            test="TRV.txt", datatype='str')),
+    formation_frame=dict(
+        fixed_in=dict(
+            label="Formation Frame Fixed in [NL]",
+            test="L", datatype='str',
+            selections=["N", "L"]),
+        euler_angles=dict(
+            label="Euler Angles (deg) and Sequence",
+            test=[0.0, 0.0, 0.0, 123], datatype='array',
+            postypes=['float', 'float', 'float', 'int']),
+        origin_expressed_in=dict(
+            label="Formation Origin expressed in [NL]",
+            test="L", datatype='str',
+            selections=["N", "L"]),
+        origin_wrt_ref_orbit=dict(
+            label="Formation Origin wrt Ref Orbit (m)",
+            test=[0.0, 0.0, 0.0], datatype='array',
+            postypes=['float', 'float', 'float']))
+            )
+
+
+Orb_File = dict(
+  metadata=dict(
+    name="Orbit",
+    start=1,
+    label="42: Orbit Description File",
+    header=(
+"<<<<<<<<<<<<<<<<<  42: Orbit Description File   >>>>>>>>>>>>>>>>>")),
+  ZERO=dict(
+    name="ZERO",
+    start=4,
+    label="Use these lines if ZERO",
+    header=(
+"::::::::::::::  Use these lines if ZERO           :::::::::::::::::")),
+  FLIGHT=dict(
+    name="FLIGHT",
+    start=8,
+    label="Use these lines if FLIGHT",
+    header=(
+"::::::::::::::  Use these lines if FLIGHT         :::::::::::::::::")),
+  CENTRAL=dict(
+    name="CENTRAL",
+    start=11,
+    label="Use these lines if CENTRAL",
+    header=(
+"::::::::::::::  Use these lines if CENTRAL        :::::::::::::::::")),
+  THREE_BODY=dict(
+    name="THREE_BODY",
+    start=26,
+    label="Use these lines if THREE_BODY",
+    header=(
+":::::::::::::  Use these lines if THREE_BODY      ::::::::::::::::")),
+  formation_frame=dict(
+    name="Formation Frame Parameters",
+    start=43,
+    label="Formation Frame Parameters",
+    header=(
+"******************* Formation Frame Parameters ************************")))
 
 
 SC = dict(
@@ -211,7 +393,7 @@ SC = dict(
                             datatype='float')),
   components=dict(
     body=dict(
-      mass=dict(label="Mass", test="100.0", datatype='float'),
+      mass=dict(label="Mass", test=100.0, datatype='float'),
       I=dict(label="Moments of Inertia (kg-m^2)",
              test=[100.0, 200.0, 300.0], datatype='array',
              postypes=['float', 'float', 'float']),

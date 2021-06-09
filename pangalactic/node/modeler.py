@@ -59,7 +59,7 @@ def get_model_path(model):
     if not isinstance(model, orb.classes['Modelable']):
         # orb.log.debug('  not an instance of Modelable.')
         return ''
-    # check if there is a STEP AP203 / AP214 model type
+    # check if there is a STEP AP203/214/242 model type
     model_type_oid = getattr(model.type_of_model, 'oid', '')
     # orb.log.debug('  - model type oid: "{}"'.format(model_type_oid))
     if (model.has_representations and model_type_oid in supported_model_types):

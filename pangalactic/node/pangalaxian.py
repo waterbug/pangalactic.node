@@ -44,7 +44,7 @@ from pangalactic.core                  import config, write_config
 from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
-from pangalactic.core.access           import get_perms
+from pangalactic.core.access           import get_perms, is_global_admin
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (data_elementz, node_count,
                                                delete_parameter,
@@ -3245,10 +3245,7 @@ class Main(QtWidgets.QMainWindow):
         tt_txt = ''
         p_roles = []
         admin_role = orb.get('pgefobjects:Role.Administrator')
-        global_admin = orb.select('RoleAssignment',
-                                  assigned_role=admin_role,
-                                  assigned_to=self.local_user,
-                                  role_assignment_context=None)
+        global_admin = is_global_admin(self.local_user)
         if p:
             self.project_selection.setText(p.id)
             orb.log.debug('* set_project({})'.format(p.id))

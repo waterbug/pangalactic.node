@@ -1268,6 +1268,22 @@ class PgxnObject(QDialog):
         be accessible to users who have 'modify' permission on the object.
         """
         orb.log.debug('* freeze called ...')
+        admin_role = orb.get('pgefobjects:Role.Administrator')
+        user = orb.get(state.get('local_user_oid'))
+        global_admin = is_global_admin(user)
+        project = orb.get(state.get('project'))
+        project_admin = None
+        if project:
+            project_admin = orb.select('RoleAssignment',
+                                       assigned_role=admin_role,
+                                       assigned_to=user,
+                                       role_assignment_context=project)
+        if global_admin or project_admin:
+            # TODO:  if global admin or project admin, ask whether to
+            # recursively freeze all components of this object which are owned
+            # by the current project ...
+            # WORKING HERE ...
+            pass
         if (isinstance(self.obj, orb.classes['Product'])
             and not self.obj.frozen):
             perms = get_perms(self.obj)
@@ -1343,10 +1359,11 @@ class PgxnObject(QDialog):
                 notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
                                      QMessageBox.Ok | QMessageBox.Cancel,
                                      self)
-                p_ids = [psu.project.id for psu in self.obj.projects_using_system]
-                notice.setInformativeText('<p><ul>{}</ul></p>'.format('\n'.join(
-                                          ['<li><b>{}</b></li>'.format(p_id) for
-                                          p_id in p_ids])))
+                p_ids = [psu.project.id
+                         for psu in self.obj.projects_using_system]
+                notice.setInformativeText('<p><ul>{}</ul></p>'.format(
+                         '\n'.join(['<li><b>{}</b></li>'.format(p_id)
+                                    for p_id in p_ids])))
             else:
                 ok = True
             if ok or notice.exec_() == QMessageBox.Ok:

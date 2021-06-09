@@ -501,9 +501,6 @@ class ObjectBlock(Block):
         instances but their associated "models" in the database are Flow
         instances.
         """
-        perms = get_perms(self.usage)
-        # check for 'modify' permission; if found, offer "delete" option
-        # if 'modify' in perms:
         dlg = ConnectionsDialog(self.scene(), self.usage,
                                 parent=self.parentWidget())
         dlg.show()
