@@ -1346,29 +1346,51 @@ class Main(QtWidgets.QMainWindow):
                 else:
                     msg += obj_id
             elif subject == 'frozen':
-                oids = content
-                if oids:
+                # content is a list of tuples: (obj oid, dts string, user oid)
+                freezes = content
+                if freezes:
                     orb.log.info('* msg received on public channel:')
-                    orb.log.info(f'  vger: {len(oids)} object(s) frozen.')
-                    objs = orb.get(oids=oids)
-                    if objs:
-                        for obj in objs:
+                    orb.log.info(f'  vger: {len(freezes)} object(s) frozen.')
+                    oids = []
+                    for freeze in freezes:
+                        oid, dt_str, user_oid = freeze
+                        obj = orb.get(oid)
+                        if obj:
+                            oids.append(oid)
                             obj.frozen = True
-                        orb.db.commit()
-                        # "frozen" signal is monitored by PgxnObject ...
+                            dts = uncook_datetime(dt_str)
+                            obj.mod_datetime = dts
+                            user = orb.get(user_oid)
+                            if user:
+                                obj.modifier = user
+                    orb.db.commit()
+                    # "frozen" signal is monitored by PgxnObject ...
+                    if oids:
+                        orb.log.info(f'  {len(oids)} object(s) found ...')
                         orb.log.debug('  dispatching "frozen" signal ...')
                         dispatcher.send("frozen", oids=oids)
             elif subject == 'thawed':
-                oids = content
-                if oids:
+                # content is a list of tuples: (obj oid, dts string, user oid)
+                thaws = content
+                if thaws:
+                    oids = []
                     orb.log.info('* msg received on public channel:')
-                    orb.log.info(f'  vger: {len(oids)} object(s) thawed.')
-                    objs = orb.get(oids=oids)
-                    if objs:
-                        for obj in objs:
-                            obj.thawed = True
-                        orb.db.commit()
-                        # "thawed" signal is monitored by PgxnObject ...
+                    orb.log.info(f'  vger: {len(thaws)} object(s) thawed.')
+                    for thaw in thaws:
+                        oid, dt_str, user_oid = thaw
+                        obj = orb.get(oid)
+                        if obj:
+                            oids.append(oid)
+                            obj.frozen = False
+                            dts = uncook_datetime(dt_str)
+                            obj.mod_datetime = dts
+                            user = orb.get(user_oid)
+                            if user:
+                                obj.modifier = user
+                    orb.db.commit()
+                    # "thawed" signal is monitored by PgxnObject ...
+                    if oids:
+                        orb.log.info(f'  {len(oids)} object(s) found ...')
                         orb.log.debug('  dispatching "thawed" signal ...')
                         dispatcher.send("thawed", oids=oids)
             elif subject == 'deleted':

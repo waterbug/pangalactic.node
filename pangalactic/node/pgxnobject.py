@@ -1310,7 +1310,7 @@ class PgxnObject(QDialog):
         oids = oids or []
         if self.obj.oid in oids:
             orb.log.debug('  aha, that is my object!')
-            # frozen has been set to True by pangalaxian
+            # obj has been updated by pangalaxian as "frozen"
             txt = 'This object has been frozen in the repository.'
             notice = QMessageBox(QMessageBox.Information, 'Frozen',
                                  txt, QMessageBox.Ok, self)
@@ -1323,7 +1323,7 @@ class PgxnObject(QDialog):
         oids = oids or []
         if self.obj.oid in oids:
             orb.log.debug('  aha, that is my object!')
-            # thawed has been set to True by pangalaxian
+            # obj has been updated by pangalaxian as NOT "frozen"
             txt = 'This object has been thawed in the repository.'
             notice = QMessageBox(QMessageBox.Information, 'Thawed',
                                  txt, QMessageBox.Ok, self)
