@@ -1268,6 +1268,15 @@ class PgxnObject(QDialog):
         be accessible to users who have 'modify' permission on the object.
         """
         orb.log.debug('* freeze called ...')
+        if not isinstance(self.obj, orb.classes['Product']):
+            orb.log.debug('  object is not a Product, cannot be frozen.')
+            return
+        if self.obj.frozen:
+            orb.log.debug('  object is already frozen.')
+            return
+        if not state.get('connected'):
+            orb.log.debug('  not connected -- cannot freeze.')
+            return
         admin_role = orb.get('pgefobjects:Role.Administrator')
         user = orb.get(state.get('local_user_oid'))
         global_admin = is_global_admin(user)
@@ -1278,14 +1287,31 @@ class PgxnObject(QDialog):
                                        assigned_role=admin_role,
                                        assigned_to=user,
                                        role_assignment_context=project)
-        if global_admin or project_admin:
-            # TODO:  if global admin or project admin, ask whether to
-            # recursively freeze all components of this object which are owned
-            # by the current project ...
-            # WORKING HERE ...
-            pass
-        if (isinstance(self.obj, orb.classes['Product'])
-            and not self.obj.frozen):
+        if self.object.components:
+            # white box -- all components must be frozen
+            bom = get_bom(self.obj)
+            if global_admin:
+                # TODO:  if global admin or project admin, check whether all
+                # components of the object are frozen and if not:
+                # [1] if global admin:  offer to recursively freeze all components
+                # of this object which are owned by the current project ...
+                # WORKING HERE ...
+                pass
+            elif project_admin:
+                # [2] if project admin:  check whether all components are either
+                # frozen or owned by the current project -- if so, offer to
+                # recursively freeze all components of this object which are owned
+                # by the current project; if not, notify that object cannot be
+                # frozen.
+                pass
+            else:
+                # TODO:  if NOT a global admin or project admin, check whether all
+                # components of the object have been frozen, and if not, notify
+                # that the object cannot be frozen until all its components (and
+                # their components) are frozen ...
+                pass
+        else:
+            # black box -- only look at this object's permissions
             perms = get_perms(self.obj)
             if 'modify' in perms:
                 orb.log.debug(f'  freezing {self.obj.id}')
@@ -1293,16 +1319,13 @@ class PgxnObject(QDialog):
                 self.frozen_action.setVisible(True)
                 self.obj.frozen = True
                 orb.db.commit()
-                if (state.get('connected') and
-                    is_global_admin(orb.get(state.get('local_user_oid')))):
+                if global_admin:
                     # only a global admin can "thaw"
                     self.thaw_action.setVisible(True)
                 dispatcher.send(signal="freeze", oids=[self.obj.oid])
                 self.build_from_object()
             else:
                 orb.log.debug('  user does not have permission to freeze.')
-        else:
-            orb.log.debug('  object is not a Product, cannot be frozen.')
 
     def on_remote_frozen(self, oids=None):
         orb.log.debug('* pgxnobj received "frozen" signal on:')
