@@ -991,6 +991,134 @@ class CloningDialog(QDialog):
         super().accept()
 
 
+freezing_instructions = """
+<h3>Instructions</h3>
+<p>You have requested to freeze a <b>White Box</b> item, meaning it has a<br>
+known set of components, and some of the components have not been frozen.<br>
+To freeze this item, all of its components must also be frozen.
+</p>
+"""
+
+class FreezingDialog(QDialog):
+    """
+    Dialog for freezing a product that has components which are not yet frozen.
+
+    Args:
+        obj (Product): the item to be frozen
+        not_frozens (list of Product): unfrozen components of the item
+
+    Keyword Args:
+        parent (QWidget): parent of this dialog
+    """
+    def __init__(self, obj, not_frozens, parent=None):
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        orb.log.debug(f'* FreezingDialog({obj.id})')
+        self.setWindowTitle("Freeze")
+        main_layout = QVBoxLayout(self)
+        instructions_label = QLabel(freezing_instructions)
+        instructions_label.setAttribute(Qt.WA_DeleteOnClose)
+        main_layout.addWidget(instructions_label)
+        main_object_title = QLabel('<h3>Item to be frozen:</h3>', self)
+        main_layout.addWidget(main_object_title)
+        obj_name_str = obj.id + ' (' + obj.name + ')'
+        main_object_label = QLabel(obj_name_str, self)
+        main_layout.addWidget(main_object_label)
+        components_title = QLabel('<h3>Components to be frozen:</h3>', self)
+        main_layout.addWidget(components_title)
+        components_layout = QVBoxLayout()
+        name_strs = []
+        for comp in not_frozens:
+            if comp is None:
+                # ignore "None" components
+                continue
+            elif comp.oid == 'pgefobjects:TBD':
+                # ignore "TBD" components
+                continue
+            else:
+                name_str = comp.id + ' (' + comp.name + ')'
+                name_strs.append(name_str)
+        name_strs.sort()
+        for name_str in name_strs:
+            label = QLabel(name_str, self)
+            components_layout.addWidget(label)
+        components_panel = QWidget()
+        components_panel.setLayout(components_layout)
+        components_scroll_area = ScrollArea()
+        components_scroll_area.setWidget(components_panel)
+        main_layout.addWidget(components_scroll_area, 1)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        main_layout.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        self.resize(550, 700)
+        self.updateGeometry()
+
+
+class CannotFreezeDialog(QDialog):
+    """
+    Dialog to inform the user that an item cannot be frozen by them.
+
+    Args:
+        obj (Product): the item to be frozen
+        cannot_freezes (list of Product): components the user cannot freeze
+
+    Keyword Args:
+        parent (QWidget): parent of this dialog
+    """
+    def __init__(self, obj, cannot_freezes, parent=None):
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        orb.log.debug(f'* CannotFreezeDialog({obj.id})')
+        self.setWindowTitle("Cannot Freeze")
+        main_layout = QVBoxLayout(self)
+        instructions_label = QLabel(freezing_instructions)
+        instructions_label.setAttribute(Qt.WA_DeleteOnClose)
+        main_layout.addWidget(instructions_label)
+        main_object_title = QLabel('<h3>Item cannot be frozen:</h3>', self)
+        main_layout.addWidget(main_object_title)
+        obj_name_str = obj.id + ' (' + obj.name + ')'
+        main_object_label = QLabel(obj_name_str, self)
+        main_layout.addWidget(main_object_label)
+        txt = '<h3>Components that cannnot be frozen:</h3>'
+        components_title = QLabel(txt, self)
+        main_layout.addWidget(components_title)
+        components_layout = QVBoxLayout()
+        name_strs = []
+        for comp in cannot_freezes:
+            if comp is None:
+                # ignore "None" components
+                continue
+            elif comp.oid == 'pgefobjects:TBD':
+                # ignore "TBD" components
+                continue
+            else:
+                name_str = comp.id + ' (' + comp.name + ')'
+                name_strs.append(name_str)
+        name_strs.sort()
+        for name_str in name_strs:
+            label = QLabel(name_str, self)
+            components_layout.addWidget(label)
+        components_panel = QWidget()
+        components_panel.setLayout(components_layout)
+        components_scroll_area = ScrollArea()
+        components_scroll_area.setWidget(components_panel)
+        main_layout.addWidget(components_scroll_area, 1)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok,
+            Qt.Horizontal, self)
+        main_layout.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.resize(550, 700)
+        self.updateGeometry()
+
+
 class ConnectionsDialog(QDialog):
     """
     Dialog for selecting, inspecting, and deleting connections (diagram objects

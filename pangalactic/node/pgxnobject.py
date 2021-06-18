@@ -38,9 +38,11 @@ from pangalactic.core.units           import alt_units, in_si, ureg
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.meta      import get_attr_ext_name
 from pangalactic.core.utils.reports   import write_mel_to_tsv
-from pangalactic.core.validation      import validate_all
+from pangalactic.core.validation      import get_bom, validate_all
 from pangalactic.node.buttons         import SizedButton
-from pangalactic.node.dialogs         import (CloningDialog,
+from pangalactic.node.dialogs         import (CannotFreezeDialog,
+                                              CloningDialog,
+                                              FreezingDialog,
                                               MiniMelDialog, 
                                               NotificationDialog,
                                               ObjectSelectionDialog,
@@ -1277,39 +1279,68 @@ class PgxnObject(QDialog):
         if not state.get('connected'):
             orb.log.debug('  not connected -- cannot freeze.')
             return
-        admin_role = orb.get('pgefobjects:Role.Administrator')
         user = orb.get(state.get('local_user_oid'))
         global_admin = is_global_admin(user)
-        project = orb.get(state.get('project'))
-        project_admin = None
-        if project:
-            project_admin = orb.select('RoleAssignment',
-                                       assigned_role=admin_role,
-                                       assigned_to=user,
-                                       role_assignment_context=project)
-        if self.object.components:
+        # check whether object is white box or black box
+        if self.obj.components:
             # white box -- all components must be frozen
             bom = get_bom(self.obj)
-            if global_admin:
-                # TODO:  if global admin or project admin, check whether all
-                # components of the object are frozen and if not:
-                # [1] if global admin:  offer to recursively freeze all components
-                # of this object which are owned by the current project ...
-                # WORKING HERE ...
-                pass
-            elif project_admin:
-                # [2] if project admin:  check whether all components are either
-                # frozen or owned by the current project -- if so, offer to
-                # recursively freeze all components of this object which are owned
-                # by the current project; if not, notify that object cannot be
-                # frozen.
-                pass
-            else:
-                # TODO:  if NOT a global admin or project admin, check whether all
-                # components of the object have been frozen, and if not, notify
-                # that the object cannot be frozen until all its components (and
-                # their components) are frozen ...
-                pass
+            not_frozens = [obj for obj in bom if not obj.frozen]
+            if not_frozens:
+                if global_admin:
+                    # if global admin, offer to recursively freeze all
+                    # non-frozen components of this object ...
+                    dlg = FreezingDialog(self.obj, not_frozens, parent=self)
+                    if dlg.exec_():
+                        orb.log.debug('  - dialog accepted.')
+                        orb.log.debug('    freezing item and components ...')
+                        self.freeze_action.setVisible(False)
+                        self.frozen_action.setVisible(True)
+                        self.obj.frozen = True
+                        for obj in not_frozens:
+                            obj.frozen = True
+                        orb.db.commit()
+                        # only a global admin can "thaw"
+                        self.thaw_action.setVisible(True)
+                        oids = [self.obj.oid] + [o.oid for o in not_frozens]
+                        dispatcher.send(signal="freeze", oids=oids)
+                        self.build_from_object()
+                        return
+                    else:
+                        orb.log.debug('  - dialog cancelled -- no freeze.')
+                else:
+                    # if not global admin, check whether user has edit
+                    # permission for all not_frozens -- if so, offer to
+                    # recursively freeze all non-frozen components; if not,
+                    # notify that object cannot be frozen.
+                    cannot_freezes = [o for o in not_frozens
+                                      if 'modify' not in get_perms(o)]
+                    if cannot_freezes:
+                        dlg = CannotFreezeDialog(self.obj, cannot_freezes,
+                                                 parent=self)
+                        if dlg.exec_():
+                            orb.log.debug('  - cannot freeze, accepted.')
+                    else:
+                        dlg = FreezingDialog(self.obj, not_frozens,
+                                             parent=self)
+                        if dlg.exec_():
+                            orb.log.debug('  - dialog accepted.')
+                            orb.log.debug('    freezing item and components.')
+                            self.freeze_action.setVisible(False)
+                            self.frozen_action.setVisible(True)
+                            self.obj.frozen = True
+                            for obj in not_frozens:
+                                obj.frozen = True
+                            orb.db.commit()
+                            # only a global admin can "thaw"
+                            self.thaw_action.setVisible(False)
+                            oids = [self.obj.oid] + [o.oid
+                                                     for o in not_frozens]
+                            dispatcher.send(signal="freeze", oids=oids)
+                            self.build_from_object()
+                            return
+                        else:
+                            orb.log.debug('  - dialog cancelled -- no freeze.')
         else:
             # black box -- only look at this object's permissions
             perms = get_perms(self.obj)
