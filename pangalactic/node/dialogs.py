@@ -994,8 +994,8 @@ class CloningDialog(QDialog):
 freezing_instructions = """
 <h3>Instructions</h3>
 <p>You have requested to freeze a <b>White Box</b> item, meaning it has a<br>
-known set of components, and some of the components have not been frozen.<br>
-To freeze this item, all of its components must also be frozen.
+known set of components.  The components shown below are not currently<br>
+frozen; freezing this item will freeze ALL of those components.
 </p>
 """
 

@@ -1190,7 +1190,6 @@ class PgxnObject(QDialog):
             else:
                 orb.log.debug('            object is NOT frozen.')
                 self.frozen_action.setVisible(False)
-            # only global admins can 'thaw' an object -- see below
             self.toolbar.addAction(self.thaw_action)
             self.thaw_action.setVisible(False)
             self.toolbar.addAction(self.where_used_action)
@@ -1266,8 +1265,8 @@ class PgxnObject(QDialog):
 
     def freeze(self, remote=False):
         """
-        Freeze an object, making it read-only.  NOTE: this action should only
-        be accessible to users who have 'modify' permission on the object.
+        Freeze a Product, making it read-only.  NOTE: this action should only
+        be accessible to users who have 'modify' permission on the Product.
         """
         orb.log.debug('* freeze called ...')
         if not isinstance(self.obj, orb.classes['Product']):
@@ -1283,10 +1282,12 @@ class PgxnObject(QDialog):
         global_admin = is_global_admin(user)
         # check whether object is white box or black box
         if self.obj.components:
+            orb.log.debug('  white box, checking for non-frozen components ..')
             # white box -- all components must be frozen
             bom = get_bom(self.obj)
             not_frozens = [obj for obj in bom if not obj.frozen]
             if not_frozens:
+                orb.log.debug('  non-frozens found, checking permissions ..')
                 if global_admin:
                     # if global admin, offer to recursively freeze all
                     # non-frozen components of this object ...
@@ -1341,8 +1342,24 @@ class PgxnObject(QDialog):
                             return
                         else:
                             orb.log.debug('  - dialog cancelled -- no freeze.')
+            else:
+                orb.log.debug('  all components are frozen ...')
+                perms = get_perms(self.obj)
+                if 'modify' in perms:
+                    orb.log.debug(f'  freezing {self.obj.id}')
+                    self.freeze_action.setVisible(False)
+                    self.frozen_action.setVisible(True)
+                    self.obj.frozen = True
+                    orb.db.commit()
+                    if global_admin:
+                        # only a global admin can "thaw"
+                        self.thaw_action.setVisible(True)
+                    dispatcher.send(signal="freeze", oids=[self.obj.oid])
+                    self.build_from_object()
+                else:
+                    orb.log.debug('  user does not have permission to freeze.')
         else:
-            # black box -- only look at this object's permissions
+            # black box -- only look at this Product's permissions
             perms = get_perms(self.obj)
             if 'modify' in perms:
                 orb.log.debug(f'  freezing {self.obj.id}')
@@ -1365,9 +1382,10 @@ class PgxnObject(QDialog):
         if self.obj.oid in oids:
             orb.log.debug('  aha, that is my object!')
             # obj has been updated by pangalaxian as "frozen"
-            txt = 'This object has been frozen in the repository.'
+            html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
+            html += 'has been frozen in the repository.'
             notice = QMessageBox(QMessageBox.Information, 'Frozen',
-                                 txt, QMessageBox.Ok, self)
+                                 html, QMessageBox.Ok, self)
             if notice.exec_():
                 self.build_from_object()
 
@@ -1389,38 +1407,39 @@ class PgxnObject(QDialog):
 
     def thaw(self):
         """
-        Thaw a frozen object.  NOTE: this action should only be accessible to
-        global admins.
+        Thaw a frozen Product.  NOTE: this action is only accessible to a
+        Global Administrator.
         """
-        notice = None
+        # TODO:  if the Product is used in any frozen assemblies, require that
+        # the assemblies be thawed first.
+        orb.log.debug('* thaw action called ...')
+        # notice = None
         ok = False
         if (isinstance(self.obj, orb.classes['Product'])
             and self.obj.frozen):
             if getattr(self.obj, 'where_used', None):
-                txt = 'Thawing this Product may violate CM --\n'
-                txt += 'it is a component in the following assemblies:'
-                notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
-                                     QMessageBox.Ok | QMessageBox.Cancel,
-                                     self)
                 assemblies = [acu.assembly for acu in self.obj.where_used]
-                text = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br>({})</li>'.format(
-                           a.name, a.id) for a in assemblies if a]))
-                notice.setInformativeText(text)
-            elif getattr(self.obj, 'projects_using_system', None):
-                txt = 'Thawing this Product may violate CM --\n'
-                txt += 'it is a top-level system in the following project(s):'
-                notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
-                                     QMessageBox.Ok | QMessageBox.Cancel,
-                                     self)
-                p_ids = [psu.project.id
-                         for psu in self.obj.projects_using_system]
-                notice.setInformativeText('<p><ul>{}</ul></p>'.format(
-                         '\n'.join(['<li><b>{}</b></li>'.format(p_id)
-                                    for p_id in p_ids])))
+                frozens = [a for a in assemblies if a.frozen]
+                if frozens:
+                    txt = 'Thawing this Product would violate CM --\n'
+                    txt += 'it is used as a component in the following '
+                    txt += 'frozen assemblies:'
+                    notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
+                                         # QMessageBox.Ok | QMessageBox.Cancel,
+                                         QMessageBox.Ok,
+                                         self)
+                    text = '<p><ul>{}</ul></p>'.format('\n'.join(
+                               ['<li><b>{}</b><br>({})</li>'.format(
+                               a.name, a.id) for a in assemblies if a]))
+                    notice.setInformativeText(text)
+                    notice.show()
+                else:
+                    ok = True
             else:
                 ok = True
-            if ok or notice.exec_() == QMessageBox.Ok:
+            if ok:
+                orb.log.debug('  not used in any frozen assemblies ...')
+                orb.log.debug('  thawing.')
                 self.freeze_action.setVisible(True)
                 self.frozen_action.setVisible(False)
                 self.thaw_action.setVisible(False)
@@ -1428,8 +1447,8 @@ class PgxnObject(QDialog):
                 orb.db.commit()
                 dispatcher.send(signal="thaw", oids=[self.obj.oid])
                 self.build_from_object()
-            else:
-                orb.log.debug('* thaw cancelled.')
+        else:
+            orb.log.debug('  not a Product or not frozen; cannot thaw.')
 
     def show_where_used(self):
         info = ''
