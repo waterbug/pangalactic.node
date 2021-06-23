@@ -1380,29 +1380,29 @@ class PgxnObject(QDialog):
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object!')
+            orb.log.debug('  aha, that is my object -- rebuilding ...')
             # obj has been updated by pangalaxian as "frozen"
-            html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
-            html += 'has been <b>frozen</b> in the repository.'
-            notice = QMessageBox(QMessageBox.Information, 'Frozen',
-                                 html, QMessageBox.Ok, self)
-            if notice.exec_():
-                self.build_from_object()
+            # html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
+            # html += 'has been <b>frozen</b> in the repository.'
+            # notice = QMessageBox(QMessageBox.Information, 'Frozen',
+                                 # html, QMessageBox.Ok, self)
+            # if notice.exec_():
+            self.build_from_object()
 
     def on_remote_thawed(self, oids=None):
         orb.log.debug('* pgxnobj received "thawed" signal on:')
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object!')
+            orb.log.debug('  aha, that is my object -- rebuilding ...')
             # obj has been updated by pangalaxian as NOT "frozen"
-            txt = 'This object has been thawed in the repository.'
-            html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
-            html += 'has been <b>thawed</b> in the repository.'
-            notice = QMessageBox(QMessageBox.Information, 'Thawed',
-                                 html, QMessageBox.Ok, self)
-            if notice.exec_():
-                self.build_from_object()
+            # txt = 'This object has been thawed in the repository.'
+            # html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
+            # html += 'has been <b>thawed</b> in the repository.'
+            # notice = QMessageBox(QMessageBox.Information, 'Thawed',
+                                 # html, QMessageBox.Ok, self)
+            # if notice.exec_():
+            self.build_from_object()
 
     def frozen(self):
         pass

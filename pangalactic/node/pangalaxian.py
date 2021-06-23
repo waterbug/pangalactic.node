@@ -34,7 +34,12 @@ from OpenSSL import crypto
 from pangalactic.node import fix_qt_import_error
 
 # pyqt
-from PyQt5 import QtGui, QtWidgets
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QComboBox,
+                             QDockWidget, QFileDialog, QFrame, QHBoxLayout,
+                             QLabel, QMainWindow, QMessageBox, QDialog,
+                             QProgressBar, QSizePolicy, QStyleFactory,
+                             QVBoxLayout, QWidget)
 from PyQt5.QtCore import Qt, QModelIndex, QPoint, QVariant
 
 # pangalactic
@@ -95,7 +100,7 @@ from pangalactic.node.reqwizards       import ReqWizard, req_wizard_state
 from pangalactic.node.splash           import SplashScreen
 
 
-class Main(QtWidgets.QMainWindow):
+class Main(QMainWindow):
     """
     Main window of the 'pangalaxian' client gui.
 
@@ -210,7 +215,7 @@ class Main(QtWidgets.QMainWindow):
         self._create_actions()
         orb.log.debug('*** projects:  %s' % str([p.id for p in self.projects]))
         self.add_splash_msg('... projects identified ...')
-        screen_resolution = QtWidgets.QApplication.desktop().screenGeometry()
+        screen_resolution = QApplication.desktop().screenGeometry()
         default_width = min(screen_resolution.width() - 300, 900)
         default_height = min(screen_resolution.height() - 200, 400)
         width = state.get('width') or default_width
@@ -381,10 +386,9 @@ class Main(QtWidgets.QMainWindow):
                 if not os.path.exists(self.key_path):
                     message = f'Key file <{self.key_path}> not found ... '
                     message += 'operating in local-only mode.'
-                    popup = QtWidgets.QMessageBox(
-                                        QtWidgets.QMessageBox.Warning,
+                    popup = QMessageBox(QMessageBox.Warning,
                                         "No certificate", message,
-                                        QtWidgets.QMessageBox.Ok, self)
+                                        QMessageBox.Ok, self)
                     popup.show()
                     self.connect_to_bus_action.setChecked(False)
                 else:
@@ -419,7 +423,7 @@ class Main(QtWidgets.QMainWindow):
                 orb.log.info('* using "ticket" (userid/password) auth ...')
                 login_dlg = LoginDialog(userid=state.get('userid', ''),
                                         parent=self)
-                if login_dlg.exec_() == QtWidgets.QDialog.Accepted:
+                if login_dlg.exec_() == QDialog.Accepted:
                     state['userid'] = asciify(login_dlg.userid)
                     self.mbus.set_authid(login_dlg.userid)
                     self.mbus.set_passwd(login_dlg.passwd)
@@ -487,7 +491,7 @@ class Main(QtWidgets.QMainWindow):
                     return
                 elif n < 300000:
                     n += 1
-                    QtWidgets.QApplication.processEvents()
+                    QApplication.processEvents()
                     continue
                 else:
                     orb.log.info('  connection failed.')
@@ -542,7 +546,7 @@ class Main(QtWidgets.QMainWindow):
         orb.log.debug('* calling rpc "vger.get_user_roles"')
         userid = state.get('userid', '')
         orb.log.debug('  with userid: "{}"'.format(userid))
-        QtWidgets.QApplication.processEvents()
+        QApplication.processEvents()
         data = orb.get_mod_dts(cnames=['Person', 'Organization', 'Project',
                                        'RoleAssignment'])
         try:
@@ -558,10 +562,9 @@ class Main(QtWidgets.QMainWindow):
             except:
                 orb.log.debug('  rpc "vger.get_user_roles" failed again ...')
                 message = "Could not reconnect -- log out and log in again."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
-                            "Connection Lost", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "Connection Lost", message,
+                                    QMessageBox.Ok, self)
                 popup.show()
         rpc.addTimeout(3, self.reactor, onTimeoutCancel=self.on_rpc_timeout)
         rpc.addCallback(self.on_rpc_get_user_roles_result)
@@ -617,7 +620,7 @@ class Main(QtWidgets.QMainWindow):
             uid = '{} [{}]'.format(self.local_user.name,
                                    self.local_user.id)
             self.user_label.setText(uid)
-            # QtWidgets.QApplication.processEvents()
+            # QApplication.processEvents()
         else:
             orb.log.debug('    + user object for local user not returned!')
         orb.log.debug('  - inspecting projects and orgs ...')
@@ -896,7 +899,7 @@ class Main(QtWidgets.QMainWindow):
         # try:
             # if (state.get('done_with_progress') and
                 # getattr(self, 'progress_dialog', None)):
-                # QtWidgets.QApplication.processEvents()
+                # QApplication.processEvents()
                 # self.progress_dialog.setValue(self.progress_dialog.maximum())
                 # self.progress_dialog.done(0)
                 # self.progress_dialog.close()
@@ -905,7 +908,7 @@ class Main(QtWidgets.QMainWindow):
                 # self.progress_value += 1
                 # self.progress_dialog.setValue(self.progress_value)
                 # self.progress_dialog.setLabelText(txt)
-                # QtWidgets.QApplication.processEvents()
+                # QApplication.processEvents()
         # except:
             # # oops -- my C++ object probably got deleted
             # pass
@@ -1057,7 +1060,7 @@ class Main(QtWidgets.QMainWindow):
             else:
                 self.statusbar.showMessage('project synced.')
             # if project_sync:
-                # QtWidgets.QApplication.processEvents()
+                # QApplication.processEvents()
                 # self.progress_dialog.setValue(self.progress_dialog.maximum())
                 # self.progress_dialog.done(0)
                 # self.progress_dialog.close()
@@ -1352,11 +1355,13 @@ class Main(QtWidgets.QMainWindow):
                     orb.log.info('* msg received on public channel:')
                     orb.log.info(f'  vger: {len(freezes)} object(s) frozen.')
                     oids = []
+                    items = []
                     for freeze in freezes:
                         oid, dt_str, user_oid = freeze
                         obj = orb.get(oid)
                         if obj:
                             oids.append(oid)
+                            items.append(f'<b>{obj.id}</b> ({obj.name})')
                             obj.frozen = True
                             dts = uncook_datetime(dt_str)
                             obj.mod_datetime = dts
@@ -1364,8 +1369,20 @@ class Main(QtWidgets.QMainWindow):
                             if user:
                                 obj.modifier = user
                     orb.db.commit()
-                    # "frozen" signal is monitored by PgxnObject ...
+                    # "frozen" signal is also monitored by PgxnObject ...
                     if oids:
+                        phrase = "products have been"
+                        if len(items) == 1:
+                            phrase = "product has been"
+                        html = f'<p>The following {phrase} <b>frozen</b><br>'
+                        html += 'in the repository:</p><ul>'
+                        items.sort()
+                        for item in items:
+                            html += f'<li>{item}</li>'
+                        html += '</ul></p>'
+                        notice = QMessageBox(QMessageBox.Information, 'Frozen',
+                                     html, QMessageBox.Ok, self)
+                        notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
                         orb.log.debug('  dispatching "frozen" signal ...')
                         dispatcher.send("frozen", oids=oids)
@@ -1374,6 +1391,7 @@ class Main(QtWidgets.QMainWindow):
                 thaws = content
                 if thaws:
                     oids = []
+                    items = []
                     orb.log.info('* msg received on public channel:')
                     orb.log.info(f'  vger: {len(thaws)} object(s) thawed.')
                     for thaw in thaws:
@@ -1381,6 +1399,7 @@ class Main(QtWidgets.QMainWindow):
                         obj = orb.get(oid)
                         if obj:
                             oids.append(oid)
+                            items.append(f'<b>{obj.id}</b> ({obj.name})')
                             obj.frozen = False
                             dts = uncook_datetime(dt_str)
                             obj.mod_datetime = dts
@@ -1388,8 +1407,20 @@ class Main(QtWidgets.QMainWindow):
                             if user:
                                 obj.modifier = user
                     orb.db.commit()
-                    # "thawed" signal is monitored by PgxnObject ...
+                    # "thawed" signal is also monitored by PgxnObject ...
                     if oids:
+                        phrase = "products have been"
+                        if len(items) == 1:
+                            phrase = "product has been"
+                        html = f'<p>The following {phrase} <b>thawed</b><br>'
+                        html += 'in the repository:</p><ul>'
+                        items.sort()
+                        for item in items:
+                            html += f'<li>{item}</li>'
+                        html += '</ul></p>'
+                        notice = QMessageBox(QMessageBox.Information, 'Thawed',
+                                     html, QMessageBox.Ok, self)
+                        notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
                         orb.log.debug('  dispatching "thawed" signal ...')
                         dispatcher.send("thawed", oids=oids)
@@ -2027,7 +2058,7 @@ class Main(QtWidgets.QMainWindow):
                                     # "Exit",
                                     # slot=self.close)
         # set up a group for mode actions
-        mode_action_group = QtWidgets.QActionGroup(self)
+        mode_action_group = QActionGroup(self)
         self.component_mode_action.setActionGroup(mode_action_group)
         self.system_mode_action.setActionGroup(mode_action_group)
         self.db_mode_action.setActionGroup(mode_action_group)
@@ -2036,12 +2067,12 @@ class Main(QtWidgets.QMainWindow):
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False, modes=None):
-        action = QtWidgets.QAction(text, self)
+        action = QAction(text, self)
         if icon is not None:
             icon_file = icon + state.get('icon_type', '.png')
             icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             icon_path = os.path.join(icon_dir, icon_file)
-            action.setIcon(QtGui.QIcon(icon_path))
+            action.setIcon(QIcon(icon_path))
         if tip is not None:
             action.setToolTip(tip)
             action.setStatusTip(tip)
@@ -2376,7 +2407,7 @@ class Main(QtWidgets.QMainWindow):
         # Import Excel deactivated until mapping is implemented, and/or support
         # for "data sets" is revised (hdf5 was breaking) ...
         # self.import_excel_data_action.setEnabled(True)
-        import_button = MenuButton(QtGui.QIcon(import_icon_path),
+        import_button = MenuButton(QIcon(import_icon_path),
                                    text='Input',
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)
@@ -2388,7 +2419,7 @@ class Main(QtWidgets.QMainWindow):
                           self.output_mel_action,
                           self.dump_db_action,
                           self.gen_keys_action] 
-        export_button = MenuButton(QtGui.QIcon(export_icon_path),
+        export_button = MenuButton(QIcon(export_icon_path),
                                    text='Output',
                                    tooltip='Export Data or Objects',
                                    actions=export_actions, parent=self)
@@ -2403,7 +2434,7 @@ class Main(QtWidgets.QMainWindow):
                               self.new_performance_requirement_action,
                               # self.data_element_action,
                               self.new_test_action]
-        new_object_button = MenuButton(QtGui.QIcon(new_object_icon_path),
+        new_object_button = MenuButton(QIcon(new_object_icon_path),
                                    text='Create',
                                    tooltip='Create New Objects',
                                    actions=new_object_actions, parent=self)
@@ -2433,7 +2464,7 @@ class Main(QtWidgets.QMainWindow):
         # disable sync project action until we are online
         self.sync_project_action.setEnabled(False)
         self.full_resync_action.setEnabled(False)
-        system_tools_button = MenuButton(QtGui.QIcon(system_tools_icon_path),
+        system_tools_button = MenuButton(QIcon(system_tools_icon_path),
                                    text='Tools',
                                    tooltip='Tools',
                                    actions=system_tools_actions, parent=self)
@@ -2443,13 +2474,13 @@ class Main(QtWidgets.QMainWindow):
         help_actions = [self.user_guide_action,
                         self.reference_action,
                         self.about_action]
-        help_button = MenuButton(QtGui.QIcon(help_icon_path),
+        help_button = MenuButton(QIcon(help_icon_path),
                                  text='Help',
                                  tooltip='Help',
                                  actions=help_actions, parent=self)
         self.toolbar.addWidget(help_button)
         self.toolbar.addSeparator()
-        project_label = QtWidgets.QLabel('Select Project:  ')
+        project_label = QLabel('Select Project:  ')
         project_label.setStyleSheet('font-weight: bold')
         self.project_label_action = self.toolbar.addWidget(project_label)
         self.project_selection = ButtonLabel(
@@ -2467,13 +2498,13 @@ class Main(QtWidgets.QMainWindow):
         # project_selection and its label will only be visible in 'data',
         # 'system', and 'component' modes
         self.toolbar.addSeparator()
-        self.login_label = QtWidgets.QLabel('Login: ')
+        self.login_label = QLabel('Login: ')
         self.login_label.setStyleSheet('font-weight: bold')
         self.toolbar.addWidget(self.login_label)
         self.toolbar.addAction(self.connect_to_bus_action)
-        spacer = QtWidgets.QWidget(parent=self)
-        spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
-                             QtWidgets.QSizePolicy.Expanding)
+        spacer = QWidget(parent=self)
+        spacer.setSizePolicy(QSizePolicy.Expanding,
+                             QSizePolicy.Expanding)
         self.toolbar.addWidget(spacer)
         # self.circle_widget = CircleWidget()
         # self.toolbar.addWidget(self.circle_widget)
@@ -2515,14 +2546,14 @@ class Main(QtWidgets.QMainWindow):
         self._setup_right_dock()
         self._setup_top_dock_widgets()
         # Initialize a statusbar for the window
-        self.net_status = QtWidgets.QLabel()
+        self.net_status = QLabel()
         offline_icon_file = 'offline' + state['icon_type']
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         offline_icon_path = os.path.join(icon_dir, offline_icon_file)
-        self.offline_icon = QtGui.QPixmap(offline_icon_path)
+        self.offline_icon = QPixmap(offline_icon_path)
         online_icon_file = 'online' + state['icon_type']
         online_icon_path = os.path.join(icon_dir, online_icon_file)
-        self.online_icon = QtGui.QPixmap(online_icon_path)
+        self.online_icon = QPixmap(online_icon_path)
         self.net_status.setPixmap(self.offline_icon)
         self.net_status.setToolTip('offline')
         uid = '{} [{}]'.format(self.local_user.name, self.local_user.id)
@@ -2530,7 +2561,7 @@ class Main(QtWidgets.QMainWindow):
         self.role_label = ModeLabel('offline', w=300)
         self.statusbar = self.statusBar()
         self.statusbar.setStyleSheet('color: purple; font-weight: bold;')
-        self.pb = QtWidgets.QProgressBar(self.statusbar)
+        self.pb = QProgressBar(self.statusbar)
         style = "QProgressBar::chunk {background: QLinearGradient( x1: 0,"
         style += "y1: 0, x2: 1, y2: 0,stop: 0 #A020F0,stop: 0.4999"
         style += " #A020F0,stop: 0.5 #A020F0,stop: 1 #551A8B );"
@@ -3396,12 +3427,11 @@ class Main(QtWidgets.QMainWindow):
 
     def _setup_top_dock_widgets(self):
         # orb.log.debug('  - no top dock widget -- building one now...')
-        self.top_dock_widget = QtWidgets.QDockWidget()
+        self.top_dock_widget = QDockWidget()
         self.top_dock_widget.setObjectName('TopDock')
         self.top_dock_widget.setAllowedAreas(Qt.TopDockWidgetArea)
         # NOTE:  might not need to be floatable (now spans the whole window)
-        self.top_dock_widget.setFeatures(
-                                QtWidgets.QDockWidget.DockWidgetFloatable)
+        self.top_dock_widget.setFeatures(QDockWidget.DockWidgetFloatable)
         # create widget for top dock:
         if self.mode == 'system':
             # ********************************************************
@@ -3428,9 +3458,9 @@ class Main(QtWidgets.QMainWindow):
         """
         # orb.log.debug('  - no left dock widget -- adding one now...')
         # if we don't have a left dock widget yet, create ALL the stuff
-        self.left_dock = QtWidgets.QDockWidget()
+        self.left_dock = QDockWidget()
         self.left_dock.setObjectName('LeftDock')
-        self.left_dock.setFeatures(QtWidgets.QDockWidget.DockWidgetFloatable)
+        self.left_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
 
@@ -3439,9 +3469,9 @@ class Main(QtWidgets.QMainWindow):
         # multiple instances of LibraryListView
         # orb.log.debug('  - no right dock widget -- building one now...')
         # if we don't have a right dock widget yet, create ALL the stuff
-        self.right_dock = QtWidgets.QDockWidget()
+        self.right_dock = QDockWidget()
         self.right_dock.setObjectName('RightDock')
-        self.right_dock.setFeatures(QtWidgets.QDockWidget.DockWidgetFloatable)
+        self.right_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
         self.right_dock.setFixedWidth(600)
         self.library_widget = self.create_lib_list_widget()
@@ -3483,10 +3513,10 @@ class Main(QtWidgets.QMainWindow):
                 pass
         if create_new:
             # create a new panel
-            self.pgxn_obj_panel = QtWidgets.QWidget()
-            self.pgxn_obj_panel.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
-                                              QtWidgets.QSizePolicy.Expanding)
-            pgxn_panel_layout = QtWidgets.QVBoxLayout()
+            self.pgxn_obj_panel = QWidget()
+            self.pgxn_obj_panel.setSizePolicy(QSizePolicy.Fixed,
+                                              QSizePolicy.Expanding)
+            pgxn_panel_layout = QVBoxLayout()
             self.pgxn_obj_panel.setLayout(pgxn_panel_layout)
             pgxn_panel_layout.setAlignment(self.pgxn_obj_panel,
                                          Qt.AlignLeft|Qt.AlignTop)
@@ -3589,8 +3619,8 @@ class Main(QtWidgets.QMainWindow):
         # orb.log.debug('  + new self.sys_tree created ...')
         # model = self.sys_tree.source_model
         # orb.log.debug('    with source model: {}'.format(str(model)))
-        self.sys_tree.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
-                                    QtWidgets.QSizePolicy.Expanding)
+        self.sys_tree.setSizePolicy(QSizePolicy.Minimum,
+                                    QSizePolicy.Expanding)
         self.sys_tree_rebuilt = True
         # node_count() uses componentz cache to get # of nodes in sys tree for
         # later use in setting max for progress bar
@@ -3611,14 +3641,14 @@ class Main(QtWidgets.QMainWindow):
             self.sys_tree.expandToDepth(1)
 
         # NOTE: new sys tree panel (with expansion selector) code begins here
-        sys_tree_panel = QtWidgets.QWidget(self)
+        sys_tree_panel = QWidget(self)
         # set panel size policy to match the sys_tree's
-        sys_tree_panel.setSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                     QtWidgets.QSizePolicy.MinimumExpanding)
+        sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
+                                     QSizePolicy.MinimumExpanding)
         # set panel max width to match the max width set for sys_tree
         sys_tree_panel.setMaximumWidth(450)
-        sys_tree_layout = QtWidgets.QVBoxLayout(sys_tree_panel)
-        expansion_select = QtWidgets.QComboBox()
+        sys_tree_layout = QVBoxLayout(sys_tree_panel)
+        expansion_select = QComboBox()
         expansion_select.setStyleSheet('font-weight: bold; font-size: 14px')
         expansion_select.activated.connect(self.set_systree_expansion)
         expansion_select.addItem('2 levels', QVariant())
@@ -3649,7 +3679,7 @@ class Main(QtWidgets.QMainWindow):
             self.dash_select.close()
             self.dash_select = None
             orb.log.debug('  - creating new dash selector ...')
-            new_dash_select = QtWidgets.QComboBox()
+            new_dash_select = QComboBox()
             new_dash_select.setStyleSheet(
                                 'font-weight: bold; font-size: 14px')
             for dash_name in prefs['dashboard_names']:
@@ -3690,14 +3720,14 @@ class Main(QtWidgets.QMainWindow):
         # else:
             # orb.log.debug('         + no dashboard_panel exists ...')
         # orb.log.debug('           creating new dashboard panel ...')
-        self.dashboard_panel = QtWidgets.QWidget(self)
+        self.dashboard_panel = QWidget(self)
         self.dashboard_panel.setMinimumSize(500, 200)
-        dashboard_layout = QtWidgets.QVBoxLayout()
-        self.dashboard_title_layout = QtWidgets.QHBoxLayout()
-        self.dash_title = QtWidgets.QLabel()
+        dashboard_layout = QVBoxLayout()
+        self.dashboard_title_layout = QHBoxLayout()
+        self.dash_title = QLabel()
         # orb.log.debug('           adding title ...')
         self.dashboard_title_layout.addWidget(self.dash_title)
-        self.dash_select = QtWidgets.QComboBox()
+        self.dash_select = QComboBox()
         self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
         for dash_name in prefs['dashboard_names']:
             self.dash_select.addItem(dash_name, QVariant)
@@ -3719,10 +3749,10 @@ class Main(QtWidgets.QMainWindow):
         else:
             orb.log.debug('         + no sys_tree; using placeholder '
                           'for dashboard...')
-            self.dashboard = QtWidgets.QLabel('No Project Selected')
+            self.dashboard = QLabel('No Project Selected')
             self.dashboard.setStyleSheet('font-weight: bold; font-size: 16px')
-        self.dashboard.setFrameStyle(QtWidgets.QFrame.Panel |
-                                     QtWidgets.QFrame.Raised)
+        self.dashboard.setFrameStyle(QFrame.Panel |
+                                     QFrame.Raised)
         dashboard_layout.addWidget(self.dashboard)
         title = 'Systems Dashboard: <font color="purple">{}</font>'.format(
                                                                self.project.id)
@@ -3832,8 +3862,7 @@ class Main(QtWidgets.QMainWindow):
         # update the model window
         self.set_system_model_window(system=self.product)
         self.top_dock_widget.setFloating(False)
-        self.top_dock_widget.setFeatures(
-                                QtWidgets.QDockWidget.NoDockWidgetFeatures)
+        self.top_dock_widget.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.top_dock_widget.setVisible(True)
         if hasattr(self, 'dashboard_panel'):
             self.dashboard_panel.setVisible(False)
@@ -3866,8 +3895,7 @@ class Main(QtWidgets.QMainWindow):
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.refresh_tree_views(rebuilding=True)
-        self.top_dock_widget.setFeatures(
-                                QtWidgets.QDockWidget.DockWidgetFloatable)
+        self.top_dock_widget.setFeatures(QDockWidget.DockWidgetFloatable)
         self.top_dock_widget.setVisible(True)
         self.top_dock_widget.setWidget(self.dashboard_panel)
         # TODO:  right dock contains libraries
@@ -3946,8 +3974,8 @@ class Main(QtWidgets.QMainWindow):
         # cname_list (for selecting class names -> db tables)
         if not getattr(self, 'cname_list', None):
             self.cname_list = AutosizingListWidget(parent=self)
-            self.cname_list.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
-                                          QtWidgets.QSizePolicy.Expanding)
+            self.cname_list.setSizePolicy(QSizePolicy.Fixed,
+                                          QSizePolicy.Expanding)
             self.cname_list.currentRowChanged.connect(self.on_cname_selected)
         self.refresh_cname_list()
         self.left_dock.setWidget(self.cname_list)
@@ -4014,7 +4042,7 @@ class Main(QtWidgets.QMainWindow):
         # if app version is provided, use it; otherwise use ours
         version = self.app_version or __version__
         app_name = config.get('app_name', 'Pangalaxian')
-        QtWidgets.QMessageBox.about(self, "Some call me...",
+        QMessageBox.about(self, "Some call me...",
             '<html><p><b>{} {}</b></p></html>'.format(app_name, version))
 
     def show_user_guide(self):
@@ -4165,7 +4193,7 @@ class Main(QtWidgets.QMainWindow):
         """
         orb.log.debug('* new_product_wizard()')
         wizard = NewProductWizard(parent=self)
-        if wizard.exec_() == QtWidgets.QDialog.Accepted:
+        if wizard.exec_() == QDialog.Accepted:
             orb.log.debug('  New Product Wizard completed successfully.')
             product = orb.get(wizard_state.get('product_oid'))
             if product:
@@ -4190,7 +4218,7 @@ class Main(QtWidgets.QMainWindow):
 
     def new_functional_requirement(self):
         wizard = ReqWizard(parent=self, performance=False)
-        if wizard.exec_() == QtWidgets.QDialog.Accepted:
+        if wizard.exec_() == QDialog.Accepted:
             orb.log.debug('* reqt wizard completed.')
             req_oid = req_wizard_state.get('req_oid')
             req = orb.get(req_oid)
@@ -4209,7 +4237,7 @@ class Main(QtWidgets.QMainWindow):
 
     def new_perform_requirement(self):
         wizard = ReqWizard(parent=self, performance=True)
-        if wizard.exec_() == QtWidgets.QDialog.Accepted:
+        if wizard.exec_() == QDialog.Accepted:
             orb.log.debug('* reqt wizard completed.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
@@ -4337,7 +4365,7 @@ class Main(QtWidgets.QMainWindow):
         # # TODO:  create a "wizard" dialog with some convenient defaults ...
         # # only open a file dialog if there is no filename yet
         # if not self.filename:
-            # self.filename, filters = QtWidgets.QFileDialog.getSaveFileName(
+            # self.filename, filters = QFileDialog.getSaveFileName(
                                                         # self, 'Export to File')
         # # append extension if not there yet
         # # TODO:  use extension based on export format option
@@ -4357,7 +4385,7 @@ class Main(QtWidgets.QMainWindow):
             state['last_path'] = self.user_home
         file_path = os.path.join(state['last_path'],
                                  self.project.id + '-' + dtstr + '.yaml')
-        fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
+        fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Export Project to File',
                                     file_path)
         if fpath:
@@ -4387,7 +4415,7 @@ class Main(QtWidgets.QMainWindow):
         suggested_path = os.path.join(
                           state['last_path'],
                           self.project.id + '-requirements-'+ dtstr + '.yaml')
-        fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
+        fpath, filters = QFileDialog.getSaveFileName(
                                 self, 'Export Project Requirements to File',
                                 suggested_path)
         if fpath:
@@ -4423,7 +4451,7 @@ class Main(QtWidgets.QMainWindow):
         if not state.get('last_path'):
             state['last_path'] = self.user_home
         # NOTE: can add filter if needed, e.g.: filter="(*.yaml)"
-        dialog = QtWidgets.QFileDialog(self, 'Open File',
+        dialog = QFileDialog(self, 'Open File',
                                        state['last_path'],
                                        "(*.yaml)")
         fpath = ''
@@ -4436,10 +4464,9 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  file path: {}'.format(fpath))
             if is_binary(fpath):
                 message = "File '%s' is not importable." % fpath
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
-                            "Wrong file type", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "Wrong file type", message,
+                                    QMessageBox.Ok, self)
                 popup.show()
                 return
             try:
@@ -4449,10 +4476,9 @@ class Main(QtWidgets.QMainWindow):
                 self.project_file_path = ''
             except:
                 message = "File '%s' could not be opened." % fpath
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "Error in file path", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
                 return
         else:
@@ -4505,10 +4531,9 @@ class Main(QtWidgets.QMainWindow):
                 self.pb.hide()
                 if not message:
                     message = "Your data has been imported."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Information,
+                popup = QMessageBox(QMessageBox.Information,
                             "Project Data Import", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
                 if hasattr(self, 'library_widget'):
                     self.library_widget.refresh()
@@ -4517,10 +4542,9 @@ class Main(QtWidgets.QMainWindow):
                 return
             except:
                 message = "An error was encountered."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "Error in Data Import", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
                 return
 
@@ -4536,7 +4560,7 @@ class Main(QtWidgets.QMainWindow):
         if not state.get('last_path'):
             state['last_path'] = self.user_home
         # NOTE: can add filter if needed, e.g.: filter="(*.yaml)"
-        dialog = QtWidgets.QFileDialog(self, 'Open File',
+        dialog = QFileDialog(self, 'Open File',
                                        state['last_path'],
                                        "(*.yaml)")
         fpath = ''
@@ -4549,10 +4573,9 @@ class Main(QtWidgets.QMainWindow):
             orb.log.debug('  file path: {}'.format(fpath))
             if is_binary(fpath):
                 message = "File '%s' is not importable." % fpath
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "Wrong file type", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
                 return
             try:
@@ -4562,10 +4585,9 @@ class Main(QtWidgets.QMainWindow):
                 self.project_file_path = ''
             except:
                 message = "File '%s' could not be opened." % fpath
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "Error in file path", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
                 return
         else:
@@ -4576,10 +4598,9 @@ class Main(QtWidgets.QMainWindow):
                 sobjs = yaml.safe_load(data)
             except:
                 message = "An error was encountered."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "Error in Data Import", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
                 return
             self.load_serialized_objects(sobjs)
@@ -4675,19 +4696,17 @@ class Main(QtWidgets.QMainWindow):
                     # have changed ...
                     self.refresh_dashboard()
             if importing:
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Information,
+                popup = QMessageBox(QMessageBox.Information,
                             "Project Data Import", msg,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
             return objs
         else:
             if importing:
                 msg = "no data found."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "no data found.", msg,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
             return []
 
@@ -4794,19 +4813,17 @@ class Main(QtWidgets.QMainWindow):
                     # have changed ...
                     self.refresh_dashboard()
             if importing:
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Information,
+                popup = QMessageBox(QMessageBox.Information,
                             "Project Data Import", msg,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
             return objs
         else:
             if importing:
                 msg = "no data found."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "no data found.", msg,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
             return []
 
@@ -4839,25 +4856,23 @@ class Main(QtWidgets.QMainWindow):
                 suggest_fname = os.path.join(
                                   state['last_path'],
                                   self.project.id + '-MEL-' + dtstr + '.xlsx')
-                fpath, _ = QtWidgets.QFileDialog.getSaveFileName(
+                fpath, _ = QFileDialog.getSaveFileName(
                                 self, 'Open File', suggest_fname,
                                 "Excel Files (*.xlsx)")
                 if fpath:
                     write_mel_xlsx_from_model(self.project, file_path=fpath)
             else:
                 message = "This project has no systems defined."
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "No systems", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
                 return
         else:
             message = "You must select a project."
-            popup = QtWidgets.QMessageBox(
-                        QtWidgets.QMessageBox.Warning,
+            popup = QMessageBox(QMessageBox.Warning,
                         "No project selected", message,
-                        QtWidgets.QMessageBox.Ok, self)
+                        QMessageBox.Ok, self)
             popup.show()
             return
 
@@ -4871,7 +4886,7 @@ class Main(QtWidgets.QMainWindow):
         #    tableview.resizeColumnToContents(cols.index('Category'))
         if not state.get('last_path'):
             state['last_path'] = self.user_home
-        fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
+        fpath, filters = QFileDialog.getOpenFileName(
                                     self, 'Open File',
                                     state['last_path'],
                                     "Excel Files (*.xlsx | *.xls)")
@@ -4882,10 +4897,9 @@ class Main(QtWidgets.QMainWindow):
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
             if not (fpath.endswith('.xls') or fpath.endswith('.xlsx')):
                 message = "File '%s' is not an Excel file." % fpath
-                popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Warning,
+                popup = QMessageBox(QMessageBox.Warning,
                             "Wrong file type", message,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
                 popup.show()
                 return
             state['last_path'] = os.path.dirname(fpath)
@@ -4900,10 +4914,10 @@ class Main(QtWidgets.QMainWindow):
             # self.data_mode_action.trigger()
             # except:
                 # message = f"Data in '{fpath}' could not be imported."
-                # popup = QtWidgets.QMessageBox(
-                            # QtWidgets.QMessageBox.Warning,
+                # popup = QMessageBox(
+                            # QMessageBox.Warning,
                             # "An error occurred.", message,
-                            # QtWidgets.QMessageBox.Ok, self)
+                            # QMessageBox.Ok, self)
                 # popup.show()
                 # return
         else:
@@ -4914,7 +4928,7 @@ class Main(QtWidgets.QMainWindow):
         # NOTE: for demo purposes ... actual function TBD
         if not state.get('last_model_path'):
             state['last_model_path'] = orb.test_data_dir
-        fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
+        fpath, filters = QFileDialog.getOpenFileName(
                                     self, 'Open STEP or STL File',
                                     state['last_model_path'],
                                     'Model Files (*.stp *.step *.p21 *.stl)')
@@ -4976,7 +4990,7 @@ class Main(QtWidgets.QMainWindow):
             state['last_path'] = self.user_home
         suggested_path = os.path.join(state['last_path'], 
                                     'DB-' + dtstr + '.yaml')
-        fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
+        fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Export DB to File',
                                     suggested_path)
         if fpath:
@@ -5010,12 +5024,11 @@ class Main(QtWidgets.QMainWindow):
             message += ' <font color="green"><b>public.key</b></font> file'
             message += ' to an administrator and request that it be used to'
             message += ' replace your current public key.'
-            conf_dlg = QtWidgets.QMessageBox(
-                         QtWidgets.QMessageBox.Warning,
+            conf_dlg = QMessageBox(QMessageBox.Warning,
                          "Private Key Exists ...", message,
-                         QtWidgets.QMessageBox.Ok)
+                         QMessageBox.Ok)
             response = conf_dlg.exec_()
-            if response == QtWidgets.QMessageBox.Ok:
+            if response == QMessageBox.Ok:
                 conf_dlg.close()
                 return
         f = open(self.key_path, 'wb')
@@ -5031,10 +5044,9 @@ class Main(QtWidgets.QMainWindow):
         msg = '<html>The <font color="green"><b>public key</b></font> file'
         msg += f' is here: <br><b>{public_key_path}</b><br>'
         msg += '-- send it to the administrator with your request for access.'
-        popup = QtWidgets.QMessageBox(
-                            QtWidgets.QMessageBox.Information,
+        popup = QMessageBox(QMessageBox.Information,
                             "Public key generated.", msg,
-                            QtWidgets.QMessageBox.Ok, self)
+                            QMessageBox.Ok, self)
         popup.show()
         self.statusbar.showMessage(
             f'public key file is here: {public_key_path}.')
@@ -5094,14 +5106,14 @@ def cleanup_and_save():
 
 def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
         console=True, debug=False, app_version=None, pool=None):
-    app = QtWidgets.QApplication(sys.argv)
+    app = QApplication(sys.argv)
     # app.setStyleSheet('QToolTip { border: 2px solid;}')
     app.setStyleSheet("QToolTip { color: #ffffff; "
                       "background-color: #2a82da; "
                       "border: 1px solid white; }")
-    styles = QtWidgets.QStyleFactory.keys()
+    styles = QStyleFactory.keys()
     if 'Fusion' in styles:
-        app.setStyle(QtWidgets.QStyleFactory.create('Fusion'))
+        app.setStyle(QStyleFactory.create('Fusion'))
     screen_resolution = app.desktop().screenGeometry()
     splash_image = splash_image or 'pangalacticon.png'
     # Create and display the splash screen
@@ -5118,7 +5130,7 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
     # from twisted.internet.defer import setDebugging
     # END importing and installing the reactor
     if splash_path:
-        splash_pix = QtGui.QPixmap(splash_path)
+        splash_pix = QPixmap(splash_path)
         splash = SplashScreen(splash_pix, center_point=QPoint(x, y))
         splash.show()
         # splash.showMessage('Starting ...')
