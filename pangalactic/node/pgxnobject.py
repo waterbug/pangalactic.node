@@ -1380,42 +1380,46 @@ class PgxnObject(QDialog):
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object -- showing frozen ...')
+            orb.log.debug('  aha, that is my object -- rebuilding ...')
             # refresh our "obj" from the database
             oid = self.obj.oid
             self.obj = orb.get(oid)
-            html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
-            html += 'has been <b>frozen</b>.'
-            notice = QMessageBox(QMessageBox.Information, 'Frozen',
-                                 html, QMessageBox.Ok, self)
-            if notice.exec_():
-                orb.log.debug('  notice accepted.')
-                self.freeze_action.setVisible(False)
-                self.frozen_action.setVisible(True)
-                user = orb.get(state.get('local_user_oid'))
-                if is_global_admin(user):
-                    self.thaw_action.setVisible(True)
+            self.build_from_object()
+            # orb.log.debug('  aha, that is my object -- showing frozen ...')
+            # html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
+            # html += 'has been <b>frozen</b>.'
+            # notice = QMessageBox(QMessageBox.Information, 'Frozen',
+                                 # html, QMessageBox.Ok, self)
+            # if notice.exec_():
+                # orb.log.debug('  notice accepted.')
+                # self.freeze_action.setVisible(False)
+                # self.frozen_action.setVisible(True)
+                # user = orb.get(state.get('local_user_oid'))
+                # if is_global_admin(user):
+                    # self.thaw_action.setVisible(True)
 
     def on_remote_thawed(self, oids=None):
         orb.log.debug('* pgxnobj received "thawed" signal on:')
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object -- showing thawed ...')
+            orb.log.debug('  aha, that is my object -- rebuilding ...')
             # refresh our "obj" from the database
             oid = self.obj.oid
             self.obj = orb.get(oid)
-            html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
-            html += 'has been <b>thawed</b>.'
-            notice = QMessageBox(QMessageBox.Information, 'Thawed',
-                                 html, QMessageBox.Ok, self)
-            if notice.exec_():
-                orb.log.debug('  notice accepted.')
-                self.frozen_action.setVisible(False)
-                self.thaw_action.setVisible(False)
-                perms = get_perms(self.obj)
-                if 'modify' in perms:
-                    self.freeze_action.setVisible(True)
+            self.build_from_object()
+            # orb.log.debug('  aha, that is my object -- showing thawed ...')
+            # html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
+            # html += 'has been <b>thawed</b>.'
+            # notice = QMessageBox(QMessageBox.Information, 'Thawed',
+                                 # html, QMessageBox.Ok, self)
+            # if notice.exec_():
+                # orb.log.debug('  notice accepted.')
+                # self.frozen_action.setVisible(False)
+                # self.thaw_action.setVisible(False)
+                # perms = get_perms(self.obj)
+                # if 'modify' in perms:
+                    # self.freeze_action.setVisible(True)
 
     def frozen(self):
         pass
