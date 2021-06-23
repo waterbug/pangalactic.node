@@ -1419,7 +1419,7 @@ class Main(QMainWindow):
                             html += f'<li>{item}</li>'
                         html += '</ul></p>'
                         notice = QMessageBox(QMessageBox.Information, 'Thawed',
-                                     html, QMessageBox.Ok, self)
+                                             html, QMessageBox.Ok, self)
                         notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
                         orb.log.debug('  dispatching "thawed" signal ...')
