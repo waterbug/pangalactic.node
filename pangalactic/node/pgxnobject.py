@@ -1383,7 +1383,7 @@ class PgxnObject(QDialog):
             orb.log.debug('  aha, that is my object!')
             # obj has been updated by pangalaxian as "frozen"
             html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
-            html += 'has been frozen in the repository.'
+            html += 'has been <b>frozen</b> in the repository.'
             notice = QMessageBox(QMessageBox.Information, 'Frozen',
                                  html, QMessageBox.Ok, self)
             if notice.exec_():
@@ -1397,8 +1397,10 @@ class PgxnObject(QDialog):
             orb.log.debug('  aha, that is my object!')
             # obj has been updated by pangalaxian as NOT "frozen"
             txt = 'This object has been thawed in the repository.'
+            html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
+            html += 'has been <b>thawed</b> in the repository.'
             notice = QMessageBox(QMessageBox.Information, 'Thawed',
-                                 txt, QMessageBox.Ok, self)
+                                 html, QMessageBox.Ok, self)
             if notice.exec_():
                 self.build_from_object()
 
