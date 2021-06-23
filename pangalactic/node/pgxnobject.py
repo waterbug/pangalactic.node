@@ -1380,29 +1380,28 @@ class PgxnObject(QDialog):
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object -- rebuilding ...')
-            # obj has been updated by pangalaxian as "frozen"
-            # html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
-            # html += 'has been <b>frozen</b> in the repository.'
-            # notice = QMessageBox(QMessageBox.Information, 'Frozen',
-                                 # html, QMessageBox.Ok, self)
-            # if notice.exec_():
-            self.build_from_object()
+            orb.log.debug('  aha, that is my object -- showing frozen ...')
+            self.obj.frozen = True
+            orb.db.commit()
+            self.freeze_action.setVisible(False)
+            self.frozen_action.setVisible(True)
+            user = orb.get(state.get('local_user_oid'))
+            if is_global_admin(user):
+                self.thaw_action.setVisible(True)
 
     def on_remote_thawed(self, oids=None):
         orb.log.debug('* pgxnobj received "thawed" signal on:')
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object -- rebuilding ...')
-            # obj has been updated by pangalaxian as NOT "frozen"
-            # txt = 'This object has been thawed in the repository.'
-            # html = f'<b>{self.obj.id}</b> ({self.obj.name})<br>'
-            # html += 'has been <b>thawed</b> in the repository.'
-            # notice = QMessageBox(QMessageBox.Information, 'Thawed',
-                                 # html, QMessageBox.Ok, self)
-            # if notice.exec_():
-            self.build_from_object()
+            orb.log.debug('  aha, that is my object -- showing thawed ...')
+            self.obj.frozen = False
+            orb.db.commit()
+            self.frozen_action.setVisible(False)
+            self.thaw_action.setVisible(False)
+            perms = get_perms(self.obj)
+            if 'modify' in perms:
+                self.freeze_action.setVisible(True)
 
     def frozen(self):
         pass
