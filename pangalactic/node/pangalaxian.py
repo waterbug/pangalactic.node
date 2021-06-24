@@ -1024,7 +1024,7 @@ class Main(QMainWindow):
             # if on_sync_result() was called from a project sync, update views
             # (which will update the 'role_label' with the project etc.)
             state['project_sync'] = True
-            self._update_views()
+            self._update_modal_views()
         if server_deleted_oids:
             n = len(server_deleted_oids)
             orb.log.debug(f'* sync: {n} deleted oids received from server.')
@@ -1163,7 +1163,7 @@ class Main(QMainWindow):
             rpc.addErrback(self.on_failure)
         else:
             # if no newer objects but objects have been deleted, update views
-            self._update_views()
+            self._update_modal_views()
             return 'success'  # return value will be ignored
 
     def on_get_library_objects_result(self, data):
@@ -1267,7 +1267,7 @@ class Main(QMainWindow):
             rpc.addErrback(self.on_failure)
         else:
             # if no newer objects but objects have been deleted, update views
-            self._update_views()
+            self._update_modal_views()
             return 'success'  # return value will be ignored
 
     def on_force_get_managed_objects_result(self, data):
@@ -1384,8 +1384,15 @@ class Main(QMainWindow):
                                      html, QMessageBox.Ok, self)
                         notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
-                        orb.log.debug('  dispatching "frozen" signal ...')
-                        dispatcher.send("frozen", oids=oids)
+                        orb.log.debug(f'  oids: {str(oids)}')
+                        if (getattr(self, 'pgxn_obj', None) and
+                            getattr(self.pgxn_obj.obj, 'oid') in oids):
+                            orb.log.info('  rebuilding object panel ...')
+                            oid = self.pgxn_obj.obj.oid
+                            self.pgxn_obj.obj = orb.get(oid)
+                            self.pgxn_obj.build_from_object()
+                        # orb.log.debug('  dispatching "frozen" signal ...')
+                        # dispatcher.send("frozen", oids=oids)
             elif subject == 'thawed':
                 # content is a list of tuples: (obj oid, dts string, user oid)
                 thaws = content
@@ -1422,8 +1429,15 @@ class Main(QMainWindow):
                                              html, QMessageBox.Ok, self)
                         notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
-                        orb.log.debug('  dispatching "thawed" signal ...')
-                        dispatcher.send("thawed", oids=oids)
+                        orb.log.debug(f'  oids: {str(oids)}')
+                        if (getattr(self, 'pgxn_obj', None) and
+                            getattr(self.pgxn_obj.obj, 'oid') in oids):
+                            orb.log.info('  rebuilding object panel ...')
+                            oid = self.pgxn_obj.obj.oid
+                            self.pgxn_obj.obj = orb.get(oid)
+                            self.pgxn_obj.build_from_object()
+                        # orb.log.debug('  dispatching "thawed" signal ...')
+                        # dispatcher.send("thawed", oids=oids)
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
@@ -2128,7 +2142,7 @@ class Main(QMainWindow):
                 # self.mode_label.setText('Local Database')
             # elif mode == 'data':
                 # self.mode_label.setText('Data Mode')
-            self._update_views()
+            self._update_modal_views()
             # NOTE: the saved_state stuff does not seem to be doing anything so
             # commented out for now ...
             # saved_state = self.main_states.get(mode)
@@ -3286,7 +3300,7 @@ class Main(QMainWindow):
         else:
             self.sys_tree_rebuilt = False
             self.dashboard_rebuilt = False
-            self._update_views()
+            self._update_modal_views()
 
     def update_project_role_labels(self):
         """
@@ -3393,7 +3407,7 @@ class Main(QMainWindow):
         else:
             self.role_label.setToolTip(role_label_txt)
 
-    def _update_views(self, obj=None):
+    def _update_modal_views(self, obj=None):
         """
         Call functions to update all widgets when mode has changed due to some
         action.
@@ -3401,7 +3415,7 @@ class Main(QMainWindow):
         Keyword Args:
             obj (Identifiable):  object whose change triggered the update
         """
-        # orb.log.debug('* _update_views()')
+        # orb.log.debug('* _update_modal_views()')
         # orb.log.debug('  triggered by object: {}'.format(
                                         # getattr(obj, 'id', '[no object]')))
         if getattr(self, 'system_model_window', None):
