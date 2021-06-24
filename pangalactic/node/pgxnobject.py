@@ -1388,7 +1388,7 @@ class PgxnObject(QDialog):
             html += 'has been <b>frozen</b>.'
             notice = QMessageBox(QMessageBox.Information, 'Frozen',
                                  html, QMessageBox.Ok, self)
-            if notice.exec_() and not self.embedded:
+            if notice.exec_():
                 orb.log.debug('  notice accepted.')
                 self.freeze_action.setVisible(False)
                 self.frozen_action.setVisible(True)
@@ -1416,7 +1416,7 @@ class PgxnObject(QDialog):
             html += 'has been <b>thawed</b>.'
             notice = QMessageBox(QMessageBox.Information, 'Thawed',
                                  html, QMessageBox.Ok, self)
-            if notice.exec_() and not self.embedded:
+            if notice.exec_():
                 orb.log.debug('  notice accepted.')
                 self.frozen_action.setVisible(False)
                 self.thaw_action.setVisible(False)
