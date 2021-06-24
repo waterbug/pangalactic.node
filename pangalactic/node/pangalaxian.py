@@ -1384,15 +1384,8 @@ class Main(QMainWindow):
                                      html, QMessageBox.Ok, self)
                         notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
-                        orb.log.debug(f'  oids: {str(oids)}')
-                        if (getattr(self, 'pgxn_obj', None) and
-                            getattr(self.pgxn_obj.obj, 'oid') in oids):
-                            orb.log.info('  rebuilding object panel ...')
-                            oid = self.pgxn_obj.obj.oid
-                            self.pgxn_obj.obj = orb.get(oid)
-                            self.pgxn_obj.build_from_object()
-                        # orb.log.debug('  dispatching "frozen" signal ...')
-                        # dispatcher.send("frozen", oids=oids)
+                        orb.log.debug('  dispatching "frozen" signal ...')
+                        dispatcher.send("frozen", oids=oids)
             elif subject == 'thawed':
                 # content is a list of tuples: (obj oid, dts string, user oid)
                 thaws = content
@@ -1429,15 +1422,8 @@ class Main(QMainWindow):
                                              html, QMessageBox.Ok, self)
                         notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
-                        orb.log.debug(f'  oids: {str(oids)}')
-                        if (getattr(self, 'pgxn_obj', None) and
-                            getattr(self.pgxn_obj.obj, 'oid') in oids):
-                            orb.log.info('  rebuilding object panel ...')
-                            oid = self.pgxn_obj.obj.oid
-                            self.pgxn_obj.obj = orb.get(oid)
-                            self.pgxn_obj.build_from_object()
-                        # orb.log.debug('  dispatching "thawed" signal ...')
-                        # dispatcher.send("thawed", oids=oids)
+                        orb.log.debug('  dispatching "thawed" signal ...')
+                        dispatcher.send("thawed", oids=oids)
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)

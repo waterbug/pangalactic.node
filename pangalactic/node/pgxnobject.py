@@ -1395,6 +1395,13 @@ class PgxnObject(QDialog):
                 user = orb.get(state.get('local_user_oid'))
                 if is_global_admin(user):
                     self.thaw_action.setVisible(True)
+                orb.log.debug('  attempting self.update()...')
+                try:
+                    self.update()
+                    orb.log.debug('  ... succeeded.')
+                except:
+                    # C++ obj got deleted
+                    orb.log.debug('  ... failed.')
 
     def on_remote_thawed(self, oids=None):
         orb.log.debug('* pgxnobj received "thawed" signal on:')
@@ -1416,6 +1423,13 @@ class PgxnObject(QDialog):
                 perms = get_perms(self.obj)
                 if 'modify' in perms:
                     self.freeze_action.setVisible(True)
+                orb.log.debug('  attempting self.update()...')
+                try:
+                    self.update()
+                    orb.log.debug('  ... succeeded.')
+                except:
+                    # C++ obj got deleted
+                    orb.log.debug('  ... failed.')
 
     def frozen(self):
         pass
