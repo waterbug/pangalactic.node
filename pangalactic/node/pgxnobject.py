@@ -1380,10 +1380,10 @@ class PgxnObject(QDialog):
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object -- showing frozen ...')
+            orb.log.debug('  aha, that is my object ...')
             # refresh our "obj" from the database
-            oid = self.obj.oid
-            self.obj = orb.get(oid)
+            # oid = self.obj.oid
+            # self.obj = orb.get(oid)
             html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
             html += 'has been <b>frozen</b>.'
             notice = QMessageBox(QMessageBox.Information, 'Frozen',
@@ -1408,10 +1408,10 @@ class PgxnObject(QDialog):
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object -- showing thawed ...')
+            orb.log.debug('  aha, that is my object ...')
             # refresh our "obj" from the database
-            oid = self.obj.oid
-            self.obj = orb.get(oid)
+            # oid = self.obj.oid
+            # self.obj = orb.get(oid)
             html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
             html += 'has been <b>thawed</b>.'
             notice = QMessageBox(QMessageBox.Information, 'Thawed',
