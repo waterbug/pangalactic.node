@@ -1450,6 +1450,8 @@ class PgxnObject(QDialog):
                 assemblies = [acu.assembly for acu in self.obj.where_used]
                 frozens = [a for a in assemblies if a.frozen]
                 if frozens:
+                    orb.log.debug('  used in one or more frozen assembly ...')
+                    orb.log.debug('  thaw not allowed.')
                     txt = 'Thawing this Product would violate CM --\n'
                     txt += 'it is used as a component in the following '
                     txt += 'frozen assemblies:'
