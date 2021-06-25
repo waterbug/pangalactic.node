@@ -1294,6 +1294,49 @@ class Main(QMainWindow):
             # if this was the last chunk, sync current project
             self.resync_current_project()
 
+    def on_remote_freeze_or_thaw(self, oids):
+        orb.log.debug('* on_remote_freeze_or_thaw()')
+        if oids:
+            orb.log.debug('  getting objects ...')
+            # chunks = chunkify(newer, 5)   # set chunks small for testing
+            # chunks = chunkify(newer, 100)
+            chunks = chunkify(oids, 50)   # 100 is too big sometimes
+            n_chunks = len(chunks)
+            c = 'chunks'
+            if n_chunks == 1:
+                c = 'chunk'
+            orb.log.debug(f'  will get in {n_chunks} {c} ...')
+            chunk = chunks.pop(0)
+            state['chunks_to_get'] = chunks
+            rpc = self.mbus.session.call('vger.get_objects', chunk,
+                                         include_components=False)
+            rpc.addCallback(self.on_get_frozen_thawed_objects_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            orb.log.debug('  no oids specified, ignoring.')
+            return
+
+    def on_get_frozen_thawed_objects_result(self, data):
+        """
+        Handler for the result of the rpc 'vger.get_objects()' when called by
+        'on_freeze_or_thaw()'.
+
+        Args:
+            data (list):  a list of serialized objects
+        """
+        orb.log.debug('* on_get_frozen_thawed_objects_result()')
+        if data is not None:
+            orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
+            self.load_serialized_objects(data)
+        if state.get('chunks_to_get'):
+            chunk = state['chunks_to_get'].pop(0)
+            orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
+            rpc = self.mbus.session.call('vger.get_objects', chunk)
+            rpc.addCallback(self.on_get_library_objects_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            self.resync_current_project()
+
     def on_toggle_library_size(self, expand=False):
         if getattr(self, 'library_widget', None):
             if expand:
@@ -1349,27 +1392,18 @@ class Main(QMainWindow):
                 else:
                     msg += obj_id
             elif subject == 'frozen':
-                # content is a list of tuples: (obj oid, dts string, user oid)
-                freezes = content
-                if freezes:
+                # content is a list of oids
+                frozens = content
+                if frozens:
                     orb.log.info('* msg received on public channel:')
-                    orb.log.info(f'  vger: {len(freezes)} object(s) frozen.')
-                    oids = []
+                    orb.log.info(f'  vger: {len(frozens)} object(s) frozen.')
                     items = []
-                    for freeze in freezes:
-                        oid, dt_str, user_oid = freeze
-                        obj = orb.get(oid)
+                    oids = []
+                    for frozen_oid in frozens:
+                        obj = orb.get(frozen_oid)
                         if obj:
-                            oids.append(oid)
+                            oids.append(frozen_oid)
                             items.append(f'<b>{obj.id}</b> ({obj.name})')
-                            obj.frozen = True
-                            dts = uncook_datetime(dt_str)
-                            obj.mod_datetime = dts
-                            user = orb.get(user_oid)
-                            if user:
-                                obj.modifier = user
-                    orb.db.commit()
-                    # "frozen" signal is also monitored by PgxnObject ...
                     if oids:
                         phrase = "products have been"
                         if len(items) == 1:
@@ -1384,30 +1418,21 @@ class Main(QMainWindow):
                                      html, QMessageBox.Ok, self)
                         notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
-                        orb.log.debug('  dispatching "frozen" signal ...')
-                        dispatcher.send("frozen", oids=oids)
+                        orb.log.debug('  getting frozen versions ...')
+                        self.on_remote_freeze_or_thaw(oids)
             elif subject == 'thawed':
-                # content is a list of tuples: (obj oid, dts string, user oid)
-                thaws = content
-                if thaws:
-                    oids = []
-                    items = []
+                # content is a list of oids
+                thaweds = content
+                if thaweds:
                     orb.log.info('* msg received on public channel:')
-                    orb.log.info(f'  vger: {len(thaws)} object(s) thawed.')
-                    for thaw in thaws:
-                        oid, dt_str, user_oid = thaw
-                        obj = orb.get(oid)
+                    orb.log.info(f'  vger: {len(thaweds)} object(s) thawed.')
+                    items = []
+                    oids = []
+                    for thawed_oid in thaweds:
+                        obj = orb.get(thawed_oid)
                         if obj:
-                            oids.append(oid)
+                            oids.append(thawed_oid)
                             items.append(f'<b>{obj.id}</b> ({obj.name})')
-                            obj.frozen = False
-                            dts = uncook_datetime(dt_str)
-                            obj.mod_datetime = dts
-                            user = orb.get(user_oid)
-                            if user:
-                                obj.modifier = user
-                    orb.db.commit()
-                    # "thawed" signal is also monitored by PgxnObject ...
                     if oids:
                         phrase = "products have been"
                         if len(items) == 1:
@@ -1419,11 +1444,11 @@ class Main(QMainWindow):
                             html += f'<li>{item}</li>'
                         html += '</ul></p>'
                         notice = QMessageBox(QMessageBox.Information, 'Thawed',
-                                             html, QMessageBox.Ok, self)
+                                     html, QMessageBox.Ok, self)
                         notice.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
-                        orb.log.debug('  dispatching "thawed" signal ...')
-                        dispatcher.send("thawed", oids=oids)
+                        orb.log.debug('  getting thawed versions ...')
+                        self.on_remote_freeze_or_thaw(oids)
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)

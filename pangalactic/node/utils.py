@@ -479,7 +479,6 @@ def get_icon_path(obj):
     Returns:
         path (str):  path for an icon image file.
     """
-    # first, check whether object is cloaked
     icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
     # check for a special icon for this specific object
     if getattr(obj, 'id', None):
@@ -498,13 +497,17 @@ def get_icon_path(obj):
         icon_path = os.path.join(icon_dir, prefix + state['icon_type'])
         if os.path.exists(icon_path):
             return icon_path
-    # Products are the only class that should be "cloakable" ... this may
-    # require schema change in future (move "public" attr from ManagedObject to
-    # Product), but for now just use 'isinstance' ...
-    if (isinstance(obj, orb.classes['Product']) and not obj.public
+    # ManagedObject has the "public" attribute, but Product is the only class
+    # that actually applies it ...
+    if (isinstance(obj, orb.classes['Product'])
         and not isinstance(obj, orb.classes['Template'])):
-        # if obj is not public, use the 'cloakable' icon
-        return os.path.join(icon_dir, 'cloakable' + state['icon_type'])
+        if obj.public:
+            if obj.components:
+                # white box
+                return os.path.join(icon_dir, 'box' + state['icon_type'])
+        else:
+            # if obj is not public, use the 'cloakable' icon
+            return os.path.join(icon_dir, 'cloakable' + state['icon_type'])
     cname = obj.__class__.__name__
     if ((cname == 'Person') and
         obj.id in (state.get('active_users') or [])):
@@ -538,7 +541,8 @@ def get_pixmap(obj):
                 icon_path = os.path.join(icon_dir,
                                          'favicon' + state['icon_type'])
             else:
-                icon_path = os.path.join(icon_dir, 'box' + state['icon_type'])
+                icon_path = os.path.join(
+                                icon_dir, 'black_box' + state['icon_type'])
         return QPixmap(icon_path)
     else:
         return QVariant()
