@@ -504,10 +504,35 @@ def get_icon_path(obj):
         if obj.public:
             if obj.components:
                 # white box
-                return os.path.join(icon_dir, 'box' + state['icon_type'])
+                if obj.frozen:
+                    return os.path.join(icon_dir,
+                        'frz_wb' + state['icon_type'])
+                else:
+                    return os.path.join(icon_dir, 'box' + state['icon_type'])
+            else:
+                # black box
+                if obj.frozen:
+                    return os.path.join(icon_dir,
+                        'frz_bb' + state['icon_type'])
+                else:
+                    return os.path.join(icon_dir,
+                        'black_box' + state['icon_type'])
         else:
             # if obj is not public, use the 'cloakable' icon
-            return os.path.join(icon_dir, 'cloakable' + state['icon_type'])
+            if obj.components:
+                if obj.frozen:
+                    return os.path.join(icon_dir,
+                        'frz_wb_cloakable' + state['icon_type'])
+                else:
+                    return os.path.join(icon_dir,
+                        'cloakable' + state['icon_type'])
+            else:
+                if obj.frozen:
+                    return os.path.join(icon_dir,
+                        'frz_bb_cloakable' + state['icon_type'])
+                else:
+                    return os.path.join(icon_dir,
+                        'black_cloakable' + state['icon_type'])
     cname = obj.__class__.__name__
     if ((cname == 'Person') and
         obj.id in (state.get('active_users') or [])):
@@ -542,7 +567,7 @@ def get_pixmap(obj):
                                          'favicon' + state['icon_type'])
             else:
                 icon_path = os.path.join(
-                                icon_dir, 'black_box' + state['icon_type'])
+                                icon_dir, 'box' + state['icon_type'])
         return QPixmap(icon_path)
     else:
         return QVariant()
