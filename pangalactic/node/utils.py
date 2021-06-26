@@ -506,14 +506,14 @@ def get_icon_path(obj):
                 # white box
                 if obj.frozen:
                     return os.path.join(icon_dir,
-                        'frz_wb' + state['icon_type'])
+                        'frz_wbox' + state['icon_type'])
                 else:
                     return os.path.join(icon_dir, 'box' + state['icon_type'])
             else:
                 # black box
                 if obj.frozen:
                     return os.path.join(icon_dir,
-                        'frz_bb' + state['icon_type'])
+                        'frz_bbox' + state['icon_type'])
                 else:
                     return os.path.join(icon_dir,
                         'black_box' + state['icon_type'])
@@ -522,14 +522,14 @@ def get_icon_path(obj):
             if obj.components:
                 if obj.frozen:
                     return os.path.join(icon_dir,
-                        'frz_wb_cloakable' + state['icon_type'])
+                        'frz_wbox_cloakable' + state['icon_type'])
                 else:
                     return os.path.join(icon_dir,
                         'cloakable' + state['icon_type'])
             else:
                 if obj.frozen:
                     return os.path.join(icon_dir,
-                        'frz_bb_cloakable' + state['icon_type'])
+                        'frz_bbox_cloakable' + state['icon_type'])
                 else:
                     return os.path.join(icon_dir,
                         'black_cloakable' + state['icon_type'])
