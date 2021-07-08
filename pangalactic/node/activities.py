@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QSizePolicy, QStatusBar,
 
 from pangalactic.core             import state
 from pangalactic.core.parametrics import get_pval_as_str, set_pval_from_str
-from pangalactic.core.utils.meta  import get_acu_id, get_acu_name
+from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.tablemodels import ODTableModel
 from pangalactic.node.utils       import clone
@@ -83,20 +83,19 @@ class EditableTableModel(QAbstractTableModel):
 
 class ActivityTable(QWidget):
     """
-    Table for displaying the component Activities of an Activity and related
-    data.
+    Table for displaying the sub-activities of an Activity and related data.
 
     Attrs:
-        subject (Activity):  the Activity whose component Activities are shown
+        subject (Activity):  the Activity whose sub-activities are shown
     """
     def __init__(self, subject=None, preferred_size=None, act_of=None,
                  position=None, parent=None):
         """
-        Initialize table for displaying the component Activities of an Activity
-        and related data.
+        Initialize table for displaying the sub-activities of an Activity and
+        related data.
 
         Keyword Args:
-            subject (Activity):  Activity whose component Activities are to be
+            subject (Activity):  Activity whose sub-activities are to be
                 shown in the table
             preferred_size (tuple):  default size -- (width, height)
             parent (QWidget):  parent widget
@@ -136,37 +135,38 @@ class ActivityTable(QWidget):
         dispatcher.connect(self.on_enable, 'enable widget')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
-    def sort_and_set_table(self, parent_act=None, act_of=None, position=None):
+    def sort_and_set_table(self, activity=None, act_of=None, position=None):
         system_acts = []
         if self.act_of is None:
             pass
         else:
             # cur_pt_id = getattr(self.act_of.product_type,'id','None')
-            fail_txt = '* {} table: all_acus sort failed.'
+            fail_txt = '* {} table: all_acrs sort failed.'
             if position == 'middle' and self.act_of != 'spacecraft':
-                for act in parent_act.components:
-                    if self.act_of == act.component.activity_of:
-                        system_acts.append(act)
-                all_acus = [(acu.reference_designator, acu)
-                            for acu in system_acts]
+                for acr in activity.sub_activities:
+                    if self.act_of == acr.sub_activity.activity_of:
+                        system_acts.append(acr)
+                all_acrs = [(acr.sub_activity_role, acr)
+                            for acr in system_acts]
                 try:
-                    all_acus.sort()
+                    all_acrs.sort()
                 except:
                     orb.log.debug(fail_txt.format(self.position))
-                activities = [acu_tuple[1].component for acu_tuple in all_acus]
+                activities = [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
                 self.set_table(activities)
             elif position == 'top':   # and 'spacecraft' in cur_pt_id:
-                parent_act = self.subject
-                for act in parent_act.components:
-                    if self.act_of == act.component.activity_of:
-                        system_acts.append(act)
-                all_acus = [(acu.reference_designator, acu)
-                            for acu in system_acts]
+                activity = self.subject
+                for acr in activity.sub_activities:
+                    if self.act_of == getattr(acr.sub_activity, 'activity_of',
+                                              None):
+                        system_acts.append(acr)
+                all_acrs = [(acr.sub_activity_role, acr)
+                            for acr in system_acts]
                 try:
-                    all_acus.sort()
+                    all_acrs.sort()
                 except:
                     orb.log.debug(fail_txt.format(self.position))
-                activities = [acu_tuple[1].component for acu_tuple in all_acus]
+                activities = [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
                 self.set_table(activities)
 
     def set_table(self, objs):
@@ -216,13 +216,15 @@ class ActivityTable(QWidget):
     def on_activity_modified(self, activity=None):
         txt = '* {} table: on_activity_modified()'
         orb.log.debug(txt.format(self.position))
-        if activity and activity.where_used:
-            parent_act = getattr(activity.where_used[0], 'assembly', None)
-            if parent_act:
-                self.on_activity_added(parent_act=parent_act, modified=True)
+        if activity and activity.where_occurs:
+            composite_activity = getattr(activity.where_occurs[0],
+                                         'composite_activity', None)
+            if composite_activity:
+                self.on_activity_added(composite_activity=composite_activity,
+                                       modified=True)
 
-    def on_activity_added(self, parent_act=None, modified=False, act_of=None,
-                          position=None):
+    def on_activity_added(self, composite_activity=None, modified=False,
+                          act_of=None, position=None):
         txt = '* {} table: on_activity_added(modified=True)'
         orb.log.debug(txt.format(self.position))
         if self.position == position:
@@ -232,37 +234,38 @@ class ActivityTable(QWidget):
             else:
                 self.statusbar.showMessage('Activity Added!')
                 orb.log.debug('  - activity added!')
-        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
-                                position=position)
+        self.sort_and_set_table(activity=composite_activity,
+                                act_of=act_of, position=position)
 
-    def on_activity_removed(self, parent_act=None, act_of=None, position=None):
+    def on_activity_removed(self, composite_activity=None, act_of=None,
+                            position=None):
         if self.position == position or self.position == 'bottom':
             self.statusbar.showMessage('Activity Removed!')
-            self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
+            self.sort_and_set_table(activity=composite_activity, act_of=act_of,
                                     position=position)
 
-    def on_order_changed(self, parent_act=None, act_of=None, position=None):
+    def on_order_changed(self, composite_activity=None, act_of=None, position=None):
         if self.position == position or self.position == 'bottom':
             self.statusbar.showMessage('Order Updated!')
-            self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
+            self.sort_and_set_table(activity=composite_activity, act_of=act_of,
                                     position=position)
 
     def on_drill_down(self, obj=None, position=None):
         if self.position == 'middle':
             self.statusbar.showMessage("Drilled Down!")
-            self.sort_and_set_table(parent_act=obj, position=position)
+            self.sort_and_set_table(activity=obj, position=position)
 
     def on_drill_up(self, obj=None, position=None):
         if self.position != 'middle':
             self.statusbar.showMessage("Drilled Up!")
-            self.sort_and_set_table(parent_act=obj, position=position)
+            self.sort_and_set_table(activity=obj, position=position)
 
-    def on_activities_cleared(self, parent_act=None, position=None):
+    def on_activities_cleared(self, composite_activity=None, position=None):
         # if self.position == position or self.position == 'bottom':
         self.statusbar.showMessage("Activities Cleared!")
-        self.sort_and_set_table(parent_act=parent_act, position=position)
+        self.sort_and_set_table(activity=composite_activity, position=position)
 
-    def on_subsystem_changed(self, parent_act=None, act_of=None):
+    def on_subsystem_changed(self, composite_activity=None, act_of=None):
         if self.position == 'middle':
             self.statusbar.showMessage("Subsystem Changed!")
         if self.position == 'middle' or self.position == 'bottom':
@@ -276,7 +279,7 @@ class ActivityTable(QWidget):
                     pass
                 else:
                     self.act_of = act_of
-                    self.sort_and_set_table(parent_act=parent_act,
+                    self.sort_and_set_table(activity=composite_activity,
                                             act_of=act_of,
                                             position=self.position)
 
@@ -286,7 +289,7 @@ class ActivityTable(QWidget):
         elif ((self.position == 'middle') and
               (obj.activity_of.product_type.id == 'spacecraft')):
             self.statusbar.showMessage("Table Refreshed!")
-            self.sort_and_set_table(parent_act=obj, position=self.position)
+            self.sort_and_set_table(activity=obj, position=self.position)
 
     def on_disable(self):
         if self.position == 'middle':
@@ -299,21 +302,20 @@ class ActivityTable(QWidget):
 
 class ParameterTable(QWidget):
     """
-    Table for displaying the component Activities of an Activity and related
-    data.
+    Table for displaying the sub-activities of an Activity and related data.
 
     Attrs:
-        subject (Activity):  the Activity whose component Activities are shown
+        subject (Activity):  the Activity whose sub-activities are shown
     """
     def __init__(self, subject=None, preferred_size=None, act_of=None,
                  initial_param=None, parent=None):
         """
-        Initialize table for displaying the component Activities of an Activity
-        and related data.
+        Initialize table for displaying the sub-activities of an Activity and
+        related data.
 
         Keyword Args:
-            subject (Activity):  Activity whose component Activities are to be
-                shown in the table
+            subject (Activity):  Activity whose sub-activities are to be shown
+                in the table
             preferred_size (tuple):  default size -- (width, height)
             parent (QWidget):  parent widget
             act_of (Product):  Product of which the subject is an Activity
@@ -340,7 +342,7 @@ class ParameterTable(QWidget):
         self.param_menu.setCurrentIndex(0)
         self.param_menu.currentIndexChanged[str].connect(self.param_changed)
         self.main_layout.addWidget(self.param_menu)
-        self.sort_and_set_table(self.subject, self.act_of)
+        self.sort_and_set_table(activity=self.subject, act_of=self.act_of)
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         dispatcher.connect(self.on_activity_added, 'new activity')
@@ -353,30 +355,32 @@ class ParameterTable(QWidget):
         dispatcher.connect(self.on_focused_changed, 'activity focused')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
-    def sort_and_set_table(self, parent_act=None, act_of=None, position=None):
+    def sort_and_set_table(self, activity=None, act_of=None,
+                           position=None):
         system_acts = []
-        parent_act = parent_act or self.subject
+        activity = activity or self.subject
         if self.act_of is None:
             pass
         if position == 'top':
-            for act in parent_act.components:
-                if self.act_of == act.component.activity_of:
-                    system_acts.append(act)
-            all_acus = [(acu.reference_designator, acu)
-                        for acu in system_acts]
+            for acr in activity.sub_activities:
+                if self.act_of == getattr(acr.sub_activity, 'activity_of',
+                                          None):
+                    system_acts.append(acr)
+            all_acrs = [(acr.sub_activity_role, acr)
+                        for acr in system_acts]
         else:
-            for act in parent_act.components:
-                if self.act_of == act.component.activity_of:
-                    system_acts.append(act)
-            all_acus = [(acu.reference_designator, acu)
-                        for acu in system_acts]
+            for acr in activity.sub_activities:
+                if self.act_of == acr.sub_activity.activity_of:
+                    system_acts.append(acr)
+            all_acrs = [(acr.sub_activity_role, acr)
+                        for acr in system_acts]
         try:
-            all_acus.sort()
+            all_acrs.sort()
         except:
-            orb.log.debug('* ParameterTable: all_acus sort failed.')
-        activities = [acu_tuple[1].component for acu_tuple in all_acus]
+            orb.log.debug('* ParameterTable: all_acrs sort failed.')
+        activities = [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
         self.set_table(activities)
-        self.set_title(parent_act)
+        self.set_title(activity)
 
     def set_table(self, objs):
         param = self.current_param
@@ -410,11 +414,11 @@ class ParameterTable(QWidget):
         self.main_layout.addWidget(new_table, stretch=1)
         self.table = new_table
 
-    def set_title(self, parent_act):
+    def set_title(self, activity):
         try:
             txt = '{} for {} in {}'.format(self.param_menu.currentText(),
                                            self.act_of.product_type.name,
-                                           parent_act.name)
+                                           activity.name)
         except:
             txt = '{}'.format(self.param_menu.currentText())
         self.title.setText(txt)
@@ -435,47 +439,52 @@ class ParameterTable(QWidget):
     def on_activity_modified(self, activity=None):
         txt = '* ParameterTable: on_activity_modified()'
         orb.log.debug(txt)
-        if activity and activity.where_used:
-            parent_act = getattr(activity.where_used[0], 'assembly', None)
-            if parent_act:
-                self.on_activity_added(parent_act=parent_act, modified=True)
+        if activity and activity.where_occurs:
+            composite_activity = getattr(activity.where_occurs[0],
+                                         'composite_activity', None)
+            if composite_activity:
+                self.on_activity_added(composite_activity=composite_activity,
+                                       modified=True)
 
-    def on_activity_added(self, parent_act=None, modified=False, act_of=None,
-                          position=None):
+    def on_activity_added(self, composite_activity=None, modified=False,
+                          act_of=None, position=None):
         txt = '* ParameterTable: on_activity_added(modified=True) ({})'
         orb.log.debug(txt.format(position))
-        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
-                                position=position)
+        self.sort_and_set_table(activity=composite_activity,
+                                act_of=act_of, position=position)
 
-    def on_activity_removed(self, parent_act=None, act_of=None, position=None):
+    def on_activity_removed(self, composite_activity=None, act_of=None,
+                            position=None):
         self.statusbar.showMessage('Activity Removed! ({})'.format(position))
-        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
-                                position=position)
+        self.sort_and_set_table(activity=composite_activity,
+                                act_of=act_of, position=position)
 
-    def on_order_changed(self, parent_act=None, act_of=None, position=None):
+    def on_order_changed(self, composite_activity=None, act_of=None,
+                         position=None):
         self.statusbar.showMessage('Order Updated! ({})'.format(position))
-        self.sort_and_set_table(parent_act=parent_act, act_of=act_of,
-                                position=position)
+        self.sort_and_set_table(activity=composite_activity,
+                                act_of=act_of, position=position)
 
     def on_drill_down(self, obj=None, position=None):
         pass
         # NOTE:  should this never affect the parameter table?
         # if self.position == 'middle':
             # self.statusbar.showMessage("Drilled Down!")
-            # self.sort_and_set_table(parent_act=obj, position=position)
+            # self.sort_and_set_table(activity=obj, position=position)
 
     def on_drill_up(self, obj=None, position=None):
         pass
         # NOTE:  should this never affect the parameter table?
         # if self.position != 'middle':
             # self.statusbar.showMessage("Drilled Up!")
-            # self.sort_and_set_table(parent_act=obj, position=position)
+            # self.sort_and_set_table(activity=obj, position=position)
 
-    def on_activities_cleared(self, parent_act=None, position=None):
+    def on_activities_cleared(self, composite_activity=None, position=None):
         self.statusbar.showMessage("Activities Cleared! ({})".format(position))
-        self.sort_and_set_table(parent_act=parent_act, position=position)
+        self.sort_and_set_table(activity=composite_activity,
+                                position=position)
 
-    def on_subsystem_changed(self, parent_act=None, act_of=None):
+    def on_subsystem_changed(self, composite_activity=None, act_of=None):
         self.setDisabled(False)
         if self.act_of is None:
             self.act_of = act_of
@@ -486,12 +495,13 @@ class ParameterTable(QWidget):
                 pass
             else:
                 self.act_of = act_of
-                self.sort_and_set_table(parent_act=parent_act,
+                self.sort_and_set_table(activity=composite_activity,
                                         act_of=act_of)
 
     def on_focused_changed(self, obj=None):
         self.act_of = obj.activity_of
-        self.sort_and_set_table(parent_act=obj.where_used[0].assembly)
+        self.sort_and_set_table(
+                    activity=obj.where_occurs[0].composite_activity)
 
 
 if __name__ == '__main__':
@@ -510,13 +520,13 @@ if __name__ == '__main__':
         # print('* loading test project H2G2 ...')
         deserialize(orb, create_test_project())
         mission = orb.get('test:Mission.H2G2')
-    if not mission.components:
+    if not mission.sub_activities:
         launch = clone('Activity', id='launch', name='Launch')
-        ref_des = '1'
-        acu = clone('Acu', id=get_acu_id(mission.id, ref_des),
-                    name=get_acu_name(mission.name, ref_des),
-                    assembly=mission, component=launch)
-        orb.save([launch, acu])
+        sub_act_role = '1'
+        acr = clone('ActCompRel', id=get_acr_id(mission.id, sub_act_role),
+                    name=get_acr_name(mission.name, sub_act_role),
+                    composite_activity=mission, sub_activity=launch)
+        orb.save([launch, acr])
     app = QApplication(sys.argv)
     w = ActivityTable(subject=mission)
     w.show()

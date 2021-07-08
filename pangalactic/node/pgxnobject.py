@@ -2111,6 +2111,7 @@ class PgxnObject(QDialog):
             dispatcher.send(signal="modified object", obj=self.obj,
                             cname=cname)
             if isinstance(self.obj, orb.classes['Activity']):
+                # NOTE: this includes 'Mission' subclass of Activity
                 dispatcher.send(signal="modified activity",
                                 activity=self.obj)
         parent = self.parent()

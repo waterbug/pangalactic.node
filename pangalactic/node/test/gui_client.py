@@ -1093,13 +1093,13 @@ if __name__ == "__main__":
         print('* loading test project H2G2 ...')
         deserialize(orb, create_test_project())
         mission = orb.get('test:Mission.H2G2')
-    # if not mission.components:
+    # if not mission.sub_activities:
         # launch = clone('Activity', id='launch', name='Launch')
-        # ref_des = '1'
-        # acu = clone('Acu', id=get_acu_id(mission.id, ref_des),
-                    # name=get_acu_name(mission.name, ref_des),
-                    # assembly=mission, component=launch)
-        # orb.save([launch, acu])
+        # sub_activity_role = '1'
+        # acr = clone('Acu', id=get_acr_id(mission.id, sub_activity_role),
+                    # name=get_acr_name(mission.name, sub_activity_role),
+                    # composite_activity=mission, sub_activity=launch)
+        # orb.save([launch, acr])
     print('app created')
     try:
         import qt5reactor

@@ -265,8 +265,7 @@ class ObjectBlock(Block):
         """
         component = (getattr(usage, 'component', None) or
                      getattr(usage, 'system', None))
-        super().__init__(position, scene=scene,
-                                          obj=component, style=style)
+        super().__init__(position, scene=scene, obj=component, style=style)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)

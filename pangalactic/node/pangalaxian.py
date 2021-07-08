@@ -70,7 +70,7 @@ from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
-# from pangalactic.node.conops           import ConOpsModeler
+from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
 from pangalactic.node.dialogs          import (FullSyncDialog,
@@ -78,7 +78,6 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog)
-# from pangalactic.node.helpwidget       import HelpWidget
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
@@ -831,7 +830,7 @@ class Main(QMainWindow):
         # we will get back ALL subtypes anyway.
         data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template',
                                        'DataElementDefinition', 'Activity',
-                                       'Requirement', 'Model'])
+                                       'Mission', 'Requirement', 'Model'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
         return self.mbus.session.call('vger.sync_library_objects',
@@ -849,7 +848,7 @@ class Main(QMainWindow):
         self.statusbar.showMessage('forcing sync of ALL library objects ...')
         data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template',
                                        'DataElementDefinition', 'Activity',
-                                       'Requirement', 'Model'])
+                                       'Mission', 'Requirement', 'Model'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
         return self.mbus.session.call('vger.force_sync_managed_objects',
@@ -2862,6 +2861,7 @@ class Main(QMainWindow):
                 # refresh the admin tool
                 dispatcher.send('refresh admin tool')
             elif cname == 'Activity':
+                # TODO:  special case for "Mission"
                 dispatcher.send('remove activity', act=obj)
                 orb.delete([obj])
                 orb.log.debug('  deleted.')
@@ -4369,9 +4369,9 @@ class Main(QMainWindow):
                                  parent=self)
         dlg.show()
 
-    # def display_conops_modeler(self):
-        # win = ConOpsModeler(parent=self)
-        # win.show()
+    def display_conops_modeler(self):
+        win = ConOpsModeler(parent=self)
+        win.show()
 
     def sc_42_modeler(self):
         w = 4 * self.geometry().width() / 5
