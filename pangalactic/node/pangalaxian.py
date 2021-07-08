@@ -1854,7 +1854,7 @@ class Main(QMainWindow):
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
-        # conops_tip_text = "Model Concept of Operations for the Current Mission"
+        # conops_tip_text = "Model a Concept of Operations"
         # self.conops_modeler_action = self.create_action(
                                 # "ConOps Modeler",
                                 # slot=self.display_conops_modeler,
