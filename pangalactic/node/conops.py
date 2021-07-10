@@ -216,7 +216,7 @@ class Timeline(QGraphicsPathItem):
                              sub_activity=item.activity)
             acr.sub_activity_role = "{}{}".format(parent_act.id, str(i))
             orb.save([acr])
-            dispatcher.send("modified object", obj=acr)
+            # dispatcher.send("modified object", obj=acr)
             if initial:
                 acr.sub_activity.id = (acr.sub_activity.id or
                                        acr.sub_activity_role)
@@ -225,7 +225,7 @@ class Timeline(QGraphicsPathItem):
                                                         str(i)))
                 orb.save([acr.sub_activity])
                 dispatcher.send("modified activity", activity=acr.sub_activity)
-                dispatcher.send("modified object", obj=acr.sub_activity)
+                # dispatcher.send("modified object", obj=acr.sub_activity)
         if not same:
             dispatcher.send("order changed",
                             parent_act=self.scene().current_activity,
@@ -282,16 +282,15 @@ class TimelineScene(QGraphicsScene):
                          activity_of=self.act_of)
         acr = clone("ActCompRel", composite_activity=self.current_activity,
                     sub_activity=activity)
-        orb.save([acr, activity])
+        orb.db.commit()
         item = EventBlock(activity=activity,
                           parent_activity=self.current_activity)
         item.setPos(event.scenePos())
         self.addItem(item)
         self.timeline.add_item(item)
-        dispatcher.send("new activity", parent_act=self.current_activity,
+        dispatcher.send("new activity",
+                        composite_activity=self.current_activity,
                         act_of=self.act_of, position=self.position)
-        dispatcher.send("new object", obj=activity)
-        dispatcher.send("new object", obj=acr)
         self.update()
 
     def edit_parameters(self, activity):
@@ -540,51 +539,58 @@ class TimelineWidget(QWidget):
 
     def delete_activity(self, act=None):
         """
-        Delete an activity, along with the children of this activity
+        Delete an activity, after serializing it and all ActCompRel
+        relationships in which it occurs either as a composite activity or a
+        sub activity (to enable "undo").
 
         Keyword Args:
             act (Activity): the activity to be deleted
         """
-        # NOTE: DO NOT dispatcher.send("deleted object") !!
+        # NOTE: DO NOT use dispatcher.send("deleted object") !!
         # -- that will cause a cycle
         oid = getattr(act, "oid", None)
+        if oid is None:
+            return
         subj_oid = self.subject_activity.oid
-        current_comps = [acr.sub_activity
-                         for acr in self.subject_activity.sub_activities]
-        if len(current_comps) == 1:
-            self.clear_activities_action.setDisabled(True)
-        if act in current_comps:
-            self.undo_action.setDisabled(False)
-            self.serialize_deleted(act=act)
-            self.delete_children(act=act)
-            self.deleted_acts.append(self.temp_serialized)
-            self.temp_serialized = []
+        current_subacts = [acr.sub_activity
+                           for acr in self.subject_activity.sub_activities]
+        # NOTE: not sure what the purpose of this was ...
+        # if len(act.sub_activities) == 1:
+            # self.clear_activities_action.setEnabled(False)
+        if act in current_subacts:
+            self.undo_action.setEnabled(True)
+            self.deleted_acts.append(self.serialize_act_rels(act))
+            orb.delete([act] + act.where_occurs + act.sub_activities)
             dispatcher.send("removed activity",
-                            parent_act=self.subject_activity,
+                            composite_activity=self.subject_activity,
                             act_of=self.act_of, position=self.position)
+        else:
+            # if activity is not in the current diagram, ignore
+            return
         self.scene = self.set_new_scene()
         self.update_view()
         # self.update()
         if oid == subj_oid:
             self.setEnabled(False)
 
-    def serialize_deleted(self, act=None):
+    def serialize_act_rels(self, act):
         """
-        Serialize the target activity and its children.
+        Serialize an activity and all ActCompRel relationships in which it
+        occurs, to use for "undo".
 
-        Keyword Args:
-            act (Activity) -- target activity
+        Args:
+            act (Activity): target activity
         """
-        if len(act.sub_activities) <= 0:
-            serialized_act = serialize(orb, [act, act.where_occurs[0]],
-                                       include_sub_activities=True)
-            self.temp_serialized.extend(serialized_act)
-        elif len(act.sub_activities) > 0:
-            for acr in act.sub_activities:
-                self.serialize_deleted(act=acr.sub_activity)
-            serialized_act = serialize(orb, [act, act.where_occurs[0]],
-                                       include_sub_activities=True)
-            self.temp_serialized.extend(serialized_act)
+        # if len(act.sub_activities) <= 0:
+            # serialized_act = serialize(orb, [act, act.where_occurs[0]],
+                                       # include_sub_activities=True)
+            # self.temp_serialized.extend(serialized_act)
+        # elif len(act.sub_activities) > 0:
+            # for acr in act.sub_activities:
+                # self.serialize_act_rels(act=acr.sub_activity)
+            # serialized_act = serialize(orb, [act, act.where_occurs[0]],
+                                       # include_sub_activities=True)
+        return serialize(orb, [act] + act.where_occurs + act.sub_activities)
 
     def delete_children(self, act=None):
         """
@@ -607,15 +613,16 @@ class TimelineWidget(QWidget):
         children = [acr.sub_activity
                     for acr in self.subject_activity.sub_activities]
         for child in children:
-            self.undo_action.setDisabled(False)
-            self.serialize_deleted(act=child)
+            self.serialize_act_rels(child)
             self.delete_children(act=child)
+        self.undo_action.setEnabled(True)
         self.deleted_acts.append(self.temp_serialized)
         self.temp_serialized = []
         self.scene = self.set_new_scene()
         self.update_view()
         self.clear_activities_action.setDisabled(True)
-        dispatcher.send("cleared activities", parent_act=self.subject_activity,
+        dispatcher.send("cleared activities",
+                        composite_activity=self.subject_activity,
                         act_of=self.act_of, position=self.position)
 
     def sceneScaleChanged(self, percentscale):
@@ -637,13 +644,14 @@ class TimelineWidget(QWidget):
 
     def undo(self):
         try:
-            objs = self.deleted_acts.pop()
+            del_acts = self.deleted_acts.pop()
             if len(self.deleted_acts) == 0:
                 self.undo_action.setDisabled(True)
-            deserialize(orb, objs)
+            deserialize(orb, del_acts)
             self.scene = self.set_new_scene()
             self.update_view()
-            dispatcher.send("new activity", parent_act=self.subject_activity,
+            dispatcher.send("new activity",
+                            composite_activity=self.subject_activity,
                             position=self.position)
         except:
             pass
@@ -849,37 +857,33 @@ class ConOpsModeler(QMainWindow):
         # self.preferred_size = preferred_size
         # self.model_files = {}
         project = orb.get(state.get('project'))
-        if project.systems:
-            mission = None
-            for psu in project.systems:
-                mission = orb.select('Mission', activity_of=psu.system)
-                if mission:
-                    break
-            if not mission:
-                mission_id = '_'.join([project.id, 'mission'])
-                mission_name = ' '.join([project.name, 'Mission'])
-                mission = clone('Mission', id=mission_id, name=mission_name)
-                orb.save([mission])
-                dispatcher.send("new object", obj=mission)
-            self.subject_activity = mission
-        else:
-            self.subject_activity = clone("Activity", id="temp", name="temp")
-        self.project = project
-        self.system = None
-        psus = project.systems
+        mission = None
         self.system_list = []
-        if psus:
-            for p in psus:
-                self.system_list.append(p.system)
+        if project.systems:
+            for psu in project.systems:
+                self.system_list.append(psu.system)
         if self.system_list:
             self.system = self.system_list[0]
+            mission = orb.select('Mission', activity_of=self.system)
+            self.subject_activity = mission
+            if not mission:
+                message = "This project has no mission defined; defining one."
+                popup = QMessageBox(
+                            QMessageBox.Warning,
+                            "No mission", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                mission_id = '_'.join([project.id, 'mission'])
+                mission_name = ' '.join([project.name, 'Mission'])
+                mission = clone('Mission', id=mission_id, name=mission_name,
+                                activity_of=self.system)
+                orb.save([mission])
+                # dispatcher.send("new object", obj=mission)
+            self.subject_activity = mission
         else:
-            message = "This project has no systems defined."
-            popup = QMessageBox(
-                        QMessageBox.Warning,
-                        "No system", message,
-                        QMessageBox.Ok, self)
-            popup.show()
+            self.system = None
+            self.subject_activity = clone("Activity", id="temp", name="temp")
+        self.project = project
         self.create_library()
         self._init_ui()
         self.init_toolbar()
