@@ -7,9 +7,8 @@ from PyQt5 import QtGui
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDialogButtonBox,
                              QFormLayout, QHBoxLayout, QLabel, QLineEdit,
-                             QFrame, QMenu, QMessageBox, QPlainTextEdit,
-                             QPushButton, QRadioButton, QVBoxLayout, QWizard,
-                             QWizardPage)
+                             QFrame, QMessageBox, QPlainTextEdit, QPushButton,
+                             QRadioButton, QVBoxLayout, QWizard, QWizardPage)
 
 from louie import dispatcher
 
@@ -144,20 +143,19 @@ class ReqWizard(QWizard):
                 'description',
                 'rationale',
                 'req_constraint_type',
-                'req_epilog',
+                'req_object',
                 'req_level',
                 'req_maximum_value',
                 'req_minimum_value',
-                'req_min_max_phrase',
-                # 'req_predicate',  -- generated
+                'req_predicate',
                 'req_shall_phrase',
-                # 'req_subject',    -- generated
+                'req_subject',
                 'req_target_value',
                 'req_tolerance',
                 'req_tolerance_lower',
                 'req_tolerance_type',
                 'req_tolerance_upper',
-                'req_units',        # units for performance values
+                'req_units',
                 'validated',
                 'verification_method'
                 ]:
@@ -192,7 +190,7 @@ class ReqWizard(QWizard):
             self.addPage(RequirementIDPage(self))
             self.addPage(ReqAllocPage(self))
             self.addPage(PerformanceDefineParmPage(self))
-            self.addPage(PerformReqBuildShallPage(self))
+            self.addPage(PerformReqShallPage(self))
             # TODO: make PerformanceMarginCalcPage useful ...
             # self.addPage(PerformanceMarginCalcPage(self))
             self.addPage(ReqVerificationPage(self))
@@ -635,11 +633,10 @@ class ReqSummaryPage(QWizardPage):
         self.req.req_tolerance = req_wizard_state.get('req_tolerance')
         self.req.req_tolerance_lower = req_wizard_state.get('req_tolerance_lower')
         self.req.req_tolerance_upper = req_wizard_state.get('req_tolerance_upper')
-        self.req.req_min_max_phrase = req_wizard_state.get('req_min_max_phrase')
         self.req.req_shall_phrase = req_wizard_state.get('req_shall_phrase')
         self.req.req_subject = req_wizard_state.get('req_subject')
         self.req.req_predicate = req_wizard_state.get('req_predicate')
-        self.req.req_epilog = req_wizard_state.get('req_epilog')
+        self.req.req_object = req_wizard_state.get('req_object')
         self.req.mod_datetime = dtstamp()
         self.req.modifier = orb.get(state.get('local_user_oid'))
         orb.save([self.req])
@@ -650,7 +647,7 @@ class ReqSummaryPage(QWizardPage):
 # Performance Requirement Pages
 ###############################
 
-# Includes PerformanceDefineParm, desciption add/preview page, margin
+# Includes PerformanceDefineParmPage, description add/preview page, margin
 # calculation.
 
 class PerformanceDefineParmPage(QWizardPage):
@@ -691,7 +688,7 @@ class PerformanceDefineParmPage(QWizardPage):
                                          draggable=False, parent=self)
         self.parm_list.setSelectionBehavior(LibraryListView.SelectRows)
         self.parm_list.setSelectionMode(LibraryListView.SingleSelection)
-        self.parm_list.doubleClicked.connect(self.on_select_parm)
+        self.parm_list.clicked.connect(self.on_select_parm)
         self.parm_layout.addWidget(self.parm_list)
 
         # vertical line that will be used as a spacer between parameter
@@ -763,14 +760,14 @@ class PerformanceDefineParmPage(QWizardPage):
         # check if we received an existing requirement with a parameter ...
         # if so, select it and call on_select_parm()
         rel = orb.get(req_wizard_state.get('computable_form_oid'))
-        pd = None
+        self.pd = None
         if rel:
             parm_rels = rel.correlates_parameters
             if parm_rels:
-                pd = parm_rels[0].correlates_parameter
-        if pd and pd in self.parm_list.model().objs:
-            req_wizard_state['req_parameter'] = pd.id
-            row = self.parm_list.model().objs.index(pd)
+                self.pd = parm_rels[0].correlates_parameter
+        if self.pd and self.pd in self.parm_list.model().objs:
+            req_wizard_state['req_parameter'] = self.pd.id
+            row = self.parm_list.model().objs.index(self.pd)
             i = self.parm_list.model().index(row, 0)
             self.parm_list.setCurrentIndex(i)
             self.on_select_parm(i)
@@ -787,43 +784,12 @@ class PerformanceDefineParmPage(QWizardPage):
             self.parm_pgxnobj = None
         if len(self.parm_list.selectedIndexes()) == 1:
             i = self.parm_list.selectedIndexes()[0].row()
-            pd = self.parm_list.model().objs[i]
-            orb.log.info('* on_select_parm:  {}'.format(pd.id))
-            # a pd has been selected; create a ParameterRelation instance that
-            # points to a Relation ('referenced_relation') and for which the
-            # 'correlates_parameter' is the pd.  Set the Relation's oid as the
-            # req_wizard_state['computable_form_oid'] -- the Relation will be the
-            # Requirement's 'computable_form' attribute value.
-            # First, check for any existing Relation and ParameterRelation:
-            cf_oid = req_wizard_state.get('computable_form_oid')
-            if cf_oid:
-                # if any are found, destroy them ...
-                cf = orb.get(cf_oid)
-                if cf:
-                    if cf.correlates_parameters:
-                        for pr in cf.correlates_parameters:
-                            orb.delete([pr])
-                    orb.delete([cf])
-            relid = self.req.id + '_computable_form'
-            relname = self.req.name + ' Computable Form'
-            rel = clone("Relation", id=relid, name=relname,
-                        owner=self.project, public=True)
-            # set Relation as requirement's 'computable_form'
-            self.req.computable_form = rel
-            prid = self.req.id + '_parm_rel'
-            prname = self.req.name + ' Parameter Relation'
-            pr = clone("ParameterRelation", id=prid, name=prname,
-                       correlates_parameter=pd, referenced_relation=rel,
-                       owner=self.project, public=True)
-            # req_wizard_state['pr_oid'] = pr.oid
-            req_wizard_state['computable_form_oid'] = rel.oid
-            req_wizard_state['req_parameter'] = pd.id
-            orb.save([self.req])  # also commits the rel and pr objects to db
-            dispatcher.send(signal='modified object', obj=self.req)
+            self.pd = self.parm_list.model().objs[i]
+            orb.log.info('* on_select_parm:  {}'.format(self.pd.id))
             # display the selected ParameterDefinition...
             main_view = ['id', 'name', 'description']
             panels = ['main']
-            self.parm_pgxnobj = PgxnObject(pd, embedded=True,
+            self.parm_pgxnobj = PgxnObject(self.pd, embedded=True,
                                    panels=panels, main_view=main_view,
                                    edit_mode=False, enable_delete=False)
             self.parm_pgxnobj.toolbar.hide()
@@ -851,19 +817,59 @@ class PerformanceDefineParmPage(QWizardPage):
         else:
             self.single_cb.setDisabled(True)
 
+    def ValidatePage(self):
+        """
+        Method called when the Next button is clicked.  Here we are using it to
+        do db-intensive stuff.
+        """
+        # a pd has been selected; create a ParameterRelation instance that
+        # points to a Relation ('referenced_relation') and for which the
+        # 'correlates_parameter' is the pd.  Set the Relation's oid as the
+        # req_wizard_state['computable_form_oid'] -- the Relation will be the
+        # Requirement's 'computable_form' attribute value.
+        # First, check for any existing Relation and ParameterRelation:
+        cf_oid = req_wizard_state.get('computable_form_oid')
+        if cf_oid:
+            # if any are found, destroy them ...
+            cf = orb.get(cf_oid)
+            if cf:
+                if cf.correlates_parameters:
+                    for pr in cf.correlates_parameters:
+                        orb.delete([pr])
+                orb.delete([cf])
+        relid = self.req.id + '_computable_form'
+        relname = self.req.name + ' Computable Form'
+        rel = clone("Relation", id=relid, name=relname,
+                    owner=self.project, public=True)
+        # set Relation as requirement's 'computable_form'
+        self.req.computable_form = rel
+        prid = self.req.id + '_parm_rel'
+        prname = self.req.name + ' Parameter Relation'
+        pr = clone("ParameterRelation", id=prid, name=prname,
+                   correlates_parameter=self.pd, referenced_relation=rel,
+                   owner=self.project, public=True)
+        # req_wizard_state['pr_oid'] = pr.oid
+        req_wizard_state['computable_form_oid'] = rel.oid
+        req_wizard_state['req_parameter'] = self.pd.id
+        orb.save([self.req])  # also commits the rel and pr objects to db
+        dispatcher.send(signal='modified object', obj=self.req)
+
     def isComplete(self):
         """
         Check if both dimension and type have been specified
         """
-        if (not req_wizard_state.get('computable_form_oid')
-            or not req_wizard_state.get('req_constraint_type')):
-            return False
-        return True
+        # if (not req_wizard_state.get('computable_form_oid')
+            # or not req_wizard_state.get('req_constraint_type')):
+            # return False
+        if (getattr(self, 'pd', None) and
+            req_wizard_state.get('req_constraint_type')):
+            return True
+        return False
 
 
-class PerformReqBuildShallPage(QWizardPage):
+class PerformReqShallPage(QWizardPage):
     """
-    Build the "shall statement" (Requirement.description) and fill in the
+    Finalize the "shall statement" (Requirement.description) and fill in the
     rationale.
     """
 
@@ -880,20 +886,7 @@ class PerformReqBuildShallPage(QWizardPage):
             self.allocation_label.hide()
             self.shall_hbox_top.removeWidget(self.allocation_label)
             self.allocation_label.parent = None
-            self.subject_field.hide()
-            self.shall_hbox_top.removeWidget(self.subject_field)
-            self.subject_field.parent = None
-            self.shall_cb.hide()
-            self.shall_hbox_top.removeWidget(self.shall_cb)
-            self.shall_cb.parent = None
             # remove from middle hbox
-            self.predicate_field.hide()
-            self.shall_hbox_middle.removeWidget(self.predicate_field)
-            self.predicate_field.parent = None
-            if getattr(self, 'min_max_cb', None):
-                self.min_max_cb.hide()
-                self.shall_hbox_middle.removeWidget(self.min_max_cb)
-                self.min_max_cb.parent = None
             if getattr(self, 'target_value', None):
                 self.target_value.hide()
                 self.shall_hbox_middle.removeWidget(self.target_value)
@@ -952,9 +945,6 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.shall_hbox_middle.removeWidget(self.units)
                 self.units.parent = None
             # remove from bottom hbox
-            self.epilog_field.hide()
-            self.shall_hbox_bottom.removeWidget(self.epilog_field)
-            self.epilog_field.parent = None
 
             self.shall_vbox.removeItem(self.shall_hbox_top)
             self.shall_hbox_top.parent = None
@@ -962,8 +952,8 @@ class PerformReqBuildShallPage(QWizardPage):
             self.shall_hbox_middle.parent = None
             self.shall_vbox.removeItem(self.shall_hbox_bottom)
             self.shall_hbox_bottom.parent = None
-            layout.removeItem(self.inst_form)
-            self.inst_form.parent = None
+            layout.removeItem(self.instructions_form)
+            self.instructions_form.parent = None
             self.line_top.hide()
             layout.removeWidget(self.line_top)
             self.line_top.parent = None
@@ -989,74 +979,47 @@ class PerformReqBuildShallPage(QWizardPage):
             layout.removeItem(self.preview_form)
             self.preview_form.parent = None
 
-        self.setTitle('Shall Construction and Rationale')
-        self.setSubTitle('Construct the "shall statement" using the '
-                         'instructions below, and then provide the '
+        self.setTitle('Shall Statement and Rationale')
+        self.setSubTitle('Inspect the "shall statement" and provide the '
                          'requirements rationale ...')
 
         # different shall cb options
-        shall_options = ['shall', 'shall be', 'shall have']
-        max_options = ['less than', 'not exceed', 'at most', 'maximum of']
-        min_options = ['greater than', 'more than', 'at least', 'minimum of']
+        max_text = 'shall not exceed'
+        min_text = 'shall not be less than'
 
         # button with label to access instructions
         inst_button = QPushButton('Instructions')
         inst_button.clicked.connect(self.instructions)
         inst_button.setMaximumSize(150,35)
         inst_label = QLabel('View Instructions:')
-        self.inst_form = QFormLayout()
-        self.inst_form.addRow(inst_label, inst_button)
+        self.instructions_form = QFormLayout()
+        self.instructions_form.addRow(inst_label, inst_button)
 
-        # shall options combobox
-        self.shall_cb = QComboBox()
-        for opt in shall_options:
-            self.shall_cb.addItem(opt)
-        self.shall_cb.setMaximumSize(120, 25)
-        shall_phrase = req_wizard_state.get('req_shall_phrase')
-        if shall_phrase in shall_options:
-            self.shall_cb.setCurrentIndex(shall_options.index(shall_phrase))
-        self.shall_cb.currentIndexChanged.connect(self.set_shall_phrase)
-
-        min_max_cb_options = None
-        self.min_max_cb = None
         # gets the type from the previous page, says if the type is max, min,
         # single, or range value(s)
         constraint_type = req_wizard_state.get('req_constraint_type')
         # if constraint_type is 'minimum' or 'maximum', set up min-max combo
         double_validator = QtGui.QDoubleValidator()
-        if constraint_type in ['maximum', 'minimum']:
-            if constraint_type == 'maximum':
-                min_max_cb_options = max_options
-                self.maximum_value = QLineEdit()
-                self.maximum_value.setValidator(double_validator)
-                self.maximum_value.setMaximumSize(75, 25)
-                maximum_value = req_wizard_state.get('req_maximum_value', '')
-                if maximum_value:
-                    self.maximum_value.setText(str(maximum_value))
-                else:
-                    self.maximum_value.setPlaceholderText('maximum')
-                self.maximum_value.textChanged.connect(self.num_entered)
-            elif constraint_type == 'minimum':
-                min_max_cb_options = min_options
-                self.minimum_value = QLineEdit()
-                self.minimum_value.setValidator(double_validator)
-                self.minimum_value.setMaximumSize(75, 25)
-                minimum_value = req_wizard_state.get('req_minimum_value', '')
-                if minimum_value:
-                    self.minimum_value.setText(str(minimum_value))
-                else:
-                    self.minimum_value.setPlaceholderText('minimum')
-                self.minimum_value.textChanged.connect(self.num_entered)
-            self.min_max_cb = QComboBox()
-            for opt in min_max_cb_options:
-                self.min_max_cb.addItem(opt)
-            min_max_phrase = req_wizard_state.get('req_min_max_phrase')
-            if min_max_phrase in min_max_cb_options:
-                self.min_max_cb.setCurrentIndex(
-                                    min_max_cb_options.index(min_max_phrase))
-            self.min_max_cb.currentIndexChanged.connect(
-                                    self.set_min_max_phrase)
-            self.min_max_cb.setMaximumSize(150,25)
+        if constraint_type == 'maximum':
+            self.maximum_value = QLineEdit()
+            self.maximum_value.setValidator(double_validator)
+            self.maximum_value.setMaximumSize(75, 25)
+            maximum_value = req_wizard_state.get('req_maximum_value', '')
+            if maximum_value:
+                self.maximum_value.setText(str(maximum_value))
+            else:
+                self.maximum_value.setPlaceholderText('maximum')
+            self.maximum_value.textChanged.connect(self.num_entered)
+        elif constraint_type == 'minimum':
+            self.minimum_value = QLineEdit()
+            self.minimum_value.setValidator(double_validator)
+            self.minimum_value.setMaximumSize(75, 25)
+            minimum_value = req_wizard_state.get('req_minimum_value', '')
+            if minimum_value:
+                self.minimum_value.setText(str(minimum_value))
+            else:
+                self.minimum_value.setPlaceholderText('minimum')
+            self.minimum_value.textChanged.connect(self.num_entered)
 
         allocated_item = '[unallocated]'
         acu = self.req.allocated_to_function
@@ -1072,11 +1035,6 @@ class PerformReqBuildShallPage(QWizardPage):
             if pd_dict:
                 parm_name = pd_dict['name']
         alloc_parm = ' '.join([allocated_item, parm_name])
-        # premade labels text (non-editable labels)
-        # self.allocation_label = QComboBox()
-        # self.allocation_label.addItem(allocated_item)
-        # self.allocation_label.addItem("The " + allocated_item)
-        # self.allocation_label.setMaximumSize(175,25)
         self.allocation_label = ValueLabel(alloc_parm)
 
         # line edit(s) for number entry
@@ -1180,9 +1138,6 @@ class PerformReqBuildShallPage(QWizardPage):
         self.units.currentTextChanged.connect(self.on_set_units)
         # labels for the overall groups for organization of the page
         shall_label = QLabel('Shall Statement:')
-        add_comp_label = QLabel('Additional Shall Statement'
-                                            ' Components: ')
-        add_comp_label.setMaximumSize(300,25)
         self.rationale_label = QLabel('Rationale: ')
 
         # lines for spacers inside the widget.
@@ -1198,30 +1153,15 @@ class PerformReqBuildShallPage(QWizardPage):
         self.rationale_field.setPlainText(
                                     req_wizard_state.get('rationale', ''))
 
-        # optional text components of the shall statement (description)
-        self.subject_field = QLineEdit()
+        # text components of the shall statement (description),
+        # req_subject, req_predicate, and req_object, are always generated
         subject = req_wizard_state.get('req_subject')
-        if subject:
-            self.subject_field.setReadOnly(False)
-            self.subject_field.setText(subject)
-        else:
-            self.subject_field.setReadOnly(True)
-        self.predicate_field = QLineEdit()
         predicate = req_wizard_state.get('req_predicate')
-        if predicate:
-            self.predicate_field.setReadOnly(False)
-            self.predicate_field.setText(predicate)
-        else:
-            self.predicate_field.setReadOnly(True)
-        self.epilog_field = QLineEdit()
-        epilog = req_wizard_state.get('req_epilog')
-        if epilog:
-            self.epilog_field.setReadOnly(False)
-            self.epilog_field.setText(epilog)
-        else:
-            self.epilog_field.setReadOnly(True)
-        text_boxes = [self.subject_field, self.predicate_field,
-                      self.epilog_field]
+        # "shall_subj_predicate" is the first part of the shall statement
+        # (description), up to the "object", which may be a max or min value, a
+        # range (max, min) or a target with tolerance
+        shall_subj_predicate = subject + ' ' + predicate
+        shall_subj_predicate_label = ValueLabel(shall_subj_predicate)
 
         # fill sub layouts
         self.shall_hbox_top = QHBoxLayout()
@@ -1231,14 +1171,8 @@ class PerformReqBuildShallPage(QWizardPage):
         self.shall_vbox = QVBoxLayout()
 
         # fill grid
-        self.shall_hbox_top.addWidget(self.allocation_label)
-        self.shall_hbox_top.addWidget(self.subject_field)
-        self.shall_hbox_top.addWidget(self.shall_cb)
-        self.shall_hbox_middle.addWidget(self.predicate_field)
-        # if self.min_max_cb tests True, then it is a maximum or a minumum;
-        # otherwise it is a single value or a range
-        if getattr(self, 'min_max_cb', None):
-            self.shall_hbox_middle.addWidget(self.min_max_cb)
+        # self.shall_hbox_top.addWidget(self.allocation_label)
+        if constraint_type in ['maximum', 'minimum']:
             if self.minimum_value:
                 self.shall_hbox_middle.addWidget(self.minimum_value)
             elif self.maximum_value:
@@ -1263,15 +1197,6 @@ class PerformReqBuildShallPage(QWizardPage):
                 self.shall_hbox_middle.addWidget(self.range_label)
                 self.shall_hbox_middle.addWidget(self.maximum_value)
                 self.shall_hbox_middle.addWidget(self.units)
-
-        self.shall_hbox_bottom.addWidget(self.epilog_field)
-
-        for box in text_boxes:
-            box.setStyleSheet("QLineEdit {background-color: #EEEEEE}")
-            box.setContextMenuPolicy(Qt.CustomContextMenu)
-            box.customContextMenuRequested.connect(self.contextMenu)
-            box.setPlaceholderText("right click to add text")
-            # box.textChanged.connect(self.completeChanged)
 
         # fill vbox
         self.shall_vbox.addWidget(shall_label)
@@ -1299,18 +1224,12 @@ class PerformReqBuildShallPage(QWizardPage):
         self.preview_form.addRow(self.preview_button)
 
         # fill the page, main layout
-        layout.addLayout(self.inst_form)
+        layout.addLayout(self.instructions_form)
         layout.addWidget(self.line_top)
         layout.addLayout(self.shall_vbox)
         layout.addWidget(self.line_bottom)
         layout.addLayout(self.rationale_layout)
         layout.addLayout(self.preview_form)
-
-    def set_shall_phrase(self):
-        req_wizard_state['req_shall_phrase'] = self.shall_cb.currentText()
-
-    def set_min_max_phrase(self):
-        req_wizard_state['req_min_max_phrase'] = self.min_max_cb.currentText()
 
     def num_entered(self):
         if self.target_value:
@@ -1360,18 +1279,6 @@ class PerformReqBuildShallPage(QWizardPage):
         new_units = str(self.units.currentText())
         orb.log.debug('  new units: "{}"'.format(new_units))
         req_wizard_state['req_units'] = new_units
-
-    def contextMenu(self, event):
-        self.selected_widget = self.sender()
-        if (hasattr(self.selected_widget, 'isReadOnly')
-            and self.selected_widget.isReadOnly()):
-            menu = QMenu(self)
-            menu.addAction("insert text", self.enableTextInsert)
-            menu.exec_(QtGui.QCursor.pos())
-        else:
-            menu = QMenu(self)
-            menu.addAction("do not insert text", self.disableTextInsert)
-            menu.exec_(QtGui.QCursor.pos())
 
     def enableTextInsert(self):
         self.selected_widget.setReadOnly(False)
@@ -1426,7 +1333,7 @@ class PerformReqBuildShallPage(QWizardPage):
                     shall_prev += w.text()
                 elif hasattr(w, 'isReadOnly') and not w.isReadOnly():
                     shall_prev += w.text()
-                if (w != self.epilog_field and w != self.units and
+                if (w != self.object_field and w != self.units and
                         w != self.minus_label and w != self.plus_label
                         and w != self.plus_minus_label):
                     shall_prev += ' '
@@ -1448,7 +1355,7 @@ class PerformReqBuildShallPage(QWizardPage):
         """
         # numbers are saved to state as they are typed ... text fields are
         # saved to state here (to avoid impact on user feel)
-        req_wizard_state['req_epilog'] = self.epilog_field.text()
+        req_wizard_state['req_object'] = self.object_field.text()
         description = ''
         items = []
         for i in range(self.shall_hbox_top.count()):
@@ -1478,9 +1385,6 @@ class PerformReqBuildShallPage(QWizardPage):
         description = ' '.join(description.split()) + '.'
         req_wizard_state['description'] = description
         req_wizard_state['req_subject'] = self.allocation_label.text()
-        quantifier = ''
-        if getattr(self, 'min_max_cb', None):
-            quantifier = self.min_max_cb.currentText()
         # predicate excludes the value + units, so that if description needs to
         # be regenerated, it can be assembled as
         #     req_subject + req_predicate
@@ -1488,7 +1392,7 @@ class PerformReqBuildShallPage(QWizardPage):
         #     + units
         req_wizard_state['req_predicate'] = ' '.join([
                             req_wizard_state.get('req_shall_phrase', '') or '',
-                            quantifier])
+                            'quantifier'])
         req_wizard_state['rationale'] = self.rationale_field.toPlainText()
         if not req_wizard_state.get('rationale'):
             return False

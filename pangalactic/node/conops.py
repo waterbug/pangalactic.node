@@ -148,9 +148,8 @@ class Timeline(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
         super().__init__(parent)
-
         self.item_list = []
-        self.path_length = 1500
+        self.path_length = 1000
         self.make_path()
         self.length = self.path.length()-2*self.circle_length
         self.num_of_item = len(scene.current_activity.sub_activities)
@@ -158,10 +157,10 @@ class Timeline(QGraphicsPathItem):
         self.current_positions = []
 
     def make_path(self):
-        self.path =  QPainterPath(QPointF(100,250))
-        self.path.arcTo(QRectF(0, 200 ,100,100), 0, 360)
+        self.path =  QPainterPath(QPointF(100, 250))
+        self.path.arcTo(QRectF(0, 200, 100, 100), 0, 360)
         self.circle_length = self.path.length()
-        self.path.arcTo(QRectF(self.path_length, 200, 100,100), 180, 360)
+        self.path.arcTo(QRectF(self.path_length, 200, 100, 100), 180, 360)
         self.setPath(self.path)
 
     def remove_item(self, item):
@@ -183,9 +182,14 @@ class Timeline(QGraphicsPathItem):
 
     def calc_length(self):
         if len(self.item_list) <= 5:
-            self.path_length = 1500
+            self.path_length = 1000
         else:
-            self.path_length = 1500 + (len(self.item_list)-5)*300
+            # adjust timeline length and rescale scene
+            delta = len(self.item_list) - 5
+            self.path_length = 1000 + (delta // 2) * 300
+            scale = 70 - (delta // 2) * 10
+            pscale = str(scale) + "%"
+            dispatcher.send("rescale timeline", percentscale=pscale)
 
     def make_point_list(self):
         self.length = self.path.length()-2*self.circle_length
@@ -227,8 +231,9 @@ class Timeline(QGraphicsPathItem):
                 dispatcher.send("modified activity", activity=acr.sub_activity)
                 # dispatcher.send("modified object", obj=acr.sub_activity)
         if not same:
+            act = self.scene().current_activity
             dispatcher.send("order changed",
-                            parent_act=self.scene().current_activity,
+                            composite_activity=act, act_of = act.activity_of,
                             position=self.scene().position)
         self.update()
 
@@ -245,6 +250,7 @@ class TimelineScene(QGraphicsScene):
         self.current_focus = None
         self.act_of = act_of
         self.grabbed_item = None
+
     def focus_changed_handler(self, new_item, old_item):
         if new_item is not None:
             if new_item != self.current_focus:
@@ -383,7 +389,7 @@ class TimelineWidget(QWidget):
         self.setLayout(self.layout)
         self.history = []
         # self.show_history()
-        self.sceneScaleChanged("50%")
+        self.sceneScaleChanged("70%")
         self.current_subsystem_index = 0
         self.temp_serialized = []
         self.deleted_acts = []
@@ -391,6 +397,7 @@ class TimelineWidget(QWidget):
         dispatcher.connect(self.delete_activity, "remove activity")
         dispatcher.connect(self.disable_widget, "cleared activities")
         dispatcher.connect(self.enable_clear, "new activity")
+        dispatcher.connect(self.on_rescale_timeline, "rescale timeline")
         self.setUpdatesEnabled(True)
 
     def enable_clear(self, act_of=None):
@@ -529,10 +536,10 @@ class TimelineWidget(QWidget):
                                     tip="plot")
         self.toolbar.addAction(self.plot_action)
         #create and add scene scale menu
+        self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
         self.scene_scale_select = QComboBox()
-        self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
-                                          "100%"])
-        self.scene_scale_select.setCurrentIndex(3)
+        self.scene_scale_select.addItems(self.scene_scales)
+        self.scene_scale_select.setCurrentIndex(5)
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
@@ -628,6 +635,13 @@ class TimelineWidget(QWidget):
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
         self.view.setTransform(QTransform().scale(newscale, newscale))
+
+    def on_rescale_timeline(self, percentscale=None):
+        if percentscale in self.scene_scales:
+            new_index = self.scene_scales.index(percentscale)
+            self.scene_scale_select.setCurrentIndex(new_index)
+        else:
+            orb.log.debug(f'* rescale factor {percentscale} unavailable')
 
     def go_back(self):
         try:
