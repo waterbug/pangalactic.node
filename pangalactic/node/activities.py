@@ -115,9 +115,8 @@ class ActivityTable(QWidget):
         self.statusbar = QStatusBar()
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
-        self.title = NameLabel('Timeline Details')
-        self.title.setStyleSheet(
-            'font-weight: bold; font-size: 18px; color: purple')
+        self.title = NameLabel(self.get_title())
+        self.title.setStyleSheet('font-weight: bold; font-size: 14px')
         self.main_layout.addWidget(self.title)
         self.sort_and_set_table(self.subject, self.act_of,
                                 position=self.position)
@@ -135,14 +134,30 @@ class ActivityTable(QWidget):
         dispatcher.connect(self.on_enable, 'enable widget')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
+    def get_title(self):
+        # try:
+        red_text = '<font color="red">{}</font>'
+        blue_text = '<font color="blue">{}</font>'
+        title = ''
+        txt = self.subject.name
+        if self.subject.activity_type:
+            txt += ' ' + self.subject_activity.activity_type.name
+        txt += ': '
+        title = red_text.format(txt)
+        if isinstance(self.act_of, orb.classes['Product']):
+            title += blue_text.format(self.act_of.name) + ' '
+        title += 'Activity Details'
+        return title
+
     def sort_and_set_table(self, activity=None, act_of=None, position=None):
         system_acts = []
-        if self.act_of is None:
+        if act_of is None:
             pass
         else:
             # cur_pt_id = getattr(self.act_of.product_type,'id','None')
             fail_txt = '* {} table: all_acrs sort failed.'
-            if position == 'middle' and self.act_of != 'spacecraft':
+            # if position == 'middle' and self.act_of != 'spacecraft':
+            if position == 'middle' and self.position == 'middle':
                 for acr in activity.sub_activities:
                     if self.act_of == acr.sub_activity.activity_of:
                         system_acts.append(acr)
@@ -154,7 +169,7 @@ class ActivityTable(QWidget):
                     orb.log.debug(fail_txt.format(self.position))
                 activities = [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
                 self.set_table(activities)
-            elif position == 'top':   # and 'spacecraft' in cur_pt_id:
+            elif position == 'top' and self.position == 'top':
                 activity = self.subject
                 for acr in activity.sub_activities:
                     if self.act_of == getattr(acr.sub_activity, 'activity_of',
@@ -265,29 +280,24 @@ class ActivityTable(QWidget):
         self.statusbar.showMessage("Activities Cleared!")
         self.sort_and_set_table(activity=composite_activity, position=position)
 
-    def on_subsystem_changed(self, composite_activity=None, act_of=None):
-        if self.position == 'middle':
+    def on_subsystem_changed(self, act=None, act_of=None, position=None):
+        if self.position == 'top':
+            self.sort_and_set_table(activity=self.act,
+                                    act_of=self.act_of,
+                                    position=self.position)
+        if position == 'middle':
             self.statusbar.showMessage("Subsystem Changed!")
-        if self.position == 'middle' or self.position == 'bottom':
+        if self.position == 'middle':
             self.setDisabled(False)
-            if self.act_of is None:
-                self.act_of = act_of
-            else:
-                pt_id = getattr(self.act_of.product_type,'id','None')
-                if pt_id  == 'spacecraft':
-                    # print("ITS THE SPACECRAFT!")
-                    pass
-                else:
-                    self.act_of = act_of
-                    self.sort_and_set_table(activity=composite_activity,
-                                            act_of=act_of,
-                                            position=self.position)
+            self.act_of = act_of
+            self.sort_and_set_table(activity=act,
+                                    act_of=act_of,
+                                    position=position)
 
     def on_focused_changed(self, obj=None):
         if self.position == 'top':
             self.statusbar.showMessage("New Activity Selected!")
-        elif ((self.position == 'middle') and
-              (obj.activity_of.product_type.id == 'spacecraft')):
+        elif self.position == 'middle':
             self.statusbar.showMessage("Table Refreshed!")
             self.sort_and_set_table(activity=obj, position=self.position)
 
@@ -484,7 +494,7 @@ class ParameterTable(QWidget):
         self.sort_and_set_table(activity=composite_activity,
                                 position=position)
 
-    def on_subsystem_changed(self, composite_activity=None, act_of=None):
+    def on_subsystem_changed(self, act=None, act_of=None, position=None):
         self.setDisabled(False)
         if self.act_of is None:
             self.act_of = act_of
@@ -495,8 +505,7 @@ class ParameterTable(QWidget):
                 pass
             else:
                 self.act_of = act_of
-                self.sort_and_set_table(activity=composite_activity,
-                                        act_of=act_of)
+                self.sort_and_set_table(activity=act, act_of=act_of)
 
     def on_focused_changed(self, obj=None):
         self.act_of = obj.activity_of

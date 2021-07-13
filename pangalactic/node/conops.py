@@ -819,7 +819,7 @@ class TimelineWidget(QWidget):
                     self.scene = self.set_new_scene()
                     self.update_view()
                 dispatcher.send("changed subsystem",
-                                parent_act=self.subject_activity,
+                                act=self.subject_activity,
                                 act_of=self.act_of,
                                 position=self.position)
             except:
