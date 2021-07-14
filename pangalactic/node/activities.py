@@ -115,7 +115,10 @@ class ActivityTable(QWidget):
         self.statusbar = QStatusBar()
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
-        self.main_layout.addWidget(self.title)
+        self.title_widget = NameLabel('')
+        self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
+        self.main_layout.addWidget(self.title_widget)
+        self.set_title_text()
         self.set_table()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
@@ -132,8 +135,9 @@ class ActivityTable(QWidget):
         dispatcher.connect(self.on_enable, 'enable widget')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
-    @property
-    def title(self):
+    def set_title_text(self):
+        if not hasattr(self, 'title_widget'):
+            return
         red_text = '<font color="red">{}</font>'
         blue_text = '<font color="blue">{}</font>'
         title_txt = ''
@@ -151,9 +155,7 @@ class ActivityTable(QWidget):
         elif self.position == "middle":
             title_txt += red_text.format(self.subject.name)
             title_txt += ' Details'
-        title_widget = NameLabel(title_txt)
-        title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
-        return title_widget
+        self.title_widget.setText(title_txt)
 
     @property
     def activities(self):
@@ -218,7 +220,10 @@ class ActivityTable(QWidget):
     def on_activity_edited(self, activity=None):
         txt = '* {} table: on_activity_edited()'
         orb.log.debug(txt.format(self.position))
-        self.set_table()
+        if getattr(activity, 'oid', None) == self.subject.oid:
+            self.set_title_text()
+        elif activity in self.activities:
+            self.set_table()
 
     def on_activity_remote_mod(self, activity=None):
         txt = '* {} table: on_activity_remote_mod()'
@@ -285,6 +290,7 @@ class ActivityTable(QWidget):
         elif self.position == 'middle':
             self.statusbar.showMessage("Table Refreshed")
             self.subject = act
+            self.set_title_text()
             self.set_table()
 
     def on_disable(self):

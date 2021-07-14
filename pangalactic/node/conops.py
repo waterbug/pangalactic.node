@@ -83,6 +83,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.setPolygon(self.myPolygon)
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
                                       self, point_size=8)
+        dispatcher.connect(self.on_activity_edited, 'activity edited')
 
     def id_changed_handler(self, activity=None):
         try:
@@ -92,6 +93,12 @@ class EventBlock(QGraphicsPolygonItem):
                             position=self.scene().position)
         except:
             pass
+
+    def on_activity_edited(self, activity=None):
+        act_oid = getattr(activity, 'oid', None)
+        if act_oid == self.activity.oid:
+            self.block_label.set_text(getattr(self.activity, 'name',
+                                      'No Name') or 'No Name')
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
@@ -253,10 +260,10 @@ class TimelineScene(QGraphicsScene):
         self.grabbed_item = None
 
     def focus_changed_handler(self, new_item, old_item):
-        if new_item is not None:
-            if new_item != self.current_focus:
-                dispatcher.send("activity focused",
-                                act=self.focusItem().activity)
+        if (self.position == "top" and
+            new_item is not None and
+            new_item != self.current_focus):
+            dispatcher.send("activity focused", act=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
         super().mousePressEvent(mouseEvent)
@@ -398,6 +405,7 @@ class TimelineWidget(QWidget):
         dispatcher.connect(self.delete_activity, "remove activity")
         dispatcher.connect(self.disable_widget, "cleared activities")
         dispatcher.connect(self.enable_clear, "new activity")
+        dispatcher.connect(self.on_activity_edited, 'activity edited')
         dispatcher.connect(self.on_rescale_timeline, "rescale timeline")
         self.setUpdatesEnabled(True)
 
@@ -466,7 +474,7 @@ class TimelineWidget(QWidget):
         """
         if self.act_of is not None:
             scene = TimelineScene(self, self.subject_activity,
-                                 act_of=self.act_of, position=self.position)
+                                  act_of=self.act_of, position=self.position)
             if (self.subject_activity != None and
                 len(self.subject_activity.sub_activities) > 0):
                 all_acrs = [(acr.sub_activity_role, acr)
@@ -643,6 +651,12 @@ class TimelineWidget(QWidget):
             self.scene_scale_select.setCurrentIndex(new_index)
         else:
             orb.log.debug(f'* rescale factor {percentscale} unavailable')
+
+    def on_activity_edited(self, activity=None):
+        if activity == self.subject_activity:
+            self.set_title()
+        elif activity.activity_of == self.act_of:
+            self.update_view()
 
     def go_back(self):
         try:
