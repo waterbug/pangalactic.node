@@ -115,105 +115,92 @@ class ActivityTable(QWidget):
         self.statusbar = QStatusBar()
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
-        self.title = NameLabel(self.get_title())
-        self.title.setStyleSheet('font-weight: bold; font-size: 14px')
         self.main_layout.addWidget(self.title)
-        self.sort_and_set_table(self.subject, self.act_of,
-                                position=self.position)
+        self.set_table()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         dispatcher.connect(self.on_activity_added, 'new activity')
-        dispatcher.connect(self.on_activity_modified, 'modified activity')
+        dispatcher.connect(self.on_activity_edited, 'activity edited')
+        dispatcher.connect(self.on_activity_remote_mod, 'activity remote mod')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
-        dispatcher.connect(self.on_focused_changed, 'activity focused')
+        dispatcher.connect(self.on_activity_focused, 'activity focused')
         dispatcher.connect(self.on_disable, 'disable widget')
         dispatcher.connect(self.on_enable, 'enable widget')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
-    def get_title(self):
-        # try:
+    @property
+    def title(self):
         red_text = '<font color="red">{}</font>'
         blue_text = '<font color="blue">{}</font>'
-        title = ''
-        txt = self.subject.name
-        if self.subject.activity_type:
-            txt += ' ' + self.subject_activity.activity_type.name
-        txt += ': '
-        title = red_text.format(txt)
-        if isinstance(self.act_of, orb.classes['Product']):
-            title += blue_text.format(self.act_of.name) + ' '
-        title += 'Activity Details'
-        return title
+        title_txt = ''
+        if self.position == "top":
+            txt = self.subject.name
+            if self.subject.activity_type:
+                txt += ' ' + self.subject_activity.activity_type.name
+            txt += ': '
+            title_txt = red_text.format(txt)
+        # if isinstance(self.act_of, orb.classes['Product']):
+        sys_name = getattr(self.act_of, 'name', '')
+        title_txt += blue_text.format(sys_name) + ' '
+        if self.position == "top":
+            title_txt += 'Activity Details'
+        elif self.position == "middle":
+            title_txt += red_text.format(self.subject.name)
+            title_txt += ' Details'
+        title_widget = NameLabel(title_txt)
+        title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
+        return title_widget
 
-    def sort_and_set_table(self, activity=None, act_of=None, position=None):
-        system_acts = []
-        if act_of is None:
-            pass
-        else:
-            # cur_pt_id = getattr(self.act_of.product_type,'id','None')
-            fail_txt = '* {} table: all_acrs sort failed.'
-            # if position == 'middle' and self.act_of != 'spacecraft':
-            if position == 'middle' and self.position == 'middle':
-                for acr in activity.sub_activities:
-                    if self.act_of == acr.sub_activity.activity_of:
-                        system_acts.append(acr)
-                all_acrs = [(acr.sub_activity_role, acr)
-                            for acr in system_acts]
-                try:
-                    all_acrs.sort()
-                except:
-                    orb.log.debug(fail_txt.format(self.position))
-                activities = [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
-                self.set_table(activities)
-            elif position == 'top' and self.position == 'top':
-                activity = self.subject
-                for acr in activity.sub_activities:
-                    if self.act_of == getattr(acr.sub_activity, 'activity_of',
-                                              None):
-                        system_acts.append(acr)
-                all_acrs = [(acr.sub_activity_role, acr)
-                            for acr in system_acts]
-                try:
-                    all_acrs.sort()
-                except:
-                    orb.log.debug(fail_txt.format(self.position))
-                activities = [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
-                self.set_table(activities)
+    @property
+    def activities(self):
+        """
+        The relevant sub-activities that the table will display, namely the
+        sub-activities of the "subject" activity which are activities of the
+        table's "act_of" Product.
+        """
+        subj = getattr(self, 'subject', None)
+        if not subj:
+            return []
+        system_acrs = []
+        for acr in subj.sub_activities:
+            if self.act_of == acr.sub_activity.activity_of:
+                system_acrs.append(acr)
+        all_acrs = [(acr.sub_activity_role, acr)
+                    for acr in system_acrs]
+        all_acrs.sort()
+        return [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
 
-    def set_table(self, objs):
+    def set_table(self):
         table_cols = ['id', 'name', 't_start', 'duration', 'description']
         table_headers = dict(id='ID', name='Name',
                            t_start='Start\nTime',
                            duration='Duration',
                            description='Description')
         od_list = []
-        for obj in objs:
+        for act in self.activities:
             obj_dict = OrderedDict()
             for col in table_cols:
                 if col in orb.schemas['Activity']['field_names']:
-                    attr_str = getattr(obj, col)
-                    if attr_str and len(attr_str) > 28:
-                        wrap(attr_str, width=28)
-                        attr_str = fill(attr_str, width=28)
-                    obj_dict[table_headers[col]] = attr_str
+                    str_val = getattr(act, col, '')
+                    if str_val and len(str_val) > 28:
+                        wrap(str_val, width=28)
+                        str_val = fill(str_val, width=28)
+                    obj_dict[table_headers[col]] = str_val
                 else:
-                    val = get_pval_as_str(obj.oid, col)
+                    val = get_pval_as_str(act.oid, col)
                     obj_dict[table_headers[col]] = val
             od_list.append(obj_dict)
-
         new_model = ODTableModel(od_list)
         new_table = QTableView()
         new_table.setModel(new_model)
-
         new_table.setSizePolicy(QSizePolicy.Preferred,
                                 QSizePolicy.Preferred)
         new_table.setAlternatingRowColors(True)
         new_table.resizeColumnsToContents()
-
         if getattr(self, 'table', None):
             self.main_layout.removeWidget(self.table)
             self.table.setAttribute(Qt.WA_DeleteOnClose)
@@ -228,8 +215,13 @@ class ActivityTable(QWidget):
             return QSize(*self.preferred_size)
         return QSize(600, 500)
 
-    def on_activity_modified(self, activity=None):
-        txt = '* {} table: on_activity_modified()'
+    def on_activity_edited(self, activity=None):
+        txt = '* {} table: on_activity_edited()'
+        orb.log.debug(txt.format(self.position))
+        self.set_table()
+
+    def on_activity_remote_mod(self, activity=None):
+        txt = '* {} table: on_activity_remote_mod()'
         orb.log.debug(txt.format(self.position))
         if activity and activity.where_occurs:
             composite_activity = getattr(activity.where_occurs[0],
@@ -245,61 +237,55 @@ class ActivityTable(QWidget):
         if self.position == position:
             if modified:
                 self.statusbar.showMessage('Activity Modified!')
-                orb.log.debug('  - activity modified!')
+                orb.log.debug('  - activity mod!')
             else:
                 self.statusbar.showMessage('Activity Added!')
                 orb.log.debug('  - activity added!')
-        self.sort_and_set_table(activity=composite_activity,
-                                act_of=act_of, position=position)
+        self.set_table()
 
     def on_activity_removed(self, composite_activity=None, act_of=None,
                             position=None):
         if self.position == position or self.position == 'bottom':
             self.statusbar.showMessage('Activity Removed!')
-            self.sort_and_set_table(activity=composite_activity, act_of=act_of,
-                                    position=position)
+            self.set_table()
 
     def on_order_changed(self, composite_activity=None, act_of=None, position=None):
         if self.position == position or self.position == 'bottom':
             self.statusbar.showMessage('Order Updated!')
-            self.sort_and_set_table(activity=composite_activity, act_of=act_of,
-                                    position=position)
+            self.set_table()
 
     def on_drill_down(self, obj=None, position=None):
         if self.position == 'middle':
             self.statusbar.showMessage("Drilled Down!")
-            self.sort_and_set_table(activity=obj, position=position)
+            self.set_table()
 
     def on_drill_up(self, obj=None, position=None):
         if self.position != 'middle':
             self.statusbar.showMessage("Drilled Up!")
-            self.sort_and_set_table(activity=obj, position=position)
+            self.set_table()
 
     def on_activities_cleared(self, composite_activity=None, position=None):
         # if self.position == position or self.position == 'bottom':
         self.statusbar.showMessage("Activities Cleared!")
-        self.sort_and_set_table(activity=composite_activity, position=position)
+        self.set_table()
 
     def on_subsystem_changed(self, act=None, act_of=None, position=None):
         if self.position == 'top':
-            self.sort_and_set_table(activity=self.act,
-                                    act_of=self.act_of,
-                                    position=self.position)
+            self.set_table()
         if position == 'middle':
             self.statusbar.showMessage("Subsystem Changed!")
         if self.position == 'middle':
             self.setDisabled(False)
             self.act_of = act_of
-            self.sort_and_set_table(activity=act,
-                                    act_of=act_of,
-                                    position=position)
+            self.set_table()
 
-    def on_focused_changed(self, obj=None):
+    def on_activity_focused(self, act=None):
         if self.position == 'top':
-            self.statusbar.showMessage("New Activity Selected!")
+            self.statusbar.showMessage("New Activity Selected")
         elif self.position == 'middle':
-            self.statusbar.showMessage("Table Refreshed!")
-            self.sort_and_set_table(activity=obj, position=self.position)
+            self.statusbar.showMessage("Table Refreshed")
+            self.subject = act
+            self.set_table()
 
     def on_disable(self):
         if self.position == 'middle':
@@ -356,13 +342,14 @@ class ParameterTable(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         dispatcher.connect(self.on_activity_added, 'new activity')
-        dispatcher.connect(self.on_activity_modified, 'modified activity')
+        dispatcher.connect(self.on_activity_edited, 'activity edited')
+        dispatcher.connect(self.on_activity_remote_mod, 'activity remote mod')
         dispatcher.connect(self.on_activity_removed, 'removed activity')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
-        dispatcher.connect(self.on_focused_changed, 'activity focused')
+        dispatcher.connect(self.on_activity_focused, 'activity focused')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
     def sort_and_set_table(self, activity=None, act_of=None,
@@ -446,8 +433,13 @@ class ParameterTable(QWidget):
             return QSize(*self.preferred_size)
         return QSize(600, 500)
 
-    def on_activity_modified(self, activity=None):
-        txt = '* ParameterTable: on_activity_modified()'
+    def on_activity_edited(self, activity=None):
+        txt = '* ParameterTable: on_activity_edited()'
+        orb.log.debug(txt)
+        self.sort_and_set_table(activity=activity)
+
+    def on_activity_remote_mod(self, activity=None):
+        txt = '* ParameterTable: on_activity_remote_mod()'
         orb.log.debug(txt)
         if activity and activity.where_occurs:
             composite_activity = getattr(activity.where_occurs[0],
@@ -507,10 +499,10 @@ class ParameterTable(QWidget):
                 self.act_of = act_of
                 self.sort_and_set_table(activity=act, act_of=act_of)
 
-    def on_focused_changed(self, obj=None):
-        self.act_of = obj.activity_of
+    def on_activity_focused(self, act=None):
+        self.act_of = act.activity_of
         self.sort_and_set_table(
-                    activity=obj.where_occurs[0].composite_activity)
+                    activity=act.where_occurs[0].composite_activity)
 
 
 if __name__ == '__main__':

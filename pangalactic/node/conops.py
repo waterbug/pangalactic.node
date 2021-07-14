@@ -24,7 +24,8 @@ from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPainter, QPen, QPixmap,
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.activities  import ActivityTable, ParameterTable
+# from pangalactic.node.activities  import ActivityTable, ParameterTable
+from pangalactic.node.activities2  import ActivityTable, ParameterTable
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
@@ -63,7 +64,7 @@ class EventBlock(QGraphicsPolygonItem):
         #---draw blocks depending on the 'shape' string passed in
         self.parent_activity = (parent_activity or
                                 self.activity.where_occurs[0].composite_activity)
-        dispatcher.connect(self.id_changed_handler, "modified activity")
+        dispatcher.connect(self.id_changed_handler, "repositioned activity")
         self.create_actions()
 
         if self.activity.activity_type.name == "Operation":
@@ -228,7 +229,8 @@ class Timeline(QGraphicsPathItem):
                                          "{} {}".format(parent_act.name,
                                                         str(i)))
                 orb.save([acr.sub_activity])
-                dispatcher.send("modified activity", activity=acr.sub_activity)
+                dispatcher.send("repositioned activity",
+                                activity=acr.sub_activity)
                 # dispatcher.send("modified object", obj=acr.sub_activity)
         if not same:
             act = self.scene().current_activity
@@ -255,7 +257,7 @@ class TimelineScene(QGraphicsScene):
         if new_item is not None:
             if new_item != self.current_focus:
                 dispatcher.send("activity focused",
-                                obj=self.focusItem().activity)
+                                act=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
         super().mousePressEvent(mouseEvent)
@@ -766,64 +768,65 @@ class TimelineWidget(QWidget):
             action.setCheckable(True)
         return action
 
-    def create_option_list(self):
+    def create_subsys_list(self):
         lst = [acu.component for acu in self.system.components]
-        # print(lst,"0000000000000000000000000000000000000000000000000000000")
-        options = []
+        subsys_ids = []
         for system in lst:
             try:
-                #check if the id is TBD
-                system_id = system.id
-                if system_id != "TBD":
-                    options.append(system_id)
+                # check if the id is TBD
+                subsys_id = system.id
+                if subsys_id != "TBD":
+                    subsys_ids.append(subsys_id)
             except:
                 pass
-        return options
+        return subsys_ids
 
-    def make_combo_box(self):
-        self.combo_box = QComboBox(self)
-        self.options = self.create_option_list()
-        # print("self.options =", self.options)
-        self.combo_box.addItems(self.options)
-        self.toolbar.addWidget(self.combo_box)
-        self.combo_box.currentIndexChanged.connect(self.change_subsystem)
-        # self.combo_box.setCurrentIndex(0)
+    def make_subsys_selector(self):
+        self.subsys_selector = QComboBox(self)
+        self.subsys_ids = self.create_subsys_list()
+        # print("self.subsys_ids =", self.subsys_ids)
+        self.subsys_selector.addItems(self.subsys_ids)
+        self.toolbar.addWidget(self.subsys_selector)
+        self.subsys_selector.currentIndexChanged.connect(self.change_subsystem)
+        # self.subsys_selector.setCurrentIndex(0)
         dispatcher.send("make combo box", index=0)
 
+    # NOTE: this doesn't appear to be called anywhere
     def update_combo_box(self):
         self.scene = self.set_new_scene()
         self.update_view()
 
     def change_subsystem(self, index=None):
-        # print("change subsystem called~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)")
-        # print("act_of", self.act_of)
-        # print("system:", self.system)
-        # print("---------------------------------")
+        orb.log.debug("* change subsystem called ...)")
+        act_of_name = getattr(self.act_of, 'name', 'unknown')
+        orb.log.debug(f"  - self.act_of: {act_of_name}")
+        sys_name = getattr(self.system, 'name', 'unknown')
+        orb.log.debug(f"  - self.system: {sys_name}")
+        orb.log.debug("---------------------------------")
         if self.act_of != self.system:
-            # system_name = ''
-            # if hasattr(self, 'options'):
-            # print("self.options:8888888888888888888888888", self.options)
-            try:
-                system_name = self.options[index]
-                if self.subject_activity.activity_type.id == 'cycle':
-                    pass
-                else:
-                    existing_subsystems = [acu.component for acu
-                                           in self.system.components]
-                    for subsystem in existing_subsystems:
-                        # print("looking for:", system_name)
-                        # print(getattr(subsystem, 'id', 'NA'))
-                        if getattr(subsystem, 'id', '') == system_name:
-                            # print("found subsystem:", system_name)
-                            self.act_of = subsystem
-                    self.scene = self.set_new_scene()
-                    self.update_view()
-                dispatcher.send("changed subsystem",
-                                act=self.subject_activity,
-                                act_of=self.act_of,
-                                position=self.position)
-            except:
-                orb.log.debug("* TLWidget.change_subsystem() failed.")
+            if hasattr(self, 'subsys_ids'):
+                orb.log.debug(f"self.subsys_ids: {self.subsys_ids}")
+            # try:
+            subsys_id = self.subsys_ids[index]
+            if self.subject_activity.activity_type.id == 'cycle':
+                pass
+            else:
+                existing_subsystems = [acu.component for acu
+                                       in self.system.components]
+                for subsystem in existing_subsystems:
+                    orb.log.debug(f"  - looking for: {subsys_id}")
+                    orb.log.debug(getattr(subsystem, 'id', 'NA'))
+                    if getattr(subsystem, 'id', '') == subsys_id:
+                        orb.log.debug(f"  - found: {subsys_id}")
+                        self.act_of = subsystem
+                self.scene = self.set_new_scene()
+                self.update_view()
+            dispatcher.send("changed subsystem",
+                            act=self.subject_activity,
+                            act_of=self.act_of,
+                            position=self.position)
+            # except:
+                # orb.log.debug("  - TLWidget.change_subsystem() failed.")
 
     def make_new_system(self, system_name):
         """
@@ -969,11 +972,10 @@ class ConOpsModeler(QMainWindow):
         if act.activity_type.id == 'cycle':
             self.system_widget.widget_drill_down(act)
 
-    def view_subsystem(self, obj=None):
-        ### change obj to activity
-        if obj.activity_of is self.system:
-            self.sub_widget.subject_activity = obj
-            if obj.activity_type.id == 'cycle':
+    def view_subsystem(self, act=None):
+        if act.activity_of is self.system:
+            self.sub_widget.subject_activity = act
+            if act.activity_type.id == 'cycle':
                 self.sub_widget.scene = self.sub_widget.show_empty_scene()
                 self.sub_widget.update_view()
                 self.sub_widget.setEnabled(False)
@@ -981,12 +983,11 @@ class ConOpsModeler(QMainWindow):
             else:
                 self.sub_widget.setEnabled(True)
                 dispatcher.send("enable widget")
-                if hasattr(self.sub_widget, 'combo_box'):
+                if hasattr(self.sub_widget, 'subsys_selector'):
                     self.sub_widget.scene = self.sub_widget.set_new_scene()
                     self.sub_widget.update_view()
                 else:
-                    self.sub_widget.make_combo_box()
-
+                    self.sub_widget.make_subsys_selector()
 
     def set_widgets(self, current_activity=None, init=False):
         self.system_widget = TimelineWidget(

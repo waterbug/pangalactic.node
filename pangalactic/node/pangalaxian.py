@@ -2916,7 +2916,7 @@ class Main(QMainWindow):
                     self.w.show()
             elif cname == 'Activity':
                 # TODO: first check whether ConOps modeler is open
-                dispatcher.send("modified activity", activity=obj)
+                dispatcher.send("activity remote mod", activity=obj)
             elif hasattr(self, 'library_widget'):
                 self.library_widget.refresh(cname=cname)
             if getattr(self, 'sys_tree', None):
