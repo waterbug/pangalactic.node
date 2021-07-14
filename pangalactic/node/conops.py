@@ -24,8 +24,7 @@ from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPainter, QPen, QPixmap,
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
-# from pangalactic.node.activities  import ActivityTable, ParameterTable
-from pangalactic.node.activities2  import ActivityTable, ParameterTable
+from pangalactic.node.activities  import ActivityTable, ParameterTable
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
