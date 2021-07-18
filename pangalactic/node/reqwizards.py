@@ -150,7 +150,6 @@ class ReqWizard(QWizard):
                 'req_maximum_value',
                 'req_minimum_value',
                 'req_predicate',
-                'req_shall_phrase',
                 'req_subject',
                 'req_target_value',
                 'req_tolerance',
@@ -643,7 +642,6 @@ class ReqSummaryPage(QWizardPage):
         self.req.req_tolerance = req_wizard_state.get('req_tolerance')
         self.req.req_tolerance_lower = req_wizard_state.get('req_tolerance_lower')
         self.req.req_tolerance_upper = req_wizard_state.get('req_tolerance_upper')
-        self.req.req_shall_phrase = req_wizard_state.get('req_shall_phrase')
         self.req.req_subject = req_wizard_state.get('req_subject')
         self.req.req_predicate = req_wizard_state.get('req_predicate')
         self.req.req_object = req_wizard_state.get('req_object')
