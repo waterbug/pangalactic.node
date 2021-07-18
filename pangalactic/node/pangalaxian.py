@@ -95,8 +95,7 @@ from pangalactic.node.wizards          import (NewProductWizard,
                                                DataImportWizard,
                                                wizard_state)
 from pangalactic.node.reqmanager       import RequirementManager
-# from pangalactic.node.reqwizards       import ReqWizard, req_wizard_state
-from pangalactic.node.reqwizards_ng    import ReqWizard, req_wizard_state
+from pangalactic.node.reqwizards       import ReqWizard, req_wizard_state
 from pangalactic.node.splash           import SplashScreen
 
 
