@@ -901,7 +901,7 @@ class PerformReqShallPage(QWizardPage):
         if self.title():
             # # remove from first hbox
             self.subj_pred_label.hide()
-            self.shall_hbox_top.removeWidget(self.subj_pred_label)
+            self.shall_hbox.removeWidget(self.subj_pred_label)
             self.subj_pred_label.parent = None
             # remove from middle hbox
             if getattr(self, 'target_value', None):
