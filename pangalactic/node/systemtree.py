@@ -1173,7 +1173,7 @@ class SystemTreeView(QTreeView):
         self.setStyleSheet('font-weight: normal; font-size: 12px')
         self.proxy_model.sort(0)
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
-        self.setMaximumWidth(450)
+        self.setMaximumWidth(500)
         self.resizeColumnToContents(0)
         self.project = self.source_model.project
         if not state.get('sys_trees'):

@@ -59,7 +59,7 @@ class RequirementManager(QDialog):
         self.fpanel.proxy_view.clicked.connect(self.on_select_req)
         fpanel_layout = QVBoxLayout()
         fpanel_layout.addWidget(self.fpanel)
-        self.content_layout.addLayout(fpanel_layout, stretch=1)
+        self.content_layout.addLayout(fpanel_layout)
         # TODO:  make project a property; in its setter, enable the checkbox
         # that opens the "allocation panel" (tree)
         if project:
@@ -89,7 +89,7 @@ class RequirementManager(QDialog):
         self.sys_tree.clicked.connect(self.on_select_node)
         self.tree_layout = QVBoxLayout()
         self.tree_layout.addWidget(self.sys_tree)
-        self.content_layout.addLayout(self.tree_layout)
+        self.content_layout.addLayout(self.tree_layout, stretch=1)
 
     def on_select_node(self, index):
         # TODO:  filter requirements by selected PSU/Acu
@@ -145,5 +145,4 @@ class RequirementManager(QDialog):
                     dispatcher.send(signal='show alloc acu', acu=acu)
             else:
                 orb.log.debug('  req with oid "{}" not found.'.format(oid))
-
 

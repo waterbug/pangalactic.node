@@ -4311,13 +4311,6 @@ class Main(QMainWindow):
         # pxo.show()
 
     def parameter_library(self):
-        # view = ['id', 'name', 'range_datatype', 'dimensions', 'description']
-        # dlg = LibraryDialog('ParameterDefinition', view=view,
-                            # height=self.geometry().height(),
-                            # width=(2 * self.geometry().width() // 3),
-                            # parent=self)
-        # dlg.show()
-        ### EXPERIMENTAL ParameterDefinition library interface
         dlg = ParmDefsDialog(parent=self)
         dlg.show()
 
@@ -4337,7 +4330,7 @@ class Main(QMainWindow):
                 # 'description', 'comment']
         dlg = LibraryDialog('HardwareProduct',
                             height=self.geometry().height(),
-                            width=(2 * self.geometry().width() // 3),
+                            width=self.geometry().width(),
                             parent=self)
         dlg.show()
 
@@ -4363,7 +4356,7 @@ class Main(QMainWindow):
         dlg.show()
 
     def display_requirements_manager(self):
-        w = 4 * self.geometry().width() / 5
+        w = self.geometry().width()
         h = self.geometry().height()
         dlg = RequirementManager(project=self.project, width=w, height=h,
                                  parent=self)
