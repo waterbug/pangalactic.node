@@ -728,6 +728,20 @@ class ObjectBlock(Block):
                     popup.show()
                     event.ignore()
                     return
+                elif (isinstance(dropped_item.owner,
+                      orb.classes['Project']) and
+                      dropped_item.owner.oid != state.get('project')):
+                    msg = '<b>The spec for the dropped item is owned '
+                    msg += 'by another project, so it cannot be used '
+                    msg += 'on this project. If a similar item is '
+                    msg += 'needed, clone the item and then add the '
+                    msg += 'clone to this assembly.</b>'
+                    popup = QMessageBox(
+                          QMessageBox.Critical,
+                          "Prohibited Operation", msg,
+                          QMessageBox.Ok, self.parentWidget())
+                    popup.show()
+                    return
                 orb.log.info('  - dropped_item: "{}"'.format(name))
                 # drop target is "TBD" product -> replace it with the dropped
                 # item if it has the right product_type
@@ -1042,6 +1056,20 @@ class SubjectBlock(Block):
                     popup.show()
                     event.ignore()
                     return
+                if (isinstance(dropped_item.owner,
+                      orb.classes['Project']) and
+                      dropped_item.owner.oid != state.get('project')):
+                    msg = '<b>The spec for the dropped item is owned '
+                    msg += 'by another project, so it cannot be used '
+                    msg += 'on this project. If a similar item is '
+                    msg += 'needed, clone the item and then add the '
+                    msg += 'clone to this assembly.</b>'
+                    popup = QMessageBox(
+                          QMessageBox.Critical,
+                          "Prohibited Operation", msg,
+                          QMessageBox.Ok, self.parentWidget())
+                    popup.show()
+                    return
                 # --------------------------------------------------------
                 # 2: dropped item is a Product and
                 #    drop target is a Product -> add a new component
@@ -1081,6 +1109,20 @@ class SubjectBlock(Block):
                 #    if drop item is a Product *and* it is not already in use
                 #    on the Project, use it to create a new ProjectSystemUsage
                 # ------------------------------------------------------------
+                if (isinstance(dropped_item.owner,
+                      orb.classes['Project']) and
+                      dropped_item.owner.oid != drop_target.oid):
+                    msg = '<b>The spec for the dropped item is owned '
+                    msg += 'by another project, so it cannot be used '
+                    msg += 'on this project. If a similar item is '
+                    msg += 'needed, clone the item and then add the '
+                    msg += 'clone to this project.</b>'
+                    popup = QMessageBox(
+                          QMessageBox.Critical,
+                          "Prohibited Operation", msg,
+                          QMessageBox.Ok, self.parentWidget())
+                    popup.show()
+                    return
                 log_txt = '+ target is a Project -- adding new system ...'
                 orb.log.debug('    {}'.format(log_txt))
                 psu = orb.search_exact(cname='ProjectSystemUsage',

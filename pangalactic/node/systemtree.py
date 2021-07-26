@@ -842,6 +842,20 @@ class SystemTreeModel(QAbstractItemModel):
                                       QMessageBox.Ok)
                             if ret == QMessageBox.Ok:
                                 return False
+                        elif (isinstance(dropped_item.owner,
+                              orb.classes['Project']) and
+                              dropped_item.owner.oid != self.project.oid):
+                            msg = '<b>The spec for the dropped item is owned '
+                            msg += 'by another project, so it cannot be used '
+                            msg += 'on this project. If a similar item is '
+                            msg += 'needed, clone the item and then add the '
+                            msg += 'clone to this assembly.</b>'
+                            popup = QMessageBox(
+                                  QMessageBox.Critical,
+                                  "Prohibited Operation", msg,
+                                  QMessageBox.Ok, self.parent)
+                            popup.show()
+                            return False
                         # use dropped item if (1) its product_type is the same as
                         # acu's "product_type_hint" or (2) position is any
                         # project-level system usage
@@ -883,12 +897,28 @@ class SystemTreeModel(QAbstractItemModel):
                                                 obj=node.link.assembly)
                             return True
                     else:
-                        # case 2: drop target is normal product -> add new Acu
+                        # case 2: drop target is normal product ->
+                        # add a new Acu if permissions allow and dropped item
+                        # is not owned by another project ...
                         if not 'modify' in get_perms(drop_target):
                             popup = QMessageBox(
                                   QMessageBox.Critical,
                                   "Unauthorized Operation",
                                   "User's roles do not permit this operation",
+                                  QMessageBox.Ok, self.parent)
+                            popup.show()
+                            return False
+                        elif (isinstance(dropped_item.owner,
+                              orb.classes['Project']) and
+                              dropped_item.owner.oid != self.project.oid):
+                            msg = '<b>The spec for the dropped item is owned '
+                            msg += 'by another project, so it cannot be used '
+                            msg += 'on this project. If a similar item is '
+                            msg += 'needed, clone the item and then add the '
+                            msg += 'clone to this assembly.</b>'
+                            popup = QMessageBox(
+                                  QMessageBox.Critical,
+                                  "Prohibited Operation", msg,
                                   QMessageBox.Ok, self.parent)
                             popup.show()
                             return False
@@ -934,6 +964,20 @@ class SystemTreeModel(QAbstractItemModel):
                                         'System "{0}" already exists on '
                                         'project {1}'.format(
                                         dropped_item.name, drop_target.id))
+                    elif (isinstance(dropped_item.owner,
+                          orb.classes['Project']) and
+                          dropped_item.owner.oid != self.project.oid):
+                        msg = '<b>The spec for the dropped item is owned '
+                        msg += 'by another project, so it cannot be used '
+                        msg += 'on this project. If a similar item is '
+                        msg += 'needed, clone the item and then add the '
+                        msg += 'clone to this assembly.</b>'
+                        popup = QMessageBox(
+                              QMessageBox.Critical,
+                              "Prohibited Operation", msg,
+                              QMessageBox.Ok, self.parent)
+                        popup.show()
+                        return False
                     else:
                         # user must have 'modify' perm on project -- i.e.,
                         # Admin, LE or SE
