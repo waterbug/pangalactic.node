@@ -1059,6 +1059,41 @@ class FreezingDialog(QDialog):
         self.updateGeometry()
 
 
+class FrozenDialog(QDialog):
+    """
+    Dialog for displaying products that have been frozen.
+
+    Args:
+        frozen_html (str): html list of frozen items
+
+    Keyword Args:
+        parent (QWidget): parent of this dialog
+    """
+    def __init__(self, frozen_html, parent=None):
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        self.setWindowTitle("Freeze")
+        main_layout = QVBoxLayout(self)
+        main_title = QLabel('<h3>Frozen Items:</h3>', self)
+        main_layout.addWidget(main_title)
+        components_layout = QVBoxLayout()
+        label = QLabel(frozen_html, self)
+        components_layout.addWidget(label)
+        components_panel = QWidget()
+        components_panel.setLayout(components_layout)
+        components_scroll_area = ScrollArea()
+        components_scroll_area.setWidget(components_panel)
+        main_layout.addWidget(components_scroll_area, 1)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok,
+            Qt.Horizontal, self)
+        main_layout.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.resize(550, 700)
+        self.updateGeometry()
+
+
 class CannotFreezeDialog(QDialog):
     """
     Dialog to inform the user that an item cannot be frozen by them.

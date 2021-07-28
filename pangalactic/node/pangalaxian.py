@@ -73,7 +73,7 @@ from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
-from pangalactic.node.dialogs          import (FullSyncDialog,
+from pangalactic.node.dialogs          import (FrozenDialog, FullSyncDialog,
                                                LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
@@ -1413,9 +1413,11 @@ class Main(QMainWindow):
                         for item in items:
                             html += f'<li>{item}</li>'
                         html += '</ul></p>'
-                        notice = QMessageBox(QMessageBox.Information, 'Frozen',
-                                     html, QMessageBox.Ok, self)
-                        notice.show()
+                        # notice = QMessageBox(QMessageBox.Information, 'Frozen',
+                                     # html, QMessageBox.Ok, self)
+                        # notice.show()
+                        dlg = FrozenDialog(html, parent=self)
+                        dlg.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')
                         orb.log.debug('  getting frozen versions ...')
                         self.on_remote_freeze_or_thaw(oids)
