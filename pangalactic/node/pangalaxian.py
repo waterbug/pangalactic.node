@@ -1413,9 +1413,6 @@ class Main(QMainWindow):
                         for item in items:
                             html += f'<li>{item}</li>'
                         html += '</ul></p>'
-                        # notice = QMessageBox(QMessageBox.Information, 'Frozen',
-                                     # html, QMessageBox.Ok, self)
-                        # notice.show()
                         dlg = FrozenDialog(html, parent=self)
                         dlg.show()
                         orb.log.info(f'  {len(oids)} object(s) found ...')

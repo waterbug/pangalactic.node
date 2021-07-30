@@ -77,8 +77,8 @@ def setup_dirs_and_state():
         # update data elements from any new ones in state
         if app_data_elements:
             for deid in app_data_elements:
-                if deid not in prefs['default_parms']:
-                    prefs['default_parms'].append(deid)
+                if deid not in prefs['default_data_elements']:
+                    prefs['default_data_elements'].append(deid)
     else:
         if app_data_elements:
             prefs['default_data_elements'] = app_data_elements[:]
