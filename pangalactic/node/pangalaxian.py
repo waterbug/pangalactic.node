@@ -1992,7 +1992,7 @@ class Main(QMainWindow):
                                 "Write MEL...",
                                 slot=self.output_mel,
                                 tip="Write MEL...",
-                                modes=['system'])
+                                modes=['system', 'component'])
         self.dump_db_action = self.create_action(
                                 "Dump Local Database to a File...",
                                 slot=self.dump_database,
