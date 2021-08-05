@@ -730,10 +730,12 @@ class ObjectBlock(Block):
                     return
                 elif (isinstance(dropped_item.owner,
                       orb.classes['Project']) and
-                      dropped_item.owner.oid != state.get('project')):
+                      dropped_item.owner.oid != state.get('project')
+                      and not dropped_item.frozen):
                     msg = '<b>The spec for the dropped item is owned '
-                    msg += 'by another project, so it cannot be used '
-                    msg += 'on this project. If a similar item is '
+                    msg += 'by another project and is not frozen, '
+                    msg += 'so it cannot be used on this project. '
+                    msg += 'If a similar item is '
                     msg += 'needed, clone the item and then add the '
                     msg += 'clone to this assembly.</b>'
                     popup = QMessageBox(
@@ -1058,10 +1060,12 @@ class SubjectBlock(Block):
                     return
                 if (isinstance(dropped_item.owner,
                       orb.classes['Project']) and
-                      dropped_item.owner.oid != state.get('project')):
+                      dropped_item.owner.oid != state.get('project')
+                      and not dropped_item.frozen):
                     msg = '<b>The spec for the dropped item is owned '
-                    msg += 'by another project, so it cannot be used '
-                    msg += 'on this project. If a similar item is '
+                    msg += 'by another project and is not frozen, '
+                    msg += 'so it cannot be used on this project. '
+                    msg += 'If a similar item is '
                     msg += 'needed, clone the item and then add the '
                     msg += 'clone to this assembly.</b>'
                     popup = QMessageBox(
@@ -1111,10 +1115,12 @@ class SubjectBlock(Block):
                 # ------------------------------------------------------------
                 if (isinstance(dropped_item.owner,
                       orb.classes['Project']) and
-                      dropped_item.owner.oid != drop_target.oid):
+                      dropped_item.owner.oid != drop_target.oid
+                      and not dropped_item.frozen):
                     msg = '<b>The spec for the dropped item is owned '
-                    msg += 'by another project, so it cannot be used '
-                    msg += 'on this project. If a similar item is '
+                    msg += 'by another project and is not frozen, '
+                    msg += 'so it cannot be used on this project. '
+                    msg += 'If a similar item is '
                     msg += 'needed, clone the item and then add the '
                     msg += 'clone to this project.</b>'
                     popup = QMessageBox(
