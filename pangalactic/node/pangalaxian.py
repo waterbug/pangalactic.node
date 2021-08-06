@@ -278,7 +278,6 @@ class Main(QMainWindow):
         # modeler interface", so just call that)
         dispatcher.connect(self.set_product_modeler_interface,
                            'set current product')
-        # dispatcher.connect(self.update_sync_progress, 'sync progress')
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
@@ -893,24 +892,6 @@ class Main(QMainWindow):
         else:
             self.statusbar.showMessage('project synced.')
         return self.mbus.session.call('vger.sync_project', proj_oid, oid_dts)
-
-    # def update_sync_progress(self, txt='syncing...'):
-        # try:
-            # if (state.get('done_with_progress') and
-                # getattr(self, 'progress_dialog', None)):
-                # QApplication.processEvents()
-                # self.progress_dialog.setValue(self.progress_dialog.maximum())
-                # self.progress_dialog.done(0)
-                # self.progress_dialog.close()
-                # self.progress_value = 0
-            # elif getattr(self, 'progress_dialog', None):
-                # self.progress_value += 1
-                # self.progress_dialog.setValue(self.progress_value)
-                # self.progress_dialog.setLabelText(txt)
-                # QApplication.processEvents()
-        # except:
-            # # oops -- my C++ object probably got deleted
-            # pass
 
     def on_user_objs_sync_result(self, data):
         self.on_sync_result(data, user_objs_sync=True)
