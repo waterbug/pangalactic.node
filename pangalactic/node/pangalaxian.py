@@ -77,7 +77,8 @@ from pangalactic.node.dialogs          import (FrozenDialog, FullSyncDialog,
                                                LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
-                                               ParmDefsDialog, PrefsDialog)
+                                               ParmDefsDialog, PrefsDialog,
+                                               ProgressDialog)
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
@@ -235,12 +236,12 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
+        dispatcher.connect(self.on_remote_frozen_signal, 'remote: frozen')
         dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_local_mel_modified, 'mel modified')
         dispatcher.connect(self.on_entity_saved, 'entity saved')
-        dispatcher.connect(self.on_data_new_row_added, 'dm new row added')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
         dispatcher.connect(self.refresh_tree_and_dashboard,
@@ -1372,6 +1373,9 @@ class Main(QMainWindow):
                 else:
                     msg += obj_id
             elif subject == 'frozen':
+                # content is an oid
+                dispatcher.send(signal="remote: frozen", frozen_oid=content)
+            elif subject == 'freeze completed':
                 # content is a list of oids
                 frozens = content
                 if frozens:
@@ -2943,10 +2947,34 @@ class Main(QMainWindow):
         self.update_project_role_labels()
 
     def on_freeze_signal(self, oids=None):
+        """
+        Handle local "freeze" signal.
+        """
         if state.get('connected') and oids:
+            self.freeze_progress = ProgressDialog(title='Freezing ...',
+                                              label='freezing items ...',
+                                              parent=self)
+            self.freeze_progress.setAttribute(Qt.WA_DeleteOnClose)
+            self.freeze_progress.setMaximum(len(oids))
+            self.freeze_progress.setValue(0)
+            self.freeze_progress.setMinimumDuration(2000)
+            QApplication.processEvents()
+            state['remote_frozens'] = 0
             rpc = self.mbus.session.call('vger.freeze', oids)
-            rpc.addCallback(self.on_result)
+            rpc.addCallback(self.on_freeze_result)
             rpc.addErrback(self.on_failure)
+
+    def on_remote_frozen_signal(self, frozen_oid=None):
+        """
+        Handle remote "frozen" messages for individual objects.
+        """
+        if state.get('connected') and frozen_oid:
+            QApplication.processEvents()
+            num_frozens = state.get('remote_frozens', 0)
+            num_frozens += 1
+            state['remote_frozens'] = num_frozens
+            if getattr(self, 'freeze_progress', None):
+                self.freeze_progress.setValue(num_frozens)
 
     def on_thaw_signal(self, oids=None):
         if state.get('connected') and oids:
@@ -3101,6 +3129,9 @@ class Main(QMainWindow):
             self.statusbar.showMessage('synced.')
 
     def on_result(self, stuff):
+        """
+        Handle result of an operation that returns chunked data.
+        """
         # orb.log.debug('  rpc result: {}'.format(stuff))
         # TODO:  add more detailed status message ...
         if state.get('chunks_to_get'):
@@ -3112,6 +3143,18 @@ class Main(QMainWindow):
         else:
             msg = 'synced.'
         orb.log.debug(f'* {msg}')
+        self.statusbar.showMessage(msg)
+
+    def on_freeze_result(self, stuff):
+        """
+        Handle result of 'vger.freeze' rpc.
+        """
+        orb.log.debug('  vger.freeze result: {}'.format(stuff))
+        if getattr(self, 'freeze_progress', None):
+            self.freeze_progress.done(0)
+            QApplication.processEvents()
+        frozens, unauth = stuff
+        msg = f'vger: {len(frozens)} frozen, {len(unauth)} unauthorized.'
         self.statusbar.showMessage(msg)
 
     def on_failure(self, f):
@@ -3154,19 +3197,6 @@ class Main(QMainWindow):
 
     def rpc_save_entity_result(self, result):
         orb.log.debug(f'* "vger.save_entity" result: "{result}"')
-
-    def on_data_new_row_added(self, proj_id=None, dm_oid=None, row_oid=None):
-        """
-        Handle local dispatcher signal for "dm new row added".
-        """
-        orb.log.info('* received local "dm new row added" signal')
-        if state.get('connected'):
-            orb.log.info('  - calling "vger.data_new_row"')
-            rpc = self.mbus.session.call('vger.data_new_row',
-                                         proj_id=proj_id, dm_oid=dm_oid,
-                                         row_oid=row_oid)
-            rpc.addCallback(self.on_result)
-            rpc.addErrback(self.on_failure)
 
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
