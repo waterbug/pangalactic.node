@@ -30,18 +30,6 @@ from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
-# fix qt import error
-from pangalactic.node import fix_qt_import_error
-
-# pyqt
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QComboBox,
-                             QDockWidget, QFileDialog, QFrame, QHBoxLayout,
-                             QLabel, QMainWindow, QMessageBox, QDialog,
-                             QProgressBar, QSizePolicy, QStyleFactory,
-                             QVBoxLayout, QWidget)
-from PyQt5.QtCore import Qt, QModelIndex, QPoint, QVariant
-
 # pangalactic
 from pangalactic.core                  import __version__
 from pangalactic.core                  import diagramz
@@ -98,6 +86,18 @@ from pangalactic.node.wizards          import (NewProductWizard,
 from pangalactic.node.reqmanager       import RequirementManager
 from pangalactic.node.reqwizards       import ReqWizard, req_wizard_state
 from pangalactic.node.splash           import SplashScreen
+
+# fix qt import error -- import this before importing anything in PyQt5
+from pangalactic.node import fix_qt_import_error
+
+# PyQt5
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QComboBox,
+                             QDockWidget, QFileDialog, QFrame, QHBoxLayout,
+                             QLabel, QMainWindow, QMessageBox, QDialog,
+                             QProgressBar, QSizePolicy, QStyleFactory,
+                             QVBoxLayout, QWidget)
+from PyQt5.QtCore import Qt, QModelIndex, QPoint, QVariant
 
 
 class Main(QMainWindow):
