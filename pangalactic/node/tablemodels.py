@@ -69,7 +69,7 @@ class ListTableModel(QAbstractTableModel):
         return self.datain[index.row()][index.column()]
 
 
-class ODTableModel(QAbstractTableModel):
+class MappingTableModel(QAbstractTableModel):
     """
     A table model based on a list of dict instances.  (In the python 2 version,
     this was based on OrderedDict; in python 3, the builtin dict is ordered so
@@ -264,9 +264,9 @@ class NullObject(object):
     oid = None
 
 
-class ObjectTableModel(ODTableModel):
+class ObjectTableModel(MappingTableModel):
     """
-    A ODTableModel subclass based on a list of objects.
+    A MappingTableModel subclass based on a list of objects.
 
     Attributes:
         cname (str): class name of the objects
@@ -369,10 +369,10 @@ class ObjectTableModel(ODTableModel):
     def setData(self, index, obj, role=Qt.UserRole):
         """
         Reimplementation using an object as the 'value' (based on underlying
-        ODTableModel setData, which takes an dict).
+        MappingTableModel setData, which takes a dict as the 'value').
         """
         try:
-            # apply ODTableModel.setData, which takes a dict as value
+            # apply MappingTableModel.setData, which takes a dict as value
             super().setData(index, self.get_odict_for_obj(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
@@ -427,7 +427,174 @@ class ObjectTableModel(ODTableModel):
         return Qt.CopyAction
 
 
-class CompareTableModel(ODTableModel):
+class XObjectTableModel(MappingTableModel):
+    """
+    An "Extended Object" table model.  Like the ObjectTableModel, it is a
+    MappingTableModel subclass based on a list of objects, but with the added
+    capability of including columns for "parameters" and "data elements" (as
+    defined in the p.core.parametrics module) of the objects in addition to
+    their attributes (which are based on their class).
+
+    Attributes:
+        cname (str): class name of the objects
+        column_labels (list):  list of column header labels (strings)
+    """
+
+    def __init__(self, objs, view=None, with_none=False, as_library=False,
+                 parent=None, **kwargs):
+        """
+        Args:
+            objs (list):  list of objects
+
+        Keyword Args:
+            view (list):  list of field names (columns)
+            with_none (bool):  (default: False) if True, include a "NullObject"
+                (used for ObjectSelectionDialog when a "None" choice is needed)
+            as_library (bool): (default: False) if True, provide icons, etc.
+            parent (QWidget):  parent widget
+        """
+        # orb.log.debug("* ObjectTableModel initializing ...")
+        self.objs = objs or []
+        icons = []
+        if as_library:
+            # orb.log.debug("  ... as library ...")
+            icons = [QIcon(get_pixmap(obj)) for obj in objs]
+        # orb.log.debug("  ... with {} objects.".format(len(objs)))
+        self.column_labels = ['No Data']
+        self.view = view or ['']
+        self.cname = ''
+        if self.objs:
+            self.cname = objs[0].__class__.__name__
+            self.schema = orb.schemas.get(self.cname) or {}
+            if self.schema and self.view:
+                # sanity-check view
+                self.view = [a for a in self.view if a in self.schema['field_names']]
+            # TODO:  handle foreign key fields somehow ...
+            # for a in view:
+                # fk_cname = schema['fields'][a].get('related_cname')
+                # if fk_cname in orb.classes:
+                    # pass
+            if not self.view:
+                self.view = MAIN_VIEWS.get(self.cname,
+                                           ['id', 'name', 'description'])
+            if with_none:
+                null_obj = NullObject()
+                for name in self.view:
+                    val = ''
+                    if name == 'id':
+                        val = 'None'
+                    setattr(null_obj, name, val)
+                self.objs.insert(0, null_obj)
+            # NOTE:  this works but may need performance optimization when
+            # the table holds a large number of objects
+            ds = [self.get_odict_for_obj(o, self.view) for o in self.objs]
+            self.column_labels = [pname_to_header_label(x) for x in self.view]
+        else:
+            ds = [{0:'no data'}]
+            self.view = ['id']
+            if with_none:
+                null_obj = NullObject()
+                for name in self.view:
+                    val = ''
+                    if name == 'id':
+                        val = 'None'
+                    setattr(null_obj, name, val)
+                self.objs = [null_obj]
+                d = dict()
+                d['id'] = 'None'
+                ds = [d]
+        super().__init__(ds, as_library=as_library, icons=icons,
+                         parent=parent, **kwargs)
+
+    def get_odict_for_obj(self, obj, view):
+        """
+        Return the dict representation of an object.
+        """
+        d = dict()
+        for name in view:
+            if name not in self.schema['fields']:
+                val = '-'
+            elif name == 'id':
+                val = display_id(obj)
+            elif name in TEXT_PROPERTIES:
+                val = (getattr(obj, name) or ' ').replace('\n', ' ')
+            elif self.schema['fields'][name]['range'] == 'datetime':
+                val = dt2local_tz_str(getattr(obj, name))
+            elif self.schema['fields'][name]['field_type'] == ForeignKey:
+                val = (getattr(getattr(obj, name), 'name', None)
+                       or getattr(getattr(obj, name), 'id', '[None]'))
+            else:
+                val = str(getattr(obj, name))
+            d[name] = val
+        return d
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            return self.column_labels[section]
+        return QAbstractTableModel.headerData(self, section, orientation, role)
+
+    def setData(self, index, obj, role=Qt.UserRole):
+        """
+        Reimplementation using an object as the 'value' (based on underlying
+        MappingTableModel setData, which takes a dict as the 'value').
+        """
+        try:
+            # apply MappingTableModel.setData, which takes a dict as value
+            super().setData(index, self.get_odict_for_obj(obj, self.view))
+            # this 'dataChanged' should not be necessary, since 'dataChanged is
+            # emitted by the 'setData' we just called
+            super().dataChanged.emit(index, index)
+            return True
+        except:
+            return False
+
+    def add_object(self, obj):
+        self.objs.append(obj)
+        # NOTE: begin/endResetModel works better than begin/endInsertRows
+        new_row = len(self.objs) - 1
+        idx = self.createIndex(new_row, 0)
+        self.beginResetModel()
+        self.setData(idx, obj)
+        self.endResetModel()
+        return True
+
+    def mod_object(self, obj):
+        orb.log.debug("  ObjectTableModel.mod_object() ...")
+        try:
+            row = self.objs.index(obj)  # raises ValueError if problem
+            orb.log.debug("    object found at row {}".format(row))
+            idx = self.index(row, 0, parent=QModelIndex())
+            self.beginResetModel()
+            self.setData(idx, obj)
+            self.endResetModel()
+            return idx
+        except:
+            # possibly because my C++ object has been deleted ...
+            txt = 'object "{}" (oid {}) not in list.'.format(obj.id, obj.oid)
+            orb.log.debug("    {}".format(txt))
+        return QModelIndex()
+
+    def removeRow(self, row, index=QModelIndex()):
+        if row < len(self.objs):
+            self.objs = self.objs[:row] + self.objs[row+1:]
+            self.removeRows(row, 1, index)
+            return True
+        else:
+            return False
+
+    def mimeTypes(self):
+        return [to_media_name(self.cname)]
+
+    def mimeData(self):
+        mime_data = QMimeData()
+        mime_data.setData(to_media_name(self.cname), 'mimeData')
+        return mime_data
+
+    def supportedDropActions(self):
+        return Qt.CopyAction
+
+
+class CompareTableModel(MappingTableModel):
     """
     A table model for the side-by-side comparison of a set of objects (columns)
     by a set of parameters (rows).
@@ -625,8 +792,8 @@ class SpecialSortModel(QSortFilterProxyModel):
         # objs = orb.search_exact(id='HOG')
         # parameters = ['m', 'P', 'TRL']
         # tablemodel = CompareTableModel(objs, parameters, parent=self)
-        # # tablemodel = ODTableModel(test_od)
-        # # tablemodel = ODTableModel(None)
+        # # tablemodel = MappingTableModel(test_od)
+        # # tablemodel = MappingTableModel(None)
         # tableview = QTableView()
         # tableview.setModel(tablemodel)
         # layout = QVBoxLayout(self)

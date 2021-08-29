@@ -14,7 +14,7 @@ from pangalactic.core             import state
 from pangalactic.core.parametrics import get_pval_as_str, set_pval_from_str
 from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.tablemodels import ODTableModel
+from pangalactic.node.tablemodels import MappingTableModel
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 
@@ -182,7 +182,7 @@ class ActivityTable(QWidget):
                            t_start='Start\nTime',
                            duration='Duration',
                            description='Description')
-        od_list = []
+        d_list = []
         for act in self.activities:
             obj_dict = OrderedDict()
             for col in table_cols:
@@ -195,8 +195,8 @@ class ActivityTable(QWidget):
                 else:
                     val = get_pval_as_str(act.oid, col)
                     obj_dict[table_headers[col]] = val
-            od_list.append(obj_dict)
-        new_model = ODTableModel(od_list)
+            d_list.append(obj_dict)
+        new_model = MappingTableModel(d_list)
         new_table = QTableView()
         new_table.setModel(new_model)
         new_table.setSizePolicy(QSizePolicy.Preferred,
@@ -392,14 +392,14 @@ class ParameterTable(QWidget):
         for obj in objs:
             obj_list.append(obj)
 
-        od_list = []
+        d_list = []
         obj_dict = OrderedDict()
         for obj_name in obj_list:
             val = get_pval_as_str(obj.oid, param)
             obj_dict[obj_name] = val
-        od_list.append(obj_dict)
+        d_list.append(obj_dict)
 
-        new_model = EditableTableModel(od_list, param)
+        new_model = EditableTableModel(d_list, param)
         new_table = QTableView()
         new_table.setModel(new_model)
 

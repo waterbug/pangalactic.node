@@ -443,6 +443,10 @@ class ProxyView(QTableView):
 
 
 class FilterPanel(QWidget):
+    """
+    A widget containing a filterable table of objects.
+    """
+
     def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
                  width=None, min_width=None, height=None, as_library=False,
                  cname=None, external_filters=False, excluded_oids=None,

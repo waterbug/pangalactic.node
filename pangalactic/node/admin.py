@@ -20,7 +20,7 @@ from pangalactic.core.utils.meta      import get_ra_id, get_ra_name
 from pangalactic.node.buttons         import ButtonLabel, SizedButton
 from pangalactic.node.dialogs         import ObjectSelectionDialog
 from pangalactic.node.libraries       import LibraryListWidget
-from pangalactic.node.tablemodels     import ODTableModel
+from pangalactic.node.tablemodels     import MappingTableModel
 from pangalactic.node.utils           import clone, extract_mime_data
 from pangalactic.node.widgets         import (ColorLabel, NameLabel,
                                               StringFieldWidget, ValueLabel)
@@ -327,7 +327,7 @@ class PersonSearchDialog(QDialog):
             for col in res_cols:
                 ldap_rec[res_headers[col]] = res_item.get(col, '[none]')
             self.ldap_data.append(ldap_rec)
-        ldap_model = ODTableModel(self.ldap_data)
+        ldap_model = MappingTableModel(self.ldap_data)
         self.ldap_table = QTableView()
         # self.ldap_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
         self.ldap_table.setModel(ldap_model)

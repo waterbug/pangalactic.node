@@ -966,13 +966,6 @@ class Main(QMainWindow):
                 dispatcher.send('sync progress', txt=txt)
                 # deserialize(orb, sobjs)
                 self.load_serialized_objects(sobjs)
-                if not project_sync:
-                    # if new Parameter Definitions found, create icons
-                    pd_oids = [so['oid'] for so in sobjs
-                               if so['_cname'] == 'ParameterDefinition']
-                    if pd_oids and hasattr(self, 'library_widget'):
-                        self.library_widget.refresh(
-                                                cname='ParameterDefinition')
             except:
                 orb.log.debug('      - deserialization failure')
                 orb.log.debug('        oids: {}'.format(
@@ -1040,13 +1033,6 @@ class Main(QMainWindow):
                 self.statusbar.showMessage('user objects synced.')
             else:
                 self.statusbar.showMessage('project synced.')
-            # if project_sync:
-                # QApplication.processEvents()
-                # self.progress_dialog.setValue(self.progress_dialog.maximum())
-                # self.progress_dialog.done(0)
-                # self.progress_dialog.close()
-                # self.progress_value = 0
-                # state['done_with_progress'] = True
             state['synced_projects'].append(state.get('project'))
             rpc = self.mbus.session.call('vger.save', [])
         rpc.addCallback(self.on_vger_save_result)

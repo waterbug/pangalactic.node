@@ -35,7 +35,7 @@ from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.core.utils.reports import get_mel_data, write_mel_to_tsv
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.tablemodels import ObjectTableModel, ODTableModel
+from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import UnitsWidget
@@ -412,7 +412,7 @@ class MiniMelDialog(QDialog):
         cols = list(raw_data[0])
         aligns = ['right' if col in parm_defz else 'left'
                   for col in cols]
-        mini_mel_model = ODTableModel(self.mel_data, aligns=aligns)
+        mini_mel_model = MappingTableModel(self.mel_data, aligns=aligns)
         self.mini_mel_table = QTableView()
         self.mini_mel_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mini_mel_table.setModel(mini_mel_model)

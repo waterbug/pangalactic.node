@@ -22,7 +22,7 @@ from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.tablemodels import ListTableModel, ODTableModel
+from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import (AutosizingListView, NameLabel,
                                           PlaceHolder, ValueLabel)
@@ -826,7 +826,7 @@ class MaturityLevelPage(QtWidgets.QWizardPage):
             for col in trl_cols:
                 trl_od[trl_headers[col]] = trl_item[col]
             trl_ods.append(trl_od)
-        trl_model = ODTableModel(trl_ods)
+        trl_model = MappingTableModel(trl_ods)
         self.trl_table = QtWidgets.QTableView()
         self.trl_table.setModel(trl_model)
         self.trl_table.setAlternatingRowColors(True)
