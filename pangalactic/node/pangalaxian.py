@@ -3,7 +3,7 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, multiprocessing, os, platform, shutil, sys
+import argparse, atexit, multiprocessing, os, shutil, sys
 import time, traceback, webbrowser
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
@@ -1933,7 +1933,7 @@ class Main(QMainWindow):
                                     tip="Create a New Test",
                                     modes=['system', 'component', 'db'])
         # the cad viewer runs in the same process (which does not work on Mac!)
-        if not platform.platform().startswith('Darwin'):
+        if not sys.platform == 'darwin':
             self.view_cad_action = self.create_action(
                                     "View a CAD Model...",
                                     slot=self.view_cad,
@@ -2450,7 +2450,7 @@ class Main(QMainWindow):
                                 self.refresh_tree_action,
                                 self.sync_project_action,
                                 self.full_resync_action]
-        if not platform.platform().startswith('Darwin'):
+        if not sys.platform == 'darwin':
             system_tools_actions.append(self.view_cad_action)
         if not sys.platform == 'win32':
             system_tools_actions.append(self.view_multi_cad_action)
@@ -5180,8 +5180,10 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
 
 
 if __name__ == "__main__":
-    if platform.platform().startswith('Darwin'):
+    if sys.platform == 'darwin':
         # required for PyInstaller to create osx app
+        # (2021-09-09 [SCW]: but since PyInstaller handling of PyQt on macOS is
+        # currently broken, this is moot for now ...)
         multiprocessing.freeze_support()
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--test', action='store_true',

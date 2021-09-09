@@ -1,0 +1,13 @@
+{
+  "menu_name": "Cattenza",
+  "menu_items":
+    [
+      {
+        "name": "Cattens",
+        "pywscript": "${PREFIX}/Scripts/cattens-script.py",
+        "icon": "${MENU_DIR}/cattens.ico",
+        "desktop": true,
+        "quicklaunch": true
+      }
+    ]
+}

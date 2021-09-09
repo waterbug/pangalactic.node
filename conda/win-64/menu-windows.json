@@ -1,0 +1,13 @@
+{
+  "menu_name": "Pangalaxian",
+  "menu_items":
+    [
+      {
+        "name": "Pangalaxian",
+        "pywscript": "${PREFIX}/Scripts/pangalaxian-script.py",
+        "icon": "${MENU_DIR}/pangalacticon.ico",
+        "desktop": true,
+        "quicklaunch": true
+      }
+    ]
+}
