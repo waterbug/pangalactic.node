@@ -3,7 +3,7 @@ A set of custom TableModels for use with QTableView.
 """
 # stdlib
 import os, re
-# import sys  # only needed for testing stuff
+from textwrap import wrap
 
 # SqlAlchemy
 from sqlalchemy import ForeignKey
@@ -18,27 +18,26 @@ from sqlalchemy import ForeignKey
 from PyQt5.QtCore import (Qt, QAbstractTableModel, QMimeData, QModelIndex,
                           QSortFilterProxyModel, QVariant)
 from PyQt5.QtGui import QIcon, QPixmap
-# only needed for testing stuff (commented below):
-# from PyQt5.QtWidgets import QApplication, QWidget, QTableView, QVBoxLayout
 
 # pangalactic
-from pangalactic.core             import state
-from pangalactic.core.entity      import DataMatrix
-from pangalactic.core.meta        import MAIN_VIEWS, TEXT_PROPERTIES
-from pangalactic.core.parametrics import get_pval_as_str
-from pangalactic.core.uberorb     import orb
+from pangalactic.core                 import prefs, state
+from pangalactic.core.entity          import DataMatrix
+from pangalactic.core.meta            import MAIN_VIEWS, TEXT_PROPERTIES
+from pangalactic.core.parametrics     import (de_defz, get_dval_as_str,
+                                              get_pval_as_str, parm_defz)
+from pangalactic.core.uberorb         import orb
+from pangalactic.core.units           import in_si
 from pangalactic.core.utils.datetimes import dt2local_tz_str
-from pangalactic.core.utils.meta  import (display_id, pname_to_header_label,
-                                          to_media_name)
+from pangalactic.core.utils.meta      import (display_id,
+                                              pname_to_header_label,
+                                              to_media_name)
 # from pangalactic.core.test.utils import create_test_users, create_test_project
-from pangalactic.node.utils       import get_pixmap
+from pangalactic.node.utils           import get_pixmap
 
 
-test_od = [dict([('spam','00'), ('eggs','01'), ('more spam','02')]),
-           dict([('spam','10'), ('eggs','11'), ('more spam','12')]),
-           dict([('spam','20'), ('eggs','21'), ('more spam','22')])]
-
-# test_df = pandas.DataFrame(test_od)
+test_mappings = [dict([('spam','00'), ('eggs','01'), ('more spam','02')]),
+                 dict([('spam','10'), ('eggs','11'), ('more spam','12')]),
+                 dict([('spam','20'), ('eggs','21'), ('more spam','22')])]
 
 
 class ListTableModel(QAbstractTableModel):
@@ -320,7 +319,7 @@ class ObjectTableModel(MappingTableModel):
                 self.objs.insert(0, null_obj)
             # NOTE:  this works but may need performance optimization when
             # the table holds a large number of objects
-            ds = [self.get_odict_for_obj(o, self.view) for o in self.objs]
+            ds = [self.get_mapping_for_obj(o, self.view) for o in self.objs]
             self.column_labels = [pname_to_header_label(x) for x in self.view]
         else:
             ds = [{0:'no data'}]
@@ -339,7 +338,7 @@ class ObjectTableModel(MappingTableModel):
         super().__init__(ds, as_library=as_library, icons=icons,
                          parent=parent, **kwargs)
 
-    def get_odict_for_obj(self, obj, view):
+    def get_mapping_for_obj(self, obj, view):
         """
         Return the dict representation of an object.
         """
@@ -373,7 +372,7 @@ class ObjectTableModel(MappingTableModel):
         """
         try:
             # apply MappingTableModel.setData, which takes a dict as value
-            super().setData(index, self.get_odict_for_obj(obj, self.view))
+            super().setData(index, self.get_mapping_for_obj(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
             super().dataChanged.emit(index, index)
@@ -429,11 +428,11 @@ class ObjectTableModel(MappingTableModel):
 
 class XObjectTableModel(MappingTableModel):
     """
-    An "Extended Object" table model.  Like the ObjectTableModel, it is a
+    A table model for parametrized objects.  Like the ObjectTableModel, it is a
     MappingTableModel subclass based on a list of objects, but with the added
     capability of including columns for "parameters" and "data elements" (as
     defined in the p.core.parametrics module) of the objects in addition to
-    their attributes (which are based on their class).
+    their attributes, which are assigned in their class definition.
 
     Attributes:
         cname (str): class name of the objects
@@ -453,7 +452,7 @@ class XObjectTableModel(MappingTableModel):
             as_library (bool): (default: False) if True, provide icons, etc.
             parent (QWidget):  parent widget
         """
-        # orb.log.debug("* ObjectTableModel initializing ...")
+        # orb.log.debug("* XObjectTableModel initializing ...")
         self.objs = objs or []
         icons = []
         if as_library:
@@ -466,14 +465,6 @@ class XObjectTableModel(MappingTableModel):
         if self.objs:
             self.cname = objs[0].__class__.__name__
             self.schema = orb.schemas.get(self.cname) or {}
-            if self.schema and self.view:
-                # sanity-check view
-                self.view = [a for a in self.view if a in self.schema['field_names']]
-            # TODO:  handle foreign key fields somehow ...
-            # for a in view:
-                # fk_cname = schema['fields'][a].get('related_cname')
-                # if fk_cname in orb.classes:
-                    # pass
             if not self.view:
                 self.view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
@@ -487,8 +478,8 @@ class XObjectTableModel(MappingTableModel):
                 self.objs.insert(0, null_obj)
             # NOTE:  this works but may need performance optimization when
             # the table holds a large number of objects
-            ds = [self.get_odict_for_obj(o, self.view) for o in self.objs]
-            self.column_labels = [pname_to_header_label(x) for x in self.view]
+            ds = [self.get_mapping_for_obj(o, self.view) for o in self.objs]
+            self.column_labels = [self.get_header(x) for x in self.view]
         else:
             ds = [{0:'no data'}]
             self.view = ['id']
@@ -506,14 +497,39 @@ class XObjectTableModel(MappingTableModel):
         super().__init__(ds, as_library=as_library, icons=icons,
                          parent=parent, **kwargs)
 
-    def get_odict_for_obj(self, obj, view):
+    def get_header(self, col_id):
+        if col_id in self.schema['fields']:
+            return pname_to_header_label(col_id)
+        pd = parm_defz.get(col_id)
+        if pd:
+            units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                    pd['dimensions'], '')
+            if units:
+                units = '(' + units + ')'
+            return '   \n   '.join(wrap(pd['name'], width=7,
+                                   break_long_words=False) + [units])
+        elif col_id in de_defz:
+            de_def = de_defz.get(col_id, '')
+            if de_def:
+                return '   \n   '.join(wrap(de_def['name'], width=7,
+                                       break_long_words=False))
+        else:
+            txt = ' '.join([s.capitalize() for s in col_id.split('_')])
+            return txt
+
+    def get_mapping_for_obj(self, obj, view):
         """
-        Return the dict representation of an object.
+        Return the dict representation of an extended object.
         """
         d = dict()
         for name in view:
             if name not in self.schema['fields']:
-                val = '-'
+                if name in parm_defz:
+                    val = get_pval_as_str(obj.oid, name)
+                elif name in de_defz:
+                    val = get_dval_as_str(obj.oid, name)
+                else:
+                    val = '-'
             elif name == 'id':
                 val = display_id(obj)
             elif name in TEXT_PROPERTIES:
@@ -540,7 +556,7 @@ class XObjectTableModel(MappingTableModel):
         """
         try:
             # apply MappingTableModel.setData, which takes a dict as value
-            super().setData(index, self.get_odict_for_obj(obj, self.view))
+            super().setData(index, self.get_mapping_for_obj(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
             super().dataChanged.emit(index, index)
@@ -559,7 +575,7 @@ class XObjectTableModel(MappingTableModel):
         return True
 
     def mod_object(self, obj):
-        orb.log.debug("  ObjectTableModel.mod_object() ...")
+        orb.log.debug("  XObjectTableModel.mod_object() ...")
         try:
             row = self.objs.index(obj)  # raises ValueError if problem
             orb.log.debug("    object found at row {}".format(row))
@@ -774,34 +790,9 @@ class SpecialSortModel(QSortFilterProxyModel):
         else:
             return QSortFilterProxyModel.lessThan(self, left, right)
 
-# NOTE: best not to use this stuff any more
-
-# def main(home):
-    # app = QApplication(sys.argv)
-    # w = Window(home)
-    # w.show()
-    # sys.exit(app.exec_())
-
-
-# class Window(QWidget):
-    # def __init__(self, home, *args, **kwargs):
-        # QWidget.__init__(self, *args, **kwargs)
-        # orb.start(home=home, console=True, debug=True)
-        # if not state.get('test_objects_loaded'):
-            # deserialize(orb, create_test_users() + create_test_project())
-        # objs = orb.search_exact(id='HOG')
-        # parameters = ['m', 'P', 'TRL']
-        # tablemodel = CompareTableModel(objs, parameters, parent=self)
-        # # tablemodel = MappingTableModel(test_od)
-        # # tablemodel = MappingTableModel(None)
-        # tableview = QTableView()
-        # tableview.setModel(tablemodel)
-        # layout = QVBoxLayout(self)
-        # layout.addWidget(tableview)
-        # self.setLayout(layout)
-
 
 # if __name__ == "__main__":
+    # import sys
     # if len(sys.argv) < 2:
         # print "*** you must provide a home directory path ***"
         # sys.exit()

@@ -1,0 +1,20 @@
+name: Pangalaxian
+version: 2.0
+
+channels:
+  - conda-forge
+  - defaults
+  - https://pangalactic.us/conda_repo
+
+specs:
+  - python 3.9*
+  - conda
+  - pangalactic
+  - pgef_app
+
+conda_default_channels:
+
+# images for Windows
+welcome_image: app_install_welcome.png     [win]
+icon_image: app.ico                        [win]
+

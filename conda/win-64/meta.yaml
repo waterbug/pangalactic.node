@@ -1,13 +1,15 @@
 package:
-  name: pangalactic.node
+  name: pangalaxian
   version: "2.0"
 
 source:
-  path: # [path to source]
+  # path to source ... modify if necessary
+  path: # C:\Users\swaterbu\clones\pangalactic.node
 
 build:
+  number: 1
   entry_points:
-    - pangalaxian = pangalactic.node.pangalaxian:run
+          - pangalaxian = pangalaxian.__main__:main
 
 requirements:
   build:
@@ -15,43 +17,17 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=2.0
-    - autobahn >= 20.7.1
-    # autobahn pulls in:
-    # - txaio
-    - binaryornot
-    - numpy
-    - pynacl
-    - pyqt >=5.6
-    - pyqtgraph
     - python {{PY_VER}}
-    - pythonocc-core >=0.18.2
-    # -----------------------------------------------------
-    # pythonocc pulls in these dependencies from dlr-sc channel:
-    # - freeimageplus
-    # - gl2ps
-    # - jpeg >=9b
-    # - tbb
-    # -----------------------------------------------------
-    # pinning ruamel_yaml advised for production-level stability
-    - ruamel_yaml <=0.15
-    - sqlalchemy
-    - twisted
-    # twisted pulls in these dependencies:
-    # - service_identity
-    # - zope
-    # - zope.interface
-    # -----------------------------------------------------
-    # packages locally built and installed from local repo
-    - louie
-    - qt5reactor
-
-# test:
-  # imports:
-    # - sometestpackage
+    - menuinst
+    - pangalactic.node >=2.0
 
 about:
-  # home: https://pangalactic.us
+  # home: [url]
   license: NASA
   # license_file: LICENSE
+
+app:
+  entry: pangalaxian
+  icon: pangalacticon.ico
+  summary: "Pangalaxian"
 
