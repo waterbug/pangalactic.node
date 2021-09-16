@@ -331,6 +331,7 @@ class MiniMelDialog(QDialog):
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
         self.obj = obj
+        self.summary = False
         layout = QVBoxLayout()
         self.setLayout(layout)
         self.dash_name = state.get('dashboard_name') or 'MEL'
@@ -346,10 +347,16 @@ class MiniMelDialog(QDialog):
             self.dash_select.addItem(dash_name, QVariant)
         self.dash_select.setCurrentIndex(0)
         self.dash_select.activated.connect(self.on_dash_select)
+        self.summary_select = QCheckBox(self)
+        self.summary_select.setChecked(False)
+        self.summary_select.clicked.connect(self.on_summary_checked)
+        self.summary_label = QLabel('summary')
         self.export_tsv_button = SizedButton("Export as tsv")
         self.export_tsv_button.clicked.connect(self.export_tsv)
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.dash_select)
+        top_layout.addWidget(self.summary_select)
+        top_layout.addWidget(self.summary_label)
         top_layout.addWidget(self.export_tsv_button)
         top_layout.addStretch(1)
         layout.addLayout(top_layout)
@@ -362,6 +369,13 @@ class MiniMelDialog(QDialog):
         self.data_cols = dash_schemas.get(self.dash_name)
         self.set_mini_mel_table()
 
+    def on_summary_checked(self):
+        if self.summary_select.isChecked():
+            self.summary = True
+        else:
+            self.summary = False
+        self.set_mini_mel_table()
+
     def export_tsv(self):
         """
         [Handler for 'export as tsv' button]  Write the dashboard content to a
@@ -372,6 +386,8 @@ class MiniMelDialog(QDialog):
         orb.log.debug('* export_tsv()')
         dtstr = date2str(dtstamp())
         name = '-' + self.dash_name + '-'
+        if self.summary:
+            name = '-Summary' + name
         fname = self.obj.id + name + dtstr + '.tsv'
         state_path = state.get('mini_mel_last_path') or ''
         suggested_fpath = os.path.join(state_path, fname)
@@ -385,7 +401,7 @@ class MiniMelDialog(QDialog):
             data_cols = prefs['dashboards'].get(self.dash_name)
             orb.log.debug(f'  - data cols: "{str(data_cols)}"')
             write_mel_to_tsv(self.obj, schema=data_cols, pref_units=True,
-                             file_path=fpath)
+                             summary=self.summary, file_path=fpath)
             html = '<h3>Success!</h3>'
             msg = 'Mini MEL exported to file:'
             html += f'<p><b><font color="green">{msg}</font></b><br>'
@@ -403,7 +419,8 @@ class MiniMelDialog(QDialog):
             layout.removeWidget(self.mini_mel_table)
             self.mini_mel_table.parent = None
             self.mini_mel_table.close()
-        raw_data = get_mel_data(self.obj, schema=self.data_cols)
+        raw_data = get_mel_data(self.obj, schema=self.data_cols,
+                                summary=self.summary)
         # transform keys to formatted headers with units
         self.mel_data = [{self.get_header(col_id) : row[col_id]
                           for col_id in row}
