@@ -9,9 +9,9 @@ import os
 from PyQt5.QtCore import (Qt, QAbstractItemModel, QItemSelectionModel,
                           QMetaObject, QModelIndex)
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
-                             QDialog, QFileDialog, QLineEdit, QMainWindow,
-                             QStatusBar, QStyledItemDelegate, QTreeView,
-                             QVBoxLayout, QWidget)
+                             QDialog, QFileDialog, QLabel, QLineEdit,
+                             QMainWindow, QStatusBar, QStyledItemDelegate,
+                             QTreeView, QVBoxLayout, QWidget)
 
 # pangalactic
 from pangalactic.core             import config, state
@@ -23,6 +23,15 @@ from pangalactic.node.dialogs     import CustomizeColsDialog
 
 # Louie
 from louie import dispatcher
+
+
+class PrintLogger:
+    def info(self, txt):
+        print(txt)
+    def debug(self, txt):
+        print(txt)
+
+log = getattr(orb, 'log', None) or PrintLogger()
 
 
 class GridTreeItem:
@@ -52,7 +61,7 @@ class GridTreeItem:
             parent (GridTreeItem):  parent item of this item
         """
         argstr = f'oid={oid}'
-        orb.log.debug('* GridTreeItem({}) initializing ...'.format(argstr))
+        log.debug('* GridTreeItem({}) initializing ...'.format(argstr))
         self.root = root
         self.dm = dm
         if self.root:
@@ -123,7 +132,7 @@ class GridTreeItem:
             position (int):  position at which to begin inserting
             count (int):  number of children to insert
         """
-        orb.log.debug('  - GridTreeItem.insertChildren({}, {})'.format(
+        log.debug('  - GridTreeItem.insertChildren({}, {})'.format(
                                                       position, count))
         if position < 0 or position > len(self.children):
             return False
@@ -141,7 +150,7 @@ class GridTreeItem:
             position (int):  position at which to begin inserting
             count (int):  number of children to insert
         """
-        orb.log.debug('  - GridTreeItem.insertPeer({}, {})'.format(
+        log.debug('  - GridTreeItem.insertPeer({}, {})'.format(
                                                       position, count))
         if position < 0 or position > len(self.children):
             return False
@@ -157,7 +166,7 @@ class GridTreeItem:
     # What should this do?  Insert a data element or parameter into schema?
     # Or use it as a "show column(s)" type of function?
     def insertColumns(self, position, columns):
-        orb.log.debug('  - GridTreeItem.insertColumns({}, {})'.format(
+        log.debug('  - GridTreeItem.insertColumns({}, {})'.format(
                                                     position, str(columns)))
         if position < 0 or position > len(self.schema):
             return False
@@ -172,7 +181,7 @@ class GridTreeItem:
 
     # FIXME:  this is OLD -- needs to be adapted to the Entity paradigm ...
     def removeChildren(self, position, count):
-        orb.log.debug('  - GridTreeItem.removeChildren({}, {})'.format(
+        log.debug('  - GridTreeItem.removeChildren({}, {})'.format(
                                                       position, count))
         if position < 0 or position + count > len(self.children):
             return False
@@ -182,7 +191,7 @@ class GridTreeItem:
 
     # FIXME:  this is OLD -- needs to be adapted to the Entity paradigm ...
     def removeColumns(self, position, columns):
-        orb.log.debug('  - GridTreeItem.removeColumns({}, {})'.format(
+        log.debug('  - GridTreeItem.removeColumns({}, {})'.format(
                                                     position, str(columns)))
         if position < 0 or position + columns > len(self.item_data):
             return False
@@ -201,7 +210,7 @@ class GridTreeItem:
             self.entity[col_id] = value
             # don't log zero or empty string values ...
             if value:
-                orb.log.debug('  - GridTreeItem.setData({}, {}) [{}]'.format(
+                log.debug('  - GridTreeItem.setData({}, {}) [{}]'.format(
                                                       column, value, col_id))
             return True
         else:
@@ -230,7 +239,7 @@ class DMTreeModel(QAbstractItemModel):
             parent (QWidget):  parent widget
         """
         arguments = 'project={}, name="{}"'
-        orb.log.debug('* DMTreeModel({}) initializing ...'.format(
+        log.debug('* DMTreeModel({}) initializing ...'.format(
                       arguments.format(getattr(project, 'id', 'None'),
                                        name)))
         super().__init__(parent)
@@ -239,22 +248,22 @@ class DMTreeModel(QAbstractItemModel):
         self.dm = None
         self.project = project
         name = name or config.get('default_schema_name')
-        if isinstance(project, orb.classes['Project']) and name:
+        if hasattr(project, 'oid') and name:
             # check for a cached DataMatrix instance ...
             dm_oid = project.oid + '-' + name
-            orb.log.debug(f'  looking for DataMatrix "{dm_oid}" ...')
-            orb.log.debug('  dmz cache is: {}'.format(str(dmz)))
+            log.debug(f'  looking for DataMatrix "{dm_oid}" ...')
+            log.debug('  dmz cache is: {}'.format(str(dmz)))
             self.dm = dmz.get(dm_oid)
         if self.dm:
-            orb.log.debug('  DataMatrix found: "{}"'.format(self.dm.oid))
-            orb.log.debug('  {}'.format(str(self.dm)))
+            log.debug('  DataMatrix found: "{}"'.format(self.dm.oid))
+            log.debug('  {}'.format(str(self.dm)))
         else:
-            orb.log.debug('  DataMatrix not found in cache.')
+            log.debug('  DataMatrix not found in cache.')
             # if no parts list found in the orb's cache, pass the args to
             # DataMatrix, which will check for a stored one or create a new
             # one based on the input:
-            self.project = project or orb.get('pgefobjects:SANDBOX')
-            self.dm = DataMatrix(project_oid=project.oid, name=name)
+            oid = getattr(project, 'oid', None) or 'pgefobjects:SANDBOX'
+            self.dm = DataMatrix(project_oid=oid, name=name)
         self.dm.recompute_mel(project)
         # --------------------------------------------------------------------
         # NOTE:  'root_item' is the header row ... and this is the ONLY place
@@ -288,7 +297,7 @@ class DMTreeModel(QAbstractItemModel):
             # use the DataMatrix, Luke!
             entity = self.dm[index.row()]
             if index.column() < len(self.dm.schema):
-                # orb.log.debug('  - DMTreeModel.data()')
+                # log.debug('  - DMTreeModel.data()')
                 col_id = self.dm.schema[index.column()]
                 return entity.get(col_id)
 
@@ -315,7 +324,7 @@ class DMTreeModel(QAbstractItemModel):
         return None
 
     def index(self, row, column, parent=QModelIndex()):
-        # orb.log.debug('  - DMTreeModel.index({}, {})'.format(row, column))
+        # log.debug('  - DMTreeModel.index({}, {})'.format(row, column))
         if parent.isValid() and parent.column() != 0:
             return QModelIndex()
         parent_item = self.getItem(parent)
@@ -326,7 +335,7 @@ class DMTreeModel(QAbstractItemModel):
             return QModelIndex()
 
     def insertColumns(self, position, columns, parent=QModelIndex()):
-        orb.log.debug('  - DMTreeModel.insertColumns({}, {})'.format(
+        log.debug('  - DMTreeModel.insertColumns({}, {})'.format(
                                                 position, str(columns)))
         self.beginInsertColumns(parent, position, position + columns - 1)
         success = self.root_item.insertColumns(position, columns)
@@ -346,7 +355,7 @@ class DMTreeModel(QAbstractItemModel):
             parent (QModelIndex):  index of the parent item of which the new
                 rows (items) will be children
         """
-        orb.log.debug('  - DMTreeModel.insertRows({}, {})'.format(
+        log.debug('  - DMTreeModel.insertRows({}, {})'.format(
                                                 position, str(rows)))
         parent_item = self.getItem(parent)
         self.beginInsertRows(parent, position, position + rows - 1)
@@ -370,7 +379,7 @@ class DMTreeModel(QAbstractItemModel):
         return self.createIndex(parent_item.childNumber(), 0, parent_item)
 
     def removeColumns(self, position, columns, parent=QModelIndex()):
-        orb.log.debug('  - DMTreeModel.removeColumns({}, {})'.format(
+        log.debug('  - DMTreeModel.removeColumns({}, {})'.format(
                                                 position, str(columns)))
         self.beginRemoveColumns(parent, position, position + columns - 1)
         success = self.root_item.removeColumns(position, columns)
@@ -380,7 +389,7 @@ class DMTreeModel(QAbstractItemModel):
         return success
 
     def removeRows(self, position, rows, parent=QModelIndex()):
-        orb.log.debug('  - DMTreeModel.removeRows({}, {})'.format(
+        log.debug('  - DMTreeModel.removeRows({}, {})'.format(
                                                 position, str(rows)))
         parent_item = self.getItem(parent)
         self.beginRemoveRows(parent, position, position + rows - 1)
@@ -391,7 +400,7 @@ class DMTreeModel(QAbstractItemModel):
     def rowCount(self, parent=QModelIndex()):
         parent_item = self.getItem(parent)
         count = parent_item.childCount()
-        # orb.log.debug('  - DMTreeModel.rowCount(): {}'.format(count))
+        # log.debug('  - DMTreeModel.rowCount(): {}'.format(count))
         return count
 
     def setData(self, index, value, role=Qt.EditRole):
@@ -404,9 +413,9 @@ class DMTreeModel(QAbstractItemModel):
         item = self.getItem(index)
         result = item.setData(index.column(), value)
         if result:
-            # orb.log.debug('  - DMTreeModel.setData({})'.format(value))
-            # orb.log.debug('    for item with oid: "{}"'.format(item.oid))
-            # orb.log.debug('    at row: {}, column: {}'.format(index.row(),
+            # log.debug('  - DMTreeModel.setData({})'.format(value))
+            # log.debug('    for item with oid: "{}"'.format(item.oid))
+            # log.debug('    at row: {}, column: {}'.format(index.row(),
                                                               # index.column()))
             self.dataChanged.emit(index, index)
         return result
@@ -416,7 +425,7 @@ class DMTreeModel(QAbstractItemModel):
             return False
         result = self.root_item.setData(section, value)
         if result:
-            orb.log.debug('  - DMTreeModel.setHeaderData({})'.format(value))
+            log.debug('  - DMTreeModel.setHeaderData({})'.format(value))
             self.headerDataChanged.emit(orientation, section, section)
         return result
 
@@ -424,7 +433,7 @@ class DMTreeModel(QAbstractItemModel):
         """
         Load DataMatrix data into the grid.
         """
-        orb.log.debug('* DMTreeModel.load_dm_data()')
+        log.debug('* DMTreeModel.load_dm_data()')
         # if parent == None:
             # parents = [self.root_item]
         # else:
@@ -436,12 +445,12 @@ class DMTreeModel(QAbstractItemModel):
         # actually calls insertRows() anyway.
         n = len(self.dm)
         if n == 1:
-            orb.log.debug('  - loading 1 entity ...')
+            log.debug('  - loading 1 entity ...')
         else:
-            orb.log.debug('  - loading {} entities ...'.format(n))
+            log.debug('  - loading {} entities ...'.format(n))
         for row in range(n):
             entity = self.dm[row]
-            orb.log.debug('    row {} (oid "{}")'.format(row, entity.oid))
+            log.debug('    row {} (oid "{}")'.format(row, entity.oid))
             self.insertRow(row, parent=QModelIndex())
             # TESTING:
             # self.root_item.insertChildren(self.root_item.childCount(), 0,
@@ -454,7 +463,7 @@ class DMTreeModel(QAbstractItemModel):
 
     def on_pval_set(self, oid=None, pid=None, value=None, units=None,
                     mod_datetime=None, local=True):
-        # orb.log.debug('DMTreeModel.on_pval_set()')
+        # log.debug('DMTreeModel.on_pval_set()')
         idx = self.oid_to_index.get(oid)
         if idx:
             self.dataChanged(idx, idx)
@@ -474,7 +483,7 @@ class GridTreeView(QTreeView):
             name (str): name of an initial schema (in 'schemaz' cache)
                 to be passed to the DataMatrix
         """
-        orb.log.debug('* GridTreeView initializing ...')
+        log.debug('* GridTreeView initializing ...')
         super().__init__(parent)
         model = DMTreeModel(project=project, name=name)
         self.setModel(model)
@@ -496,9 +505,11 @@ class GridTreeView(QTreeView):
                              'font-size: 12px; border: 2px solid; };')
         header.setDefaultAlignment(Qt.AlignHCenter)
         # add context menu actions
-        self.insert_row_action = QAction('Insert Row (same level)', self)
+        self.insert_row_action = QAction('Insert Row', self)
         self.insert_row_action.triggered.connect(self.insert_row)
         header.addAction(self.insert_row_action)
+        # Add Child Row needs to be in the context menu of a row, not the
+        # context menu of the whole table ...
         self.add_child_action = QAction('Add Child Row (level down)', self)
         self.add_child_action.triggered.connect(self.add_child)
         header.addAction(self.add_child_action)
@@ -514,7 +525,7 @@ class GridTreeView(QTreeView):
         header.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def append_column(self, name="[No header]"):
-        orb.log.debug('* GridTreeView.append_column()')
+        log.debug('* GridTreeView.append_column()')
         model = self.model()
         column = model.columnCount()
         changed = model.insertColumn(column)
@@ -526,7 +537,7 @@ class GridTreeView(QTreeView):
         """
         Display a dialog in response to 'select columns' context menu item.
         """
-        orb.log.debug('* GridTreeView.select_columns() ...')
+        log.debug('* GridTreeView.select_columns() ...')
         schema = self.model().dm.schema
         # NOTE: current_view is a *copy* from the schema -- DO NOT modify the
         # original schema!!!
@@ -550,10 +561,10 @@ class GridTreeView(QTreeView):
                     schema.append(col)
                     # TODO: hmmm ... does this work?
                     # self.insert_column(col)
-            orb.log.debug('  new schema: {}'.format(schema))
+            log.debug('  new schema: {}'.format(schema))
 
     def drawRow(self, painter, option, index):
-        # orb.log.debug('* GridTreeView.drawRow()')
+        # log.debug('* GridTreeView.drawRow()')
         QTreeView.drawRow(self, painter, option, index)
         # painter.setPen(Qt.lightGray)
         painter.setPen(Qt.darkGray)
@@ -575,7 +586,7 @@ class GridTreeView(QTreeView):
 
     # FIXME:  NOT IN USE -- is it even remotely correct??
     # def set_cell_value(self, row_oid, col_id, value):
-        # orb.log.debug('* GridTreeView.set_cell_value("{}", "{}")'.format(
+        # log.debug('* GridTreeView.set_cell_value("{}", "{}")'.format(
                       # row_oid, col_id))
         # model = self.model()
         # if entity:
@@ -589,7 +600,7 @@ class GridTreeView(QTreeView):
 
     # was originally DataGrid.updateActions()
     def update_actions(self):
-        orb.log.debug('* GridTreeView.update_actions()')
+        log.debug('* GridTreeView.update_actions()')
         # has_selection = not self.selectionModel().selection().isEmpty()
         # self.removeRowAction.setEnabled(has_selection)
         # self.removeColumnAction.setEnabled(has_selection)
@@ -610,21 +621,21 @@ class GridTreeView(QTreeView):
             dispatcher.send("datagrid show msg", msg=msg)
 
     def insert_row(self):
-        orb.log.debug('* GridTreeView.insert_row()')
+        log.debug('* GridTreeView.insert_row()')
         index = self.selectionModel().currentIndex()
         model = self.model()
         if index:
             model.dm.insert_new_row(index.row()+1)
             success = model.insertRow(index.row()+1, index.parent())
             if not success:
-                orb.log.debug('  - failed.')
+                log.debug('  - failed.')
                 return
         else:
-            orb.log.debug('  - no current index; inserting row 0')
+            log.debug('  - no current index; inserting row at 0')
             model.dm.insert_new_row(0)
             model.insertRow(0, parent=QModelIndex())
         number_of_columns = model.columnCount(index.parent())
-        orb.log.debug('  - calling setData() for {} columns ...'.format(
+        log.debug('  - calling setData() for {} columns ...'.format(
                                                         number_of_columns))
         for column in range(number_of_columns):
             child = model.index(index.row()+1, column, index.parent())
@@ -636,12 +647,12 @@ class GridTreeView(QTreeView):
     ### properly, the model.insertRows must be modified to find the correct
     ### entity ("child" of this entity, i.e. 1 level down) in the dm
     def add_child(self):
-        orb.log.debug('* GridTreeView.add_child()')
+        log.debug('* GridTreeView.add_child()')
         index = self.selectionModel().currentIndex()
         model = self.model()
         item = model.getItem(index)
         if not item or not item.entity:
-            orb.log.debug('  - no selected item or entity, cannot add child.')
+            log.debug('  - no selected item or entity, cannot add child.')
             return
         dm_oids = [e.oid for e in model.dm]
         item_dm_position = dm_oids.index(item.entity.oid)
@@ -658,7 +669,7 @@ class GridTreeView(QTreeView):
         new_child_row = item.childCount()
         # if not model.insertRow(index.row()+1, parent=index):
         if not model.insertRow(new_child_row, parent=index):
-            orb.log.debug('  - model.insertRow() failed, cannot add child.')
+            log.debug('  - model.insertRow() failed, cannot add child.')
             return
         ### NOTE: this setting blank data does not work ... and not needed???
         # set blank data for columns of new item
@@ -682,21 +693,21 @@ class GridTreeView(QTreeView):
         self.update_actions()
 
     def delete_row(self):
-        orb.log.debug('* DataGrid.delete_row()')
+        log.debug('* DataGrid.delete_row()')
         index = self.selectionModel().currentIndex()
         model = self.model()
         item = model.getItem(index)
-        orb.log.debug('  - oid of row being deleted: "{}"'.format(item.oid))
+        log.debug('  - oid of row being deleted: "{}"'.format(item.oid))
         success = model.dm.remove_row_by_oid(item.oid)
         if success:
             if (model.removeRow(index.row(), index.parent())):
                 self.update_actions()
         else:
-            orb.log.debug('    unable to delete.')
+            log.debug('    unable to delete.')
 
     # EXPERIMENTAL!
     def on_remote_new_row(self, dm_oid=None, row_oid=None):
-        orb.log.debug('* GridTreeView.on_remote_new_row("{}", "{}")'.format(
+        log.debug('* GridTreeView.on_remote_new_row("{}", "{}")'.format(
                       dm_oid, row_oid))
         if self.dm.oid == dm_oid:
             self.new_row(row_oid=row_oid, local=False)
@@ -706,8 +717,8 @@ class GridTreeView(QTreeView):
                                     col_id=None, value=None):
         arguments = 'dm_oid="{}", row_oid="{}", col_id="{}", value={}'.format(
                                                dm_oid, row_oid, col_id, value)
-        orb.log.debug('* GridTreeView.on_remote_data_item_updated(')
-        orb.log.debug('      {})'.format(arguments))
+        log.debug('* GridTreeView.on_remote_data_item_updated(')
+        log.debug('      {})'.format(arguments))
         if self.dm.oid == dm_oid:
             self.set_cell_value(row_oid, col_id, value)
 
@@ -715,24 +726,24 @@ class GridTreeView(QTreeView):
         """
         Write the table content to a tsv (tab-separated-values) file.
         """
-        orb.log.debug('* export_tsv()')
+        log.debug('* export_tsv()')
         dtstr = date2str(dtstamp())
         dm = self.model().dm
         fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Write to tsv File',
                                     dm.oid + '-' + dtstr + '.tsv')
         if fpath:
-            orb.log.debug('  - file selected: "%s"' % fpath)
+            log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; UTF-8 (?)
             state['last_path'] = os.path.dirname(fpath)
             f = open(fpath, 'w')
             header = '\t'.join(dm.schema)
             rows = [header]
-            orb.log.debug('  - rows to be written:')
+            log.debug('  - rows to be written:')
             for entity in dm:
                 row = '\t'.join([str(entity.get(col, ''))
                                  for col in dm.schema])
-                orb.log.debug(f'    {row}')
+                log.debug(f'    {row}')
                 rows.append(row)
             content = '\n'.join(rows)
             f.write(content)
@@ -740,14 +751,14 @@ class GridTreeView(QTreeView):
             # TODO:  add a "success" notification
             # txt = '... table exported to file: {}'.format(fpath)
         else:
-            orb.log.debug('  ... export to tsv cancelled.')
+            log.debug('  ... export to tsv cancelled.')
             return
 
 
 class DGDelegate(QStyledItemDelegate):
 
     def __init__(self, parent=None):
-        orb.log.debug('* DGDelegate initializing ...')
+        log.debug('* DGDelegate initializing ...')
         super().__init__(parent)
 
     def createEditor(self, parent, style, index):
@@ -777,19 +788,20 @@ class DGDelegate(QStyledItemDelegate):
         Set the model data at the specified index to the edited value, and
         update the model's associated DataMatrix.
         """
-        orb.log.debug('* setModelData()')
+        log.debug('* setModelData()')
         if isinstance(editor, QLineEdit):
-            model.setData(index, editor.text())
+            value = editor.text()
+            model.setData(index, value)
             colnum = index.column()
             rownum = index.row()
             dm = model.dm
             col_id = dm.schema[colnum]
             # TODO: cast editor.text() to column datatype ...
             # item = model.getItem(index)
-            dm[rownum][col_id] = editor.text()
-            orb.log.debug(' - ({}, "{}"): {}'.format(
-                                rownum, col_id, editor.text()))
-            orb.log.debug('   dm row is now: {}'.format(str(dm[rownum])))
+            dm[rownum][col_id] = value
+            log.debug(' - ({}, "{}"): {}'.format(
+                                rownum, col_id, value))
+            log.debug('   dm row is now: {}'.format(str(dm[rownum])))
 
 
 class DataGrid(QMainWindow):
@@ -803,13 +815,13 @@ class DataGrid(QMainWindow):
             name (str): name of an initial schema (in 'schemaz' cache)
                 to be passed to the internal DataMatrix
         """
-        orb.log.debug('* DataGrid(project="{}", name="{}")'.format(
+        log.debug('* DataGrid(project="{}", name="{}")'.format(
                              getattr(project, 'id', '[None]'), name))
         super().__init__(parent)
         self.centralwidget = QWidget(self)
-        self.vboxlayout = QVBoxLayout(self.centralwidget)
-        self.vboxlayout.setContentsMargins(0, 0, 0, 0)
-        self.vboxlayout.setSpacing(0)
+        self.vbox = QVBoxLayout(self.centralwidget)
+        self.vbox.setContentsMargins(5, 5, 5, 5)
+        self.vbox.setSpacing(5)
         self.view = GridTreeView(project=project, name=name,
                                  parent=self.centralwidget)
         self.view.setAlternatingRowColors(True)
@@ -817,7 +829,12 @@ class DataGrid(QMainWindow):
         self.view.setAnimated(False)
         self.view.setAllColumnsShowFocus(True)
         self.view.setObjectName("view")
-        self.vboxlayout.addWidget(self.view)
+        self.grid_label = QLabel()
+        self.grid_label.setStyleSheet('color: purple; font-weight: bold;'
+                                      'font-size: 16px')
+        self.grid_label.setText(self.view.model().dm.name)
+        self.vbox.addWidget(self.grid_label)
+        self.vbox.addWidget(self.view)
         self.setCentralWidget(self.centralwidget)
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
@@ -841,25 +858,25 @@ class DataGrid(QMainWindow):
     # This works fine.  Triggered by the "Insert Row" action.
     # *** moved to model as "add_row"
     def insertRow(self):
-        orb.log.debug('* DataGrid.insertRow()')
+        log.debug('* DataGrid.insertRow()')
         index = self.view.selectionModel().currentIndex()
         model = self.view.model()
         if not index:
-            orb.log.debug('  - no current index; inserting row 0')
+            log.debug('  - no current index; inserting row 0')
             model.insertRow(0, index.parent())
         elif not model.insertRow(index.row()+1, index.parent()):
-            orb.log.debug('  - failed.')
+            log.debug('  - failed.')
             return
         # self.updateActions()
         number_of_columns = model.columnCount(index.parent())
-        orb.log.debug('  - calling setData() for {} columns ...'.format(
+        log.debug('  - calling setData() for {} columns ...'.format(
                                                         number_of_columns))
         for column in range(number_of_columns):
             child = model.index(index.row()+1, column, index.parent())
             model.setData(child, "[No data]", Qt.EditRole)
 
     def removeColumn(self):
-        orb.log.debug('* DataGrid.removeColumn()')
+        log.debug('* DataGrid.removeColumn()')
         model = self.view.model()
         column = self.view.selectionModel().currentIndex().column()
         changed = model.removeColumn(column)
@@ -869,18 +886,18 @@ class DataGrid(QMainWindow):
 
     # This worked fine ... was triggered by the "Remove Row" action.
     # def removeRow(self):
-        # orb.log.debug('* DataGrid.removeRow()')
+        # log.debug('* DataGrid.removeRow()')
         # index = self.view.selectionModel().currentIndex()
         # model = self.view.model()
         # item = model.getItem(index)
-        # orb.log.debug('  - oid of row item: "{}"'.format(item.oid))
+        # log.debug('  - oid of row item: "{}"'.format(item.oid))
         # if item.oid in model.dm:
             # model.dm.remove_oid(item.oid)
         # # if (model.removeRow(index.row(), index.parent())):
             # # self.updateActions()
 
     # def updateActions(self):
-        # orb.log.debug('  - DataGrid.updateActions()')
+        # log.debug('  - DataGrid.updateActions()')
         # hasSelection = not self.view.selectionModel().selection().isEmpty()
         # self.removeRowAction.setEnabled(hasSelection)
         # self.removeColumnAction.setEnabled(hasSelection)
@@ -903,7 +920,6 @@ class DataGrid(QMainWindow):
 if __name__ == '__main__':
 
     import sys
-
     app = QApplication(sys.argv)
     window = DataGrid()
     window.show()

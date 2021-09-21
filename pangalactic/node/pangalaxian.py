@@ -61,7 +61,7 @@ from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.datagrid         import DataGrid
-from pangalactic.node.dialogs          import (FrozenDialog, FullSyncDialog,
+from pangalactic.node.dialogs          import (FullSyncDialog,
                                                LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
@@ -291,8 +291,7 @@ class Main(QMainWindow):
         elif mode == 'db':
             self.db_mode_action.trigger()
         else:
-            # self.data_mode_action.trigger()
-            pass
+            self.data_mode_action.trigger()
         state['done_with_progress'] = False
         parm_des_unavail = ''
         parms_unavail = orb.parmz_status in ['fail', 'not found']
@@ -1365,8 +1364,7 @@ class Main(QMainWindow):
                 # content is a list of oids
                 frozens = content
                 if frozens:
-                    orb.log.info('* msg received on public channel:')
-                    orb.log.info(f'  vger: {len(frozens)} object(s) frozen.')
+                    orb.log.info('* "freeze completed" msg received')
                     items = []
                     oids = []
                     for frozen_oid in frozens:
@@ -1375,26 +1373,28 @@ class Main(QMainWindow):
                             oids.append(frozen_oid)
                             items.append(f'<b>{obj.id}</b> ({obj.name})')
                     if oids:
-                        phrase = "products have been"
-                        if len(items) == 1:
-                            phrase = "product has been"
-                        html = f'<p>The following {phrase} <b>frozen</b><br>'
-                        html += 'in the repository:</p><ul>'
-                        items.sort()
-                        for item in items:
-                            html += f'<li>{item}</li>'
-                        html += '</ul></p>'
-                        dlg = FrozenDialog(html, parent=self)
-                        dlg.show()
-                        orb.log.info(f'  {len(oids)} object(s) found ...')
-                        orb.log.debug('  getting frozen versions ...')
+                        # phrase = "products have been"
+                        # if len(items) == 1:
+                            # phrase = "product has been"
+                        # html = f'<p>The following {phrase} <b>frozen</b><br>'
+                        # html += 'in the repository:</p><ul>'
+                        # items.sort()
+                        # for item in items:
+                            # html += f'<li>{item}</li>'
+                        # html += '</ul></p>'
+                        # dlg = FrozenDialog(html, parent=self)
+                        # dlg.show()
+                        msg = 'vger: object(s) have been frozen ... '
+                        msg += f'{len(oids)} found locally '
+                        msg += '-- getting frozen versions ...'
+                        if hasattr(self, 'statusbar'):
+                            self.statusbar.showMessage(msg)
                         self.on_remote_freeze_or_thaw(oids)
             elif subject == 'thawed':
                 # content is a list of oids
                 thaweds = content
                 if thaweds:
-                    orb.log.info('* msg received on public channel:')
-                    orb.log.info(f'  vger: {len(thaweds)} object(s) thawed.')
+                    orb.log.info('* "thawed" msg received')
                     items = []
                     oids = []
                     for thawed_oid in thaweds:
@@ -1403,20 +1403,23 @@ class Main(QMainWindow):
                             oids.append(thawed_oid)
                             items.append(f'<b>{obj.id}</b> ({obj.name})')
                     if oids:
-                        phrase = "products have been"
-                        if len(items) == 1:
-                            phrase = "product has been"
-                        html = f'<p>The following {phrase} <b>thawed</b><br>'
-                        html += 'in the repository:</p><ul>'
-                        items.sort()
-                        for item in items:
-                            html += f'<li>{item}</li>'
-                        html += '</ul></p>'
-                        notice = QMessageBox(QMessageBox.Information, 'Thawed',
-                                     html, QMessageBox.Ok, self)
-                        notice.show()
-                        orb.log.info(f'  {len(oids)} object(s) found ...')
-                        orb.log.debug('  getting thawed versions ...')
+                        # phrase = "products have been"
+                        # if len(items) == 1:
+                            # phrase = "product has been"
+                        # html = f'<p>The following {phrase} <b>thawed</b><br>'
+                        # html += 'in the repository:</p><ul>'
+                        # items.sort()
+                        # for item in items:
+                            # html += f'<li>{item}</li>'
+                        # html += '</ul></p>'
+                        # notice = QMessageBox(QMessageBox.Information, 'Thawed',
+                                     # html, QMessageBox.Ok, self)
+                        # notice.show()
+                        msg = 'vger: objects have been thawed ...'
+                        msg += f'{len(oids)} found locally '
+                        msg += '-- getting thawed versions ...'
+                        if hasattr(self, 'statusbar'):
+                            self.statusbar.showMessage(msg)
                         self.on_remote_freeze_or_thaw(oids)
             elif subject == 'deleted':
                 obj_oid = content
@@ -2020,13 +2023,13 @@ class Main(QMainWindow):
                                     icon="db",
                                     checkable=True,
                                     tip="Local DB")
-        # self.data_mode_action = self.create_action(
-                                    # "Data Mode",
-                                    # slot=self._set_data_mode,
-                                    # icon="data",
-                                    # checkable=True,
-                                    # tip="Data Mode")
-        # self.data_mode_action.setEnabled(True)
+        self.data_mode_action = self.create_action(
+                                    "Data Mode",
+                                    slot=self._set_data_mode,
+                                    icon="data",
+                                    checkable=True,
+                                    tip="Data Mode")
+        self.data_mode_action.setEnabled(True)
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
@@ -2056,7 +2059,7 @@ class Main(QMainWindow):
         self.component_mode_action.setActionGroup(mode_action_group)
         self.system_mode_action.setActionGroup(mode_action_group)
         self.db_mode_action.setActionGroup(mode_action_group)
-        # self.data_mode_action.setActionGroup(mode_action_group)
+        self.data_mode_action.setActionGroup(mode_action_group)
         # orb.log.debug('  ... all actions created.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -2096,8 +2099,8 @@ class Main(QMainWindow):
         Set the current mode.
         """
         # # NOTE: this is used if 'data' mode is temporarily disabled:
-        if mode == 'data':
-            mode = 'system'
+        # if mode == 'data':
+            # mode = 'system'
         initial_size = self.size()
         if hasattr(orb, 'store'):
             orb.db.commit()
@@ -2114,14 +2117,6 @@ class Main(QMainWindow):
             for action in set.union(self.mode_widget_actions[mode],
                                     self.mode_widget_actions['all']):
                 action.setVisible(True)
-            # if mode == 'component':
-                # self.mode_label.setText('Component Modeler')
-            # elif mode == 'system':
-                # self.mode_label.setText('System Modeler')
-            # elif mode == 'db':
-                # self.mode_label.setText('Local Database')
-            # elif mode == 'data':
-                # self.mode_label.setText('Data Mode')
             self._update_modal_views()
             # NOTE: the saved_state stuff does not seem to be doing anything so
             # commented out for now ...
@@ -2506,7 +2501,7 @@ class Main(QMainWindow):
         ### text [SCW 2020-12-18]
         # self.mode_label = ModeLabel('')
         # self.toolbar.addWidget(self.mode_label)
-        # self.toolbar.addAction(self.data_mode_action)
+        self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
         self.toolbar.addAction(self.component_mode_action)
@@ -4925,7 +4920,7 @@ class Main(QMainWindow):
             wizard.exec_()
             orb.log.debug('* import_excel_data: dialog completed.')
             # set mode to "data"
-            # self.data_mode_action.trigger()
+            self.data_mode_action.trigger()
             # except:
                 # message = f"Data in '{fpath}' could not be imported."
                 # popup = QMessageBox(
