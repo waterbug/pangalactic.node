@@ -539,24 +539,33 @@ class GridTreeView(QTreeView):
         """
         log.debug('* GridTreeView.select_columns() ...')
         schema = self.model().dm.schema
-        # NOTE: current_view is a *copy* from the schema -- DO NOT modify the
-        # original schema!!!
-        current_schema = schema[:]
+        log.debug(f'  current schema: {str(schema)}')
         ### what was this used for? ... not used now.
         # current_schema_name = self.model().dm.name
-        dlg = CustomizeColsDialog(self.model().dm.schema, parent=self)
+        # TODO:  add in parm_defz, after dialog is fixed!
+        # all_cols = list(de_defz) + list(parm_defz)
+        all_cols = list(de_defz)
+        # FIXME: "directionality" does not apply to Products
+        all_cols.remove('directionality')
+        selectable_cols = []
+        addon_cols = []
+        for col in schema:
+            if col in all_cols:
+                selectable_cols.append(col)
+            else:
+                addon_cols.append(col)
+        if addon_cols:
+            addon_cols.sort()
+            for col in addon_cols:
+                selectable_cols.append(col)
+        dlg = CustomizeColsDialog(cols=schema,
+                                  selectables=selectable_cols,
+                                  parent=self)
         if dlg.exec_() == QDialog.Accepted:
-            all_cols = list(de_defz) + list(parm_defz)
-            all_cols.sort()
             # rebuild schema from the selected columns
             schema.clear()
-            # add any columns from current_schema first
-            for col in current_schema:
-                if col in dlg.checkboxes and dlg.checkboxes[col].isChecked():
-                    schema.append(col)
-                    all_cols.remove(col)
-            # then append any newly selected columns
-            for col in all_cols:
+            # add all selected columns
+            for col in selectable_cols:
                 if dlg.checkboxes[col].isChecked():
                     schema.append(col)
                     # TODO: hmmm ... does this work?

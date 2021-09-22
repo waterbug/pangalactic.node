@@ -715,8 +715,9 @@ class CustomizeColsDialog(QDialog):
 
     Keyword Args:
         cols (list of str): names of current columns
+        selectables (list of str): names of all possible columns
     """
-    def __init__(self, title=None, cols=None, selectables=None, parent=None):
+    def __init__(self, cols=None, title=None, selectables=None, parent=None):
         super().__init__(parent)
         title = title or "Select Columns"
         self.setWindowTitle(title)
@@ -725,7 +726,6 @@ class CustomizeColsDialog(QDialog):
         cols = cols or []
         self.checkboxes = {}
         selectables = selectables or []
-        selectables.sort()
         names = self.get_col_names(selectables)
         nbr_of_cols = len(selectables) // 40
         if len(selectables) % 40:
@@ -738,9 +738,9 @@ class CustomizeColsDialog(QDialog):
         hbox.addLayout(form)
         for subform in subforms:
             hbox.addLayout(subform)
-        for i, pid in enumerate(selectables):
+        for i, col_id in enumerate(selectables):
             label = QLabel(names[i], self)
-            col_def = de_defz.get(pid) or parm_defz.get(pid)
+            col_def = de_defz.get(col_id) or parm_defz.get(col_id)
             if col_def:
                 dtxt = col_def.get('description', '')
                 dtype = col_def.get('range_datatype', '')
@@ -750,12 +750,12 @@ class CustomizeColsDialog(QDialog):
                     tt += f'dimensions: {dims}<br>'
                 tt += f'definition: {dtxt}'
                 label.setToolTip(tt)
-            self.checkboxes[pid] = QCheckBox(self)
-            if pid in cols:
-                self.checkboxes[pid].setChecked(True)
+            self.checkboxes[col_id] = QCheckBox(self)
+            if col_id in cols:
+                self.checkboxes[col_id].setChecked(True)
             else:
-                self.checkboxes[pid].setChecked(False)
-            subforms[i // 40].addRow(self.checkboxes[pid], label)
+                self.checkboxes[col_id].setChecked(False)
+            subforms[i // 40].addRow(self.checkboxes[col_id], label)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,

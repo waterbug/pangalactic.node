@@ -321,6 +321,7 @@ class SystemDashboard(QTreeView):
         prescriptive_pids = [pid for pid in all_pids
                              if parm_defz[pid]['context']
                              in prescriptive_contexts]
+        prescriptive_pids.sort()
         current_pids = prefs['dashboards'][state['dashboard_name']][:]
         current_prescriptives = [pid for pid in current_pids
                                  if pid in prescriptive_pids]
