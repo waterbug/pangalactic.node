@@ -1443,7 +1443,6 @@ class PgxnObject(QDialog):
         # the assemblies be thawed first.
         orb.log.debug('* thaw action called ...')
         # notice = None
-        ok = False
         if (isinstance(self.obj, orb.classes['Product'])
             and self.obj.frozen):
             if getattr(self.obj, 'where_used', None):
@@ -1452,8 +1451,9 @@ class PgxnObject(QDialog):
                 if frozens:
                     orb.log.debug('  used in one or more frozen assembly ...')
                     orb.log.debug('  thaw not allowed.')
-                    txt = 'Thawing this Product would violate CM --\n'
-                    txt += 'it is used as a component in the following '
+                    txt = 'Thawing this Product may violate CM and\n'
+                    txt += 'should only be used for essential corrections.\n'
+                    txt += 'It is used as a component in the following '
                     txt += 'frozen assemblies:'
                     notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
                                          # QMessageBox.Ok | QMessageBox.Cancel,
@@ -1464,13 +1464,7 @@ class PgxnObject(QDialog):
                                a.name, a.id) for a in assemblies if a]))
                     notice.setInformativeText(text)
                     notice.show()
-                else:
-                    ok = True
-            else:
-                ok = True
-            if ok:
-                orb.log.debug('  not used in any frozen assemblies ...')
-                orb.log.debug('  thawing.')
+                orb.log.debug('  thawing ...')
                 self.freeze_action.setVisible(True)
                 self.frozen_action.setVisible(False)
                 self.thaw_action.setVisible(False)

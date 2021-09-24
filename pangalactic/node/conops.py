@@ -24,7 +24,7 @@ from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPainter, QPen, QPixmap,
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.activities  import ActivityTable, ParameterTable
+from pangalactic.node.activities  import ActivityTable
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
@@ -364,8 +364,8 @@ class ToolbarAction(QWidgetAction):
 
 
 class TimelineWidget(QWidget):
-    def __init__(self, system, subject_activity=None,
-                 act_of=None,parent=None, position=None):
+    def __init__(self, system, subject_activity=None, act_of=None,
+                 position=None, parent=None):
         super().__init__(parent=parent)
         self.possible_systems = []
         self.position = position
@@ -375,6 +375,8 @@ class TimelineWidget(QWidget):
                                          'discipline_subsystems').values())
         self.plot_win = None
         self.system = system
+        self.subsys_ids = []
+        self.create_subsys_list()
         self.init_toolbar()
         self.subject_activity = subject_activity
         self.act_of = act_of
@@ -443,7 +445,7 @@ class TimelineWidget(QWidget):
             txt += ': '
             title = red_text.format(txt)
         if isinstance(self.act_of, orb.classes['Product']):
-            title += blue_text.format(self.act_of.name) + ' '
+            title += blue_text.format(self.act_of.name + ' System ')
         title += 'Timeline'
         self.title.setText(title)
         # except:
@@ -783,21 +785,17 @@ class TimelineWidget(QWidget):
 
     def create_subsys_list(self):
         lst = [acu.component for acu in self.system.components]
-        subsys_ids = []
         for system in lst:
             try:
-                # check if the id is TBD
                 subsys_id = system.id
+                # ignore TBD's
                 if subsys_id != "TBD":
-                    subsys_ids.append(subsys_id)
+                    self.subsys_ids.append(subsys_id)
             except:
                 pass
-        return subsys_ids
 
     def make_subsys_selector(self):
         self.subsys_selector = QComboBox(self)
-        self.subsys_ids = self.create_subsys_list()
-        # print("self.subsys_ids =", self.subsys_ids)
         self.subsys_selector.addItems(self.subsys_ids)
         self.toolbar.addWidget(self.subsys_selector)
         self.subsys_selector.currentIndexChanged.connect(self.change_subsystem)
@@ -917,21 +915,17 @@ class ConOpsModeler(QMainWindow):
         self.create_library()
         self._init_ui()
         self.init_toolbar()
-        self.bottom_dock = QDockWidget()
-        self.bottom_dock.setObjectName('BottomDock')
-        self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
-        self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
-        self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
+        # NOTE:  bottom dock area is not currently being used
+        # self.bottom_dock = QDockWidget()
+        # self.bottom_dock.setObjectName('BottomDock')
+        # self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
+        # self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
+        # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
 
         self.set_widgets(current_activity=self.subject_activity, init=True)
         #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
         dispatcher.connect(self.view_subsystem, "activity focused")
-
-    def set_bottom_table(self):
-        self.bottom_dock.setWidget(self.bottom_table)
-        self.setCorner(Qt.TopLeftCorner, Qt.LeftDockWidgetArea)
-        self.setCorner(Qt.TopRightCorner, Qt.RightDockWidgetArea)
 
     def create_library(self):
         """
@@ -1007,10 +1001,10 @@ class ConOpsModeler(QMainWindow):
                                     self.system,
                                     subject_activity=self.subject_activity,
                                     act_of=self.system, position='top')
-        self.system_widget.setMinimumSize(900, 300)
+        self.system_widget.setMinimumSize(900, 200)
         self.sub_widget = TimelineWidget(self.system, position='middle')
         self.sub_widget.setEnabled(False)
-        self.sub_widget.setMinimumSize(900, 300)
+        self.sub_widget.setMinimumSize(900, 200)
         self.outer_layout = QGridLayout()
         system_table = ActivityTable(subject=self.subject_activity,
                                      parent=self, act_of=self.system,
@@ -1030,10 +1024,6 @@ class ConOpsModeler(QMainWindow):
         self.widget.setMinimumSize(1450, 600)
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
-        self.bottom_table = ParameterTable(subject=self.subject_activity,
-                                           act_of=self.system,
-                                           parent=self)
-        self.set_bottom_table()
         if init:
             self.right_dock = QDockWidget()
             self.right_dock.setObjectName('RightDock')

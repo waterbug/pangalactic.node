@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QTreeView, QVBoxLayout, QWidget)
 
 # pangalactic
-from pangalactic.core             import config, state
+from pangalactic.core             import state
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.entity      import DataMatrix, dmz
 from pangalactic.core.parametrics import de_defz, parm_defz
@@ -227,30 +227,30 @@ class DMTreeModel(QAbstractItemModel):
         oid_to_index (dict): maps an entity oid to the model index of an item
         index_to_oid (dict): maps the index of an item to an entity oid
     """
-    def __init__(self, project=None, name=None, parent=None):
+    def __init__(self, project=None, entity_class='HardwareProduct',
+                 parent=None):
         """
         Initialize.
 
         Keyword Args:
             project (Project): associated project (effective owner of the
                 DataMatrix underlying the model)
-            name (str): name of an initial schema (in 'schemaz' cache)
-                to be passed to the DataMatrix
+            entity_class (str):  name of the class of entities to be displayed
+                (e.g. "HardwareProduct", "Activity", "Requirement")
             parent (QWidget):  parent widget
         """
-        arguments = 'project={}, name="{}"'
+        arguments = 'project={}, entity_class="{}"'
         log.debug('* DMTreeModel({}) initializing ...'.format(
                       arguments.format(getattr(project, 'id', 'None'),
-                                       name)))
+                                       entity_class)))
         super().__init__(parent)
         self.oid_to_index = {}
         self.index_to_oid = {}
         self.dm = None
         self.project = project
-        name = name or config.get('default_schema_name')
-        if hasattr(project, 'oid') and name:
+        if hasattr(project, 'oid') and entity_class:
             # check for a cached DataMatrix instance ...
-            dm_oid = project.oid + '-' + name
+            dm_oid = project.oid + '-' + entity_class + '-DataMatrix'
             log.debug(f'  looking for DataMatrix "{dm_oid}" ...')
             log.debug('  dmz cache is: {}'.format(str(dmz)))
             self.dm = dmz.get(dm_oid)
@@ -259,12 +259,11 @@ class DMTreeModel(QAbstractItemModel):
             log.debug('  {}'.format(str(self.dm)))
         else:
             log.debug('  DataMatrix not found in cache.')
-            # if no parts list found in the orb's cache, pass the args to
-            # DataMatrix, which will check for a stored one or create a new
-            # one based on the input:
+            # pass the args to DataMatrix, which will check for a stored one or
+            # create a new one based on the input:
             oid = getattr(project, 'oid', None) or 'pgefobjects:SANDBOX'
-            self.dm = DataMatrix(project_oid=oid, name=name)
-        self.dm.recompute_mel(project)
+            self.dm = DataMatrix(project_oid=oid, entity_class=entity_class)
+        self.dm.recompute(project)
         # --------------------------------------------------------------------
         # NOTE:  'root_item' is the header row ... and this is the ONLY place
         # where the Model explicitly calls GridTreeItem() -- in all other
@@ -473,19 +472,20 @@ class GridTreeView(QTreeView):
     """
     A collaborative data table/tree view.
     """
-    def __init__(self, project=None, name=None, parent=None):
+    def __init__(self, project=None, entity_class='HardwareProduct',
+                 parent=None):
         """
         Initialize.
 
         Keyword Args:
             project (Project): associated project (effective owner of the
                 DataMatrix underlying the model)
-            name (str): name of an initial schema (in 'schemaz' cache)
-                to be passed to the DataMatrix
+            entity_class (str):  name of the class of entities to be displayed
+                (e.g. "HardwareProduct", "Activity", "Requirement")
         """
         log.debug('* GridTreeView initializing ...')
         super().__init__(parent)
-        model = DMTreeModel(project=project, name=name)
+        model = DMTreeModel(project=project, entity_class=entity_class)
         self.setModel(model)
         self.selectionModel().selectionChanged.connect(self.update_actions)
         self.setItemDelegate(DGDelegate(self))
@@ -814,24 +814,25 @@ class DGDelegate(QStyledItemDelegate):
 
 
 class DataGrid(QMainWindow):
-    def __init__(self, project=None, name=None, parent=None):
+    def __init__(self, project=None, entity_class="HardwareProduct",
+                 parent=None):
         """
         Initialize.
 
         Keyword Args:
             project (Project): associated project (effective owner of the
-                underlying DataMatrix)
-            name (str): name of an initial schema (in 'schemaz' cache)
-                to be passed to the internal DataMatrix
+                entities in the underlying DataMatrix)
+            entity_class (str):  name of the class of entities to be displayed
+                (e.g. "HardwareProduct", "Activity", "Requirement")
         """
-        log.debug('* DataGrid(project="{}", name="{}")'.format(
-                             getattr(project, 'id', '[None]'), name))
+        log.debug('* DataGrid(project="{}", entity_class="{}")'.format(
+                             getattr(project, 'id', '[None]'), entity_class))
         super().__init__(parent)
         self.centralwidget = QWidget(self)
         self.vbox = QVBoxLayout(self.centralwidget)
         self.vbox.setContentsMargins(5, 5, 5, 5)
         self.vbox.setSpacing(5)
-        self.view = GridTreeView(project=project, name=name,
+        self.view = GridTreeView(project=project, entity_class=entity_class,
                                  parent=self.centralwidget)
         self.view.setAlternatingRowColors(True)
         self.view.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
@@ -841,7 +842,7 @@ class DataGrid(QMainWindow):
         self.grid_label = QLabel()
         self.grid_label.setStyleSheet('color: purple; font-weight: bold;'
                                       'font-size: 16px')
-        self.grid_label.setText(self.view.model().dm.name)
+        self.grid_label.setText(self.view.model().dm.schema_name)
         self.vbox.addWidget(self.grid_label)
         self.vbox.addWidget(self.view)
         self.setCentralWidget(self.centralwidget)
@@ -871,7 +872,7 @@ class DataGrid(QMainWindow):
         index = self.view.selectionModel().currentIndex()
         model = self.view.model()
         if not index:
-            log.debug('  - no current index; inserting row 0')
+            log.debug('  - no current index; inserting row at 0')
             model.insertRow(0, index.parent())
         elif not model.insertRow(index.row()+1, index.parent()):
             log.debug('  - failed.')
@@ -894,6 +895,7 @@ class DataGrid(QMainWindow):
         return changed
 
     # This worked fine ... was triggered by the "Remove Row" action.
+    # TODO: rewrite to work with the DataMatrix model ...
     # def removeRow(self):
         # log.debug('* DataGrid.removeRow()')
         # index = self.view.selectionModel().currentIndex()

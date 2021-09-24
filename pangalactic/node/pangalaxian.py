@@ -3154,7 +3154,8 @@ class Main(QMainWindow):
         # NOTE: this was causing cycles -- deactivated.
         if self.mode == 'data' and hasattr(self, 'data_widget'):
             # replace and rebuild the data_widget
-            self.data_widget = DataGrid(self.project, name="MEL")
+            self.data_widget = DataGrid(self.project,
+                                        entity_class="HardwareProduct")
             self.setCentralWidget(self.data_widget)
 
     def on_entity_saved(self, e=None):
@@ -3961,7 +3962,8 @@ class Main(QMainWindow):
         self.right_dock.setVisible(False)
         self.left_dock.setVisible(False)
         # for now, use "MEL" as the default schema name
-        self.data_widget = DataGrid(self.project, name="MEL")
+        self.data_widget = DataGrid(self.project,
+                                    entity_class="HardwareProduct")
         self.setCentralWidget(self.data_widget)
 
     ### SET UP 'db' mode
