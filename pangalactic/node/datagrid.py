@@ -485,6 +485,8 @@ class GridTreeView(QTreeView):
         """
         log.debug('* GridTreeView initializing ...')
         super().__init__(parent)
+        self.project = project
+        self.entity_class = entity_class
         model = DMTreeModel(project=project, entity_class=entity_class)
         self.setModel(model)
         self.selectionModel().selectionChanged.connect(self.update_actions)
@@ -738,9 +740,13 @@ class GridTreeView(QTreeView):
         log.debug('* export_tsv()')
         dtstr = date2str(dtstamp())
         dm = self.model().dm
+        prefix = '-'.join([getattr(self.project, 'id', 'Noproject'),
+                           self.entity_class,
+                           'DataGrid',
+                           dtstr])
         fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Write to tsv File',
-                                    dm.oid + '-' + dtstr + '.tsv')
+                                    prefix + '.tsv')
         if fpath:
             log.debug('  - file selected: "%s"' % fpath)
             fpath = str(fpath)    # QFileDialog fpath is unicode; UTF-8 (?)

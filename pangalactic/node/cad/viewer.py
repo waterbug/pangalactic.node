@@ -91,7 +91,8 @@ def run_ext_3dviewer(fpath):
 # TODO: figure out what's going on with:
 # "TKOpenGl | Type: Other | ID: 0 | Severity: Medium | Message:
 #  OpenGl_Window::CreateWindow: window Visual is incomplete: no stencil buffer"
-class QtBaseViewer(QtWidgets.QOpenGLWidget):
+# class QtBaseViewer(QtWidgets.QOpenGLWidget):
+class QtBaseViewer(QtWidgets.QWidget):
     ''' The base Qt Widget for an OCC viewer
     '''
     def __init__(self, parent=None):
@@ -416,17 +417,17 @@ class QtViewer3DColor(QtBaseViewer):
 
     def focusInEvent(self, event):
         if self._inited:
-            self.makeCurrent()
+            # self.makeCurrent()
             self._display.Repaint()
 
     def focusOutEvent(self, event):
         if self._inited:
-            self.makeCurrent()
+            # self.makeCurrent()
             self._display.Repaint()
 
     def paintEvent(self, event):
         if self._inited:
-            self.makeCurrent()
+            # self.makeCurrent()
             self._display.Context.UpdateCurrentViewer()
             # important to allow overpainting of the OCC OpenGL context in Qt
             ## -> but this gives an error message in Windows
@@ -446,7 +447,7 @@ class QtViewer3DColor(QtBaseViewer):
                 zoom_factor = 1.1
             else:
                 zoom_factor = 0.9
-            self.makeCurrent()
+            # self.makeCurrent()
             self._display.Repaint()
             self._display.ZoomFactor(zoom_factor)
 
@@ -509,7 +510,7 @@ class QtViewer3DColor(QtBaseViewer):
             # DYNAMIC ZOOM
             elif (buttons == Qt.RightButton
                   and not modifiers == Qt.ShiftModifier):
-                self.makeCurrent()
+                # self.makeCurrent()
                 self._display.Repaint()
                 self._display.DynamicZoom(abs(self.dragStartPos.x),
                                           abs(self.dragStartPos.y),

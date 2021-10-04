@@ -24,7 +24,8 @@ from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPainter, QPen, QPixmap,
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.activities  import ActivityTable
+from pangalactic.node.activities  import ActivityTable, ModesTool
+from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
@@ -923,7 +924,6 @@ class ConOpsModeler(QMainWindow):
         # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
 
         self.set_widgets(current_activity=self.subject_activity, init=True)
-        #------------listening for signals------------#
         dispatcher.connect(self.double_clicked_handler, "double clicked")
         dispatcher.connect(self.view_subsystem, "activity focused")
 
@@ -957,6 +957,13 @@ class ConOpsModeler(QMainWindow):
         self.sc_combo_box.addItems(self.system_list_ids)
         self.sc_combo_box.currentIndexChanged.connect(self.change_system)
         self.toolbar.addWidget(self.sc_combo_box)
+        # self.modes_table_button = SizedButton("Modes Table")
+        # self.modes_table_button.clicked.connect(self.modes_dialog)
+        # self.toolbar.addWidget(self.modes_table_button)
+
+    def modes_dialog(self):
+        dlg = ModesTool(self.project, self.system_list[0], parent=self)
+        dlg.show()
 
     def change_system(self, index):
         self.system = self.system_list[index]

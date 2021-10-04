@@ -7,8 +7,9 @@ from collections import OrderedDict
 from textwrap import wrap, fill
 
 from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtWidgets import (QApplication, QSizePolicy, QStatusBar,
-                             QTableView, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QApplication, QComboBox, QMainWindow, QSizePolicy,
+                             QStatusBar, QTableView, QTableWidget, QVBoxLayout,
+                             QWidget)
 
 from pangalactic.core             import state
 from pangalactic.core.parametrics import get_pval_as_str
@@ -238,6 +239,50 @@ class ActivityTable(QWidget):
     def on_enable(self):
         if self.position == 'middle':
             self.setEnabled(True)
+
+
+class ModesTool(QMainWindow):
+    """
+    Tool for defining the operational Modes of a system in terms of the states
+    of its subsystems.
+
+    Attrs:
+        project (Project): the project in which the system is operating
+        system (HardwareProduct):  the system whose Modes are being defined
+    """
+    def __init__(self, project, system, parent=None):
+        """
+        Args:
+            project (Project): the project in which the system is operating
+            system (HardwareProduct): the system for which Modes are to be
+                characterized 
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.project = project
+        self.system = system
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        self.set_mode_def_table()
+
+    def set_mode_def_table(self):
+        if getattr(self, 'mode_def_table', None):
+            # remove and close current mode def table
+            self.mode_def_table.setAttribute(Qt.WA_DeleteOnClose)
+            self.mode_def_table.parent = None
+            self.mode_def_table.close()
+        self.mode_def_table = QTableWidget(self)
+        self.mode_def_table.setRowCount(1)
+        self.mode_def_table.setColumnCount(1)
+        combo = QComboBox(self.mode_def_table)
+        combo.addItem('Peak')
+        combo.addItem('Nominal')
+        combo.addItem('Survival')
+        combo.addItem('Off')
+        self.mode_def_table.setCellWidget(0, 0, combo)
+        self.setCentralWidget(self.mode_def_table)
 
 
 if __name__ == '__main__':

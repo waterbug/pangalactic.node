@@ -290,8 +290,8 @@ class Main(QMainWindow):
             self.system_mode_action.trigger()
         elif mode == 'db':
             self.db_mode_action.trigger()
-        else:
-            self.data_mode_action.trigger()
+        # else:
+            # self.data_mode_action.trigger()
         state['done_with_progress'] = False
         parm_des_unavail = ''
         parms_unavail = orb.parmz_status in ['fail', 'not found']
@@ -2023,13 +2023,13 @@ class Main(QMainWindow):
                                     icon="db",
                                     checkable=True,
                                     tip="Local DB")
-        self.data_mode_action = self.create_action(
-                                    "Data Mode",
-                                    slot=self._set_data_mode,
-                                    icon="data",
-                                    checkable=True,
-                                    tip="Data Mode")
-        self.data_mode_action.setEnabled(True)
+        # self.data_mode_action = self.create_action(
+                                    # "Data Mode",
+                                    # slot=self._set_data_mode,
+                                    # icon="data",
+                                    # checkable=True,
+                                    # tip="Data Mode")
+        # self.data_mode_action.setEnabled(True)
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
@@ -2059,7 +2059,8 @@ class Main(QMainWindow):
         self.component_mode_action.setActionGroup(mode_action_group)
         self.system_mode_action.setActionGroup(mode_action_group)
         self.db_mode_action.setActionGroup(mode_action_group)
-        self.data_mode_action.setActionGroup(mode_action_group)
+        # NOTE: "data mode" is disabled for now as it may cause problems ...
+        # self.data_mode_action.setActionGroup(mode_action_group)
         # orb.log.debug('  ... all actions created.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -2501,7 +2502,7 @@ class Main(QMainWindow):
         ### text [SCW 2020-12-18]
         # self.mode_label = ModeLabel('')
         # self.toolbar.addWidget(self.mode_label)
-        self.toolbar.addAction(self.data_mode_action)
+        # self.toolbar.addAction(self.data_mode_action)
         self.toolbar.addAction(self.db_mode_action)
         self.toolbar.addAction(self.system_mode_action)
         self.toolbar.addAction(self.component_mode_action)
@@ -3154,8 +3155,7 @@ class Main(QMainWindow):
         # NOTE: this was causing cycles -- deactivated.
         if self.mode == 'data' and hasattr(self, 'data_widget'):
             # replace and rebuild the data_widget
-            self.data_widget = DataGrid(self.project,
-                                        entity_class="HardwareProduct")
+            self.data_widget = DataGrid(self.project)
             self.setCentralWidget(self.data_widget)
 
     def on_entity_saved(self, e=None):
@@ -3671,6 +3671,7 @@ class Main(QMainWindow):
         expansion_select.addItem('2 levels', QVariant())
         expansion_select.addItem('3 levels', QVariant())
         expansion_select.addItem('4 levels', QVariant())
+        expansion_select.addItem('5 levels', QVariant())
         sys_tree_layout.addWidget(expansion_select)
         sys_tree_layout.addWidget(self.sys_tree)
         # NOTE: new sys tree panel code ends here
@@ -3962,8 +3963,7 @@ class Main(QMainWindow):
         self.right_dock.setVisible(False)
         self.left_dock.setVisible(False)
         # for now, use "MEL" as the default schema name
-        self.data_widget = DataGrid(self.project,
-                                    entity_class="HardwareProduct")
+        self.data_widget = DataGrid(self.project)
         self.setCentralWidget(self.data_widget)
 
     ### SET UP 'db' mode
@@ -4922,7 +4922,7 @@ class Main(QMainWindow):
             wizard.exec_()
             orb.log.debug('* import_excel_data: dialog completed.')
             # set mode to "data"
-            self.data_mode_action.trigger()
+            # self.data_mode_action.trigger()
             # except:
                 # message = f"Data in '{fpath}' could not be imported."
                 # popup = QMessageBox(
