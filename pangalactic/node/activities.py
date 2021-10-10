@@ -6,10 +6,11 @@ from louie import dispatcher
 from collections import OrderedDict
 from textwrap import wrap, fill
 
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtWidgets import (QApplication, QComboBox, QMainWindow, QSizePolicy,
-                             QStatusBar, QTableView, QTableWidget, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
+from PyQt5.QtGui     import QStandardItemModel
+from PyQt5.QtWidgets import (QApplication, QComboBox, QItemDelegate,
+                             QMainWindow, QSizePolicy, QStatusBar, QTableView,
+                             QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
 from pangalactic.core.parametrics import get_pval_as_str
@@ -250,7 +251,10 @@ class ModesTool(QMainWindow):
         project (Project): the project in which the system is operating
         system (HardwareProduct):  the system whose Modes are being defined
     """
-    def __init__(self, project, system, parent=None):
+    default_modes = ['Launch', 'Calibration', 'Slew', 'Safe Hold',
+                     'Science Mode, Acquisition', 'Science Mode, Transmitting']
+
+    def __init__(self, project, system, modes=None, parent=None):
         """
         Args:
             project (Project): the project in which the system is operating
@@ -258,31 +262,69 @@ class ModesTool(QMainWindow):
                 characterized 
 
         Keyword Args:
+            modes (list of str):  initial set of mode names
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
         self.project = project
         self.system = system
+        self.modes = modes or self.default_modes
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
-        self.set_mode_def_table()
+        self.set_mode_definition_table()
 
-    def set_mode_def_table(self):
-        if getattr(self, 'mode_def_table', None):
+    def set_mode_definition_table(self):
+        if getattr(self, 'mode_definition_table', None):
             # remove and close current mode def table
-            self.mode_def_table.setAttribute(Qt.WA_DeleteOnClose)
-            self.mode_def_table.parent = None
-            self.mode_def_table.close()
-        self.mode_def_table = QTableWidget(self)
-        self.mode_def_table.setRowCount(1)
-        self.mode_def_table.setColumnCount(1)
-        combo = QComboBox(self.mode_def_table)
-        combo.addItem('Peak')
-        combo.addItem('Nominal')
-        combo.addItem('Survival')
-        combo.addItem('Off')
-        self.mode_def_table.setCellWidget(0, 0, combo)
-        self.setCentralWidget(self.mode_def_table)
+            self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
+            self.mode_definition_table.parent = None
+            self.mode_definition_table.close()
+        nbr_rows = 1
+        nbr_cols = 1
+        if self.system.components:
+            nbr_rows = len(self.system.components) + 1
+        if self.modes:
+            nbr_cols = len(self.modes)
+            # TODO: set headers by mode
+        else:
+            pass
+            # TODO: set "no modes" header
+        model = QStandardItemModel(nbr_rows, nbr_cols)
+        for row in range(nbr_rows):
+            for col in range(nbr_cols):
+                index = model.index(row, col, QModelIndex())
+                # TODO: get available states for row and set data to states[0]
+                model.setData(index, 'Off')
+        self.mode_definition_table = QTableView()
+        self.mode_definition_table.setModel(model)
+        delegate = StateSelectorDelegate()
+        self.mode_definition_table.setItemDelegate(delegate)
+        self.setCentralWidget(self.mode_definition_table)
+
+
+class StateSelectorDelegate(QItemDelegate):
+    default_states = ['Off', 'Survival', 'Nominal', 'Peak']
+
+    def __init__(self, states=None, parent=None):
+        super().__init__(parent)
+        self.states = states or self.default_states
+
+    def createEditor(self, parent, option, index):
+        editor = QComboBox(parent)
+        for x in self.states:
+            editor.addItem(x, QVariant())
+        return editor
+
+    def setEditorData(self, widget, index):
+        value = index.model().data(index, Qt.EditRole)
+        widget.setCurrentText(value)
+
+    def setModelData(self, combo, model, index):
+        value = combo.currentText()
+        model.setData(index, value, Qt.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
 
 
 if __name__ == '__main__':

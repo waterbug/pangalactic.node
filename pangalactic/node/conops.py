@@ -957,13 +957,13 @@ class ConOpsModeler(QMainWindow):
         self.sc_combo_box.addItems(self.system_list_ids)
         self.sc_combo_box.currentIndexChanged.connect(self.change_system)
         self.toolbar.addWidget(self.sc_combo_box)
-        # self.modes_table_button = SizedButton("Modes Table")
-        # self.modes_table_button.clicked.connect(self.modes_dialog)
-        # self.toolbar.addWidget(self.modes_table_button)
+        self.modes_tool_button = SizedButton("Modes Tool")
+        self.modes_tool_button.clicked.connect(self.modes_tool)
+        self.toolbar.addWidget(self.modes_tool_button)
 
-    def modes_dialog(self):
-        dlg = ModesTool(self.project, self.system_list[0], parent=self)
-        dlg.show()
+    def modes_tool(self):
+        win = ModesTool(self.project, self.system_list[0], parent=self)
+        win.show()
 
     def change_system(self, index):
         self.system = self.system_list[index]
