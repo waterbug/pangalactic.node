@@ -254,7 +254,8 @@ class ModesTool(QMainWindow):
     default_modes = ['Launch', 'Calibration', 'Slew', 'Safe Hold',
                      'Science Mode, Acquisition', 'Science Mode, Transmitting']
 
-    def __init__(self, project, system, modes=None, parent=None):
+    def __init__(self, project, system, modes=None, width=900, height=500,
+                 parent=None):
         """
         Args:
             project (Project): the project in which the system is operating
@@ -269,8 +270,12 @@ class ModesTool(QMainWindow):
         self.project = project
         self.system = system
         self.modes = modes or self.default_modes
-        self.setSizePolicy(QSizePolicy.MinimumExpanding,
-                           QSizePolicy.MinimumExpanding)
+        self.w = width
+        self.h = height
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
+        title = f'Modes of {system.name}'
+        self.setWindowTitle(title)
         self.set_mode_definition_table()
 
     def set_mode_definition_table(self):
@@ -281,32 +286,53 @@ class ModesTool(QMainWindow):
             self.mode_definition_table.close()
         nbr_rows = 1
         nbr_cols = 1
+        vheader_labels = []
         if self.system.components:
-            nbr_rows = len(self.system.components) + 1
+            nbr_rows = len(self.system.components)
+            vheader_labels += [c.component.name
+                               for c in self.system.components]
         if self.modes:
             nbr_cols = len(self.modes)
-            # TODO: set headers by mode
         else:
             pass
             # TODO: set "no modes" header
         model = QStandardItemModel(nbr_rows, nbr_cols)
+        for i, mode in enumerate(self.modes):
+            model.setHeaderData(i, Qt.Horizontal, mode)
+        for j, name in enumerate(vheader_labels):
+            model.setHeaderData(j, Qt.Vertical, name)
         for row in range(nbr_rows):
             for col in range(nbr_cols):
                 index = model.index(row, col, QModelIndex())
                 # TODO: get available states for row and set data to states[0]
-                model.setData(index, 'Off')
-        self.mode_definition_table = QTableView()
+                model.setData(index, '[select state]')
+        self.mode_definition_table = ModeDefinitionTable()
         self.mode_definition_table.setModel(model)
+        # hheader = self.mode_definition_table.horizontalHeader()
+        # hheader.setSectionResizeMode(hheader.ResizeToContents)
         delegate = StateSelectorDelegate()
         self.mode_definition_table.setItemDelegate(delegate)
+        # self.mode_definition_table.adjustSize()
         self.setCentralWidget(self.mode_definition_table)
+        self.mode_definition_table.resizeColumnsToContents()
+        self.adjustSize()
+
+
+class ModeDefinitionTable(QTableView):
+    def sizeHint(self):
+        hheader = self.horizontalHeader()
+        vheader = self.verticalHeader()
+        fwidth = self.frameWidth() * 2
+        return QSize(hheader.width() + vheader.width() + fwidth,
+                     vheader.height() + hheader.height())
 
 
 class StateSelectorDelegate(QItemDelegate):
-    default_states = ['Off', 'Survival', 'Nominal', 'Peak']
+    default_states = ['Quiescent', 'Nominal', 'Peak', 'Off']
 
     def __init__(self, states=None, parent=None):
         super().__init__(parent)
+        # TODO: use the states defined for the subsystem as "states"
         self.states = states or self.default_states
 
     def createEditor(self, parent, option, index):

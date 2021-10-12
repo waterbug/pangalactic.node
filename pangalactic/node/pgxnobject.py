@@ -872,8 +872,8 @@ class PgxnObject(QDialog):
             orb.log.info('* [pgxo] oops, no schema found for "%s"!' %
                                                                     self.cname)
             return
-        # In case the object has been deleted but is hanging around, replace it
-        # with the TBD object ...
+        # In case the object has been deleted on the server but is hanging
+        # around, replace it with the TBD object ...
         if self.obj.oid in (state.get('deleted_oids') or []):
             self.obj = orb.get('pgefobjects:TBD')
         orb.log.info('* [pgxo] object oid: "%s"' % self.obj.oid)
