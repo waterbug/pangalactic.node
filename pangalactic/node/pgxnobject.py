@@ -1796,14 +1796,35 @@ class PgxnObject(QDialog):
 
     def create_connections(self):
         if hasattr(self, 'edit_button'):
-            self.edit_button.clicked.connect(self.on_edit)
+            try:
+                self.edit_button.clicked.connect(self.on_edit)
+            except:
+                # C++ object may have been deleted
+                pass
         if hasattr(self, 'save_button'):
-            self.save_button.clicked.connect(self.on_save)
+            try:
+                self.save_button.clicked.connect(self.on_save)
+            except:
+                # C++ object may have been deleted
+                pass
         if hasattr(self, 'save_and_close_button'):
-            self.save_and_close_button.clicked.connect(self.on_save_and_close)
+            try:
+                self.save_and_close_button.clicked.connect(
+                                        self.on_save_and_close)
+            except:
+                # C++ object may have been deleted
+                pass
         if hasattr(self, 'delete_button'):
-            self.delete_button.clicked.connect(self.on_delete)
-        self.bbox.rejected.connect(self.cancel)
+            try:
+                self.delete_button.clicked.connect(self.on_delete)
+            except:
+                # C++ object may have been deleted
+                pass
+        try:
+            self.bbox.rejected.connect(self.cancel)
+        except:
+            # C++ object may have been deleted
+            pass
 
     def on_edit(self):
         # orb.log.info('* [pgxo] switching to edit mode ...')
