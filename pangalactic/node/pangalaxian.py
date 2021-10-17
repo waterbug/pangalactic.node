@@ -90,6 +90,10 @@ from pangalactic.node.splash           import SplashScreen
 # fix qt import error -- import this before importing anything in PyQt5
 from pangalactic.node import fix_qt_import_error
 
+# fix Mac Big Sur qt problem -- set before importing PyQt stuff
+if sys.platform == 'darwin':
+    os.environ['QT_MAC_WANTS_LAYER'] = 1
+
 # PyQt5
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QComboBox,
