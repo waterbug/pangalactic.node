@@ -92,7 +92,7 @@ from pangalactic.node import fix_qt_import_error
 
 # fix Mac Big Sur qt problem -- set before importing PyQt stuff
 if sys.platform == 'darwin':
-    os.environ['QT_MAC_WANTS_LAYER'] = 1
+    os.environ['QT_MAC_WANTS_LAYER'] = '1'
 
 # PyQt5
 from PyQt5.QtGui import QIcon, QPixmap
