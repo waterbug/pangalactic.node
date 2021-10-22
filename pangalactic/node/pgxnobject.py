@@ -1443,6 +1443,7 @@ class PgxnObject(QDialog):
         # the assemblies be thawed first.
         orb.log.debug('* thaw action called ...')
         # notice = None
+        thaw_permitted = False
         if (isinstance(self.obj, orb.classes['Product'])
             and self.obj.frozen):
             if getattr(self.obj, 'where_used', None):
@@ -1450,30 +1451,36 @@ class PgxnObject(QDialog):
                 frozens = [a for a in assemblies if a.frozen]
                 if frozens:
                     orb.log.debug('  used in one or more frozen assembly ...')
-                    orb.log.debug('  thaw not allowed.')
-                    txt = 'Thawing this Product may violate CM and\n'
+                    orb.log.debug('  thaw confirmation required.')
+                    txt = 'Warning: thawing this Product may violate CM and\n'
                     txt += 'should only be used for essential corrections.\n'
                     txt += 'It is used as a component in the following '
                     txt += 'frozen assemblies:'
                     notice = QMessageBox(QMessageBox.Warning, 'Caution!', txt,
-                                         # QMessageBox.Ok | QMessageBox.Cancel,
-                                         QMessageBox.Ok,
+                                         QMessageBox.Ok | QMessageBox.Cancel,
                                          self)
                     text = '<p><ul>{}</ul></p>'.format('\n'.join(
                                ['<li><b>{}</b><br>({})</li>'.format(
                                a.name, a.id) for a in assemblies if a]))
                     notice.setInformativeText(text)
-                    notice.show()
-                orb.log.debug('  thawing ...')
-                self.freeze_action.setVisible(True)
-                self.frozen_action.setVisible(False)
-                self.thaw_action.setVisible(False)
-                self.obj.frozen = False
-                orb.db.commit()
-                dispatcher.send(signal="thaw", oids=[self.obj.oid])
-                self.build_from_object()
+                    if notice.exec_():
+                        orb.log.debug('  thaw confirmed ...')
+                        thaw_permitted = True
+                else:
+                    thaw_permitted = True
+            else:
+                thaw_permitted = True
         else:
             orb.log.debug('  not a Product or not frozen; cannot thaw.')
+        if thaw_permitted:
+            orb.log.debug('  thawing ...')
+            self.freeze_action.setVisible(True)
+            self.frozen_action.setVisible(False)
+            self.thaw_action.setVisible(False)
+            self.obj.frozen = False
+            orb.db.commit()
+            dispatcher.send(signal="thaw", oids=[self.obj.oid])
+            self.build_from_object()
 
     def show_where_used(self):
         info = ''
