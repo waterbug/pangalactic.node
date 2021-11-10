@@ -1036,7 +1036,7 @@ class Main(QMainWindow):
                 self.statusbar.showMessage('user objects synced.')
             else:
                 self.statusbar.showMessage('project synced.')
-            state['synced_projects'].append(state.get('project'))
+                state['synced_projects'].append(state.get('project'))
             rpc = self.mbus.session.call('vger.save', [])
         rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
@@ -1142,7 +1142,8 @@ class Main(QMainWindow):
         'on_sync_library_result()' (i.e., only at login).  This should only be
         used as handler for 'on_sync_library_result()' (at login) because when
         finished (no more chunks to get) it calls
-        'self.on_set_current_project_signal()'.
+        'self.resync_current_project()', which calls
+        'self.on_set_current_project_signal()'
 
         Args:
             data (list):  a list of serialized objects
