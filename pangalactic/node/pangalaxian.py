@@ -39,7 +39,7 @@ from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms, is_global_admin
 from pangalactic.core.datastructures   import chunkify
-from pangalactic.core.parametrics      import (data_elementz, node_count,
+from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
                                                delete_data_element,
                                                parameterz, save_data_elementz,
@@ -1107,10 +1107,6 @@ class Main(QMainWindow):
                 if (hasattr(o, 'creator') and o.creator == self.local_user
                     and o.oid not in list(trash)):
                     do_not_delete.add(o)
-                # NOTE: ProjectSystemUsages are not relevant to library sync
-                # elif (o.__class__.__name__ == 'ProjectSystemUsage' and
-                      # o.project.oid in state['admin_of']):
-                    # objs_to_delete.remove(o)
             objs_to_delete = objs_to_delete - do_not_delete
             if objs_to_delete:
                 orb.log.debug('  to be deleted: {}'.format(
@@ -1213,10 +1209,6 @@ class Main(QMainWindow):
                 if (hasattr(o, 'creator') and o.creator == self.local_user
                     and o.oid not in list(trash)):
                     do_not_delete.add(o)
-                # NOTE: ProjectSystemUsages are not relevant to library sync
-                # elif (o.__class__.__name__ == 'ProjectSystemUsage' and
-                      # o.project.oid in state['admin_of']):
-                    # objs_to_delete.remove(o)
             objs_to_delete = objs_to_delete - do_not_delete
             if objs_to_delete:
                 orb.log.debug('  to be deleted: {}'.format(
@@ -2217,6 +2209,11 @@ class Main(QMainWindow):
             orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
             state['system'] = 'pgefobjects:SANDBOX'
+        if not state.get('sys_tree_expansion'):
+            state['sys_tree_expansion'] = {}
+        if not state['sys_tree_expansion'].get(self.project.oid):
+            orb.log.debug('* setting sys tree expansion level to default (2)')
+            state['sys_tree_expansion'][self.project.oid] = 0
         # orb.log.debug('  dispatching "set current project" signal ...')
         dispatcher.send(signal="set current project")
 
@@ -2570,32 +2567,35 @@ class Main(QMainWindow):
         self.statusbar.addPermanentWidget(self.role_label)
         self.statusbar.addPermanentWidget(self.net_status)
         self.statusbar.showMessage("To infinity, and beyond! :)")
-        dispatcher.connect(self.increment_progress, 'tree node fetched')
+        # dispatcher.connect(self.increment_progress, 'tree node fetched')
         # x and y coordinates and the screen, width, height
         self.setGeometry(100, 100, width, height)
         self.setWindowTitle(config['app_name'])
 
-    def start_progress(self, msg, count=0):
-        if hasattr(self, 'pb'):
-            self.pb.show()
-            self.pb.setValue(0)
-            self.pb.setMaximum(count)
-            self.statusbar.showMessage(msg)
+    # * NOTE:  THESE "x_progress" FUNCTIONS ARE FOR SYS TREE PROGRESS AND ARE
+    # DEPRECATED -- REMOVE THEM! *
 
-    def increment_progress(self, inc=1, msg=''):
-        if hasattr(self, 'pb'):
-            if msg:
-                self.statusbar.showMessage(msg)
-            self.pb.setValue(self.pb.value() + inc)
+    # def start_progress(self, msg, count=0):
+        # if hasattr(self, 'pb'):
+            # self.pb.show()
+            # self.pb.setValue(0)
+            # self.pb.setMaximum(count)
+            # self.statusbar.showMessage(msg)
 
-    def end_progress(self):
-        if hasattr(self, 'pb'):
-            self.pb.reset()
-            self.pb.hide()
-            if state.get('connected', False):
-                self.statusbar.showMessage("synced.")
-            else:
-                self.statusbar.showMessage("To infinity, and beyond! :)")
+    # def increment_progress(self, inc=1, msg=''):
+        # if hasattr(self, 'pb'):
+            # if msg:
+                # self.statusbar.showMessage(msg)
+            # self.pb.setValue(self.pb.value() + inc)
+
+    # def end_progress(self):
+        # if hasattr(self, 'pb'):
+            # self.pb.reset()
+            # self.pb.hide()
+            # if state.get('connected', False):
+                # self.statusbar.showMessage("synced.")
+            # else:
+                # self.statusbar.showMessage("To infinity, and beyond! :)")
 
     def on_new_project_signal(self, obj=None):
         """
@@ -3585,18 +3585,7 @@ class Main(QMainWindow):
         ######################################################################
         # orb.log.debug('* refresh_tree_views()')
         # orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
-        # use number of tree components to set max in progress bar
-        if not state.get('sys_trees'):
-            state['sys_trees'] = {}
-        if not state['sys_trees'].get(self.project.id):
-            state['sys_trees'][self.project.id] = {}
-        nodes = state['sys_trees'][self.project.id].get('nodes') or 0
-        if rebuilding:
-            msg = 'rebuilding system tree ...'
-        else:
-            msg = 'updating system tree ...'
-        self.start_progress(msg, count=nodes)
-        # if getattr(self, 'sys_tree', None):
+        # use number of tree levels to set max in progress bar
         try:
             # orb.log.debug('  + self.sys_tree exists ...')
             # if dashboard exists, it has to be destroyed too since the tree
@@ -3644,25 +3633,9 @@ class Main(QMainWindow):
         self.sys_tree.setSizePolicy(QSizePolicy.Minimum,
                                     QSizePolicy.Expanding)
         self.sys_tree_rebuilt = True
-        # node_count() uses componentz cache to get # of nodes in sys tree for
-        # later use in setting max for progress bar
-        nodes = 0
-        for psu in self.project.systems:
-            # sanity check in case a psu got corrupted ...
-            if psu.system:
-                nodes += node_count(psu.system.oid) + 1
-        state['sys_trees'][self.project.id]['nodes'] = nodes
-        # orb.log.debug('    and {} nodes.'.format(str(nodes)))
         # NB:  rebuild dashboard before expanding sys_tree, because their
         # expand events are linked so they must both exist
         self.rebuild_dashboard()
-        if self.project:
-            # TODO:  save last expanded state of project and reset to that
-            # self._expand_tree_from_saved_state()
-            # self.sys_tree.expandAll()
-            self.sys_tree.expandToDepth(1)
-
-        # NOTE: new sys tree panel (with expansion selector) code begins here
         sys_tree_panel = QWidget(self)
         # set panel size policy to match the sys_tree's
         sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
@@ -3670,25 +3643,29 @@ class Main(QMainWindow):
         # set panel max width to match the max width set for sys_tree
         sys_tree_panel.setMaximumWidth(450)
         sys_tree_layout = QVBoxLayout(sys_tree_panel)
-        expansion_select = QComboBox()
-        expansion_select.setStyleSheet('font-weight: bold; font-size: 14px')
-        expansion_select.activated.connect(self.set_systree_expansion)
-        expansion_select.addItem('2 levels', QVariant())
-        expansion_select.addItem('3 levels', QVariant())
-        expansion_select.addItem('4 levels', QVariant())
-        expansion_select.addItem('5 levels', QVariant())
-        sys_tree_layout.addWidget(expansion_select)
+        self.expansion_select = QComboBox()
+        self.expansion_select.setStyleSheet(
+                                        'font-weight: bold; font-size: 14px')
+        self.expansion_select.addItem('2 levels', QVariant())
+        self.expansion_select.addItem('3 levels', QVariant())
+        self.expansion_select.addItem('4 levels', QVariant())
+        self.expansion_select.addItem('5 levels', QVariant())
+        sys_tree_layout.addWidget(self.expansion_select)
         sys_tree_layout.addWidget(self.sys_tree)
-        # NOTE: new sys tree panel code ends here
-
-        # self.left_dock.setWidget(self.sys_tree)
         self.left_dock.setWidget(sys_tree_panel)
-        self.end_progress()
+        # set sys tree expansion level
+        self.expansion_select.currentIndexChanged.connect(
+                                                    self.set_systree_expansion)
+        self.expansion_select.setCurrentIndex(
+            state['sys_tree_expansion'][self.project.oid])
         self.set_system_model_window()
 
     def set_systree_expansion(self, index):
         try:
-            self.sys_tree.expandToDepth(index + 1)
+            n = index + 1
+            self.sys_tree.expandToDepth(n)
+            state['sys_tree_expansion'][self.project.oid] = index
+            orb.log.debug(f'* tree expanded to level {n + 1}')
         except:
             orb.log.debug('* sys tree expansion failed.')
 
@@ -3839,7 +3816,7 @@ class Main(QMainWindow):
                     for idx in idxs:
                         self.sys_tree.source_model.setData(idx, node_obj)
                     # resize/refresh dashboard columns if necessary
-                    self.refresh_dashboard()
+                    self.refresh_tree_and_dashboard()
                 else:
                     # log_msg = 'no indexes found in tree.'
                     # orb.log.debug('    {}'.format(log_msg))

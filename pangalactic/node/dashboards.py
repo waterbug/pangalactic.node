@@ -134,7 +134,13 @@ class SystemDashboard(QTreeView):
         self.expanded.connect(self.dash_node_expanded)
         self.collapsed.connect(self.dash_node_collapsed)
         self.clicked.connect(self.dash_node_selected)
-        self.expandToDepth(1)
+        n = state.get('sys_tree_expansion', {}).get(state.get('project'))
+        if n is not None:
+            self.expandToDepth(n + 1)
+            orb.log.debug(f'[Dashboard] expanded to level {n + 2}')
+        else:
+            self.expandToDepth(1)
+            orb.log.debug('[Dashboard] expanded to default level (2)')
         for column in range(model.sourceModel().columnCount()):
             self.resizeColumnToContents(column)
         # DO NOT use `setMinimumSize()` here -- it breaks the slider that

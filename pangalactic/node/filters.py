@@ -45,7 +45,6 @@ class ProductFilterDialog(QDialog):
         self.show_all_disciplines = True
         proj_oid = state.get('project')
         project = orb.get(proj_oid)
-        # assigned_roles = state.get('assigned_roles')
         orb.log.debug('[ProductFilterDialog] checking for project/roles ...')
         user_disciplines = set()
         if project:
