@@ -3,10 +3,13 @@ Various dialogs.
 """
 # NOTE:  deprecated class CondaDialog retired to "pgef_sandbox" in
 # 'dialogs_with_CondaDialog.py'
-# NOTE:  deprecated modules p.n.threads and process have been retired to the
-# "pgef_sandbox", as they were used with the now-deprecated CondaDialog ...
-# from pangalactic.node.threads     import threadpool, Worker
+# NOTE:  deprecated module p.n.process has been retired to the
+# "pgef_sandbox" as it was only used with the now-deprecated CondaDialog ...
 # from pangalactic.node.process     import run_conda
+
+# NOTE:  threads module is not currently being used (was previously used in
+# CondaDialog)
+# from pangalactic.node.threads     import threadpool, Worker
 
 import os, sys
 from textwrap import wrap
