@@ -8,14 +8,16 @@ from textwrap import wrap, fill
 
 from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
 from PyQt5.QtGui     import QStandardItemModel
-from PyQt5.QtWidgets import (QApplication, QComboBox, QItemDelegate,
+from PyQt5.QtWidgets import (QApplication, QComboBox, QDockWidget, QItemDelegate,
                              QMainWindow, QSizePolicy, QStatusBar, QTableView,
-                             QVBoxLayout, QWidget)
+                             QTreeView, QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
 from pangalactic.core.parametrics import get_pval_as_str
 from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.validation  import get_bom_oids
+from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.tablemodels import MappingTableModel
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
@@ -242,43 +244,254 @@ class ActivityTable(QWidget):
             self.setEnabled(True)
 
 
+class SystemSelectionView(QTreeView):
+    def __init__(self, obj, refdes=True, parent=None):
+        """
+        Args:
+            obj (Project or Product): root object of the tree
+
+        Keyword Args:
+            refdes (bool):  flag indicating whether to display the reference
+                designator or the component name as the node name
+        """
+        super().__init__(parent)
+        # NOTE: this logging is only needed for deep debugging
+        # orb.log.debug('* SystemTreeView initializing with ...')
+        # orb.log.debug('  - root node: "{}"'.format(obj.id))
+        # if selected_system:
+            # sid = selected_system.id
+            # orb.log.debug('  - selected system: "{}"'.format(sid))
+        # else:
+            # orb.log.debug('  - no selection specified.')
+        tree_model = SystemTreeModel(obj, refdes=refdes,
+                                     show_mode_systems=True, parent=self)
+        self.proxy_model = SystemTreeProxyModel(tree_model, parent=self)
+        self.source_model = self.proxy_model.sourceModel()
+        self.proxy_model.setDynamicSortFilter(True)
+        self.setModel(self.proxy_model)
+        # all rows are same height, so use this to optimize performance
+        self.setUniformRowHeights(True)
+        # delegate = HTMLDelegate()
+        # self.setItemDelegate(delegate)
+        self.setHeaderHidden(True)
+        cols = self.source_model.cols
+        if cols:
+            for i in range(1, len(cols)):
+                self.hideColumn(i)
+        self.setSelectionMode(self.SingleSelection)
+        # only use dispatcher messages for assembly tree and dashboard tree
+        # (i.e., a shared model); ignore them when instantiated in req
+        # allocation mode (different models -> the indexes are not valid
+        # anyway!)
+        self.setStyleSheet('font-weight: normal; font-size: 12px')
+        self.proxy_model.sort(0)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+        self.setMaximumWidth(500)
+        self.resizeColumnToContents(0)
+        self.project = self.source_model.project
+        if not state.get('sys_trees'):
+            state['sys_trees'] = {}
+        if not state['sys_trees'].get(self.project.id):
+            state['sys_trees'][self.project.id] = {}
+        if not state['sys_trees'][self.project.id].get('expanded'):
+            state['sys_trees'][self.project.id]['expanded'] = []
+        # ** NOTE: the below section is probably superfluous ...
+        # # set initial node selection
+        # if selected_system:
+            # idxs = self.object_indexes_in_tree(selected_system)
+            # if idxs:
+                # idx_to_select = self.proxy_model.mapFromSource(idxs[0])
+            # else:
+                # # orb.log.debug('    selected system is not in tree.')
+                # idx_to_select = self.proxy_model.mapFromSource(
+                            # self.source_model.index(0, 0, QModelIndex()))
+        # else:
+            # # set the initial selection to the base node index
+            # # orb.log.debug(' - no current selection; selecting project node.')
+            # idx_to_select = self.proxy_model.mapFromSource(
+                                # self.source_model.index(0, 0, QModelIndex()))
+        # self.select_initial_node(idx_to_select)
+
+    def object_indexes_in_assembly(self, obj, idx):
+        """
+        Find the source model indexes of all nodes in an assembly that reference
+        the specified object and source model index.
+
+        Args:
+            obj (Product):  specified object
+            idx (QModelIndex):  source model index of the assembly or project
+                node
+        """
+        # NOTE: ignore "TBD" objects
+        if getattr(obj, 'oid', '') == 'pgefobjects:TBD':
+            return []
+        model = self.source_model
+        assembly_node = model.get_node(idx)
+        if hasattr(assembly_node.link, 'component'):
+            assembly = assembly_node.link.component
+        else:
+            assembly = assembly_node.link.system
+        # orb.log.debug('* object_indexes_in_assembly({})'.format(assembly.id))
+        if obj.oid == assembly.oid:
+            # orb.log.debug('  assembly *is* the object')
+            return [idx]
+        elif model.hasChildren(idx) and obj.oid in get_bom_oids(assembly):
+            # orb.log.debug('  obj in assembly bom -- look for children ...')
+            obj_idxs = []
+            comp_idxs = [model.index(row, 0, idx)
+                         for row in range(model.rowCount(idx))]
+            for comp_idx in comp_idxs:
+                obj_idxs += self.object_indexes_in_assembly(obj, comp_idx)
+            return obj_idxs
+        else:
+            return []
+
+    def object_indexes_in_tree(self, obj):
+        """
+        Find the source model indexes of all nodes in the system tree that
+        reference the specified object (this is needed for updating the tree
+        in-place when an object is modified).
+
+        Args:
+            obj (Product):  specified object
+        """
+        # orb.log.debug('* object_indexes_in_tree({})'.format(obj.id))
+        try:
+            model = self.proxy_model.sourceModel()
+        except:
+            # oops -- C++ object probably got deleted
+            return []
+        project_index = model.index(0, 0, QModelIndex())
+        # project_node = model.get_node(project_index)
+        # orb.log.debug('  for project {}'.format(project_node.obj.oid))
+        # orb.log.debug('  (node cname: {})'.format(project_node.cname))
+        # NOTE: systems could be created with a list comp except the sanity
+        # check "if psu.system" is needed in case a psu got corrupted
+        systems = []
+        for psu in model.project.systems:
+            if psu.system:
+                systems.append(psu.system)
+        # first check whether obj *is* one of the systems:
+        is_a_system = [sys for sys in systems if sys.oid == obj.oid]
+        # then check whether obj occurs in any system boms:
+        in_system = [sys for sys in systems if obj.oid in get_bom_oids(sys)]
+        if is_a_system or in_system:
+            # systems exist -> project_index has children, so ...
+            sys_idxs = [model.index(row, 0, project_index)
+                        for row in range(model.rowCount(project_index))]
+            system_idxs = []
+            obj_idxs = []
+            if is_a_system:
+                # orb.log.debug('  - object is a system.')
+                # orb.log.debug('    project has {} system(s).'.format(
+                                                            # len(systems)))
+                # orb.log.debug('    tree has {} system(s).'.format(
+                                                            # len(sys_idxs)))
+                for idx in sys_idxs:
+                    system_node = model.get_node(idx)
+                    # orb.log.debug('    + {}'.format(system_node.obj.id))
+                    if system_node.obj.oid == obj.oid:
+                        system_idxs.append(idx)
+                # orb.log.debug('    {} system occurrences found.'.format(
+                              # len(system_idxs)))
+            if in_system:
+                # orb.log.debug('  - object is a component.')
+                for sys_idx in sys_idxs:
+                    obj_idxs += self.object_indexes_in_assembly(obj, sys_idx)
+                # orb.log.debug('    {} component occurrences found.'.format(
+                              # len(obj_idxs)))
+            return list(set(system_idxs + obj_idxs))
+        else:
+            # orb.log.info('  - object not found in tree.')
+            pass
+        return []
+
+
 class ModesTool(QMainWindow):
     """
-    Tool for defining the operational Modes of a system in terms of the states
-    of its subsystems.
+    Tool for defining the operational Modes of a set of systems in terms of
+    the states of their subsystems.
 
     Attrs:
-        project (Project): the project in which the system is operating
-        system (HardwareProduct):  the system whose Modes are being defined
+        project (Project): the project in which the systems are operating
     """
     default_modes = ['Launch', 'Calibration', 'Slew', 'Safe Hold',
                      'Science Mode, Acquisition', 'Science Mode, Transmitting']
 
-    def __init__(self, project, system, modes=None, width=900, height=500,
-                 parent=None):
+    def __init__(self, project, modes=None, parent=None):
         """
         Args:
-            project (Project): the project in which the system is operating
-            system (HardwareProduct): the system for which Modes are to be
-                characterized 
+            project (Project): the project context in which the systems are
+                operating
 
         Keyword Args:
             modes (list of str):  initial set of mode names
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
+        self.setMinimumSize(1000, 600)
+        orb.log.debug('* ModesTool')
         self.project = project
-        self.system = system
+        # default is all top-level systems in the project
+        systems = []
+        if not state.get('mode_systems'):
+            state['mode_systems'] = {}
+        if not state['mode_systems'].get(project.id):
+            systems = [psu.system for psu in project.systems]
+            state['mode_systems'][project.id] = [sys.oid for sys in systems]
+        sys_names = (', '.join([system.name for system in systems])
+                     or '[none]')
+        orb.log.debug(f'  - systems: {sys_names}')
         self.modes = modes or self.default_modes
-        self.w = width
-        self.h = height
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-        title = f'Modes of {system.name}'
+        title = 'Modes of Specified Systems'
         self.setWindowTitle(title)
-        self.set_mode_definition_table()
+        self.sys_select_tree = SystemSelectionView(self.project, refdes=True)
+        # self.sys_select_tree.setItemDelegate(ReqAllocDelegate())
+        self.sys_select_tree.expandToDepth(1)
+        # self.sys_select_tree.setExpandsOnDoubleClick(False)
+        self.sys_select_tree.clicked.connect(self.on_select_systems)
+        self.left_dock = QDockWidget()
+        self.left_dock.setFloating(False)
+        self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
+        sys_tree_panel = QWidget(self)
+        sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
+                                     QSizePolicy.MinimumExpanding)
+        sys_tree_panel.setMinimumWidth(400)
+        sys_tree_panel.setMaximumWidth(500)
+        sys_tree_layout = QVBoxLayout(sys_tree_panel)
+        sys_tree_layout.addWidget(self.sys_select_tree)
+        self.left_dock.setWidget(sys_tree_panel)
+        self.new_window = True
+        self.set_table_and_adjust()
 
-    def set_mode_definition_table(self):
+    def on_select_systems(self, index):
+        mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
+        sys = self.sys_select_tree.source_model.get_node(mapped_i).obj
+        if state['mode_systems'].get(self.project.id):
+            if sys.oid in state['mode_systems'][self.project.id]:
+                state['mode_systems'][self.project.id].remove(sys.oid)
+            else:
+                state['mode_systems'][self.project.id].append(sys.oid)
+        else:
+            state['mode_systems'][self.project.id] = [sys.oid]
+        # the expandToDepth is needed to make it repaint to show the selected
+        # node as green-highlighted
+        self.sys_select_tree.expandToDepth(1)
+        self.sys_select_tree.scrollTo(index)
+        self.sys_select_tree.clearSelection()
+        self.set_table_and_adjust()
+
+    def set_table_and_adjust(self):
+        if self.new_window:
+            size = QSize(state.get('mode_def_w') or self.width(),
+                         state.get('mode_def_h') or self.height())
+        else:
+            size = self.size()
+            state['mode_def_w'] = self.width()
+            state['mode_def_h'] = self.height()
         if getattr(self, 'mode_definition_table', None):
             # remove and close current mode def table
             self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
@@ -287,10 +500,16 @@ class ModesTool(QMainWindow):
         nbr_rows = 1
         nbr_cols = 1
         vheader_labels = []
-        if self.system.components:
-            nbr_rows = len(self.system.components)
-            vheader_labels += [c.component.name
-                               for c in self.system.components]
+        sys_oids = state['mode_systems'].get(self.project.id) or []
+        systems = []
+        if sys_oids:
+            for oid in sys_oids:
+                system = orb.get(oid)
+                systems.append(system)
+                if system.components:
+                    nbr_rows = len(system.components)
+                    vheader_labels += [c.component.name
+                                       for c in system.components]
         if self.modes:
             nbr_cols = len(self.modes)
         else:
@@ -315,7 +534,31 @@ class ModesTool(QMainWindow):
         # self.mode_definition_table.adjustSize()
         self.setCentralWidget(self.mode_definition_table)
         self.mode_definition_table.resizeColumnsToContents()
-        self.adjustSize()
+        # try to expand the tree enough to show the last selected system
+        if systems:
+            level = 1
+            tree = self.sys_select_tree
+            while 1:
+                # try:
+                tree.expandToDepth(level)
+                idxs = tree.object_indexes_in_tree(systems[-1])
+                if idxs:
+                    tree.scrollTo(tree.proxy_model.mapFromSource(idxs[0]))
+                    break
+                else:
+                    level += 1
+                    if level > 5:
+                        # 5 really should be deep enough!
+                        break
+                # except:
+                    # orb.log.debug('  - crashed while trying to expand tree.')
+                    # break
+        self.resize(size)
+        self.new_window = False
+
+    def resizeEvent(self, event):
+        state['mode_def_w'] = self.width()
+        state['mode_def_h'] = self.height()
 
 
 class ModeDefinitionTable(QTableView):

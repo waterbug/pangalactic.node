@@ -55,6 +55,7 @@ from pangalactic.core.utils.meta       import (asciify,
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
+from pangalactic.node.activities       import ModesTool
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
@@ -1824,6 +1825,13 @@ class Main(QMainWindow):
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
+        modes_def_action_tip = "Define Operational Power Modes"
+        self.modes_def_action = self.create_action(
+                                    "Define Operational Power Modes",
+                                    slot=self.define_op_modes,
+                                    icon='lander',
+                                    tip=modes_def_action_tip,
+                                    modes=['system'])
         conops_tip_text = "Model a Concept of Operations"
         self.conops_modeler_action = self.create_action(
                                 "ConOps Modeler",
@@ -2436,6 +2444,7 @@ class Main(QMainWindow):
         system_tools_icon_path = os.path.join(icon_dir,
                                               system_tools_icon_file)
         system_tools_actions = [self.reqts_manager_action,
+                                self.modes_def_action,
                                 self.conops_modeler_action,
                                 self.modeler42_action,
                                 self.product_lib_action,
@@ -4339,6 +4348,10 @@ class Main(QMainWindow):
 
     def display_conops_modeler(self):
         win = ConOpsModeler(parent=self)
+        win.show()
+
+    def define_op_modes(self):
+        win = ModesTool(self.project, parent=self)
         win.show()
 
     def sc_42_modeler(self):

@@ -74,10 +74,6 @@ class ProductFilterDialog(QDialog):
             orb.log.debug('[ProductFilterDialog] - no disciplines found '
                           'related to assigned roles.')
         hbox = QHBoxLayout()
-        # logo_path = config.get('tall_logo')
-        # if logo_path:
-            # image_path = os.path.join(orb.image_dir, logo_path)
-            # hbox.addWidget(PlaceHolder(image=image_path, parent=self))
         product_types = orb.get_by_type('ProductType')
         label = get_external_name_plural('ProductType')
         self.product_type_panel = FilterPanel(product_types, label=label,

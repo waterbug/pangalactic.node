@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QPushButton, QGraphicsPathItem, QVBoxLayout,
                              QToolBar, QWidgetAction, QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
-from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPainter, QPen, QPixmap,
+from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPen, QPixmap,
                          QCursor, QPainterPath, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 
@@ -320,8 +320,9 @@ class TimelineScene(QGraphicsScene):
 
 
 class ToolButton(QPushButton):
-    def __init__(self, text, parent=None):
-        super().__init__(text, parent)
+    def __init__(self, pixmap, text, parent=None):
+        self.pixmap = pixmap
+        super().__init__(QIcon(pixmap), text, parent)
 
     def boundingRect(self):
         return QRectF(-5 , -5, 20, 20)
@@ -337,18 +338,11 @@ class ToolButton(QPushButton):
         mime = QMimeData()
         drag.setMimeData(mime)
         mime.setText(self.mime)
-        pixmap = QPixmap(34, 34)
-        pixmap.fill(Qt.white)
-        painter = QPainter(pixmap)
-        painter.translate(15, 15)
-        painter.setRenderHint(QPainter.Antialiasing)
-        self.paint(painter, None, None)
-        painter.end()
         dragCursor = QCursor()
         dragCursor.setShape(Qt.ClosedHandCursor)
-        drag.setDragCursor(pixmap, Qt.IgnoreAction)
+        drag.setDragCursor(self.pixmap, Qt.IgnoreAction)
         self.setCursor(Qt.OpenHandCursor)
-        drag.setPixmap(pixmap)
+        drag.setPixmap(self.pixmap)
         drag.setHotSpot(QPoint(15, 20))
         drag.exec_()
 
@@ -932,19 +926,20 @@ class ConOpsModeler(QMainWindow):
         Create the library of operation/event block types.
         """
         layout = QGridLayout()
-        op_button = ToolButton("Operation")
+        circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
+        triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
+        square = QPixmap(os.path.join( orb.home, 'images', 'square.png'))
+        op_button = ToolButton(square, "Operation")
         op_button.setData("Operation")
-        ev_button = ToolButton("Event")
+        ev_button = ToolButton(triangle, "Event")
         ev_button.setData("Event")
-        cyc_button = ToolButton("Cycle")
+        cyc_button = ToolButton(circle, "Cycle")
         cyc_button.setData("Cycle")
-
         layout.addWidget(op_button)
         layout.addWidget(ev_button)
         layout.addWidget(cyc_button)
         itemWidget = QWidget()
         itemWidget.setLayout(layout)
-
         self.library = QToolBox()
         self.library.addItem(itemWidget, "Activities")
         self.library.setSizePolicy(QSizePolicy.Fixed,
@@ -962,7 +957,7 @@ class ConOpsModeler(QMainWindow):
         self.toolbar.addWidget(self.modes_tool_button)
 
     def modes_tool(self):
-        win = ModesTool(self.project, self.system_list[0], parent=self)
+        win = ModesTool(self.project, parent=self)
         win.show()
 
     def change_system(self, index):

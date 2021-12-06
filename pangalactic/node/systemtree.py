@@ -285,13 +285,14 @@ class SystemTreeModel(QAbstractItemModel):
     BRUSH = QBrush()
     RED_BRUSH = QBrush(Qt.red)
     GRAY_BRUSH = QBrush(Qt.lightGray)
+    GREEN_BRUSH = QBrush(Qt.green)
     CYAN_BRUSH = QBrush(Qt.cyan)
     YELLOW_BRUSH = QBrush(Qt.yellow)
     TRANSPARENT_BRUSH = QBrush(Qt.transparent)
     WHITE_BRUSH = QBrush(Qt.white)
 
     def __init__(self, obj, refdes=True, show_allocs=False, req=None,
-                 parent=None):
+                 show_mode_systems=False, parent=None):
         """
         Args:
             obj (Project): root object of the tree
@@ -303,6 +304,8 @@ class SystemTreeModel(QAbstractItemModel):
                 which a specified requirement has been allocated
             req (Requirement):  the requirement whose allocations should be
                 highlighted if 'show_allocs' is True
+            show_mode_systems (bool):  flag indicating whether to highlight
+                systems selected for the Modes Table
             parent (QWidget): parent widget of the SystemTreeModel
         """
         # orb.log.debug('* SystemTreeModel initializing ...')
@@ -311,6 +314,7 @@ class SystemTreeModel(QAbstractItemModel):
         self.refdes = refdes
         self.show_allocs = show_allocs
         self.req = req
+        self.show_mode_systems = show_mode_systems
         fake_root = FakeRoot()
         self.root = Node(fake_root)
         self.root.parent = None
@@ -690,6 +694,13 @@ class SystemTreeModel(QAbstractItemModel):
                 return self.YELLOW_BRUSH
             else:
                 return self.WHITE_BRUSH
+        elif role == Qt.BackgroundRole and self.show_mode_systems:
+            sys_oids = (state.get('mode_systems') or {}).get(self.project.id)
+            if sys_oids:
+                if node.obj.oid in sys_oids:
+                    return self.GREEN_BRUSH
+                else:
+                    return self.WHITE_BRUSH
         if role == Qt.TextAlignmentRole:
             if index.column() == 0:
                 return Qt.AlignLeft
