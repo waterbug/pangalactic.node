@@ -323,6 +323,7 @@ class ToolButton(QPushButton):
     def __init__(self, pixmap, text, parent=None):
         self.pixmap = pixmap
         super().__init__(QIcon(pixmap), text, parent)
+        self.setFlat(True)
 
     def boundingRect(self):
         return QRectF(-5 , -5, 20, 20)
@@ -330,7 +331,7 @@ class ToolButton(QPushButton):
     def paint(self, painter, option, widget):
         painter.setPen(QPen(Qt.black, 1))
         painter.setBrush(QBrush(Qt.white))
-        painter.drawRect(-5, -5, 20,20)
+        painter.drawRect(-5, -5, 20, 20)
 
     def mouseMoveEvent(self, event):
         event.accept()
@@ -345,6 +346,7 @@ class ToolButton(QPushButton):
         drag.setPixmap(self.pixmap)
         drag.setHotSpot(QPoint(15, 20))
         drag.exec_()
+        self.clearFocus()
 
     def setData(self, mimeData):
         self.mime = mimeData
@@ -929,11 +931,11 @@ class ConOpsModeler(QMainWindow):
         circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
         triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
         square = QPixmap(os.path.join( orb.home, 'images', 'square.png'))
-        op_button = ToolButton(square, "Operation")
+        op_button = ToolButton(square, "  Operation")
         op_button.setData("Operation")
-        ev_button = ToolButton(triangle, "Event")
+        ev_button = ToolButton(triangle, "  Event")
         ev_button.setData("Event")
-        cyc_button = ToolButton(circle, "Cycle")
+        cyc_button = ToolButton(circle, "  Cycle")
         cyc_button.setData("Cycle")
         layout.addWidget(op_button)
         layout.addWidget(ev_button)
