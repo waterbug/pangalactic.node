@@ -7,7 +7,7 @@ from collections import OrderedDict
 from textwrap import wrap, fill
 
 from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
-from PyQt5.QtGui     import QStandardItemModel
+from PyQt5.QtGui     import QBrush, QStandardItemModel
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDockWidget, QItemDelegate,
                              QMainWindow, QSizePolicy, QStatusBar, QTableView,
                              QTreeView, QVBoxLayout, QWidget)
@@ -497,31 +497,31 @@ class ModesTool(QMainWindow):
             self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
             self.mode_definition_table.parent = None
             self.mode_definition_table.close()
-        nbr_rows = 1
-        nbr_cols = 1
         vheader_labels = []
         sys_oids = state['mode_systems'].get(self.project.id) or []
+        # objs lists all objects in the table
+        # items = []
+        objs = []
+        # systems is a list of the specified systems (excluding components)
         systems = []
         if sys_oids:
             for oid in sys_oids:
                 system = orb.get(oid)
                 systems.append(system)
+                objs.append(system)
+                vheader_labels.append(system.name)
                 if system.components:
-                    nbr_rows = len(system.components)
-                    vheader_labels += [c.component.name
-                                       for c in system.components]
-        if self.modes:
-            nbr_cols = len(self.modes)
-        else:
-            pass
-            # TODO: set "no modes" header
-        model = QStandardItemModel(nbr_rows, nbr_cols)
+                    vheader_labels += [acu.component.name
+                                       for acu in system.components]
+                    objs += [acu.component for acu in system.components]
+        view = self.modes
+        model = ModeDefinitionModel(objs, view=view, project=self.project)
         for i, mode in enumerate(self.modes):
             model.setHeaderData(i, Qt.Horizontal, mode)
         for j, name in enumerate(vheader_labels):
             model.setHeaderData(j, Qt.Vertical, name)
-        for row in range(nbr_rows):
-            for col in range(nbr_cols):
+        for row in range(len(objs)):
+            for col in range(len(view)):
                 index = model.index(row, col, QModelIndex())
                 # TODO: get available states for row and set data to states[0]
                 model.setData(index, '[select state]')
@@ -568,6 +568,28 @@ class ModeDefinitionTable(QTableView):
         fwidth = self.frameWidth() * 2
         return QSize(hheader.width() + vheader.width() + fwidth,
                      vheader.height() + hheader.height())
+
+
+class ModeDefinitionModel(QStandardItemModel):
+    def __init__(self, objs, view=None, project=None, parent=None):
+        self.objs = objs
+        self.view = view or ['name']
+        self.project = project
+        rows = len(objs)
+        cols = len(view)
+        super().__init__(rows, cols, parent=parent)
+
+    def data(self, index, role):
+        if not index.isValid():
+            return None
+        if role == Qt.BackgroundRole:
+            sys_oids = state['mode_systems'].get(self.project.id) or []
+            oid = self.objs[index.row()].oid
+            if oid in sys_oids:
+                return QBrush(Qt.green)
+            else:
+                return QBrush(Qt.white)
+        return super().data(index, role)
 
 
 class StateSelectorDelegate(QItemDelegate):
