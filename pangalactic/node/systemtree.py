@@ -286,6 +286,7 @@ class SystemTreeModel(QAbstractItemModel):
     RED_BRUSH = QBrush(Qt.red)
     GRAY_BRUSH = QBrush(Qt.lightGray)
     GREEN_BRUSH = QBrush(Qt.green)
+    BLUE_BRUSH = QBrush(Qt.blue)
     CYAN_BRUSH = QBrush(Qt.cyan)
     YELLOW_BRUSH = QBrush(Qt.yellow)
     TRANSPARENT_BRUSH = QBrush(Qt.transparent)
@@ -653,7 +654,16 @@ class SystemTreeModel(QAbstractItemModel):
                 return node.name
         if role == Qt.ForegroundRole:
             if index.column() == 0:
-                return self.BRUSH
+                if self.show_mode_systems:
+                    sys_oids = (state.get('mode_systems') or {}).get(
+                                                        self.project.id)
+                    if sys_oids:
+                        if node.obj.oid in sys_oids:
+                            return self.WHITE_BRUSH
+                        else:
+                            return self.BRUSH
+                    else:
+                        return self.BRUSH
             elif self.cols and len(self.cols) > index.column() > 0:
                 col_id = self.cols[index.column()]
                 pd = parm_defz.get(col_id)
@@ -698,7 +708,7 @@ class SystemTreeModel(QAbstractItemModel):
             sys_oids = (state.get('mode_systems') or {}).get(self.project.id)
             if sys_oids:
                 if node.obj.oid in sys_oids:
-                    return self.GREEN_BRUSH
+                    return self.BLUE_BRUSH
                 else:
                     return self.WHITE_BRUSH
         if role == Qt.TextAlignmentRole:

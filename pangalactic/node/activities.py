@@ -504,6 +504,7 @@ class ModesTool(QMainWindow):
         objs = []
         # systems is a list of the specified systems (excluding components)
         systems = []
+        computeds = []
         if sys_oids:
             for oid in sys_oids:
                 system = orb.get(oid)
@@ -511,9 +512,11 @@ class ModesTool(QMainWindow):
                 objs.append(system)
                 vheader_labels.append(system.name)
                 if system.components:
-                    vheader_labels += [acu.component.name
-                                       for acu in system.components]
-                    objs += [acu.component for acu in system.components]
+                    computeds.append(oid)
+                    comps = [acu.component for acu in system.components
+                             if acu.component.oid not in sys_oids]
+                    vheader_labels += [comp.name for comp in comps]
+                    objs += comps
         view = self.modes
         model = ModeDefinitionModel(objs, view=view, project=self.project)
         for i, mode in enumerate(self.modes):
@@ -524,7 +527,10 @@ class ModesTool(QMainWindow):
             for col in range(len(view)):
                 index = model.index(row, col, QModelIndex())
                 # TODO: get available states for row and set data to states[0]
-                model.setData(index, '[select state]')
+                if objs[row].oid in computeds:
+                    model.setData(index, '(computed)')
+                else:
+                    model.setData(index, '[select state]')
         self.mode_definition_table = ModeDefinitionTable()
         self.mode_definition_table.setModel(model)
         # hheader = self.mode_definition_table.horizontalHeader()
@@ -586,9 +592,16 @@ class ModeDefinitionModel(QStandardItemModel):
             sys_oids = state['mode_systems'].get(self.project.id) or []
             oid = self.objs[index.row()].oid
             if oid in sys_oids:
-                return QBrush(Qt.green)
+                return QBrush(Qt.blue)
             else:
                 return QBrush(Qt.white)
+        if role == Qt.ForegroundRole:
+            sys_oids = state['mode_systems'].get(self.project.id) or []
+            oid = self.objs[index.row()].oid
+            if oid in sys_oids:
+                return QBrush(Qt.white)
+            else:
+                return QBrush(Qt.black)
         return super().data(index, role)
 
 
