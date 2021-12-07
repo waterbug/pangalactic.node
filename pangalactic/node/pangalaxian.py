@@ -3666,8 +3666,11 @@ class Main(QMainWindow):
         # set sys tree expansion level
         self.expansion_select.currentIndexChanged.connect(
                                                     self.set_systree_expansion)
-        self.expansion_select.setCurrentIndex(
-            state['sys_tree_expansion'][self.project.oid])
+        if state['sys_tree_expansion'].get(self.project.oid):
+            self.expansion_select.setCurrentIndex(
+                state['sys_tree_expansion'][self.project.oid])
+        else:
+            state['sys_tree_expansion'][self.project.oid] = 0
         self.set_system_model_window()
 
     def set_systree_expansion(self, index):
