@@ -212,6 +212,9 @@ class Main(QMainWindow):
             orb.log.debug('    server cert found.')
         else:
             orb.log.debug('    server cert NOT found.')
+        # initialize 'sys_tree_expansion' in case it has not been set yet ...
+        if not state.get('sys_tree_expansion'):
+            state['sys_tree_expansion'] = {}
         # self.mode_widget_actions is a mapping from modes (see below) to the
         # actions of toolbar widgets that are visible in each mode
         self.mode_widget_actions = dict((mode, set()) for mode in self.modes)
@@ -2217,8 +2220,6 @@ class Main(QMainWindow):
             orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
             state['system'] = 'pgefobjects:SANDBOX'
-        if not state.get('sys_tree_expansion'):
-            state['sys_tree_expansion'] = {}
         if not state['sys_tree_expansion'].get(self.project.oid):
             orb.log.debug('* setting sys tree expansion level to default (2)')
             state['sys_tree_expansion'][self.project.oid] = 0
