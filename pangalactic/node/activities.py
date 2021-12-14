@@ -13,10 +13,10 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QDockWidget, QItemDelegate
                              QTreeView, QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
-from pangalactic.core.parametrics import get_pval_as_str
+from pangalactic.core.parametrics import get_pval_as_str, mode_defz
 from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.validation  import get_bom_oids
+from pangalactic.core.validation  import get_assembly
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.tablemodels import MappingTableModel
 from pangalactic.node.utils       import clone
@@ -295,115 +295,90 @@ class SystemSelectionView(QTreeView):
             state['sys_trees'][self.project.id] = {}
         if not state['sys_trees'][self.project.id].get('expanded'):
             state['sys_trees'][self.project.id]['expanded'] = []
-        # ** NOTE: the below section is probably superfluous ...
-        # # set initial node selection
-        # if selected_system:
-            # idxs = self.object_indexes_in_tree(selected_system)
-            # if idxs:
-                # idx_to_select = self.proxy_model.mapFromSource(idxs[0])
-            # else:
-                # # orb.log.debug('    selected system is not in tree.')
-                # idx_to_select = self.proxy_model.mapFromSource(
-                            # self.source_model.index(0, 0, QModelIndex()))
-        # else:
-            # # set the initial selection to the base node index
-            # # orb.log.debug(' - no current selection; selecting project node.')
-            # idx_to_select = self.proxy_model.mapFromSource(
-                                # self.source_model.index(0, 0, QModelIndex()))
-        # self.select_initial_node(idx_to_select)
 
-    def object_indexes_in_assembly(self, obj, idx):
+    def link_indexes_in_assembly(self, link, idx):
         """
-        Find the source model indexes of all nodes in an assembly that reference
-        the specified object and source model index.
+        Find the source model indexes of all nodes in an assembly that have the
+        specified link as their `link` attribute and the specified source model
+        index.
 
         Args:
-            obj (Product):  specified object
-            idx (QModelIndex):  source model index of the assembly or project
-                node
+            link (Acu):  specified link
+            idx (QModelIndex):  index of the assembly or project node
         """
-        # NOTE: ignore "TBD" objects
-        if getattr(obj, 'oid', '') == 'pgefobjects:TBD':
+        if link:
+            model = self.source_model
+            assembly_node = model.get_node(idx)
+            if hasattr(assembly_node.link, 'component'):
+                assembly = assembly_node.link.component
+            else:
+                assembly = assembly_node.link.system
+            # orb.log.debug('* link_indexes_in_assembly({})'.format(link.id))
+            if link.oid == assembly_node.link.oid:
+                # orb.log.debug('  assembly node *is* the link node')
+                return [idx]
+            elif model.hasChildren(idx) and link in get_assembly(assembly):
+                # orb.log.debug('  link in assembly -- looking for acus ...')
+                link_idxs = []
+                comp_idxs = [model.index(row, 0, idx)
+                             for row in range(model.rowCount(idx))]
+                for comp_idx in comp_idxs:
+                    link_idxs += self.link_indexes_in_assembly(link, comp_idx)
+                return link_idxs
             return []
-        model = self.source_model
-        assembly_node = model.get_node(idx)
-        if hasattr(assembly_node.link, 'component'):
-            assembly = assembly_node.link.component
-        else:
-            assembly = assembly_node.link.system
-        # orb.log.debug('* object_indexes_in_assembly({})'.format(assembly.id))
-        if obj.oid == assembly.oid:
-            # orb.log.debug('  assembly *is* the object')
-            return [idx]
-        elif model.hasChildren(idx) and obj.oid in get_bom_oids(assembly):
-            # orb.log.debug('  obj in assembly bom -- look for children ...')
-            obj_idxs = []
-            comp_idxs = [model.index(row, 0, idx)
-                         for row in range(model.rowCount(idx))]
-            for comp_idx in comp_idxs:
-                obj_idxs += self.object_indexes_in_assembly(obj, comp_idx)
-            return obj_idxs
-        else:
-            return []
+        return []
 
-    def object_indexes_in_tree(self, obj):
+    def link_indexes_in_tree(self, link):
         """
         Find the source model indexes of all nodes in the system tree that
-        reference the specified object (this is needed for updating the tree
-        in-place when an object is modified).
+        reference the specified link (Acu or ProjectSystemUsage) -- this is
+        needed for updating the tree in-place when a link object is modified.
 
         Args:
-            obj (Product):  specified object
+            link (Acu or ProjectSystemUsage):  specified link object
         """
-        # orb.log.debug('* object_indexes_in_tree({})'.format(obj.id))
-        try:
-            model = self.proxy_model.sourceModel()
-        except:
-            # oops -- C++ object probably got deleted
-            return []
+        # orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
+        model = self.proxy_model.sourceModel()
         project_index = model.index(0, 0, QModelIndex())
         # project_node = model.get_node(project_index)
         # orb.log.debug('  for project {}'.format(project_node.obj.oid))
         # orb.log.debug('  (node cname: {})'.format(project_node.cname))
-        # NOTE: systems could be created with a list comp except the sanity
-        # check "if psu.system" is needed in case a psu got corrupted
-        systems = []
-        for psu in model.project.systems:
-            if psu.system:
-                systems.append(psu.system)
-        # first check whether obj *is* one of the systems:
-        is_a_system = [sys for sys in systems if sys.oid == obj.oid]
-        # then check whether obj occurs in any system boms:
-        in_system = [sys for sys in systems if obj.oid in get_bom_oids(sys)]
-        if is_a_system or in_system:
+        # first check whether link is a PSU:
+        is_a_psu = [psu for psu in model.project.systems
+                    if psu.oid == link.oid]
+        # then check whether link occurs in any system boms:
+        systems = [psu.system for psu in model.project.systems]
+        in_system = [sys for sys in systems if link in get_assembly(sys)]
+        if is_a_psu or in_system:
             # systems exist -> project_index has children, so ...
             sys_idxs = [model.index(row, 0, project_index)
                         for row in range(model.rowCount(project_index))]
-            system_idxs = []
-            obj_idxs = []
-            if is_a_system:
-                # orb.log.debug('  - object is a system.')
+            link_idxs = []
+            if is_a_psu:
+                # orb.log.debug('  - link is a ProjectSystemUsage ...')
                 # orb.log.debug('    project has {} system(s).'.format(
                                                             # len(systems)))
                 # orb.log.debug('    tree has {} system(s).'.format(
                                                             # len(sys_idxs)))
                 for idx in sys_idxs:
                     system_node = model.get_node(idx)
-                    # orb.log.debug('    + {}'.format(system_node.obj.id))
-                    if system_node.obj.oid == obj.oid:
-                        system_idxs.append(idx)
+                    if system_node.link.oid == link.oid:
+                        # orb.log.debug('    + {}'.format(system_node.link.id))
+                        # orb.log.debug('      system: {}'.format(
+                                                        # system_node.obj.id))
+                        link_idxs.append(idx)
                 # orb.log.debug('    {} system occurrences found.'.format(
-                              # len(system_idxs)))
+                              # len(link_idxs)))
             if in_system:
-                # orb.log.debug('  - object is a component.')
+                # orb.log.debug('  - link is an Acu ...')
                 for sys_idx in sys_idxs:
-                    obj_idxs += self.object_indexes_in_assembly(obj, sys_idx)
-                # orb.log.debug('    {} component occurrences found.'.format(
-                              # len(obj_idxs)))
-            return list(set(system_idxs + obj_idxs))
+                    link_idxs += self.link_indexes_in_assembly(link, sys_idx)
+                # orb.log.debug('    {} link occurrences found.'.format(
+                              # len(link_idxs)))
+            return link_idxs
         else:
-            # orb.log.info('  - object not found in tree.')
-            pass
+            # orb.log.debug('  - link not found in tree.')
+            return []
         return []
 
 
@@ -432,16 +407,26 @@ class ModesTool(QMainWindow):
         self.setMinimumSize(1000, 600)
         orb.log.debug('* ModesTool')
         self.project = project
-        # default is all top-level systems in the project
-        systems = []
-        if not state.get('mode_systems'):
-            state['mode_systems'] = {}
-        if not state['mode_systems'].get(project.id):
-            systems = [psu.system for psu in project.systems]
-            state['mode_systems'][project.id] = [sys.oid for sys in systems]
-        sys_names = (', '.join([system.name for system in systems])
-                     or '[none]')
-        orb.log.debug(f'  - systems: {sys_names}')
+        names = []
+        # first make sure that mode_defz[project.oid] is initialized ...
+        if not mode_defz.get(project.oid):
+            mode_defz[project.oid] = {}
+        if mode_defz[project.oid]:
+            for link_oid in mode_defz[project.oid]:
+                link = orb.get(link_oid)
+                if hasattr(link, 'system'):
+                    # link is a psu
+                    names.append(link.system_role + ': ' + link.system.name)
+                elif hasattr(link, 'component'):
+                    # link is an acu
+                    names.append(link.reference_designator + ': ' +
+                                 link.component.name)
+        if names:
+            orb.log.debug('  - systems:')
+            for name in names:
+                orb.log.debug(f'    {name}')
+        else:
+            orb.log.debug('  - no systems specified yet.')
         self.modes = modes or self.default_modes
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
@@ -469,14 +454,14 @@ class ModesTool(QMainWindow):
 
     def on_select_systems(self, index):
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
-        sys = self.sys_select_tree.source_model.get_node(mapped_i).obj
-        if state['mode_systems'].get(self.project.id):
-            if sys.oid in state['mode_systems'][self.project.id]:
-                state['mode_systems'][self.project.id].remove(sys.oid)
+        link = self.sys_select_tree.source_model.get_node(mapped_i).link
+        if mode_defz[self.project.oid]:
+            if link.oid in mode_defz[self.project.oid]:
+                del mode_defz[self.project.oid][link.oid]
             else:
-                state['mode_systems'][self.project.id].append(sys.oid)
+                mode_defz[self.project.oid][link.oid] = ''
         else:
-            state['mode_systems'][self.project.id] = [sys.oid]
+            mode_defz[self.project.oid][link.oid] = ''
         # the expandToDepth is needed to make it repaint to show the selected
         # node as green-highlighted
         self.sys_select_tree.expandToDepth(1)
@@ -498,25 +483,36 @@ class ModesTool(QMainWindow):
             self.mode_definition_table.parent = None
             self.mode_definition_table.close()
         vheader_labels = []
-        sys_oids = state['mode_systems'].get(self.project.id) or []
-        # objs lists all objects in the table
-        # items = []
+        link_oids = list(mode_defz[self.project.oid].keys())
+        # objs lists *all* objects shown in the modes table
         objs = []
-        # systems is a list of the specified systems (excluding components)
-        systems = []
+        # links is a list of the *selected* roles/functions, which is a subset
+        # of all the objects displayed in the table (which typically includes
+        # components of the selected links/systems)
+        links = []
         computeds = []
-        if sys_oids:
-            for oid in sys_oids:
-                system = orb.get(oid)
-                systems.append(system)
-                objs.append(system)
-                vheader_labels.append(system.name)
-                if system.components:
+        if link_oids:
+            for oid in link_oids:
+                link = orb.get(oid)
+                links.append(link)
+                objs.append(link)
+                name = "unknown"
+                system = None
+                if hasattr(link, 'system'):
+                    system = link.system
+                    name = link.system_role + ': ' + system.name
+                elif hasattr(link, 'component'):
+                    system = link.component
+                    name = link.reference_designator + ': ' + system.name
+                vheader_labels.append(name)
+                if system and system.components:
                     computeds.append(oid)
-                    comps = [acu.component for acu in system.components
-                             if acu.component.oid not in sys_oids]
-                    vheader_labels += [comp.name for comp in comps]
-                    objs += comps
+                    acus = [acu for acu in system.components
+                            if acu.oid not in link_oids]
+                    names = [(acu.reference_designator + ': ' +
+                              acu.component.name) for acu in acus]
+                    vheader_labels += names
+                    objs += acus
         view = self.modes
         model = ModeDefinitionModel(objs, view=view, project=self.project)
         for i, mode in enumerate(self.modes):
@@ -541,13 +537,13 @@ class ModesTool(QMainWindow):
         self.setCentralWidget(self.mode_definition_table)
         self.mode_definition_table.resizeColumnsToContents()
         # try to expand the tree enough to show the last selected system
-        if systems:
+        if links:
             level = 1
             tree = self.sys_select_tree
             while 1:
                 # try:
                 tree.expandToDepth(level)
-                idxs = tree.object_indexes_in_tree(systems[-1])
+                idxs = tree.link_indexes_in_tree(links[-1])
                 if idxs:
                     tree.scrollTo(tree.proxy_model.mapFromSource(idxs[0]))
                     break
@@ -581,28 +577,53 @@ class ModeDefinitionModel(QStandardItemModel):
         self.objs = objs
         self.view = view or ['name']
         self.project = project
-        rows = len(objs)
-        cols = len(view)
-        super().__init__(rows, cols, parent=parent)
+        self.rows = len(objs)
+        self.cols = len(view)
+        super().__init__(self.rows, self.cols, parent=parent)
+
+    def get_name(self, obj):
+        if hasattr(obj, 'system'):
+            return obj.system_role + ': ' + obj.system.name
+        elif hasattr(obj, 'component'):
+            return obj.reference_designator + ': ' + obj.component.name
+        else:
+            return "unknown"
 
     def data(self, index, role):
         if not index.isValid():
             return None
+        if role == Qt.DisplayRole:
+            if self.cols:
+                if index.column() == 0:
+                    link = self.objs[index.row()]
+                    return self.get_name(link)
+                elif self.cols > index.column() > 0:
+                    mode_name = self.view[index.column()]
+                    if mode_name in mode_defz[self.project.oid]:
+                        val = mode_defz[self.project.oid][mode_name]
+                        return val
+                    else:
+                        return 'unspecified'
         if role == Qt.BackgroundRole:
-            sys_oids = state['mode_systems'].get(self.project.id) or []
+            link_oids = mode_defz[self.project.oid] or {}
             oid = self.objs[index.row()].oid
-            if oid in sys_oids:
+            if oid in link_oids:
                 return QBrush(Qt.blue)
             else:
                 return QBrush(Qt.white)
         if role == Qt.ForegroundRole:
-            sys_oids = state['mode_systems'].get(self.project.id) or []
+            link_oids = mode_defz[self.project.oid] or {}
             oid = self.objs[index.row()].oid
-            if oid in sys_oids:
+            if oid in link_oids:
                 return QBrush(Qt.white)
             else:
                 return QBrush(Qt.black)
         return super().data(index, role)
+
+    def setData(self, index, value, role=Qt.EditRole):
+        if role != Qt.EditRole:
+            return False
+
 
 
 class StateSelectorDelegate(QItemDelegate):

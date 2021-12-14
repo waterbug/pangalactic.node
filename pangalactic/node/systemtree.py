@@ -20,7 +20,8 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMenu,
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
-                                          get_pval, get_pval_as_str, parm_defz)
+                                          get_pval, get_pval_as_str,
+                                          parm_defz, mode_defz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
@@ -655,10 +656,9 @@ class SystemTreeModel(QAbstractItemModel):
         if role == Qt.ForegroundRole:
             if index.column() == 0:
                 if self.show_mode_systems:
-                    sys_oids = (state.get('mode_systems') or {}).get(
-                                                        self.project.id)
-                    if sys_oids:
-                        if node.obj.oid in sys_oids:
+                    link_dict = mode_defz.get(self.project.oid) or {}
+                    if link_dict:
+                        if getattr(node.link, 'oid', None) in link_dict:
                             return self.WHITE_BRUSH
                         else:
                             return self.BRUSH
@@ -705,9 +705,9 @@ class SystemTreeModel(QAbstractItemModel):
             else:
                 return self.WHITE_BRUSH
         elif role == Qt.BackgroundRole and self.show_mode_systems:
-            sys_oids = (state.get('mode_systems') or {}).get(self.project.id)
-            if sys_oids:
-                if node.obj.oid in sys_oids:
+            link_dict = mode_defz.get(self.project.oid) or {}
+            if link_dict:
+                if getattr(node.link, 'oid', None) in link_dict:
                     return self.BLUE_BRUSH
                 else:
                     return self.WHITE_BRUSH
