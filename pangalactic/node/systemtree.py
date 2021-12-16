@@ -655,13 +655,10 @@ class SystemTreeModel(QAbstractItemModel):
                 return node.name
         if role == Qt.ForegroundRole:
             if index.column() == 0:
-                if self.show_mode_systems:
-                    link_dict = mode_defz.get(self.project.oid) or {}
-                    if link_dict:
-                        if getattr(node.link, 'oid', None) in link_dict:
-                            return self.WHITE_BRUSH
-                        else:
-                            return self.BRUSH
+                if self.show_mode_systems and mode_defz.get(self.project.oid):
+                    sys_dict = mode_defz[self.project.oid].get('systems') or {}
+                    if getattr(node.link, 'oid', None) in sys_dict:
+                        return self.WHITE_BRUSH
                     else:
                         return self.BRUSH
             elif self.cols and len(self.cols) > index.column() > 0:
@@ -704,10 +701,10 @@ class SystemTreeModel(QAbstractItemModel):
                 return self.YELLOW_BRUSH
             else:
                 return self.WHITE_BRUSH
-        elif role == Qt.BackgroundRole and self.show_mode_systems:
-            link_dict = mode_defz.get(self.project.oid) or {}
-            if link_dict:
-                if getattr(node.link, 'oid', None) in link_dict:
+        elif (role == Qt.BackgroundRole and self.show_mode_systems
+              and mode_defz.get(self.project.oid)):
+                sys_dict = mode_defz[self.project.oid].get('systems') or {}
+                if getattr(node.link, 'oid', None) in sys_dict:
                     return self.BLUE_BRUSH
                 else:
                     return self.WHITE_BRUSH

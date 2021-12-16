@@ -4,6 +4,7 @@
 from louie import dispatcher
 
 from collections import OrderedDict
+from pprint import pprint
 from textwrap import wrap, fill
 
 from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
@@ -393,14 +394,13 @@ class ModesTool(QMainWindow):
     default_modes = ['Launch', 'Calibration', 'Slew', 'Safe Hold',
                      'Science Mode, Acquisition', 'Science Mode, Transmitting']
 
-    def __init__(self, project, modes=None, parent=None):
+    def __init__(self, project, parent=None):
         """
         Args:
             project (Project): the project context in which the systems are
                 operating
 
         Keyword Args:
-            modes (list of str):  initial set of mode names
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
@@ -410,24 +410,25 @@ class ModesTool(QMainWindow):
         names = []
         # first make sure that mode_defz[project.oid] is initialized ...
         if not mode_defz.get(project.oid):
-            mode_defz[project.oid] = {}
-        if mode_defz[project.oid]:
-            for link_oid in mode_defz[project.oid]:
+            mode_defz[project.oid] = dict(modes={}, systems={}, components={})
+        if mode_defz[project.oid]['systems']:
+            for link_oid in mode_defz[project.oid]['systems']:
                 link = orb.get(link_oid)
-                if hasattr(link, 'system'):
-                    # link is a psu
-                    names.append(link.system_role + ': ' + link.system.name)
-                elif hasattr(link, 'component'):
-                    # link is an acu
-                    names.append(link.reference_designator + ': ' +
-                                 link.component.name)
+                names.append(self.get_link_name(link))
+        modes = list(mode_defz[self.project.oid].get('modes') or [])
+        modes = modes or self.default_modes
+        # set initial default system state for modes that don't have one ...
+        for mode in modes:
+            if not mode_defz[self.project.oid]['modes'].get(mode):
+                mode_defz[self.project.oid]['modes'][mode] = 'Off'
         if names:
-            orb.log.debug('  - systems:')
+            orb.log.debug('  - specified systems:')
             for name in names:
                 orb.log.debug(f'    {name}')
+            orb.log.debug('  - mode_defz:')
+            orb.log.debug(f'   {pprint(mode_defz)}')
         else:
             orb.log.debug('  - no systems specified yet.')
-        self.modes = modes or self.default_modes
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         title = 'Modes of Specified Systems'
@@ -436,7 +437,7 @@ class ModesTool(QMainWindow):
         # self.sys_select_tree.setItemDelegate(ReqAllocDelegate())
         self.sys_select_tree.expandToDepth(1)
         # self.sys_select_tree.setExpandsOnDoubleClick(False)
-        self.sys_select_tree.clicked.connect(self.on_select_systems)
+        self.sys_select_tree.clicked.connect(self.on_select_system)
         self.left_dock = QDockWidget()
         self.left_dock.setFloating(False)
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
@@ -452,18 +453,69 @@ class ModesTool(QMainWindow):
         self.new_window = True
         self.set_table_and_adjust()
 
-    def on_select_systems(self, index):
+    def get_link_name(self, link):
+        if hasattr(link, 'system'):
+            # link is a psu
+            return link.system_role + ': ' + link.system.name
+        elif hasattr(link, 'component'):
+            # link is an acu
+            return link.reference_designator + ': ' + link.component.name
+        else:
+            return 'undefined'
+
+    def on_select_system(self, index):
+        """
+        Select a "product usage" (aka "link" or "node") in the assembly tree
+        for inclusion in the mode definitions table.  Note that if the selected
+        system has components, they will also be included in the mode
+        definitions table by default but will not be considered "selected
+        systems" -- i.e. their sub-components will NOT be included -- unless
+        they are separately selected.
+        """
+        orb.log.debug(' - updating mode_defz ...')
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
-        if mode_defz[self.project.oid]:
-            if link.oid in mode_defz[self.project.oid]:
-                del mode_defz[self.project.oid][link.oid]
-            else:
-                mode_defz[self.project.oid][link.oid] = ''
+        project_mode_defz = mode_defz[self.project.oid]
+        sys_dict = project_mode_defz['systems']
+        comp_dict = project_mode_defz['components']
+        mode_dict = project_mode_defz['modes']
+        if link.oid in sys_dict:
+            # if a selected system, deselect
+            del sys_dict[link.oid]
         else:
-            mode_defz[self.project.oid][link.oid] = ''
+            context = '[select state]'
+            if hasattr(link, 'system') and link.system.components:
+                context = '(computed)'
+            elif hasattr(link, 'component') and link.component.components:
+                context = '(computed)'
+            sys_dict[link.oid] = {}
+            for mode in mode_dict:
+                sys_dict[link.oid][mode] = context
+        for oid in sys_dict:
+            link = orb.get(oid)
+            system = None
+            if hasattr(link, 'system'):
+                system = link.system
+            elif hasattr(link, 'component'):
+                system = link.component
+            if (system and system.components and not comp_dict.get(link.oid)):
+                comp_dict[link.oid] = {}
+                acus = [acu for acu in system.components
+                        if acu.oid not in sys_dict]
+                # sort by "name" (so order is the same as the system tree)
+                by_name = [(self.get_link_name(acu), acu) for acu in acus]
+                by_name.sort()
+                for name, acu in by_name:
+                    if not comp_dict[link.oid].get(acu.oid):
+                        comp_dict[link.oid][acu.oid] = {}
+                    for mode in mode_dict:
+                        context = mode_dict.get(mode)
+                        context = context or '[select state]'
+                        comp_dict[link.oid][acu.oid][mode] = context
+        orb.log.debug(' - updated mode_defz is:')
+        orb.log.debug(f'   {pprint(mode_defz)}')
         # the expandToDepth is needed to make it repaint to show the selected
-        # node as green-highlighted
+        # node as highlighted
         self.sys_select_tree.expandToDepth(1)
         self.sys_select_tree.scrollTo(index)
         self.sys_select_tree.clearSelection()
@@ -482,51 +534,42 @@ class ModesTool(QMainWindow):
             self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
             self.mode_definition_table.parent = None
             self.mode_definition_table.close()
-        vheader_labels = []
-        link_oids = list(mode_defz[self.project.oid].keys())
-        # objs lists *all* objects shown in the modes table
-        objs = []
-        # links is a list of the *selected* roles/functions, which is a subset
-        # of all the objects displayed in the table (which typically includes
-        # components of the selected links/systems)
-        links = []
-        computeds = []
-        if link_oids:
-            for oid in link_oids:
-                link = orb.get(oid)
-                links.append(link)
-                objs.append(link)
-                name = "unknown"
-                system = None
-                if hasattr(link, 'system'):
-                    system = link.system
-                    name = link.system_role + ': ' + system.name
-                elif hasattr(link, 'component'):
-                    system = link.component
-                    name = link.reference_designator + ': ' + system.name
-                vheader_labels.append(name)
-                if system and system.components:
-                    computeds.append(oid)
-                    acus = [acu for acu in system.components
-                            if acu.oid not in link_oids]
-                    names = [(acu.reference_designator + ': ' +
-                              acu.component.name) for acu in acus]
-                    vheader_labels += names
-                    objs += acus
-        view = self.modes
-        model = ModeDefinitionModel(objs, view=view, project=self.project)
-        for i, mode in enumerate(self.modes):
+        sys_dict = mode_defz[self.project.oid]['systems']
+        comp_dict = mode_defz[self.project.oid]['components']
+        mode_dict = mode_defz[self.project.oid]['modes']
+        view = list(mode_dict)
+        items = []
+        for oid in sys_dict:
+            link = orb.get(oid)
+            items.append(link)
+            if link.oid in comp_dict:
+                for oid in comp_dict[link.oid]:
+                    items.append(orb.get(oid))
+        model = ModeDefinitionModel(items, view=view, project=self.project)
+        for i, mode in enumerate(view):
             model.setHeaderData(i, Qt.Horizontal, mode)
+        vheader_labels = [self.get_link_name(item) for item in items]
         for j, name in enumerate(vheader_labels):
             model.setHeaderData(j, Qt.Vertical, name)
-        for row in range(len(objs)):
+        for row in range(len(items)):
             for col in range(len(view)):
                 index = model.index(row, col, QModelIndex())
+                oid = items[row].oid
                 # TODO: get available states for row and set data to states[0]
-                if objs[row].oid in computeds:
+                if oid in comp_dict:
+                    # item is a system with components -> computed
                     model.setData(index, '(computed)')
                 else:
-                    model.setData(index, '[select state]')
+                    val = ''
+                    if oid in sys_dict:
+                        # item is a system with no components
+                        val = sys_dict[oid][view[col]]
+                    for sys_oid in comp_dict:
+                        if oid in comp_dict[sys_oid]:
+                            # item is a component
+                            val = comp_dict[sys_oid][oid][view[col]]
+                    val = val or mode_dict[view[col]]
+                    model.setData(index, val)
         self.mode_definition_table = ModeDefinitionTable()
         self.mode_definition_table.setModel(model)
         # hheader = self.mode_definition_table.horizontalHeader()
@@ -537,6 +580,8 @@ class ModesTool(QMainWindow):
         self.setCentralWidget(self.mode_definition_table)
         self.mode_definition_table.resizeColumnsToContents()
         # try to expand the tree enough to show the last selected system
+        links = [orb.get(oid)
+                 for oid in mode_defz[self.project.oid]['systems']]
         if links:
             level = 1
             tree = self.sys_select_tree
@@ -590,31 +635,29 @@ class ModeDefinitionModel(QStandardItemModel):
             return "unknown"
 
     def data(self, index, role):
+        sys_dict = mode_defz[self.project.oid]['systems']
+        comp_dict = mode_defz[self.project.oid]['components']
+        link = self.objs[index.row()]
         if not index.isValid():
             return None
         if role == Qt.DisplayRole:
             if self.cols:
-                if index.column() == 0:
-                    link = self.objs[index.row()]
-                    return self.get_name(link)
-                elif self.cols > index.column() > 0:
-                    mode_name = self.view[index.column()]
-                    if mode_name in mode_defz[self.project.oid]:
-                        val = mode_defz[self.project.oid][mode_name]
-                        return val
+                mode = self.view[index.column()]
+                if self.cols > index.column():
+                    if link.oid in sys_dict:
+                        return sys_dict[link.oid].get(mode) or 'unspecified'
                     else:
-                        return 'unspecified'
+                        for oid in comp_dict:
+                            if link.oid in comp_dict[oid]:
+                                val = comp_dict[oid][link.oid].get(mode)
+                        return val or 'unspecified'
         if role == Qt.BackgroundRole:
-            link_oids = mode_defz[self.project.oid] or {}
-            oid = self.objs[index.row()].oid
-            if oid in link_oids:
+            if link.oid in sys_dict:
                 return QBrush(Qt.blue)
             else:
                 return QBrush(Qt.white)
         if role == Qt.ForegroundRole:
-            link_oids = mode_defz[self.project.oid] or {}
-            oid = self.objs[index.row()].oid
-            if oid in link_oids:
+            if link.oid in sys_dict:
                 return QBrush(Qt.white)
             else:
                 return QBrush(Qt.black)
@@ -623,7 +666,25 @@ class ModeDefinitionModel(QStandardItemModel):
     def setData(self, index, value, role=Qt.EditRole):
         if role != Qt.EditRole:
             return False
-
+        if not index.isValid():
+            return False
+        link = self.objs[index.row()]
+        name = self.get_name(link)
+        mode = self.view[index.column()]
+        sys_dict = mode_defz[self.project.oid]['systems']
+        comp_dict = mode_defz[self.project.oid]['components']
+        if link.oid in sys_dict:
+            sys_dict[link.oid][mode] = value
+            orb.log.debug(f'  - setting mode "{mode}" of system "{name}"')
+            orb.log.debug(f'    to value: "{value}"')
+            return True
+        else:
+            for oid in comp_dict:
+                if link.oid in comp_dict[oid]:
+                    comp_dict[oid][link.oid][mode] = value
+            orb.log.debug(f'  - setting mode "{mode}" of comp "{name}"')
+            orb.log.debug(f'    to value: "{value}"')
+            return True
 
 
 class StateSelectorDelegate(QItemDelegate):
@@ -631,7 +692,7 @@ class StateSelectorDelegate(QItemDelegate):
 
     def __init__(self, states=None, parent=None):
         super().__init__(parent)
-        # TODO: use the states defined for the subsystem as "states"
+        # TODO: use the states defined for the subsystem or defaults
         self.states = states or self.default_states
 
     def createEditor(self, parent, option, index):
