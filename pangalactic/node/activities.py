@@ -383,6 +383,20 @@ class SystemSelectionView(QTreeView):
         return []
 
 
+def get_link_name(link):
+    """
+    Get a canonical name for a "link" (an Acu or ProjectSystemUsage).
+    """
+    if hasattr(link, 'system'):
+        # link is a psu
+        return '[' + link.system_role + '] ' + link.system.name
+    elif hasattr(link, 'component'):
+        # link is an acu
+        return '[' + link.reference_designator + '] ' + link.component.name
+    else:
+        return '[unknown]'
+
+
 class ModesTool(QMainWindow):
     """
     Tool for defining the operational Modes of a set of systems in terms of
@@ -414,7 +428,7 @@ class ModesTool(QMainWindow):
         if mode_defz[project.oid]['systems']:
             for link_oid in mode_defz[project.oid]['systems']:
                 link = orb.get(link_oid)
-                names.append(self.get_link_name(link))
+                names.append(get_link_name(link))
         modes = list(mode_defz[self.project.oid].get('modes') or [])
         modes = modes or self.default_modes
         # set initial default system state for modes that don't have one ...
@@ -453,16 +467,6 @@ class ModesTool(QMainWindow):
         self.new_window = True
         self.set_table_and_adjust()
 
-    def get_link_name(self, link):
-        if hasattr(link, 'system'):
-            # link is a psu
-            return link.system_role + ': ' + link.system.name
-        elif hasattr(link, 'component'):
-            # link is an acu
-            return link.reference_designator + ': ' + link.component.name
-        else:
-            return 'undefined'
-
     def on_select_system(self, index):
         """
         Select a "product usage" (aka "link" or "node") in the assembly tree
@@ -475,24 +479,82 @@ class ModesTool(QMainWindow):
         orb.log.debug(' - updating mode_defz ...')
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
+        name = get_link_name(link)
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
         mode_dict = project_mode_defz['modes']
         if link.oid in sys_dict:
-            # if a selected system, deselect
+            # if selected link is in sys_dict, remove it
+            orb.log.debug(f' - removing "{name}" from systems ...')
             del sys_dict[link.oid]
+            # and if it occurs as a component, add it back to components
+            orb.log.debug(f'   checking if "{name}" is a component ...')
+            for syslink_oid in sys_dict:
+                lk = orb.get(syslink_oid)
+                clink_oids = []
+                if hasattr(lk, 'system') and lk.system.components:
+                    clink_oids = [acu.oid for acu in lk.system.components]
+                elif hasattr(lk, 'component') and lk.component.components:
+                    clink_oids = [acu.oid for acu in lk.component.components]
+                if link.oid in clink_oids:
+                    orb.log.debug(f' - "{name}" is a component, adding it')
+                    orb.log.debug('   back to components of its parent')
+                    if not comp_dict.get(syslink_oid):
+                        comp_dict[syslink_oid] = {}
+                    comp_dict[syslink_oid][link.oid] = {}
+                    for mode in mode_dict:
+                        comp_dict[syslink_oid][link.oid][
+                                                mode] = (mode_dict.get(mode)
+                                                         or '[select state]')
         else:
-            context = '[select state]'
-            if hasattr(link, 'system') and link.system.components:
-                context = '(computed)'
-            elif hasattr(link, 'component') and link.component.components:
-                context = '(computed)'
-            sys_dict[link.oid] = {}
-            for mode in mode_dict:
-                sys_dict[link.oid][mode] = context
-        for oid in sys_dict:
-            link = orb.get(oid)
+            # selected link is NOT in sys_dict:
+            # [1] if it it is in comp_dict and
+            #     [a] it has components itself, remove its comp_dict entry and
+            #         add it to sys_dict (also create comp_dict items for its
+            #         components)
+            #     [b] it has no components, ignore the operation because it is
+            #         already included in comp_dict and adding it to sys_dict
+            #         would not have any effect on modes calculations
+            # [2] if it it is NOT in comp_dict, add it to sys_dict (creating
+            #     comp_dict items for any components)
+            has_components = False
+            if ((hasattr(link, 'system')
+                 and link.system.components) or
+                (hasattr(link, 'component')
+                 and link.component.components)):
+                has_components = True
+            in_comp_dict = False
+            for syslink_oid in comp_dict:
+                if link.oid in comp_dict[syslink_oid]:
+                    in_comp_dict = True
+                    # [1]
+                    if has_components:
+                        # [a] it has components -> remove it from comp_dict and
+                        #     add it to sys_dict
+                        del comp_dict[syslink_oid][link.oid]
+                        sys_dict[link.oid] = {}
+                        for mode in mode_dict:
+                            sys_dict[link.oid][mode] = '[computed]'
+                    else:
+                        # [b] if it has no components, ignore the operation
+                        # since it is already included as a component and
+                        # adding it as a system would change nothing
+                        has_components = False
+                        orb.log.debug(' - item selected is a component with')
+                        orb.log.debug('   no components -- operation ignored.')
+            if not in_comp_dict:
+                # [2] neither in sys_dict NOR in comp_dict -- add
+                sys_dict[link.oid] = {}
+                for mode in mode_dict:
+                    if has_components:
+                        sys_dict[link.oid][mode] = '[computed]'
+                    else:
+                        context = mode_dict.get(mode)
+                        context = context or '[select state]'
+                        sys_dict[link.oid][mode] = context
+        for syslink_oid in sys_dict:
+            link = orb.get(syslink_oid)
             system = None
             if hasattr(link, 'system'):
                 system = link.system
@@ -503,7 +565,7 @@ class ModesTool(QMainWindow):
                 acus = [acu for acu in system.components
                         if acu.oid not in sys_dict]
                 # sort by "name" (so order is the same as the system tree)
-                by_name = [(self.get_link_name(acu), acu) for acu in acus]
+                by_name = [(get_link_name(acu), acu) for acu in acus]
                 by_name.sort()
                 for name, acu in by_name:
                     if not comp_dict[link.oid].get(acu.oid):
@@ -548,7 +610,7 @@ class ModesTool(QMainWindow):
         model = ModeDefinitionModel(items, view=view, project=self.project)
         for i, mode in enumerate(view):
             model.setHeaderData(i, Qt.Horizontal, mode)
-        vheader_labels = [self.get_link_name(item) for item in items]
+        vheader_labels = [get_link_name(item) for item in items]
         for j, name in enumerate(vheader_labels):
             model.setHeaderData(j, Qt.Vertical, name)
         for row in range(len(items)):
@@ -556,7 +618,7 @@ class ModesTool(QMainWindow):
                 index = model.index(row, col, QModelIndex())
                 oid = items[row].oid
                 # TODO: get available states for row and set data to states[0]
-                if oid in comp_dict:
+                if oid in sys_dict and oid in comp_dict:
                     # item is a system with components -> computed
                     model.setData(index, '(computed)')
                 else:
@@ -626,14 +688,6 @@ class ModeDefinitionModel(QStandardItemModel):
         self.cols = len(view)
         super().__init__(self.rows, self.cols, parent=parent)
 
-    def get_name(self, obj):
-        if hasattr(obj, 'system'):
-            return obj.system_role + ': ' + obj.system.name
-        elif hasattr(obj, 'component'):
-            return obj.reference_designator + ': ' + obj.component.name
-        else:
-            return "unknown"
-
     def data(self, index, role):
         sys_dict = mode_defz[self.project.oid]['systems']
         comp_dict = mode_defz[self.project.oid]['components']
@@ -669,21 +723,23 @@ class ModeDefinitionModel(QStandardItemModel):
         if not index.isValid():
             return False
         link = self.objs[index.row()]
-        name = self.get_name(link)
+        # name = get_link_name(link)
         mode = self.view[index.column()]
         sys_dict = mode_defz[self.project.oid]['systems']
         comp_dict = mode_defz[self.project.oid]['components']
         if link.oid in sys_dict:
             sys_dict[link.oid][mode] = value
-            orb.log.debug(f'  - setting mode "{mode}" of system "{name}"')
-            orb.log.debug(f'    to value: "{value}"')
+            # extremely verbose logging:
+            # orb.log.debug(f'  - setting mode "{mode}" of system "{name}"')
+            # orb.log.debug(f'    to value: "{value}"')
             return True
         else:
             for oid in comp_dict:
                 if link.oid in comp_dict[oid]:
                     comp_dict[oid][link.oid][mode] = value
-            orb.log.debug(f'  - setting mode "{mode}" of comp "{name}"')
-            orb.log.debug(f'    to value: "{value}"')
+            # extremely verbose logging:
+            # orb.log.debug(f'  - setting mode "{mode}" of comp "{name}"')
+            # orb.log.debug(f'    to value: "{value}"')
             return True
 
 
