@@ -272,8 +272,6 @@ class SystemSelectionView(QTreeView):
         self.setModel(self.proxy_model)
         # all rows are same height, so use this to optimize performance
         self.setUniformRowHeights(True)
-        # delegate = HTMLDelegate()
-        # self.setItemDelegate(delegate)
         self.setHeaderHidden(True)
         cols = self.source_model.cols
         if cols:
@@ -439,8 +437,9 @@ class ModesTool(QMainWindow):
             orb.log.debug('  - specified systems:')
             for name in names:
                 orb.log.debug(f'    {name}')
-            orb.log.debug('  - mode_defz:')
-            orb.log.debug(f'   {pprint(mode_defz)}')
+            # NOTE: very verbose debugging msg ...
+            # orb.log.debug('  - mode_defz:')
+            # orb.log.debug(f'   {pprint(mode_defz)}')
         else:
             orb.log.debug('  - no systems specified yet.')
         self.setSizePolicy(QSizePolicy.Expanding,
@@ -448,9 +447,8 @@ class ModesTool(QMainWindow):
         title = 'Modes of Specified Systems'
         self.setWindowTitle(title)
         self.sys_select_tree = SystemSelectionView(self.project, refdes=True)
-        # self.sys_select_tree.setItemDelegate(ReqAllocDelegate())
         self.sys_select_tree.expandToDepth(1)
-        # self.sys_select_tree.setExpandsOnDoubleClick(False)
+        self.sys_select_tree.setExpandsOnDoubleClick(False)
         self.sys_select_tree.clicked.connect(self.on_select_system)
         self.left_dock = QDockWidget()
         self.left_dock.setFloating(False)
@@ -488,7 +486,11 @@ class ModesTool(QMainWindow):
             # if selected link is in sys_dict, remove it
             orb.log.debug(f' - removing "{name}" from systems ...')
             del sys_dict[link.oid]
-            # and if it occurs as a component, add it back to components
+            # if it is in comp_dict, remove it there too
+            if link.oid in comp_dict:
+                del comp_dict[link.oid]
+            # if it occurs as a component of an item in sys_dict, add it back
+            # to components
             orb.log.debug(f'   checking if "{name}" is a component ...')
             for syslink_oid in sys_dict:
                 lk = orb.get(syslink_oid)
@@ -553,6 +555,8 @@ class ModesTool(QMainWindow):
                         context = mode_dict.get(mode)
                         context = context or '[select state]'
                         sys_dict[link.oid][mode] = context
+        # ensure that all selected systems (sys_dict) that have components,
+        # have those components included in comp_dict ...
         for syslink_oid in sys_dict:
             link = orb.get(syslink_oid)
             system = None
@@ -574,8 +578,9 @@ class ModesTool(QMainWindow):
                         context = mode_dict.get(mode)
                         context = context or '[select state]'
                         comp_dict[link.oid][acu.oid][mode] = context
-        orb.log.debug(' - updated mode_defz is:')
-        orb.log.debug(f'   {pprint(mode_defz)}')
+        # NOTE: very verbose debugging msg ...
+        # orb.log.debug(' - updated mode_defz is:')
+        # orb.log.debug(f'   {pprint(mode_defz)}')
         # the expandToDepth is needed to make it repaint to show the selected
         # node as highlighted
         self.sys_select_tree.expandToDepth(1)
@@ -687,6 +692,24 @@ class ModeDefinitionModel(QStandardItemModel):
         self.rows = len(objs)
         self.cols = len(view)
         super().__init__(self.rows, self.cols, parent=parent)
+
+    def headerData(self, section, orientation, role):
+        if len(self.objs) > section:
+            link = self.objs[section]
+            sys_dict = mode_defz[self.project.oid]['systems']
+            if (orientation == Qt.Vertical and
+                role == Qt.BackgroundRole):
+                if link.oid in sys_dict:
+                    return QBrush(Qt.blue)
+                else:
+                    return QBrush(Qt.white)
+            if (orientation == Qt.Vertical and
+                role == Qt.ForegroundRole):
+                if link.oid in sys_dict:
+                    return QBrush(Qt.white)
+                else:
+                    return QBrush(Qt.black)
+        return super().headerData(section, orientation, role)
 
     def data(self, index, role):
         sys_dict = mode_defz[self.project.oid]['systems']
