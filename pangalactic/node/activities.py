@@ -4,7 +4,7 @@
 from louie import dispatcher
 
 from collections import OrderedDict
-from pprint import pprint
+# from pprint import pprint
 from textwrap import wrap, fill
 
 from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
@@ -14,7 +14,9 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QDockWidget, QItemDelegate
                              QTreeView, QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
-from pangalactic.core.parametrics import get_pval_as_str, mode_defz
+from pangalactic.core.parametrics import (get_parameter_and_context,
+                                          get_pval_as_str, mode_defz,
+                                          parameterz)
 from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
@@ -474,7 +476,7 @@ class ModesTool(QMainWindow):
         systems" -- i.e. their sub-components will NOT be included -- unless
         they are separately selected.
         """
-        orb.log.debug(' - updating mode_defz ...')
+        orb.log.debug('  - updating mode_defz ...')
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
         name = get_link_name(link)
@@ -589,6 +591,7 @@ class ModesTool(QMainWindow):
         self.set_table_and_adjust()
 
     def set_table_and_adjust(self):
+        orb.log.debug('  - setting mode defs table ...')
         if self.new_window:
             size = QSize(state.get('mode_def_w') or self.width(),
                          state.get('mode_def_h') or self.height())
@@ -637,13 +640,20 @@ class ModesTool(QMainWindow):
                             val = comp_dict[sys_oid][oid][view[col]]
                     val = val or mode_dict[view[col]]
                     model.setData(index, val)
-        self.mode_definition_table = ModeDefinitionTable()
+        self.mode_definition_table = QTableView()
         self.mode_definition_table.setModel(model)
-        # hheader = self.mode_definition_table.horizontalHeader()
-        # hheader.setSectionResizeMode(hheader.ResizeToContents)
-        delegate = StateSelectorDelegate()
-        self.mode_definition_table.setItemDelegate(delegate)
-        # self.mode_definition_table.adjustSize()
+        self._delegates = []
+        for row, item in enumerate(items):
+            for sys_oid in sys_dict:
+                if sys_oid in comp_dict and item.oid in comp_dict[sys_oid]:
+                    obj = None
+                    if hasattr(item, 'component'):
+                        obj = item.component
+                    elif hasattr(item, 'system'):
+                        obj = item.system
+                    self._delegates.append(StateSelectorDelegate(obj))
+                    self.mode_definition_table.setItemDelegateForRow(
+                                                    row, self._delegates[-1])
         self.setCentralWidget(self.mode_definition_table)
         self.mode_definition_table.resizeColumnsToContents()
         # try to expand the tree enough to show the last selected system
@@ -673,15 +683,6 @@ class ModesTool(QMainWindow):
     def resizeEvent(self, event):
         state['mode_def_w'] = self.width()
         state['mode_def_h'] = self.height()
-
-
-class ModeDefinitionTable(QTableView):
-    def sizeHint(self):
-        hheader = self.horizontalHeader()
-        vheader = self.verticalHeader()
-        fwidth = self.frameWidth() * 2
-        return QSize(hheader.width() + vheader.width() + fwidth,
-                     vheader.height() + hheader.height())
 
 
 class ModeDefinitionModel(QStandardItemModel):
@@ -766,13 +767,31 @@ class ModeDefinitionModel(QStandardItemModel):
             return True
 
 
+# TODO:  implement this in parametrics module and import it ...
+def get_power_contexts(obj):
+    """
+    Return the contexts of all power (P) parameters for an object, adding an
+    "Off" context.
+    """
+    pids = []
+    if obj.oid in parameterz:
+        pids = list(parameterz[obj.oid])
+    if pids:
+        ptups = [get_parameter_and_context(pid) for pid in pids
+                 if pid.split('[')[0] == 'P']
+        return [ptup[1] for ptup in ptups
+                if ptup[1] and ptup[1] != 'Ctgcy'] + ['Off']
+    return ['Off']
+
+
 class StateSelectorDelegate(QItemDelegate):
     default_states = ['Quiescent', 'Nominal', 'Peak', 'Off']
 
-    def __init__(self, states=None, parent=None):
+    def __init__(self, obj, parent=None):
         super().__init__(parent)
         # TODO: use the states defined for the subsystem or defaults
-        self.states = states or self.default_states
+        self.states = get_power_contexts(obj) or self.default_states
+        orb.log.debug(f'  - {obj.name} contexts: {str(self.states)}')
 
     def createEditor(self, parent, option, index):
         editor = QComboBox(parent)
