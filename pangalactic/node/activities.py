@@ -14,9 +14,9 @@ from PyQt5.QtWidgets import (QApplication, QComboBox, QDockWidget, QItemDelegate
                              QTreeView, QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
-from pangalactic.core.parametrics import (get_parameter_and_context,
-                                          get_pval_as_str, mode_defz,
-                                          parameterz)
+from pangalactic.core.parametrics import (get_pval_as_str,
+                                          get_variable_and_context,
+                                          mode_defz, parameterz)
 from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
@@ -777,7 +777,7 @@ def get_power_contexts(obj):
     if obj.oid in parameterz:
         pids = list(parameterz[obj.oid])
     if pids:
-        ptups = [get_parameter_and_context(pid) for pid in pids
+        ptups = [get_variable_and_context(pid) for pid in pids
                  if pid.split('[')[0] == 'P']
         return [ptup[1] for ptup in ptups
                 if ptup[1] and ptup[1] != 'Ctgcy'] + ['Off']
