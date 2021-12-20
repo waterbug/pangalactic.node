@@ -38,6 +38,7 @@ def setup_dirs_and_state():
     for item in default_config:
         if item not in config:
             config[item] = default_config[item]
+    # state contains app-specified dashboards (app_dashboards)
     app_dbds = state.get('app_dashboards')
     if prefs.get('dashboards'):
         # update prefs from any new app dashboards in state

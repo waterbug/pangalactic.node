@@ -20,8 +20,9 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMenu,
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
-                                          get_pval, get_pval_as_str,
-                                          parm_defz, mode_defz)
+                                          get_mode_val_as_str, get_pval,
+                                          get_pval_as_str, parm_defz,
+                                          mode_defz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
@@ -340,7 +341,12 @@ class SystemTreeModel(QAbstractItemModel):
     @property
     def cols(self):
         columns = ['System']
-        columns += (prefs.get('dashboards') or {}).get(self.dash_name, [])
+        if self.dash_name == 'System Power Modes':
+            proj_modes = (mode_defz.get(self.project.oid) or {}).get('modes')
+            if proj_modes:
+                columns += list(proj_modes)
+        else:
+            columns += (prefs.get('dashboards') or {}).get(self.dash_name, [])
         return columns
 
     def col_def(self, pid):
@@ -367,6 +373,8 @@ class SystemTreeModel(QAbstractItemModel):
 
     def get_header(self, pid):
         pd = parm_defz.get(pid)
+        de_def = de_defz.get(pid, '')
+        modes = (mode_defz.get(self.project.oid) or {}).get('modes')
         if pd:
             units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
                                                     pd['dimensions'], '')
@@ -374,15 +382,15 @@ class SystemTreeModel(QAbstractItemModel):
                 units = '(' + units + ')'
             return '   \n   '.join(wrap(pd['name'], width=7,
                                    break_long_words=False) + [units])
+        elif de_def:
+            return '   \n   '.join(wrap(de_def['name'], width=7,
+                                   break_long_words=False))
+        elif modes and pid in modes:
+            return pid
         else:
-            de_def = de_defz.get(pid, '')
-            if de_def:
-                return '   \n   '.join(wrap(de_def['name'], width=7,
-                                       break_long_words=False))
-            else:
-                log_msg = 'nothing found for id "{}"'.format(pid)
-                orb.log.debug('  - get_header: {}'.format(log_msg))
-                return 'Unknown'
+            log_msg = 'nothing found for id "{}"'.format(pid)
+            orb.log.debug('  - get_header: {}'.format(log_msg))
+            return 'Unknown'
 
     @property
     def req(self):
@@ -617,6 +625,8 @@ class SystemTreeModel(QAbstractItemModel):
                         col_id = self.cols[index.column()]
                         pd = parm_defz.get(col_id)
                         de_def = de_defz.get(col_id)
+                        modes = (mode_defz.get(
+                                        self.project.oid) or {}).get('modes')
                         if pd:
                             units = prefs['units'].get(pd['dimensions'])
                             # it's a parameter
@@ -649,13 +659,18 @@ class SystemTreeModel(QAbstractItemModel):
                                                 de_def.get('dimensions')) or ''
                             return get_dval_as_str(node.obj.oid, col_id,
                                                    units=units)
+                        elif modes and (col_id in modes) and node.link:
+                            return get_mode_val_as_str(self.project.oid,
+                                                       node.link.oid, col_id)
                     else:
                         return ''
             else:
                 return node.name
         if role == Qt.ForegroundRole:
             if index.column() == 0:
-                if self.show_mode_systems and mode_defz.get(self.project.oid):
+                if ((self.show_mode_systems or
+                     self.dash_name == 'System Power Modes')
+                    and mode_defz.get(self.project.oid)):
                     sys_dict = mode_defz[self.project.oid].get('systems') or {}
                     if getattr(node.link, 'oid', None) in sys_dict:
                         return self.WHITE_BRUSH
@@ -688,6 +703,14 @@ class SystemTreeModel(QAbstractItemModel):
                         return self.RED_BRUSH
                     else:
                         return self.BRUSH
+                elif ((self.show_mode_systems or
+                     self.dash_name == 'System Power Modes')
+                    and mode_defz.get(self.project.oid)):
+                    sys_dict = mode_defz[self.project.oid].get('systems') or {}
+                    if getattr(node.link, 'oid', None) in sys_dict:
+                        return self.WHITE_BRUSH
+                    else:
+                        return self.BRUSH
                 else:
                     return self.BRUSH
             else:
@@ -701,7 +724,9 @@ class SystemTreeModel(QAbstractItemModel):
                 return self.YELLOW_BRUSH
             else:
                 return self.WHITE_BRUSH
-        elif (role == Qt.BackgroundRole and self.show_mode_systems
+        elif (role == Qt.BackgroundRole
+              and (self.show_mode_systems or
+                   self.dash_name == 'System Power Modes')
               and mode_defz.get(self.project.oid)):
                 sys_dict = mode_defz[self.project.oid].get('systems') or {}
                 if getattr(node.link, 'oid', None) in sys_dict:
