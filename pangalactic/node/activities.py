@@ -628,7 +628,7 @@ class ModesTool(QMainWindow):
                 # TODO: get available states for row and set data to states[0]
                 if oid in sys_dict and oid in comp_dict:
                     # item is a system with components -> computed
-                    model.setData(index, '(computed)')
+                    model.setData(index, '[computed]')
                 else:
                     val = ''
                     if oid in sys_dict:

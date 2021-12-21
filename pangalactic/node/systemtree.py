@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMenu,
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
-                                          get_mode_val_as_str, get_pval,
+                                          get_usage_mode_val_as_str, get_pval,
                                           get_pval_as_str, parm_defz,
                                           mode_defz)
 from pangalactic.core.uberorb     import orb
@@ -659,9 +659,10 @@ class SystemTreeModel(QAbstractItemModel):
                                                 de_def.get('dimensions')) or ''
                             return get_dval_as_str(node.obj.oid, col_id,
                                                    units=units)
-                        elif modes and (col_id in modes) and node.link:
-                            return get_mode_val_as_str(self.project.oid,
-                                                       node.link.oid, col_id)
+                        elif (modes and (col_id in modes) and node.link and
+                              node.obj):
+                            return get_usage_mode_val_as_str(self.project.oid,
+                                           node.link.oid, node.obj.oid, col_id)
                     else:
                         return ''
             else:
