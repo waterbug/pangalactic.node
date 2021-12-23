@@ -815,6 +815,29 @@ class DeleteColsDialog(QDialog):
         return col_names
 
 
+class DeleteModesDialog(QDialog):
+    """
+    Dialog for deleting modes from the Modes Definition Table.
+    """
+    def __init__(self, modes, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Delete Modes")
+        form = QFormLayout(self)
+        self.checkboxes = {}
+        for i, mode in enumerate(modes):
+            label = QLabel(modes[i], self)
+            self.checkboxes[mode] = QCheckBox(self)
+            self.checkboxes[mode].setChecked(False)
+            form.addRow(self.checkboxes[mode], label)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+
 class Panel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)

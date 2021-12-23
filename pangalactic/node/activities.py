@@ -9,9 +9,10 @@ from textwrap import wrap, fill
 
 from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
 from PyQt5.QtGui     import QBrush, QStandardItemModel
-from PyQt5.QtWidgets import (QApplication, QComboBox, QDockWidget, QItemDelegate,
-                             QMainWindow, QSizePolicy, QStatusBar, QTableView,
-                             QTreeView, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
+                             QDockWidget, QItemDelegate, QMainWindow,
+                             QSizePolicy, QStatusBar, QTableView, QTreeView,
+                             QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
 from pangalactic.core.parametrics import (get_pval_as_str,
@@ -20,6 +21,7 @@ from pangalactic.core.parametrics import (get_pval_as_str,
 from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
+from pangalactic.node.dialogs     import DeleteModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.tablemodels import MappingTableModel
 from pangalactic.node.utils       import clone
@@ -144,6 +146,8 @@ class ActivityTable(QWidget):
         new_model = MappingTableModel(d_list)
         new_table = QTableView()
         new_table.setModel(new_model)
+        headers = new_table.horizontalHeader()
+        headers.setStyleSheet('font-weight: bold')
         new_table.setSizePolicy(QSizePolicy.Preferred,
                                 QSizePolicy.Preferred)
         new_table.setAlternatingRowColors(True)
@@ -465,6 +469,14 @@ class ModesTool(QMainWindow):
         sys_tree_layout.addWidget(self.sys_select_tree)
         self.left_dock.setWidget(sys_tree_panel)
         self.new_window = True
+        dispatcher.connect(self.on_mode_added, 'mode added')
+        dispatcher.connect(self.on_modes_deleted, 'modes deleted')
+        self.set_table_and_adjust()
+
+    def on_mode_added(self):
+        self.set_table_and_adjust()
+
+    def on_modes_deleted(self):
         self.set_table_and_adjust()
 
     def on_select_system(self, index):
@@ -590,6 +602,10 @@ class ModesTool(QMainWindow):
         self.sys_select_tree.clearSelection()
         self.set_table_and_adjust()
 
+    def wrap_header(self, text):
+        return '   \n   '.join(wrap(text, width=7,
+                               break_long_words=False))
+
     def set_table_and_adjust(self):
         orb.log.debug('  - setting mode defs table ...')
         if self.new_window:
@@ -617,7 +633,7 @@ class ModesTool(QMainWindow):
                     items.append(orb.get(oid))
         model = ModeDefinitionModel(items, view=view, project=self.project)
         for i, mode in enumerate(view):
-            model.setHeaderData(i, Qt.Horizontal, mode)
+            model.setHeaderData(i, Qt.Horizontal, self.wrap_header(mode))
         vheader_labels = [get_link_name(item) for item in items]
         for j, name in enumerate(vheader_labels):
             model.setHeaderData(j, Qt.Vertical, name)
@@ -640,7 +656,7 @@ class ModesTool(QMainWindow):
                             val = comp_dict[sys_oid][oid][view[col]]
                     val = val or mode_dict[view[col]]
                     model.setData(index, val)
-        self.mode_definition_table = QTableView()
+        self.mode_definition_table = ModeDefinitionView(self.project)
         self.mode_definition_table.setModel(model)
         self._delegates = []
         for row, item in enumerate(items):
@@ -765,6 +781,44 @@ class ModeDefinitionModel(QStandardItemModel):
             # orb.log.debug(f'  - setting mode "{mode}" of comp "{name}"')
             # orb.log.debug(f'    to value: "{value}"')
             return True
+
+
+class ModeDefinitionView(QTableView):
+    def __init__(self, project, parent=None):
+        super().__init__(parent=parent)
+        self.project = project
+        header = self.horizontalHeader()
+        header.setStyleSheet('font-weight: bold')
+        header.setContextMenuPolicy(Qt.ActionsContextMenu)
+        add_mode_action = QAction('add a new mode', header)
+        add_mode_action.triggered.connect(self.add_mode)
+        header.addAction(add_mode_action)
+        delete_modes_action = QAction('delete modes', header)
+        delete_modes_action.triggered.connect(self.delete_modes)
+        header.addAction(delete_modes_action)
+
+    def add_mode(self):
+        pass
+
+    def delete_modes(self):
+        """
+        Dialog displayed in response to 'delete modes' context menu item.
+        """
+        if not mode_defz.get(self.project.oid):
+            mode_defz[self.project.oid] = dict(modes={}, systems={},
+                                               components={})
+        modes_dict = mode_defz[self.project.oid]['modes']
+        modes = list(modes_dict)
+        dlg = DeleteModesDialog(modes, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            modes_to_delete = []
+            for mode in modes_dict:
+                if dlg.checkboxes[mode].isChecked():
+                    modes_to_delete.append(mode)
+            if modes_to_delete:
+                for mode in modes_to_delete:
+                    del modes_dict[mode]
+                dispatcher.send(signal='modes deleted')
 
 
 # TODO:  implement this in parametrics module and import it ...
