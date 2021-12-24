@@ -21,7 +21,7 @@ from pangalactic.core.parametrics import (get_pval_as_str,
 from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
-from pangalactic.node.dialogs     import DeleteModesDialog
+from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.tablemodels import MappingTableModel
 from pangalactic.node.utils       import clone
@@ -469,14 +469,10 @@ class ModesTool(QMainWindow):
         sys_tree_layout.addWidget(self.sys_select_tree)
         self.left_dock.setWidget(sys_tree_panel)
         self.new_window = True
-        dispatcher.connect(self.on_mode_added, 'mode added')
-        dispatcher.connect(self.on_modes_deleted, 'modes deleted')
+        dispatcher.connect(self.on_modes_edited, 'modes edited')
         self.set_table_and_adjust()
 
-    def on_mode_added(self):
-        self.set_table_and_adjust()
-
-    def on_modes_deleted(self):
+    def on_modes_edited(self):
         self.set_table_and_adjust()
 
     def on_select_system(self, index):
@@ -649,11 +645,12 @@ class ModesTool(QMainWindow):
                     val = ''
                     if oid in sys_dict:
                         # item is a system with no components
-                        val = sys_dict[oid][view[col]]
+                        val = sys_dict[oid].get(view[col])
                     for sys_oid in comp_dict:
                         if oid in comp_dict[sys_oid]:
                             # item is a component
-                            val = comp_dict[sys_oid][oid][view[col]]
+                            val = comp_dict[sys_oid][oid].get(view[col])
+                    # if no val, use default
                     val = val or mode_dict[view[col]]
                     model.setData(index, val)
         self.mode_definition_table = ModeDefinitionView(self.project)
@@ -787,26 +784,27 @@ class ModeDefinitionView(QTableView):
     def __init__(self, project, parent=None):
         super().__init__(parent=parent)
         self.project = project
+        if not mode_defz.get(project.oid):
+            mode_defz[project.oid] = dict(modes={}, systems={}, components={})
         header = self.horizontalHeader()
         header.setStyleSheet('font-weight: bold')
         header.setContextMenuPolicy(Qt.ActionsContextMenu)
-        add_mode_action = QAction('add a new mode', header)
-        add_mode_action.triggered.connect(self.add_mode)
-        header.addAction(add_mode_action)
+        edit_modes_action = QAction('add or edit modes', header)
+        edit_modes_action.triggered.connect(self.edit_modes)
+        header.addAction(edit_modes_action)
         delete_modes_action = QAction('delete modes', header)
         delete_modes_action.triggered.connect(self.delete_modes)
         header.addAction(delete_modes_action)
 
-    def add_mode(self):
-        pass
+    def edit_modes(self):
+        dlg = EditModesDialog(self.project, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            dispatcher.send(signal='modes edited')
 
     def delete_modes(self):
         """
         Dialog displayed in response to 'delete modes' context menu item.
         """
-        if not mode_defz.get(self.project.oid):
-            mode_defz[self.project.oid] = dict(modes={}, systems={},
-                                               components={})
         modes_dict = mode_defz[self.project.oid]['modes']
         modes = list(modes_dict)
         dlg = DeleteModesDialog(modes, parent=self)
@@ -818,8 +816,7 @@ class ModeDefinitionView(QTableView):
             if modes_to_delete:
                 for mode in modes_to_delete:
                     del modes_dict[mode]
-                dispatcher.send(signal='modes deleted')
-
+                dispatcher.send(signal='modes edited')
 
 # TODO:  implement this in parametrics module and import it ...
 def get_power_contexts(obj):

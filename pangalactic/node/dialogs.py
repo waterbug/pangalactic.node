@@ -30,7 +30,7 @@ from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
                                           SELECTION_VIEWS)
 from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
-                                          get_dval, set_dval)
+                                          get_dval, mode_defz, set_dval)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
@@ -813,6 +813,70 @@ class DeleteColsDialog(QDialog):
             else:
                 col_names.append('Unknown')
         return col_names
+
+
+class EditModesDialog(QDialog):
+    """
+    A dialog to edit the name and default context of a new or existing 
+    system power mode that is to be defined using p.node.activities.ModesTool.
+    """
+    def __init__(self, project, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Add or Edit a System Power Mode")
+        self.modes_dict = mode_defz[project.oid]['modes']
+        vbox = QVBoxLayout(self)
+        self.add_mode_button = SizedButton("Add a new mode")
+        self.add_mode_button.clicked.connect(self.add_mode)
+        vbox.addWidget(self.add_mode_button)
+        self.form = QFormLayout()
+        vbox.addLayout(self.form)
+        name_label = QLabel('Name', self)
+        default_label = QLabel('Default State', self)
+        self.form.addRow(name_label, default_label)
+        self.mode_fields = {}
+        self.new_mode_fields = []
+        for mode, context in self.modes_dict.items():
+            self.mode_fields[mode] = {}
+            name_field = StringFieldWidget(parent=self, value=mode)
+            default_field = StringFieldWidget(parent=self, value=context)
+            self.mode_fields[mode]['name'] = name_field
+            self.mode_fields[mode]['default'] = default_field
+            self.form.addRow(name_field, default_field)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        vbox.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.on_save)
+        self.buttons.rejected.connect(self.reject)
+
+    def add_mode(self):
+        if self.form:
+            mode_fields = {}
+            name_field = StringFieldWidget(parent=self, value='')
+            default_field = StringFieldWidget(parent=self, value='')
+            mode_fields['name'] = name_field
+            mode_fields['default'] = default_field
+            self.form.addRow(name_field, default_field)
+            self.new_mode_fields.append(mode_fields)
+
+    def on_save(self):
+        for name in self.mode_fields:
+            if self.mode_fields[name]['name'] != name:
+                # mode has been renamed, use the new name
+                del self.modes_dict[name]
+                name = self.mode_fields[name]['name'].get_value()
+                default = self.mode_fields[name]['default'].get_value()
+                self.modes_dict[name] = default
+            elif name in self.modes_dict:
+                # if mode by that name exists, just set the default
+                self.modes_dict[name] = self.mode_fields[name]['default']
+        if self.new_mode_fields:
+            for mode_fields in self.new_mode_fields:
+                name = mode_fields['name'].get_value()
+                default = mode_fields['default'].get_value()
+                self.modes_dict[name] = default
+        self.accept()
 
 
 class DeleteModesDialog(QDialog):
