@@ -386,7 +386,11 @@ class SystemTreeModel(QAbstractItemModel):
             return '   \n   '.join(wrap(de_def['name'], width=7,
                                    break_long_words=False))
         elif modes and pid in modes:
-            return pid
+            units = prefs['units'].get('power') or 'W'
+            if units:
+                units = '(' + units + ')'
+            return '   \n   '.join(wrap(pid, width=7,
+                                   break_long_words=False) + [units])
         else:
             log_msg = 'nothing found for id "{}"'.format(pid)
             orb.log.debug('  - get_header: {}'.format(log_msg))

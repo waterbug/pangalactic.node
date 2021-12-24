@@ -884,6 +884,9 @@ class EditModesDialog(QDialog):
                 name = mode_fields['name'].get_value()
                 default = mode_fields['default'].get_value()
                 self.modes_dict[name] = default
+        if not self.modes_dict:
+            # in case all modes have been deleted, add "Undefined" mode
+            self.modes_dict['Undefined'] = 'Off'
         self.accept()
 
 

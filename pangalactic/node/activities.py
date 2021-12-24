@@ -816,6 +816,9 @@ class ModeDefinitionView(QTableView):
             if modes_to_delete:
                 for mode in modes_to_delete:
                     del modes_dict[mode]
+                if not modes_dict:
+                    # in case all modes have been deleted, add "Undefined" mode
+                    modes_dict['Undefined'] = 'Off'
                 dispatcher.send(signal='modes edited')
 
 # TODO:  implement this in parametrics module and import it ...
