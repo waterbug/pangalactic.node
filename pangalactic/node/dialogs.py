@@ -853,7 +853,7 @@ class EditModesDialog(QDialog):
     def add_mode(self):
         if self.form:
             mode_fields = {}
-            name_field = StringFieldWidget(parent=self, value='')
+            name_field = StringFieldWidget(parent=self, value='Undefined')
             default_field = StringFieldWidget(parent=self, value='')
             mode_fields['name'] = name_field
             mode_fields['default'] = default_field
@@ -869,7 +869,9 @@ class EditModesDialog(QDialog):
                 deleteds.append(name)
                 new_name = self.mode_fields[name]['name'].get_value()
                 default = self.mode_fields[name]['default'].get_value()
-                adds.append((new_name, default))
+                # ignore blank names
+                if new_name:
+                    adds.append((new_name, default))
             elif name in self.modes_dict:
                 # if mode by that name exists, just set the default
                 self.modes_dict[name] = self.mode_fields[name]['default']
@@ -878,12 +880,14 @@ class EditModesDialog(QDialog):
                 del self.modes_dict[name]
         if adds:
             for new_name, default in adds:
-                self.modes_dict[new_name] = default
+                if new_name:
+                    self.modes_dict[new_name] = default
         if self.new_mode_fields:
             for mode_fields in self.new_mode_fields:
                 name = mode_fields['name'].get_value()
                 default = mode_fields['default'].get_value()
-                self.modes_dict[name] = default
+                if name:
+                    self.modes_dict[name] = default
         if not self.modes_dict:
             # in case all modes have been deleted, add "Undefined" mode
             self.modes_dict['Undefined'] = 'Off'

@@ -588,9 +588,6 @@ class ModesTool(QMainWindow):
                         context = mode_dict.get(mode)
                         context = context or '[select state]'
                         comp_dict[link.oid][acu.oid][mode] = context
-        # NOTE: very verbose debugging msg ...
-        # orb.log.debug(' - updated mode_defz is:')
-        # orb.log.debug(f'   {pprint(mode_defz)}')
         # the expandToDepth is needed to make it repaint to show the selected
         # node as highlighted
         self.sys_select_tree.expandToDepth(1)
@@ -604,6 +601,9 @@ class ModesTool(QMainWindow):
 
     def set_table_and_adjust(self):
         orb.log.debug('  - setting mode defs table ...')
+        # NOTE: very verbose debugging msg ...
+        # orb.log.debug('   *** current mode_defz:')
+        # orb.log.debug(f'   {pprint(mode_defz)}')
         if self.new_window:
             size = QSize(state.get('mode_def_w') or self.width(),
                          state.get('mode_def_h') or self.height())
