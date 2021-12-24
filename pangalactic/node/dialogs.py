@@ -861,16 +861,24 @@ class EditModesDialog(QDialog):
             self.new_mode_fields.append(mode_fields)
 
     def on_save(self):
-        for name in self.mode_fields:
+        deleteds = []
+        adds = []
+        for name in self.modes_dict:
             if self.mode_fields[name]['name'] != name:
                 # mode has been renamed, use the new name
-                del self.modes_dict[name]
-                name = self.mode_fields[name]['name'].get_value()
+                deleteds.append(name)
+                new_name = self.mode_fields[name]['name'].get_value()
                 default = self.mode_fields[name]['default'].get_value()
-                self.modes_dict[name] = default
+                adds.append((new_name, default))
             elif name in self.modes_dict:
                 # if mode by that name exists, just set the default
                 self.modes_dict[name] = self.mode_fields[name]['default']
+        if deleteds:
+            for name in deleteds:
+                del self.modes_dict[name]
+        if adds:
+            for new_name, default in adds:
+                self.modes_dict[new_name] = default
         if self.new_mode_fields:
             for mode_fields in self.new_mode_fields:
                 name = mode_fields['name'].get_value()
