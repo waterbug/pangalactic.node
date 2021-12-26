@@ -42,8 +42,8 @@ from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
                                                delete_data_element,
-                                               parameterz, save_data_elementz,
-                                               save_parmz)
+                                               mode_defz, parameterz,
+                                               save_data_elementz, save_parmz)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
                                                deserialize, serialize)
@@ -248,7 +248,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
-        dispatcher.connect(self.on_local_mel_modified, 'mel modified')
+        dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
         dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
@@ -3163,15 +3163,33 @@ class Main(QMainWindow):
         # TODO:  add more detailed status message ...
         pass
 
-    def on_local_mel_modified(self):
+    def on_mode_defs_edited(self, project_oid=None):
         """
-        Handle local dispatcher signal for "mel modified".
+        Handle local dispatcher signal for "modes edited".
         """
-        # NOTE: this was causing cycles -- deactivated.
-        if self.mode == 'data' and hasattr(self, 'data_widget'):
-            # replace and rebuild the data_widget
-            self.data_widget = DataGrid(self.project)
-            self.setCentralWidget(self.data_widget)
+        orb.log.debug('* signal: "modes edited"')
+        proj_mode_defs = mode_defz.get(project_oid) or {}
+        if proj_mode_defs and state['connected']:
+            data = yaml.safe_dump(proj_mode_defs, default_flow_style=False)
+            rpc = self.mbus.session.call('vger.update_mode_defs',
+                                         project_oid=project_oid,
+                                         data=data)
+            rpc.addCallback(self.rpc_update_mode_defs_result)
+            rpc.addErrback(self.on_failure)
+
+    def rpc_update_mode_defs_result(self, result):
+        """
+        Handle callback with result of vger.update_modes.
+
+        Args:
+            result (str):  a stringified mod datetime stamp.
+        """
+        if result in ['unauthorized', 'no such project']:
+            msg = 'mode defs update failed: ' + result
+        else:
+            state['mode_defz_dts'] = result
+            msg = f'mode defs updated [dts: {result}]'
+        orb.log.debug(f'* {msg}')
 
     def on_entity_saved(self, e=None):
         """

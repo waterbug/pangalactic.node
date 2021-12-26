@@ -824,6 +824,7 @@ class EditModesDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Add or Edit a System Power Mode")
         self.modes_dict = mode_defz[project.oid]['modes']
+        self.project = project
         vbox = QVBoxLayout(self)
         self.add_mode_button = SizedButton("Add a new mode")
         self.add_mode_button.clicked.connect(self.add_mode)
@@ -891,6 +892,9 @@ class EditModesDialog(QDialog):
         if not self.modes_dict:
             # in case all modes have been deleted, add "Undefined" mode
             self.modes_dict['Undefined'] = 'Off'
+        if deleteds or adds or self.new_mode_fields:
+            dispatcher.send(signal='modes edited',
+                            project_oid=self.project.oid)
         self.accept()
 
 

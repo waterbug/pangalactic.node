@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from louie import dispatcher
-
+import sys
 from collections import OrderedDict
 # from pprint import pprint
 from textwrap import wrap, fill
+
+from louie import dispatcher
 
 from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
 from PyQt5.QtGui     import QBrush, QStandardItemModel
@@ -154,12 +155,12 @@ class ActivityTable(QWidget):
         new_table.resizeColumnsToContents()
         if getattr(self, 'table', None):
             self.main_layout.removeWidget(self.table)
-            self.table.setAttribute(Qt.WA_DeleteOnClose)
             self.table.parent = None
             self.table.close()
             self.table = None
         self.main_layout.addWidget(new_table, stretch=1)
         self.table = new_table
+        self.table.setAttribute(Qt.WA_DeleteOnClose)
 
     def sizeHint(self):
         if self.preferred_size:
@@ -470,6 +471,7 @@ class ModesTool(QMainWindow):
         self.left_dock.setWidget(sys_tree_panel)
         self.new_window = True
         dispatcher.connect(self.on_modes_edited, 'modes edited')
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.set_table_and_adjust()
 
     def on_modes_edited(self):
@@ -613,7 +615,6 @@ class ModesTool(QMainWindow):
             state['mode_def_h'] = self.height()
         if getattr(self, 'mode_definition_table', None):
             # remove and close current mode def table
-            self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
             self.mode_definition_table.parent = None
             self.mode_definition_table.close()
         sys_dict = mode_defz[self.project.oid]['systems']
@@ -654,6 +655,7 @@ class ModesTool(QMainWindow):
                     val = val or mode_dict[view[col]]
                     model.setData(index, val)
         self.mode_definition_table = ModeDefinitionView(self.project)
+        self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mode_definition_table.setModel(model)
         self._delegates = []
         for row, item in enumerate(items):
@@ -697,15 +699,22 @@ class ModesTool(QMainWindow):
         state['mode_def_w'] = self.width()
         state['mode_def_h'] = self.height()
 
+    def closeEvent(self, event):
+        dispatcher.send(signal='modes edited',
+                        project_oid=self.project.oid)
+        event.accept()
+
 
 class ModeDefinitionModel(QStandardItemModel):
     def __init__(self, objs, view=None, project=None, parent=None):
+        self.initializing = True
         self.objs = objs
         self.view = view or ['name']
         self.project = project
         self.rows = len(objs)
         self.cols = len(view)
         super().__init__(self.rows, self.cols, parent=parent)
+        self.initializing = False
 
     def headerData(self, section, orientation, role):
         if len(self.objs) > section:
@@ -760,23 +769,16 @@ class ModeDefinitionModel(QStandardItemModel):
         if not index.isValid():
             return False
         link = self.objs[index.row()]
-        # name = get_link_name(link)
         mode = self.view[index.column()]
         sys_dict = mode_defz[self.project.oid]['systems']
         comp_dict = mode_defz[self.project.oid]['components']
         if link.oid in sys_dict:
             sys_dict[link.oid][mode] = value
-            # extremely verbose logging:
-            # orb.log.debug(f'  - setting mode "{mode}" of system "{name}"')
-            # orb.log.debug(f'    to value: "{value}"')
             return True
         else:
             for oid in comp_dict:
                 if link.oid in comp_dict[oid]:
                     comp_dict[oid][link.oid][mode] = value
-            # extremely verbose logging:
-            # orb.log.debug(f'  - setting mode "{mode}" of comp "{name}"')
-            # orb.log.debug(f'    to value: "{value}"')
             return True
 
 
@@ -798,8 +800,8 @@ class ModeDefinitionView(QTableView):
 
     def edit_modes(self):
         dlg = EditModesDialog(self.project, parent=self)
-        if dlg.exec_() == QDialog.Accepted:
-            dispatcher.send(signal='modes edited')
+        # if dlg.exec_() == QDialog.Accepted:
+        dlg.show()
 
     def delete_modes(self):
         """
@@ -819,7 +821,9 @@ class ModeDefinitionView(QTableView):
                 if not modes_dict:
                     # in case all modes have been deleted, add "Undefined" mode
                     modes_dict['Undefined'] = 'Off'
-                dispatcher.send(signal='modes edited')
+                orb.log.debug('* ModesTool: modes deleted ...')
+                dispatcher.send(signal='modes edited',
+                                project_oid=self.project.oid)
 
 # TODO:  implement this in parametrics module and import it ...
 def get_power_contexts(obj):
@@ -845,7 +849,6 @@ class StateSelectorDelegate(QItemDelegate):
         super().__init__(parent)
         # TODO: use the states defined for the subsystem or defaults
         self.states = get_power_contexts(obj) or self.default_states
-        orb.log.debug(f'  - {obj.name} contexts: {str(self.states)}')
 
     def createEditor(self, parent, option, index):
         editor = QComboBox(parent)
@@ -867,7 +870,6 @@ class StateSelectorDelegate(QItemDelegate):
 
 if __name__ == '__main__':
     # for testing purposes only ...
-    import sys
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import (create_test_project,
                                              create_test_users)
