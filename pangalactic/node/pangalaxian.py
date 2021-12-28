@@ -161,10 +161,6 @@ class Main(QMainWindow):
         self.app_version = app_version
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
-        # "new_remote_deletes":  flag for indicating deletions occurred during
-        # sync process, and "remote: deleted" signal needs to be dispatched for
-        # them at the end of the sync process
-        # self.new_remote_deletes = []
         self.progress_value = 0
         self.proc_pool = pool
         # initialize internal "_product" attr, so getter for "product" works
@@ -205,6 +201,9 @@ class Main(QMainWindow):
         state['connected'] = False
         if not prefs.get('dashboard_names'):
             prefs['dashboard_names'] = ['MEL']
+        if (mode_defz and
+            ('System Power Modes' not in prefs['dashboard_names'])):
+            prefs['dashboard_names'].append('System Power Modes')
         state['dashboard_name'] = prefs['dashboard_names'][0]
         # set path to server cert
         self.cert_path = os.path.join(orb.home, 'server_cert.pem')
@@ -1014,7 +1013,6 @@ class Main(QMainWindow):
             state['deleted_oids'] = deleted
             local_objs_to_del = orb.get(oids=server_deleted_oids)
             if local_objs_to_del:
-                # self.new_remote_deletes = [o.oid for o in local_objs_to_del]
                 deleted_oids = [o.oid for o in local_objs_to_del]
                 n = len(local_objs_to_del)
                 orb.log.debug(f'        {n} were found in local db ...')
@@ -1068,6 +1066,8 @@ class Main(QMainWindow):
             [3]:  data element data for all oids in the data that correspond to
                   "public" objects known to the server, irrespective of their
                   mod_datetimes
+            [4]:  all mode definitions (serialized "mode_defz" cache)
+            [5]:  datetime stamp for mode definitions (mode_defz_dts)
 
         Args:
             data:  response from the server
@@ -1080,8 +1080,8 @@ class Main(QMainWindow):
             orb.log.debug('  no data received.')
             return 'success'  # return value will be ignored
         msg = 'no data received.'
-        # data *should* be a list of 2 lists and 2 dicts ...
-        if len(data) == 4:
+        # data *should* be a list of 2 lists, 2 dicts, and 2 strings ...
+        if len(data) == 6:
             n_new = len(data[0])
             n_del = len(data[1])
             n_obj_parms = len(data[2])
@@ -1091,7 +1091,7 @@ class Main(QMainWindow):
             orb.log.debug('  data incorrectly formatted.')
             return 'invalid data format'  # return value will be ignored
         orb.log.debug(f'  {msg}'.format(str(data)))
-        newer, local_only, parm_data, de_data = data
+        newer, local_only, parm_data, de_data, md_data, md_dts = data
         # update parameterz and data_elementz
         orb.log.debug('  - updating parameters ...')
         parameterz.update(parm_data)
@@ -1099,6 +1099,13 @@ class Main(QMainWindow):
         orb.log.debug('  - updating data elements ...')
         data_elementz.update(de_data)
         orb.log.debug(f'    data elements updated for {n_obj_des} objects.')
+        # update mode_defz if md_dts is later than mode_defz_dts ...
+        local_md_dts = state.get('mode_defz_dts')
+        if (local_md_dts is None) or (md_dts > local_md_dts):
+            orb.log.debug('  - updating mode_defz ...')
+            mode_defz = yaml.load(md_data)
+        else:
+            orb.log.debug('  - mode_defz is up to date.')
         # then collect any local objects that need to be saved to the repo ...
         if local_only:
             orb.log.debug('  objects unknown to server found ...')
@@ -1159,14 +1166,6 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_get_library_objects_result)
             rpc.addErrback(self.on_failure)
         else:
-            # if this was the last chunk:
-            # - send "remote: deleted" signal for any deletions
-            # - sync current project
-            # if self.new_remote_deletes:
-                # oids = self.new_remote_deletes
-                # self.new_remote_deletes = []
-                # for oid in oids:
-                    # dispatcher.send('remote: deleted', content=oid)
             self.resync_current_project()
 
     def on_force_sync_managed_result(self, data, project_sync=False):
@@ -1338,6 +1337,16 @@ class Main(QMainWindow):
             elif subject == 'new':
                 obj_oid, obj_id = content
                 msg += obj_id
+            elif subject == 'new mode defs':
+                orb.log.debug('  - vger pubsub msg: "new mode defs"')
+                md_dts, ser_md = content
+                local_md_dts = state.get('mode_defz_dts')
+                if (local_md_dts is None) or (md_dts > local_md_dts):
+                    mode_defz = yaml.safe_load(ser_md)
+                    state['mode_defz_dts'] = md_dts
+                    orb.log.debug('    mode defs updated.')
+                else:
+                    orb.log.debug('    same datetime stamp; ignored.')
             elif subject == 'entity created':
                 # TODO: implement with Entity paradigm
                 pass

@@ -19,7 +19,8 @@ from pangalactic.core             import state
 from pangalactic.core.parametrics import (get_pval_as_str,
                                           get_variable_and_context,
                                           mode_defz, parameterz)
-from pangalactic.core.utils.meta  import get_acr_id, get_acr_name
+from pangalactic.core.utils.meta  import (get_acr_id, get_acr_name,
+                                          get_link_name)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
@@ -386,20 +387,6 @@ class SystemSelectionView(QTreeView):
             # orb.log.debug('  - link not found in tree.')
             return []
         return []
-
-
-def get_link_name(link):
-    """
-    Get a canonical name for a "link" (an Acu or ProjectSystemUsage).
-    """
-    if hasattr(link, 'system'):
-        # link is a psu
-        return '[' + link.system_role + '] ' + link.system.name
-    elif hasattr(link, 'component'):
-        # link is an acu
-        return '[' + link.reference_designator + '] ' + link.component.name
-    else:
-        return '[unknown]'
 
 
 class ModesTool(QMainWindow):

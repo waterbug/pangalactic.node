@@ -13,10 +13,13 @@ from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QMessageBox,
 
 # pangalactic
 from pangalactic.core                 import prefs, state
-from pangalactic.core.parametrics     import parm_defz
+from pangalactic.core.parametrics     import (get_usage_mode_val_as_str,
+                                              mode_defz, parm_defz)
 from pangalactic.core.uberorb         import orb
+from pangalactic.core.utils.meta      import get_link_name, get_link_object
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.utils.reports   import write_mel_to_tsv
+from pangalactic.core.utils.reports   import (write_data_to_tsv,
+                                              write_mel_to_tsv)
 from pangalactic.node.utils           import extract_mime_data
 from pangalactic.node.dialogs         import (CustomizeColsDialog,
                                               DeleteColsDialog,
@@ -429,9 +432,13 @@ class SystemDashboard(QTreeView):
         proxy_model = self.model()
         model = proxy_model.sourceModel()
         proj_id = model.project.id
+        proj_oid = model.project.oid
         dtstr = date2str(dtstamp())
         dash_name = state.get('dashboard_name') or 'unknown'
-        fname = proj_id + '-' + dash_name + '-dashboard-' + dtstr + '.tsv'
+        if dash_name == 'System Power Modes':
+            fname = proj_id + '-Modes-Table-' + dtstr + '.tsv'
+        else:
+            fname = proj_id + '-' + dash_name + '-dashboard-' + dtstr + '.tsv'
         state_path = state.get('dashboard_last_path') or ''
         suggested_fpath = os.path.join(state_path, fname)
         fpath, filters = QFileDialog.getSaveFileName(
@@ -445,7 +452,39 @@ class SystemDashboard(QTreeView):
             # cols() returns a list of strings
             data_cols = proxy_model.cols[1:]
             orb.log.debug(f'  - data cols: "{str(data_cols)}"')
-            write_mel_to_tsv(model.project, schema=data_cols, file_path=fpath)
+            if dash_name == 'System Power Modes':
+                if mode_defz.get(proj_oid):
+                    data = []
+                    sys_dict = mode_defz[model.project.oid]['systems']
+                    comp_dict = mode_defz[model.project.oid]['components']
+                    for link_oid in sys_dict:
+                        link = orb.get(link_oid)
+                        name = get_link_name(link)
+                        obj = get_link_object(link)
+                        row_data = [name]
+                        row_data += [get_usage_mode_val_as_str(
+                                     proj_oid, link_oid, obj.oid, col)
+                                     for col in data_cols]
+                        data.append(dict(zip(proxy_model.cols, row_data)))
+                        if link_oid in comp_dict:
+                            for clink_oid in comp_dict[link_oid]:
+                                clink = orb.get(clink_oid)
+                                cname = get_link_name(clink)
+                                comp = get_link_object(clink)
+                                crow_data = ['    ' + cname]
+                                crow_data += [get_usage_mode_val_as_str(
+                                         proj_oid, clink_oid, comp.oid, col)
+                                         for col in data_cols]
+                                data.append(dict(zip(proxy_model.cols,
+                                                     crow_data)))
+                    write_data_to_tsv(data, file_path=fpath)
+                else:
+                    # TODO: pop-up notification to this effect ...
+                    orb.log.debug('  ... no modes table for this project.')
+                    return
+            else:
+                write_mel_to_tsv(model.project, schema=data_cols,
+                                 file_path=fpath)
             html = '<h3>Success!</h3>'
             msg = 'Dashboard contents exported to file:'
             html += f'<p><b><font color="green">{msg}</font></b><br>'
