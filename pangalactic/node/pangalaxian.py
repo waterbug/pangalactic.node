@@ -1839,7 +1839,7 @@ class Main(QMainWindow):
                                 modes=['system', 'component', 'db'])
         modes_def_action_tip = "Define Operational Power Modes"
         self.modes_def_action = self.create_action(
-                                    "Define Operational Power Modes",
+                                    "Define Operational Modes",
                                     slot=self.define_op_modes,
                                     icon='lander',
                                     tip=modes_def_action_tip,

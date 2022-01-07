@@ -451,12 +451,25 @@ class StringFieldWidget(QLineEdit):
 class StringSelectWidget(QComboBox):
     """
     Widget for `String` field with a specified set of valid values.
+
+    Keyword Args:
+        parent (QWidget):  parent widget
+        field_name (str):  name of the field
+        value (str):  value of the field
+        valid_values (list of str):  selectable valid values of the field
     """
-    def __init__(self, parent=None, field_name=None, value=None, **kw):
+    def __init__(self, parent=None, field_name=None, value=None,
+                 valid_values=None, **kw):
         super().__init__(parent=parent)
         self.setMinimumWidth(120)
         self.setMaximumWidth(250)
-        self.valid_values = list(SELECTABLE_VALUES[field_name].keys())
+        self.valid_values = []
+        # if 'valid_values' is provided, it will override the "default"
+        # valid values specified in SELECTABLE_VALUES
+        if valid_values:
+            self.valid_values = valid_values
+        elif SELECTABLE_VALUES.get(field_name):
+            self.valid_values = list(SELECTABLE_VALUES[field_name].keys())
         self.addItems(self.valid_values)
         if value:
             self.set_value(value)

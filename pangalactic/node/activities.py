@@ -431,14 +431,14 @@ class ModesTool(QMainWindow):
             orb.log.debug('  - specified systems:')
             for name in names:
                 orb.log.debug(f'    {name}')
-            # NOTE: very verbose debugging msg ...
+            # NOTE: VERY verbose debugging msg ...
             # orb.log.debug('  - mode_defz:')
             # orb.log.debug(f'   {pprint(mode_defz)}')
         else:
             orb.log.debug('  - no systems specified yet.')
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-        title = 'Modes of Specified Systems'
+        title = 'Operational Modes of Specified Systems'
         self.setWindowTitle(title)
         self.sys_select_tree = SystemSelectionView(self.project, refdes=True)
         self.sys_select_tree.expandToDepth(1)

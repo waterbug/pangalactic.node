@@ -43,7 +43,8 @@ from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
-                                          StringFieldWidget)
+                                          StringFieldWidget,
+                                          StringSelectWidget)
 
 COLORS = {True: 'green', False: 'red'}
 
@@ -820,11 +821,13 @@ class EditModesDialog(QDialog):
     A dialog to edit the name and default context of a new or existing 
     system power mode that is to be defined using p.node.activities.ModesTool.
     """
-    def __init__(self, project, parent=None):
+    def __init__(self, project, default_modes=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add or Edit a System Power Mode")
         self.modes_dict = mode_defz[project.oid]['modes']
         self.project = project
+        modes = default_modes or ['Off', 'Quiesccent', 'Nominal', 'Peak']
+        self.default_modes = modes
         vbox = QVBoxLayout(self)
         self.add_mode_button = SizedButton("Add a new mode")
         self.add_mode_button.clicked.connect(self.add_mode)
@@ -839,7 +842,8 @@ class EditModesDialog(QDialog):
         for mode, context in self.modes_dict.items():
             self.mode_fields[mode] = {}
             name_field = StringFieldWidget(parent=self, value=mode)
-            default_field = StringFieldWidget(parent=self, value=context)
+            default_field = StringSelectWidget(parent=self, value=context,
+                                               valid_values=self.default_modes)
             self.mode_fields[mode]['name'] = name_field
             self.mode_fields[mode]['default'] = default_field
             self.form.addRow(name_field, default_field)
@@ -855,7 +859,8 @@ class EditModesDialog(QDialog):
         if self.form:
             mode_fields = {}
             name_field = StringFieldWidget(parent=self, value='Undefined')
-            default_field = StringFieldWidget(parent=self, value='')
+            default_field = StringSelectWidget(parent=self, value='Off',
+                                               valid_values=self.default_modes)
             mode_fields['name'] = name_field
             mode_fields['default'] = default_field
             self.form.addRow(name_field, default_field)
