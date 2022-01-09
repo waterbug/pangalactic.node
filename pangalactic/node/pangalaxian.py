@@ -1844,6 +1844,9 @@ class Main(QMainWindow):
                                     icon='lander',
                                     tip=modes_def_action_tip,
                                     modes=['system'])
+        # default:  modes_def_action is not visible
+        self.modes_def_action.setEnabled(False)
+        self.modes_def_action.setVisible(False)
         conops_tip_text = "Model a Concept of Operations"
         self.conops_modeler_action = self.create_action(
                                 "ConOps Modeler",
@@ -3425,10 +3428,18 @@ class Main(QMainWindow):
                     if project_admin or global_admin:
                         self.admin_action.setVisible(True)
                         self.admin_action.setEnabled(True)
+                        self.modes_def_action.setVisible(True)
+                        self.modes_def_action.setEnabled(True)
+                    SELE = set(['Systems Engineer', 'Lead Engineer'])
+                    if SELE & set(p_roles):
+                        self.modes_def_action.setVisible(True)
+                        self.modes_def_action.setEnabled(True)
                 else:
-                    # when offline, admin action is disabled
+                    # when offline, admin and modes def actions are disabled
                     self.admin_action.setVisible(False)
                     self.admin_action.setEnabled(False)
+                    self.modes_def_action.setVisible(False)
+                    self.modes_def_action.setEnabled(False)
                     # only local projects can be deleted
                     if (project_is_local and 
                         (p.creator == self.local_user or global_admin)):
