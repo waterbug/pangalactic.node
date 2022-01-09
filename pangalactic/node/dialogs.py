@@ -826,7 +826,7 @@ class EditModesDialog(QDialog):
         self.setWindowTitle("Add or Edit a System Power Mode")
         self.modes_dict = mode_defz[project.oid]['modes']
         self.project = project
-        modes = default_modes or ['Off', 'Quiesccent', 'Nominal', 'Peak']
+        modes = default_modes or ['Off', 'Quiescent', 'Nominal', 'Peak']
         self.default_modes = modes
         vbox = QVBoxLayout(self)
         self.add_mode_button = SizedButton("Add a new mode")
