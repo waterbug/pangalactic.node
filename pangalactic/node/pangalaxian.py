@@ -1103,7 +1103,7 @@ class Main(QMainWindow):
         local_md_dts = state.get('mode_defz_dts')
         if (local_md_dts is None) or (md_dts > local_md_dts):
             orb.log.debug('  - updating mode_defz ...')
-            mode_defz = yaml.load(md_data)
+            mode_defz = yaml.safe_load(md_data)
         else:
             orb.log.debug('  - mode_defz is up to date.')
         # then collect any local objects that need to be saved to the repo ...
