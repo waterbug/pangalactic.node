@@ -824,7 +824,6 @@ class EditModesDialog(QDialog):
     def __init__(self, project, default_modes=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add or Edit a System Power Mode")
-        modes_dict = mode_defz[project.oid]['modes']
         self.project = project
         modes = default_modes or ['Off', 'Quiescent', 'Nominal', 'Peak']
         self.default_modes = modes
@@ -839,14 +838,15 @@ class EditModesDialog(QDialog):
         self.form.addRow(name_label, default_label)
         self.mode_fields = {}
         self.new_mode_fields = []
-        for mode, context in modes_dict.items():
-            self.mode_fields[mode] = {}
-            name_field = StringFieldWidget(parent=self, value=mode)
-            default_field = StringSelectWidget(parent=self, value=context,
+        if mode_defz.get(project.oid) and mode_defz[project.oid].get('modes'):
+            for mode, context in mode_defz[project.oid]['modes'].items():
+                self.mode_fields[mode] = {}
+                name_field = StringFieldWidget(parent=self, value=mode)
+                default_field = StringSelectWidget(parent=self, value=context,
                                                valid_values=self.default_modes)
-            self.mode_fields[mode]['name'] = name_field
-            self.mode_fields[mode]['default'] = default_field
-            self.form.addRow(name_field, default_field)
+                self.mode_fields[mode]['name'] = name_field
+                self.mode_fields[mode]['default'] = default_field
+                self.form.addRow(name_field, default_field)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
