@@ -1339,12 +1339,18 @@ class Main(QMainWindow):
                 msg += obj_id
             elif subject == 'new mode defs':
                 orb.log.debug('  - vger pubsub msg: "new mode defs"')
-                md_dts, ser_md = content
+                md_dts, ser_md, userid = content
                 local_md_dts = state.get('mode_defz_dts')
                 if (local_md_dts is None) or (md_dts > local_md_dts):
                     mode_defz = yaml.safe_load(ser_md)
                     state['mode_defz_dts'] = md_dts
                     orb.log.debug('    mode defs updated.')
+                    if userid == state.get('userid'):
+                        orb.log.debug('    msg was from my action; ignoring.')
+                    else:
+                        orb.log.debug('    dispatching "modes published" ...')
+                        # if msg not triggered by me, dispatch signal ...
+                        dispatcher.send(signal='modes published')
                 else:
                     orb.log.debug('    same datetime stamp; ignored.')
             elif subject == 'entity created':
@@ -3183,6 +3189,10 @@ class Main(QMainWindow):
         proj_mode_defs = mode_defz.get(project_oid) or {}
         if proj_mode_defs and state['connected']:
             data = yaml.safe_dump(proj_mode_defs, default_flow_style=False)
+            orb.log.debug('  - sending modes data to server:')
+            orb.log.debug('    =============================')
+            orb.log.debug(f'    {data}')
+            orb.log.debug('    =============================')
             rpc = self.mbus.session.call('vger.update_mode_defs',
                                          project_oid=project_oid,
                                          data=data)
@@ -3196,7 +3206,7 @@ class Main(QMainWindow):
         Args:
             result (str):  a stringified mod datetime stamp.
         """
-        if result in ['unauthorized', 'no such project']:
+        if result in ['unauthorized', 'no such project', 'no data submitted']:
             msg = 'mode defs update failed: ' + result
         else:
             state['mode_defz_dts'] = result

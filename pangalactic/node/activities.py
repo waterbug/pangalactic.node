@@ -458,10 +458,14 @@ class ModesTool(QMainWindow):
         self.left_dock.setWidget(sys_tree_panel)
         self.new_window = True
         dispatcher.connect(self.on_modes_edited, 'modes edited')
+        dispatcher.connect(self.on_modes_published, 'modes published')
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.set_table_and_adjust()
 
     def on_modes_edited(self):
+        self.set_table_and_adjust()
+
+    def on_modes_published(self):
         self.set_table_and_adjust()
 
     def on_select_system(self, index):
@@ -583,6 +587,8 @@ class ModesTool(QMainWindow):
         self.sys_select_tree.scrollTo(index)
         self.sys_select_tree.clearSelection()
         self.set_table_and_adjust()
+        dispatcher.send(signal='modes edited',
+                        project_oid=self.project.oid)
 
     def wrap_header(self, text):
         return '   \n   '.join(wrap(text, width=7,
