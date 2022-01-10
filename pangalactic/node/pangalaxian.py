@@ -1102,10 +1102,10 @@ class Main(QMainWindow):
         orb.log.debug(f'    data elements updated for {n_obj_des} objects.')
         # update mode_defz if md_dts is later than mode_defz_dts ...
         local_md_dts = state.get('mode_defz_dts')
-        global mode_defz
         if (local_md_dts is None) or (md_dts > local_md_dts):
             orb.log.debug('  - updating mode_defz ...')
-            mode_defz = yaml.safe_load(md_data)
+            all_proj_modes = yaml.safe_load(md_data)
+            mode_defz.update(all_proj_modes)
         else:
             orb.log.debug('  - mode_defz is up to date.')
         # then collect any local objects that need to be saved to the repo ...
@@ -1340,7 +1340,6 @@ class Main(QMainWindow):
                 obj_oid, obj_id = content
                 msg += obj_id
             elif subject == 'new mode defs':
-                global mode_defz
                 orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
                 md_dts, ser_md, userid = content
                 orb.log.debug('    content:')
@@ -1352,9 +1351,10 @@ class Main(QMainWindow):
                 orb.log.debug('==============================================')
                 local_md_dts = state.get('mode_defz_dts')
                 if (local_md_dts is None) or (md_dts > local_md_dts):
-                    mode_defz = yaml.safe_load(ser_md)
+                    all_proj_modes = yaml.safe_load(ser_md)
+                    mode_defz.update(all_proj_modes)
                     state['mode_defz_dts'] = md_dts
-                    orb.log.debug('    mode defs updated.')
+                    orb.log.debug('    mode_defz updated.')
                     if userid == state.get('userid'):
                         orb.log.debug('    msg was from my action; ignoring.')
                     else:
