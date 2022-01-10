@@ -824,7 +824,7 @@ class EditModesDialog(QDialog):
     def __init__(self, project, default_modes=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add or Edit a System Power Mode")
-        self.modes_dict = mode_defz[project.oid]['modes']
+        modes_dict = mode_defz[project.oid]['modes']
         self.project = project
         modes = default_modes or ['Off', 'Quiescent', 'Nominal', 'Peak']
         self.default_modes = modes
@@ -839,7 +839,7 @@ class EditModesDialog(QDialog):
         self.form.addRow(name_label, default_label)
         self.mode_fields = {}
         self.new_mode_fields = []
-        for mode, context in self.modes_dict.items():
+        for mode, context in modes_dict.items():
             self.mode_fields[mode] = {}
             name_field = StringFieldWidget(parent=self, value=mode)
             default_field = StringSelectWidget(parent=self, value=context,
@@ -869,7 +869,8 @@ class EditModesDialog(QDialog):
     def on_save(self):
         deleteds = []
         adds = []
-        for name in self.modes_dict:
+        modes_dict = mode_defz[project.oid]['modes']
+        for name in modes_dict:
             if self.mode_fields[name]['name'] != name:
                 # mode has been renamed, use the new name
                 deleteds.append(name)
@@ -878,25 +879,25 @@ class EditModesDialog(QDialog):
                 # ignore blank names
                 if new_name:
                     adds.append((new_name, default))
-            elif name in self.modes_dict:
+            elif name in modes_dict:
                 # if mode by that name exists, just set the default
-                self.modes_dict[name] = self.mode_fields[name]['default']
+                modes_dict[name] = self.mode_fields[name]['default']
         if deleteds:
             for name in deleteds:
-                del self.modes_dict[name]
+                del modes_dict[name]
         if adds:
             for new_name, default in adds:
                 if new_name:
-                    self.modes_dict[new_name] = default
+                    modes_dict[new_name] = default
         if self.new_mode_fields:
             for mode_fields in self.new_mode_fields:
                 name = mode_fields['name'].get_value()
                 default = mode_fields['default'].get_value()
                 if name:
-                    self.modes_dict[name] = default
-        if not self.modes_dict:
+                    modes_dict[name] = default
+        if not modes_dict:
             # in case all modes have been deleted, add "Undefined" mode
-            self.modes_dict['Undefined'] = 'Off'
+            modes_dict['Undefined'] = 'Off'
         if deleteds or adds or self.new_mode_fields:
             dispatcher.send(signal='modes edited',
                             project_oid=self.project.oid)
