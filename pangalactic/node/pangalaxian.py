@@ -105,6 +105,7 @@ from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QComboBox,
 from PyQt5.QtCore import Qt, QModelIndex, QPoint, QVariant
 
 
+
 class Main(QMainWindow):
     """
     Main window of the 'pangalaxian' client gui.
@@ -1101,6 +1102,7 @@ class Main(QMainWindow):
         orb.log.debug(f'    data elements updated for {n_obj_des} objects.')
         # update mode_defz if md_dts is later than mode_defz_dts ...
         local_md_dts = state.get('mode_defz_dts')
+        global mode_defz
         if (local_md_dts is None) or (md_dts > local_md_dts):
             orb.log.debug('  - updating mode_defz ...')
             mode_defz = yaml.safe_load(md_data)
@@ -1338,8 +1340,16 @@ class Main(QMainWindow):
                 obj_oid, obj_id = content
                 msg += obj_id
             elif subject == 'new mode defs':
-                orb.log.debug('  - vger pubsub msg: "new mode defs"')
+                global mode_defz
+                orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
                 md_dts, ser_md, userid = content
+                orb.log.debug('    content:')
+                orb.log.debug('==============================================')
+                orb.log.debug(f'- datetime stamp: {md_dts}')
+                orb.log.debug(f'- userid:         {userid}')
+                orb.log.debug('- data:')
+                orb.log.debug(f'  {ser_md}')
+                orb.log.debug('==============================================')
                 local_md_dts = state.get('mode_defz_dts')
                 if (local_md_dts is None) or (md_dts > local_md_dts):
                     mode_defz = yaml.safe_load(ser_md)
