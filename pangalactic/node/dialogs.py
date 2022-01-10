@@ -869,7 +869,7 @@ class EditModesDialog(QDialog):
     def on_save(self):
         deleteds = []
         adds = []
-        modes_dict = mode_defz[project.oid]['modes']
+        modes_dict = mode_defz[self.project.oid]['modes']
         for name in modes_dict:
             if self.mode_fields[name]['name'] != name:
                 # mode has been renamed, use the new name
