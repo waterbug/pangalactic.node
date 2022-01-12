@@ -469,26 +469,22 @@ class ModesTool(QMainWindow):
     def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
                                  mode=None, value=None):
         if (hasattr(self, 'mode_definition_table') and
-            self.mode_definition_table.on_remote_sys_mode_datum(
-                                                project_oid=project_oid,
-                                                link_oid=link_oid,
-                                                mode=mode,
-                                                value=value)):
-            self.setFocus()
-            self.mode_definition_table.update()
-            self.update()
+            (project_oid == self.project.oid)):
+            project_mode_defz = mode_defz[project_oid]
+            sys_dict = project_mode_defz['systems']
+            if link_oid in sys_dict:
+                sys_dict[link_oid][mode] = value
+                self.set_table_and_adjust()
 
     def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
                                   comp_oid=None, mode=None, value=None):
         if (hasattr(self, 'mode_definition_table') and
-            self.mode_definition_table.on_remote_comp_mode_datum(
-                                                    link_oid=link_oid,
-                                                    comp_oid=comp_oid,
-                                                    mode=mode,
-                                                    value=value)):
-            self.setFocus()
-            self.mode_definition_table.update()
-            self.update()
+            (project_oid == self.project.oid)):
+            project_mode_defz = mode_defz[project_oid]
+            comp_dict = project_mode_defz['components']
+            if link_oid in comp_dict and comp_oid in comp_dict[link_oid]:
+                comp_dict[link_oid][comp_oid][mode] = value
+                self.set_table_and_adjust()
 
     def on_modes_edited(self):
         self.set_table_and_adjust()
@@ -736,28 +732,6 @@ class ModeDefinitionModel(QStandardItemModel):
         self.cols = len(view)
         super().__init__(self.rows, self.cols, parent=parent)
 
-    def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
-                                 mode=None, value=None):
-        oids = [o.oid for o in self.objs]
-        if ((project_oid == self.project.oid) and (link_oid in oids)
-            and (mode in self.view)):
-            row = oids.index(link_oid)
-            col = self.view.index(mode)
-            index = self.index(row, col, QModelIndex())
-            return self.setData(index, value)
-        return False
-
-    def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
-                                  comp_oid=None, mode=None, value=None):
-        oids = [o.oid for o in self.objs]
-        if ((project_oid == self.project.oid) and (comp_oid in oids)
-            and (mode in self.view)):
-            row = oids.index(comp_oid)
-            col = self.view.index(mode)
-            index = self.index(row, col, QModelIndex())
-            return self.setData(index, value)
-        return False
-
     def headerData(self, section, orientation, role):
         if len(self.objs) > section:
             link = self.objs[section]
@@ -846,12 +820,17 @@ class ModeDefinitionModel(QStandardItemModel):
         comp_dict = mode_defz[self.project.oid]['components']
         if link.oid in sys_dict:
             sys_dict[link.oid][mode] = value
+            self.dataChanged.emit(index, index)
             return True
         else:
+            mod = False
             for oid in comp_dict:
                 if link.oid in comp_dict[oid]:
                     comp_dict[oid][link.oid][mode] = value
-            return True
+                    mod = True
+            if mod:
+                self.dataChanged.emit(index, index)
+                return True
 
 
 class ModeDefinitionView(QTableView):
@@ -869,21 +848,6 @@ class ModeDefinitionView(QTableView):
         delete_modes_action = QAction('delete modes', header)
         delete_modes_action.triggered.connect(self.delete_modes)
         header.addAction(delete_modes_action)
-
-    def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
-                                 mode=None, value=None):
-        return self.model.on_remote_sys_mode_datum(project_oid=project_oid,
-                                                   link_oid=link_oid,
-                                                   mode=mode,
-                                                   value=value)
-
-    def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
-                                  comp_oid=None, mode=None, value=None):
-        return self.model.on_remote_comp_mode_datum(project_oid=project_oid,
-                                                    link_oid=link_oid,
-                                                    comp_oid=comp_oid,
-                                                    mode=mode,
-                                                    value=value)
 
     def edit_modes(self):
         dlg = EditModesDialog(self.project, parent=self)
