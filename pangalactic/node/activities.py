@@ -459,8 +459,36 @@ class ModesTool(QMainWindow):
         self.new_window = True
         dispatcher.connect(self.on_modes_edited, 'modes edited')
         dispatcher.connect(self.on_modes_published, 'modes published')
+        dispatcher.connect(self.on_remote_sys_mode_datum,
+                           'remote sys mode datum')
+        dispatcher.connect(self.on_remote_comp_mode_datum,
+                           'remote comp mode datum')
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.set_table_and_adjust()
+
+    def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
+                                 mode=None, value=None):
+        if (hasattr(self, 'mode_definition_table') and
+            self.mode_definition_table.on_remote_sys_mode_datum(
+                                                project_oid=project_oid,
+                                                link_oid=link_oid,
+                                                mode=mode,
+                                                value=value)):
+            self.setFocus()
+            self.mode_definition_table.update()
+            self.update()
+
+    def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
+                                  comp_oid=None, mode=None, value=None):
+        if (hasattr(self, 'mode_definition_table') and
+            self.mode_definition_table.on_remote_comp_mode_datum(
+                                                    link_oid=link_oid,
+                                                    comp_oid=comp_oid,
+                                                    mode=mode,
+                                                    value=value)):
+            self.setFocus()
+            self.mode_definition_table.update()
+            self.update()
 
     def on_modes_edited(self):
         self.set_table_and_adjust()
@@ -841,27 +869,21 @@ class ModeDefinitionView(QTableView):
         delete_modes_action = QAction('delete modes', header)
         delete_modes_action.triggered.connect(self.delete_modes)
         header.addAction(delete_modes_action)
-        dispatcher.connect(self.on_remote_sys_mode_datum,
-                           'remote sys mode datum')
-        dispatcher.connect(self.on_remote_comp_mode_datum,
-                           'remote comp mode datum')
 
     def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
                                  mode=None, value=None):
-        if self.model.on_remote_sys_mode_datum(project_oid=project_oid,
-                                               link_oid=link_oid,
-                                               mode=mode,
-                                               value=value):
-            self.setFocus()
+        return self.model.on_remote_sys_mode_datum(project_oid=project_oid,
+                                                   link_oid=link_oid,
+                                                   mode=mode,
+                                                   value=value)
 
     def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
                                   comp_oid=None, mode=None, value=None):
-        if self.model.on_remote_comp_mode_datum(project_oid=project_oid,
-                                                link_oid=link_oid,
-                                                comp_oid=comp_oid,
-                                                mode=mode,
-                                                value=value):
-            self.setFocus()
+        return self.model.on_remote_comp_mode_datum(project_oid=project_oid,
+                                                    link_oid=link_oid,
+                                                    comp_oid=comp_oid,
+                                                    mode=mode,
+                                                    value=value)
 
     def edit_modes(self):
         dlg = EditModesDialog(self.project, parent=self)
