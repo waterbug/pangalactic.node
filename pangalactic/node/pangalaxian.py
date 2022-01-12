@@ -1370,8 +1370,8 @@ class Main(QMainWindow):
                         dispatcher.send(signal='modes published')
                     else:
                         orb.log.debug('    same datetime stamp; ignored.')
-            elif subject == 'sys mode updated':
-                orb.log.debug('  - vger pubsub msg: "sys mode updated" ...')
+            elif subject == 'sys mode datum updated':
+                orb.log.debug('  - vger msg: "sys mode datum updated" ...')
                 project_oid, link_oid, mode, value, md_dts, userid = content
                 project = orb.get(project_oid)
                 link = orb.get(link_oid)
@@ -1396,14 +1396,14 @@ class Main(QMainWindow):
                     mode_defz[project_oid]['systems'][link_oid][mode] = value
                     state['mode_defz_dts'] = md_dts
                     orb.log.debug('    mode_defz updated.')
-                    orb.log.debug('    sending "remote sys mode updated"')
-                    dispatcher.send(signal='remote sys mode updated',
+                    orb.log.debug('    sending "remote sys mode datum"')
+                    dispatcher.send(signal='remote sys mode datum',
                                     project_oid=project_oid,
                                     link_oid=link_oid,
                                     mode=mode,
                                     value=value)
-            elif subject == 'comp mode updated':
-                orb.log.debug('  - vger pubsub msg: "comp mode updated" ...')
+            elif subject == 'comp mode datum updated':
+                orb.log.debug('  - vger msg: "comp mode datum updated" ...')
                 (project_oid, link_oid, comp_oid, mode, value, md_dts,
                                                             userid) = content
                 project = orb.get(project_oid)
@@ -1432,8 +1432,8 @@ class Main(QMainWindow):
                                                                 mode] = value
                     state['mode_defz_dts'] = md_dts
                     orb.log.debug('    mode_defz updated.')
-                    orb.log.debug('    sending "remote comp mode updated"')
-                    dispatcher.send(signal='remote comp mode updated',
+                    orb.log.debug('    sending "remote comp mode datum"')
+                    dispatcher.send(signal='remote comp mode datum',
                                     project_oid=project_oid,
                                     link_oid=link_oid,
                                     comp_oid=comp_oid,

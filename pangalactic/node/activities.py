@@ -709,13 +709,13 @@ class ModeDefinitionModel(QStandardItemModel):
         self.rows = len(objs)
         self.cols = len(view)
         super().__init__(self.rows, self.cols, parent=parent)
-        dispatcher.connect(self.on_remote_sys_mode_updated,
-                           'remote sys mode updated')
-        dispatcher.connect(self.on_remote_comp_mode_updated,
-                           'remote comp mode updated')
+        dispatcher.connect(self.on_remote_sys_mode_datum,
+                           'remote sys mode datum')
+        dispatcher.connect(self.on_remote_comp_mode_datum,
+                           'remote comp mode datum')
 
-    def on_remote_sys_mode_updated(self, project_oid=None, link_oid=None,
-                                   mode=None, value=None):
+    def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
+                                 mode=None, value=None):
         oids = [o.oid for o in self.objs]
         if ((project_oid == self.project.oid) and (link_oid in oids)
             and (mode in self.view)):
@@ -724,8 +724,8 @@ class ModeDefinitionModel(QStandardItemModel):
             index = self.index(row, col, QModelIndex())
             self.setData(index, value)
 
-    def on_remote_comp_mode_updated(self, project_oid=None, link_oid=None,
-                                    comp_oid=None, mode=None, value=None):
+    def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
+                                  comp_oid=None, mode=None, value=None):
         oids = [o.oid for o in self.objs]
         if ((project_oid == self.project.oid) and (comp_oid in oids)
             and (mode in self.view)):
