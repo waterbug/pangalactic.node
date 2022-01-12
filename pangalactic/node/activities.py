@@ -647,13 +647,15 @@ class ModesTool(QMainWindow):
                     # if no val, use default
                     val = val or mode_dict[view[col]]
                     model.setData(index, val)
+        model.initializing = False
         self.mode_definition_table = ModeDefinitionView(self.project)
         self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mode_definition_table.setModel(model)
         self._delegates = []
         for row, item in enumerate(items):
             for sys_oid in sys_dict:
-                if sys_oid in comp_dict and item.oid in comp_dict[sys_oid]:
+                if ((sys_oid in comp_dict and item.oid in comp_dict[sys_oid])
+                    or ((sys_oid == item.oid) and sys_oid not in comp_dict)):
                     obj = None
                     if hasattr(item, 'component'):
                         obj = item.component
@@ -707,7 +709,30 @@ class ModeDefinitionModel(QStandardItemModel):
         self.rows = len(objs)
         self.cols = len(view)
         super().__init__(self.rows, self.cols, parent=parent)
-        self.initializing = False
+        dispatcher.connect(self.on_remote_sys_mode_updated,
+                           'remote sys mode updated')
+        dispatcher.connect(self.on_remote_comp_mode_updated,
+                           'remote comp mode updated')
+
+    def on_remote_sys_mode_updated(self, project_oid=None, link_oid=None,
+                                   mode=None, value=None):
+        oids = [o.oid for o in self.objs]
+        if ((project_oid == self.project.oid) and (link_oid in oids)
+            and (mode in self.view)):
+            row = oids.index(link_oid)
+            col = self.view.index(mode)
+            index = self.index(row, col, QModelIndex())
+            self.setData(index, value)
+
+    def on_remote_comp_mode_updated(self, project_oid=None, link_oid=None,
+                                    comp_oid=None, mode=None, value=None):
+        oids = [o.oid for o in self.objs]
+        if ((project_oid == self.project.oid) and (comp_oid in oids)
+            and (mode in self.view)):
+            row = oids.index(comp_oid)
+            col = self.view.index(mode)
+            index = self.index(row, col, QModelIndex())
+            self.setData(index, value)
 
     def headerData(self, section, orientation, role):
         if len(self.objs) > section:
@@ -767,11 +792,23 @@ class ModeDefinitionModel(QStandardItemModel):
         comp_dict = mode_defz[self.project.oid]['components']
         if link.oid in sys_dict:
             sys_dict[link.oid][mode] = value
+            if not self.initializing:
+                orb.log.debug(' - sending "set sys mode datum" signal ...')
+                dispatcher.send(signal='set sys mode datum',
+                                datum=(self.project.oid, link.oid, mode,
+                                value))
             return True
         else:
+            mod = False
             for oid in comp_dict:
                 if link.oid in comp_dict[oid]:
                     comp_dict[oid][link.oid][mode] = value
+                    mod = True
+            if mod and not self.initializing:
+                orb.log.debug(' - sending "set comp mode datum" signal ...')
+                dispatcher.send(signal='set comp mode datum',
+                                datum=(self.project.oid, oid, link.oid, mode,
+                                       value))
             return True
 
 

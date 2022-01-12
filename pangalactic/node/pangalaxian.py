@@ -249,6 +249,8 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
+        dispatcher.connect(self.on_set_sys_mode_datum, 'set sys mode datum')
+        dispatcher.connect(self.on_set_comp_mode_datum, 'set comp mode datum')
         dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
@@ -1349,20 +1351,90 @@ class Main(QMainWindow):
                 orb.log.debug('- data:')
                 orb.log.debug(f'  {ser_md}')
                 orb.log.debug('==============================================')
-                local_md_dts = state.get('mode_defz_dts')
-                if (local_md_dts is None) or (md_dts > local_md_dts):
-                    all_proj_modes = yaml.safe_load(ser_md)
-                    mode_defz.update(all_proj_modes)
+                if userid == state.get('userid'):
+                    # originated from me -- set dts to server's dts
+                    state['mode_defz_dts'] = md_dts
+                    orb.log.debug('    msg was from my action; ignoring.')
+                else:
+                    local_md_dts = state.get('mode_defz_dts')
+                    if (local_md_dts is None) or (md_dts > local_md_dts):
+                        all_proj_modes = yaml.safe_load(ser_md)
+                        mode_defz.update(all_proj_modes)
+                        state['mode_defz_dts'] = md_dts
+                        orb.log.debug('    mode_defz updated.')
+                        orb.log.debug('    sending "modes published" signal')
+                        dispatcher.send(signal='modes published')
+                    else:
+                        orb.log.debug('    same datetime stamp; ignored.')
+            elif subject == 'sys mode updated':
+                orb.log.debug('  - vger pubsub msg: "sys mode updated" ...')
+                project_oid, link_oid, mode, value, md_dts, userid = content
+                project = orb.get(project_oid)
+                link = orb.get(link_oid)
+                if project and link:
+                    orb.log.debug('    content:')
+                    orb.log.debug('=========================================')
+                    orb.log.debug(f'- project:        {project.id}')
+                    orb.log.debug(f'- link:           {link.id}')
+                    orb.log.debug(f'- mode:           {mode}')
+                    orb.log.debug(f'- value:          {value}')
+                    orb.log.debug(f'- userid:         {userid}')
+                    orb.log.debug(f'- datetime stamp: {md_dts}')
+                    orb.log.debug('=========================================')
+                else:
+                    orb.log.debug('    unknown project or link; ignoring.')
+                    return
+                if userid == state.get('userid'):
+                    # originated from me -- set dts to server's dts
+                    state['mode_defz_dts'] = md_dts
+                    orb.log.debug('    msg was from my action; ignoring.')
+                else:
+                    mode_defz[project_oid]['systems'][link_oid][mode] = value
                     state['mode_defz_dts'] = md_dts
                     orb.log.debug('    mode_defz updated.')
-                    if userid == state.get('userid'):
-                        orb.log.debug('    msg was from my action; ignoring.')
-                    else:
-                        orb.log.debug('    dispatching "modes published" ...')
-                        # if msg not triggered by me, dispatch signal ...
-                        dispatcher.send(signal='modes published')
+                    orb.log.debug('    sending "remote sys mode updated"')
+                    dispatcher.send(signal='remote sys mode updated',
+                                    project_oid=project_oid,
+                                    link_oid=link_oid,
+                                    mode=mode,
+                                    value=value)
+            elif subject == 'comp mode updated':
+                orb.log.debug('  - vger pubsub msg: "comp mode updated" ...')
+                (project_oid, link_oid, comp_oid, mode, value, md_dts,
+                                                            userid) = content
+                project = orb.get(project_oid)
+                link = orb.get(link_oid)
+                comp = orb.get(comp_oid)
+                if project and link and comp:
+                    orb.log.debug('    content:')
+                    orb.log.debug('=========================================')
+                    orb.log.debug(f'- project:        {project.id}')
+                    orb.log.debug(f'- link:           {link.id}')
+                    orb.log.debug(f'- comp:           {comp.id}')
+                    orb.log.debug(f'- mode:           {mode}')
+                    orb.log.debug(f'- value:          {value}')
+                    orb.log.debug(f'- userid:         {userid}')
+                    orb.log.debug(f'- datetime stamp: {md_dts}')
+                    orb.log.debug('=========================================')
                 else:
-                    orb.log.debug('    same datetime stamp; ignored.')
+                    orb.log.debug('    unknown project or link; ignoring.')
+                    return
+                if userid == state.get('userid'):
+                    # originated from me -- set dts to server's dts
+                    state['mode_defz_dts'] = md_dts
+                    orb.log.debug('    msg was from my action; ignoring.')
+                else:
+                    mode_defz[project_oid]['components'][link_oid][comp_oid][
+                                                                mode] = value
+                    state['mode_defz_dts'] = md_dts
+                    orb.log.debug('    mode_defz updated.')
+                    orb.log.debug('    sending "remote comp mode updated"')
+                    dispatcher.send(signal='remote comp mode updated',
+                                    project_oid=project_oid,
+                                    link_oid=link_oid,
+                                    comp_oid=comp_oid,
+                                    mode=mode,
+                                    value=value)
             elif subject == 'entity created':
                 # TODO: implement with Entity paradigm
                 pass
@@ -3221,6 +3293,89 @@ class Main(QMainWindow):
         else:
             state['mode_defz_dts'] = result
             msg = f'mode defs updated [dts: {result}]'
+        orb.log.debug(f'* {msg}')
+
+    def on_set_sys_mode_datum(self, datum=None):
+        """
+        Handle local dispatcher signal for "set sys mode datum".
+        """
+        orb.log.debug('* signal: "set sys mode datum"')
+        if len(datum or []) == 4:
+            project_oid, link_oid, mode, value = datum
+            project = orb.get(project_oid)
+            link = orb.get(link_oid)
+            orb.log.debug('  - calling vger.set_sys_mode_datum with:')
+            orb.log.debug('    =============================')
+            orb.log.debug(f'   project: {project.id}')
+            orb.log.debug(f'   system:  {link.id}')
+            orb.log.debug(f'   mode:    {mode}')
+            orb.log.debug(f'   value:   {value}')
+            orb.log.debug('    =============================')
+            rpc = self.mbus.session.call('vger.set_sys_mode_datum',
+                                         project_oid=project_oid,
+                                         link_oid=link_oid,
+                                         mode=mode,
+                                         value=value)
+            rpc.addCallback(self.rpc_set_sys_mode_datum_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            orb.log.debug('  improper datum format sent')
+
+    def rpc_set_sys_mode_datum_result(self, result):
+        """
+        Handle callback with result of vger.set_sys_mode_datum.
+
+        Args:
+            result (str):  a stringified mod datetime stamp or an error.
+        """
+        if result in ['unauthorized', 'no such project']:
+            msg = 'set sys mode datum failed: ' + result
+        else:
+            state['mode_defz_dts'] = result
+            msg = f'sys mode datum set successfully [dts: {result}]'
+        orb.log.debug(f'* {msg}')
+
+    def on_set_comp_mode_datum(self, datum=None):
+        """
+        Handle local dispatcher signal for "set comp mode datum".
+        """
+        orb.log.debug('* signal: "set comp mode datum"')
+        if len(datum or []) == 5:
+            project_oid, link_oid, comp_oid, mode, value = datum
+            project = orb.get(project_oid)
+            link = orb.get(link_oid)
+            comp = orb.get(comp_oid)
+            orb.log.debug('  - calling vger.set_comp_mode_datum with:')
+            orb.log.debug('    =============================')
+            orb.log.debug(f'   project:    {project.id}')
+            orb.log.debug(f'   system:     {link.id}')
+            orb.log.debug(f'   component:  {comp.id}')
+            orb.log.debug(f'   mode:       {mode}')
+            orb.log.debug(f'   value:      {value}')
+            orb.log.debug('    =============================')
+            rpc = self.mbus.session.call('vger.set_comp_mode_datum',
+                                         project_oid=project_oid,
+                                         link_oid=link_oid,
+                                         comp_oid=comp_oid,
+                                         mode=mode,
+                                         value=value)
+            rpc.addCallback(self.rpc_set_comp_mode_datum_result)
+            rpc.addErrback(self.on_failure)
+        else:
+            orb.log.debug('  improper datum format sent')
+
+    def rpc_set_comp_mode_datum_result(self, result):
+        """
+        Handle callback with result of vger.set_comp_mode_datum.
+
+        Args:
+            result (str):  a stringified mod datetime stamp or an error.
+        """
+        if result in ['unauthorized', 'no such project']:
+            msg = 'set comp mode datum failed: ' + result
+        else:
+            state['mode_defz_dts'] = result
+            msg = f'comp mode datum set successfully [dts: {result}]'
         orb.log.debug(f'* {msg}')
 
     def on_entity_saved(self, e=None):
