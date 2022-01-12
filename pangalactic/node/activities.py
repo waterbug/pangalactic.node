@@ -647,7 +647,6 @@ class ModesTool(QMainWindow):
                     # if no val, use default
                     val = val or mode_dict[view[col]]
                     model.setData(index, val)
-        model.initializing = False
         self.mode_definition_table = ModeDefinitionView(self.project)
         self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mode_definition_table.setModel(model)
@@ -702,7 +701,6 @@ class ModesTool(QMainWindow):
 
 class ModeDefinitionModel(QStandardItemModel):
     def __init__(self, objs, view=None, project=None, parent=None):
-        self.initializing = True
         self.objs = objs
         self.view = view or ['name']
         self.project = project
@@ -781,6 +779,35 @@ class ModeDefinitionModel(QStandardItemModel):
                 return QBrush(Qt.black)
         return super().data(index, role)
 
+    def set_data(self, index, value, role=Qt.EditRole):
+        """
+        Method called by ItemDelegate -- invokes native "setData" method but
+        also may send "set sys|comp mode datum" signal (must be separate from
+        "setData" to avoid cycles).
+        """
+        orb.log.debug(' - mode datum set by delegate')
+        if not index.isValid():
+            return False
+        self.setData(index, value, role=Qt.EditRole)
+        link = self.objs[index.row()]
+        mode = self.view[index.column()]
+        sys_dict = mode_defz[self.project.oid]['systems']
+        comp_dict = mode_defz[self.project.oid]['components']
+        if link.oid in sys_dict:
+            orb.log.debug(' - sending "set sys mode datum" signal ...')
+            dispatcher.send(signal='set sys mode datum',
+                            datum=(self.project.oid, link.oid, mode, value))
+        else:
+            mod = False
+            for oid in comp_dict:
+                if link.oid in comp_dict[oid]:
+                    mod = True
+            if mod:
+                orb.log.debug(' - sending "set comp mode datum" signal ...')
+                dispatcher.send(signal='set comp mode datum',
+                                datum=(self.project.oid, oid, link.oid, mode,
+                                       value))
+
     def setData(self, index, value, role=Qt.EditRole):
         if role != Qt.EditRole:
             return False
@@ -792,23 +819,11 @@ class ModeDefinitionModel(QStandardItemModel):
         comp_dict = mode_defz[self.project.oid]['components']
         if link.oid in sys_dict:
             sys_dict[link.oid][mode] = value
-            if not self.initializing:
-                orb.log.debug(' - sending "set sys mode datum" signal ...')
-                dispatcher.send(signal='set sys mode datum',
-                                datum=(self.project.oid, link.oid, mode,
-                                value))
             return True
         else:
-            mod = False
             for oid in comp_dict:
                 if link.oid in comp_dict[oid]:
                     comp_dict[oid][link.oid][mode] = value
-                    mod = True
-            if mod and not self.initializing:
-                orb.log.debug(' - sending "set comp mode datum" signal ...')
-                dispatcher.send(signal='set comp mode datum',
-                                datum=(self.project.oid, oid, link.oid, mode,
-                                       value))
             return True
 
 
@@ -892,7 +907,7 @@ class StateSelectorDelegate(QItemDelegate):
 
     def setModelData(self, combo, model, index):
         value = combo.currentText()
-        model.setData(index, value, Qt.EditRole)
+        model.set_data(index, value, Qt.EditRole)
 
     def updateEditorGeometry(self, editor, option, index):
         editor.setGeometry(option.rect)
