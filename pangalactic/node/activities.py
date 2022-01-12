@@ -707,10 +707,6 @@ class ModeDefinitionModel(QStandardItemModel):
         self.rows = len(objs)
         self.cols = len(view)
         super().__init__(self.rows, self.cols, parent=parent)
-        dispatcher.connect(self.on_remote_sys_mode_datum,
-                           'remote sys mode datum')
-        dispatcher.connect(self.on_remote_comp_mode_datum,
-                           'remote comp mode datum')
 
     def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
                                  mode=None, value=None):
@@ -720,7 +716,8 @@ class ModeDefinitionModel(QStandardItemModel):
             row = oids.index(link_oid)
             col = self.view.index(mode)
             index = self.index(row, col, QModelIndex())
-            self.setData(index, value)
+            return self.setData(index, value)
+        return False
 
     def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
                                   comp_oid=None, mode=None, value=None):
@@ -730,7 +727,8 @@ class ModeDefinitionModel(QStandardItemModel):
             row = oids.index(comp_oid)
             col = self.view.index(mode)
             index = self.index(row, col, QModelIndex())
-            self.setData(index, value)
+            return self.setData(index, value)
+        return False
 
     def headerData(self, section, orientation, role):
         if len(self.objs) > section:
@@ -843,6 +841,27 @@ class ModeDefinitionView(QTableView):
         delete_modes_action = QAction('delete modes', header)
         delete_modes_action.triggered.connect(self.delete_modes)
         header.addAction(delete_modes_action)
+        dispatcher.connect(self.on_remote_sys_mode_datum,
+                           'remote sys mode datum')
+        dispatcher.connect(self.on_remote_comp_mode_datum,
+                           'remote comp mode datum')
+
+    def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
+                                 mode=None, value=None):
+        if self.model.on_remote_sys_mode_datum(project_oid=project_oid,
+                                               link_oid=link_oid,
+                                               mode=mode,
+                                               value=value):
+            self.setFocus()
+
+    def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
+                                  comp_oid=None, mode=None, value=None):
+        if self.model.on_remote_comp_mode_datum(project_oid=project_oid,
+                                                link_oid=link_oid,
+                                                comp_oid=comp_oid,
+                                                mode=mode,
+                                                value=value):
+            self.setFocus()
 
     def edit_modes(self):
         dlg = EditModesDialog(self.project, parent=self)
