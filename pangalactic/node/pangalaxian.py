@@ -574,9 +574,11 @@ class Main(QMainWindow):
                                     "Connection Lost", message,
                                     QMessageBox.Ok, self)
                 popup.show()
-        rpc.addTimeout(3, self.reactor, onTimeoutCancel=self.on_rpc_timeout)
-        rpc.addCallback(self.on_rpc_get_user_roles_result)
-        rpc.addErrback(self.on_rpc_get_user_roles_failure)
+        finally:
+            rpc.addTimeout(3, self.reactor,
+                           onTimeoutCancel=self.on_rpc_timeout)
+            rpc.addCallback(self.on_rpc_get_user_roles_result)
+            rpc.addErrback(self.on_rpc_get_user_roles_failure)
 
     def on_rpc_timeout(self, result, timeout):
         orb.log.debug(f'* rpc timed out after {timeout} seconds')
@@ -601,7 +603,9 @@ class Main(QMainWindow):
         # log_msg = '* processing results of rpc "vger.get_user_roles" ...'
         # orb.log.debug(log_msg)
         # orb.log.debug(' - data:  {}'.format(str(data)))
-        # data should be a list with 5 elements:
+        # data should be a list with 5 elements, but if no response from server
+        # data may be None, so fall back to a list of 5 empty elements ...
+        data = data or ['', '', '', '', '']
         szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
         if szd_user:
             # deserialize local user's Person object
