@@ -788,25 +788,26 @@ class ModeDefinitionModel(QStandardItemModel):
         orb.log.debug(' - mode datum set by delegate')
         if not index.isValid():
             return False
-        self.setData(index, value, role=Qt.EditRole)
-        link = self.objs[index.row()]
-        mode = self.view[index.column()]
-        sys_dict = mode_defz[self.project.oid]['systems']
-        comp_dict = mode_defz[self.project.oid]['components']
-        if link.oid in sys_dict:
-            orb.log.debug(' - sending "set sys mode datum" signal ...')
-            dispatcher.send(signal='set sys mode datum',
-                            datum=(self.project.oid, link.oid, mode, value))
-        else:
-            mod = False
-            for oid in comp_dict:
-                if link.oid in comp_dict[oid]:
-                    mod = True
-            if mod:
-                orb.log.debug(' - sending "set comp mode datum" signal ...')
-                dispatcher.send(signal='set comp mode datum',
-                                datum=(self.project.oid, oid, link.oid, mode,
+        if self.setData(index, value, role=Qt.EditRole):
+            link = self.objs[index.row()]
+            mode = self.view[index.column()]
+            sys_dict = mode_defz[self.project.oid]['systems']
+            comp_dict = mode_defz[self.project.oid]['components']
+            if link.oid in sys_dict:
+                orb.log.debug(' - sending "sys mode datum set" signal')
+                dispatcher.send(signal='sys mode datum set',
+                                datum=(self.project.oid, link.oid, mode,
                                        value))
+            else:
+                mod = False
+                for oid in comp_dict:
+                    if link.oid in comp_dict[oid]:
+                        mod = True
+                if mod:
+                    orb.log.debug(' - sending "comp mode datum set" signal')
+                    dispatcher.send(signal='comp mode datum set',
+                                    datum=(self.project.oid, oid, link.oid,
+                                           mode, value))
 
     def setData(self, index, value, role=Qt.EditRole):
         if role != Qt.EditRole:

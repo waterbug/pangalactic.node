@@ -249,8 +249,8 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
-        dispatcher.connect(self.on_set_sys_mode_datum, 'set sys mode datum')
-        dispatcher.connect(self.on_set_comp_mode_datum, 'set comp mode datum')
+        dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
+        dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
         dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
@@ -3299,11 +3299,11 @@ class Main(QMainWindow):
             msg = f'mode defs updated [dts: {result}]'
         orb.log.debug(f'* {msg}')
 
-    def on_set_sys_mode_datum(self, datum=None):
+    def on_sys_mode_datum_set(self, datum=None):
         """
-        Handle local dispatcher signal for "set sys mode datum".
+        Handle local dispatcher signal for "sys mode datum set".
         """
-        orb.log.debug('* signal: "set sys mode datum"')
+        orb.log.debug('* signal: "sys mode datum set"')
         if len(datum or []) == 4:
             project_oid, link_oid, mode, value = datum
             project = orb.get(project_oid)
@@ -3323,7 +3323,7 @@ class Main(QMainWindow):
             rpc.addCallback(self.rpc_set_sys_mode_datum_result)
             rpc.addErrback(self.on_failure)
         else:
-            orb.log.debug('  improper datum format sent')
+            orb.log.debug('  improper sys mode datum format sent')
 
     def rpc_set_sys_mode_datum_result(self, result):
         """
@@ -3333,17 +3333,17 @@ class Main(QMainWindow):
             result (str):  a stringified mod datetime stamp or an error.
         """
         if result in ['unauthorized', 'no such project']:
-            msg = 'set sys mode datum failed: ' + result
+            msg = 'setting of sys mode datum failed: ' + result
         else:
             state['mode_defz_dts'] = result
             msg = f'sys mode datum set successfully [dts: {result}]'
         orb.log.debug(f'* {msg}')
 
-    def on_set_comp_mode_datum(self, datum=None):
+    def on_comp_mode_datum_set(self, datum=None):
         """
-        Handle local dispatcher signal for "set comp mode datum".
+        Handle local dispatcher signal for "comp mode datum set".
         """
-        orb.log.debug('* signal: "set comp mode datum"')
+        orb.log.debug('* signal: "comp mode datum set"')
         if len(datum or []) == 5:
             project_oid, link_oid, comp_oid, mode, value = datum
             project = orb.get(project_oid)
@@ -3366,7 +3366,7 @@ class Main(QMainWindow):
             rpc.addCallback(self.rpc_set_comp_mode_datum_result)
             rpc.addErrback(self.on_failure)
         else:
-            orb.log.debug('  improper datum format sent')
+            orb.log.debug('  improper comp mode datum format sent')
 
     def rpc_set_comp_mode_datum_result(self, result):
         """
@@ -3376,7 +3376,7 @@ class Main(QMainWindow):
             result (str):  a stringified mod datetime stamp or an error.
         """
         if result in ['unauthorized', 'no such project']:
-            msg = 'set comp mode datum failed: ' + result
+            msg = 'setting of comp mode datum failed: ' + result
         else:
             state['mode_defz_dts'] = result
             msg = f'comp mode datum set successfully [dts: {result}]'
