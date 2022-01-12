@@ -643,8 +643,14 @@ class ModesTool(QMainWindow):
             link = orb.get(oid)
             items.append(link)
             if link.oid in comp_dict:
+                comps = []
                 for oid in comp_dict[link.oid]:
-                    items.append(orb.get(oid))
+                    comps.append(orb.get(oid))
+                # sort comps by "name" (same as in the system tree)
+                by_name = [(get_link_name(comp), comp) for comp in comps]
+                by_name.sort()
+                comps = [bn[1] for bn in by_name]
+                items += comps
         model = ModeDefinitionModel(items, view=view, project=self.project)
         for i, mode in enumerate(view):
             model.setHeaderData(i, Qt.Horizontal, self.wrap_header(mode))
