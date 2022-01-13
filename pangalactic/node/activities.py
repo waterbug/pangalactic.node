@@ -3,6 +3,7 @@
 
 import sys
 from collections import OrderedDict
+from copy import deepcopy
 # from pprint import pprint
 from textwrap import wrap, fill
 
@@ -843,8 +844,6 @@ class ModeDefinitionView(QTableView):
     def __init__(self, project, parent=None):
         super().__init__(parent=parent)
         self.project = project
-        if not mode_defz.get(project.oid):
-            mode_defz[project.oid] = dict(modes={}, systems={}, components={})
         header = self.horizontalHeader()
         header.setStyleSheet('font-weight: bold')
         header.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -862,8 +861,11 @@ class ModeDefinitionView(QTableView):
         orb.log.debug('  logical index: {}'.format(logical_index))
         orb.log.debug('  old index: {}'.format(old_index))
         orb.log.debug('  new index: {}'.format(new_index))
-        modes_dict = mode_defz[self.project.oid]['modes']
-        modes = list(modes_dict)
+        old_modes_dict = deepcopy(mode_defz[self.project.oid]['modes'])
+        old_sys_dict = deepcopy(mode_defz[self.project.oid]['systems'])
+        old_comp_dict = deepcopy(mode_defz[self.project.oid]['components'])
+        del mode_defz[self.project.oid]
+        modes = list(old_modes_dict)
         new_modes = modes[:]
         moved_item = new_modes.pop(old_index)
         if new_index > len(new_modes) - 1:
@@ -871,8 +873,20 @@ class ModeDefinitionView(QTableView):
         else:
             new_modes.insert(new_index, moved_item)
         orb.log.debug(f'  new mode order: {str(new_modes)}')
-        new_modes_dict = {mode : modes_dict[mode] for mode in new_modes}
+        new_modes_dict = {mode : old_modes_dict[mode] for mode in new_modes}
+        new_sys_dict = {link_oid : {mode : old_sys_dict[link_oid][mode]
+                                    for mode in new_modes}
+                        for link_oid in old_sys_dict}
+        new_comp_dict = {link_oid : 
+                            {comp_oid :
+                                {mode : old_comp_dict[link_oid][comp_oid][mode]
+                                 for mode in new_modes}
+                             for comp_oid in old_comp_dict[link_oid]}
+                         for link_oid in old_comp_dict}
+        mode_defz[self.project.oid] = {}
         mode_defz[self.project.oid]['modes'] = new_modes_dict
+        mode_defz[self.project.oid]['systems'] = new_sys_dict
+        mode_defz[self.project.oid]['components'] = new_comp_dict
         dispatcher.send(signal='modes edited', project_oid=self.project.oid)
 
     def edit_modes(self):

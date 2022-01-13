@@ -3,7 +3,7 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, multiprocessing, os, shutil, sys
+import argparse, atexit, json, multiprocessing, os, shutil, sys
 import time, traceback, webbrowser
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
@@ -1110,7 +1110,7 @@ class Main(QMainWindow):
         local_md_dts = state.get('mode_defz_dts')
         if (local_md_dts is None) or (md_dts > local_md_dts):
             orb.log.debug('  - updating mode_defz ...')
-            all_proj_modes = yaml.safe_load(md_data)
+            all_proj_modes = json.loads(md_data)
             mode_defz.update(all_proj_modes)
         else:
             orb.log.debug('  - mode_defz is up to date.')
@@ -1362,7 +1362,7 @@ class Main(QMainWindow):
                 else:
                     local_md_dts = state.get('mode_defz_dts')
                     if (local_md_dts is None) or (md_dts > local_md_dts):
-                        all_proj_modes = yaml.safe_load(ser_md)
+                        all_proj_modes = json.loads(ser_md)
                         mode_defz.update(all_proj_modes)
                         state['mode_defz_dts'] = md_dts
                         orb.log.debug('    mode_defz updated.')
@@ -3274,10 +3274,12 @@ class Main(QMainWindow):
         orb.log.debug('* signal: "modes edited"')
         proj_mode_defs = mode_defz.get(project_oid) or {}
         if proj_mode_defs and state['connected']:
-            data = yaml.safe_dump(proj_mode_defs, default_flow_style=False)
+            data = json.dumps(proj_mode_defs, sort_keys=False)
+            s = json.dumps(proj_mode_defs, separators=(',', ':'),
+                           indent=4, sort_keys=False)
             orb.log.debug('  - sending modes data to server:')
             orb.log.debug('    =============================')
-            orb.log.debug(f'    {data}')
+            orb.log.debug(f'    {s}')
             orb.log.debug('    =============================')
             rpc = self.mbus.session.call('vger.update_mode_defs',
                                          project_oid=project_oid,
