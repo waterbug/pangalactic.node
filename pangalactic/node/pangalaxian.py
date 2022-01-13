@@ -574,11 +574,10 @@ class Main(QMainWindow):
                                     "Connection Lost", message,
                                     QMessageBox.Ok, self)
                 popup.show()
-        finally:
-            rpc.addTimeout(3, self.reactor,
-                           onTimeoutCancel=self.on_rpc_timeout)
-            rpc.addCallback(self.on_rpc_get_user_roles_result)
-            rpc.addErrback(self.on_rpc_get_user_roles_failure)
+        rpc.addTimeout(5, self.reactor,
+                       onTimeoutCancel=self.on_rpc_timeout)
+        rpc.addCallback(self.on_rpc_get_user_roles_result)
+        rpc.addErrback(self.on_rpc_get_user_roles_failure)
 
     def on_rpc_timeout(self, result, timeout):
         orb.log.debug(f'* rpc timed out after {timeout} seconds')
