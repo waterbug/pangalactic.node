@@ -848,6 +848,8 @@ class ModeDefinitionView(QTableView):
         header = self.horizontalHeader()
         header.setStyleSheet('font-weight: bold')
         header.setContextMenuPolicy(Qt.ActionsContextMenu)
+        header.setSectionsMovable(True)
+        header.sectionMoved.connect(self.on_section_moved)
         edit_modes_action = QAction('add or edit modes', header)
         edit_modes_action.triggered.connect(self.edit_modes)
         header.addAction(edit_modes_action)
@@ -855,9 +857,26 @@ class ModeDefinitionView(QTableView):
         delete_modes_action.triggered.connect(self.delete_modes)
         header.addAction(delete_modes_action)
 
+    def on_section_moved(self, logical_index, old_index, new_index):
+        orb.log.debug('* ModeDefinitionView: on_section_moved() ...')
+        orb.log.debug('  logical index: {}'.format(logical_index))
+        orb.log.debug('  old index: {}'.format(old_index))
+        orb.log.debug('  new index: {}'.format(new_index))
+        modes_dict = mode_defz[self.project.oid]['modes']
+        modes = list(modes_dict)
+        new_modes = modes[:]
+        moved_item = new_modes.pop(old_index)
+        if new_index > len(new_modes) - 1:
+            new_modes.append(moved_item)
+        else:
+            new_modes.insert(new_index, moved_item)
+        orb.log.debug(f'  new mode order: {str(new_modes)}')
+        new_modes_dict = {mode : modes_dict[mode] for mode in new_modes}
+        mode_defz[self.project.oid]['modes'] = new_modes_dict
+        dispatcher.send(signal='modes edited', project_oid=self.project.oid)
+
     def edit_modes(self):
         dlg = EditModesDialog(self.project, parent=self)
-        # if dlg.exec_() == QDialog.Accepted:
         dlg.show()
 
     def delete_modes(self):
