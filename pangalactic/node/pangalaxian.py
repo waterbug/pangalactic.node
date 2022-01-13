@@ -3274,9 +3274,9 @@ class Main(QMainWindow):
         orb.log.debug('* signal: "modes edited"')
         proj_mode_defs = mode_defz.get(project_oid) or {}
         if proj_mode_defs and state['connected']:
-            data = json.dumps(proj_mode_defs, sort_keys=False)
+            data = json.dumps(proj_mode_defs)
             s = json.dumps(proj_mode_defs, separators=(',', ':'),
-                           indent=4, sort_keys=False)
+                           indent=4)
             orb.log.debug('  - sending modes data to server:')
             orb.log.debug('    =============================')
             orb.log.debug(f'    {s}')
