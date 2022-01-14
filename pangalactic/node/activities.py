@@ -806,14 +806,14 @@ class ModeDefinitionModel(QStandardItemModel):
                                 datum=(self.project.oid, link.oid, mode,
                                        value))
             else:
-                mod = False
+                sys_oid = None
                 for oid in comp_dict:
                     if link.oid in comp_dict[oid]:
-                        mod = True
-                if mod:
+                        sys_oid = oid
+                if sys_oid:
                     orb.log.debug(' - sending "comp mode datum set" signal')
                     dispatcher.send(signal='comp mode datum set',
-                                    datum=(self.project.oid, oid, link.oid,
+                                    datum=(self.project.oid, sys_oid, link.oid,
                                            mode, value))
 
     def setData(self, index, value, role=Qt.EditRole):

@@ -1111,6 +1111,9 @@ class Main(QMainWindow):
             orb.log.debug('  - updating mode_defz ...')
             all_proj_modes = json.loads(md_data)
             mode_defz.update(all_proj_modes)
+            if (mode_defz and
+                ('System Power Modes' not in prefs['dashboard_names'])):
+                prefs['dashboard_names'].append('System Power Modes')
         else:
             orb.log.debug('  - mode_defz is up to date.')
         # then collect any local objects that need to be saved to the repo ...
@@ -1364,6 +1367,11 @@ class Main(QMainWindow):
                         all_proj_modes = json.loads(ser_md)
                         mode_defz.update(all_proj_modes)
                         state['mode_defz_dts'] = md_dts
+                        if (mode_defz and
+                            ('System Power Modes' not in
+                                                    prefs['dashboard_names'])):
+                            prefs['dashboard_names'].append(
+                                                        'System Power Modes')
                         orb.log.debug('    mode_defz updated.')
                         orb.log.debug('    sending "modes published" signal')
                         dispatcher.send(signal='modes published')
