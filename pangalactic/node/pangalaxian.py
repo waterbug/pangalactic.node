@@ -1354,8 +1354,8 @@ class Main(QMainWindow):
                 orb.log.debug('==============================================')
                 orb.log.debug(f'- datetime stamp: {md_dts}')
                 orb.log.debug(f'- userid:         {userid}')
-                orb.log.debug('- data:')
-                orb.log.debug(f'  {ser_md}')
+                orb.log.debug('- <data>')
+                # orb.log.debug(f'  {ser_md}')
                 orb.log.debug('==============================================')
                 if userid == state.get('userid'):
                     # originated from me -- set dts to server's dts
@@ -3282,12 +3282,12 @@ class Main(QMainWindow):
         proj_mode_defs = mode_defz.get(project_oid) or {}
         if proj_mode_defs and state['connected']:
             data = json.dumps(proj_mode_defs)
-            s = json.dumps(proj_mode_defs, separators=(',', ':'),
-                           indent=4)
-            orb.log.debug('  - sending modes data to server:')
-            orb.log.debug('    =============================')
-            orb.log.debug(f'    {s}')
-            orb.log.debug('    =============================')
+            # s = json.dumps(proj_mode_defs, separators=(',', ':'),
+                           # indent=4)
+            orb.log.debug('  - sending modes data to server ...')
+            # orb.log.debug('    =============================')
+            # orb.log.debug(f'    {s}')
+            # orb.log.debug('    =============================')
             rpc = self.mbus.session.call('vger.update_mode_defs',
                                          project_oid=project_oid,
                                          data=data)

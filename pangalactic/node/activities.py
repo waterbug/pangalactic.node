@@ -170,16 +170,16 @@ class ActivityTable(QWidget):
         return QSize(600, 500)
 
     def on_activity_edited(self, activity=None):
-        txt = '* {} table: on_activity_edited()'
-        orb.log.debug(txt.format(self.position))
+        # txt = '* {} table: on_activity_edited()'
+        # orb.log.debug(txt.format(self.position))
         if getattr(activity, 'oid', None) == self.subject.oid:
             self.set_title_text()
         elif activity in self.activities:
             self.set_table()
 
     def on_activity_remote_mod(self, activity=None):
-        txt = '* {} table: on_activity_remote_mod()'
-        orb.log.debug(txt.format(self.position))
+        # txt = '* {} table: on_activity_remote_mod()'
+        # orb.log.debug(txt.format(self.position))
         if activity and activity.where_occurs:
             composite_activity = getattr(activity.where_occurs[0],
                                          'composite_activity', None)
@@ -189,8 +189,8 @@ class ActivityTable(QWidget):
 
     def on_activity_added(self, composite_activity=None, modified=False,
                           act_of=None, position=None):
-        txt = '* {} table: on_activity_added(modified=True)'
-        orb.log.debug(txt.format(self.position))
+        # txt = '* {} table: on_activity_added(modified=True)'
+        # orb.log.debug(txt.format(self.position))
         if self.position == position:
             if modified:
                 self.statusbar.showMessage('Activity Modified!')
