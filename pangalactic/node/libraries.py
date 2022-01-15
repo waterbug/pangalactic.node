@@ -389,6 +389,8 @@ class LibraryListWidget(QWidget):
                                  parent=self)
             if hasattr(widget, 'ext_filters'):
                 widget.ext_filters.clicked.connect(self.show_ext_filters)
+                widget.clear_filters_btn.clicked.connect(
+                                                self.clear_product_filters)
                 dispatcher.connect(self.on_product_types_selected,
                                    'product types selected')
                 dispatcher.connect(self.on_only_mine_toggled,
@@ -507,6 +509,13 @@ class LibraryListWidget(QWidget):
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
         self.filter_dlg.show()
+
+    def clear_product_filters(self):
+        hw_lib = self.libraries.get('HardwareProduct')
+        if hw_lib:
+            select_product_types(hw_lib, msg='All Product Types',
+                                 only_mine=state.get('only_mine'),
+                                 product_types=[])
 
     def on_product_types_selected(self, msg='', objs=None):
         # orb.log.debug('* on_product_types_selected:')

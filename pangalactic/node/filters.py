@@ -550,6 +550,8 @@ class FilterPanel(QWidget):
         self.proxy_model.setDynamicSortFilter(True)
         if external_filters:
             self.ext_filters = SizedButton("Filters")
+            self.clear_filters_btn = SizedButton("Clear Product Filters",
+                                                 color="green")
             self.cur_filter_label = QLabel("All Product Types")
             self.cur_filter_label.setStyleSheet(
                                            'font-weight: bold; color: green;')
@@ -592,6 +594,7 @@ class FilterPanel(QWidget):
             proxy_layout.addLayout(only_mine_hbox)
             filters_hbox = QHBoxLayout()
             filters_hbox.addWidget(self.ext_filters)
+            filters_hbox.addWidget(self.clear_filters_btn)
             filters_hbox.addWidget(self.cur_filter_label)
             proxy_layout.addLayout(filters_hbox)
         text_filter_hbox = QHBoxLayout()

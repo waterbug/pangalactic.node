@@ -4286,11 +4286,6 @@ class Main(QMainWindow):
             '<html><p><b>{} {}</b></p></html>'.format(app_name, version))
 
     def show_user_guide(self):
-        # ug_path = os.path.join(orb.home, 'doc', 'user_guide.html')
-        # help_url = urllib.parse.urljoin('file:',
-                                    # urllib.request.pathname2url(ug_path))
-        # help_widget = HelpWidget(help_url, parent=self)
-        # help_widget.show()
         ug_url = 'https://pangalactic.us/cattens_doc/user_guide.html'
         webbrowser.open_new(ug_url)
 
