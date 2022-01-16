@@ -571,7 +571,7 @@ class FilterPanel(QWidget):
         self.filter_pattern_line_edit.textChanged.connect(
                                                         self.textFilterChanged)
         filter_pattern_label.setBuddy(self.filter_pattern_line_edit)
-        self.clear_btn = SizedButton("Clear")
+        self.clear_btn = SizedButton("Clear", color="green")
         self.clear_btn.clicked.connect(self.clear_text)
         self.filter_case_checkbox.toggled.connect(self.textFilterChanged)
         self.proxy_view = ProxyView(self.proxy_model, sized_cols=sized_cols,
