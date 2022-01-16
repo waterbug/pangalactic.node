@@ -347,9 +347,9 @@ class ProxyView(QTableView):
     Presentation table view for a filtered set of objects.
     """
     def __init__(self, proxy_model, sized_cols=None, as_library=False,
-                 parent=None):
+                 word_wrap=False, parent=None):
         super().__init__(parent=parent)
-        self.sized_cols = sized_cols or ['id', 'name']
+        self.sized_cols = sized_cols or {'id': 150, 'name': 150}
         col_header = self.horizontalHeader()
         # col_header.setSectionResizeMode(col_header.Stretch)
         # TODO:  add a handler to set column order pref when sections are moved
@@ -359,8 +359,9 @@ class ProxyView(QTableView):
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # NEVER wrapping, for now
-        self.setWordWrap(False)
+        # wrapping now enabled if specified [SCW 01/16/2022]
+        if not word_wrap:
+            self.setWordWrap(False)
         if proxy_model:
             self.setModel(proxy_model)
         self.setSortingEnabled(True)
@@ -391,12 +392,18 @@ class ProxyView(QTableView):
     def resize_sized_cols(self):
         labels = [self.model().headerData(i, Qt.Horizontal, Qt.DisplayRole)
                   for i in range(len(self.model().view))]
-        for col in self.sized_cols:
-            if col in self.model().col_to_label:
+        for col in self.model().col_to_label:
+            if col in self.sized_cols:
                 # get int of col position ... use try/except to be extra safe
                 try:
                     pos = labels.index(self.model().col_to_label[col])
-                    self.resizeColumnToContents(pos)
+                    self.setColumnWidth(pos, self.sized_cols[col])
+                except:
+                    continue
+            elif col in PGEF_COL_WIDTHS:
+                try:
+                    pos = labels.index(self.model().col_to_label[col])
+                    self.setColumnWidth(pos, PGEF_COL_WIDTHS[col])
                 except:
                     continue
 
@@ -445,7 +452,7 @@ class FilterPanel(QWidget):
     def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
                  width=None, min_width=None, height=None, as_library=False,
                  cname=None, external_filters=False, excluded_oids=None,
-                 parent=None):
+                 word_wrap=False, parent=None):
         """
         Initialize.
 
@@ -472,6 +479,7 @@ class FilterPanel(QWidget):
                 so far this is only used for the Product library
             excluded_oids (list of str) oids of objs to be excluded from a
                 "library"
+            word_wrap (bool):  set word wrapping for table cells
             height (int):  height of dialog widget
             parent (QWidget): parent widget
         """
@@ -575,13 +583,15 @@ class FilterPanel(QWidget):
         self.clear_btn.clicked.connect(self.clear_text)
         self.filter_case_checkbox.toggled.connect(self.textFilterChanged)
         self.proxy_view = ProxyView(self.proxy_model, sized_cols=sized_cols,
-                                    as_library=as_library, parent=self)
+                                    as_library=as_library, word_wrap=word_wrap,
+                                    parent=self)
         # IMPORTANT:  after a sort, rows retain the heights they had before
         # the sort (i.e. wrong) unless this is done:
         # [2020-10-22 SCW] NO, not necessary because not word-wrapping -> rows
         # are all the same height!
-        # self.proxy_model.layoutChanged.connect(
-                                    # self.proxy_view.resizeRowsToContents)
+        # [2021-01-16 SCW] now necessary because word-wrapping ...
+        self.proxy_model.layoutChanged.connect(
+                                    self.proxy_view.resizeRowsToContents)
         self.proxy_model.layoutChanged.connect(
                                         self.proxy_view.resize_sized_cols)
         self.textFilterChanged()

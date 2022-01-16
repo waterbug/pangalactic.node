@@ -25,6 +25,7 @@ class RequirementManager(QDialog):
 
     Keyword Args:
         project (Project):  sets a project context
+        sized_cols (dict):  mapping of col names to widths
     """
     def __init__(self, project=None, width=None, height=None, view=None,
                  req=None, parent=None):
@@ -32,14 +33,14 @@ class RequirementManager(QDialog):
         default_view = ['id', 'req_level', 'name', 'req_type', 'description',
                         'rationale']
         view = view or default_view
-        sized_cols = ['id', 'req_level', 'name', 'req_type']
+        sized_cols = {'id': 150, 'name': 150}
         self.req = req
         self.req_wiz_calls = []
         if project:
-            objs = orb.search_exact(cname='Requirement', owner=project)
+            rqts = orb.search_exact(cname='Requirement', owner=project)
             title_txt = 'Project Requirements for {}'.format(project.id)
         else:
-            objs = orb.search_exact(cname='Requirement')
+            rqts = orb.search_exact(cname='Requirement')
             title_txt = 'Requirements'
         self.title = QLabel(title_txt)
         self.title.setStyleSheet('font-weight: bold; font-size: 20px')
@@ -53,8 +54,9 @@ class RequirementManager(QDialog):
             QDialogButtonBox.Close, Qt.Horizontal, self)
         main_layout.addWidget(self.bbox)
         self.bbox.rejected.connect(self.reject)
-        self.fpanel = FilterPanel(objs, view=view, sized_cols=sized_cols,
-                                  parent=self)
+        # NOTE: now using word wrap and PGEF_COL_WIDTHS
+        self.fpanel = FilterPanel(rqts, view=view, sized_cols=sized_cols,
+                                  word_wrap=True, parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.fpanel.proxy_view.clicked.connect(self.on_select_req)
         fpanel_layout = QVBoxLayout()
@@ -119,9 +121,11 @@ class RequirementManager(QDialog):
             if dlg.exec_() == QDialog.Accepted:
                 orb.log.info('* req parm edited.')
                 self.editing_parm = False
+                dlg.close()
             else:
                 orb.log.info('* req parm editing cancelled.')
                 self.editing_parm = False
+                dlg.close()
 
     def set_req(self, r):
         self.sys_tree.req = r
