@@ -39,6 +39,9 @@ def setup_dirs_and_state():
         if item not in config:
             config[item] = default_config[item]
     # state contains app-specified dashboards (app_dashboards)
+    # NOTE: "app_" items in state are NOT restored when state is loaded from
+    # the save state file -- that way "app_" items are ALWAYS set from the
+    # current app release.
     app_dbds = state.get('app_dashboards')
     if prefs.get('dashboards'):
         # update prefs from any new app dashboards in state
@@ -60,7 +63,7 @@ def setup_dirs_and_state():
         state['dashboard_name'] = prefs['dashboard_names'][0]
     # app config will have been loaded -- add any missing default_parameters or
     # default_data_elements using state
-    app_parms = state.get('default_parms') or []
+    app_parms = state.get('app_default_parms') or []
     if prefs.get('default_parms'):
         # update prefs from any new default_parms in state
         if app_parms:
@@ -73,7 +76,7 @@ def setup_dirs_and_state():
             prefs['default_parms'] = app_parms[:]
         else:
             prefs['default_parms'] = ['m', 'P', 'R_D', 'Cost']
-    app_data_elements = state.get('default_data_elements') or []
+    app_data_elements = state.get('app_default_data_elements') or []
     if prefs.get('default_data_elements'):
         # update data elements from any new ones in state
         if app_data_elements:
