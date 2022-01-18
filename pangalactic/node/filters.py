@@ -733,8 +733,8 @@ class FilterPanel(QWidget):
         else:
             # for all objs other than Requirements, use PgxnObject
             self.addAction(self.pgxnobj_action)
-        if self.cname == 'HardwareProduct':
-            self.addAction(self.template_action)
+        # if self.cname == 'HardwareProduct':
+            # self.addAction(self.template_action)
         self.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def display_object(self):
