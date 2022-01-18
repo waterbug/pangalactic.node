@@ -607,7 +607,8 @@ class ReqSummaryPage(QWizardPage):
         self.fields['allocation'].setText(allocation)
         for a in ['id', 'name']:
              self.fields[a].setText(getattr(self.req, a, '[Not Specified]'))
-        for a in ['description', 'rationale', 'verification_method']:
+        for a in ['description', 'justification', 'rationale',
+                  'verification_method']:
              self.fields[a].setText(req_wizard_state.get(a, '[Not Specified]'))
         self.wizard().button(QWizard.FinishButton).clicked.connect(self.finish)
 
@@ -886,7 +887,7 @@ class PerformanceDefineParmPage(QWizardPage):
 class PerformReqShallPage(QWizardPage):
     """
     Finalize the "shall statement" (Requirement.description) and add the
-    rationale.  The 3 components of the shall statement are:
+    rationale and justification.  The 3 components of the shall statement are:
     [1] req_subject:  'name' attribute of 'allocated_to_function' or
     'allocated_to_system'
     [2] req_predicate:  'shall be' + phrase generated based on
@@ -977,9 +978,9 @@ class PerformReqShallPage(QWizardPage):
             self.line_top.parent = None
             layout.removeItem(self.shall_vbox)
             self.shall_vbox.parent= None
-            self.line_bottom.hide()
-            layout.removeWidget(self.line_bottom)
-            self.line_bottom.parent = None
+            self.line_middle.hide()
+            layout.removeWidget(self.line_middle)
+            self.line_middle.parent = None
             self.rationale_label.hide()
             self.rationale_layout.removeWidget(self.rationale_label)
             self.rationale_label.parent = None
@@ -988,6 +989,17 @@ class PerformReqShallPage(QWizardPage):
             self.rationale_field.parent = None
             layout.removeItem(self.rationale_layout)
             self.rationale_layout.parent = None
+            self.line_bottom.hide()
+            layout.removeWidget(self.line_bottom)
+            self.line_bottom.parent = None
+            self.justification_label.hide()
+            self.justification_layout.removeWidget(self.justification_label)
+            self.justification_label.parent = None
+            self.justification_field.hide()
+            self.justification_layout.removeWidget(self.justification_field)
+            self.justification_field.parent = None
+            layout.removeItem(self.justification_layout)
+            self.justification_layout.parent = None
             self.preview_button.hide()
             self.preview_form.removeWidget(self.preview_button)
             self.preview_button.parent = None
@@ -997,9 +1009,9 @@ class PerformReqShallPage(QWizardPage):
             layout.removeItem(self.preview_form)
             self.preview_form.parent = None
 
-        self.setTitle('Shall Statement and Rationale')
+        self.setTitle('Shall Statement, Rationale, and Justification')
         self.setSubTitle('Inspect the "shall statement" and provide the '
-                         'requirements rationale ...')
+                         'rationale ...')
 
         # button with label to access instructions
         inst_button = QPushButton('Instructions')
@@ -1163,6 +1175,7 @@ class PerformReqShallPage(QWizardPage):
         # labels for the overall groups for organization of the page
         shall_label = QLabel('Shall Statement:')
         self.rationale_label = QLabel('Rationale: ')
+        self.justification_label = QLabel('Justification: ')
 
         # lines for spacers inside the widget.
         self.line_top= QHLine()
@@ -1178,8 +1191,8 @@ class PerformReqShallPage(QWizardPage):
                                     req_wizard_state.get('rationale', ''))
 
         # justification plain text edit
-        self.rationale_field = QPlainTextEdit()
-        self.rationale_field.setPlainText(
+        self.justification_field = QPlainTextEdit()
+        self.justification_field.setPlainText(
                                     req_wizard_state.get('justification', ''))
 
         # shall statement
@@ -1245,8 +1258,9 @@ class PerformReqShallPage(QWizardPage):
         layout.addLayout(self.instructions_form)
         layout.addWidget(self.line_top)
         layout.addLayout(self.shall_vbox)
-        layout.addWidget(self.line_bottom)
+        layout.addWidget(self.line_middle)
         layout.addLayout(self.rationale_layout)
+        layout.addWidget(self.line_bottom)
         layout.addLayout(self.justification_layout)
         layout.addLayout(self.preview_form)
 
@@ -1392,6 +1406,8 @@ class PerformReqShallPage(QWizardPage):
             req_obj = str(req_wizard_state.get('req_maximum_value', ''))
             req_obj += ' ' + units
         req_wizard_state['req_object'] = req_obj
+        req_wizard_state[
+                 'justification'] = self.justification_field.toPlainText()
         req_wizard_state['rationale'] = self.rationale_field.toPlainText()
         if not req_wizard_state.get('rationale'):
             return False
