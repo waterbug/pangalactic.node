@@ -349,7 +349,7 @@ class ProxyView(QTableView):
     def __init__(self, proxy_model, sized_cols=None, as_library=False,
                  word_wrap=False, parent=None):
         super().__init__(parent=parent)
-        self.sized_cols = sized_cols or {'id': 150, 'name': 150}
+        self.sized_cols = sized_cols or {'name': 150}
         col_header = self.horizontalHeader()
         # col_header.setSectionResizeMode(col_header.Stretch)
         # TODO:  add a handler to set column order pref when sections are moved
@@ -397,7 +397,11 @@ class ProxyView(QTableView):
                 # get int of col position ... use try/except to be extra safe
                 try:
                     pos = labels.index(self.model().col_to_label[col])
-                    self.setColumnWidth(pos, self.sized_cols[col])
+                    w = self.sized_cols[col]
+                    if w:
+                        self.setColumnWidth(pos, w)
+                    else:
+                        self.resizeColumnToContents(pos)
                 except:
                     continue
             elif col in PGEF_COL_WIDTHS:
@@ -648,6 +652,9 @@ class FilterPanel(QWidget):
             self.proxy_view.setColumnWidth(i,
                                            PGEF_COL_WIDTHS.get(colname, 100))
         self.proxy_view.resizeRowsToContents()
+        if self.cname == 'Requirement':
+            # for Reqt Manager, show grid
+            self.proxy_view.setShowGrid(True)
 
     def create_model(self, objs=None):
         """

@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
                              QSizePolicy, QVBoxLayout)
 
 from pangalactic.core.uberorb     import orb
+from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.dialogs     import ReqFieldsDialog, ReqParmDialog
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.systemtree  import SystemTreeView
@@ -34,21 +35,25 @@ class RequirementManager(QDialog):
                         'req_compliance', 'description', 'rationale',
                         'justification', 'comment']
         view = view or default_view
-        sized_cols = {'id': 150, 'name': 150}
+        sized_cols = {'id': 0, 'name': 150}
         self.req = req
         self.req_wiz_calls = []
-        if project:
-            rqts = orb.search_exact(cname='Requirement', owner=project)
-            title_txt = 'Project Requirements for {}'.format(project.id)
-        else:
-            rqts = orb.search_exact(cname='Requirement')
-            title_txt = 'Requirements'
+        self.project = project
+        rqts = orb.search_exact(cname='Requirement', owner=project)
+        title_txt = 'Project Requirements for {}'.format(project.id)
         self.title = QLabel(title_txt)
         self.title.setStyleSheet('font-weight: bold; font-size: 20px')
-        main_layout = QVBoxLayout()
-        self.setLayout(main_layout)
-        main_layout = self.layout()
+        main_layout = QVBoxLayout(self)
+        # self.setLayout(main_layout)
+        # main_layout = self.layout()
         main_layout.addWidget(self.title)
+        self.hide_tree_button = SizedButton('Hide Allocations',
+                                             color="purple")
+        self.hide_tree_button.clicked.connect(self.hide_allocation_panel)
+        self.show_tree_button = SizedButton('Show Allocations', color="green")
+        self.show_tree_button.clicked.connect(self.display_allocation_panel)
+        main_layout.addWidget(self.hide_tree_button)
+        main_layout.addWidget(self.show_tree_button)
         self.content_layout = QHBoxLayout()
         main_layout.addLayout(self.content_layout, stretch=1)
         self.bbox = QDialogButtonBox(
@@ -60,13 +65,12 @@ class RequirementManager(QDialog):
                                   word_wrap=True, parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.fpanel.proxy_view.clicked.connect(self.on_select_req)
-        fpanel_layout = QVBoxLayout()
-        fpanel_layout.addWidget(self.fpanel)
-        self.content_layout.addLayout(fpanel_layout)
+        self.fpanel_layout = QVBoxLayout()
+        self.fpanel_layout.addWidget(self.fpanel)
+        self.content_layout.addLayout(self.fpanel_layout)
         # TODO:  make project a property; in its setter, enable the checkbox
         # that opens the "allocation panel" (tree)
-        if project:
-            self.display_allocation_panel(project)
+        self.display_allocation_panel()
         dispatcher.connect(self.on_edit_req_signal, 'edit requirement')
         dispatcher.connect(self.on_edit_req_parm_signal, 'edit req parm')
         dispatcher.connect(self.on_edit_req_fields_signal, 'edit req fields')
@@ -84,17 +88,26 @@ class RequirementManager(QDialog):
     def req(self, r):
         self._req = r
 
-    def display_allocation_panel(self, project):
+    def hide_allocation_panel(self, evt):
+        self.content_layout.removeItem(self.tree_layout)
+        self.sys_tree.setVisible(False)
+        self.content_layout.setStretchFactor(self.fpanel_layout, 1)
+        self.hide_tree_button.setVisible(False)
+        self.show_tree_button.setVisible(True)
+
+    def display_allocation_panel(self):
         if getattr(self, 'tree_layout', None):
-            self.tree_layout.removeWidget()
-        self.sys_tree = SystemTreeView(project, refdes=True, show_allocs=True,
-                                       req=self.req)
+            self.tree_layout.removeItem(self.tree_layout)
+        self.sys_tree = SystemTreeView(self.project, refdes=True,
+                                       show_allocs=True, req=self.req)
         self.sys_tree.collapseAll()
         self.sys_tree.expandToDepth(1)
         self.sys_tree.clicked.connect(self.on_select_node)
         self.tree_layout = QVBoxLayout()
         self.tree_layout.addWidget(self.sys_tree)
         self.content_layout.addLayout(self.tree_layout, stretch=1)
+        self.show_tree_button.setVisible(False)
+        self.hide_tree_button.setVisible(True)
 
     def on_select_node(self, index):
         # TODO:  filter requirements by selected PSU/Acu
