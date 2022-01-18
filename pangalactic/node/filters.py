@@ -487,6 +487,7 @@ class FilterPanel(QWidget):
         self.as_library = as_library
         self.excluded_oids = excluded_oids or []
         self.edit_req_calls = 0
+        self.edit_req_fields_calls = 0
         if as_library and cname:
             self.cname = cname
             if cname in orb.classes:
@@ -712,6 +713,9 @@ class FilterPanel(QWidget):
         txt = 'Edit parameters of this requirement'
         self.req_parms_action = QAction(txt, self)
         self.req_parms_action.triggered.connect(self.edit_req_parms)
+        txt = 'Edit fields of this requirement'
+        self.req_fields_action = QAction(txt, self)
+        self.req_fields_action.triggered.connect(self.edit_req_fields)
         txt = 'Edit this requirement in the wizard'
         self.reqwizard_action = QAction(txt, self)
         self.reqwizard_action.triggered.connect(self.edit_requirement)
@@ -724,6 +728,7 @@ class FilterPanel(QWidget):
             # for Requirements, use ReqWizard to edit ...
             # TODO:  only offer this action if user is authorized to edit
             self.addAction(self.req_parms_action)
+            self.addAction(self.req_fields_action)
             self.addAction(self.reqwizard_action)
         else:
             # for all objs other than Requirements, use PgxnObject
@@ -786,6 +791,27 @@ class FilterPanel(QWidget):
                     parm = 'req_target_value'
                 if parm:
                     dispatcher.send('edit req parm', req=req, parm=parm)
+            else:
+                message = "Not Authorized"
+                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
+                                    message, QMessageBox.Ok, self)
+                popup.show()
+
+    def edit_req_fields(self):
+        orb.log.debug('* edit_req_fields()')
+        req = None
+        if len(self.proxy_view.selectedIndexes()) >= 1:
+            i = self.proxy_model.mapToSource(
+                self.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
+            if oid:
+                req = orb.get(oid)
+        if req:
+            if 'modify' in get_perms(req):
+                self.edit_req_fields_calls +=1
+                dispatcher.send('edit req fields', req=req,
+                                call=self.edit_req_fields_calls)
             else:
                 message = "Not Authorized"
                 popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',

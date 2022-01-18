@@ -143,7 +143,9 @@ class ReqWizard(QWizard):
             for a in [
                 'comment',
                 'description',
+                'justification',
                 'rationale',
+                'req_compliance',
                 'req_constraint_type',
                 'req_object',
                 'req_level',
@@ -283,7 +285,8 @@ class RequirementIDPage(QWizardPage):
                 title_text += 'New Performance Requirement'
                 title_text += '</font></h3>'
         else:
-            main_view = ['id', 'name', 'description', 'rationale', 'comment']
+            main_view = ['id', 'name', 'description', 'justification',
+                         'rationale', 'comment']
             required = ['name', 'description', 'rationale']
             mask = ['id']
             if new:
@@ -343,6 +346,7 @@ class RequirementIDPage(QWizardPage):
         # req_wizard_state to sync with the saved req attributes ...
         req_wizard_state['description'] = self.req.description
         req_wizard_state['rationale'] = self.req.rationale
+        req_wizard_state['justification'] = self.req.justification
         req_wizard_state['comment'] = self.req.comment
         self.level_cb.removeItem(1)
         self.level_cb.removeItem(0)
@@ -585,8 +589,8 @@ class ReqSummaryPage(QWizardPage):
         form = QFormLayout()
         self.labels = {}
         self.fields = {}
-        for a in ['id', 'name', 'description', 'rationale', 'allocation',
-                  'verification_method']:
+        for a in ['id', 'name', 'description', 'justification', 'rationale',
+                  'allocation', 'verification_method']:
             self.labels[a] = NameLabel(get_attr_ext_name('Requirement', a))
             self.fields[a] = ValueLabel('')
             form.addRow(self.labels[a], self.fields[a])
@@ -611,6 +615,7 @@ class ReqSummaryPage(QWizardPage):
         # assign description, rationale, etc. ...
         self.req.description = req_wizard_state['description']
         self.req.rationale = req_wizard_state['rationale']
+        self.req.justification = req_wizard_state['justification']
         self.req.req_target_value = req_wizard_state.get('req_target_value')
         self.req.req_maximum_value = req_wizard_state.get('req_maximum_value')
         self.req.req_minimum_value = req_wizard_state.get('req_minimum_value')
@@ -1172,6 +1177,11 @@ class PerformReqShallPage(QWizardPage):
         self.rationale_field.setPlainText(
                                     req_wizard_state.get('rationale', ''))
 
+        # justification plain text edit
+        self.rationale_field = QPlainTextEdit()
+        self.rationale_field.setPlainText(
+                                    req_wizard_state.get('justification', ''))
+
         # shall statement
         self.shall_hbox = QHBoxLayout()
         self.shall_vbox = QVBoxLayout()
@@ -1211,6 +1221,12 @@ class PerformReqShallPage(QWizardPage):
         self.rationale_layout.addWidget(self.rationale_field)
         self.rationale_layout.setContentsMargins(0,40,0,40)
 
+        # justification layout
+        self.justification_layout = QHBoxLayout()
+        self.justification_layout.addWidget(self.justification_label)
+        self.justification_layout.addWidget(self.justification_field)
+        self.justification_layout.setContentsMargins(0,40,0,40)
+
         self.preview_form = QFormLayout()
 
         # save button
@@ -1231,6 +1247,7 @@ class PerformReqShallPage(QWizardPage):
         layout.addLayout(self.shall_vbox)
         layout.addWidget(self.line_bottom)
         layout.addLayout(self.rationale_layout)
+        layout.addLayout(self.justification_layout)
         layout.addLayout(self.preview_form)
 
     def num_entered(self):

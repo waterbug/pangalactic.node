@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
                              QSizePolicy, QVBoxLayout)
 
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.dialogs     import ReqParmDialog
+from pangalactic.node.dialogs     import ReqFieldsDialog, ReqParmDialog
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.systemtree  import SystemTreeView
 from pangalactic.node.reqwizards  import ReqWizard
@@ -30,8 +30,9 @@ class RequirementManager(QDialog):
     def __init__(self, project=None, width=None, height=None, view=None,
                  req=None, parent=None):
         super().__init__(parent=parent)
-        default_view = ['id', 'req_level', 'name', 'req_type', 'description',
-                        'rationale']
+        default_view = ['id', 'req_level', 'name', 'req_type',
+                        'req_compliance', 'description', 'rationale',
+                        'justification', 'comment']
         view = view or default_view
         sized_cols = {'id': 150, 'name': 150}
         self.req = req
@@ -68,7 +69,9 @@ class RequirementManager(QDialog):
             self.display_allocation_panel(project)
         dispatcher.connect(self.on_edit_req_signal, 'edit requirement')
         dispatcher.connect(self.on_edit_req_parm_signal, 'edit req parm')
+        dispatcher.connect(self.on_edit_req_fields_signal, 'edit req fields')
         self.editing_parm = False
+        self.editing_fields = False
         width = width or 600
         height = height or 500
         self.resize(width, height)
@@ -125,6 +128,20 @@ class RequirementManager(QDialog):
             else:
                 orb.log.info('* req parm editing cancelled.')
                 self.editing_parm = False
+                dlg.close()
+
+    def on_edit_req_fields_signal(self, req=None):
+        orb.log.info('* RequirementManager: on_edit_req_fields_signal()')
+        if req and not self.editing_fields:
+            self.editing_fields = True
+            dlg = ReqFieldsDialog(req, parent=self)
+            if dlg.exec_() == QDialog.Accepted:
+                orb.log.info('* req fields edited.')
+                self.editing_fields = False
+                dlg.close()
+            else:
+                orb.log.info('* req fields editing cancelled.')
+                self.editing_fields = False
                 dlg.close()
 
     def set_req(self, r):

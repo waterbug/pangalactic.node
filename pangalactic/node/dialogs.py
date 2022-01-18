@@ -28,7 +28,8 @@ from louie import dispatcher
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
-                                          SELECTION_VIEWS)
+                                          SELECTABLE_VALUES, SELECTION_VIEWS,
+                                          TEXT_PROPERTIES)
 from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
                                           get_dval, mode_defz, set_dval)
 from pangalactic.core.uberorb     import orb
@@ -44,7 +45,7 @@ from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
                                           StringFieldWidget,
-                                          StringSelectWidget)
+                                          StringSelectWidget, TextFieldWidget)
 
 COLORS = {True: 'green', False: 'red'}
 
@@ -214,6 +215,58 @@ class ProgressDialog(QProgressDialog):
         self.setMinimumDuration(0)
         self.setValue(0)
         self.show()
+
+
+class ReqFieldsDialog(QDialog):
+    """
+    A dialog to edit fields of a requirement.
+    """
+    def __init__(self, req, parent=None):
+        super().__init__(parent)
+        self.req = req
+        self.setWindowTitle("Requirement {req.id}")
+        names = ['abbreviation', 'req_compliance', 'rationale',
+                 'justification', 'comment']
+        if req.req_type == 'functional':
+            names.insert(1, 'description')
+        vbox = QVBoxLayout(self)
+        self.form = QFormLayout()
+        self.fields = {}
+        vbox.addLayout(self.form)
+        for name in names:
+            ename = get_attr_ext_name('Requirement', name)
+            if name in SELECTABLE_VALUES:
+                val = getattr(req, name)
+                if val:
+                    widget = StringSelectWidget(parent=self, field_name=name,
+                                                value=val)
+                else:
+                    widget = StringSelectWidget(parent=self, field_name=name)
+                widget.setStyleSheet('font-weight: bold;')
+            elif name in TEXT_PROPERTIES:
+                val = getattr(req, name) or ''
+                widget = TextFieldWidget(parent=self, value=val)
+            else:
+                val = getattr(req, name) or ''
+                widget = StringFieldWidget(parent=self, value=val)
+            label = QLabel(ename, self)
+            self.fields[name] = widget
+            self.form.addRow(label, widget)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        vbox.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.on_save)
+        self.buttons.rejected.connect(self.reject)
+
+    def on_save(self):
+        for name, widget in self.fields.items():
+            setattr(self.req, name, widget.get_value())
+        orb.save([self.req])
+        dispatcher.send(signal='modified object', obj=self.req,
+                        cname='Requirement')
+        self.accept()
 
 
 class ReqParmDialog(QDialog):
