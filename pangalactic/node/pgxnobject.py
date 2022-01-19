@@ -3,15 +3,16 @@
 PgxnObject (a domain object viewer/editor)
 """
 # from collections import OrderedDict
-import math, os
+import os
 from functools import partial
 
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QVariant
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
-                             QFileDialog, QFormLayout, QHBoxLayout, QLabel,
-                             QMessageBox, QSizePolicy, QTabWidget, QToolBar,
-                             QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
+                             QDialogButtonBox, QFileDialog, QFormLayout,
+                             QHBoxLayout, QLabel, QMessageBox, QSizePolicy,
+                             QSpacerItem, QTabWidget, QToolBar, QVBoxLayout,
+                             QWidget)
 
 from louie      import dispatcher
 from sqlalchemy import ForeignKey
@@ -20,9 +21,10 @@ from sqlalchemy.orm.collections import InstrumentedList
 # pangalactic
 from pangalactic.core import prefs, state
 from pangalactic.core.access import get_perms, is_global_admin
-from pangalactic.core.meta import (MAIN_VIEWS, PGXN_HIDE, PGXN_HIDE_PARMS,
-                                   PGXN_MASK, PGXN_PLACEHOLDERS, PGXN_VIEWS,
-                                   PGXN_REQD, SELECTION_FILTERS)
+from pangalactic.core.meta import (MAIN_VIEWS, PGEF_DIMENSION_ORDER, PGXN_HIDE,
+                                   PGXN_HIDE_PARMS, PGXN_MASK,
+                                   PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
+                                   SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           data_elementz, de_defz,
                                           delete_parameter,
@@ -162,7 +164,13 @@ class PgxnForm(QWidget):
             # special case for parameters panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            # orb.log.info('* [pgxo] building "parameters" form ...')
+            orb.log.info('* [pgxo] building "parameters" form ...')
+            dim_label = QLabel('Dimension:')
+            dim_label.setStyleSheet('font-size: 16px; font-weight: bold;')
+            self.dim_select = QComboBox()
+            self.dim_select.setStyleSheet('font-size: 14; font-weight: bold;')
+            self.dim_select.setSizeAdjustPolicy(0)  # size to fit contents
+            current_parm_dim = state.get('current_parm_dim') or 'mass'
             base_ids = orb.get_ids(cname='ParameterDefinition')
             contingencies = [get_parameter_id(p, 'Ctgcy') for p in base_ids]
             parmz = parameterz.get(obj.oid) or {}
@@ -179,25 +187,46 @@ class PgxnForm(QWidget):
                          if not parm_defz[pid].get('computed')
                          or pid in contingencies]
             if pids:
-                # orb.log.info('* [pgxo] parameters found: {}'.format(
-                                                            # str(pids)))
+                orb.log.info('* [pgxo] parameters found: {}'.format(
+                                                            str(pids)))
+                dims = set([parm_defz[pid]['dimensions']
+                            for pid in pids])
+                self.parm_dims = []
+                for dim in PGEF_DIMENSION_ORDER:
+                    if dim in dims:
+                        label = PGEF_DIMENSION_ORDER[dim]
+                        self.parm_dims.append(dim)
+                        self.dim_select.addItem(label, QVariant)
+                orb.log.info(f'* [pgxo] dimensions found: {self.parm_dims}')
+                self.dim_select.setCurrentText(
+                                        PGEF_DIMENSION_ORDER[current_parm_dim])
+                self.dim_select.activated.connect(self.on_dim_select)
+                form.addRow(dim_label, self.dim_select)
+                spacer = QSpacerItem(200, 20)
+                form.setItem(1, QFormLayout.SpanningRole, spacer)
                 computed_note = False
                 editables = [pid for pid in pids if pid in editables]
                 computeds = [pid for pid in pids if pid not in editables]
                 p_ordering = [pid for pid in editables + computeds
                               if pid not in contingencies]
-                # orb.log.info('  [pgxo] parameter ordering: {}'.format(
-                                                            # str(p_ordering)))
-                if seq is None:
+                orb.log.info('  [pgxo] parameter ordering: {}'.format(
+                                                            str(p_ordering)))
+                relevant_pids = [pid for pid in pids
+                          if parm_defz[pid]['dimensions'] == current_parm_dim]
+                pids_on_panel = [pid for pid in p_ordering
+                                 if pid in relevant_pids]
+                seq = None
+                # NOTE: not using 'seq' for parameters now
+                # if seq is None:
                     # orb.log.debug('  seq is None; all parameters on one page.')
-                    pids_on_panel = p_ordering
-                else:
+                    # pids_on_panel = p_ordering
+                # else:
                     # orb.log.debug('  seq is {}'.format(str(seq)))
                     # NOTE:  'seq' is a 1-based sequence
                     # orb.log.debug('  parameters found: {}'.format(
                                                         # str(pids)))
-                    pids_on_panel = p_ordering[
-                                            (seq-1)*PARMS_NBR : seq*PARMS_NBR]
+                    # pids_on_panel = p_ordering[
+                                            # (seq-1)*PARMS_NBR : seq*PARMS_NBR]
                     # orb.log.debug('  parameters on this panel: {}'.format(
                                                           # str(pids_on_panel)))
                 for pid in pids_on_panel:
@@ -630,6 +659,10 @@ class PgxnForm(QWidget):
             # show() -> non-modal dialog
             self.new_window.show()
 
+    def on_dim_select(self, index):
+        state['current_parm_dim'] = self.parm_dims[index]
+        self.pgxo.build_from_object()
+
     # def on_id_text_changed(self, text):
         # # UNCOMMENT THIS FOR INTENSIVE DEBUGGING ONLY
         # # orb.log.debug(' - id value entered: "{}" ...'.format(text))
@@ -683,13 +716,12 @@ class ParameterForm(PgxnForm):
                 self.schema['field_names'])
             mask (list of str):  list of fields to be displayed as read-only
                 (default: None)
-            seq (int):  sequence number of parameter panel in pgxnobject
         """
         super().__init__(obj, 'parameters', pgxo=pgxo, view=view, mask=mask,
-                         seq=seq, parent=parent)
+                         seq=None, parent=parent)
         self.obj = obj
         self.pgxo = pgxo
-        self.seq = seq
+        self.seq = None
         self.setAcceptDrops(True)
         self.accepted_mime_types = set([
                              "application/x-pgef-parameter-definition",
@@ -916,31 +948,13 @@ class PgxnObject(QDialog):
             self.tab_names = tab_names
         cname = self.obj.__class__.__name__
         # insert parameter panels if appropriate
-        n_of_parm_panels = 0
+        n_of_parm_panels = 1
         if ((not self.panels or (self.panels and 'parameters' in self.panels))
             and isinstance(self.obj, orb.classes['Modelable'])
             and not cname in PGXN_HIDE_PARMS):
             # All subclasses of Modelable except the ones in PGXN_HIDE_PARMS
             # get a 'parameters' panel
-            # First find the parameters to be displayed for this object ...
-            contingencies = [p for p in parm_defz
-                             if parm_defz[p]['context'] == 'Ctgcy']
-            parmz = parameterz.get(self.obj.oid) or {}
-            # contingencies are not used in calculating the number of
-            # parameters on the panel, since they do not have separate rows
-            pids = [p for p in parmz if p not in contingencies]
-            # orb.log.debug('  [pgxo] parameters: {}'.format(pids))
-            if len(pids) > PARMS_NBR:
-                n_of_parms = len(pids)
-                # allow PARMS_NBR parameters to a panel ...
-                n_of_parm_panels = int(math.ceil(
-                                       float(n_of_parms)/float(PARMS_NBR)))
-                # orb.log.debug('  [pgxo] parm panels: {}'.format(
-                                                        # n_of_parm_panels))
-                for i in range(n_of_parm_panels):
-                    self.tab_names.insert(i, 'parms_{}'.format(i+1))
-            else:
-                self.tab_names.insert(0, 'parms')
+            self.tab_names.insert(0, 'parameters')
         # insert data panels if appropriate
         if ((not self.panels or (self.panels and 'data' in self.panels))
             and isinstance(self.obj, orb.classes['Modelable'])
@@ -1021,7 +1035,7 @@ class PgxnObject(QDialog):
             # TODO:  wrap tabs if necessary
             # The basic algorithm is steps [1], [2], and [3] below ...
             # TODO:  a 'prefs' capability to override MAIN_VIEWS.
-            if tab_name.startswith('parms'):
+            if tab_name.startswith('parameters'):
                 sufs = ('1', '2', '3', '4', '5', '6', '7', '8', '9')
                 if tab_name.endswith(sufs):
                     n = int(tab_name[-1])
