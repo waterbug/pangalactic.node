@@ -202,7 +202,7 @@ class PgxnForm(QWidget):
                                         PGEF_DIMENSION_ORDER[current_parm_dim])
                 self.dim_select.activated.connect(self.on_dim_select)
                 form.addRow(dim_label, self.dim_select)
-                spacer = QSpacerItem(200, 20)
+                spacer = QSpacerItem(200, 10)
                 form.setItem(1, QFormLayout.SpanningRole, spacer)
                 computed_note = False
                 editables = [pid for pid in pids if pid in editables]
