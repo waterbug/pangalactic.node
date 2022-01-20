@@ -448,6 +448,8 @@ class ObjectBlock(Block):
                 # block is TBD and usage is Acu ...
                 menu.addAction('Display allowed product type',
                                self.display_type_hint)
+                menu.addAction('Filter library by allowed product type',
+                               self.filter_library_by_type)
         else:
             # block is not TBD -- enable viewing of the object ...
             menu.addAction('View this object', self.display_object)
@@ -510,6 +512,12 @@ class ObjectBlock(Block):
                              f'<font color="red"><b>{type_hint}</b></font>',
                              parent=self.parentWidget())
         dlg.show()
+
+    def filter_library_by_type(self):
+        type_hint_obj = self.usage.product_type_hint
+        if type_hint_obj:
+            dispatcher.send('product types selected', msg=type_hint_obj.name,
+                            objs=[type_hint_obj])
 
     def display_object(self):
         if isinstance(self.usage, orb.classes['Acu']):
