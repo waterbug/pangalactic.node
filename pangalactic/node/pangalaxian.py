@@ -2321,20 +2321,20 @@ class Main(QMainWindow):
         # NOTE:  set_project() now just sets the 'project' state (project oid)
         # and dispatches the 'set current project' signal
         if p:
-            orb.log.debug('* set_project({})'.format(p.id))
+            # orb.log.debug('* set_project({})'.format(p.id))
             state['project'] = p.oid
             if state['connected']:
                 self.role_label.setText('online: syncing project data ...')
             else:
                 self.role_label.setText('loading project data ...')
         else:
-            orb.log.debug('* set_project(None)')
-            orb.log.debug('  setting project to SANDBOX (default)')
+            # orb.log.debug('* set_project(None)')
+            # orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
             if not state['system'].get('pgefobjects:SANDBOX'):
                 state['system']['pgefobjects:SANDBOX'] = 'pgefobjects:SANDBOX'
         if not state['sys_tree_expansion'].get(self.project.oid):
-            orb.log.debug('* setting sys tree expansion level to default (2)')
+            # orb.log.debug('* setting sys tree expansion level to default (2)')
             state['sys_tree_expansion'][self.project.oid] = 0
         # orb.log.debug('  dispatching "set current project" signal ...')
         dispatcher.send(signal="set current project")
@@ -3824,11 +3824,11 @@ class Main(QMainWindow):
         # cache all oids and use that to determine whether the tree needs to be
         # refreshed ...
         ######################################################################
-        orb.log.debug('* refresh_tree_views()')
-        orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
+        # orb.log.debug('* refresh_tree_views()')
+        # orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
         # use number of tree levels to set max in progress bar
         try:
-            orb.log.debug('  + self.sys_tree exists ...')
+            # orb.log.debug('  + self.sys_tree exists ...')
             # if dashboard exists, it has to be destroyed too since the tree
             # and dashboard share their model()
             # if hasattr(self, 'dashboard_panel'):
@@ -3845,7 +3845,7 @@ class Main(QMainWindow):
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
         try:
-            orb.log.debug('  + destroying existing self.sys_tree, if any ...')
+            # orb.log.debug('  + destroying existing self.sys_tree, if any ...')
             # NOTE:  WA_DeleteOnClose kills the "ghost tree" bug
             self.sys_tree.setAttribute(Qt.WA_DeleteOnClose)
             self.sys_tree.parent = None
@@ -3865,9 +3865,9 @@ class Main(QMainWindow):
             ld_widget.parent = None
             ld_widget.close()
         self.sys_tree = SystemTreeView(self.project)
-        orb.log.debug('  + new self.sys_tree created ...')
-        sys_id = getattr(sys, 'id', '[none]') or '[none]'
-        orb.log.debug(f'    with selected system: {sys_id}')
+        # orb.log.debug('  + new self.sys_tree created ...')
+        # sys_id = getattr(sys, 'id', '[none]') or '[none]'
+        # orb.log.debug(f'    with selected system: {sys_id}')
         # model = self.sys_tree.source_model
         # orb.log.debug('    with source model: {}'.format(str(model)))
         self.sys_tree.setSizePolicy(QSizePolicy.Minimum,
@@ -3911,11 +3911,12 @@ class Main(QMainWindow):
             n = index + 1
             self.sys_tree.expandToDepth(n)
             state['sys_tree_expansion'][self.project.oid] = index
-            orb.log.debug(f'* tree expanded to level {n + 1}')
+            # orb.log.debug(f'* tree expanded to level {n + 1}')
         except:
-            orb.log.debug('* sys tree expansion failed.')
+            # orb.log.debug('* sys tree expansion failed.')
+            pass
         finally:
-            orb.log.debug('* setting selected system ...')
+            # orb.log.debug('* setting selected system ...')
             # after expanding, set the selected system
             sys_oid = (state.get('system') or {}).get(state.get('project'))
             dispatcher.send(signal='set selected system', oid=sys_oid)
@@ -3929,7 +3930,7 @@ class Main(QMainWindow):
             self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
             self.dash_select.close()
             self.dash_select = None
-            orb.log.debug('  - creating new dash selector ...')
+            # orb.log.debug('  - creating new dash selector ...')
             new_dash_select = QComboBox()
             new_dash_select.setStyleSheet(
                                 'font-weight: bold; font-size: 14px')

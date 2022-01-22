@@ -392,8 +392,8 @@ class SystemTreeModel(QAbstractItemModel):
             return '   \n   '.join(wrap(pid, width=7,
                                    break_long_words=False) + [units])
         else:
-            log_msg = 'nothing found for id "{}"'.format(pid)
-            orb.log.debug('  - get_header: {}'.format(log_msg))
+            # log_msg = 'nothing found for id "{}"'.format(pid)
+            # orb.log.debug('  - get_header: {}'.format(log_msg))
             return 'Unknown'
 
     @property
@@ -1385,7 +1385,7 @@ class SystemTreeView(QTreeView):
                                                     # mapped_i.parent()).obj,
                                                     # 'id', 'fake root')))
                 state['system'][state['project']] = obj.oid
-                orb.log.debug(f'* sys node selected: {obj.oid}')
+                # orb.log.debug(f'* sys node selected: {obj.oid}')
                 dispatcher.send(signal='sys node selected', index=index,
                                 obj=obj, link=link)
             except:
@@ -1426,7 +1426,7 @@ class SystemTreeView(QTreeView):
         self.sys_node_select(index=index, origin='dash node selected')
 
     def on_set_selected_system(self, oid=None):
-        orb.log.debug('- systree: "set selected system" signal received.')
+        # orb.log.debug('- systree: "set selected system" signal received.')
         try:
             obj = orb.get(oid)
             proxy_idx = None
@@ -1437,7 +1437,8 @@ class SystemTreeView(QTreeView):
                     proxy_idx = self.proxy_model.mapFromSource(idx)
             self.sys_node_select(proxy_idx)
         except:
-            orb.log.debug('  model had been destroyed.')
+            # orb.log.debug('  model had been destroyed.')
+            pass
 
     def on_diagram_go_back(self, index=None):
         self.sys_node_select(index=index, origin='diagram go back')
@@ -1458,8 +1459,8 @@ class SystemTreeView(QTreeView):
             index (QModelIndex):  the proxy model index
             origin (str):  origin of the call
         """
-        orb.log.debug('* sys_node_select() [{}]'.format(
-                                            origin or "unknown origin"))
+        # orb.log.debug('* sys_node_select() [{}]'.format(
+                                            # origin or "unknown origin"))
         if index:
             try:
                 self.selectionModel().setCurrentIndex(index,
@@ -1467,7 +1468,7 @@ class SystemTreeView(QTreeView):
                 self.expand(index)
             except:
                 # oops -- C++ object for systree got deleted
-                orb.log.debug('  - exception encountered.')
+                # orb.log.debug('  - exception encountered.')
                 pass
         else:
             try:
@@ -1476,10 +1477,10 @@ class SystemTreeView(QTreeView):
                     self.proxy_model.mapFromSource(
                         self.source_model.index(0, 0, QModelIndex())),
                     QItemSelectionModel.ClearAndSelect)
-                orb.log.debug('  - index not found; project node selected.')
+                # orb.log.debug('  - index not found; project node selected.')
             except:
                 # oops -- C++ object probably got deleted
-                orb.log.debug('  - exception; node not selected.')
+                # orb.log.debug('  - exception; node not selected.')
                 pass
         dispatcher.send(signal='sys node selected', index=index)
 
@@ -1804,7 +1805,7 @@ class SystemTreeView(QTreeView):
                                                             # len(sys_idxs)))
                 for idx in sys_idxs:
                     system_node = model.get_node(idx)
-                    orb.log.debug('    + {}'.format(system_node.obj.id))
+                    # orb.log.debug('    + {}'.format(system_node.obj.id))
                     if system_node.obj.oid == obj.oid:
                         system_idxs.append(idx)
                 # orb.log.debug('    {} system occurrences found.'.format(
