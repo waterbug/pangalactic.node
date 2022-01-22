@@ -144,6 +144,7 @@ class ModelWindow(QMainWindow):
         # signal handling in pangalaxian after object is deleted, so if it is a
         # port or flow, diagram should be regenerated properly
         dispatcher.connect(self.display_block_diagram, 'deleted object')
+        dispatcher.connect(self.on_set_selected_system, 'set selected system')
         self.set_subject(obj=obj, msg='(setting to selected object)')
 
     @property
@@ -355,6 +356,22 @@ class ModelWindow(QMainWindow):
         self.history.append(ModelerState._make((self.obj, self.idx)))
         self.idx = index
         self.set_subject(obj=obj, msg='(setting from tree node selection)')
+
+    def on_set_selected_system(self, oid=None):
+        """
+        Respond to a node selection in the system tree or dashboard by setting
+        the corresponding object as the subject of the model window.
+
+        Keyword Args:
+            index (QModelIndex):  index in the system tree's proxy model
+                corresponding to the object being modeled
+            obj (Identifiable): obj being modeled
+        """
+        obj = orb.get(oid or '')
+        if obj:
+            self.cache_block_model()
+            self.history.append(ModelerState._make((self.obj, self.idx)))
+            self.set_subject(obj=obj, msg='(setting from selected system)')
 
     def set_subject(self, obj=None, msg=''):
         """
