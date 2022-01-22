@@ -372,10 +372,12 @@ class DiagramScene(QGraphicsScene):
             if item.obj.oid != 'pgefobjects:TBD':
                 if state.get('mode') == 'system':
                     if isinstance(item.usage, orb.classes['Acu']):
-                        state['system'] = item.usage.component.oid
+                        state['system'][
+                            state.get('project')] = item.usage.component.oid
                     elif isinstance(item.usage,
                                     orb.classes['ProjectSystemUsage']):
-                        state['system'] = item.usage.system.oid
+                        state['system'][
+                            state.get('project')] = item.usage.system.oid
                 elif state.get('mode') == 'component':
                     if isinstance(item.usage, orb.classes['Acu']):
                         state['product'] = item.usage.component.oid

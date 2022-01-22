@@ -311,7 +311,7 @@ class ModelWindow(QMainWindow):
         self.set_subject(obj=obj, msg='(setting from diagram drill-down)')
         self.idx = None
         if state.get('mode') == 'system':
-            state['system'] = obj.oid
+            state['system'][state.get('project')] = obj.oid
             # if in "system" mode, attempt to find index of obj in tree
             sys_tree = getattr(self.parent(), 'sys_tree', None)
             if sys_tree:
@@ -452,7 +452,8 @@ class ModelWindow(QMainWindow):
                 # obj = sys_tree.source_model.get_node(mapped_i).obj
             # else:
                 # obj = orb.get(state.get('project'))
-            state_sys = orb.get(state.get('system'))
+            state_sys = orb.get((state.get('system') or {}).get(
+                                                state.get('project')) or '')
             # project = orb.get(state.get('project'))
             if state_sys:
                 # orb.log.debug('  - using state["system"]: {}'.format(
@@ -502,7 +503,7 @@ class ModelWindow(QMainWindow):
             hist = self.history.pop()
             obj, self.idx = hist.obj, hist.idx
             if state.get('mode') == 'system':
-                state['system'] = obj.oid
+                state['system'][state.get('project')] = obj.oid
             elif state.get('mode') == 'component':
                 state['product'] = obj.oid
             if not self.history:
@@ -511,7 +512,8 @@ class ModelWindow(QMainWindow):
                 # and the history item didn't specify a tree index, use the
                 # project as the "system" state
                 if not self.idx:
-                    state['system'] = state.get('project')
+                    state['system'][
+                                state.get('project')] = state.get('project')
                     obj = orb.get(state.get('project'))
             self.set_subject(obj=obj)
             dispatcher.send('diagram go back', index=self.idx)

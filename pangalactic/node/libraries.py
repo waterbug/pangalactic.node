@@ -513,6 +513,7 @@ class LibraryListWidget(QWidget):
     def clear_product_filters(self):
         hw_lib = self.libraries.get('HardwareProduct')
         if hw_lib:
+            self.product_types = []
             select_product_types(hw_lib, msg='All Product Types',
                                  only_mine=state.get('only_mine'),
                                  product_types=[])

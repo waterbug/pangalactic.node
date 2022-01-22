@@ -197,6 +197,8 @@ class Main(QMainWindow):
         self.logo = os.path.join(orb.image_dir, config.get('logo'))
         self.tall_logo = os.path.join(orb.image_dir, config['tall_logo'])
         self.sandbox = orb.get('pgefobjects:SANDBOX')
+        if not state.get('system') or isinstance(state['system'], str):
+            state['system'] = {}
         state['last_path'] = ""
         state['synced_projects'] = []
         state['connected'] = False
@@ -888,7 +890,7 @@ class Main(QMainWindow):
             deferred: result of `vger.sync_project` rpc
         """
         orb.log.info('* sync_current_project()')
-        proj_oid = state.get('project')
+        proj_oid = state.get('project') or ''
         project = orb.get(proj_oid)
         oid_dts = {}
         if (proj_oid != 'pgefobjects:SANDBOX') and project:
@@ -2307,7 +2309,7 @@ class Main(QMainWindow):
         Get the current project (or SANDBOX project if not set).
         """
         # if project in saved state is not found, return SANDBOX project
-        return orb.get(state.get('project')) or self.sandbox
+        return orb.get(state.get('project') or '') or self.sandbox
 
     def set_project(self, p):
         """
@@ -2321,7 +2323,6 @@ class Main(QMainWindow):
         if p:
             orb.log.debug('* set_project({})'.format(p.id))
             state['project'] = p.oid
-            state['system'] = p.oid
             if state['connected']:
                 self.role_label.setText('online: syncing project data ...')
             else:
@@ -2330,7 +2331,8 @@ class Main(QMainWindow):
             orb.log.debug('* set_project(None)')
             orb.log.debug('  setting project to SANDBOX (default)')
             state['project'] = 'pgefobjects:SANDBOX'
-            state['system'] = 'pgefobjects:SANDBOX'
+            if not state['system'].get('pgefobjects:SANDBOX'):
+                state['system']['pgefobjects:SANDBOX'] = 'pgefobjects:SANDBOX'
         if not state['sys_tree_expansion'].get(self.project.oid):
             orb.log.debug('* setting sys tree expansion level to default (2)')
             state['sys_tree_expansion'][self.project.oid] = 0
@@ -2385,7 +2387,7 @@ class Main(QMainWindow):
         """
         The current systems of interest, determined by the current project.
         """
-        project = orb.get(state.get('project'))
+        project = orb.get(state.get('project') or '')
         return [psu.system for psu in project.systems]
 
     # 'product' property reflects the product selected in the product
@@ -2395,7 +2397,7 @@ class Main(QMainWindow):
         Get the current product.
         """
         if not self._product:
-            self._product = orb.get(state.get('product'))
+            self._product = orb.get(state.get('product') or '')
         return self._product
 
     def set_product(self, p):
@@ -2446,7 +2448,7 @@ class Main(QMainWindow):
         from the stack.
         """
         if state.get('component_modeler_history'):
-            oid = state['component_modeler_history'].pop()
+            oid = state['component_modeler_history'].pop() or ''
             # 'comp_modeler_back' tells set_product() not to add this to
             # history (we just removed it!)
             state['comp_modeler_back'] = True
@@ -2469,12 +2471,13 @@ class Main(QMainWindow):
         Handle dispatcher signal for "system selected" (sent by system tree).
         """
         if system:
-            state['system'] = system.oid
+            state['system'][state.get('project')] = system.oid
             # orb.log.debug('* state["system"]: "{}"'.format(state['system']))
+            orb.log.debug(f'* system selected: "{system.oid}"')
 
     def on_sys_node_selected_signal(self, index=None, obj=None, link=None):
         if obj:
-            state['system'] = obj.oid
+            state['system'][state.get('project')] = obj.oid
             # orb.log.debug('* state["system"]: "{}"'.format(state['system']))
 
     def create_lib_list_widget(self, cnames=None, include_subtypes=True):
@@ -2767,7 +2770,7 @@ class Main(QMainWindow):
         orb.log.debug('  oid: {}'.format(obj_oid))
         orb.log.debug('  id: {}'.format(obj_id))
         # first check if we have the object
-        obj = orb.get(obj_oid)
+        obj = orb.get(obj_oid or '')
         if obj:
             # if the mod_datetime of the repo object is later, get it
             dts = None
@@ -2811,7 +2814,7 @@ class Main(QMainWindow):
         obj_oid = content
         orb.log.info('  oid: {}'.format(obj_oid))
         # first check if we have the object
-        obj = orb.get(obj_oid)
+        obj = orb.get(obj_oid or '')
         selected_link_oid = None
         if obj:
             cname = obj.__class__.__name__
@@ -2844,6 +2847,7 @@ class Main(QMainWindow):
                             # if the selected link is the deleted object, don't
                             # use it
                             selected_link_oid = None
+                            state['system'][state.get('project')] = ''
                     # (2) identify the index of the deleted Acu or PSU
                     try:
                         idxs = self.sys_tree.link_indexes_in_tree(obj)
@@ -2891,8 +2895,7 @@ class Main(QMainWindow):
                         orb.log.debug('  deleted.')
                         # the use of "tree_and_dash_refreshed" seems to be OBE
                         # tree_and_dash_refreshed = True
-                        self.refresh_tree_and_dashboard(
-                                            selected_link_oid=selected_link_oid)
+                        self.refresh_tree_and_dashboard()
                     else:
                         # link not found in the tree, or else there was no
                         # tree, so just delete and send "deleted object" signal
@@ -3434,9 +3437,9 @@ class Main(QMainWindow):
         orb.log.debug(f'  cname="{cname}", oid="{oid}"')
         # always fix state['product'] and state['system'] if either matches the
         # deleted oid
-        if state.get('system') == oid:
-            orb.log.debug('  state "system" oid matched, setting to empty ...')
-            state['system'] = ''
+        if (state.get('system') or {}).get(state.get('project')) == oid:
+            orb.log.debug('  state "system" oid matched, set to project ...')
+            state['system'][state.get('project')] = state.get('project')
         if state.get('product') == oid:
             orb.log.debug('  state "product" oid matched, resetting ...')
             if state.get('component_modeler_history'):
@@ -3464,8 +3467,9 @@ class Main(QMainWindow):
                 if selected_link_oid == oid:
                     # if the selected link is the deleted object, don't use it
                     selected_link_oid = None
-            self.refresh_tree_and_dashboard(
-                                        selected_link_oid=selected_link_oid)
+            self.refresh_tree_and_dashboard()
+            # self.refresh_tree_and_dashboard(
+                                        # selected_link_oid=selected_link_oid)
         # TODO:  other actions may be needed ...
         # NOTE:  libraries are now subscribed to the 'deleted object' signal
         # and update themselves, so no need to call them.
@@ -3820,11 +3824,11 @@ class Main(QMainWindow):
         # cache all oids and use that to determine whether the tree needs to be
         # refreshed ...
         ######################################################################
-        # orb.log.debug('* refresh_tree_views()')
-        # orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
+        orb.log.debug('* refresh_tree_views()')
+        orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
         # use number of tree levels to set max in progress bar
         try:
-            # orb.log.debug('  + self.sys_tree exists ...')
+            orb.log.debug('  + self.sys_tree exists ...')
             # if dashboard exists, it has to be destroyed too since the tree
             # and dashboard share their model()
             # if hasattr(self, 'dashboard_panel'):
@@ -3841,7 +3845,7 @@ class Main(QMainWindow):
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
         try:
-            # orb.log.debug('  + destroying existing self.sys_tree, if any ...')
+            orb.log.debug('  + destroying existing self.sys_tree, if any ...')
             # NOTE:  WA_DeleteOnClose kills the "ghost tree" bug
             self.sys_tree.setAttribute(Qt.WA_DeleteOnClose)
             self.sys_tree.parent = None
@@ -3860,11 +3864,10 @@ class Main(QMainWindow):
             ld_widget.setAttribute(Qt.WA_DeleteOnClose)
             ld_widget.parent = None
             ld_widget.close()
-        sys = None
-        if not selected_link_oid:
-            sys = orb.get(state.get('system'))
-        self.sys_tree = SystemTreeView(self.project, selected_system=sys)
-        # orb.log.debug('  + new self.sys_tree created ...')
+        self.sys_tree = SystemTreeView(self.project)
+        orb.log.debug('  + new self.sys_tree created ...')
+        sys_id = getattr(sys, 'id', '[none]') or '[none]'
+        orb.log.debug(f'    with selected system: {sys_id}')
         # model = self.sys_tree.source_model
         # orb.log.debug('    with source model: {}'.format(str(model)))
         self.sys_tree.setSizePolicy(QSizePolicy.Minimum,
@@ -3898,9 +3901,12 @@ class Main(QMainWindow):
                 state['sys_tree_expansion'][self.project.oid])
         else:
             state['sys_tree_expansion'][self.project.oid] = 0
+        self.set_systree_expansion()
         self.set_system_model_window()
 
-    def set_systree_expansion(self, index):
+    def set_systree_expansion(self, index=None):
+        index = index or state.get('sys_tree_expansion', {}).get(
+                                                self.project.oid) or 0
         try:
             n = index + 1
             self.sys_tree.expandToDepth(n)
@@ -3908,6 +3914,11 @@ class Main(QMainWindow):
             orb.log.debug(f'* tree expanded to level {n + 1}')
         except:
             orb.log.debug('* sys tree expansion failed.')
+        finally:
+            orb.log.debug('* setting selected system ...')
+            # after expanding, set the selected system
+            sys_oid = (state.get('system') or {}).get(state.get('project'))
+            dispatcher.send(signal='set selected system', oid=sys_oid)
 
     def rebuild_dash_selector(self):
         orb.log.debug('* rebuild_dash_selector()')
@@ -4148,14 +4159,16 @@ class Main(QMainWindow):
             # orb.log.debug('  - using specified system {} ...'.format(
                                                                 # system.id))
             if state.get('mode') == 'system':
-                state['system'] = system.oid
+                state['system'][state.get('project')] = system.oid
             elif state.get('mode') == 'component':
                 state['product'] = system.oid
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.setCentralWidget(self.system_model_window)
-        elif state.get('mode') == 'system' and orb.get(state.get('system')):
-            system = orb.get(state.get('system'))
+        elif (state.get('mode') == 'system' and
+              orb.get((state.get('system') or {}).get(
+                                        state.get('project')) or '')):
+            system = orb.get(state['system'][state.get('project')])
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.setCentralWidget(self.system_model_window)
@@ -5287,8 +5300,6 @@ class Main(QMainWindow):
         # things to do when window is closed
         # TODO:  save more MainWindow state (see p. 190 in PyQt book)
         state['mode'] = str(self.mode)
-        # don't save system state; set to project
-        # state['system'] = state.get('project')
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
         self.statusbar.showMessage('* saving data elements and parameters...')
