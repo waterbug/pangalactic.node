@@ -115,8 +115,8 @@ class ModelWindow(QMainWindow):
             preferred_size (tuple):  size to set -- (width, height)
         """
         super().__init__(parent=parent)
-        # orb.log.debug('* ModelWindow initializing with:')
-        # orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        orb.log.debug('* ModelWindow initializing with:')
+        orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         self.obj = obj
         self.logo = logo
         self.external = external
@@ -127,6 +127,9 @@ class ModelWindow(QMainWindow):
         # NOTE: this set_subject() call serves only to create the diagram_view,
         # which is needed by _init_ui(); the final set_subject() actually sets
         # the subject to the currently selected object
+        obj_id = getattr(obj, 'id', '[None]')
+        orb.log.debug('  init calling set_subject() to create diagram:')
+        orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(creating diagram view)')
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
@@ -137,14 +140,16 @@ class ModelWindow(QMainWindow):
                            'diagram object drill down')
         dispatcher.connect(self.save_diagram_connector,
                            'diagram connector added')
-        dispatcher.connect(self.display_block_diagram, 'refresh diagram')
-        dispatcher.connect(self.display_block_diagram, 'new object')
-        dispatcher.connect(self.display_block_diagram, 'modified object')
+        dispatcher.connect(self.refresh_block_diagram, 'refresh diagram')
+        dispatcher.connect(self.refresh_block_diagram, 'new object')
+        dispatcher.connect(self.refresh_block_diagram, 'modified object')
         # NOTE: 'deleted object' signal will be triggered by "remote: deleted"
         # signal handling in pangalaxian after object is deleted, so if it is a
         # port or flow, diagram should be regenerated properly
-        dispatcher.connect(self.display_block_diagram, 'deleted object')
+        dispatcher.connect(self.refresh_block_diagram, 'deleted object')
         dispatcher.connect(self.on_set_selected_system, 'set selected system')
+        orb.log.debug('  init calls set_subject() again to set system:')
+        orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(setting to selected object)')
 
     @property
@@ -185,12 +190,15 @@ class ModelWindow(QMainWindow):
     def init_toolbar(self):
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
-        self.back_action = self.create_action(
-                                    "Back",
-                                    slot=self.go_back,
-                                    icon="back",
-                                    tip="Back to Previous Model")
-        self.toolbar.addAction(self.back_action)
+        # NOTE: disabling the history stuff for now -- it's broken and is not
+        # very useful anyway ... *might* fix in future.  The "component" mode
+        # history stuff still works, and that is *way* more important!
+        # self.back_action = self.create_action(
+                                    # "Back",
+                                    # slot=self.go_back,
+                                    # icon="back",
+                                    # tip="Back to Previous Model")
+        # self.toolbar.addAction(self.back_action)
         # TODO:  create a dialog for saving a diagram to a SysML file ...
         # self.save_action = self.create_action(
                                     # "Save Model...",
@@ -303,20 +311,23 @@ class ModelWindow(QMainWindow):
         self.cache_block_model()
         previous_obj = self.obj
         self.history.append(ModelerState._make((self.obj, self.idx)))
+        # now change self.obj to the new object
         if isinstance(usage, orb.classes['Acu']):
-            obj = usage.component
+            self.obj = usage.component
         elif isinstance(usage, orb.classes['ProjectSystemUsage']):
-            obj = usage.system
+            self.obj = usage.system
         else:
             return
-        self.set_subject(obj=obj, msg='(setting from diagram drill-down)')
+        obj_id = getattr(self.obj, 'id', '[None]')
+        orb.log.debug(f'  set_subject(obj={obj_id})')
+        self.set_subject(obj=self.obj, msg='(setting from diagram drill-down)')
         self.idx = None
         if state.get('mode') == 'system':
-            state['system'][state.get('project')] = obj.oid
+            state['system'][state.get('project')] = self.obj.oid
             # if in "system" mode, attempt to find index of obj in tree
             sys_tree = getattr(self.parent(), 'sys_tree', None)
             if sys_tree:
-                idxs = sys_tree.object_indexes_in_tree(obj)
+                idxs = sys_tree.object_indexes_in_tree(self.obj)
                 # orb.log.debug('  + found {} indexes in tree'.format(len(idxs)))
                 target_idx = None
                 if len(idxs) == 1:
@@ -355,6 +366,9 @@ class ModelWindow(QMainWindow):
         self.cache_block_model()
         self.history.append(ModelerState._make((self.obj, self.idx)))
         self.idx = index
+        orb.log.debug('  Modeler setting subject from tree node selection ...')
+        obj_id = getattr(self.obj, 'id', '[None]')
+        orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(setting from tree node selection)')
 
     def on_set_selected_system(self, oid=None):
@@ -371,6 +385,7 @@ class ModelWindow(QMainWindow):
         if obj:
             self.cache_block_model()
             self.history.append(ModelerState._make((self.obj, self.idx)))
+            orb.log.debug('  Modeler setting subject from selected system..')
             self.set_subject(obj=obj, msg='(setting from selected system)')
 
     def set_subject(self, obj=None, msg=''):
@@ -382,8 +397,8 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        # orb.log.debug('* ModelWindow.set_subject({})'.format(
-                      # getattr(obj, 'oid', 'None')))
+        orb.log.debug('* ModelWindow.set_subject({})'.format(
+                      getattr(obj, 'id', 'None')))
         # if msg:
             # orb.log.debug('  {}'.format(msg))
         # reset model_files
@@ -394,7 +409,7 @@ class ModelWindow(QMainWindow):
             except:
                 # oops, C++ object got deleted
                 pass
-        self.obj = obj
+        self.obj = obj or self.obj
         if self.obj:
             if isinstance(self.obj, orb.classes['Modelable']):
                 # orb.log.debug('* ModelWindow: checking for models ...')
@@ -407,7 +422,11 @@ class ModelWindow(QMainWindow):
                             # models have a canonical path
                             self.model_files[m.oid] = fpath
                         # model_types.add(m.type_of_model.oid)
-                self.display_block_diagram()
+                try:
+                    self.display_block_diagram()
+                except:
+                    orb.log.debug('* ModelWindow C++ object deleted.')
+                    pass
             else:
                 # orb.log.debug('* ModelWindow: obj not Modelable, ignoring')
                 self.obj = None
@@ -427,12 +446,12 @@ class ModelWindow(QMainWindow):
                     self.models_by_label['CAD'] = (model, fpath)
                     if hasattr(self, 'view_cad_action'):
                         self.view_cad_action.setVisible(True)
-        if self.history:
-            if hasattr(self, 'back_action'):
-                self.back_action.setEnabled(True)
-        else:
-            if hasattr(self, 'back_action'):
-                self.back_action.setEnabled(False)
+        # if self.history:
+            # if hasattr(self, 'back_action'):
+                # self.back_action.setEnabled(True)
+        # else:
+            # if hasattr(self, 'back_action'):
+                # self.back_action.setEnabled(False)
         self.cache_block_model()
         if hasattr(self, 'diagram_view'):
             self.diagram_view.verticalScrollBar().setValue(0)
@@ -453,43 +472,72 @@ class ModelWindow(QMainWindow):
         """
         Display a block diagram for the currently selected product or project.
         """
-        # orb.log.debug('* Modeler:  display_block_diagram()')
-        obj = None
+        orb.log.debug('* Modeler:  display_block_diagram()')
         if state.get('mode') in ['data', 'db']:
             # NOTE:  without this we will crash -- there is no model window in
             # these modes!
             return
         if state.get('mode') == 'system':
-            # orb.log.debug('  mode is "system" ...')
+            orb.log.debug('  mode is "system" ...')
             # in "system" mode, sync with tree selection
-            # sys_tree = getattr(self.parent(), 'sys_tree', None)
-            # if (sys_tree and len(sys_tree.selectedIndexes()) > 0):
-                # i = sys_tree.selectedIndexes()[0]
-                # mapped_i = sys_tree.proxy_model.mapToSource(i)
-                # obj = sys_tree.source_model.get_node(mapped_i).obj
-            # else:
-                # obj = orb.get(state.get('project'))
-            state_sys = orb.get((state.get('system') or {}).get(
-                                                state.get('project')) or '')
-            # project = orb.get(state.get('project'))
-            if state_sys:
-                # orb.log.debug('  - using state["system"]: {}'.format(
-                                                            # state_sys.id))
-                obj = state_sys
-            # elif project:
-                # msg = '  - no state["system"]; using project: {}'.format(
-                                                            # project.id)
-                # orb.log.debug(msg)
+            sys_tree = getattr(self.parent(), 'sys_tree', None)
+            # if obj has been set, use it; if not look for tree selection
+            if not self.obj:
+                if (sys_tree and len(sys_tree.selectedIndexes()) > 0):
+                    i = sys_tree.selectedIndexes()[0]
+                    mapped_i = sys_tree.proxy_model.mapToSource(i)
+                    self.obj = sys_tree.source_model.get_node(mapped_i).obj
+                    orb.log.debug(f'  using tree selection: {obj.id}')
+                else:
+                    project = orb.get(state.get('project'))
+                    sys_oid = (state.get('system') or {}).get(project) or ''
+                    state_sys = None
+                    if sys_oid:
+                        state_sys = orb.get(sys_oid)
+                    if state_sys:
+                        orb.log.debug(f'  - using system: "{state_sys.id}"')
+                        self.obj = state_sys
+                    elif project:
+                        msg = f'  - no system, using project: {project.id}'
+                        orb.log.debug(msg)
+                        self.obj = project
         elif state.get('mode') == 'component':
             # orb.log.debug('  mode is "component"')
-            obj = orb.get(state.get('product'))
-        if not obj:
-            orb.log.debug('  no object selected.')
-            self.set_subject(None)
-            return
+            self.obj = orb.get(state.get('product'))
+        # if not self.obj:
+            # orb.log.debug('  no object selected.')
+            # self.set_subject(None)
+            # return
         # else:
             # orb.log.debug('  object selected: {}.'.format(obj.id))
-        self.obj = obj
+        self.set_new_diagram_view()
+        scene = self.diagram_view.scene()
+        block_ordering = diagramz.get(self.obj.oid)
+        if block_ordering:
+            # orb.log.debug('  - generating diagram with ordering ...')
+            scene.generate_ibd(self.obj, ordering=block_ordering)
+        else:
+            # orb.log.debug('  - generating new block diagram ...')
+            # orb.log.debug('  - generating diagram (cache disabled for testing)')
+            scene.generate_ibd(self.obj)
+            # create a block Model object if self.obj doesn't have one
+            block_model_type = orb.get(BLOCK_OID)
+            if self.obj.has_models:
+                block_models = [m for m in self.obj.has_models
+                    if getattr(m, 'type_of_model', None) == block_model_type]
+                if not block_models:
+                    model_id = get_block_model_id(self.obj)
+                    model_name = get_block_model_name(self.obj)
+                    self.model = clone('Model', id=model_id, name=model_name,
+                                       type_of_model=block_model_type,
+                                       of_thing=self.obj)
+
+    def refresh_block_diagram(self):
+        """
+        Regenerate block diagram using its currently selected product or
+        project.
+        """
+        # orb.log.debug('* Modeler:  refresh_block_diagram()')
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
         block_ordering = diagramz.get(self.obj.oid)
@@ -515,27 +563,33 @@ class ModelWindow(QMainWindow):
     def save_diagram_connector(self, start_item=None, end_item=None):
         pass
 
-    def go_back(self):
-        if self.history:
-            hist = self.history.pop()
-            obj, self.idx = hist.obj, hist.idx
-            if state.get('mode') == 'system':
-                state['system'][state.get('project')] = obj.oid
-            elif state.get('mode') == 'component':
-                state['product'] = obj.oid
-            if not self.history:
-                self.back_action.setEnabled(False)
-                # if that was the last history item and we are in "system" mode
-                # and the history item didn't specify a tree index, use the
-                # project as the "system" state
-                if not self.idx:
-                    state['system'][
-                                state.get('project')] = state.get('project')
-                    obj = orb.get(state.get('project'))
-            self.set_subject(obj=obj)
-            dispatcher.send('diagram go back', index=self.idx)
-        else:
-            self.back_action.setEnabled(False)
+    # NOTE: disabled for now because broken (see note above)
+    # def go_back(self):
+        # orb.log.debug('* Modeler: go_back()')
+        # if self.history:
+            # hist = self.history.pop()
+            # obj, self.idx = hist.obj, hist.idx
+            # if hasattr(obj, 'oid'):
+                # if state.get('mode') == 'system':
+                    # state['system'][state.get('project')] = obj.oid
+                # elif state.get('mode') == 'component':
+                    # state['product'] = obj.oid
+            # if not self.history:
+                # self.back_action.setEnabled(False)
+                # # if that was the last history item and we are in "system" mode
+                # # and the history item didn't specify a tree index, use the
+                # # project as the "system" state
+                # if not self.idx:
+                    # state['system'][
+                                # state.get('project')] = state.get('project')
+                    # obj = orb.get(state.get('project'))
+            # self.obj = obj
+            # obj_id = getattr(obj, 'id', '[None]')
+            # orb.log.debug(f'  - calling set_subject(obj={obj_id})')
+            # self.set_subject(obj=obj)
+            # dispatcher.send('diagram go back', index=self.idx)
+        # else:
+            # self.back_action.setEnabled(False)
 
     def cache_block_model(self):
         """

@@ -1411,7 +1411,11 @@ class SystemTreeView(QTreeView):
     def on_new_diagram_block(self, acu=None):
         orb.log.debug('- systree: "new diagram block" signal received.')
         if acu:
-            idxs = self.object_indexes_in_tree(acu.assembly)
+            try:
+                idxs = self.object_indexes_in_tree(acu.assembly)
+            except:
+                # oops, tree C++ object got destroyed
+                idxs = []
             if idxs:
                 orb.log.debug('  assembly found in tree, updating ...')
                 for idx in idxs:

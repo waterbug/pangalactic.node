@@ -2465,6 +2465,11 @@ class Main(QMainWindow):
                 self.product = usage.component
             elif getattr(usage, 'system', None):
                 self.product = usage.system
+        elif state.get('mode') == 'system':
+            if getattr(usage, 'component', None):
+                state['system'][state['project']] = usage.component.oid
+            elif getattr(usage, 'system', None):
+                state['system'][state['project']] = usage.system.oid
 
     def on_system_selected_signal(self, system=None):
         """
@@ -3905,15 +3910,18 @@ class Main(QMainWindow):
         self.set_system_model_window()
 
     def set_systree_expansion(self, index=None):
-        index = index or state.get('sys_tree_expansion', {}).get(
+        if index is None:
+            index = state.get('sys_tree_expansion', {}).get(
                                                 self.project.oid) or 0
+        # NOTE:  levels are 2 to 5, so level = index + 2
+        #        expandToDepth(n) actually means level n + 1
         try:
-            n = index + 1
-            self.sys_tree.expandToDepth(n)
+            level = index + 2
+            self.sys_tree.expandToDepth(level - 1)
             state['sys_tree_expansion'][self.project.oid] = index
-            # orb.log.debug(f'* tree expanded to level {n + 1}')
+            orb.log.debug(f'* tree expanded to level {level}')
         except:
-            # orb.log.debug('* sys tree expansion failed.')
+            orb.log.debug('* sys tree expansion failed.')
             pass
         finally:
             # orb.log.debug('* setting selected system ...')
