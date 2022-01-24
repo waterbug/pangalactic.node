@@ -39,7 +39,7 @@ class ProductFilterDialog(QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Filters")
-        self.engineering_discipline_selected = False
+        self.engineering_discipline_selected = None
         # default is to show all discipline product types -- if
         # user_disciplines are found, this will be overridden below ...
         self.show_all_disciplines = True
@@ -132,6 +132,7 @@ class ProductFilterDialog(QDialog):
 
     def on_check_cb(self):
         d_oids = []
+        discipline = None
         for d_oid, cb in self.checkboxes.items():
             if cb.isChecked():
                 d_oids.append(d_oid)
@@ -155,10 +156,7 @@ class ProductFilterDialog(QDialog):
             self.pt_list = list(product_types)
         self.product_type_panel.set_source_model(
             self.product_type_panel.create_model(objs=self.pt_list))
-        if 'pgefobjects:Discipline.engineering' in d_oids:
-            self.engineering_discipline_selected = True
-        else:
-            self.engineering_discipline_selected = False
+        self.engineering_discipline_selected = discipline
 
     def product_type_selected(self, clicked_index):
         # clicked_row = clicked_index.row()
@@ -190,17 +188,23 @@ class ProductFilterDialog(QDialog):
         pts = [pt for pt in pts if pt.id != 'TBD']
         # orb.log.debug(' - selected product types: {}'.format(
                                    # '|'.join([pt.id for pt in pts])))
-        if (self.cb_all.isChecked() or not pts
-            or self.engineering_discipline_selected):
+        if self.engineering_discipline_selected:
+            name = self.engineering_discipline_selected.name
+            msg = name + ' Products'
+            # msg = 'Product Types:<ul>'
+            # for pt in pts:
+                # msg += '<li>{}</li>'.format(pt.name)
+            # msg += '</ul>'
+        elif self.cb_all.isChecked() or not pts:
             # all or none -> ALL
             msg = 'All Product Types'
             # 'All Product Types' msg overrides pts, so don't need any pts
             pts = []
         else:
-            msg = 'Product Types:<ul>'
-            for pt in pts:
-                msg += '<li>{}</li>'.format(pt.name)
-            msg += '</ul>'
+            # all or none -> ALL
+            msg = 'All Product Types'
+            # 'All Product Types' msg overrides pts, so don't need any pts
+            pts = []
         dispatcher.send('product types selected', msg=msg, objs=pts)
 
 
