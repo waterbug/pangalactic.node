@@ -573,6 +573,7 @@ class ObjectSelectionDialog(QDialog, PopupDialogMixin):
         # 'description' column wrap (default behavior)
         self.table_view.resizeColumnToContents(0)
         self.table_view.resizeColumnToContents(1)
+        self.table_view.setColumnWidth(2, 300)
         self.table_view.clicked.connect(self.select_object)
         self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
         self.bbox.rejected.connect(self.reject)
@@ -580,7 +581,7 @@ class ObjectSelectionDialog(QDialog, PopupDialogMixin):
         layout.addWidget(self.table_view)
         layout.addWidget(self.bbox)
         self.setLayout(layout)
-        w = self.table_view.horizontalHeader().length() + 24
+        w = self.table_view.horizontalHeader().length() + 30
         h = self.table_view.verticalHeader().length() + 100
         default_h = state['height']
         if default_h < h:

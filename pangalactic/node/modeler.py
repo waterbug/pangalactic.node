@@ -115,8 +115,8 @@ class ModelWindow(QMainWindow):
             preferred_size (tuple):  size to set -- (width, height)
         """
         super().__init__(parent=parent)
-        orb.log.debug('* ModelWindow initializing with:')
-        orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
+        # orb.log.debug('* ModelWindow initializing with:')
+        # orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         self.obj = obj
         self.logo = logo
         self.external = external
@@ -127,9 +127,9 @@ class ModelWindow(QMainWindow):
         # NOTE: this set_subject() call serves only to create the diagram_view,
         # which is needed by _init_ui(); the final set_subject() actually sets
         # the subject to the currently selected object
-        obj_id = getattr(obj, 'id', '[None]')
-        orb.log.debug('  init calling set_subject() to create diagram:')
-        orb.log.debug(f'  set_subject(obj={obj_id})')
+        # obj_id = getattr(obj, 'id', '[None]')
+        # orb.log.debug('  init calling set_subject() to create diagram:')
+        # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(creating diagram view)')
         self._init_ui()
         self.setSizePolicy(QSizePolicy.Expanding,
@@ -148,8 +148,8 @@ class ModelWindow(QMainWindow):
         # port or flow, diagram should be regenerated properly
         dispatcher.connect(self.refresh_block_diagram, 'deleted object')
         dispatcher.connect(self.on_set_selected_system, 'set selected system')
-        orb.log.debug('  init calls set_subject() again to set system:')
-        orb.log.debug(f'  set_subject(obj={obj_id})')
+        # orb.log.debug('  init calls set_subject() again to set system:')
+        # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(setting to selected object)')
 
     @property
@@ -271,7 +271,7 @@ class ModelWindow(QMainWindow):
         self.placeholder = new_placeholder
 
     def display_external_window(self):
-        orb.log.debug('* ModelWindow.display_external_window() ...')
+        # orb.log.debug('* ModelWindow.display_external_window() ...')
         mw = ModelWindow(obj=self.obj, scene=self.diagram_view.scene(),
                          logo=self.logo, external=True,
                          parent=self.parent())
@@ -307,7 +307,7 @@ class ModelWindow(QMainWindow):
             usage (Acu or ProjectSystemUsage):  the usage represented by the
                 block
         """
-        orb.log.debug('* set_subject_from_diagram_drill_down')
+        # orb.log.debug('* set_subject_from_diagram_drill_down')
         self.cache_block_model()
         previous_obj = self.obj
         self.history.append(ModelerState._make((self.obj, self.idx)))
@@ -318,8 +318,8 @@ class ModelWindow(QMainWindow):
             self.obj = usage.system
         else:
             return
-        obj_id = getattr(self.obj, 'id', '[None]')
-        orb.log.debug(f'  set_subject(obj={obj_id})')
+        # obj_id = getattr(self.obj, 'id', '[None]')
+        # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=self.obj, msg='(setting from diagram drill-down)')
         self.idx = None
         if state.get('mode') == 'system':
@@ -366,9 +366,9 @@ class ModelWindow(QMainWindow):
         self.cache_block_model()
         self.history.append(ModelerState._make((self.obj, self.idx)))
         self.idx = index
-        orb.log.debug('  Modeler setting subject from tree node selection ...')
-        obj_id = getattr(self.obj, 'id', '[None]')
-        orb.log.debug(f'  set_subject(obj={obj_id})')
+        # orb.log.debug('  Modeler setting subject from tree node selection ...')
+        # obj_id = getattr(self.obj, 'id', '[None]')
+        # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(setting from tree node selection)')
 
     def on_set_selected_system(self, oid=None):
@@ -385,7 +385,7 @@ class ModelWindow(QMainWindow):
         if obj:
             self.cache_block_model()
             self.history.append(ModelerState._make((self.obj, self.idx)))
-            orb.log.debug('  Modeler setting subject from selected system..')
+            # orb.log.debug('  Modeler setting subject from selected system..')
             self.set_subject(obj=obj, msg='(setting from selected system)')
 
     def set_subject(self, obj=None, msg=''):
@@ -397,8 +397,8 @@ class ModelWindow(QMainWindow):
         Keyword Args:
             obj (Identifiable): if no model is provided, find models of obj
         """
-        orb.log.debug('* ModelWindow.set_subject({})'.format(
-                      getattr(obj, 'id', 'None')))
+        # orb.log.debug('* ModelWindow.set_subject({})'.format(
+                      # getattr(obj, 'id', 'None')))
         # if msg:
             # orb.log.debug('  {}'.format(msg))
         # reset model_files
@@ -425,7 +425,7 @@ class ModelWindow(QMainWindow):
                 try:
                     self.display_block_diagram()
                 except:
-                    orb.log.debug('* ModelWindow C++ object deleted.')
+                    # orb.log.debug('* ModelWindow C++ object deleted.')
                     pass
             else:
                 # orb.log.debug('* ModelWindow: obj not Modelable, ignoring')
@@ -461,24 +461,25 @@ class ModelWindow(QMainWindow):
         try:
             model, fpath = self.models_by_label.get('CAD')
             if fpath:
-                orb.log.debug('* ModelWindow.display_cad_model({})'.format(
-                                                                    fpath))
+                # orb.log.debug('* ModelWindow.display_cad_model({})'.format(
+                                                                    # fpath))
                 viewer = Model3DViewer(step_file=fpath, parent=self)
                 viewer.show()
         except:
-            orb.log.debug('  CAD model not found.')
+            # orb.log.debug('  CAD model not found.')
+            pass
 
     def display_block_diagram(self):
         """
         Display a block diagram for the currently selected product or project.
         """
-        orb.log.debug('* Modeler:  display_block_diagram()')
+        # orb.log.debug('* Modeler:  display_block_diagram()')
         if state.get('mode') in ['data', 'db']:
             # NOTE:  without this we will crash -- there is no model window in
             # these modes!
             return
         if state.get('mode') == 'system':
-            orb.log.debug('  mode is "system" ...')
+            # orb.log.debug('  mode is "system" ...')
             # in "system" mode, sync with tree selection
             sys_tree = getattr(self.parent(), 'sys_tree', None)
             # if obj has been set, use it; if not look for tree selection
@@ -487,7 +488,7 @@ class ModelWindow(QMainWindow):
                     i = sys_tree.selectedIndexes()[0]
                     mapped_i = sys_tree.proxy_model.mapToSource(i)
                     self.obj = sys_tree.source_model.get_node(mapped_i).obj
-                    orb.log.debug(f'  using tree selection: {obj.id}')
+                    # orb.log.debug(f'  using tree selection: {obj.id}')
                 else:
                     project = orb.get(state.get('project'))
                     sys_oid = (state.get('system') or {}).get(project) or ''
@@ -495,11 +496,11 @@ class ModelWindow(QMainWindow):
                     if sys_oid:
                         state_sys = orb.get(sys_oid)
                     if state_sys:
-                        orb.log.debug(f'  - using system: "{state_sys.id}"')
+                        # orb.log.debug(f'  - using system: "{state_sys.id}"')
                         self.obj = state_sys
                     elif project:
-                        msg = f'  - no system, using project: {project.id}'
-                        orb.log.debug(msg)
+                        # msg = f'  - no system, using project: {project.id}'
+                        # orb.log.debug(msg)
                         self.obj = project
         elif state.get('mode') == 'component':
             # orb.log.debug('  mode is "component"')
