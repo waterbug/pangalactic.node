@@ -577,6 +577,8 @@ class LibraryDialog(QDialog):
                                        label=label, external_filters=True,
                                        parent=self)
                 lib_view.ext_filters.clicked.connect(self.show_ext_filters)
+                lib_view.clear_filters_btn.clicked.connect(
+                                                self.clear_product_filters)
                 dispatcher.connect(self.on_product_types_selected,
                                    'product types selected')
                 dispatcher.connect(self.on_only_mine_toggled,
@@ -616,6 +618,12 @@ class LibraryDialog(QDialog):
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
         self.filter_dlg.show()
+
+    def clear_product_filters(self):
+        self.product_types = []
+        select_product_types(self.lib_view, msg='All Product Types',
+                             only_mine=state.get('only_mine'),
+                             product_types=[])
 
     def on_product_types_selected(self, msg='', objs=None):
         # orb.log.debug('* on_product_types_selected:')
