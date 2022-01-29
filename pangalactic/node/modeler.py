@@ -541,7 +541,8 @@ class ModelWindow(QMainWindow):
         # orb.log.debug('* Modeler:  refresh_block_diagram()')
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
-        block_ordering = diagramz.get(self.obj.oid)
+        oid = getattr(self.obj, 'oid', '') or ''
+        block_ordering = diagramz.get(oid)
         if block_ordering:
             # orb.log.debug('  - generating diagram with ordering ...')
             scene.generate_ibd(self.obj, ordering=block_ordering)
