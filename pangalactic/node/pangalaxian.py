@@ -270,12 +270,12 @@ class Main(QMainWindow):
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
-        dispatcher.connect(self.on_remote_new_or_decloaked_signal,
-                                                    'remote: decloaked')
-        dispatcher.connect(self.on_remote_new_or_decloaked_signal,
-                                                    'remote: new')
-        dispatcher.connect(self.on_remote_modified_signal,
-                                                    'remote: modified')
+        # dispatcher.connect(self.on_remote_new_or_decloaked_signal,
+        dispatcher.connect(self.on_received_objects, 'remote: decloaked')
+        # dispatcher.connect(self.on_remote_new_or_decloaked_signal,
+        dispatcher.connect(self.on_received_objects, 'remote: new')
+        # dispatcher.connect(self.on_remote_modified_signal,
+        dispatcher.connect(self.on_received_objects, 'remote: modified')
         dispatcher.connect(self.on_remote_parm_del, 'remote: parm del')
         dispatcher.connect(self.on_remote_de_del, 'remote: de del')
         dispatcher.connect(self.on_remote_deleted_signal,
@@ -1334,21 +1334,23 @@ class Main(QMainWindow):
         """
         for item in msg.items():
             subject, content = item
-            # orb.log.info("* on_pubsub_msg")
-            # orb.log.info("  subject: {}".format(subject))
-            # orb.log.info("  content: {}".format(content))
-            # orb.log.info("  pop-up notification ...")
-            # text = ('subject: {}<br>'.format(subject))
+            orb.log.info("* pubsub msg received ...")
+            orb.log.info("  subject: {}".format(subject))
+            # orb.log.debug("  content: {}".format(content))
             obj_id = '[unknown]'
             # base msg
             msg = "remote {}: ".format(subject)
             # generate log "msg" values ...
             if subject == 'decloaked':
-                obj_oid, obj_id = content
-                msg += obj_id
+                # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
+                # obj_oid, obj_id = content
+                n = len(content)
+                msg += f'received {n} decloaked objects'
             elif subject == 'new':
-                obj_oid, obj_id = content
-                msg += obj_id
+                # NOTE: content of 'new' msg changed in version 2.2.dev8
+                # obj_oid, obj_id = content
+                n = len(content)
+                msg += f'received {n} new objects'
             elif subject == 'new mode defs':
                 orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
                 md_dts, ser_md, userid = content
@@ -1456,18 +1458,22 @@ class Main(QMainWindow):
                 # should be 'entity update'
                 pass
             elif subject == 'modified':
-                obj_oid, obj_id, obj_mod_datetime = content
-                obj = orb.get(obj_oid)
-                if obj and obj.name:
-                    if isinstance(obj, orb.classes['Product']):
-                        pt = getattr(obj.product_type, 'name', 'unknown type')
-                        msg += "{} ({}) [{}]".format(obj_id, obj.name, pt)
-                    elif isinstance(obj, orb.classes['Acu']):
-                        pth = getattr(obj.product_type_hint, 'name',
-                                      'unknown type')
-                        msg += "{} [{}]".format(obj_id, pth)
-                else:
-                    msg += obj_id
+                # NOTE: content of 'modified' msg changed in version 2.2.dev8
+                # -- content is now a dict {oid: serialized object}
+                # obj_oid, obj_id, obj_mod_datetime = content
+                n = len(content)
+                msg += f"received {n} modified objects"
+                # obj = orb.get(obj_oid)
+                # if obj and obj.name:
+                    # if isinstance(obj, orb.classes['Product']):
+                        # pt = getattr(obj.product_type, 'name', 'unknown type')
+                        # msg += "{} ({}) [{}]".format(obj_id, obj.name, pt)
+                    # elif isinstance(obj, orb.classes['Acu']):
+                        # pth = getattr(obj.product_type_hint, 'name',
+                                      # 'unknown type')
+                        # msg += "{} [{}]".format(obj_id, pth)
+                # else:
+                    # msg += obj_id
             elif subject == 'frozen':
                 # content is an oid
                 dispatcher.send(signal="remote: frozen", frozen_oid=content)
@@ -1577,12 +1583,15 @@ class Main(QMainWindow):
             # dispatcher signals to send ...
             if subject == 'decloaked':
                 self.statusbar.showMessage(msg)
+                # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
                 dispatcher.send(signal="remote: decloaked", content=content)
             elif subject == 'new':
                 self.statusbar.showMessage(msg)
+                # NOTE: content of 'new' msg changed in version 2.2.dev8
                 dispatcher.send(signal="remote: new", content=content)
             elif subject == 'modified':
                 # don't show msg in statusbar -- may not be relevant
+                # NOTE: content of 'modified' msg changed in version 2.2.dev8
                 dispatcher.send(signal="remote: modified", content=content)
             elif subject == 'deleted':
                 self.statusbar.showMessage(msg)
@@ -1598,6 +1607,7 @@ class Main(QMainWindow):
             # elif subject == 'data element set':
                 # dispatcher.send(signal="remote dval set", content=content)
 
+    # DEPRECATED (now using on_received_objects())
     def on_remote_new_or_decloaked_signal(self, content=None):
         """
         Call functions to update applicable widgets when a pub/sub message is
@@ -1628,7 +1638,7 @@ class Main(QMainWindow):
             orb.log.debug('  - object unknown -- get from repo...')
             rpc = self.mbus.session.call('vger.get_object', obj_oid,
                                          include_components=True)
-            rpc.addCallback(self.on_rpc_get_object)
+            rpc.addCallback(self.on_received_objects)
             rpc.addErrback(self.on_failure)
 
     def on_ldap_search(self, query=None):
@@ -1729,15 +1739,15 @@ class Main(QMainWindow):
         else:
             orb.log.debug('- rpc failed: no data received!')
 
-    def on_rpc_get_object(self, serialized_objects):
+    def on_received_objects(self, serialized_objects):
         """
-        Handle the result of the rpc 'vger.get_object', which returns a list of
-        serialized objects.
+        Handle the result of the rpc 'vger.get_object' and other rpcs that
+        return lists of serialized objects.
 
         Args:
             serialized_objects (list): a list of serialized objects
         """
-        orb.log.debug("* on_rpc_get_object")
+        orb.log.debug("* on_received_objects")
         orb.log.debug("  got: {} serialized objects".format(
                                                     len(serialized_objects)))
         if not serialized_objects:
@@ -2765,12 +2775,15 @@ class Main(QMainWindow):
             # rpc.addCallback(self.on_null_result)
             # rpc.addErrback(self.on_failure)
 
+    # DEPRECATED (now using on_received_objects())
     def on_remote_modified_signal(self, content=None):
         """
         Handle louie signal "remote: modified".
         """
         orb.log.debug('* received "remote: modified" signal on:')
         # content is a tuple:  (obj.oid, str(obj.mod_datetime))
+        # NOTE: content of 'modified' msg changed in version 2.2.dev8
+        # -- content is now a dict {oid: serialized object}
         obj_oid, obj_id, dts_str = content
         orb.log.debug('  oid: {}'.format(obj_oid))
         orb.log.debug('  id: {}'.format(obj_id))
@@ -2793,7 +2806,7 @@ class Main(QMainWindow):
                 orb.log.debug('  remote object is newer, getting...')
                 # NOTE: use "include_components=False" to avoid side-effects,
                 # such as if the modified object had a new Acu which will be
-                # retrieved separately and processed by on_rpc_get_object,
+                # retrieved separately and processed by on_received_objects,
                 # which will update the system tree properly if necessary ...
                 rpc = self.mbus.session.call('vger.get_object', obj.oid,
                                              include_components=False)
@@ -2807,7 +2820,7 @@ class Main(QMainWindow):
             orb.log.debug('  object not found in local db, getting ...')
             rpc = self.mbus.session.call('vger.get_object', obj.oid,
                                            include_components=True)
-            rpc.addCallback(self.on_rpc_get_object)
+            rpc.addCallback(self.on_received_objects)
             rpc.addErrback(self.on_failure)
 
     def on_remote_deleted_signal(self, content=None):
@@ -3138,12 +3151,13 @@ class Main(QMainWindow):
             if (state.get('connected')
                 and not getattr(obj, 'project', None) is self.sandbox):
                 # SANDBOX PSUs are not saved to the server
-                serialized_objs = serialize(orb, [obj])
+                serialized_objs = serialize(orb, [obj],
+                                            include_components=True)
                 if isinstance(obj, orb.classes['RoleAssignment']):
                     orb.log.debug('  calling rpc vger.assign_role() ...')
                     orb.log.debug('  - role assignment: {}'.format(obj.id))
                     rpc = self.mbus.session.call('vger.assign_role',
-                                                   serialized_objs)
+                                                 serialized_objs)
                     rpc.addCallback(self.on_result)
                 else:
                     orb.log.debug('  calling rpc vger.save() ...')

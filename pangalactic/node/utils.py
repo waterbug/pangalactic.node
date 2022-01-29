@@ -406,6 +406,7 @@ def create_product_from_template(template):
             pth_name = getattr(pth, 'name', '[unspecified product type]')
             acu_id = '-'.join([product_id, pth_id])
             acu_name = ' '.join([product_name, pth_name])
+            orb.log.info(f'* creating function {acu_name} ...')
             clone('Acu', id=acu_id, name=acu_name, assembly=product,
                   component=tbd, reference_designator=acu.reference_designator,
                   product_type_hint=pth)

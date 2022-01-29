@@ -819,10 +819,12 @@ class ProductInfoPanel(QWidget):
             icon, t_oid, t_id, t_name, t_cname = data
             template = orb.get(t_oid)
             product = create_product_from_template(template)
-            if product.components:
-                orb.save(product.components)
-                for acu in product.components:
-                    dispatcher.send('new object', obj=acu)
+            # NOTE: the below stuff is unnecessary, I think
+            # if product.components:
+                # orb.save(product.components)
+                # for acu in product.components:
+                    # dispatcher.send('new object', obj=acu)
+            dispatcher.send('new object', obj=product)
             dispatcher.send("drop on product info", p=product)
         else:
             event.ignore()
