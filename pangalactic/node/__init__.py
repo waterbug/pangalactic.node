@@ -2,5 +2,5 @@
 """
 The Pan Galactic Engineering Framework (PGEF) node package.
 """
-__version__ = '2.2.dev7'
+__version__ = '2.2.dev8'
 

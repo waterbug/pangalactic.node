@@ -1,6 +1,6 @@
 package:
   name: pangalactic.node
-  version: "2.2.dev7"
+  version: "2.2.dev8"
 
 source:
         path: /home/waterbug/gitlab/pangalactic.node
@@ -15,7 +15,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=2.2.dev7
+    - pangalactic.core >=2.2.dev8
     - autobahn
     - binaryornot
     - inflect
