@@ -4,7 +4,8 @@
 Pangalaxian (the PanGalactic GUI client) main window
 """
 import argparse, atexit, json, multiprocessing, os, shutil, sys
-import time, traceback, webbrowser
+import time, webbrowser
+# import traceback
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
 from pathlib  import Path
@@ -1739,19 +1740,21 @@ class Main(QMainWindow):
         else:
             orb.log.debug('- rpc failed: no data received!')
 
-    def on_received_objects(self, serialized_objects):
+    def on_received_objects(self, content=None):
         """
         Handle the result of the rpc 'vger.get_object' and other rpcs that
         return lists of serialized objects.
 
         Args:
-            serialized_objects (list): a list of serialized objects
+            content (list): a list of serialized objects
         """
         orb.log.debug("* on_received_objects")
-        orb.log.debug("  got: {} serialized objects".format(
-                                                    len(serialized_objects)))
-        if not serialized_objects:
-            orb.log.debug('  result was empty!')
+        serialized_objects = content
+        if serialized_objects:
+            n = len(serialized_objects)
+            orb.log.debug(f"  got {n} serialized objects")
+        else:
+            orb.log.debug('  content was empty!')
             return False
         # NOTE:  using load_serialized_objects() here led to problematic
         # behavior due to unordered asynchronous operations
@@ -1760,10 +1763,9 @@ class Main(QMainWindow):
         ser_objs = [so for so in serialized_objects if so]
         objs = deserialize(orb, ser_objs)
         if objs:
-            orb.log.debug('  deserialize() returned {} object(s):'.format(
-                                                                    len(objs)))
+            orb.log.debug(f'  deserialize() returned {len(objs)} object(s):')
             txt = str([o.id for o in objs if o is not None])
-            orb.log.debug('  {}'.format(txt))
+            orb.log.debug(f'  {txt}')
         else:
             orb.log.debug('  deserialize() returned no objects --')
             orb.log.debug('  (any received were already in the local db).')
@@ -1808,13 +1810,14 @@ class Main(QMainWindow):
                     continue
                 need_to_refresh_diagram = True
                 if hasattr(self, 'sys_tree'):
-                    # sys_tree_model = self.sys_tree.model()
-                    sys_tree_model = self.sys_tree.source_model
-                    if hasattr(obj, 'project'):
+                    need_to_refresh_tree = True
+                    need_to_refresh_dashboard = True
+                    # sys_tree_model = self.sys_tree.source_model
+                    # if hasattr(obj, 'project'):
                         # -> object is a ProjectSystemUsage (PSU)
                         # NOTE:  SANDBOX PSUs are not synced
-                        if (obj.project.oid == state.get('project') and
-                            obj.project.oid != 'pgefobjects:SANDBOX'):
+                        # if (obj.project.oid == state.get('project') and
+                            # obj.project.oid != 'pgefobjects:SANDBOX'):
                             # orb.log.debug('  this is a ProjectSystemUsage for '
                                       # 'the current project ({}) ...'.format(
                                       # state['project']))
@@ -1822,7 +1825,7 @@ class Main(QMainWindow):
                                                                 # obj.system.id))
                             # Just adding a new system node did not work, so
                             # the whole tree is rebuilt (refreshed)
-                            need_to_refresh_tree = True
+                            # need_to_refresh_tree = True
                         # else:
                             # PSU not for the current project ->
                             # (1) not in the currently visible system tree
@@ -1831,30 +1834,30 @@ class Main(QMainWindow):
                                       # 'the current project ({}) ...'.format(
                                       # state['project']))
                             # orb.log.debug('  no system node will be added.')
-                    else:
+                    # else:
                         # orb.log.debug('  this is an Acu ...')
                         # orb.log.debug('  - assembly:  {}'.format(
                                                             # obj.assembly.id))
-                        comp = obj.component
+                        # comp = obj.component
                         # orb.log.debug('  - component: {}'.format(comp.id))
-                        idxs = self.sys_tree.object_indexes_in_tree(
-                                                                obj.assembly)
+                        # idxs = self.sys_tree.object_indexes_in_tree(
+                                                                # obj.assembly)
                         # orb.log.debug('  the assembly occurs {} times'.format(
                                                                    # len(idxs)))
                         # orb.log.debug('  in the system tree.')
                         # if idxs:
                             # orb.log.debug('  adding component nodes ...')
-                        for i, idx in enumerate(idxs):
-                            try:
-                                assembly_node = sys_tree_model.get_node(idx)
-                                sys_tree_model.add_nodes(
-                                    [sys_tree_model.node_for_object(
-                                     comp, assembly_node, link=obj)],
-                                    parent=idx)
-                            except Exception:
-                                orb.log.info(traceback.format_exc())
+                        # for i, idx in enumerate(idxs):
+                            # try:
+                                # assembly_node = sys_tree_model.get_node(idx)
+                                # sys_tree_model.add_nodes(
+                                    # [sys_tree_model.node_for_object(
+                                     # comp, assembly_node, link=obj)],
+                                    # parent=idx)
+                            # except Exception:
+                                # orb.log.info(traceback.format_exc())
                     # resize dashboard columns if necessary
-                    need_to_refresh_dashboard = True
+                    # need_to_refresh_dashboard = True
             elif isinstance(obj, orb.classes['RoleAssignment']):
                 if getattr(obj, 'assigned_to', None) is self.local_user:
                     html = '<h3>You have been assigned the role:</h3>'
