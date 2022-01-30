@@ -3791,7 +3791,7 @@ class Main(QMainWindow):
             level = index + 2
             self.sys_tree.expandToDepth(level - 1)
             state['sys_tree_expansion'][self.project.oid] = index
-            orb.log.debug(f'* tree expanded to level {level}')
+            # orb.log.debug(f'* tree expanded to level {level}')
         except:
             orb.log.debug('* sys tree expansion failed.')
             pass
