@@ -753,10 +753,12 @@ class ObjectBlock(Block):
                     popup.show()
                     return
                 orb.log.info('  - dropped_item: "{}"'.format(name))
-                # drop target is "TBD" product -> replace it with the dropped
+                # --------------------------------------------------------
+                # 2: drop target is "TBD" -> replace with dropped
                 # item if it has the right product_type
-                # use dropped item if its product_type is the same as
-                # acu's "product_type_hint"
+                # --------------------------------------------------------
+                # (use dropped item if its product_type is the same as
+                # acu's "product_type_hint")
                 ptname = getattr(dropped_item.product_type,
                                  'name', '')
                 hint = ''
@@ -810,9 +812,10 @@ class ObjectBlock(Block):
                     orb.save(mod_objs)
                     # NOTE:  setting 'usage' triggers name/desc label rewrites
                     self.usage = usage
-                    event.accept()
                     orb.log.debug('   usage modified: {}'.format(
                                   self.usage.name))
+                    event.accept()
+                    dispatcher.send('refresh diagram')
                     for obj in mod_objs:
                         dispatcher.send('modified object', obj=obj)
                     ### NOTE: this message is not being used -- maybe uncomment
