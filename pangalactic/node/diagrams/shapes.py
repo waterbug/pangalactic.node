@@ -872,7 +872,8 @@ class SubjectBlock(Block):
         dispatcher.connect(self.on_block_mod_signal, 'block mod')
 
     def rebuild(self):
-        name = getattr(self.obj, 'name', None) or self.obj.id
+        name = getattr(self.obj, 'name', None)
+        name = name or getattr(self.obj, 'id', 'unknown')
         version = getattr(self.obj, 'version', '')
         if version:
             name += ' v.' + version
