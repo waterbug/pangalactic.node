@@ -535,12 +535,18 @@ class ModelWindow(QMainWindow):
 
     def refresh_block_diagram(self):
         """
-        Regenerate block diagram using its currently selected product or
-        project.
+        Regenerate block diagram using either its subject product or the
+        currently selected system or project.
         """
         # orb.log.debug('* Modeler:  refresh_block_diagram()')
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
+        if (state['mode'] == "system" and state.get('system')
+            and state['system'].get(state.get('project'))):
+            selected_oid = state['system'][state['project']]
+            selected_obj = orb.get(selected_oid)
+            if selected_obj:
+                self.obj = selected_obj
         oid = getattr(self.obj, 'oid', '') or ''
         block_ordering = diagramz.get(oid)
         if block_ordering:
@@ -825,8 +831,8 @@ class ProductInfoPanel(QWidget):
                 # orb.save(product.components)
                 # for acu in product.components:
                     # dispatcher.send('new object', obj=acu)
-            dispatcher.send('new object', obj=product)
             dispatcher.send("drop on product info", p=product)
+            dispatcher.send('new object', obj=product)
         else:
             event.ignore()
 
