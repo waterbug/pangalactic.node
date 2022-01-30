@@ -454,8 +454,12 @@ class ModelWindow(QMainWindow):
                 # self.back_action.setEnabled(False)
         self.cache_block_model()
         if hasattr(self, 'diagram_view'):
-            self.diagram_view.verticalScrollBar().setValue(0)
-            self.diagram_view.horizontalScrollBar().setValue(0)
+            try:
+                self.diagram_view.verticalScrollBar().setValue(0)
+                self.diagram_view.horizontalScrollBar().setValue(0)
+            except:
+                # diagram_view C++ object got deleted
+                pass
 
     def display_cad_model(self):
         try:
