@@ -1429,9 +1429,10 @@ class SystemTreeView(QTreeView):
     def on_dash_node_selected(self, index=None):
         self.sys_node_select(index=index, origin='dash node selected')
 
-    def on_set_selected_system(self, oid=None):
+    def on_set_selected_system(self):
         # orb.log.debug('- systree: "set selected system" signal received.')
         try:
+            oid = (state.get('system') or {}).get(state.get('project'))
             obj = orb.get(oid)
             proxy_idx = None
             if obj:

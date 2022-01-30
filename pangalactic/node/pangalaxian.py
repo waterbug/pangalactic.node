@@ -283,15 +283,11 @@ class Main(QMainWindow):
                                                     'remote: deleted')
         dispatcher.connect(self.on_set_current_project_signal,
                                                    'set current project')
-        dispatcher.connect(self.set_product, 'drop on product info')
+        dispatcher.connect(self.on_drop_product, 'drop on product info')
         dispatcher.connect(self.on_drill_down, 'diagram object drill down')
         dispatcher.connect(self.on_comp_back, 'comp modeler back')
         # connect dispatcher signals for message bus events
         dispatcher.connect(self.on_mbus_joined, 'onjoined')
-        # 'set current product' only affects 'component mode' (the "product
-        # modeler interface", so just call that)
-        dispatcher.connect(self.set_product_modeler_interface,
-                           'set current product')
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
@@ -2398,9 +2394,6 @@ class Main(QMainWindow):
         orb.log.debug(f'  cmh is now: {str(cmh)}')
         state['product'] = oid
         self._product = p
-        orb.log.debug('  - dispatching "set current product" ...')
-        dispatcher.send(signal="set current product",
-                        sender='set_product', product=p)
 
     def del_product(self):
         pass
@@ -2420,6 +2413,20 @@ class Main(QMainWindow):
             # history (we just removed it!)
             state['comp_modeler_back'] = True
             self.product = orb.get(oid)
+            self.set_product_modeler_interface()
+
+    def on_drop_product(self, p=None):
+        """
+        Handle dispatcher signal for "drop on product info" (sent by
+        ProductInfoPanel when a product is dropped on it): load the product
+        and add it to the history stack.
+        """
+        if state.get('component_modeler_history'):
+            state['component_modeler_history'].append(p.oid)
+        else:
+            state['component_modeler_history'] = [p.oid]
+        self.product = p
+        self.set_product_modeler_interface()
 
     def on_drill_down(self, usage=None):
         """
@@ -3798,8 +3805,7 @@ class Main(QMainWindow):
         finally:
             # orb.log.debug('* setting selected system ...')
             # after expanding, set the selected system
-            sys_oid = (state.get('system') or {}).get(state.get('project'))
-            dispatcher.send(signal='set selected system', oid=sys_oid)
+            dispatcher.send(signal='set selected system')
 
     def rebuild_dash_selector(self):
         orb.log.debug('* rebuild_dash_selector()')

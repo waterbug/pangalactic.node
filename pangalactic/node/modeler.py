@@ -371,20 +371,13 @@ class ModelWindow(QMainWindow):
         # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(setting from tree node selection)')
 
-    def on_set_selected_system(self, oid=None):
+    def on_set_selected_system(self):
         """
-        Respond to a node selection in the system tree or dashboard by setting
-        the corresponding object as the subject of the model window.
-
-        Keyword Args:
-            index (QModelIndex):  index in the system tree's proxy model
-                corresponding to the object being modeled
-            obj (Identifiable): obj being modeled
+        Set the selected system as the subject of the model window.
         """
-        obj = orb.get(oid or '')
+        oid = (state.get('system') or {}).get(state.get('project'))
+        obj = orb.get(oid)
         if obj:
-            self.cache_block_model()
-            self.history.append(ModelerState._make((self.obj, self.idx)))
             # orb.log.debug('  Modeler setting subject from selected system..')
             self.set_subject(obj=obj, msg='(setting from selected system)')
 
@@ -775,9 +768,10 @@ class ProductInfoPanel(QWidget):
         product_frame_vbox.addLayout(product_info_layout)
         self.setMinimumWidth(600)
         self.setMaximumHeight(150)
-        # subscribe to the 'set current product' signal, which is sent by
-        # pangalaxian.Main.set_product()
-        self.set_product(product=orb.get(state.get('product')))
+        if state.get('product'):
+            product = orb.get(state['product'])
+            if product:
+                self.set_product(product)
         dispatcher.connect(self.on_update, 'update product modeler')
 
     def load_last_product(self):
