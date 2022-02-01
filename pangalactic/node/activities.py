@@ -345,6 +345,8 @@ class SystemSelectionView(QTreeView):
         Args:
             link (Acu or ProjectSystemUsage):  specified link object
         """
+        if not link:
+            return []
         # orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
         model = self.proxy_model.sourceModel()
         project_index = model.index(0, 0, QModelIndex())
@@ -469,7 +471,8 @@ class ModesTool(QMainWindow):
 
     def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
                                  mode=None, value=None):
-        if (hasattr(self, 'mode_definition_table') and
+        if ((link_oid is not None) and
+            hasattr(self, 'mode_definition_table') and
             (project_oid == self.project.oid)):
             project_mode_defz = mode_defz[project_oid]
             sys_dict = project_mode_defz['systems']
@@ -479,7 +482,8 @@ class ModesTool(QMainWindow):
 
     def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
                                   comp_oid=None, mode=None, value=None):
-        if (hasattr(self, 'mode_definition_table') and
+        if ((link_oid is not None) and
+            hasattr(self, 'mode_definition_table') and
             (project_oid == self.project.oid)):
             project_mode_defz = mode_defz[project_oid]
             comp_dict = project_mode_defz['components']
@@ -505,13 +509,15 @@ class ModesTool(QMainWindow):
         orb.log.debug('  - updating mode_defz ...')
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
+        if not hasattr(link, 'oid'):
+            return
         name = get_link_name(link)
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
         mode_dict = project_mode_defz['modes']
         # link might be None -- allow for that
-        if getattr(link, 'oid', 'no such link') in sys_dict:
+        if link.oid in sys_dict:
             # if selected link is in sys_dict, remove it
             orb.log.debug(f' - removing "{name}" from systems ...')
             del sys_dict[link.oid]
@@ -645,16 +651,17 @@ class ModesTool(QMainWindow):
         items = []
         for oid in sys_dict:
             link = orb.get(oid)
-            items.append(link)
-            if link.oid in comp_dict:
-                comps = []
-                for oid in comp_dict[link.oid]:
-                    comps.append(orb.get(oid))
-                # sort comps by "name" (same as in the system tree)
-                by_name = [(get_link_name(comp), comp) for comp in comps]
-                by_name.sort()
-                comps = [bn[1] for bn in by_name]
-                items += comps
+            if link:
+                items.append(link)
+                if link.oid in comp_dict:
+                    comps = []
+                    for oid in comp_dict[link.oid]:
+                        comps.append(orb.get(oid))
+                    # sort comps by "name" (same as in the system tree)
+                    by_name = [(get_link_name(comp), comp) for comp in comps]
+                    by_name.sort()
+                    comps = [bn[1] for bn in by_name]
+                    items += comps
         model = ModeDefinitionModel(items, view=view, project=self.project)
         for i, mode in enumerate(view):
             model.setHeaderData(i, Qt.Horizontal, self.wrap_header(mode))
@@ -749,26 +756,27 @@ class ModeDefinitionModel(QStandardItemModel):
     def headerData(self, section, orientation, role):
         if len(self.objs) > section:
             link = self.objs[section]
-            sys_dict = mode_defz[self.project.oid]['systems']
-            if (orientation == Qt.Vertical and
-                role == Qt.BackgroundRole):
-                if link.oid in sys_dict:
-                    return QBrush(Qt.blue)
-                else:
-                    return QBrush(Qt.white)
-            if (orientation == Qt.Vertical and
-                role == Qt.ForegroundRole):
-                if link.oid in sys_dict:
-                    return QBrush(Qt.white)
-                else:
-                    return QBrush(Qt.black)
+            if hasattr(link, 'oid'):
+                sys_dict = mode_defz[self.project.oid]['systems']
+                if (orientation == Qt.Vertical and
+                    role == Qt.BackgroundRole):
+                    if link.oid in sys_dict:
+                        return QBrush(Qt.blue)
+                    else:
+                        return QBrush(Qt.white)
+                if (orientation == Qt.Vertical and
+                    role == Qt.ForegroundRole):
+                    if link.oid in sys_dict:
+                        return QBrush(Qt.white)
+                    else:
+                        return QBrush(Qt.black)
         return super().headerData(section, orientation, role)
 
     def data(self, index, role):
         sys_dict = mode_defz[self.project.oid]['systems']
         comp_dict = mode_defz[self.project.oid]['components']
         link = self.objs[index.row()]
-        if not index.isValid():
+        if (not index.isValid()) or (not hasattr(link, 'oid')):
             return None
         if role == Qt.DisplayRole:
             if self.cols:
@@ -804,6 +812,8 @@ class ModeDefinitionModel(QStandardItemModel):
             return False
         if self.setData(index, value, role=Qt.EditRole):
             link = self.objs[index.row()]
+            if not hasattr(link, 'oid'):
+                return False
             mode = self.view[index.column()]
             sys_dict = mode_defz[self.project.oid]['systems']
             comp_dict = mode_defz[self.project.oid]['components']
@@ -812,6 +822,7 @@ class ModeDefinitionModel(QStandardItemModel):
                 dispatcher.send(signal='sys mode datum set',
                                 datum=(self.project.oid, link.oid, mode,
                                        value))
+                return True
             else:
                 sys_oid = None
                 for oid in comp_dict:
@@ -820,8 +831,11 @@ class ModeDefinitionModel(QStandardItemModel):
                 if sys_oid:
                     orb.log.debug(' - sending "comp mode datum set" signal')
                     dispatcher.send(signal='comp mode datum set',
-                                    datum=(self.project.oid, sys_oid, link.oid,
-                                           mode, value))
+                                    datum=(self.project.oid, sys_oid,
+                                           link.oid, mode, value))
+                    return True
+                else:
+                    return False
 
     def setData(self, index, value, role=Qt.EditRole):
         if role != Qt.EditRole:
@@ -829,22 +843,23 @@ class ModeDefinitionModel(QStandardItemModel):
         if not index.isValid():
             return False
         link = self.objs[index.row()]
-        mode = self.view[index.column()]
-        sys_dict = mode_defz[self.project.oid]['systems']
-        comp_dict = mode_defz[self.project.oid]['components']
-        if link.oid in sys_dict:
-            sys_dict[link.oid][mode] = value
-            self.dataChanged.emit(index, index)
-            return True
-        else:
-            mod = False
-            for oid in comp_dict:
-                if link.oid in comp_dict[oid]:
-                    comp_dict[oid][link.oid][mode] = value
-                    mod = True
-            if mod:
+        if hasattr(link, 'oid'):
+            mode = self.view[index.column()]
+            sys_dict = mode_defz[self.project.oid]['systems']
+            comp_dict = mode_defz[self.project.oid]['components']
+            if link.oid in sys_dict:
+                sys_dict[link.oid][mode] = value
                 self.dataChanged.emit(index, index)
                 return True
+            else:
+                mod = False
+                for oid in comp_dict:
+                    if link.oid in comp_dict[oid]:
+                        comp_dict[oid][link.oid][mode] = value
+                        mod = True
+                if mod:
+                    self.dataChanged.emit(index, index)
+                    return True
 
 
 class ModeDefinitionView(QTableView):
