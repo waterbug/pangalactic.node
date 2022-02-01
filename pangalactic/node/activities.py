@@ -777,7 +777,7 @@ class ModeDefinitionModel(QStandardItemModel):
         comp_dict = mode_defz[self.project.oid]['components']
         link = self.objs[index.row()]
         if (not index.isValid()) or (not hasattr(link, 'oid')):
-            return None
+            return super().data(index, role)
         if role == Qt.DisplayRole:
             if self.cols:
                 mode = self.view[index.column()]
@@ -785,10 +785,11 @@ class ModeDefinitionModel(QStandardItemModel):
                     if link.oid in sys_dict:
                         return sys_dict[link.oid].get(mode) or 'unspecified'
                     else:
+                        val = 'unspecified'
                         for oid in comp_dict:
                             if link.oid in comp_dict[oid]:
                                 val = comp_dict[oid][link.oid].get(mode)
-                        return val or 'unspecified'
+                        return val
         if role == Qt.BackgroundRole:
             if link.oid in sys_dict:
                 return QBrush(Qt.blue)
