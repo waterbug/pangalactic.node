@@ -689,7 +689,9 @@ class ModesTool(QMainWindow):
         self._delegates = []
         for row, item in enumerate(items):
             for sys_oid in sys_dict:
-                if ((sys_oid in comp_dict and item.oid in comp_dict[sys_oid])
+                # check for degenerate case first (item is None)
+                if ((item is not None) and
+                    (sys_oid in comp_dict and item.oid in comp_dict[sys_oid])
                     or ((sys_oid == item.oid) and sys_oid not in comp_dict)):
                     obj = None
                     if hasattr(item, 'component'):
