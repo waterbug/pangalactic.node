@@ -216,7 +216,7 @@ class QtViewer3DColor(QtBaseViewer):
             # dict mapping keys to functions
             self._SetupKeyMap()
         else:
-            # model is not a suppored type
+            # model is not a supported type
             sys.exit(0)
 
     def get_label_name(self, label):

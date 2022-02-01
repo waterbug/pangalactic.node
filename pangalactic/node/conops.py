@@ -781,15 +781,17 @@ class TimelineWidget(QWidget):
         return action
 
     def create_subsys_list(self):
-        lst = [acu.component for acu in self.system.components]
-        for system in lst:
-            try:
-                subsys_id = system.id
-                # ignore TBD's
-                if subsys_id != "TBD":
-                    self.subsys_ids.append(subsys_id)
-            except:
-                pass
+        # allow for degenerate case (self.system is None)
+        if hasattr(self.system, 'components'):
+            lst = [acu.component for acu in self.system.components]
+            for system in lst:
+                try:
+                    subsys_id = system.id
+                    # ignore TBD's
+                    if subsys_id != "TBD":
+                        self.subsys_ids.append(subsys_id)
+                except:
+                    pass
 
     def make_subsys_selector(self):
         self.subsys_selector = QComboBox(self)

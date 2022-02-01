@@ -510,7 +510,8 @@ class ModesTool(QMainWindow):
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
         mode_dict = project_mode_defz['modes']
-        if link.oid in sys_dict:
+        # link might be None -- allow for that
+        if getattr(link, 'oid', 'no such link') in sys_dict:
             # if selected link is in sys_dict, remove it
             orb.log.debug(f' - removing "{name}" from systems ...')
             del sys_dict[link.oid]
@@ -574,15 +575,17 @@ class ModesTool(QMainWindow):
                         orb.log.debug(' - item selected is a component with')
                         orb.log.debug('   no components -- operation ignored.')
             if not in_comp_dict:
-                # [2] neither in sys_dict NOR in comp_dict -- add
-                sys_dict[link.oid] = {}
-                for mode in mode_dict:
-                    if has_components:
-                        sys_dict[link.oid][mode] = '[computed]'
-                    else:
-                        context = mode_dict.get(mode)
-                        context = context or '[select state]'
-                        sys_dict[link.oid][mode] = context
+                # [2] neither in sys_dict NOR in comp_dict -- add it *if* it
+                #     exists ... in degenerate case it may be None (no oid)
+                if hasattr(link, 'oid'):
+                    sys_dict[link.oid] = {}
+                    for mode in mode_dict:
+                        if has_components:
+                            sys_dict[link.oid][mode] = '[computed]'
+                        else:
+                            context = mode_dict.get(mode)
+                            context = context or '[select state]'
+                            sys_dict[link.oid][mode] = context
         # ensure that all selected systems (sys_dict) that have components,
         # have those components included in comp_dict ...
         for syslink_oid in sys_dict:
@@ -661,23 +664,25 @@ class ModesTool(QMainWindow):
         for row in range(len(items)):
             for col in range(len(view)):
                 index = model.index(row, col, QModelIndex())
-                oid = items[row].oid
-                # TODO: get available states for row and set data to states[0]
-                if oid in sys_dict and oid in comp_dict:
-                    # item is a system with components -> computed
-                    model.setData(index, '[computed]')
-                else:
-                    val = ''
-                    if oid in sys_dict:
-                        # item is a system with no components
-                        val = sys_dict[oid].get(view[col])
-                    for sys_oid in comp_dict:
-                        if oid in comp_dict[sys_oid]:
-                            # item is a component
-                            val = comp_dict[sys_oid][oid].get(view[col])
-                    # if no val, use default
-                    val = val or mode_dict[view[col]]
-                    model.setData(index, val)
+                # in degenerate case, items[row] link might be None ...
+                if hasattr(items[row], 'oid'):
+                    oid = items[row].oid
+                    # TODO: get states for row and set data to states[0]
+                    if oid in sys_dict and oid in comp_dict:
+                        # item is a system with components -> computed
+                        model.setData(index, '[computed]')
+                    else:
+                        val = ''
+                        if oid in sys_dict:
+                            # item is a system with no components
+                            val = sys_dict[oid].get(view[col])
+                        for sys_oid in comp_dict:
+                            if oid in comp_dict[sys_oid]:
+                                # item is a component
+                                val = comp_dict[sys_oid][oid].get(view[col])
+                        # if no val, use default
+                        val = val or mode_dict[view[col]]
+                        model.setData(index, val)
         self.mode_definition_table = ModeDefinitionView(self.project)
         self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mode_definition_table.setModel(model)
