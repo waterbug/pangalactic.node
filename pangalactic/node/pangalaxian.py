@@ -2437,8 +2437,10 @@ class Main(QMainWindow):
         if state.get('mode') == 'component':
             if getattr(usage, 'component', None):
                 self.product = usage.component
+                self.set_product_modeler_interface()
             elif getattr(usage, 'system', None):
                 self.product = usage.system
+                self.set_product_modeler_interface()
         elif state.get('mode') == 'system':
             if getattr(usage, 'component', None):
                 state['system'][state['project']] = usage.component.oid

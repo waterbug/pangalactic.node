@@ -320,7 +320,6 @@ class ModelWindow(QMainWindow):
             return
         # obj_id = getattr(self.obj, 'id', '[None]')
         # orb.log.debug(f'  set_subject(obj={obj_id})')
-        self.set_subject(obj=self.obj, msg='(setting from diagram drill-down)')
         self.idx = None
         if state.get('mode') == 'system':
             state['system'][state.get('project')] = self.obj.oid
@@ -351,7 +350,12 @@ class ModelWindow(QMainWindow):
                     idx = sys_tree.source_model.index(0, 0, QModelIndex())
                     self.idx = sys_tree.proxy_model.mapFromSource(idx)
                     # orb.log.debug('  + object not in tree; setting root index')
-        dispatcher.send('diagram tree index', index=self.idx)
+                dispatcher.send('diagram tree index', index=self.idx)
+        elif state.get('mode') == 'component':
+            state['product'] = self.obj.oid
+            dispatcher.send(signal='update product modeler', obj=self.obj)
+            self.set_subject(obj=self.obj,
+                             msg='(setting from diagram drill-down)')
 
     def set_subject_from_node(self, index=None, obj=None, link=None):
         """
@@ -363,23 +367,26 @@ class ModelWindow(QMainWindow):
                 corresponding to the object being modeled
             obj (Identifiable): obj being modeled
         """
-        self.cache_block_model()
-        self.history.append(ModelerState._make((self.obj, self.idx)))
-        self.idx = index
-        # orb.log.debug('  Modeler setting subject from tree node selection ...')
-        # obj_id = getattr(self.obj, 'id', '[None]')
-        # orb.log.debug(f'  set_subject(obj={obj_id})')
-        self.set_subject(obj=obj, msg='(setting from tree node selection)')
+        if state.get('mode') == 'system':
+            self.cache_block_model()
+            self.history.append(ModelerState._make((self.obj, self.idx)))
+            self.idx = index
+            # orb.log.debug('  setting subject from tree node selection ...')
+            # obj_id = getattr(self.obj, 'id', '[None]')
+            # orb.log.debug(f'  set_subject(obj={obj_id})')
+            self.set_subject(obj=obj, msg='(setting from tree node selection)')
 
     def on_set_selected_system(self):
         """
-        Set the selected system as the subject of the model window.
+        If in "system" mode, set the selected system as the subject of the
+        model window.
         """
-        oid = (state.get('system') or {}).get(state.get('project'))
-        obj = orb.get(oid)
-        if obj:
-            # orb.log.debug('  Modeler setting subject from selected system..')
-            self.set_subject(obj=obj, msg='(setting from selected system)')
+        if state.get('mode') == 'system':
+            oid = (state.get('system') or {}).get(state.get('project'))
+            obj = orb.get(oid)
+            if obj:
+                # orb.log.debug('  setting subject from selected system..')
+                self.set_subject(obj=obj, msg='(setting from selected system)')
 
     def set_subject(self, obj=None, msg=''):
         """
