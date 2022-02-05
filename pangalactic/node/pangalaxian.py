@@ -39,8 +39,6 @@ from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms, is_global_admin
-from pangalactic.core.cmuster          import (DESERIALIZATION_ORDER,
-                                               deserialize)
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
@@ -48,7 +46,8 @@ from pangalactic.core.parametrics      import (data_elementz,
                                                mode_defz, parameterz,
                                                save_data_elementz, save_parmz)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
-from pangalactic.core.serializers      import serialize
+from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
+                                               deserialize, serialize)
 from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
 from pangalactic.core.uberorb          import orb
@@ -976,8 +975,8 @@ class Main(QMainWindow):
                     'deserializing {} objects ...'.format(n))
                 txt = 'objects syncing ...'
                 dispatcher.send('sync progress', txt=txt)
-                deserialize(orb, sobjs)
-                # self.load_serialized_objects(sobjs)
+                # deserialize(orb, sobjs)
+                self.load_serialized_objects(sobjs)
             except:
                 orb.log.debug('      - deserialization failure')
                 orb.log.debug('        oids: {}'.format(
