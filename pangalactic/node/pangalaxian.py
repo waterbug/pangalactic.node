@@ -39,6 +39,8 @@ from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms, is_global_admin
+from pangalactic.core.cmuster          import (DESERIALIZATION_ORDER,
+                                               deserialize)
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
@@ -46,8 +48,7 @@ from pangalactic.core.parametrics      import (data_elementz,
                                                mode_defz, parameterz,
                                                save_data_elementz, save_parmz)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
-from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
-                                               deserialize, serialize)
+from pangalactic.core.serializers      import serialize
 from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
 from pangalactic.core.uberorb          import orb
@@ -975,8 +976,8 @@ class Main(QMainWindow):
                     'deserializing {} objects ...'.format(n))
                 txt = 'objects syncing ...'
                 dispatcher.send('sync progress', txt=txt)
-                # deserialize(orb, sobjs)
-                self.load_serialized_objects(sobjs)
+                deserialize(orb, sobjs)
+                # self.load_serialized_objects(sobjs)
             except:
                 orb.log.debug('      - deserialization failure')
                 orb.log.debug('        oids: {}'.format(
@@ -4760,7 +4761,7 @@ class Main(QMainWindow):
                     start_msg = f'{begin} data for {projid} ...'
                     msg = f"success: project {projid} {end}"
                 else:
-                    start_msg = f'{begin} data for your project ...'
+                    start_msg = f'{begin} project data ...'
                     if end == 'synced' and state.get('chunks_to_get'):
                         n = len(state['chunks_to_get'])
                         if n == 1:
@@ -4770,7 +4771,7 @@ class Main(QMainWindow):
                     else:
                         msg = f"data has been {end}."
             else:
-                start_msg = f'{begin} data for your project ...'
+                start_msg = f'{begin} data ...'
                 if end == 'synced' and state.get('chunks_to_get'):
                     n = len(state['chunks_to_get'])
                     if n == 1:
@@ -4787,17 +4788,23 @@ class Main(QMainWindow):
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
             for cname in DESERIALIZATION_ORDER:
                 if cname in byclass:
-                    for so in byclass[cname]:
-                        # if objs are still owned by 'me' but user has
-                        # logged in and has a local_user object ...
-                        if so.get('creator') == 'me' and not user_is_me:
-                            so['creator'] = self.local_user.oid
-                            so['modifier'] = self.local_user.oid
-                        objs += deserialize(orb, [so], force_no_recompute=True)
-                        i += 1
-                        self.pb.setValue(i)
-                        self.statusbar.showMessage('{}: {}'.format(cname,
-                                                       so.get('id', '')))
+                    objs += deserialize(orb, byclass[cname],
+                                        force_no_recompute=True)
+                    n = len(objs)
+                    self.pb.setValue(n)
+                    self.statusbar.showMessage(f'{n} {cname} deserialized')
+                    # DEPRECATED (was more informative but slow!)
+                    # for so in byclass[cname]:
+                        # # if objs are still owned by 'me' but user has
+                        # # logged in and has a local_user object ...
+                        # if so.get('creator') == 'me' and not user_is_me:
+                            # so['creator'] = self.local_user.oid
+                            # so['modifier'] = self.local_user.oid
+                        # objs += deserialize(orb, [so], force_no_recompute=True)
+                        # i += 1
+                        # self.pb.setValue(i)
+                        # self.statusbar.showMessage('{}: {}'.format(cname,
+                                                       # so.get('id', '')))
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
@@ -4875,7 +4882,7 @@ class Main(QMainWindow):
                     start_msg = f'{begin} data for {projid} ...'
                     msg = f"success: project {projid} {end}"
                 else:
-                    start_msg = f'{begin} data for your project ...'
+                    start_msg = f'{begin} project data ...'
                     if end == 'synced' and state.get('chunks_to_get'):
                         n = len(state['chunks_to_get'])
                         if n == 1:
@@ -4885,7 +4892,7 @@ class Main(QMainWindow):
                     else:
                         msg = f"data has been {end}."
             else:
-                start_msg = f'{begin} data for your project ...'
+                start_msg = f'{begin} data ...'
                 if end == 'synced' and state.get('chunks_to_get'):
                     n = len(state['chunks_to_get'])
                     if n == 1:
