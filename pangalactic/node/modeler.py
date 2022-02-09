@@ -143,10 +143,7 @@ class ModelWindow(QMainWindow):
         dispatcher.connect(self.refresh_block_diagram, 'refresh diagram')
         dispatcher.connect(self.refresh_block_diagram, 'new object')
         dispatcher.connect(self.refresh_block_diagram, 'modified object')
-        # NOTE: 'deleted object' signal will be triggered by "remote: deleted"
-        # signal handling in pangalaxian after object is deleted, so if it is a
-        # port or flow, diagram should be regenerated properly
-        dispatcher.connect(self.refresh_block_diagram, 'deleted object')
+        dispatcher.connect(self.on_deleted_object, 'deleted object')
         dispatcher.connect(self.on_set_selected_system, 'set selected system')
         # orb.log.debug('  init calls set_subject() again to set system:')
         # orb.log.debug(f'  set_subject(obj={obj_id})')
@@ -536,6 +533,19 @@ class ModelWindow(QMainWindow):
                     self.model = clone('Model', id=model_id, name=model_name,
                                        type_of_model=block_model_type,
                                        of_thing=self.obj)
+
+    def on_deleted_object(self):
+        """
+        Handle "deleted object" signal -- ignore if not in "system" or
+        "component" mode (ModelWindow C++ object will not exist!).
+
+        NOTE: 'deleted object' signal will be triggered by "remote: deleted"
+        signal handling in pangalaxian after object is deleted, so if it is a
+        port or flow, diagram should be regenerated properly
+        """
+        if state.get('mode') in ['system', 'component']:
+            self.refresh_block_diagram()
+        return
 
     def refresh_block_diagram(self):
         """

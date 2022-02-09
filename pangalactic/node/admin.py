@@ -682,8 +682,10 @@ class AdminDialog(QDialog):
 
     def set_current_org(self):
         orb.log.info('* admin: set_current_org()')
-        orgs = [org for org in orb.get_all_subtypes('Organization')
+        orgs = [org for org in orb.get_by_type('Organization')
                 if org.id != 'PGANA']
+        orgs += [org for org in orb.get_by_type('Project')
+                 if org.id != 'SANDBOX']
         # only show orgs for which user is admin, or all orgs if user is a
         # global admin ... vger will refuse to allow a role assignment by the
         # user if user is not an admin for the org or a global admin, anyway.
