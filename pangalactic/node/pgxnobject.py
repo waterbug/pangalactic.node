@@ -141,6 +141,7 @@ class PgxnForm(QWidget):
         self.previous_units = {}
         self.editable_widgets = {}
         view = view or []
+        self.parm_dims = []
         required_note = False
         form = QFormLayout()
         form.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
@@ -183,21 +184,26 @@ class PgxnForm(QWidget):
             for pid in sorted(list(parmz), key=str.lower):  # case-independent
                 if pid not in pids:
                     pids.append(pid)
+            orb.log.info(f'* [pgxo] parameters of this object: {pids}')
             editables = [pid for pid in pids
                          if not parm_defz[pid].get('computed')
                          or pid in contingencies]
             if pids:
-                orb.log.info('* [pgxo] parameters found: {}'.format(
-                                                            str(pids)))
+                # orb.log.info('* [pgxo] parameters found: {}'.format(
+                                                            # str(pids)))
                 dims = set([parm_defz[pid]['dimensions']
                             for pid in pids])
-                self.parm_dims = []
+                # txt = f'selecting dims from: {PGEF_DIMENSION_ORDER}'
+                # orb.log.info(f'* [pgxo] {txt}')
                 for dim in PGEF_DIMENSION_ORDER:
                     if dim in dims:
                         label = PGEF_DIMENSION_ORDER[dim]
                         self.parm_dims.append(dim)
                         self.dim_select.addItem(label, QVariant)
-                orb.log.info(f'* [pgxo] dimensions found: {self.parm_dims}')
+                # orb.log.info(f'* [pgxo] dimensions found: {self.parm_dims}')
+                if self.parm_dims and (current_parm_dim not in self.parm_dims):
+                    current_parm_dim = self.parm_dims[0]
+                    state['current_parm_dim'] = self.parm_dims[0]
                 self.dim_select.setCurrentText(
                                         PGEF_DIMENSION_ORDER[current_parm_dim])
                 self.dim_select.activated.connect(self.on_dim_select)
@@ -209,26 +215,16 @@ class PgxnForm(QWidget):
                 computeds = [pid for pid in pids if pid not in editables]
                 p_ordering = [pid for pid in editables + computeds
                               if pid not in contingencies]
-                orb.log.info('  [pgxo] parameter ordering: {}'.format(
-                                                            str(p_ordering)))
+                # orb.log.info('  [pgxo] parameter ordering: {}'.format(
+                                                            # str(p_ordering)))
                 relevant_pids = [pid for pid in pids
                           if parm_defz[pid]['dimensions'] == current_parm_dim]
+                # orb.log.info(f'* [pgxo] relevant parameters: {relevant_pids}')
                 pids_on_panel = [pid for pid in p_ordering
                                  if pid in relevant_pids]
+                # orb.log.info(f'* [pgxo] parameters on panel: {pids_on_panel}')
+                # NOTE: not using 'seq' for parameters now, but set it anyway
                 seq = None
-                # NOTE: not using 'seq' for parameters now
-                # if seq is None:
-                    # orb.log.debug('  seq is None; all parameters on one page.')
-                    # pids_on_panel = p_ordering
-                # else:
-                    # orb.log.debug('  seq is {}'.format(str(seq)))
-                    # NOTE:  'seq' is a 1-based sequence
-                    # orb.log.debug('  parameters found: {}'.format(
-                                                        # str(pids)))
-                    # pids_on_panel = p_ordering[
-                                            # (seq-1)*PARMS_NBR : seq*PARMS_NBR]
-                    # orb.log.debug('  parameters on this panel: {}'.format(
-                                                          # str(pids_on_panel)))
                 for pid in pids_on_panel:
                     field_name = pid
                     pd = parm_defz[pid]
