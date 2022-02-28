@@ -165,6 +165,9 @@ def clone(what, include_ports=True, include_components=True,
         newkw['version'] = None
         newkw['frozen'] = False
         newkw['iteration'] = 0
+        if isinstance(obj, orb.classes['HardwareProduct']):
+            # the clone gets the product_type of the original object
+            newkw['product_type'] = obj.product_type
     if issubclass(orb.classes[cname], orb.classes['ManagedObject']):
         owner = orb.get(state.get('project'))  # None if not set
         if owner:
@@ -177,21 +180,27 @@ def clone(what, include_ports=True, include_components=True,
     orb.db.add(new_obj)
     # When cloning an existing object that has parameters or data elements,
     # copy them to the clone
-    if from_object and parameterz.get(getattr(obj, 'oid', None)):
-        new_parameters = deepcopy(parameterz[obj.oid])
-        parameterz[newkw['oid']] = new_parameters
-        recompute_needed = True
-    if from_object and data_elementz.get(getattr(obj, 'oid', None)):
-        new_data = deepcopy(data_elementz[obj.oid])
-        data_elementz[newkw['oid']] = new_data
+    if from_object:
+        if parameterz.get(getattr(obj, 'oid', None)):
+            new_parameters = deepcopy(parameterz[obj.oid])
+            parameterz[newkw['oid']] = new_parameters
+            recompute_needed = True
+        if from_object and data_elementz.get(getattr(obj, 'oid', None)):
+            new_data = deepcopy(data_elementz[obj.oid])
+            data_elementz[newkw['oid']] = new_data
+    else:   # NOT from_object -- new_obj is a brand-new object
+        # NOTE:  this will add both class-specific and (for HardwareProducts)
+        # ProductType-specific default parameters, as well as any custom
+        # parameters specified in "config" and "prefs" for HardwareProduct
+        # instances ...
+        add_default_data_elements(new_obj)
+        add_default_parameters(new_obj)
     # operations specific to HardwareProducts ...
     if isinstance(new_obj, orb.classes['HardwareProduct']):
         new_ports = []
         new_acus = []
         recompute_needed = True
         if from_object:
-            # the clone gets the product_type of the original object
-            new_obj.product_type = obj.product_type
             # DO NOT use "derived_from"!  It creates an FK relationship that
             # prohibits the original object from being deleted -- the
             # "derived_from" attribute is deprecated and will be removed at
@@ -265,12 +274,6 @@ def clone(what, include_ports=True, include_components=True,
                     pid_cbe = pid + '[CBE]'
                     cbe_val = get_pval(obj.oid, pid_cbe)
                     set_pval(new_obj.oid, pid, cbe_val)
-        else:   # NOT from_object -- new_obj is a brand-new Product
-            # NOTE:  this will add both class-specific and ProductType-specific
-            # default parameters, as well as any custom parameters specified in
-            # "config" and "prefs" for HardwareProduct instances ...
-            add_default_data_elements(new_obj)
-            add_default_parameters(new_obj)
         # the 'id' must be generated *after* the product_type is assigned
         new_obj.id = orb.gen_product_id(new_obj)
         new_objs = []
