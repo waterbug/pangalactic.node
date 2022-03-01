@@ -169,7 +169,7 @@ class ProductFilterDialog(QDialog):
         # pt_name = getattr(pt, 'name', '[not set]')
         # orb.log.debug('  ... which is "{}"'.format(pt_name))
         if pt:
-            msg = 'Product Type: {}'.format(pt.name)
+            msg = pt.name
             dispatcher.send('product types selected', msg=msg, objs=[pt])
 
     def select_product_types(self):
