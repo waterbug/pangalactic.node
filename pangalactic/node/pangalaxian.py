@@ -2802,7 +2802,7 @@ class Main(QMainWindow):
         if obj:
             # if deleted object was the selected system, set selected system
             # and diagram subject to the project and refresh the diagram
-            selected_sys_oid = state['system'][state.get('project')]
+            selected_sys_oid = state['system'].get(state.get('project'))
             cname = obj.__class__.__name__
             orb.log.debug(f'  deleted {cname} exists in local db ...')
             if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
