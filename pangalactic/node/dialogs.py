@@ -981,22 +981,6 @@ class DeleteModesDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
 
 
-class Panel(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-    def sizeHint(self):
-        return QSize(400, 600)
-
-
-class ScrollArea(QScrollArea):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-    def sizeHint(self):
-        return QSize(400, 600)
-
-
 cloning_instructions = """
 <h3>Instructions</h3>
 <p>You are cloning a <b>White Box</b> item, meaning it has a known<br>
@@ -1103,9 +1087,9 @@ class CloningDialog(QDialog):
             self.comp_checkboxes[acu.oid] = QCheckBox(self)
             self.comp_checkboxes[acu.oid].setChecked(False)
             white_box_form.addRow(self.comp_checkboxes[acu.oid], label)
-        self.white_box_panel = Panel()
+        self.white_box_panel = QWidget()
         self.white_box_panel.setLayout(white_box_form)
-        self.white_box_scroll_area = ScrollArea()
+        self.white_box_scroll_area = QScrollArea()
         self.white_box_scroll_area.setWidget(self.white_box_panel)
         self.main_layout.addWidget(self.white_box_scroll_area, 1)
         # OK and Cancel buttons
@@ -1127,7 +1111,7 @@ class CloningDialog(QDialog):
         heading = QLabel(black_box_heading)
         self.main_layout.addWidget(heading)
         black_box_form = QFormLayout()
-        self.black_box_panel = Panel()
+        self.black_box_panel = QWidget()
         self.black_box_panel.setLayout(black_box_form)
         self.flatten_cb = QCheckBox(self)
         label = QLabel('flatten', self)
@@ -1231,7 +1215,7 @@ class FreezingDialog(QDialog):
             components_layout.addWidget(label)
         components_panel = QWidget()
         components_panel.setLayout(components_layout)
-        components_scroll_area = ScrollArea()
+        components_scroll_area = QScrollArea()
         components_scroll_area.setWidget(components_panel)
         main_layout.addWidget(components_scroll_area, 1)
         # OK and Cancel buttons
@@ -1268,7 +1252,7 @@ class FrozenDialog(QDialog):
         components_layout.addWidget(label)
         components_panel = QWidget()
         components_panel.setLayout(components_layout)
-        components_scroll_area = ScrollArea()
+        components_scroll_area = QScrollArea()
         components_scroll_area.setWidget(components_panel)
         main_layout.addWidget(components_scroll_area, 1)
         # OK and Cancel buttons
@@ -1327,7 +1311,7 @@ class CannotFreezeDialog(QDialog):
             components_layout.addWidget(label)
         components_panel = QWidget()
         components_panel.setLayout(components_layout)
-        components_scroll_area = ScrollArea()
+        components_scroll_area = QScrollArea()
         components_scroll_area.setWidget(components_panel)
         main_layout.addWidget(components_scroll_area, 1)
         # OK and Cancel buttons
