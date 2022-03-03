@@ -1783,8 +1783,8 @@ class RoutedConnector(QGraphicsItem):
         Initialize RoutedConnector.
 
         Args:
-            start_item (PortBlock):  start port of connection
-            end_item (PortBlock):  end port of connection
+            start_item (PortBlock):  start PortBlock of connection
+            end_item (PortBlock):  end PortBlock of connection
             routing_channel (list):  the left and right x-coordinates within
                 which all flows should be routed
 

@@ -257,6 +257,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
+        dispatcher.connect(self.mod_dashboard, 'parameters recomputed')
         dispatcher.connect(self.refresh_tree_and_dashboard,
                                                     'refresh tree and dash')
         dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
