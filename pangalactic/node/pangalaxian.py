@@ -257,7 +257,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
-        dispatcher.connect(self.mod_dashboard, 'parameters recomputed')
+        dispatcher.connect(self.on_parm_recompute, 'parameters recomputed')
         dispatcher.connect(self.refresh_tree_and_dashboard,
                                                     'refresh tree and dash')
         dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
@@ -3829,6 +3829,11 @@ class Main(QMainWindow):
             new_dash_select.activated.connect(self.set_dashboard)
             self.dash_select = new_dash_select
             self.dashboard_title_layout.addWidget(self.dash_select)
+
+    def on_parm_recompute(self):
+        # rebuilding dashboard is only needed in "system" mode
+        if self.mode == 'system':
+            self.rebuild_dashboard(dashboard_mod=True)
 
     def mod_dashboard(self):
         self.rebuild_dashboard(dashboard_mod=True)

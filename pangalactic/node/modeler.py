@@ -561,6 +561,9 @@ class ModelWindow(QMainWindow):
             selected_obj = orb.get(selected_oid)
             if selected_obj:
                 self.obj = selected_obj
+        if self.obj is None:
+            # ignore if self.obj is None -- otherwise may crash
+            return
         oid = getattr(self.obj, 'oid', '') or ''
         block_ordering = diagramz.get(oid)
         if block_ordering:

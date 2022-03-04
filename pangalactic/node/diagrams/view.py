@@ -452,6 +452,9 @@ class DiagramScene(QGraphicsScene):
                 get_block_ordering()).
         """
         # orb.log.debug('* DiagramScene: generate_ibd()')
+        if self.subject is None:
+            # ignore if self.subject is None -- may cause a crash
+            return
         usages = []
         if hasattr(obj, 'components') and obj.components:
             # obj is a Product
