@@ -67,12 +67,13 @@ class ProductFilterDialog(QDialog):
             orb.log.debug('[ProductFilterDialog] - either no project found '
                           'or no assigned roles found.')
         if user_disciplines:
-            orb.log.debug('[ProductFilterDialog] - user disciplines found:')
+            # orb.log.debug('[ProductFilterDialog] - user disciplines found:')
             for d in user_disciplines:
                 orb.log.debug('             {}'.format(d.id))
         else:
-            orb.log.debug('[ProductFilterDialog] - no disciplines found '
-                          'related to assigned roles.')
+            pass
+            # orb.log.debug('[ProductFilterDialog] - no disciplines found '
+                          # 'related to assigned roles.')
         hbox = QHBoxLayout()
         product_types = orb.get_by_type('ProductType')
         label = get_external_name_plural('ProductType')
@@ -416,10 +417,10 @@ class ProxyView(QTableView):
                     continue
 
     def on_section_moved(self, logical_index, old_index, new_index):
-        orb.log.debug('* FilterPanel.on_section_moved() ...')
-        orb.log.debug('  logical index: {}'.format(logical_index))
-        orb.log.debug('  old index: {}'.format(old_index))
-        orb.log.debug('  new index: {}'.format(new_index))
+        # orb.log.debug('* FilterPanel.on_section_moved() ...')
+        # orb.log.debug('  logical index: {}'.format(logical_index))
+        # orb.log.debug('  old index: {}'.format(old_index))
+        # orb.log.debug('  new index: {}'.format(new_index))
         dispatcher.send(signal='column moved', old_index=old_index,
                         new_index=new_index)
 
@@ -684,7 +685,7 @@ class FilterPanel(QWidget):
         self.set_source_model(self.create_model(objs=self.objs))
 
     def on_column_moved(self, old_index=None, new_index=None):
-        orb.log.debug('* FilterPanel.on_column_moved()')
+        # orb.log.debug('* FilterPanel.on_column_moved()')
         if 0 <= old_index < len(self.view):
             item = self.view.pop(old_index)
             self.view.insert(new_index, item)
@@ -850,8 +851,8 @@ class FilterPanel(QWidget):
         Convenience method for adding a new library object to the model, which
         calls the PyQt methods that signal the views to update.
         """
-        orb.log.debug('  [FilterPanel] add_object({})'.format(
-                                            getattr(obj, 'id', 'unknown')))
+        # orb.log.debug('  [FilterPanel] add_object({})'.format(
+                                            # getattr(obj, 'id', 'unknown')))
         self.objs.append(obj)
         self.set_source_model(self.create_model())
 
@@ -859,7 +860,7 @@ class FilterPanel(QWidget):
         """
         Convenience method for deleting a library object from the model.
         """
-        orb.log.debug('  [FilterPanel] delete_object({})'.format(oid))
+        # orb.log.debug('  [FilterPanel] delete_object({})'.format(oid))
         try:
             oids = [o.oid for o in self.objs]
             row = oids.index(oid)   # raises ValueError if not found
@@ -867,17 +868,18 @@ class FilterPanel(QWidget):
             source_model = self.proxy_model.sourceModel()
             source_model.removeRow(row)
         except:
-            orb.log.debug('                ... object not found')
+            # orb.log.debug('                ... object not found')
+            pass
 
     def on_new_object_signal(self, obj=None, cname=''):
-        orb.log.debug('* [filters] received "new object" signal')
+        # orb.log.debug('* [filters] received "new object" signal')
         if obj and obj.__class__.__name__ == self.cname:
             orb.log.debug('               ... on obj: {}'.format(obj.id))
             self.add_object(obj)
 
     def on_mod_object_signal(self, obj=None, cname=''):
-        orb.log.info('* [filters] received "modified object" signal')
-        orb.log.debug('               on obj: {}'.format(obj.id))
+        # orb.log.info('* [filters] received "modified object" signal')
+        # orb.log.debug('               on obj: {}'.format(obj.id))
         if obj and isinstance(obj, orb.classes.get(self.cname)):
             oids = [o.oid for o in self.objs]
             if obj.oid in oids:
@@ -889,8 +891,8 @@ class FilterPanel(QWidget):
                 orb.log.debug('               ... not in filtered objs.')
 
     def on_del_object_signal(self, oid='', cname=''):
-        orb.log.info('* [filters] received "deleted object" signal')
-        orb.log.debug('            ... on oid: {}'.format(oid))
+        # orb.log.info('* [filters] received "deleted object" signal')
+        # orb.log.debug('            ... on oid: {}'.format(oid))
         self.delete_object(oid)
 
 
