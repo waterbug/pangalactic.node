@@ -247,7 +247,8 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
-        dispatcher.connect(self.on_remote_frozen_signal, 'remote: frozen')
+        # DEPRECATED: remote: frozen signal is handled by pgxnobj
+        # dispatcher.connect(self.on_remote_frozen_signal, 'remote: frozen')
         dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
@@ -1270,48 +1271,86 @@ class Main(QMainWindow):
             # if this was the last chunk, sync current project
             self.resync_current_project()
 
-    def on_remote_freeze_or_thaw(self, oids):
+    def on_remote_freeze_or_thaw(self, obj_attrs, action):
+        """
+        Handler for content of pubsub "freeze completed" or "thawed" message.
+        """
         orb.log.debug('* on_remote_freeze_or_thaw()')
-        if oids:
-            orb.log.debug('  getting objects ...')
-            # chunks = chunkify(newer, 5)   # set chunks small for testing
-            # chunks = chunkify(newer, 100)
-            chunks = chunkify(oids, 50)   # 100 is too big sometimes
-            n_chunks = len(chunks)
-            c = 'chunks'
-            if n_chunks == 1:
-                c = 'chunk'
-            orb.log.debug(f'  will get in {n_chunks} {c} ...')
-            chunk = chunks.pop(0)
-            state['chunks_to_get'] = chunks
-            rpc = self.mbus.session.call('vger.get_objects', chunk,
-                                         include_components=False)
-            rpc.addCallback(self.on_get_frozen_thawed_objects_result)
-            rpc.addErrback(self.on_failure)
-        else:
-            orb.log.debug('  no oids specified, ignoring.')
+        if not obj_attrs:
             return
+        if action not in ['freeze', 'thaw']:
+            return
+        frozen_oids = []
+        thawed_oids = []
+        for attrs in obj_attrs:
+            try:
+                obj_oid, obj_mod_dts, obj_modifier_oid = attrs
+                obj = orb.get(obj_oid)
+                if obj:
+                    if action == 'freeze':
+                        obj.frozen = True
+                        frozen_oids.append(obj_oid)
+                    elif action == 'thaw':
+                        obj.frozen = False
+                        thawed_oids.append(obj_oid)
+                    obj.mod_datetime = uncook_datetime(obj_mod_dts)
+                    modifier = orb.get(obj_modifier_oid)
+                    if modifier:
+                        obj.modifier = modifier
+                orb.db.commit()
+                if action == 'freeze':
+                    dispatcher.send('remote: frozen', frozen_oids=frozen_oids)
+                else:
+                    dispatcher.send('remote: thawed', oids=thawed_oids)
+            except:
+                orb.log.debug('  failed: could not parse content "{attrs}".')
+        if self.mode =="system" and (frozen_oids or thawed_oids):
+            self.refresh_tree_and_dashboard()
+        if hasattr(self, 'library_widget'):
+            self.library_widget.refresh()
 
-    def on_get_frozen_thawed_objects_result(self, data):
-        """
-        Handler for the result of the rpc 'vger.get_objects()' when called by
-        'on_freeze_or_thaw()'.
+        # DEPRECATED:  old process [2022-03-05 SCW]
+        # if oids:
+            # orb.log.debug('  getting objects ...')
+            # # chunks = chunkify(newer, 5)   # set chunks small for testing
+            # # chunks = chunkify(newer, 100)
+            # chunks = chunkify(oids, 50)   # 100 is too big sometimes
+            # n_chunks = len(chunks)
+            # c = 'chunks'
+            # if n_chunks == 1:
+                # c = 'chunk'
+            # orb.log.debug(f'  will get in {n_chunks} {c} ...')
+            # chunk = chunks.pop(0)
+            # state['chunks_to_get'] = chunks
+            # rpc = self.mbus.session.call('vger.get_objects', chunk,
+                                         # include_components=False)
+            # rpc.addCallback(self.on_get_frozen_thawed_objects_result)
+            # rpc.addErrback(self.on_failure)
+        # else:
+            # orb.log.debug('  no oids specified, ignoring.')
+            # return
 
-        Args:
-            data (list):  a list of serialized objects
-        """
-        orb.log.debug('* on_get_frozen_thawed_objects_result()')
-        if data is not None:
-            orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
-            self.load_serialized_objects(data)
-        if state.get('chunks_to_get'):
-            chunk = state['chunks_to_get'].pop(0)
-            orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
-            rpc = self.mbus.session.call('vger.get_objects', chunk)
-            rpc.addCallback(self.on_get_library_objects_result)
-            rpc.addErrback(self.on_failure)
-        else:
-            self.resync_current_project()
+    # DEPRECATED:  remote freeze/thaw now handled differently [2022-03-05 SCW]
+    # def on_get_frozen_thawed_objects_result(self, data):
+        # """
+        # Handler for the result of the rpc 'vger.get_objects()' when called by
+        # 'on_freeze_or_thaw()'.
+
+        # Args:
+            # data (list):  a list of serialized objects
+        # """
+        # orb.log.debug('* on_get_frozen_thawed_objects_result()')
+        # if data is not None:
+            # orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
+            # self.load_serialized_objects(data)
+        # if state.get('chunks_to_get'):
+            # chunk = state['chunks_to_get'].pop(0)
+            # orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
+            # rpc = self.mbus.session.call('vger.get_objects', chunk)
+            # rpc.addCallback(self.on_get_library_objects_result)
+            # rpc.addErrback(self.on_failure)
+        # else:
+            # self.resync_current_project()
 
     def on_toggle_library_size(self, expand=False):
         if getattr(self, 'library_widget', None):
@@ -1472,17 +1511,21 @@ class Main(QMainWindow):
                         # msg += "{} [{}]".format(obj_id, pth)
                 # else:
                     # msg += obj_id
+            # DEPRECATED:  old 'frozen' superceded by new 'frozen' message
+            # elif subject == 'frozen':
+                # # content is an oid
+                # dispatcher.send(signal="remote: frozen", frozen_oid=content)
+
             elif subject == 'frozen':
-                # content is an oid
-                dispatcher.send(signal="remote: frozen", frozen_oid=content)
-            elif subject == 'freeze completed':
-                # content is a list of oids
-                frozens = content
-                if frozens:
-                    orb.log.info('* "freeze completed" msg received')
+                # content is a list of tuples:
+                #   (obj.oid, str(obj.mod_datetime), obj.modifier.oid) 
+                frozen_attrs = content
+                if frozen_attrs:
+                    orb.log.info('* "frozen" msg received')
                     items = []
                     oids = []
-                    for frozen_oid in frozens:
+                    for frozen in frozen_attrs:
+                        frozen_oid, frozen_mod_dts, frozen_modifier = frozen
                         obj = orb.get(frozen_oid)
                         if obj:
                             oids.append(frozen_oid)
@@ -1504,23 +1547,23 @@ class Main(QMainWindow):
                         msg += '-- getting frozen versions ...'
                         if hasattr(self, 'statusbar'):
                             self.statusbar.showMessage(msg)
-                        self.on_remote_freeze_or_thaw(oids)
+                        self.on_remote_freeze_or_thaw(frozen_attrs, 'freeze')
             elif subject == 'thawed':
-                # content is a list of oids
+                # content is a list of tuples of the form:
+                #   (obj.oid, str(obj.modified_datetime), obj.modifier.oid)
                 orb.log.info('* "thawed" msg received ...')
-                thaweds = content
-                if thaweds:
+                thawed_attrs = content
+                if thawed_attrs:
                     orb.log.info('  on oids:')
                     items = []
                     oids = []
-                    if (isinstance(thaweds, list) and len(thaweds) > 0):
-                        for oid in thaweds:
+                    if (isinstance(thawed_attrs, list) and len(thawed_attrs) > 0):
+                        for oid in thawed_attrs:
                             orb.log.info(f'  {oid}')
                             obj = orb.get(oid)
                             if obj:
                                 oids.append(oid)
                                 items.append(f'<b>{obj.id}</b> ({obj.name})')
-                        dispatcher.send(signal="remote: thawed", oids=thaweds)
                     else:
                         orb.log.info('  but it had bad format!')
                     if oids:
@@ -1541,7 +1584,7 @@ class Main(QMainWindow):
                         msg += '-- getting thawed versions ...'
                         if hasattr(self, 'statusbar'):
                             self.statusbar.showMessage(msg)
-                        self.on_remote_freeze_or_thaw(oids)
+                        self.on_remote_freeze_or_thaw(thawed_attrs, 'thaw')
                 else:
                     orb.log.info('  but it was empty!')
             elif subject == 'deleted':
@@ -2982,17 +3025,19 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_freeze_result)
             rpc.addErrback(self.on_failure)
 
-    def on_remote_frozen_signal(self, frozen_oid=None):
-        """
-        Handle remote "frozen" messages for individual objects.
-        """
-        if state.get('connected') and frozen_oid:
-            QApplication.processEvents()
-            num_frozens = state.get('remote_frozens', 0)
-            num_frozens += 1
-            state['remote_frozens'] = num_frozens
-            if getattr(self, 'freeze_progress', None):
-                self.freeze_progress.setValue(num_frozens)
+    # DEPRECATE: remote "frozen" message now returns a list of tuples of attrs
+    # of the frozen objects
+    # def on_remote_frozen_signal(self, frozen_oid=None):
+        # """
+        # Handle remote "frozen" messages for individual objects.
+        # """
+        # if state.get('connected') and frozen_oid:
+            # QApplication.processEvents()
+            # num_frozens = state.get('remote_frozens', 0)
+            # num_frozens += 1
+            # state['remote_frozens'] = num_frozens
+            # if getattr(self, 'freeze_progress', None):
+                # self.freeze_progress.setValue(num_frozens)
 
     def on_thaw_signal(self, oids=None):
         if state.get('connected') and oids:

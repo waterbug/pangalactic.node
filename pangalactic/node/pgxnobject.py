@@ -1385,23 +1385,25 @@ class PgxnObject(QDialog):
             else:
                 orb.log.debug('  user does not have permission to freeze.')
 
-    def on_remote_frozen(self, frozen_oid=None):
+    def on_remote_frozen(self, frozen_oids=None):
+        """
+        Handle "remote: frozen" signal, sent by pangalaxian handler of pubsub
+        "freeze completed" message.  When this message is sent, the frozen
+        objects have already been committed as frozen by the pangalaxian
+        handler.
+        """
         orb.log.debug('* pgxnobj received "remote: frozen" signal')
-        if isinstance(frozen_oid, str):
-            orb.log.debug(f'  for oid: {frozen_oid}')
+        if isinstance(frozen_oids, list):
+            orb.log.debug(f'  for oids: {frozen_oids}')
         else:
-            orb.log.debug('  bad format or no oid.')
+            orb.log.debug('  bad format or no oids.')
             return
-        if self.obj.oid == frozen_oid:
-            orb.log.debug('  aha, that is my object ...')
+        if self.obj.oid in frozen_oids:
+            orb.log.debug('  aha, my object is in there ...')
             # refresh our "obj" from the database
             oid = self.obj.oid
             orb.db.commit()
             self.obj = orb.get(oid)
-            # make sure it's frozen ...
-            if not self.obj.frozen:
-                self.obj.frozen = True
-                orb.db.commit()
             html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
             html += 'has been <b>frozen</b>.'
             notice = QMessageBox(QMessageBox.Information, 'Frozen',
@@ -1428,11 +1430,16 @@ class PgxnObject(QDialog):
                     orb.log.debug('  ... failed.')
 
     def on_remote_thawed(self, oids=None):
+        """
+        Handle "remote: thawed" signal, sent by pangalaxian handler of pubsub
+        "thawed" message.  When this message is sent, the thawed objects have
+        already been committed as thawed by the pangalaxian handler.
+        """
         orb.log.debug('* pgxnobj received "remote: thawed" signal on:')
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.frozen and self.obj.oid in oids:
-            orb.log.debug('  aha, that is my object ...')
+            orb.log.debug('  aha, my object in there ...')
             # refresh our "obj" from the database
             oid = self.obj.oid
             orb.db.commit()
