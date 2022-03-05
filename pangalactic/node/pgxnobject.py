@@ -915,8 +915,8 @@ class PgxnObject(QDialog):
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
         dispatcher.connect(self.on_update_pgxno, 'update pgxno')
-        dispatcher.connect(self.on_remote_frozen, 'frozen')
-        dispatcher.connect(self.on_remote_thawed, 'thawed')
+        dispatcher.connect(self.on_remote_frozen, 'remote: frozen')
+        dispatcher.connect(self.on_remote_thawed, 'remote: thawed')
 
     def build_from_object(self):
         """
@@ -1385,11 +1385,14 @@ class PgxnObject(QDialog):
             else:
                 orb.log.debug('  user does not have permission to freeze.')
 
-    def on_remote_frozen(self, oids=None):
-        orb.log.debug('* pgxnobj received "frozen" signal on:')
-        orb.log.debug(f'  {str(oids)}')
-        oids = oids or []
-        if self.obj.oid in oids:
+    def on_remote_frozen(self, frozen_oid=None):
+        orb.log.debug('* pgxnobj received "frozen" signal')
+        if isinstance(frozen_oid, str):
+            orb.log.debug(f'  for oid: {frozen_oid}')
+        else:
+            orb.log.debug('  bad format or no oid.')
+            return
+        if self.obj.oid == frozen_oid:
             orb.log.debug('  aha, that is my object ...')
             # refresh our "obj" from the database
             # oid = self.obj.oid
