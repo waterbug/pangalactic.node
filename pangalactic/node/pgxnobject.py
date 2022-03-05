@@ -1386,7 +1386,7 @@ class PgxnObject(QDialog):
                 orb.log.debug('  user does not have permission to freeze.')
 
     def on_remote_frozen(self, frozen_oid=None):
-        orb.log.debug('* pgxnobj received "frozen" signal')
+        orb.log.debug('* pgxnobj received "remote: frozen" signal')
         if isinstance(frozen_oid, str):
             orb.log.debug(f'  for oid: {frozen_oid}')
         else:
@@ -1410,6 +1410,12 @@ class PgxnObject(QDialog):
                 user = orb.get(state.get('local_user_oid'))
                 if is_global_admin(user):
                     self.thaw_action.setVisible(True)
+                if hasattr(self, 'edit_button'):
+                    try:
+                        self.bbox.removeButton(self.edit_button)
+                    except:
+                        # C++ object went away?
+                        pass
                 orb.log.debug('  attempting self.update()...')
                 try:
                     self.update()
@@ -1419,13 +1425,14 @@ class PgxnObject(QDialog):
                     orb.log.debug('  ... failed.')
 
     def on_remote_thawed(self, oids=None):
-        orb.log.debug('* pgxnobj received "thawed" signal on:')
+        orb.log.debug('* pgxnobj received "remote: thawed" signal on:')
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
         if self.obj.frozen and self.obj.oid in oids:
             orb.log.debug('  aha, that is my object ...')
             # refresh our "obj" from the database
             oid = self.obj.oid
+            orb.db.commit()
             self.obj = orb.get(oid)
             # make sure it's thawed ...
             if self.obj.frozen:
@@ -1442,6 +1449,9 @@ class PgxnObject(QDialog):
                 perms = get_perms(self.obj)
                 if 'modify' in perms:
                     self.freeze_action.setVisible(True)
+                    self.edit_button = self.bbox.addButton('Edit',
+                                               QDialogButtonBox.ActionRole)
+                    self.edit_button.clicked.connect(self.on_edit)
                 orb.log.debug('  attempting self.update()...')
                 try:
                     self.update()
