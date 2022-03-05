@@ -1394,11 +1394,14 @@ class PgxnObject(QDialog):
             return
         if self.obj.oid == frozen_oid:
             orb.log.debug('  aha, that is my object ...')
-            self.obj.frozen = True
-            orb.db.commit()
             # refresh our "obj" from the database
-            # oid = self.obj.oid
-            # self.obj = orb.get(oid)
+            oid = self.obj.oid
+            orb.db.commit()
+            self.obj = orb.get(oid)
+            # make sure it's frozen ...
+            if not self.obj.frozen:
+                self.obj.frozen = True
+                orb.db.commit()
             html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
             html += 'has been <b>frozen</b>.'
             notice = QMessageBox(QMessageBox.Information, 'Frozen',
