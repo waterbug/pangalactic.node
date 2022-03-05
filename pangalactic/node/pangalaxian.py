@@ -1507,16 +1507,22 @@ class Main(QMainWindow):
                         self.on_remote_freeze_or_thaw(oids)
             elif subject == 'thawed':
                 # content is a list of oids
+                orb.log.info('* "thawed" msg received ...')
                 thaweds = content
                 if thaweds:
-                    orb.log.info('* "thawed" msg received')
+                    orb.log.info('  on oids:')
                     items = []
                     oids = []
-                    for thawed_oid in thaweds:
-                        obj = orb.get(thawed_oid)
-                        if obj:
-                            oids.append(thawed_oid)
-                            items.append(f'<b>{obj.id}</b> ({obj.name})')
+                    if (isinstance(thaweds, list) and len(thaweds) > 0):
+                        for oid in thaweds:
+                            orb.log.info(f'  {oid}')
+                            obj = orb.get(oid)
+                            if obj:
+                                oids.append(oid)
+                                items.append(f'<b>{obj.id}</b> ({obj.name})')
+                        dispatcher.send(signal="remote: thawed", oids=thaweds)
+                    else:
+                        orb.log.info('  but it had bad format!')
                     if oids:
                         # phrase = "products have been"
                         # if len(items) == 1:
@@ -1536,6 +1542,8 @@ class Main(QMainWindow):
                         if hasattr(self, 'statusbar'):
                             self.statusbar.showMessage(msg)
                         self.on_remote_freeze_or_thaw(oids)
+                else:
+                    orb.log.info('  but it was empty!')
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
