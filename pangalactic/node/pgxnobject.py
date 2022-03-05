@@ -1394,6 +1394,7 @@ class PgxnObject(QDialog):
             return
         if self.obj.oid == frozen_oid:
             orb.log.debug('  aha, that is my object ...')
+            self.obj.frozen = True
             # refresh our "obj" from the database
             # oid = self.obj.oid
             # self.obj = orb.get(oid)
@@ -1422,6 +1423,7 @@ class PgxnObject(QDialog):
         oids = oids or []
         if self.obj.frozen and self.obj.oid in oids:
             orb.log.debug('  aha, that is my object ...')
+            self.obj.frozen = False
             # refresh our "obj" from the database
             # oid = self.obj.oid
             # self.obj = orb.get(oid)
