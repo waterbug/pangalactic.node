@@ -1417,7 +1417,7 @@ class PgxnObject(QDialog):
         orb.log.debug('* pgxnobj received "thawed" signal on:')
         orb.log.debug(f'  {str(oids)}')
         oids = oids or []
-        if self.obj.oid in oids:
+        if self.obj.frozen and self.obj.oid in oids:
             orb.log.debug('  aha, that is my object ...')
             # refresh our "obj" from the database
             # oid = self.obj.oid
