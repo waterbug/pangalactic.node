@@ -1393,8 +1393,12 @@ class PgxnObject(QDialog):
         handler.
         """
         orb.log.debug('* pgxnobj received "remote: frozen" signal')
+        if self.obj.frozen:
+            orb.log.debug('  my object is already frozen')
+            return
         if isinstance(frozen_oids, list):
-            orb.log.debug(f'  for oids: {frozen_oids}')
+            orb.log.debug(f'  for oids: {str(frozen_oids)}')
+            orb.log.debug(f'  my obj oid: {self.obj.oid}')
         else:
             orb.log.debug('  bad format or no oids.')
             return
@@ -1437,9 +1441,13 @@ class PgxnObject(QDialog):
         """
         orb.log.debug('* pgxnobj received "remote: thawed" signal on:')
         orb.log.debug(f'  {str(oids)}')
+        orb.log.debug(f'  my obj oid: {self.obj.oid}')
         oids = oids or []
-        if self.obj.frozen and self.obj.oid in oids:
-            orb.log.debug('  aha, my object in there ...')
+        if not self.obj.frozen:
+            orb.log.debug('  my object is not frozen.')
+            return
+        if self.obj.oid in oids:
+            orb.log.debug('  aha, my object is in there ...')
             # refresh our "obj" from the database
             oid = self.obj.oid
             orb.db.commit()
