@@ -1416,12 +1416,14 @@ class PgxnObject(QDialog):
                 user = orb.get(state.get('local_user_oid'))
                 if is_global_admin(user):
                     self.thaw_action.setVisible(True)
-                if hasattr(self, 'edit_button'):
+                if ((not self.edit_mode) and hasattr(self, 'edit_button')
+                     and hasattr(self, 'bbox')):
                     try:
                         self.bbox.removeButton(self.edit_button)
                     except:
                         # C++ object went away?
-                        pass
+                        # pass
+                        orb.log.debug('  removeButton failed for edit button.')
                 orb.log.debug('  attempting self.update()...')
                 try:
                     self.update()
