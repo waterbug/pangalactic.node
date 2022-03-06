@@ -1459,9 +1459,12 @@ class PgxnObject(QDialog):
                 perms = get_perms(self.obj)
                 if 'modify' in perms:
                     self.freeze_action.setVisible(True)
-                    self.edit_button = self.bbox.addButton('Edit',
+                    edit_button = getattr(self, 'edit_button', None) or None
+                    if ((edit_button is None) or
+                         not (edit_button in self.bbox.buttons())):
+                        self.edit_button = self.bbox.addButton('Edit',
                                                QDialogButtonBox.ActionRole)
-                    self.edit_button.clicked.connect(self.on_edit)
+                        self.edit_button.clicked.connect(self.on_edit)
                 orb.log.debug('  attempting self.update()...')
                 try:
                     self.update()

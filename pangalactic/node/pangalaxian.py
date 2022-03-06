@@ -1283,27 +1283,27 @@ class Main(QMainWindow):
         frozen_oids = []
         thawed_oids = []
         for attrs in obj_attrs:
-            try:
-                obj_oid, obj_mod_dts, obj_modifier_oid = attrs
-                obj = orb.get(obj_oid)
-                if obj:
-                    if action == 'freeze':
-                        obj.frozen = True
-                        frozen_oids.append(obj_oid)
-                    elif action == 'thaw':
-                        obj.frozen = False
-                        thawed_oids.append(obj_oid)
-                    obj.mod_datetime = uncook_datetime(obj_mod_dts)
-                    modifier = orb.get(obj_modifier_oid)
-                    if modifier:
-                        obj.modifier = modifier
-                orb.db.commit()
+            # try:
+            obj_oid, obj_mod_dts, obj_modifier_oid = attrs
+            obj = orb.get(obj_oid)
+            if obj:
                 if action == 'freeze':
-                    dispatcher.send('remote: frozen', frozen_oids=frozen_oids)
-                else:
-                    dispatcher.send('remote: thawed', oids=thawed_oids)
-            except:
-                orb.log.debug(f'  failed: could not parse content "{attrs}".')
+                    obj.frozen = True
+                    frozen_oids.append(obj_oid)
+                elif action == 'thaw':
+                    obj.frozen = False
+                    thawed_oids.append(obj_oid)
+                obj.mod_datetime = uncook_datetime(obj_mod_dts)
+                modifier = orb.get(obj_modifier_oid)
+                if modifier:
+                    obj.modifier = modifier
+            orb.db.commit()
+            if action == 'freeze':
+                dispatcher.send('remote: frozen', frozen_oids=frozen_oids)
+            else:
+                dispatcher.send('remote: thawed', oids=thawed_oids)
+            # except:
+                # orb.log.debug(f'  failed: could not parse content "{attrs}".')
         if self.mode =="system" and (frozen_oids or thawed_oids):
             self.refresh_tree_and_dashboard()
         if hasattr(self, 'library_widget'):
