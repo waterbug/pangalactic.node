@@ -1303,7 +1303,7 @@ class Main(QMainWindow):
                 else:
                     dispatcher.send('remote: thawed', oids=thawed_oids)
             except:
-                orb.log.debug('  failed: could not parse content "{attrs}".')
+                orb.log.debug(f'  failed: could not parse content "{attrs}".')
         if self.mode =="system" and (frozen_oids or thawed_oids):
             self.refresh_tree_and_dashboard()
         if hasattr(self, 'library_widget'):
@@ -1524,8 +1524,8 @@ class Main(QMainWindow):
                     orb.log.info('* "frozen" msg received')
                     items = []
                     oids = []
-                    for frozen in frozen_attrs:
-                        frozen_oid, frozen_mod_dts, frozen_modifier = frozen
+                    for attrs in frozen_attrs:
+                        frozen_oid, frozen_mod_dts, frozen_modifier = attrs
                         obj = orb.get(frozen_oid)
                         if obj:
                             oids.append(frozen_oid)
@@ -1558,7 +1558,8 @@ class Main(QMainWindow):
                     items = []
                     oids = []
                     if (isinstance(thawed_attrs, list) and len(thawed_attrs) > 0):
-                        for oid in thawed_attrs:
+                        for attrs in thawed_attrs:
+                            oid, dts, modifier_oid = attrs
                             orb.log.info(f'  {oid}')
                             obj = orb.get(oid)
                             if obj:
