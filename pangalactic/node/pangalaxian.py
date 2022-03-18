@@ -694,7 +694,6 @@ class Main(QMainWindow):
         dispatcher.send('sync progress', txt='user roles synced ...')
         rpc = self.subscribe_to_mbus_channels(self.channels)
         rpc.addErrback(self.on_failure)
-        # sync_user_created_objs_to_repo() requires callback on_sync_result()
         rpc.addCallback(self.sync_user_created_objs_to_repo)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.on_user_objs_sync_result)
@@ -3887,7 +3886,13 @@ class Main(QMainWindow):
     def on_parm_recompute(self):
         # rebuilding dashboard is only needed in "system" mode
         if self.mode == 'system':
-            self.rebuild_dashboard(dashboard_mod=True)
+            try:
+                self.rebuild_dashboard(dashboard_mod=True)
+            except:
+                # sometimes mode might be set to "system" but transitioning to
+                # "component", in which case the C++ object for the dashboard
+                # ceased to exist
+                pass
 
     def mod_dashboard(self):
         self.rebuild_dashboard(dashboard_mod=True)
