@@ -1379,11 +1379,13 @@ class Main(QMainWindow):
             # generate log "msg" values ...
             if subject == 'decloaked':
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
                 # obj_oid, obj_id = content
                 n = len(content)
                 msg += f'received {n} decloaked objects'
             elif subject == 'new':
                 # NOTE: content of 'new' msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
                 # obj_oid, obj_id = content
                 n = len(content)
                 msg += f'received {n} new objects'
@@ -1495,7 +1497,7 @@ class Main(QMainWindow):
                 pass
             elif subject == 'modified':
                 # NOTE: content of 'modified' msg changed in version 2.2.dev8
-                # -- content is now a dict {oid: serialized object}
+                # -- it is now a list of serialized objects
                 # obj_oid, obj_id, obj_mod_datetime = content
                 n = len(content)
                 msg += f"received {n} modified objects"
@@ -1633,14 +1635,17 @@ class Main(QMainWindow):
             if subject == 'decloaked':
                 self.statusbar.showMessage(msg)
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
                 dispatcher.send(signal="remote: decloaked", content=content)
             elif subject == 'new':
                 self.statusbar.showMessage(msg)
-                # NOTE: content of 'new' msg changed in version 2.2.dev8
+                # NOTE: content of 'new' msg changed in version 2.2.dev8 -- it
+                # is now a list of serialized objects
                 dispatcher.send(signal="remote: new", content=content)
             elif subject == 'modified':
                 # don't show msg in statusbar -- may not be relevant
                 # NOTE: content of 'modified' msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
                 dispatcher.send(signal="remote: modified", content=content)
             elif subject == 'deleted':
                 self.statusbar.showMessage(msg)
