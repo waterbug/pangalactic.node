@@ -344,7 +344,7 @@ class MainWindow(QMainWindow):
             return
         if self.auth_method == 'cryptosign':
             self.log('* logging in using cryptosign auth ...')
-            key_path = os.path.join(orb.home, 'private.key')
+            key_path = 'private.key'
             if os.path.exists(key_path):
                 message_bus.set_key_path(key_path)
             else:

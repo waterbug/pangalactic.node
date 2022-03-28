@@ -29,6 +29,7 @@ node.pid
 .pythonscope*
 pangalaxian/*
 pangalactic/test/pangalaxian_test
+private.key
 *.pickle
 sedscr
 _trial_temp
