@@ -534,15 +534,15 @@ class Main(QMainWindow):
             self.statusbar.showMessage('connected to message bus, syncing ...')
             orb.log.info('  connected to message bus, not synced, syncing ...')
             self.sync_with_services()
-        elif dtstamp() - self.synced > timedelta(minutes=5):
-            # it's been more than 5 minutes since we synced, do a sync
-            self.statusbar.showMessage('reconnect > 5 mins, re-syncing.')
-            orb.log.info('  connected > 5 mins since last sync, re-syncing.')
+        elif dtstamp() - self.synced > timedelta(minutes=1):
+            # it's been more than 1 minute since we synced, do a sync
+            self.statusbar.showMessage('reconnect > 1 minute, re-syncing.')
+            orb.log.info('  connected > 1 minute since last sync, re-syncing.')
             self.sync_with_services()
         else:
-            # it's been less than 5 minutes since we synced -> NO sync
-            self.statusbar.showMessage('reconnect < 5 mins, no sync')
-            orb.log.info('  reconnect < 5 mins since last sync, no re-sync')
+            # it's been less than 1 minute since we synced -> NO sync
+            self.statusbar.showMessage('reconnect < 1 minute, no sync')
+            orb.log.info('  reconnect < 1 minute since last sync, no re-sync')
             orb.log.info('  but re-subscribing to channels:')
             for channel in self.channels:
                 orb.log.info('  + {}'.format(channel))
