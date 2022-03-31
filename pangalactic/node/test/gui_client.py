@@ -327,7 +327,7 @@ class MainWindow(QMainWindow):
 
     def login(self):
         cert_fname = 'server_cert.pem'
-        cert_path = os.path.join(orb.home, cert_fname)
+        cert_path = cert_fname
         try:
             cert = crypto.load_certificate(
                     crypto.FILETYPE_PEM,

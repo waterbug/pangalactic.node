@@ -656,6 +656,32 @@ class PgxnForm(QWidget):
             self.new_window.show()
 
     def on_dim_select(self, index):
+        """
+        Handle "activate" event from the "dim_select" combo box that sets the
+        dimensional parameter panel -- i.e. switch to another dimensional
+        parameter panel.
+        """
+        if self.edit_mode:
+            # if in edit mode, save parameters before the switch or edits will
+            # be lost ...
+            for p_id in self.p_widgets:
+                # if p is computed, its widget is a label (no 'get_value')
+                # DO NOT MODIFY values
+                if hasattr(self.p_widgets[p_id], 'get_value'):
+                    str_val = self.p_widgets[p_id].get_value()
+                    # u_cur -> current units setting
+                    # (None if can't modify, which also means base units)
+                    u_cur = None
+                    if hasattr(self.u_widgets[p_id], 'currentText'):
+                        u_cur = self.u_widgets[p_id].currentText()
+                        # orb.log.debug('  - units widget set to {}'.format(
+                                                                    # u_cur))
+                    # set parameter values for ALL editable
+                    # parameters (faster/simpler than checking for mods)
+                    # orb.log.debug('  - setting {} to {} {}'.format(
+                                  # p_id, str_val, u_cur))
+                    set_pval_from_str(self.obj.oid, p_id, str_val,
+                                      units=u_cur)
         state['current_parm_dim'] = self.parm_dims[index]
         self.pgxo.build_from_object()
 
