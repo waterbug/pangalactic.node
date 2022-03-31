@@ -535,10 +535,10 @@ class Main(QMainWindow):
             orb.log.info('  connected to message bus, not synced, syncing ...')
             self.sync_with_services()
         elif dtstamp() - self.synced > timedelta(minutes=1):
-            # it's been more than 1 minute since we synced, do a sync
+            # it's been more than 1 minute since we synced, sync project
             self.statusbar.showMessage('reconnect > 1 minute, re-syncing.')
             orb.log.info('  connected > 1 minute since last sync, re-syncing.')
-            self.sync_with_services()
+            self.sync_current_project()
         else:
             # it's been less than 1 minute since we synced -> NO sync
             self.statusbar.showMessage('reconnect < 1 minute, no sync')
