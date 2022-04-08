@@ -11,7 +11,6 @@ from louie import dispatcher
 
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.entity      import Entity
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.uberorb     import orb
@@ -471,7 +470,7 @@ class FilterPanel(QWidget):
         Keyword Args:
             view (iterable):  attributes of object to be shown
             sized_cols (iterable):  ids of columns to be sized to fit contents
-            schema (dict):  metadata for non-domain object (Entity or
+            schema (dict):  metadata for non-domain object (such as
                 PartsListItem instances); schema must contain the keys
                 'field_names' (a list of strings) and 'fields', a dict that
                 maps each field name to a dict that contains 'definition' and
@@ -510,12 +509,6 @@ class FilterPanel(QWidget):
                 orb.log.debug('  - Cannot display objs of class "{}".'.format(
                                                                         cname))
                 self.objs = [orb.get('pgefobjects:TBD')]
-        elif (objs and isinstance(objs[0], Entity) and
-              isinstance(schema, dict) and 'fields' in schema):
-            # if objs are Entity instances and a schema is provided, use it ...
-            self.cname = objs[0].__class__.__name__
-            self.objs = objs
-            self.view = view or list(objs[0].keys())
         else:
             if objs and isinstance(objs[0], orb.classes['Identifiable']):
                 self.objs = objs

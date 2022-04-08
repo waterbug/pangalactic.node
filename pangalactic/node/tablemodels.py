@@ -21,7 +21,6 @@ from PyQt5.QtGui import QIcon, QPixmap
 
 # pangalactic
 from pangalactic.core                 import prefs, state
-from pangalactic.core.entity          import DataMatrix
 from pangalactic.core.meta            import MAIN_VIEWS, TEXT_PROPERTIES
 from pangalactic.core.parametrics     import (de_defz, get_dval_as_str,
                                               get_pval_as_str, parm_defz)
@@ -164,98 +163,6 @@ class MappingTableModel(QAbstractTableModel):
         elif role != Qt.DisplayRole:
             return QVariant()
         return self.ds[index.row()].get(
-                       self.columns()[index.column()], '')
-
-
-class DMTableModel(QAbstractTableModel):
-    """
-    A table model based on a DataMatrix -- a dict containing rows that are
-    dicts.
-    """
-    def __init__(self, dm=None, parent=None):
-        """
-        Args:
-            dm (DataMatrix):  a DataMatrix instance
-
-        Keyword Args:
-            parent (QWidget):  parent widget
-        """
-        super().__init__(parent=parent)
-        # TODO: some validity checking on the data ...
-        if isinstance(dm, DataMatrix):
-            self.dm = dm
-        else:
-            self.dm = DataMatrix(foo=dict(oid='foo', a='no data'))
-
-    def flags(self, index):
-        if not index.isValid():
-            return 0
-        # return Qt.ItemIsEditable | Qt.ItemIsSelectable | Qt.ItemIsEnabled
-        return Qt.ItemIsEditable | super().flags(index)
-
-    def columns(self):
-        return self.dm.schema
-
-    def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
-            return self.column_labels[section]
-        return QAbstractTableModel.headerData(self, section, orientation, role)
-
-    def rowCount(self, parent=QModelIndex()):
-        return len(self.dm)
-
-    def columnCount(self, parent):
-        try:
-            return len(self.dm.row(0))
-        except:
-            return 1
-
-    def setData(self, index, value, role=Qt.UserRole):
-        """
-        Reimplementation in which 'value' is a dict.
-        """
-        if index.isValid():
-            if index.row() < len(self.dm):
-                self.dm[index.row()] = value
-            else:
-                orb.log.debug('* setData(): index is out of range')
-            # NOTE the 3rd arg is an empty list -- reqd for pyqt5
-            # (or the actual role(s) that changed, e.g. [Qt.EditRole])
-            self.dataChanged.emit(index, index, [])
-            return True
-        return False
-
-    def insertRow(self, row, index=QModelIndex()):
-        """
-        Inserts a blank row.  (Currently only used for appending a blank row.)
-        """
-        self.beginInsertRows(QModelIndex(), row, row)
-        self.dm.append_new_row()
-        self.endInsertRows()
-        self.dirty = True
-        return True
-
-    def removeRows(self, row, count, parent=QModelIndex()):
-        if row < len(self.dm):
-            # self.beginRemoveRows()
-            self.beginResetModel()
-            del self.dm[row]
-            # self.endRemoveRows()
-            self.endResetModel()
-            # NOTE the 3rd arg is an empty list -- reqd for pyqt5
-            # (or the actual role(s) that changed, e.g. [Qt.EditRole])
-            idx = self.createIndex(row, 0)
-            self.dataChanged.emit(idx, idx, [])
-            return True
-        else:
-            return False
-
-    def data(self, index, role=Qt.DisplayRole):
-        if not index.isValid():
-            return QVariant()
-        elif role != Qt.DisplayRole:
-            return QVariant()
-        return self.dm.row(index.row()).get(
                        self.columns()[index.column()], '')
 
 
