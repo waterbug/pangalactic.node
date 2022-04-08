@@ -62,7 +62,6 @@ from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
-from pangalactic.node.datagrid         import DataGrid
 from pangalactic.node.dialogs          import (FullSyncDialog,
                                                LoginDialog,
                                                NotificationDialog,
@@ -498,7 +497,7 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     orb.log.info('  connected.')
                     return
-                elif n < 300000:
+                elif n < 500000:
                     n += 1
                     QApplication.processEvents()
                     continue
@@ -525,7 +524,7 @@ class Main(QMainWindow):
         orb.log.info('  userid from session: "{}"'.format(state['userid']))
         self.connect_to_bus_action.setToolTip(
                                         'Disconnect from the message bus')
-        self.net_status.setPixmap(self.online_icon)
+        self.net_status.setPixmap(self.online_ok_icon)
         self.net_status.setToolTip('connected')
         self.sync_project_action.setEnabled(True)
         self.full_resync_action.setEnabled(True)
@@ -534,15 +533,15 @@ class Main(QMainWindow):
             self.statusbar.showMessage('connected to message bus, syncing ...')
             orb.log.info('  connected to message bus, not synced, syncing ...')
             self.sync_with_services()
-        elif dtstamp() - self.synced > timedelta(minutes=1):
-            # it's been more than 1 minute since we synced, sync project
-            self.statusbar.showMessage('reconnect > 1 minute, re-syncing.')
-            orb.log.info('  connected > 1 minute since last sync, re-syncing.')
-            self.sync_current_project()
+        elif dtstamp() - self.synced > timedelta(seconds=10):
+            # it's been more than 10 seconds since we synced, resync project
+            self.net_status.setPixmap(self.spotty_nw_icon)
+            orb.log.info('  > 10 seconds since last sync, re-syncing.')
+            self.resync_current_project(msg='connection lost, reconnecting: ')
         else:
-            # it's been less than 1 minute since we synced -> NO sync
-            self.statusbar.showMessage('reconnect < 1 minute, no sync')
-            orb.log.info('  reconnect < 1 minute since last sync, no re-sync')
+            # it's been less than 10 seconds since we synced -> NO sync
+            self.statusbar.showMessage('reconnect < 10 seconds, no sync')
+            orb.log.info('  < 10 seconds since last sync, no re-sync')
             orb.log.info('  but re-subscribing to channels:')
             for channel in self.channels:
                 orb.log.info('  + {}'.format(channel))
@@ -866,7 +865,7 @@ class Main(QMainWindow):
         return self.mbus.session.call('vger.force_sync_managed_objects',
                                       non_ref_data)
 
-    def sync_current_project(self, data):
+    def sync_current_project(self, data, msg=''):
         """
         Sync all objects for the current project into the local db.  If there
         are any local project objects, this function internally assembles a
@@ -893,8 +892,10 @@ class Main(QMainWindow):
         oid_dts = {}
         if (proj_oid != 'pgefobjects:SANDBOX') and project:
             orb.log.debug('  current project is: {}'.format(project.id))
-            self.statusbar.showMessage('syncing project {} ...'.format(
-                                                                 project.id))
+            status_msg = f'syncing project {project.id} ...'
+            if msg:
+                status_msg = f'{msg} {status_msg} ...'
+            self.statusbar.showMessage(status_msg)
             local_objs = orb.get_objects_for_project(project)
             if local_objs:
                 for obj in local_objs:
@@ -2547,7 +2548,7 @@ class Main(QMainWindow):
         import_icon_path = os.path.join(icon_dir, import_icon_file)
         import_actions = [
                           # Import Excel deactivated for now ...
-                          # self.import_excel_data_action,
+                          self.import_excel_data_action,
                           self.import_objects_action,
                           self.import_reqts_from_file_action
                           # Load Test Objects is currently flaky unless ONLY
@@ -2559,7 +2560,7 @@ class Main(QMainWindow):
                           ]
         # Import Excel deactivated until mapping is implemented, and/or support
         # for "data sets" is revised (hdf5 was breaking) ...
-        # self.import_excel_data_action.setEnabled(True)
+        self.import_excel_data_action.setEnabled(True)
         import_button = MenuButton(QIcon(import_icon_path),
                                    text='Input',
                                    tooltip='Import Data or Objects',
@@ -2705,9 +2706,12 @@ class Main(QMainWindow):
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         offline_icon_path = os.path.join(icon_dir, offline_icon_file)
         self.offline_icon = QPixmap(offline_icon_path)
-        online_icon_file = 'online' + state['icon_type']
+        online_icon_file = 'online_ok' + state['icon_type']
         online_icon_path = os.path.join(icon_dir, online_icon_file)
-        self.online_icon = QPixmap(online_icon_path)
+        self.online_ok_icon = QPixmap(online_icon_path)
+        spotty_nw_icon_file = 'online' + state['icon_type']
+        spotty_nw_icon_path = os.path.join(icon_dir, spotty_nw_icon_file)
+        self.spotty_nw_icon = QPixmap(spotty_nw_icon_path)
         self.net_status.setPixmap(self.offline_icon)
         self.net_status.setToolTip('offline')
         uid = '{} [{}]'.format(self.local_user.name, self.local_user.id)
@@ -3445,12 +3449,12 @@ class Main(QMainWindow):
             if oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(oid)
 
-    def resync_current_project(self):
+    def resync_current_project(self, msg=''):
         """
         Resync current project with repository.
         """
         orb.log.debug('* resync_current_project()')
-        self.on_set_current_project_signal(resync=True)
+        self.on_set_current_project_signal(resync=True, msg=msg)
 
     def full_resync(self):
         """
@@ -3464,7 +3468,7 @@ class Main(QMainWindow):
         else:
             return
 
-    def on_set_current_project_signal(self, resync=False):
+    def on_set_current_project_signal(self, resync=False, msg=''):
         """
         Update views as a result of a project being set, syncing project data
         if [1] online, [2] project is not "SANDBOX", and [3] project has not
@@ -3479,7 +3483,7 @@ class Main(QMainWindow):
              and state.get('connected')):
             # TODO: if project is "local", activate "enable collab" action
             orb.log.debug('  calling sync_current_project()')
-            rpc = self.sync_current_project(None)
+            rpc = self.sync_current_project(None, msg=msg)
             rpc.addCallback(self.on_project_sync_result)
             rpc.addErrback(self.on_failure)
         else:
@@ -4145,20 +4149,61 @@ class Main(QMainWindow):
             self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
                                               parent=self))
 
-    ### SET UP 'data' mode
+    ### SET UP 'data' mode (currently deactivated ...)
 
     def set_data_interface(self):
         """
-        Data mode interface (DataGrid).
+        Show data sets.  [Currently deactivated for re-implementation of data
+        store without pandas/pytables/hdf5.]
         """
         orb.log.debug('* setting data mode interface ...')
-        # hide the top, right, and left dock widgets
+        # hide the top and right dock widgets
         self.top_dock_widget.setVisible(False)
         self.right_dock.setVisible(False)
-        self.left_dock.setVisible(False)
-        # for now, use "MEL" as the default schema name
-        self.data_widget = DataGrid(self.project)
-        self.setCentralWidget(self.data_widget)
+        # ********************************************************
+        # data view:  dataset_list (for selecting datasets)
+        # ********************************************************
+        self.dataset_list = AutosizingListWidget(parent=self)
+        # size policy is set in the class AutosizingListWidget, so this is
+        # unnecessary:
+        # self.dataset_list.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
+                                        # QtWidgets.QSizePolicy.Expanding)
+        self.dataset_list.currentRowChanged.connect(self.on_dataset_selected)
+        # if there is a current left dock widget, destroy it
+        ld_widget = self.left_dock.widget()
+        if ld_widget:
+            ld_widget.setAttribute(Qt.WA_DeleteOnClose)
+            ld_widget.parent = None
+            ld_widget.close()
+        self.left_dock.setWidget(self.dataset_list)
+        self.dataset_list.show()
+        self.dataset_list.clear()
+        # if orb.data_store.keys():
+            # target_row = 0
+            # # if hdf5 store has data, sync it up with self.datasets ...
+            # # first, preserve the order of existing datasets
+            # current_datasets = [n for n in self.datasets
+                                # if '/'+n in orb.data_store.keys()]
+            # for name in orb.data_store.keys():
+                # if name[1:] not in current_datasets:
+                    # # remove the leading '/' from hdf5 store key names
+                    # # FIXME:  potential unicode whoopdeedoo
+                    # current_datasets.append(str(name)[1:])
+            # self.datasets = current_datasets
+            # for name in self.datasets:
+                # self.dataset_list.addItem(name)
+            # if self.dataset and (self.dataset in self.datasets):
+                # orb.log.debug('  - current dataset: {}'.format(self.dataset))
+                # target_row = self.datasets.index(self.dataset)
+            # elif self.datasets:
+                # target_row = len(self.datasets) - 1
+            # self.dataset_list.setCurrentRow(target_row)
+        # else:
+        self.datasets = []
+        self.dataset_list.addItem('No Data')
+        self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
+                                              parent=self))
+
 
     ### SET UP 'db' mode
 
