@@ -672,6 +672,18 @@ class PrefsDialog(QDialog):
         else:
             self.num_prec_select.setCurrentIndex(NUMERIC_PRECISION.index('4'))
         form.addRow(num_prec_label, self.num_prec_select)
+        dri_label = QLabel('Disconnect Resync Interval [seconds]', self)
+        self.dri_select = QComboBox()
+        self.dri_select.activated.connect(self.set_disconnect_resync_interval)
+        deltas = ('10', '30', '60', '120', '300')
+        for delta in deltas:
+            self.dri_select.addItem(delta, QVariant())
+        dri_pref = prefs.get('disconnect_resync_interval')
+        if str(dri_pref) in deltas:
+            self.dri_select.setCurrentIndex(deltas.index(str(dri_pref)))
+        else:
+            self.dri_select.setCurrentIndex(deltas.index('60'))
+        form.addRow(dri_label, self.dri_select)
         unit_prefs_button = SizedButton("Set Preferred Units")
         unit_prefs_button.clicked.connect(self.set_preferred_units)
         form.addRow(unit_prefs_button)
@@ -712,6 +724,19 @@ class PrefsDialog(QDialog):
     def set_preferred_units(self):
         dlg = UnitPrefsDialog(self)
         dlg.show()
+
+    def set_disconnect_resync_interval(self, index):
+        """
+        Set the preferred allowable disconnection interval before an automatic
+        project resync is done.
+        """
+        orb.log.info('* [orb] setting numeric precision preference ...')
+        try:
+            dri = int(('10', '30', '60', '120', '300')[index])
+            prefs['disconnect_resync_interval'] = dri
+            orb.log.info(f'        set to "{dri}"')
+        except:
+            orb.log.debug(f'        invalid index ({index})')
 
 
 class SelectColsDialog(QDialog):

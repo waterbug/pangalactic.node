@@ -528,24 +528,51 @@ class Main(QMainWindow):
         self.net_status.setToolTip('connected')
         self.sync_project_action.setEnabled(True)
         self.full_resync_action.setEnabled(True)
+        # delta is interval allowed for a disconnect before a project resync is
+        # done -- default is 60 seconds; can be overridden by a user preference
+        delta = prefs.get('disconnect_resync_interval') or 60
         if not getattr(self, 'synced', None):
             # if we haven't been synced in this session
             self.statusbar.showMessage('connected to message bus, syncing ...')
             orb.log.info('  connected to message bus, not synced, syncing ...')
             self.sync_with_services()
-        elif dtstamp() - self.synced > timedelta(seconds=10):
-            # it's been more than 10 seconds since we synced, resync project
-            self.net_status.setPixmap(self.spotty_nw_icon)
-            orb.log.info('  > 10 seconds since last sync, re-syncing.')
-            self.resync_current_project(msg='connection lost, reconnecting: ')
         else:
-            # it's been less than 10 seconds since we synced -> NO sync
-            self.statusbar.showMessage('reconnect < 10 seconds, no sync')
-            orb.log.info('  < 10 seconds since last sync, no re-sync')
-            orb.log.info('  but re-subscribing to channels:')
-            for channel in self.channels:
-                orb.log.info('  + {}'.format(channel))
-            self.subscribe_to_mbus_channels()
+            now = dtstamp()
+            if (now - self.synced >= timedelta(seconds=10)
+                and not state.get('network_warning_displayed')):
+                    state['network_warning_displayed'] = True
+                    html = '<h3><font color="red">Warning: Unreliable Network'
+                    html += '</font></h3>'
+                    html += '<p><b>Connection to repository was lost '
+                    html += 'for 10 seconds or more -- <br>this can result '
+                    html += 'in out-of-sync conditions.</b></p>'
+                    html += '<p><b>Automatic re-sync is currently set '
+                    html += 'to occur when connection is lost<br>for '
+                    html += f'<font color="green">{delta}</font> seconds or '
+                    html += 'more -- this interval can be set in<br>'
+                    html += '<font color="blue">"Tools" / '
+                    html += '"Edit Preferences" /<br>'
+                    html += '"Disconnect Resync Interval [seconds]".'
+                    dlg = NotificationDialog(html, news=False, parent=self)
+                    dlg.show()
+                    self.net_status.setPixmap(self.spotty_nw_icon)
+                    self.net_status.setToolTip('unreliable network connection')
+            if (now - self.synced > timedelta(seconds=delta)):
+                # it's been more than [delta] seconds since we synced ...
+                self.net_status.setPixmap(self.spotty_nw_icon)
+                self.net_status.setToolTip('unreliable network connection')
+                msg = f'reconnect > {delta} seconds since last sync, re-syncing.'
+                orb.log.info(f'  {msg}')
+                self.resync_current_project(msg='connection lost, reconnecting: ')
+            else:
+                # it's been less than [delta] seconds since we synced -> NO re-sync
+                msg = f'disconnected < {delta} seconds; reconnected, no re-sync'
+                self.statusbar.showMessage(msg)
+                orb.log.info(f'  {msg}')
+                orb.log.info('  but re-subscribing to channels:')
+                for channel in self.channels:
+                    orb.log.info('  + {}'.format(channel))
+                self.subscribe_to_mbus_channels()
 
     def sync_with_services(self, force=False):
         self.force = force
@@ -2702,6 +2729,10 @@ class Main(QMainWindow):
         self._setup_top_dock_widgets()
         # Initialize a statusbar for the window
         self.net_status = QLabel()
+        self.net_status.setStyleSheet(
+            "QToolTip { color: #ffffff; "
+            "background-color: #2a82da; "
+            "border: 1px solid white; }")
         offline_icon_file = 'offline' + state['icon_type']
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         offline_icon_path = os.path.join(icon_dir, offline_icon_file)
@@ -2737,31 +2768,6 @@ class Main(QMainWindow):
         # x and y coordinates and the screen, width, height
         self.setGeometry(100, 100, width, height)
         self.setWindowTitle(config['app_name'])
-
-    # * NOTE:  THESE "x_progress" FUNCTIONS ARE FOR SYS TREE PROGRESS AND ARE
-    # DEPRECATED -- REMOVE THEM! *
-
-    # def start_progress(self, msg, count=0):
-        # if hasattr(self, 'pb'):
-            # self.pb.show()
-            # self.pb.setValue(0)
-            # self.pb.setMaximum(count)
-            # self.statusbar.showMessage(msg)
-
-    # def increment_progress(self, inc=1, msg=''):
-        # if hasattr(self, 'pb'):
-            # if msg:
-                # self.statusbar.showMessage(msg)
-            # self.pb.setValue(self.pb.value() + inc)
-
-    # def end_progress(self):
-        # if hasattr(self, 'pb'):
-            # self.pb.reset()
-            # self.pb.hide()
-            # if state.get('connected', False):
-                # self.statusbar.showMessage("synced.")
-            # else:
-                # self.statusbar.showMessage("To infinity, and beyond! :)")
 
     def on_new_project_signal(self, obj=None):
         """
@@ -5354,6 +5360,7 @@ def cleanup_and_save():
     # clear synced, synced_oids, and synced_projects
     state['synced_oids'] = []
     state['synced_projects'] = []
+    state['network_warning_displayed'] = False
     write_state(os.path.join(orb.home, 'state'))
     write_trash(os.path.join(orb.home, 'trash'))
 
