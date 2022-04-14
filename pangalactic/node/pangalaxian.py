@@ -634,8 +634,9 @@ class Main(QMainWindow):
         data = data or ['', '', '', '', '']
         szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
         if szd_user:
-            # deserialize local user's Person object
-            deserialize(orb, szd_user)
+            # deserialize local user's Person object (include refdata in case
+            # we are the "admin" user)
+            deserialize(orb, szd_user, include_refdata=True)
             self.local_user = orb.select('Person', id=state['userid'])
             # orb.log.debug(' - local user returned: {}'.format(
                                                   # self.local_user.oid))
