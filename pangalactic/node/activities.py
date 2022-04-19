@@ -745,7 +745,11 @@ class ModesTool(QMainWindow):
 
 
 class ModeDefinitionModel(QStandardItemModel):
+
     def __init__(self, objs, view=None, project=None, parent=None):
+        """
+        Initialize.
+        """
         self.objs = objs
         self.view = view or ['name']
         self.project = project
@@ -754,6 +758,9 @@ class ModeDefinitionModel(QStandardItemModel):
         super().__init__(self.rows, self.cols, parent=parent)
 
     def headerData(self, section, orientation, role):
+        """
+        Return the header data for the section, orientation, and role.
+        """
         if len(self.objs) > section:
             link = self.objs[section]
             if hasattr(link, 'oid'):
@@ -773,6 +780,9 @@ class ModeDefinitionModel(QStandardItemModel):
         return super().headerData(section, orientation, role)
 
     def data(self, index, role):
+        """
+        Return the data stored under the specified role for the index.
+        """
         sys_dict = mode_defz[self.project.oid]['systems']
         comp_dict = mode_defz[self.project.oid]['components']
         link = self.objs[index.row()]
@@ -801,6 +811,17 @@ class ModeDefinitionModel(QStandardItemModel):
             else:
                 return QBrush(Qt.black)
         return super().data(index, role)
+
+    def flags(self, index):
+        """
+        Return the item flags for the index -- main purpose here is to make
+        "[computed]" items non-editable.
+        """
+        if not index.isValid():
+            return Qt.NoItemFlags
+        elif self.data(index, Qt.DisplayRole) == '[computed]':
+            return Qt.NoItemFlags
+        return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
     def set_data(self, index, value, role=Qt.EditRole):
         """
@@ -839,6 +860,9 @@ class ModeDefinitionModel(QStandardItemModel):
                     return False
 
     def setData(self, index, value, role=Qt.EditRole):
+        """
+        Store the specified value at the index under the specified role.
+        """
         if role != Qt.EditRole:
             return False
         if not index.isValid():
@@ -937,6 +961,7 @@ class ModeDefinitionView(QTableView):
                 orb.log.debug('* ModesTool: modes deleted ...')
                 dispatcher.send(signal='modes edited',
                                 project_oid=self.project.oid)
+
 
 # TODO:  implement this in parametrics module and import it ...
 def get_power_contexts(obj):
