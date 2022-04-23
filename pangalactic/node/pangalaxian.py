@@ -587,16 +587,17 @@ class Main(QMainWindow):
         QApplication.processEvents()
         data = orb.get_mod_dts(cnames=['Person', 'Organization', 'Project',
                                        'RoleAssignment'])
+        this_version = self.app_version or __version__
         try:
             rpc = self.mbus.session.call('vger.get_user_roles', userid,
-                                         data=data)
+                                         data=data, version=this_version)
         except:
             orb.log.debug('  rpc "vger.get_user_roles" failed.')
             orb.log.debug('  trying again ...')
             time.sleep(1)
             try:
                 rpc = self.mbus.session.call('vger.get_user_roles', userid,
-                                             data=data)
+                                             data=data, version=this_version)
             except:
                 orb.log.debug('  rpc "vger.get_user_roles" failed again ...')
                 message = "Could not reconnect -- log out and log in again."
@@ -637,8 +638,9 @@ class Main(QMainWindow):
         # data may be None, so fall back to a list of 6 empty elements ...
         data = data or ['', '', '', '', '', '']
         szd_user, szd_orgs, szd_people, szd_ras, bad_oids, min_version = data
-        this_version = Version(self.app_version or __version__)
-        if this_version < Version(min_version) and state['connected']:
+        # this_version = self.app_version or __version__
+        this_version = '2.2.1'
+        if Version(this_version) < Version(min_version) and state['connected']:
             orb.log.info('* disconnecting from message bus ...')
             self.statusbar.showMessage(
                                     'disconnecting from message bus ...')
@@ -662,11 +664,12 @@ class Main(QMainWindow):
             self.login_label.setText('Login: ')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
             self.update_project_role_labels()
-            app_name = config.get('app_name', 'Pangalaxian'),
-            html = f'<h3>{app_name} {this_version} is Not Supported</h3>'
-            html += f'<p><b><font color="red">You must uninstall {app_name} '
-            html += f'{this_version} and install the current {app_name} '
-            html += 'version.</font></b></p>'
+            app_name = config.get('app_name', 'Pangalaxian')
+            html = f'<h3>{app_name} {this_version} is Not Supported</h3><hr>'
+            html += f'<p><b>You must <font color="red">uninstall</font> '
+            html += f'{app_name} {this_version}<br>and '
+            html += '<font color="red">install</font> '
+            html += f'{app_name} {min_version} or higher.</b></p>'
             dlg = NotificationDialog(html, news=False, parent=self)
             dlg.show()
             return
