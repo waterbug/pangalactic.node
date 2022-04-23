@@ -19,6 +19,9 @@ from binaryornot.check import is_binary
 # Louie (formerly known as PyDispatcher)
 from louie import dispatcher
 
+# packaging
+from packaging.version import Version
+
 # ruamel_yaml
 import ruamel_yaml as yaml
 
@@ -601,7 +604,7 @@ class Main(QMainWindow):
                                     "Connection Lost", message,
                                     QMessageBox.Ok, self)
                 popup.show()
-        rpc.addTimeout(5, self.reactor,
+        rpc.addTimeout(10, self.reactor,
                        onTimeoutCancel=self.on_rpc_timeout)
         rpc.addCallback(self.on_rpc_get_user_roles_result)
         rpc.addErrback(self.on_rpc_get_user_roles_failure)
@@ -624,15 +627,49 @@ class Main(QMainWindow):
              serialized Organization/Project objects,
              serialized Person objects,
              serialized RoleAssignment objects,
-             oids unknown to the server]
+             oids unknown to the server,
+             minimum version string]
         """
         # log_msg = '* processing results of rpc "vger.get_user_roles" ...'
         # orb.log.debug(log_msg)
         # orb.log.debug(' - data:  {}'.format(str(data)))
-        # data should be a list with 5 elements, but if no response from server
-        # data may be None, so fall back to a list of 5 empty elements ...
-        data = data or ['', '', '', '', '']
-        szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
+        # data should be a list with 6 elements, but if no response from server
+        # data may be None, so fall back to a list of 6 empty elements ...
+        data = data or ['', '', '', '', '', '']
+        szd_user, szd_orgs, szd_people, szd_ras, bad_oids, min_version = data
+        this_version = Version(self.app_version or __version__)
+        if this_version < Version(min_version) and state['connected']:
+            orb.log.info('* disconnecting from message bus ...')
+            self.statusbar.showMessage(
+                                    'disconnecting from message bus ...')
+            if getattr(self.mbus, 'session', None) is not None:
+                self.mbus.session.leave()
+            if getattr(self.mbus, 'runner', None) is not None:
+                self.mbus.runner.stop()
+            orb.log.info('  message bus session disconnected.')
+            self.sync_project_action.setEnabled(False)
+            self.full_resync_action.setEnabled(False)
+            self.net_status.setPixmap(self.offline_icon)
+            self.net_status.setToolTip('offline')
+            self.mbus = None
+            self.synced = None
+            state['connected'] = False
+            state['done_with_progress'] = False
+            state['synced_projects'] = []
+            state['synced_oids'] = []
+            if self.connect_to_bus_action.isChecked():
+                self.connect_to_bus_action.setChecked(False)
+            self.login_label.setText('Login: ')
+            self.connect_to_bus_action.setToolTip('Connect to the message bus')
+            self.update_project_role_labels()
+            app_name = config.get('app_name', 'Pangalaxian'),
+            html = f'<h3>{app_name} {this_version} is Not Supported</h3>'
+            html += f'<p><b><font color="red">You must uninstall {app_name} '
+            html += f'{this_version} and install the current {app_name} '
+            html += 'version.</font></b></p>'
+            dlg = NotificationDialog(html, news=False, parent=self)
+            dlg.show()
+            return
         if szd_user:
             # deserialize local user's Person object (include refdata in case
             # we are the "admin" user)
@@ -664,7 +701,7 @@ class Main(QMainWindow):
             orb.log.debug('    + user object for local user not returned!')
         orb.log.debug('  - inspecting projects and orgs ...')
         local_orgs = orb.get_by_type('Organization')
-        invalid_orgs = [org for org in local_orgs if org.oid in unknown_oids]
+        invalid_orgs = [org for org in local_orgs if org.oid in bad_oids]
         if invalid_orgs:
             orb.log.debug('    deleting {} invalid orgs.'.format(
                                                         len(invalid_orgs)))
@@ -679,7 +716,7 @@ class Main(QMainWindow):
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE, so
         # delete any role assignments whose oids are not known to the server
         ras_local = orb.get_by_type('RoleAssignment')
-        invalid_ras = [ra for ra in ras_local if ra.oid in unknown_oids]
+        invalid_ras = [ra for ra in ras_local if ra.oid in bad_oids]
         if invalid_ras:
             orb.delete(invalid_ras)
         # NOTE: serialized RoleAssignment objects include all related
