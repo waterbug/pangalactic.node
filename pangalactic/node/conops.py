@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-# import pyqtgraph as pg
-# from pyqtgraph.parametertree import Parameter, ParameterTree
-# from pyqtgraph.dockarea import Dock, DockArea
-# from pyqtgraph import CheckTable
+import pyqtgraph as pg
+from pyqtgraph.parametertree import Parameter, ParameterTree
+from pyqtgraph.dockarea import Dock, DockArea
+from pyqtgraph import CheckTable
 
 import os
 
@@ -539,9 +539,10 @@ class TimelineWidget(QWidget):
         self.toolbar.addAction(self.undo_action)
         self.undo_action.setDisabled(True)
         self.plot_action = self.create_action(
-                                    "plot",
+                                    "graph",
                                     slot=self.plot,
-                                    tip="plot")
+                                    icon="graph",
+                                    tip="graph")
         self.toolbar.addAction(self.plot_action)
         #create and add scene scale menu
         self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
@@ -685,83 +686,79 @@ class TimelineWidget(QWidget):
             pass
 
     def plot(self):
-        pass
-        # act_durations= []
-        # start_times = []
-        # power = []
-        # d_r = []
-        # for acr in self.subject_activity.sub_activities:
-            # act=acr.sub_activity
-            # oid = getattr(act, "oid", None)
-            # act_durations.append(get_pval(oid, 'duration'))
-            # start_times.append(get_pval(oid, 't_start'))
-            # power.append(get_pval(oid, 'P[CBE]'))
-            # d_r.append(get_pval(oid, 'R_D[CBE]'))
+        act_durations= []
+        start_times = []
+        power = []
+        d_r = []
+        for acr in self.subject_activity.sub_activities:
+            act=acr.sub_activity
+            oid = getattr(act, "oid", None)
+            act_durations.append(get_pval(oid, 'duration'))
+            start_times.append(get_pval(oid, 't_start'))
+            power.append(get_pval(oid, 'P[CBE]'))
+            d_r.append(get_pval(oid, 'R_D[CBE]'))
 
+        win = QMainWindow()
+        combo = pg.ComboBox()
+        combo.addItem("Data Rate")
+        # win.addWidget(combo)
+        # proxy = QGraphicsProxyWidget()
+        # # tree = QTreeWidget()
+        # # i1  = QTreeWidgetItem(["Item 1"])
+        # # tree.addTopLevelItem(i1)
+        # proxy.setWidget(combo)
+        area = DockArea()
+        win.setCentralWidget(area)
+        win.resize(1000,1000)
+        win.setWindowTitle('pyqtgraph example: dockarea')
+        d4 = Dock("Power", size=(500,500))
+        d6 = Dock("Data Rate", size=(500,500))
+        d7 = Dock("Subsystems", size=(500,200))
+        # p3 = win.addLayout(row=1, col=3)
+        # p3.addItem(proxy,row=1,col=1)
+        #layout.addItem(tree)
+        #win.addItem(tree)
+        area.addDock(d4, 'left')
+        area.addDock(d6, 'above', d4)
+        area.addDock(d7, 'right')
+        w6 = pg.PlotWidget()
+        w4 = pg.PlotWidget()
+        d6.addWidget(w6)
+        d4.addWidget(w4)
+        win.resize(800,350)
+        win.setWindowTitle(' ')
+        self.plot_win = win
+        t = ParameterTree(showHeader=False)
+        d7.addWidget(t)
+        #p = pg.parametertree.parameterTypes.ActionParameter("parent")
+        lst = []
+        for system in self.possible_systems:
+            pair = {'name': system}
+            lst.append(pair)
+        params = [{'name': self.subject_activity.id, 'children': lst}]
+        p = Parameter.create(name='params', type='group', children=params)
+        t.addParameters(p, showTop=False)
 
-        # win = QMainWindow()
-        # combo = pg.ComboBox()
-        # combo.addItem("Data Rate")
-        # # win.addWidget(combo)
-        # # proxy = QGraphicsProxyWidget()
-        # # # tree = QTreeWidget()
-        # # # i1  = QTreeWidgetItem(["Item 1"])
-        # # # tree.addTopLevelItem(i1)
-        # # proxy.setWidget(combo)
-        # area = DockArea()
-        # win.setCentralWidget(area)
-        # win.resize(1000,1000)
-        # win.setWindowTitle('pyqtgraph example: dockarea')
-        # d4 = Dock("Power", size=(500,500))
-        # d6 = Dock("Data Rate", size=(500,500))
-        # d7 = Dock("Subsystems", size=(500,200))
-        # # p3 = win.addLayout(row=1, col=3)
-        # # p3.addItem(proxy,row=1,col=1)
-        # #layout.addItem(tree)
-        # #win.addItem(tree)
-        # area.addDock(d4, 'left')
-        # area.addDock(d6, 'above', d4)
-        # area.addDock(d7, 'right')
-        # w6 = pg.PlotWidget()
-        # w4 = pg.PlotWidget()
-        # d6.addWidget(w6)
-        # d4.addWidget(w4)
-        # win.resize(800,350)
-        # win.setWindowTitle(' ')
-        # self.plot_win = win
-        # t = ParameterTree(showHeader=False)
-        # d7.addWidget(t)
-        # #p = pg.parametertree.parameterTypes.ActionParameter("parent")
-        # lst = []
-        # for system in self.possible_systems:
-            # pair = {'name': system}
-            # lst.append(pair)
-        # params = [{'name': self.subject_activity.id, 'children': lst}]
-        # p = Parameter.create(name='params', type='group', children=params)
-        # t.addParameters(p, showTop=False)
+        duration = sum(act_durations)
+        s_time = min(start_times)
+        generated_x = []
+        generated_power = []
+        for count, d in enumerate(act_durations):
+            start = start_times[count]
+            end = start_times[count] + d
+            generated_x.append(start)
+            generated_x.append(end)
+        for c, y in enumerate(act_durations):
+            generated_power.extend([power[c], power[c]])
+            #.extend([power[c]]*(int(act_durations[c])+1))
+        w4.plot(generated_x, generated_power, brush=(0,0,255,150))
 
-
-
-        # duration = sum(act_durations)
-        # s_time = min(start_times)
-        # generated_x = []
-        # generated_power = []
-        # for count, d in enumerate(act_durations):
-            # start = start_times[count]
-            # end = start_times[count] + d
-            # generated_x.append(start)
-            # generated_x.append(end)
-        # for c, y in enumerate(act_durations):
-            # generated_power.extend([power[c], power[c]])
-            # #.extend([power[c]]*(int(act_durations[c])+1))
-        # w4.plot(generated_x, generated_power, brush=(0,0,255,150))
-
-        # #plt2 = win.addPlot(title="Data Rate")
-        # generated_dr = []
-        # for d_index, d in enumerate(act_durations):
-           # generated_dr.extend([d_r[d_index], d_r[d_index]])
-        # w6.plot(generated_x, generated_dr, brush=(0,0,255,150))
-        # win.show()
+        #plt2 = win.addPlot(title="Data Rate")
+        generated_dr = []
+        for d_index, d in enumerate(act_durations):
+           generated_dr.extend([d_r[d_index], d_r[d_index]])
+        w6.plot(generated_x, generated_dr, brush=(0,0,255,150))
+        win.show()
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
