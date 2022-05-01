@@ -26,12 +26,14 @@ from pangalactic.core.meta import (MAIN_VIEWS, PGEF_DIMENSION_ORDER, PGXN_HIDE,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
                                    SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
+                                          componentz,
                                           data_elementz, de_defz,
                                           delete_parameter,
                                           delete_data_element,
                                           get_parameter_id,
                                           get_dval_as_str, get_pval_as_str,
                                           get_pval_from_str, parameterz,
+                                          get_variable_and_context,
                                           parm_defz, round_to,
                                           set_dval_from_str,
                                           set_pval_from_str)
@@ -178,16 +180,20 @@ class PgxnForm(QWidget):
             # honor the sort order in "default_parms" if any are present, then
             # add the rest in alphabetical sort order
             pids = []
-            for pid in (state.get('default_parms') or []):
+            for pid in (prefs.get('default_parms') or []):
                 if pid in parmz:
                     pids.append(pid)
             for pid in sorted(list(parmz), key=str.lower):  # case-independent
                 if pid not in pids:
                     pids.append(pid)
             orb.log.info(f'* [pgxo] parameters of this object: {pids}')
+            # a parameter is editable if:
+            # (1) not defined as "computed" OR
+            # (2) a "contingency" parameter [NOTE: this may change in the
+            #     future for computed contingencies]
             editables = [pid for pid in pids
-                         if not parm_defz[pid].get('computed')
-                         or pid in contingencies]
+                         if (not parm_defz[pid].get('computed')
+                             or pid in contingencies)]
             if pids:
                 # orb.log.info('* [pgxo] parameters found: {}'.format(
                                                             # str(pids)))
@@ -253,8 +259,8 @@ class PgxnForm(QWidget):
                         units_widget = None
                     # field_type 'parameter' -> StringFieldWidget for edit mode
                     field_type = 'parameter'
-                    # if 'computed', p is not editable
-                    editable = (self.edit_mode and not pd.get('computed'))
+                    # p is editable if its pid is in 'editables'
+                    editable = (self.edit_mode and pid in editables)
                     definition = (pd.get('description', '')
                                   or 'unknown definition')
                     # NOTE: get_pval_as_str will convert the stored value from
@@ -302,7 +308,7 @@ class PgxnForm(QWidget):
                         self.p_widget_values[pid] = str_val
                         widget.setSizePolicy(QSizePolicy.Minimum,
                                              QSizePolicy.Minimum)
-                        if pd.get('computed'):
+                        if pid not in editables:
                             text = label.text() + ' *'
                             label.setText(text)
                             label.setStyleSheet(
