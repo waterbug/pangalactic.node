@@ -686,6 +686,14 @@ class TimelineWidget(QWidget):
             pass
 
     def plot(self):
+        if not self.subject_activity.sub_activities:
+            message = "Nothing to plot!"
+            popup = QMessageBox(
+                        QMessageBox.Warning,
+                        "No Activities Found", message,
+                        QMessageBox.Ok, self)
+            popup.show()
+            return
         act_durations= []
         start_times = []
         power = []

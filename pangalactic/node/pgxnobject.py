@@ -26,14 +26,12 @@ from pangalactic.core.meta import (MAIN_VIEWS, PGEF_DIMENSION_ORDER, PGXN_HIDE,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
                                    SELECTION_FILTERS)
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
-                                          componentz,
                                           data_elementz, de_defz,
                                           delete_parameter,
                                           delete_data_element,
                                           get_parameter_id,
                                           get_dval_as_str, get_pval_as_str,
                                           get_pval_from_str, parameterz,
-                                          get_variable_and_context,
                                           parm_defz, round_to,
                                           set_dval_from_str,
                                           set_pval_from_str)
@@ -198,7 +196,7 @@ class PgxnForm(QWidget):
                 # orb.log.info('* [pgxo] parameters found: {}'.format(
                                                             # str(pids)))
                 dims = set([parm_defz[pid]['dimensions']
-                            for pid in pids])
+                            for pid in pids if pid not in contingencies])
                 # txt = f'selecting dims from: {PGEF_DIMENSION_ORDER}'
                 # orb.log.info(f'* [pgxo] {txt}')
                 for dim in PGEF_DIMENSION_ORDER:

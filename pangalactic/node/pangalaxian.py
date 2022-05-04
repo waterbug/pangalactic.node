@@ -4899,6 +4899,7 @@ class Main(QMainWindow):
                 popup.show()
                 return
             self.load_serialized_objects(sobjs)
+            orb.remove_deprecated_data()
 
     def load_serialized_objects(self, sobjs, importing=False):
         objs = []
