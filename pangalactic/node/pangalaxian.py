@@ -638,8 +638,7 @@ class Main(QMainWindow):
         # data may be None, so fall back to a list of 6 empty elements ...
         data = data or ['', '', '', '', '', '']
         szd_user, szd_orgs, szd_people, szd_ras, bad_oids, min_version = data
-        # this_version = self.app_version or __version__
-        this_version = '2.2.dev3'
+        this_version = self.app_version or __version__
         if Version(this_version) < Version(min_version) and state['connected']:
             orb.log.info('* disconnecting from message bus ...')
             self.statusbar.showMessage(
