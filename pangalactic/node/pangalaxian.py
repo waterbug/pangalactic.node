@@ -670,7 +670,7 @@ class Main(QMainWindow):
             html += f'{app_name} {this_version}<br>and '
             html += '<font color="red">install</font> '
             html += f'{app_name} {min_version} or higher.</b></p>'
-            url = config.get('download_url')
+            url = state.get('app_download_url')
             if url:
                 html += f'<p><b>The current version of {app_name} can be '
                 html += 'downloaded from its installer site --<br>'

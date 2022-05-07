@@ -173,11 +173,8 @@ class VersionDialog(QDialog):
         if url:
             download_button = UrlButton(value=url)
             vbox.addWidget(download_button)
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok,
-                                        Qt.Horizontal, self)
-        vbox.addWidget(self.buttons)
         self.resize(600, 300)
-        self.buttons.accepted.connect(self.accept)
+        download_button.clicked.connect(self.accept)
 
 
 class OptionNotification(QDialog):
