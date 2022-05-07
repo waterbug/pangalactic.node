@@ -70,7 +70,7 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog,
-                                               ProgressDialog)
+                                               ProgressDialog, VersionDialog)
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
@@ -638,7 +638,8 @@ class Main(QMainWindow):
         # data may be None, so fall back to a list of 6 empty elements ...
         data = data or ['', '', '', '', '', '']
         szd_user, szd_orgs, szd_people, szd_ras, bad_oids, min_version = data
-        this_version = self.app_version or __version__
+        # this_version = self.app_version or __version__
+        this_version = '2.2.dev3'
         if Version(this_version) < Version(min_version) and state['connected']:
             orb.log.info('* disconnecting from message bus ...')
             self.statusbar.showMessage(
@@ -669,7 +670,12 @@ class Main(QMainWindow):
             html += f'{app_name} {this_version}<br>and '
             html += '<font color="red">install</font> '
             html += f'{app_name} {min_version} or higher.</b></p>'
-            dlg = NotificationDialog(html, news=False, parent=self)
+            url = config.get('download_url')
+            if url:
+                html += f'<p><b>The current version of {app_name} can be '
+                html += 'downloaded from its installer site --<br>'
+                html += 'use the button below to access the site ...</p>'
+            dlg = VersionDialog(html, url, parent=self)
             dlg.show()
             return
         if szd_user:

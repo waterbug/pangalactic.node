@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
                              QLineEdit, QProgressDialog, QRadioButton,
                              QScrollArea, QSizePolicy, QTableView,
-                             QVBoxLayout, QWidget)
+                             QTextBrowser, QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
@@ -38,7 +38,7 @@ from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.meta  import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.core.utils.reports import get_mel_data, write_mel_to_tsv
-from pangalactic.node.buttons     import SizedButton
+from pangalactic.node.buttons     import SizedButton, UrlButton
 from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.utils       import clone
@@ -159,6 +159,24 @@ class NotificationDialog(QDialog):
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok,
                                         Qt.Horizontal, self)
         form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+
+
+class VersionDialog(QDialog):
+    def __init__(self, html, url, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Notification")
+        vbox = QVBoxLayout(self)
+        browsable_widget = QTextBrowser(parent=self)
+        browsable_widget.setHtml(html)
+        vbox.addWidget(browsable_widget)
+        if url:
+            download_button = UrlButton(value=url)
+            vbox.addWidget(download_button)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok,
+                                        Qt.Horizontal, self)
+        vbox.addWidget(self.buttons)
+        self.resize(600, 300)
         self.buttons.accepted.connect(self.accept)
 
 
