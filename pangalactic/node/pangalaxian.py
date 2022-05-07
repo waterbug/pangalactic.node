@@ -5456,14 +5456,14 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
     # NOTE: these tracebacks are mostly relevant to protocol debugging
     # setDebugging(True)
 
-    # sys.exit(app.exec_())
+    sys.exit(app.exec_())
 
     # NOTE: with the addition of pyqtgraph, segfaults began to happen at exit
     # on Windows and randomly on OSX.  The following app.exec_ idiom was
-    # suggested on the pyqtgraph email list ...
-    app.exec_()
-    app.deleteLater()
-    sys.exit()
+    # suggested on the pyqtgraph email list ... but it doesn't help. :(
+    # app.exec_()
+    # app.deleteLater()
+    # sys.exit()
 
     # **NOTE**
     # Since both PyQt and Twisted are based on event loops (in app.exec_() and
