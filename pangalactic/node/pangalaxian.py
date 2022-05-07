@@ -665,7 +665,7 @@ class Main(QMainWindow):
             self.update_project_role_labels()
             app_name = config.get('app_name', 'Pangalaxian')
             html = f'<h3>{app_name} {this_version} is Not Supported</h3><hr>'
-            html += f'<p><b>You must <font color="red">uninstall</font> '
+            html += '<p><b>You must <font color="red">uninstall</font> '
             html += f'{app_name} {this_version}<br>and '
             html += '<font color="red">install</font> '
             html += f'{app_name} {min_version} or higher.</b></p>'
@@ -5455,7 +5455,15 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
     # this should enable tracebacks instead of "Unhandled error in Deferred"
     # NOTE: these tracebacks are mostly relevant to protocol debugging
     # setDebugging(True)
-    sys.exit(app.exec_())
+
+    # sys.exit(app.exec_())
+
+    # NOTE: with the addition of pyqtgraph, segfaults began to happen at exit
+    # on Windows and randomly on OSX.  The following app.exec_ idiom was
+    # suggested on the pyqtgraph email list ...
+    app.exec_()
+    app.deleteLater()
+    sys.exit()
 
     # **NOTE**
     # Since both PyQt and Twisted are based on event loops (in app.exec_() and

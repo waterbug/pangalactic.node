@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-# import pyqtgraph as pg
-# from pyqtgraph.dockarea import Dock, DockArea
+import pyqtgraph as pg
+from pyqtgraph.dockarea import Dock, DockArea
 # from pyqtgraph.parametertree import Parameter, ParameterTree
 
-# import numpy as np
+import numpy as np
 
 import os
 
@@ -687,52 +687,51 @@ class TimelineWidget(QWidget):
             pass
 
     def plot(self):
-        pass
-        # orb.log.debug('* plot()')
-        # if not self.subject_activity.sub_activities:
-            # message = "No activities were found -- nothing to plot!"
-            # popup = QMessageBox(
-                        # QMessageBox.Warning,
-                        # "No Activities Found", message,
-                        # QMessageBox.Ok, self)
-            # popup.show()
-            # return
-        # # self is TimelineWidget -- parent is ConOpsModeler
-        # win = QMainWindow(parent=self.parent())
-        # area = DockArea()
-        # win.setCentralWidget(area)
-        # win.resize(self.parent().width(), 700)
-        # win.setWindowTitle('pyqtgraph example: dockarea')
-        # sys_dock = Dock("system dock", size=(600, 400))
-        # sys_dock.hideTitleBar()
-        # sys_name = 'Spacecraft'
-        # w1 = pg.PlotWidget(title=f"{sys_name} Power Levels")
-        # w1.plot(np.random.normal(size=100))
-        # sys_dock.addWidget(w1)
-        # area.addDock(sys_dock, 'left')
-        # # Add subsystem docks ...
-        # subsystems = ['ACS', 'Comm', 'Avionics', 'Power', 'Propulsion',
-                      # 'Thermal']
-        # subsys_docks = {}
-        # previous_dock = None
-        # for n, subsys in enumerate(subsystems):
-            # # Note that size arguments are only a suggestion; docks will still
-            # # have to fill the entire dock area and obey the limits of their
-            # # internal widgets.
-            # new_dock = Dock(subsys, size=(600, 200))
-            # if n == 0:
-                # area.addDock(new_dock, 'right', sys_dock)
-            # else:
-                # area.addDock(new_dock, 'bottom', previous_dock)
-            # new_pw = pg.PlotWidget(title=subsys)
-            # new_pw.plot(np.random.normal(size=100))
-            # new_dock.addWidget(new_pw)
-            # new_lr = pg.LinearRegionItem([1, 30], bounds=[0,100], movable=True)
-            # new_pw.addItem(new_lr)
-            # subsys_docks[subsys] = new_dock
-            # previous_dock = new_dock
+        orb.log.debug('* plot()')
+        if not self.subject_activity.sub_activities:
+            message = "No activities were found -- nothing to plot!"
+            popup = QMessageBox(
+                        QMessageBox.Warning,
+                        "No Activities Found", message,
+                        QMessageBox.Ok, self)
+            popup.show()
+            return
+        # self is TimelineWidget -- parent is ConOpsModeler
+        win = QMainWindow(parent=self.parent())
+        area = DockArea()
+        win.setCentralWidget(area)
+        win.resize(self.parent().width(), 700)
+        win.setWindowTitle('pyqtgraph example: dockarea')
+        sys_dock = Dock("system dock", size=(600, 400))
+        sys_dock.hideTitleBar()
+        sys_name = 'Spacecraft'
+        w1 = pg.PlotWidget(title=f"{sys_name} Power Levels")
+        w1.plot(np.random.normal(size=100))
+        sys_dock.addWidget(w1)
+        area.addDock(sys_dock, 'left')
+        # Add subsystem docks ...
+        subsystems = ['ACS', 'Comm', 'Avionics', 'Power', 'Propulsion',
+                      'Thermal']
+        subsys_docks = {}
+        previous_dock = None
+        for n, subsys in enumerate(subsystems):
+            # Note that size arguments are only a suggestion; docks will still
+            # have to fill the entire dock area and obey the limits of their
+            # internal widgets.
+            new_dock = Dock(subsys, size=(600, 200))
+            if n == 0:
+                area.addDock(new_dock, 'right', sys_dock)
+            else:
+                area.addDock(new_dock, 'bottom', previous_dock)
+            new_pw = pg.PlotWidget(title=subsys)
+            new_pw.plot(np.random.normal(size=100))
+            new_dock.addWidget(new_pw)
+            new_lr = pg.LinearRegionItem([1, 30], bounds=[0,100], movable=True)
+            new_pw.addItem(new_lr)
+            subsys_docks[subsys] = new_dock
+            previous_dock = new_dock
 
-        # win.show()
+        win.show()
 
         # act_durations= []
         # start_times = []
