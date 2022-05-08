@@ -480,7 +480,10 @@ class ModesTool(QMainWindow):
             height = (max(self.sys_tree_panel.height(),
                           self.mode_definition_table.height()) +
                       100)
-            return QSize(width, height)
+            screen_size = QApplication.desktop().screenGeometry()
+            w = min(screen_size.width() - 100, width)
+            h = min(screen_size.height() - 100, height)
+            return QSize(w, h)
         else:
             return QSize(1200, 500)
 
