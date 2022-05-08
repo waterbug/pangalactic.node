@@ -413,7 +413,6 @@ class ModesTool(QMainWindow):
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
-        self.setMinimumSize(1000, 600)
         orb.log.debug('* ModesTool')
         self.project = project
         names = []
@@ -451,14 +450,14 @@ class ModesTool(QMainWindow):
         self.left_dock.setFloating(False)
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
-        sys_tree_panel = QWidget(self)
-        sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
+        self.sys_tree_panel = QWidget(self)
+        self.sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
                                      QSizePolicy.MinimumExpanding)
-        sys_tree_panel.setMinimumWidth(400)
-        sys_tree_panel.setMaximumWidth(500)
-        sys_tree_layout = QVBoxLayout(sys_tree_panel)
+        self.sys_tree_panel.setMinimumWidth(400)
+        self.sys_tree_panel.setMaximumWidth(500)
+        sys_tree_layout = QVBoxLayout(self.sys_tree_panel)
         sys_tree_layout.addWidget(self.sys_select_tree)
-        self.left_dock.setWidget(sys_tree_panel)
+        self.left_dock.setWidget(self.sys_tree_panel)
         self.new_window = True
         dispatcher.connect(self.on_modes_edited, 'modes edited')
         dispatcher.connect(self.on_modes_published, 'modes published')
@@ -468,6 +467,22 @@ class ModesTool(QMainWindow):
                            'remote comp mode datum')
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.set_table_and_adjust()
+
+    def minimumSize(self):
+        if (hasattr(self, 'sys_tree_panel') and
+            hasattr(self, 'mode_definition_table')):
+            view = self.mode_definition_table.model().view
+            hheader_width = sum([self.mode_definition_table.columnWidth(i)
+                                 for i in range(len(view))])
+            vheader_width = self.mode_definition_table.verticalHeader().width()
+            table_width = hheader_width + vheader_width
+            width = self.sys_tree_panel.width() + table_width + 50
+            height = (max(self.sys_tree_panel.height(),
+                          self.mode_definition_table.height()) +
+                      100)
+            return QSize(width, height)
+        else:
+            return QSize(1200, 500)
 
     def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
                                  mode=None, value=None):
@@ -633,13 +648,13 @@ class ModesTool(QMainWindow):
         # NOTE: very verbose debugging msg ...
         # orb.log.debug('   *** current mode_defz:')
         # orb.log.debug(f'   {pprint(mode_defz)}')
-        if self.new_window:
-            size = QSize(state.get('mode_def_w') or self.width(),
-                         state.get('mode_def_h') or self.height())
-        else:
-            size = self.size()
-            state['mode_def_w'] = self.width()
-            state['mode_def_h'] = self.height()
+        # if self.new_window:
+            # size = QSize(state.get('mode_def_w') or self.width(),
+                         # state.get('mode_def_h') or self.height())
+        # else:
+            # size = self.size()
+            # state['mode_def_w'] = self.width()
+            # state['mode_def_h'] = self.height()
         if getattr(self, 'mode_definition_table', None):
             # remove and close current mode def table
             self.mode_definition_table.parent = None
@@ -731,12 +746,12 @@ class ModesTool(QMainWindow):
                 # except:
                     # orb.log.debug('  - crashed while trying to expand tree.')
                     # break
-        self.resize(size)
+        self.resize(self.minimumSize())
         self.new_window = False
 
-    def resizeEvent(self, event):
-        state['mode_def_w'] = self.width()
-        state['mode_def_h'] = self.height()
+    # def resizeEvent(self, event):
+        # state['mode_def_w'] = self.width()
+        # state['mode_def_h'] = self.height()
 
     def closeEvent(self, event):
         dispatcher.send(signal='modes edited',

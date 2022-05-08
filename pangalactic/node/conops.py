@@ -91,6 +91,7 @@ class EventBlock(QGraphicsPolygonItem):
         try:
             if activity is self.activity:
                 self.block_label.set_text(self.activity.name)
+            orb.log.debug('* sending "activity modified" signal')
             dispatcher.send("activity modified", activity=activity,
                             position=self.scene().position)
         except:
@@ -124,6 +125,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.scene().edit_parameters(self.activity)
 
     def delete_item(self):
+        orb.log.debug('* sending "remove activity" signal')
         dispatcher.send("remove activity", act=self.activity)
 
     def itemChange(self, change, value):
@@ -304,6 +306,7 @@ class TimelineScene(QGraphicsScene):
         item.setPos(event.scenePos())
         self.addItem(item)
         self.timeline.add_item(item)
+        orb.log.debug('* sending "new activity" signal')
         dispatcher.send("new activity",
                         composite_activity=self.current_activity,
                         act_of=self.act_of, position=self.position)
@@ -680,6 +683,7 @@ class TimelineWidget(QWidget):
             deserialize(orb, del_acts)
             self.scene = self.set_new_scene()
             self.update_view()
+            orb.log.debug('* sending "new activity" signal')
             dispatcher.send("new activity",
                             composite_activity=self.subject_activity,
                             position=self.position)
@@ -876,6 +880,7 @@ class TimelineWidget(QWidget):
                         self.act_of = subsystem
                 self.scene = self.set_new_scene()
                 self.update_view()
+            orb.log.debug('* sending "changed subsystem" signal')
             dispatcher.send("changed subsystem",
                             act=self.subject_activity,
                             act_of=self.act_of,
@@ -894,8 +899,10 @@ class TimelineWidget(QWidget):
         acu = clone("Acu", assembly=self.system, component=new_subsystem)
         self.act_of = new_subsystem
         orb.save([new_subsystem, acu])
+        orb.log.debug('* sending "new object" signal')
         dispatcher.send("new object", obj=new_subsystem)
         dispatcher.send("new object", obj=acu)
+
 
 class ConOpsModeler(QMainWindow):
     """
@@ -946,11 +953,11 @@ class ConOpsModeler(QMainWindow):
                             QMessageBox.Ok, self)
                 popup.show()
                 mission_id = '_'.join([project.id, 'mission'])
-                mission_name = ' '.join([project.name, 'Mission'])
+                mission_name = ' '.join([project.id, 'Mission'])
                 mission = clone('Mission', id=mission_id, name=mission_name,
                                 activity_of=self.system)
                 orb.save([mission])
-                # dispatcher.send("new object", obj=mission)
+                dispatcher.send("new object", obj=mission)
             self.subject_activity = mission
         else:
             self.system = None
