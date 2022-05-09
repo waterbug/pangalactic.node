@@ -442,7 +442,11 @@ class ModelWindow(QMainWindow):
                                                                  'step:214']:
                     self.models_by_label['CAD'] = (model, fpath)
                     if hasattr(self, 'view_cad_action'):
-                        self.view_cad_action.setVisible(True)
+                        try:
+                            self.view_cad_action.setVisible(True)
+                        except:
+                            # oops, C++ object got deleted
+                            pass
         # if self.history:
             # if hasattr(self, 'back_action'):
                 # self.back_action.setEnabled(True)
