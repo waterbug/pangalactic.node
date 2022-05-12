@@ -128,7 +128,8 @@ class SystemDashboard(QTreeView):
         dash_header.sectionMoved.connect(self.on_section_moved)
         dash_header.setStretchLastSection(False)
         # "successful_drop" refers to product drops on sys tree (for syncing)
-        model.sourceModel().successful_drop.connect(self.on_successful_drop)
+        # *** DEPRECATED now that tree is not editable
+        # model.sourceModel().successful_drop.connect(self.on_successful_drop)
         dispatcher.connect(self.dash_node_expand, 'sys node expanded')
         dispatcher.connect(self.dash_node_collapse, 'sys node collapsed')
         dispatcher.connect(self.dash_node_select, 'sys node selected')

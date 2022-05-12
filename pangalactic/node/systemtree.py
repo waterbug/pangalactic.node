@@ -1,39 +1,30 @@
 """
 System Tree view and models
 """
-import re, traceback
-# import sys
+import re
 from textwrap import wrap
 # louie
 from louie import dispatcher
 
 # PyQt
-from PyQt5.QtGui  import QBrush, QCursor, QIcon
+from PyQt5.QtGui  import QBrush, QCursor
 from PyQt5.QtCore import (Qt, QAbstractItemModel, QItemSelectionModel,
-                          QModelIndex, QSize, QSortFilterProxyModel, QVariant,
-                          pyqtSignal)
-# from PyQt5.QtCore import QRegExp
-from PyQt5.QtWidgets import (QAbstractItemView, QAction, QDialog, QMenu,
-                             QMessageBox, QSizePolicy, QTreeView)
+                          QModelIndex, QSize, QSortFilterProxyModel, QVariant)
+from PyQt5.QtWidgets import QAction, QMenu, QSizePolicy, QTreeView
 
 # pangalactic
 from pangalactic.core             import prefs, state
-from pangalactic.core.access      import get_perms
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
                                           get_usage_mode_val_as_str, get_pval,
                                           get_pval_as_str, parm_defz,
                                           mode_defz)
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.core.units       import in_si
-from pangalactic.core.utils.meta  import (get_display_name, get_acu_id,
-                                          get_acu_name, get_next_ref_des)
-from pangalactic.node.dialogs     import AssemblyNodeDialog
+from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.utils.meta  import get_display_name
+from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.node.pgxnobject  import PgxnObject
-# from pangalactic.node.utils      import HTMLDelegate
-from pangalactic.node.utils       import (clone, create_mime_data,
-                                          extract_mime_content, get_pixmap)
+from pangalactic.node.utils       import get_pixmap
 
 
 class Node(object):
@@ -283,7 +274,8 @@ class SystemTreeProxyModel(QSortFilterProxyModel):
 
 class SystemTreeModel(QAbstractItemModel):
 
-    successful_drop = pyqtSignal()
+    # MODIFIED 5/12/22:  drag/drop is disabled in the system tree -- was both
+    # buggy and unnecessary, now that block diagram drag/drop works
     BRUSH = QBrush()
     RED_BRUSH = QBrush(Qt.red)
     GRAY_BRUSH = QBrush(Qt.lightGray)
@@ -329,7 +321,6 @@ class SystemTreeModel(QAbstractItemModel):
         self.project = obj
         top_node = self.node_for_object(obj, self.root)
         self.root.children = [top_node]
-        self.successful_drop_index = None
         # set initial state for deletions as local (if remote,
         # on_remote_deletion() will be called and will set this to True)
         self.remote_deletion = False
@@ -432,8 +423,8 @@ class SystemTreeModel(QAbstractItemModel):
     def flags(self, index):
         if not index.isValid():
             return Qt.ItemIsEnabled
-        # NOTE:  Selectable is needed for tree operations like delete node
-        return (Qt.ItemIsEnabled | Qt.ItemIsDropEnabled | Qt.ItemIsSelectable)
+        # NOTE:  Selectable is needed for node selection
+        return (Qt.ItemIsEnabled | Qt.ItemIsSelectable)
 
     def supportedDropActions(self): 
         return Qt.CopyAction | Qt.MoveAction         
@@ -789,293 +780,6 @@ class SystemTreeModel(QAbstractItemModel):
                 return self.col_defs[section-1]
         return QVariant()
 
-    def mimeTypes(self):
-        """
-        MIME Types accepted for drops.
-        """
-        # NOTE:  systemtree may not accept drops in the future
-        return ['application/x-pgef-hardware-product']
-
-    def mimeData(self, indexes):
-        # according to PyQt docs, return 0 (not an empty list) if no indexes
-        if not indexes:
-            return 0
-        mimedata = []
-        for idx in indexes:
-            node = self.get_node(idx)
-            if node.obj:
-                icon = QIcon(get_pixmap(node.obj))
-                mimedata.append(create_mime_data(node.obj, icon))
-        return mimedata
-
-    def dropMimeData(self, data, action, row, column, parent):
-        """
-        Handle the drop event on the system tree.  This includes the following
-        possible cases:
-
-            0: dropped item would cause a cycle -> abort
-            1: drop target is "TBD" -> replace it if drop item is a Product
-               and matches the "product_type_hint" of the Acu
-            2: drop target is a normal Product -> add a new component position
-               with the dropped item as the new component
-            3: drop target is a Project ->
-               if drop item is a Product *and* it is not already in use
-               on the Project, use it to create a new ProjectSystemUsage
-        """
-        # orb.log.debug('* SystemTreeModel.dropMimeData()')
-        try:
-            # NOTE: for now, dropped item must be a HardwareProduct ... in the
-            # future, may accomodate *ANY* Product subclass (including Model,
-            # Document, etc.)
-            drop_target = self.data(parent, Qt.UserRole)
-            if not drop_target or not hasattr(drop_target, 'oid'):
-                # orb.log.debug('  - drop ignored -- invalid drop target.')
-                return False
-            if data.hasFormat("application/x-pgef-hardware-product"):
-                self.successful_drop_index = None
-                content = extract_mime_content(data,
-                                        "application/x-pgef-hardware-product")
-                icon, obj_oid, obj_id, obj_name, obj_cname = content
-                dropped_item = orb.get(obj_oid)
-                # orb.log.debug('  - item dropped: %s' % (dropped_item.name))
-                if drop_target.oid == obj_oid:
-                    # orb.log.debug('    invalid: dropped item same as target.')
-                    popup = QMessageBox(
-                                QMessageBox.Critical,
-                                "Assembly same as Component",
-                                "A product cannot be a component of itself.",
-                                QMessageBox.Ok, self.parent)
-                    popup.show()
-                    return False
-                # orb.log.debug('  - action: {}'.format(action))
-                # orb.log.debug('  - row: {}'.format(row))
-                # orb.log.debug('  - column: {}'.format(column))
-                # orb.log.debug('  - target name: {}'.format(drop_target.name))
-                target_cname = drop_target.__class__.__name__
-                if issubclass(orb.classes[target_cname],
-                              orb.classes['Product']):
-                    # orb.log.debug('    + target is a subclass of Product ...')
-                    # first check for cycles (cycles will crash the tree)
-                    bom_oids = get_bom_oids(dropped_item)
-                    if (drop_target.oid in bom_oids and
-                        drop_target.oid != 'pgefobjects:TBD'):
-                        # case 0: dropped item would cause a cycle -> abort
-                        popup = QMessageBox(
-                                QMessageBox.Critical,
-                                "Prohibited Operation",
-                                "Product cannot be used in its own assembly.",
-                                QMessageBox.Ok, self.parent)
-                        popup.show()
-                        return False
-                    elif drop_target.oid == 'pgefobjects:TBD':
-                        # case 1: drop target is "TBD" product -> replace it
-                        node = self.get_node(parent)
-                        # avoid cycles:  check if the assembly is in the bom
-                        if (hasattr(node.link, 'assembly') and
-                            (getattr(node.link.assembly, 'oid', '')
-                             in bom_oids)):
-                            # dropped item would cause a cycle -> abort
-                            txt = "Product cannot be used in its own assembly."
-                            popup = QMessageBox(
-                                        QMessageBox.Critical,
-                                        "Prohibited Operation", txt,
-                                        QMessageBox.Ok, self.parent)
-                            popup.show()
-                            return False
-                        if not 'modify' in get_perms(node.link):
-                            txt = "User's roles do not permit this operation"
-                            ret = QMessageBox.critical(
-                                      self.parent,
-                                      "Unauthorized Operation", txt,
-                                      QMessageBox.Ok)
-                            if ret == QMessageBox.Ok:
-                                return False
-                        elif (isinstance(dropped_item.owner,
-                              orb.classes['Project']) and
-                              dropped_item.owner.oid != self.project.oid
-                              and not dropped_item.frozen):
-                            msg = '<b>The spec for the dropped item is owned '
-                            msg += 'by another project and is not frozen, '
-                            msg += 'so it cannot be used on this project. '
-                            msg += 'If a similar item is '
-                            msg += 'needed, clone the item and then add the '
-                            msg += 'clone to this assembly.</b>'
-                            popup = QMessageBox(
-                                  QMessageBox.Critical,
-                                  "Prohibited Operation", msg,
-                                  QMessageBox.Ok, self.parent)
-                            popup.show()
-                            return False
-                        # use dropped item if (1) its product_type is the same as
-                        # acu's "product_type_hint" or (2) position is any
-                        # project-level system usage
-                        pt = dropped_item.product_type
-                        # NOTE that hint will be None for a PSU
-                        hint = getattr(node.link, 'product_type_hint', None)
-                        # TODO:  check for "Generic" hint
-                        if hint and pt != hint:
-                            # ret = QMessageBox.warning(
-                            ret = QMessageBox.critical(
-                                        self.parent, "Product Type Check",
-                                        "The product you dropped is not a "
-                                        "{}.".format(hint.name),
-                                        QMessageBox.Cancel)
-                            if ret == QMessageBox.Cancel:
-                                return False
-                        else:
-                            if hasattr(node.link, 'product_type_hint'):
-                                # if target is a TBD and its Acu didn't have a
-                                # product_type_hint, to does now!
-                                pt = dropped_item.product_type
-                                node.link.product_type_hint = pt
-                            # NOTE: orb.save([node.link]) is called by Node
-                            # obj setter
-                            node.obj = dropped_item
-                            self.dataChanged.emit(parent, parent)
-                            self.successful_drop.emit()
-                            # orb.log.debug('   node link mod: {}'.format(
-                                          # node.link.name))
-                            dispatcher.send('modified object',
-                                            obj=node.link)
-                            if hasattr(node.link, 'assembly'):
-                                # Acu modified -> assembly is modified
-                                node.link.assembly.mod_datetime = dtstamp()
-                                node.link.assembly.modifier = orb.get(state.get(
-                                                                'local_user_oid'))
-                                orb.save([node.link.assembly])
-                                dispatcher.send('modified object',
-                                                obj=node.link.assembly)
-                            return True
-                    else:
-                        # case 2: drop target is normal product ->
-                        # add a new Acu if permissions allow and dropped item
-                        # is not owned by another project ...
-                        if not 'modify' in get_perms(drop_target):
-                            popup = QMessageBox(
-                                  QMessageBox.Critical,
-                                  "Unauthorized Operation",
-                                  "User's roles do not permit this operation",
-                                  QMessageBox.Ok, self.parent)
-                            popup.show()
-                            return False
-                        elif (isinstance(dropped_item.owner,
-                              orb.classes['Project']) and
-                              dropped_item.owner.oid != self.project.oid
-                              and not dropped_item.frozen):
-                            msg = '<b>The spec for the dropped item is owned '
-                            msg += 'by another project and is not frozen, '
-                            msg += 'so it cannot be used on this project. '
-                            msg += 'If a similar item is '
-                            msg += 'needed, clone the item and then add the '
-                            msg += 'clone to this assembly.</b>'
-                            popup = QMessageBox(
-                                  QMessageBox.Critical,
-                                  "Prohibited Operation", msg,
-                                  QMessageBox.Ok, self.parent)
-                            popup.show()
-                            return False
-                        else:
-                            # orb.log.debug('      creating Acu ...')
-                            # generate a new reference_designator
-                            ref_des = get_next_ref_des(drop_target,
-                                                       dropped_item)
-                            new_acu = clone('Acu',
-                                id=get_acu_id(drop_target.id, ref_des),
-                                name=get_acu_name(drop_target.name, ref_des),
-                                assembly=drop_target,
-                                component=dropped_item,
-                                product_type_hint=dropped_item.product_type,
-                                reference_designator=ref_des)
-                            orb.save([new_acu])
-                            # orb.log.debug('      Acu created: {}'.format(
-                                          # new_acu.name))
-                            self.add_nodes([self.node_for_object(
-                                            dropped_item,
-                                            parent=self.get_node(parent),
-                                            link=new_acu)], parent)
-                            self.successful_drop_index = parent
-                            self.successful_drop.emit()
-                            dispatcher.send('new object', obj=new_acu)
-                            # new Acu -> assembly is modified
-                            drop_target.mod_datetime = dtstamp()
-                            drop_target.modifier = orb.get(state.get(
-                                                            'local_user_oid'))
-                            orb.save([drop_target])
-                            dispatcher.send('modified object', obj=drop_target)
-                            return True
-                elif target_cname == 'Project':
-                    # case 3: drop target is a project
-                    # log_txt = '+ target is a Project -- creating PSU ...'
-                    # orb.log.debug('    {}'.format(log_txt))
-                    psu = orb.search_exact(cname='ProjectSystemUsage',
-                                           project=drop_target,
-                                           system=dropped_item)
-                    if psu:
-                        QMessageBox.warning(self.parent,
-                                        'Already exists',
-                                        'System "{0}" already exists on '
-                                        'project {1}'.format(
-                                        dropped_item.name, drop_target.id))
-                    elif (isinstance(dropped_item.owner,
-                          orb.classes['Project']) and
-                          dropped_item.owner.oid != self.project.oid
-                          and not dropped_item.frozen):
-                        msg = '<b>The spec for the dropped item is owned '
-                        msg += 'by another project and is not frozen, '
-                        msg += 'so it cannot be used on this project. '
-                        msg += 'If a similar item is '
-                        msg += 'needed, clone the item and then add the '
-                        msg += 'clone to this project.</b>'
-                        popup = QMessageBox(
-                              QMessageBox.Critical,
-                              "Prohibited Operation", msg,
-                              QMessageBox.Ok, self.parent)
-                        popup.show()
-                        return False
-                    else:
-                        # user must have 'modify' perm on project -- i.e.,
-                        # Admin, LE or SE
-                        if 'modify' in get_perms(drop_target):
-                            psu_id = ('psu-' + dropped_item.id + '-' +
-                                      drop_target.id)
-                            psu_name = ('psu: ' + dropped_item.name +
-                                        ' (system used on) ' + drop_target.name)
-                            psu_role = getattr(dropped_item.product_type, 'name',
-                                               'System')
-                            new_psu = clone('ProjectSystemUsage',
-                                            id=psu_id,
-                                            name=psu_name,
-                                            system_role=psu_role,
-                                            project=drop_target,
-                                            system=dropped_item)
-                            orb.save([new_psu])
-                            # orb.log.debug('      ProjectSystemUsage created: %s'
-                                          # % psu_name)
-                            self.add_nodes([self.node_for_object(
-                                       dropped_item, parent=self.get_node(parent),
-                                       link=new_psu)], parent)
-                            self.successful_drop_index = parent
-                            self.successful_drop.emit()
-                            dispatcher.send('new object', obj=new_psu)
-                        else:
-                            txt = "User's roles do not permit this operation"
-                            ret = QMessageBox.critical(
-                                      self.parent,
-                                      "Unauthorized Operation", txt,
-                                      QMessageBox.Ok)
-                            if ret == QMessageBox.Ok:
-                                return False
-                else:
-                    # orb.log.debug('    + target is not a Project or Product '
-                                  # '-- no action taken.')
-                    return False
-                return True
-            else:
-                return False
-        except:
-            orb.log.info('* OOPS! Something bad happened in a drop ...')
-            orb.log.info(traceback.format_exc())
-
     def on_remote_deletion(self, pos, row_parent):
         self.remote_deletion = True
         self.removeRow(pos, row_parent)
@@ -1204,6 +908,10 @@ class SystemTreeModel(QAbstractItemModel):
 
 
 class SystemTreeView(QTreeView):
+
+    # MODIFIED 5/12/22:  drag/drop is disabled in the system tree -- was both
+    # buggy and unnecessary, now that block diagram drag/drop works
+
     def __init__(self, obj, refdes=True, show_allocs=False, req=None,
                  parent=None):
         """
@@ -1241,8 +949,6 @@ class SystemTreeView(QTreeView):
             for i in range(1, len(cols)):
                 self.hideColumn(i)
         self.setSelectionMode(self.SingleSelection)
-        self.setDragDropMode(QAbstractItemView.DragDrop)
-        self.source_model.successful_drop.connect(self.on_successful_drop)
         self.create_actions()
         # only use dispatcher messages for assembly tree and dashboard tree
         # (i.e., a shared model); ignore them when instantiated in req
@@ -1281,16 +987,6 @@ class SystemTreeView(QTreeView):
     def create_actions(self):
         self.pgxnobj_action = QAction('View this object', self)
         self.pgxnobj_action.triggered.connect(self.view_object)
-        mod_node_txt = 'Modify quantity and/or reference designator'
-        self.mod_node_action = QAction(mod_node_txt, self)
-        self.mod_node_action.triggered.connect(self.modify_node)
-        self.del_component_action = QAction('Remove this component', self)
-        self.del_component_action.triggered.connect(self.del_component)
-        self.del_function_action = QAction('Remove this function', self)
-        self.del_function_action.triggered.connect(self.del_function)
-        self.del_system_action = QAction('Remove this system from the project',
-                                         self)
-        self.del_system_action.triggered.connect(self.del_function)
 
     def contextMenuEvent(self, event):
         orb.log.debug('* contextMenuEvent()')
@@ -1306,17 +1002,6 @@ class SystemTreeView(QTreeView):
                                           orb.classes['ProjectSystemUsage'])):
                 orb.log.debug(f'  usage: {link.id}')
                 menu.addAction(self.pgxnobj_action)
-                link_perms = get_perms(link)
-                if isinstance(link, orb.classes['Acu']):
-                    if 'modify' in link_perms:
-                        menu.addAction(self.mod_node_action)
-                        menu.addAction(self.del_component_action)
-                    if 'delete' in link_perms:
-                        menu.addAction(self.del_function_action)
-                elif isinstance(link, orb.classes['ProjectSystemUsage']):
-                    perms = get_perms(self.project)
-                    if 'delete' in perms:
-                        menu.addAction(self.del_system_action)
                 menu.exec_(QCursor().pos())
 
     @property
@@ -1489,22 +1174,6 @@ class SystemTreeView(QTreeView):
                 pass
         dispatcher.send(signal='sys node selected', index=index)
 
-    def on_successful_drop(self):
-        """
-        Expand the currently selected node (connected to 'rowsInserted' signal,
-        to expand the drop target after a new node has been created).
-        """
-        orb.log.debug('* successful drop.')
-        sdi = self.source_model.successful_drop_index
-        try:
-            if sdi:
-                mapped_sdi = self.proxy_model.mapFromSource(sdi)
-                self.expand(mapped_sdi)
-            self.proxy_model.sort(0)
-        except:
-            # oops -- C++ object probably got deleted
-            pass
-
     def expand_project(self):
         """
         Expand the Project node (top node)
@@ -1519,199 +1188,6 @@ class SystemTreeView(QTreeView):
             obj = self.source_model.get_node(mapped_i).obj
             dlg = PgxnObject(obj, modal_mode=True, parent=self)
             dlg.show()
-
-    def modify_node(self):
-        """
-        For the selected node, if an Acu, edit the 'quantity' and
-        'reference_designator', or if a ProjectSystemUsage, the 'system_role'.
-        """
-        # orb.log.debug('* SystemTreeView: modify_node() ...')
-        for i in self.selectedIndexes():
-            mapped_i = self.proxy_model.mapToSource(i)
-            node = self.source_model.get_node(mapped_i)
-            rel_obj = node.link
-            assembly = None
-            if rel_obj.__class__.__name__ == 'Acu':
-                # orb.log.debug('  modifying assembly node ...')
-                ref_des = rel_obj.reference_designator
-                quantity = rel_obj.quantity
-                system = False
-                assembly = rel_obj.assembly
-            elif rel_obj.__class__.__name__ == 'ProjectSystemUsage':
-                # orb.log.debug('  modifying project system node ...')
-                ref_des = rel_obj.system_role
-                quantity = None
-                system = True
-            else:
-                return
-            dlg = AssemblyNodeDialog(ref_des, quantity, system=system)
-            if dlg.exec_() == QDialog.Accepted:
-                if rel_obj.__class__.__name__ == 'Acu':
-                    rel_obj.reference_designator = dlg.ref_des
-                    rel_obj.quantity = dlg.quantity
-                else:
-                    rel_obj.system_role = dlg.ref_des
-                orb.save([rel_obj])
-                dispatcher.send('modified object', obj=rel_obj)
-                # Acu modified -> assembly is modified
-                if assembly:
-                    assembly.mod_datetime = dtstamp()
-                    assembly.modifier = orb.get(state.get(
-                                                    'local_user_oid'))
-                    orb.save([assembly])
-                    dispatcher.send('modified object', obj=assembly)
-
-    def del_component(self):
-        """
-        Remove a component from a function (a.k.a. an assembly position) --
-        this modifies a node in the system tree), replacing its component
-        object with the `TBD` object.
-        """
-        orb.log.debug('* SystemTreeView: del_component() ...')
-        for i in self.selectedIndexes():
-            mapped_i = self.proxy_model.mapToSource(i)
-            node = self.source_model.get_node(mapped_i)
-            if node.cname == 'Project':
-                orb.log.debug('  project node, no action taken.')
-                QMessageBox.critical(self, 'Project node',
-                    'Project node cannot be removed')
-                return
-            if node.link.__class__.__name__ == 'Acu':
-                if not 'modify' in get_perms(node.link):
-                    ret = QMessageBox.critical(
-                              self,
-                              "Unauthorized Operation",
-                              "User's roles do not permit this operation",
-                              QMessageBox.Ok)
-                    if ret == QMessageBox.Ok:
-                        return False
-                orb.log.debug('  - checking for flows ...')
-                flows = orb.get_all_usage_flows(node.link)
-                if flows:
-                    refdes = node.link.reference_designator
-                    assmb_name = node.link.assembly.name
-                    message = 'CANNOT REMOVE:\n'
-                    message += 'All connections must be deleted first ...\n'
-                    message += 'use "Select or delete connections"\n'
-                    message += f'by right-clicking on the "{refdes}" block\n'
-                    message += f'in the diagram for "{assmb_name}".'
-                    popup = QMessageBox(QMessageBox.Warning,
-                                "CAUTION: Connections", message,
-                                QMessageBox.Ok, self)
-                    popup.show()
-                    return
-                else:
-                    # replace component with special "TBD" product
-                    orb.log.debug('  removing component "%s" ...'
-                                  % node.link.component.id)
-                    if (not node.link.product_type_hint and
-                        node.link.component.product_type):
-                        pt = node.link.component.product_type
-                        node.link.product_type_hint = pt
-                        node.link.quantity = 1
-                    tbd = orb.get('pgefobjects:TBD')
-                    self.source_model.setData(mapped_i, tbd)
-                    orb.save([node.link])
-                    dispatcher.send('modified object', obj=node.link)
-                    # Acu modified -> assembly is modified
-                    node.link.assembly.mod_datetime = dtstamp()
-                    node.link.assembly.modifier = orb.get(state.get(
-                                                    'local_user_oid'))
-                    orb.save([node.link.assembly])
-                    dispatcher.send('modified object', obj=node.link.assembly)
-            elif node.link.__class__.__name__ == 'ProjectSystemUsage':
-                if not 'modify' in get_perms(node.link):
-                    ret = QMessageBox.critical(
-                              self,
-                              "Unauthorized Operation",
-                              "User's roles do not permit this operation",
-                              QMessageBox.Ok)
-                    if ret == QMessageBox.Ok:
-                        return False
-                orb.log.debug('  deleting system usage "{}" ...'.format(
-                              node.obj.id))
-                # replace system with special "TBD" product
-                orb.log.debug('  removing system "{}" ...'.format(
-                              node.link.system.id))
-                orb.save([node.link])
-                tbd = orb.get('pgefobjects:TBD')
-                self.source_model.setData(mapped_i, tbd)
-                dispatcher.send('modified object', obj=node.link)
-
-    def del_function(self):
-        """
-        Remove a node from the system tree, which can either be [1] a
-        "function" from an assembly (a.k.a. an assembly "position", as denoted
-        by its reference designator), or [2] a system from the project (root
-        node of the tree).
-        """
-        orb.log.info('* SystemTreeView: del_function() ...')
-        for i in self.selectedIndexes():
-            mapped_i = self.proxy_model.mapToSource(i)
-            node = self.source_model.get_node(mapped_i)
-            if node.cname == 'Project':
-                orb.log.debug('  project node, no action taken.')
-                QMessageBox.critical(self, 'Project node',
-                    'Project node cannot be removed')
-                return
-            # NOTE: probably don't need to collapse node now that we are using
-            # removeRow() / removeRows()
-            # collapse the node before removing it
-            # self.collapse(mapped_i)
-            assembly = None
-            if node.link.__class__.__name__ == 'Acu':
-                # permissions are determined from the assembly and user's roles
-                if not 'delete' in get_perms(node.link):
-                    ret = QMessageBox.critical(
-                              self,
-                              "Unauthorized Operation",
-                              "User's roles do not permit this operation",
-                              QMessageBox.Ok)
-                    if ret == QMessageBox.Ok:
-                        return False
-                flows = orb.get_all_usage_flows(node.link)
-                if flows:
-                    refdes = node.link.reference_designator
-                    assmb_name = node.link.assembly.name
-                    message = 'CANNOT REMOVE:\n'
-                    message += 'All connections must be deleted first ...\n'
-                    message += 'use "Select or delete connections"\n'
-                    message += f'by right-clicking on the "{refdes}" block\n'
-                    message += f'in the diagram for "{assmb_name}".'
-                    popup = QMessageBox(QMessageBox.Warning,
-                                "CAUTION: Connections", message,
-                                QMessageBox.Ok, self)
-                    popup.show()
-                    return False
-                ref_des = getattr(node.link, 'reference_designator',
-                                  '(No reference designator)')
-                assembly = node.link.assembly
-                orb.log.debug('  deleting position and component "{}"'.format(
-                              ref_des))
-            elif node.link.__class__.__name__ == 'ProjectSystemUsage':
-                # permissions are determined from the link and user's roles
-                if not 'delete' in get_perms(node.link):
-                    ret = QMessageBox.critical(
-                              self,
-                              "Unauthorized Operation",
-                              "User's roles do not permit this operation",
-                              QMessageBox.Ok)
-                    if ret == QMessageBox.Ok:
-                        return False
-                orb.log.debug('  deleting system usage "%s" ...' % node.obj.id)
-            pos = mapped_i.row()
-            row_parent = mapped_i.parent()
-            # parent_id = self.source_model.get_node(row_parent).obj.id
-            # orb.log.debug('  at row {} of parent {}'.format(pos, parent_id))
-            # NOTE:  removeRow() dispatches the "deleted object" signal,
-            # which triggers the "deleted" remote message to be published
-            self.source_model.removeRow(pos, row_parent)
-            # Acu deleted -> assembly is modified
-            if assembly:
-                assembly.mod_datetime = dtstamp()
-                assembly.modifier = orb.get(state.get('local_user_oid'))
-                orb.save([assembly])
-                dispatcher.send('modified object', obj=assembly)
 
     def link_indexes_in_tree(self, link):
         """
@@ -1895,8 +1371,7 @@ class SystemTreeView(QTreeView):
 
 #---------------------------------------------------------------
 # Test/Prototyping script code ...
-# [commented out until there is time to implement a side-by-side
-# frame for tree and parts library to show dnd functions]
+# [commented out for now]
 #---------------------------------------------------------------
 
 # class MainForm(QMainWindow):
