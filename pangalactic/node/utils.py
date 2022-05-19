@@ -23,8 +23,8 @@ from pangalactic.core             import state
 from pangalactic.core.utils.meta  import (get_display_name, get_acu_id,
                                           get_acu_name, get_external_name,
                                           get_next_port_seq, get_next_ref_des,
-                                          get_port_id, get_port_name,
-                                          to_media_name)
+                                          get_port_abbr, get_port_id,
+                                          get_port_name, to_media_name)
 from pangalactic.core.parametrics import (add_default_data_elements,
                                           add_default_parameters,
                                           data_elementz, get_pval,

@@ -24,8 +24,8 @@ from pangalactic.core.units       import in_si
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.meta  import (get_acu_id, get_acu_name,
                                           get_flow_id, get_flow_name,
-                                          get_next_port_seq, get_port_id,
-                                          get_next_ref_des, 
+                                          get_next_port_seq, get_next_ref_des,
+                                          get_port_abbr, get_port_id,
                                           get_port_name)
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.dialogs     import (AssemblyNodeDialog,
