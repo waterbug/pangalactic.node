@@ -212,11 +212,15 @@ def clone(what, include_ports=True, include_components=True,
                 for port in obj.ports:
                     seq = get_next_port_seq(new_obj, port.type_of_port)
                     port_oid = str(uuid4())
-                    port_id = get_port_id(port.type_of_port.id,
+                    port_id = get_port_id(port.of_product.id,
+                                          port.type_of_port.id,
                                           seq)
-                    port_name = get_port_name(port.type_of_port.name, seq)
+                    port_name = get_port_name(port.of_product.name,
+                                              port.type_of_port.name, seq)
+                    port_abbr = get_port_abbr(port.type_of_port.abbreviation,
+                                              seq)
                     p = Port(oid=port_oid, id=port_id, name=port_name,
-                             abbreviation=port_name,
+                             abbreviation=port_abbr,
                              type_of_port=port.type_of_port,
                              of_product=new_obj, creator=new_obj.creator,
                              modifier=new_obj.creator, create_datetime=NOW,

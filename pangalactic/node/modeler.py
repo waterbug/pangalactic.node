@@ -140,9 +140,9 @@ class ModelWindow(QMainWindow):
                            'diagram object drill down')
         dispatcher.connect(self.save_diagram_connector,
                            'diagram connector added')
-        dispatcher.connect(self.refresh_block_diagram, 'refresh diagram')
-        dispatcher.connect(self.refresh_block_diagram, 'new object')
-        dispatcher.connect(self.refresh_block_diagram, 'modified object')
+        dispatcher.connect(self.on_signal_to_refresh, 'refresh diagram')
+        dispatcher.connect(self.on_signal_to_refresh, 'new object')
+        dispatcher.connect(self.on_signal_to_refresh, 'modified object')
         dispatcher.connect(self.on_deleted_object, 'deleted object')
         dispatcher.connect(self.on_set_selected_system, 'set selected system')
         # orb.log.debug('  init calls set_subject() again to set system:')
@@ -550,6 +550,13 @@ class ModelWindow(QMainWindow):
         if state.get('mode') in ['system', 'component']:
             self.refresh_block_diagram()
         return
+
+    def on_signal_to_refresh(self):
+        try:
+            self.refresh_block_diagram()
+        except:
+            # Modeler instance C++ obj deleted, like if we are in db mode
+            return
 
     def refresh_block_diagram(self):
         """

@@ -1203,10 +1203,11 @@ class SubjectBlock(Block):
                 orb.log.info('  - orb found {} "{}"'.format(cname, name))
                 orb.log.info('    creating Port ...')
                 seq = get_next_port_seq(self.obj, port_type)
-                port_id = get_port_id(port_type.id, seq)
-                port_name = get_port_name(port_type.name, seq)
+                port_id = get_port_id(self.obj.id, port_type.id, seq)
+                port_name = get_port_name(self.obj.name, port_type.name, seq)
+                port_abbr = get_port_abbr(port_type.abbreviation, seq)
                 new_port = clone('Port', id=port_id, name=port_name,
-                                 abbreviation=port_name,
+                                 abbreviation=port_abbr,
                                  type_of_port=port_type, of_product=self.obj)
                 orb.db.commit()
                 dispatcher.send('new object', obj=new_port)
@@ -1246,11 +1247,12 @@ class SubjectBlock(Block):
                 orb.log.info('    creating Port ...')
                 port_type = port_template.type_of_port
                 seq = get_next_port_seq(self.obj, port_type)
-                port_id = get_port_id(port_type.id, seq)
-                port_name = get_port_name(port_type.name, seq)
+                port_id = get_port_id(self.obj.id, port_type.id, seq)
+                port_name = get_port_name(self.obj.name, port_type.name, seq)
+                port_abbr = get_port_abbr(port_type.abbreviation, seq)
                 port_desc = port_template.description
                 new_port = clone('Port', id=port_id, name=port_name,
-                                 abbreviation=port_name, description=port_desc,
+                                 abbreviation=port_abbr, description=port_desc,
                                  type_of_port=port_type, of_product=self.obj,
                                  creator=user,
                                  create_datetime=dtstamp(),
