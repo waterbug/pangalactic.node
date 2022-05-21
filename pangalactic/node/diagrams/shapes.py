@@ -97,8 +97,10 @@ PORT_TYPES = list(PORT_TYPE_COLORS.keys())
 
 class Block(QGraphicsItem):
     """
-    A Block represents a Product (which can be a Model of either an artifact or
-    a natural phenomenon).  This is intended to be an abstract base class.
+    A Block may represent a Product or a Model of a natural phenomenon (in the
+    case of a SubjectBlock) or a usage of a Product (i.e. an instance of an Acu
+    -- an Assembly Component Usage).  This is intended to be an abstract base
+    class.
 
     NOTES:
         * if connectors are needed, implement them in a subclass
@@ -199,9 +201,9 @@ class Block(QGraphicsItem):
 
     def rebuild_port_blocks(self):
         """
-        [Re]create PortBlock items for any Port instances owned by the Block's
-        object.  This command is run when the Block is first created and
-        whenever Ports are added or removed from its object.
+        [Re]create PortBlock items for any Port instances owned by the item
+        represented by the Block.  This command is run when the Block is first
+        created and whenever Ports are added or removed from its object.
         """
         if not hasattr(self.obj, 'ports'):
             return
@@ -1437,7 +1439,8 @@ class PortBlock(QGraphicsItem):
             if self.connectors:
                 # if the port has connectors/flows, check whether the user has
                 # modify permission for the flows (which is determined from the
-                # permissions for the associated "flow_context")
+                # permissions for the associated "start_port_context" and
+                # "end_port_context")
                 flow_perms = get_perms(self.connectors[0].flow)
                 if 'modify' in flow_perms and state.get('connected'):
                     menu.addAction(
@@ -1533,14 +1536,15 @@ class PortBlock(QGraphicsItem):
 
     def delete_all_flows(self, remote=False):
         """
-        Delete all associated Flows and their RoutedConnector objects.
+        Delete all associated Flows within this assembly and their
+        RoutedConnector objects.
 
         Keyword Args:
             remote (bool):  if True, action originated remotely, so a local
                 "deleted object" signal should NOT be dispatched.
         """
-        txt = 'This will delete all connections (Flows) associated with the '
-        txt += f' {self.port.name} port -- are you sure?'
+        txt = 'This will delete all connections (Flows) within this assembly '
+        txt += f' associated with the {self.port.name} port -- are you sure?'
         confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete Connections?',
                                   txt, QMessageBox.Yes | QMessageBox.No)
         response = confirm_dlg.exec_()
@@ -1823,15 +1827,35 @@ class RoutedConnector(QGraphicsItem):
         self.setAcceptHoverEvents(True)
         # 'paints' is for dev analysis -- number of calls to paint()
         # self.paints = 0
+        start_port_context = None
+        end_port_context = None
+        if isinstance(start_item.parent_block, ObjectBlock):
+            start_port_context = start_item.parent_block.usage
+        if isinstance(end_item.parent_block, ObjectBlock):
+            end_port_context = end_item.parent_block.usage
         self.flow = orb.select('Flow', start_port=start_item.port,
-                               end_port=end_item.port, flow_context=context)
+                               end_port=end_item.port,
+                               start_port_context=start_port_context,
+                               end_port_context=end_port_context)
         if not self.flow:
             user = orb.get(state.get('local_user_oid'))
+            spc_id = getattr(start_port_context, 'id',
+                             start_item.port.of_product.id)
+            spc_name = getattr(start_port_context, 'name',
+                               start_item.port.of_product.name)
+            epc_id = getattr(end_port_context, 'id',
+                             end_item.port.of_product.id)
+            epc_name = getattr(end_port_context, 'name',
+                               end_item.port.of_product.name)
             self.flow = clone('Flow',
-                id=get_flow_id(start_item.port.id, end_item.port.id),
-                name=get_flow_name(start_item.port.name, end_item.port.name),
+                id=get_flow_id(spc_id, start_item.port.id, epc_id,
+                               end_item.port.id),
+                name=get_flow_name(spc_name, start_item.port.name, epc_name,
+                                   end_item.port.name),
                 start_port=start_item.port, end_port=end_item.port,
-                flow_context=context, creator=user, create_datetime=dtstamp(),
+                start_port_context=start_port_context,
+                end_port_context=end_port_context,
+                creator=user, create_datetime=dtstamp(),
                 modifier=user, mod_datetime=dtstamp())
             orb.db.commit()
             # new Flow -> context object is modified

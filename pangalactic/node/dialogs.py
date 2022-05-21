@@ -1383,18 +1383,26 @@ class ConnectionsDialog(QDialog):
         self.conns = {}
         flows = orb.get_all_usage_flows(usage)
         for flow in flows:
-            start_txt = ' '.join([flow.start_port.of_product.name,
-                                  flow.start_port.name, 'to'])
-            end_txt = ' '.join([flow.end_port.of_product.name,
-                                flow.end_port.name])
+            start_name = getattr(flow.start_port_context,
+                                 'reference_designator',
+                                 flow.start_port.of_product.id)
+            start_txt = ' '.join([start_name, flow.start_port.name, 'to'])
+            end_name = getattr(flow.end_port_context,
+                               'reference_designator',
+                               flow.end_port.of_product.id)
+            end_txt = ' '.join([end_name, flow.end_port.name])
             label_text = '\n'.join([start_txt, end_txt])
             label = QLabel(label_text, self)
             self.checkboxes[flow.oid] = QCheckBox(self)
             self.checkboxes[flow.oid].setChecked(False)
             self.checkboxes[flow.oid].stateChanged.connect(self.show_conns)
             self.flows[flow.oid] = flow
-            start_port_block = scene.port_blocks.get(flow.start_port.oid)
-            end_port_block = scene.port_blocks.get(flow.end_port.oid)
+            spc_oid = getattr(flow.start_port_context, 'oid', None)
+            epc_oid = getattr(flow.end_port_context, 'oid', None)
+            start_port_block = scene.usage_port_blocks.get(
+                                            (spc_oid, flow.start_port.oid))
+            end_port_block = scene.usage_port_blocks.get(
+                                            (epc_oid, flow.end_port.oid))
             start_conns = set(start_port_block.connectors)
             end_conns = set(end_port_block.connectors)
             self.conns[flow.oid] = start_conns & end_conns

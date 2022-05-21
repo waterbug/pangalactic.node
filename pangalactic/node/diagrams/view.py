@@ -169,6 +169,83 @@ class DiagramScene(QGraphicsScene):
                         return
                     p1_dir = get_dval(start_item.port.oid, 'directionality')
                     p2_dir = get_dval(end_item.port.oid, 'directionality')
+
+                    # NEW METHOD: connect usages
+                    start_parent = start_item.parent_block
+                    end_parent = end_item.parent_block
+                    start_port_context = None
+                    end_port_context = None
+                    if isinstance(start_parent, SubjectBlock):
+                        spc = "None"
+                    elif isinstance(start_parent, ObjectBlock):
+                        start_port_context = start_parent.usage
+                        spc = start_port_context.id
+                    orb.log.debug(f"  - start_port_context: {spc}")
+                    if isinstance(end_parent, SubjectBlock):
+                        spc = "None"
+                    elif isinstance(end_parent, ObjectBlock):
+                        end_port_context = end_parent.usage
+                        spc = end_port_context.id
+                    orb.log.debug(f"  - end_port_context: {spc}")
+                    if (start_port_context is None or
+                        end_port_context is None):
+                        if ((p1_dir == 'input' and p2_dir == 'output') or
+                            (p1_dir == 'output' and p2_dir == 'input')):
+                            txt = 'Cannot connect an internal block port\n'
+                            txt += 'to an external port of opposite\n'
+                            txt += 'directionality.'
+                            notice = QMessageBox()
+                            notice.setText(txt)
+                            notice.exec_()
+                            return
+                    else:
+                        if (p1_dir in ['input', 'output'] and
+                            p1_dir == p2_dir):
+                            txt = f'Cannot connect {p1_dir} ports of two '
+                            txt += 'internal blocks.'
+                            notice = QMessageBox()
+                            notice.setText(txt)
+                            notice.exec_()
+                            return
+                    port1_V = get_pval(start_item.port.oid, 'V')
+                    port2_V = get_pval(end_item.port.oid, 'V')
+                    if (port1_V and port2_V and port1_V != port2_V):
+                        txt = 'Cannot connect ports of different Voltages.'
+                        notice = QMessageBox()
+                        notice.setText(txt)
+                        notice.exec_()
+                        return
+                    port1_RD = get_pval(start_item.port.oid, 'R_D')
+                    port2_RD = get_pval(end_item.port.oid, 'R_D')
+                    if (port1_RD and port2_RD and port1_RD != port2_RD):
+                        txt = 'Cannot connect ports with different Data Rates.'
+                        notice = QMessageBox()
+                        notice.setText(txt)
+                        notice.exec_()
+                        return
+                    orb.log.debug('   drawing RoutedConnector ...')
+                    orb.log.debug('   * start item:')
+                    usage_id = getattr(start_port_context, 'id', "None")
+                    orb.log.debug(f'     - usage: {usage_id}')
+                    orb.log.debug('     - port id: {}'.format(
+                                    start_item.port.id))
+                    side = 'right'
+                    if start_item.right_port:
+                        side = 'left'
+                    orb.log.debug('     ({} side)'.format(side))
+                    orb.log.debug('   * end item:')
+                    usage_id = getattr(end_port_context, 'id', "None")
+                    orb.log.debug(f'     - usage: {usage_id}')
+                    orb.log.debug('     - port id: {}'.format(
+                                    end_item.port.id))
+                    orb.log.debug('   * context id:  {}'.format(
+                                    self.subject.id))
+                    side = 'right'
+                    if end_item.right_port:
+                        side = 'left'
+                    orb.log.debug('     ({} side)'.format(side))
+
+                    # DEPRECATED METHOD: connect products
                     start_product = start_item.port.of_product
                     orb.log.debug(f"  - start prod: {start_product.id}")
                     start_assemblies = [acu.assembly for acu in
@@ -217,33 +294,35 @@ class DiagramScene(QGraphicsScene):
                         notice.setText(txt)
                         notice.exec_()
                         return
-                    # orb.log.debug('   drawing RoutedConnector ...')
-                    # orb.log.debug('   * start item:')
-                    # orb.log.debug('     - object id: {}'.format(
-                                    # start_item.obj.id))
-                    # orb.log.debug('     - port id: {}'.format(
-                                    # start_item.port.id))
-                    # side = 'right'
-                    # if start_item.right_port:
-                        # side = 'left'
-                    # orb.log.debug('     ({} side)'.format(side))
-                    # orb.log.debug('   * end item:')
-                    # orb.log.debug('     - object id: {}'.format(
-                                    # end_item.obj.id))
-                    # orb.log.debug('     - port id: {}'.format(
-                                    # end_item.port.id))
-                    # orb.log.debug('   * context id:  {}'.format(
-                                    # self.subject.id))
-                    # side = 'right'
-                    # if end_item.right_port:
-                        # side = 'left'
-                    # orb.log.debug('     ({} side)'.format(side))
+                    orb.log.debug('   drawing RoutedConnector ...')
+                    orb.log.debug('   * start item:')
+                    orb.log.debug('     - object id: {}'.format(
+                                    start_item.obj.id))
+                    orb.log.debug('     - port id: {}'.format(
+                                    start_item.port.id))
+                    side = 'right'
+                    if start_item.right_port:
+                        side = 'left'
+                    orb.log.debug('     ({} side)'.format(side))
+                    orb.log.debug('   * end item:')
+                    orb.log.debug('     - object id: {}'.format(
+                                    end_item.obj.id))
+                    orb.log.debug('     - port id: {}'.format(
+                                    end_item.port.id))
+                    orb.log.debug('   * context id:  {}'.format(
+                                    self.subject.id))
+                    side = 'right'
+                    if end_item.right_port:
+                        side = 'left'
+                    orb.log.debug('     ({} side)'.format(side))
+
                     # TODO:  color will be determined by type of Port(s)
                     routing_channel = self.get_routing_channel()
-                    connector = RoutedConnector(start_item, end_item,
-                                                routing_channel,
-                                                context=self.subject,
-                                                pen_width=3)
+                    connector = RoutedConnector(
+                                    start_item, end_item,
+                                    routing_channel,
+                                    context=self.subject,
+                                    pen_width=3)
                     start_item.add_connector(connector)
                     end_item.add_connector(connector)
                     connector.setZValue(-1000.0)
@@ -451,7 +530,10 @@ class DiagramScene(QGraphicsScene):
                 the right column (this ordering is returned by
                 get_block_ordering()).
         """
-        # orb.log.debug('* DiagramScene: generate_ibd()')
+        # obj_id = getattr(obj, 'id', 'unknown')
+        # sig = f'{obj_id}, ordering={ordering}'
+        # sig = f'{obj_id}'
+        # orb.log.debug(f'* DiagramScene: generate_ibd({sig})')
         if self.subject is None:
             # ignore if self.subject is None -- may cause a crash
             return
@@ -472,7 +554,9 @@ class DiagramScene(QGraphicsScene):
         spacing = 20
         items = []
         all_ports = []
-        self.port_blocks = {}   # maps Port oids to PortBlock instances
+        # usage_port_blocks maps (usage_oid, port_oid) tuples to PortBlock
+        # instances
+        self.usage_port_blocks = {}
         # remove current items before generating ...
         if self.items():
             for shape in self.items():
@@ -500,7 +584,8 @@ class DiagramScene(QGraphicsScene):
                 p = QPointF(x_left, y_left_next)
                 new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
                                              right_ports=True)
-                self.port_blocks.update(new_item.port_blocks)
+                for oid, port_block in new_item.port_blocks.items():
+                    self.usage_port_blocks[usage.oid, oid] = port_block
                 items.append(new_item)
                 y_left_next += new_item.rect.height() + spacing
             for oid in right_good_oids:
@@ -512,7 +597,8 @@ class DiagramScene(QGraphicsScene):
                 p = QPointF(x_right, y_right_next)
                 new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
                                              right_ports=False)
-                self.port_blocks.update(new_item.port_blocks)
+                for oid, port_block in new_item.port_blocks.items():
+                    self.usage_port_blocks[usage.oid, oid] = port_block
                 items.append(new_item)
                 y_right_next += new_item.rect.height() + spacing
             for oid in new_oids:
@@ -526,7 +612,8 @@ class DiagramScene(QGraphicsScene):
                     p = QPointF(x_left, y_left_next)
                     new_item = self.create_block(ObjectBlock, usage=usage,
                                                  pos=p, right_ports=True)
-                    self.port_blocks.update(new_item.port_blocks)
+                    for oid, port_block in new_item.port_blocks.items():
+                        self.usage_port_blocks[usage.oid, oid] = port_block
                     items.append(new_item)
                     y_left_next += new_item.rect.height() + spacing
                 else:
@@ -534,7 +621,8 @@ class DiagramScene(QGraphicsScene):
                     p = QPointF(x_right, y_right_next)
                     new_item = self.create_block(ObjectBlock, usage=usage,
                                                  pos=p, right_ports=False)
-                    self.port_blocks.update(new_item.port_blocks)
+                    for oid, port_block in new_item.port_blocks.items():
+                        self.usage_port_blocks[usage.oid, oid] = port_block
                     items.append(new_item)
                     y_right_next += new_item.rect.height() + spacing
         else:
@@ -557,7 +645,8 @@ class DiagramScene(QGraphicsScene):
                                                             # p.x(), p.y()))
                 new_item = self.create_block(ObjectBlock, usage=usage, pos=p,
                                              right_ports=right_ports)
-                self.port_blocks.update(new_item.port_blocks)
+                for oid, port_block in new_item.port_blocks.items():
+                    self.usage_port_blocks[usage.oid, oid] = port_block
                 items.append(new_item)
                 if left_col:
                     y_left_next += new_item.rect.height() + spacing
@@ -565,21 +654,34 @@ class DiagramScene(QGraphicsScene):
                     y_right_next += new_item.rect.height() + spacing
         # create subject block ...
         subj_block = self.create_ibd_subject_block(items)
-        self.port_blocks.update(subj_block.port_blocks)
+        for oid, port_block in subj_block.port_blocks.items():
+            self.usage_port_blocks[None, oid] = port_block
         # if Flows exist, create RoutedConnectors for them ...
         # subject might be a Project, so need getattr here ...
-        flows = orb.search_exact(cname='Flow', flow_context=self.subject)
+        # orb.log.debug('  - checking for flows ...')
+        flows = []
+        for usage in usages:
+            flows += orb.search_exact(cname='Flow', start_port_context=usage)
+            flows += orb.search_exact(cname='Flow', end_port_context=usage)
+        flows = list(set(flows))
         orphaned_flow_oids = []
         if flows:
+            # orb.log.debug('  - Flow objects found')
+            # WAY more verbose -- list all Flow objects ...
             # orb.log.debug('  - Flow objects found: {}'.format(
                                     # str([f.id for f in flows])))
             routing_channel = self.get_routing_channel()
-            # orb.log.debug('  - creating routed connectors ...')
+            # orb.log.debug('    creating routed connectors ...')
             for flow in flows:
                 # check in case flows in db out of sync with diagram
-                start_item = self.port_blocks.get(getattr(
-                                             flow.start_port, 'oid', None))
-                end_item = self.port_blocks.get(getattr(flow.end_port, 'oid', None))
+                start_item = self.usage_port_blocks.get(
+                                (getattr(flow.start_port_context, 'oid', None),
+                                 getattr(flow.start_port, 'oid', None))
+                                )
+                end_item = self.usage_port_blocks.get(
+                                (getattr(flow.end_port_context, 'oid', None),
+                                 getattr(flow.end_port, 'oid', None))
+                                )
                 if not (start_item and end_item):
                     # NOTE: this indicates db/diagram out of sync ... delete
                     # this flow after finishing the diagram
@@ -588,7 +690,8 @@ class DiagramScene(QGraphicsScene):
                 # orb.log.debug('    + {}'.format(flow.id))
                 connector = RoutedConnector(start_item, end_item,
                                             routing_channel,
-                                            context=self.subject, pen_width=3)
+                                            context=self.subject,
+                                            pen_width=3)
                 # orb.log.debug('      add to start and end ...')
                 start_item.add_connector(connector)
                 end_item.add_connector(connector)
