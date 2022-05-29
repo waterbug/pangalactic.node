@@ -23,11 +23,15 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
                              QMainWindow, QMessageBox, QPushButton,
                              QSizePolicy, QTextBrowser, QVBoxLayout, QWidget)
 from louie import dispatcher
+# packaging
+from packaging.version import Version
+
 from twisted.internet.defer import DeferredList
 from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
+from pangalactic.core                 import __version__
 from pangalactic.core                 import state
 from pangalactic.core.parametrics     import add_parameter, set_dval
 from pangalactic.core.refdata         import core
@@ -393,7 +397,7 @@ class MainWindow(QMainWindow):
         # self.sync_project_button.setVisible(True)
         self.log('  - getting roles from repo ...')
         rpc = message_bus.session.call('vger.get_user_roles',
-                                       self.userid)
+                                       self.userid, version=__version__)
         rpc.addCallback(self.on_get_user_roles_result)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.subscribe_to_channels)
@@ -439,7 +443,17 @@ class MainWindow(QMainWindow):
             self.log('---- RAW DATA FROM "get_user_roles" ---------------')
             self.log(pprint.pformat(data))
             self.log('---- END OF RAW DATA ------------------------------')
-            szd_user, szd_orgs, szd_people, szd_ras, unknown_oids = data
+            (szd_user, szd_orgs, szd_people, szd_ras, unknown_oids,
+                                                            min_version) = data
+            this_version = __version__
+            if Version(this_version) < Version(min_version):
+                message = f'This version ({this_version}) is too old -- '
+                message += f'minimum is {min_version}.'
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "Obsolete Version", message,
+                                    QMessageBox.Ok, self)
+                popup.show()
+                return
             deserialize(orb, szd_user)
             deserialize(orb, szd_orgs)
             deserialize(orb, szd_people)
