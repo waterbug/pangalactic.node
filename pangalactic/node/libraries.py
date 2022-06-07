@@ -202,7 +202,6 @@ class LibraryListView(QListView):
         # NOTE:  there may be templates for other object types in the future
         if self.cname == 'HardwareProduct':
             self.addAction(self.template_action)
-        self.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def display_object(self):
         # NOTE: maybe not the most elegant way to do this ... look again later
@@ -382,22 +381,22 @@ class LibraryListWidget(QWidget):
         if cname == 'HardwareProduct':
             select_label = 'Systems & Components (Hardware Products)'
             view = ['id', 'name', 'product_type', 'description']
-            widget = FilterPanel(None, view=view, as_library=True,
-                                 cname=cname, label=select_label,
-                                 external_filters=True,
-                                 min_width=min_width,
-                                 parent=self)
-            if hasattr(widget, 'ext_filters'):
-                widget.ext_filters.clicked.connect(self.show_ext_filters)
-                widget.clear_filters_btn.clicked.connect(
-                                                self.clear_product_filters)
+            lib_table = FilterPanel(None, view=view, as_library=True,
+                                    cname=cname, label=select_label,
+                                    external_filters=True,
+                                    min_width=min_width,
+                                    parent=self)
+            if hasattr(lib_table, 'ext_filters'):
+                lib_table.ext_filters.clicked.connect(self.show_ext_filters)
+                lib_table.clear_filters_btn.clicked.connect(
+                                                    self.clear_product_filters)
                 dispatcher.connect(self.on_product_types_selected,
                                    'product types selected')
                 dispatcher.connect(self.on_only_mine_toggled,
                                    'only mine toggled')
         elif cname == 'ParameterDefinition':
             select_label = 'Parameters'
-            widget = ParmDefTreeView(parent=self)
+            lib_table = ParmDefTreeView(parent=self)
         elif cname == 'DataElementDefinition':
             select_label = 'Data Elements'
             view = ['id', 'range_datatype', 'name']
@@ -413,11 +412,11 @@ class LibraryListWidget(QWidget):
                                  o.oid.endswith('_units') or
                                  o.oid.endswith('_spares') or
                                  o.oid.endswith('_ctgcy'))]
-            widget = FilterPanel(None, view=view, as_library=True,
-                                 cname=cname, label=select_label,
-                                 min_width=min_width,
-                                 excluded_oids=excluded_oids,
-                                 parent=self)
+            lib_table = FilterPanel(None, view=view, as_library=True,
+                                    cname=cname, label=select_label,
+                                    min_width=min_width,
+                                    excluded_oids=excluded_oids,
+                                    parent=self)
         elif cname == 'Person':
             select_label = 'People'
             view = ['id', 'last_name', 'first_name', 'org']
@@ -429,16 +428,19 @@ class LibraryListWidget(QWidget):
             orb.log.debug('- oids non grata: {}'.format(str(excluded_oids)))
             orb.log.debug('- people: {}'.format([p.oid for p in people]))
             people.sort(key=lambda o: getattr(o, 'last_name', '') or '')
-            widget = FilterPanel(people, view=view, as_library=True,
-                                 min_width=min_width, label=select_label,
-                                 excluded_oids=excluded_oids, parent=self)
+            lib_table = FilterPanel(people, view=view, as_library=True,
+                                    min_width=min_width,
+                                    label=select_label,
+                                    excluded_oids=excluded_oids,
+                                    parent=self)
         else:
-            widget = LibraryListView(cname, include_subtypes=include_subtypes,
-                                     icon_size=icon_size, parent=self)
+            lib_table = LibraryListView(cname,
+                                        include_subtypes=include_subtypes,
+                                        icon_size=icon_size, parent=self)
         if cname == 'Template':
             select_label = 'System & Component Templates'
-        self.libraries[cname] = widget
-        self.stack.addWidget(widget)
+        self.libraries[cname] = lib_table
+        self.stack.addWidget(lib_table)
         self.library_select.addItem(select_label, QVariant())
 
     def set_library(self, index):

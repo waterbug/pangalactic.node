@@ -795,7 +795,7 @@ class MainWindow(QMainWindow):
         self.log(f'  upload completed in {self.uploaded_chunks} chunks.')
         self.progress_dialog.done(0)
         # TODO:  call vger.save_uploaded_file() rpc to associate file with the
-        # db object that references it.
+        # object that references it.
 
     def on_save_object(self):
         """

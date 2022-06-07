@@ -732,15 +732,15 @@ class FilterPanel(QWidget):
         if self.cname == 'Requirement':
             # for Requirements, use ReqWizard to edit ...
             # TODO:  only offer this action if user is authorized to edit
-            self.addAction(self.req_parms_action)
-            self.addAction(self.req_fields_action)
-            self.addAction(self.reqwizard_action)
+            self.proxy_view.addAction(self.req_parms_action)
+            self.proxy_view.addAction(self.req_fields_action)
+            self.proxy_view.addAction(self.reqwizard_action)
         else:
             # for all objs other than Requirements, use PgxnObject
-            self.addAction(self.pgxnobj_action)
+            self.proxy_view.addAction(self.pgxnobj_action)
         # if self.cname == 'HardwareProduct':
-            # self.addAction(self.template_action)
-        self.setContextMenuPolicy(Qt.ActionsContextMenu)
+            # self.proxy_view.addAction(self.template_action)
+        self.proxy_view.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def display_object(self):
         orb.log.debug('* display object ...')

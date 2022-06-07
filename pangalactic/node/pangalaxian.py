@@ -2608,6 +2608,7 @@ class Main(QMainWindow):
         widget = LibraryListWidget(cnames=cnames,
                                    include_subtypes=include_subtypes,
                                    parent=self)
+        widget.setContextMenuPolicy(Qt.PreventContextMenu)
         return widget
 
     def init_toolbar(self):
@@ -2615,6 +2616,7 @@ class Main(QMainWindow):
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         import_icon_file = 'open' + state['icon_type']
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         import_icon_path = os.path.join(icon_dir, import_icon_file)
@@ -3714,6 +3716,7 @@ class Main(QMainWindow):
 
     def setup_product_info_panel(self):
         self.product_info_panel = ProductInfoPanel(parent=self)
+        self.product_info_panel.setContextMenuPolicy(Qt.PreventContextMenu)
 
     def _setup_left_dock(self):
         """
@@ -3723,6 +3726,7 @@ class Main(QMainWindow):
         # if we don't have a left dock widget yet, create ALL the stuff
         self.left_dock = QDockWidget()
         self.left_dock.setObjectName('LeftDock')
+        self.left_dock.setContextMenuPolicy(Qt.PreventContextMenu)
         self.left_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
@@ -3777,6 +3781,7 @@ class Main(QMainWindow):
         if create_new:
             # create a new panel
             self.pgxn_obj_panel = QWidget()
+            self.pgxn_obj_panel.setContextMenuPolicy(Qt.PreventContextMenu)
             self.pgxn_obj_panel.setSizePolicy(QSizePolicy.Fixed,
                                               QSizePolicy.Expanding)
             pgxn_panel_layout = QVBoxLayout()
@@ -3877,6 +3882,7 @@ class Main(QMainWindow):
         # expand events are linked so they must both exist
         self.rebuild_dashboard()
         sys_tree_panel = QWidget(self)
+        sys_tree_panel.setContextMenuPolicy(Qt.PreventContextMenu)
         # set panel size policy to match the sys_tree's
         sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
                                      QSizePolicy.MinimumExpanding)
@@ -3986,6 +3992,7 @@ class Main(QMainWindow):
             # orb.log.debug('         + no dashboard_panel exists ...')
         # orb.log.debug('           creating new dashboard panel ...')
         self.dashboard_panel = QWidget(self)
+        self.dashboard_panel.setContextMenuPolicy(Qt.PreventContextMenu)
         self.dashboard_panel.setMinimumSize(500, 200)
         dashboard_layout = QVBoxLayout()
         self.dashboard_title_layout = QHBoxLayout()
@@ -5451,6 +5458,7 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
         main = Main(home=home, use_tls=use_tls, auth_method=auth_method,
                     reactor=reactor, pool=pool, app_version=app_version,
                     console=console, debug=debug)
+    main.setContextMenuPolicy(Qt.PreventContextMenu)
     main.show()
     atexit.register(cleanup_and_save)
     # run the reactor after creating the main window but before starting the

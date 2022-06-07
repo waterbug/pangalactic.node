@@ -186,6 +186,7 @@ class ModelWindow(QMainWindow):
 
     def init_toolbar(self):
         self.toolbar = self.addToolBar("Actions")
+        self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         self.toolbar.setObjectName('ActionsToolBar')
         # NOTE: disabling the history stuff for now -- it's broken and is not
         # very useful anyway ... *might* fix in future.  The "component" mode
