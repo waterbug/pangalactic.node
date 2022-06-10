@@ -2621,7 +2621,6 @@ class Main(QMainWindow):
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         import_icon_path = os.path.join(icon_dir, import_icon_file)
         import_actions = [
-                          # Import Excel deactivated for now ...
                           self.import_excel_data_action,
                           self.import_objects_action,
                           self.import_reqts_from_file_action
@@ -2632,8 +2631,6 @@ class Main(QMainWindow):
                           # manager's "close" on the window
                           # self.exit_action
                           ]
-        # Import Excel deactivated until mapping is implemented, and/or support
-        # for "data sets" is revised (hdf5 was breaking) ...
         self.import_excel_data_action.setEnabled(True)
         import_button = MenuButton(QIcon(import_icon_path),
                                    text='Input',
@@ -5191,13 +5188,6 @@ class Main(QMainWindow):
             return
 
     def import_excel_data(self):
-        # TODO:  list file format options -- use a "wizard" dialog
-        # TODO:  load ALL data into a preview window, then let user select
-        #        which row(s) are headers and which are data
-        # TODO:  create either a toolbar or context menu (or both) with options
-        # for adjusting column widths (and save as prefs) -- e.g.:
-        #    tableview.setColumnWidth(i, 300)
-        #    tableview.resizeColumnToContents(cols.index('Category'))
         if not state.get('last_path'):
             state['last_path'] = self.user_home
         fpath, filters = QFileDialog.getOpenFileName(
@@ -5205,9 +5195,6 @@ class Main(QMainWindow):
                                     state['last_path'],
                                     "Excel Files (*.xlsx | *.xls)")
         if fpath:
-            # TODO: exception handling in case data import fails ...
-            # TODO: add an "index" column for sorting, or else figure out how
-            # to sort on the left header column ...
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
             if not (fpath.endswith('.xls') or fpath.endswith('.xlsx')):
                 message = "File '%s' is not an Excel file." % fpath
@@ -5224,16 +5211,6 @@ class Main(QMainWindow):
                             parent=self)
             wizard.exec_()
             orb.log.debug('* import_excel_data: dialog completed.')
-            # set mode to "data"
-            # self.data_mode_action.trigger()
-            # except:
-                # message = f"Data in '{fpath}' could not be imported."
-                # popup = QMessageBox(
-                            # QMessageBox.Warning,
-                            # "An error occurred.", message,
-                            # QMessageBox.Ok, self)
-                # popup.show()
-                # return
         else:
             return
 

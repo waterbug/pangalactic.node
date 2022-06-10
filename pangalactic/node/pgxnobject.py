@@ -1864,15 +1864,6 @@ class PgxnObject(QDialog):
     def on_close(self):
         self.close()
 
-    def sizeHint(self):
-        if getattr(self, 'tabs'):
-            # tool bar height fudged as 80 ...
-            return QSize(self.tabs.sizeHint().width(),
-                         self.tabs.sizeHint().height() + 100)
-        else:
-            return QSize(self.sizeHint().width(),
-                         self.sizeHint().height() + 100)
-
     def create_connections(self):
         if hasattr(self, 'edit_button'):
             try:
