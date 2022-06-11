@@ -389,7 +389,6 @@ class RequirementIDPage(QWizardPage):
             else:
                 self.req.req_type = 'performance'
             orb.save([self.req])
-            dispatcher.send(signal='modified object', obj=self.req)
             return True
 
 
@@ -574,7 +573,6 @@ class ReqAllocPage(QWizardPage):
         self.req.mod_datetime = dtstamp()
         self.req.modifier = orb.get(state.get('local_user_oid'))
         orb.save([self.req])
-        dispatcher.send(signal='modified object', obj=self.req)
         # Qt api requires validatePage() to return a boolean
         return True
 
@@ -867,7 +865,6 @@ class PerformanceDefineParmPage(QWizardPage):
         req_wizard_state['computable_form_oid'] = rel.oid
         req_wizard_state['req_parameter'] = self.pd.id
         orb.save([self.req])  # calls db.commit(), which commits rel & pr objs
-        dispatcher.send(signal='modified object', obj=self.req)
         # Qt api requires validatePage() to return a boolean
         return True
 
