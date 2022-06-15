@@ -6,7 +6,7 @@ import webbrowser
 from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets  import QMenu, QPushButton
 
-from pangalactic.core.utils.meta import asciify
+from pangalactic.core.meta import asciify
 
 
 class MenuButton(QPushButton):

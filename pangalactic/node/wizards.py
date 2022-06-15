@@ -14,12 +14,12 @@ from louie import dispatcher
 
 # pangalactic
 from pangalactic.core             import config, state
+from pangalactic.core.names       import get_external_name_plural
 from pangalactic.core.parametrics import set_dval
 from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
-from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel

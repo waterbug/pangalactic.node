@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QAction, QMenu, QSizePolicy, QTreeView
 
 # pangalactic
 from pangalactic.core             import prefs, state
+from pangalactic.core.names       import get_display_name
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
                                           get_usage_mode_val_as_str, get_pval,
                                           get_pval_as_str, parm_defz,
@@ -21,7 +22,6 @@ from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import in_si
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.utils.meta  import get_display_name
 from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import get_pixmap

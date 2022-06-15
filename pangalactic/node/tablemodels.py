@@ -22,14 +22,14 @@ from PyQt5.QtGui import QIcon, QPixmap
 # pangalactic
 from pangalactic.core                 import prefs, state
 from pangalactic.core.meta            import MAIN_VIEWS, TEXT_PROPERTIES
+from pangalactic.core.names           import (display_id,
+                                              pname_to_header_label,
+                                              to_media_name)
 from pangalactic.core.parametrics     import (de_defz, get_dval_as_str,
                                               get_pval_as_str, parm_defz)
 from pangalactic.core.uberorb         import orb
 from pangalactic.core.units           import in_si
 from pangalactic.core.utils.datetimes import dt2local_tz_str
-from pangalactic.core.utils.meta      import (display_id,
-                                              pname_to_header_label,
-                                              to_media_name)
 # from pangalactic.core.test.utils import create_test_users, create_test_project
 from pangalactic.node.utils           import get_pixmap
 

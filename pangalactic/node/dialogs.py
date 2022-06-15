@@ -35,7 +35,7 @@ from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.utils.meta  import (get_attr_ext_name,
+from pangalactic.core.names       import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.core.utils.reports import get_mel_data, write_mel_to_tsv
 from pangalactic.node.buttons     import SizedButton, UrlButton

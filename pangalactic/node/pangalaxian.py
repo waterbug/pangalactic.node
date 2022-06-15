@@ -50,12 +50,12 @@ from pangalactic.core.parametrics      import (data_elementz,
                                                save_data_elementz, save_parmz)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
-                                               deserialize, serialize)
+                                               deserialize, serialize,
+                                               uncook_datetime)
 from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
 from pangalactic.core.uberorb          import orb
-from pangalactic.core.utils.meta       import (asciify,
-                                               uncook_datetime)
+from pangalactic.core.meta             import asciify
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles

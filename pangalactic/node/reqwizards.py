@@ -13,12 +13,12 @@ from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDialogButtonBox,
 from louie import dispatcher
 
 from pangalactic.core             import config, state
+from pangalactic.core.names       import (get_attr_ext_name, get_parm_rel_id,
+                                          get_parm_rel_name, get_rel_id,
+                                          get_rel_name)
 from pangalactic.core.parametrics import parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.utils.meta  import (get_attr_ext_name, get_parm_rel_id,
-                                          get_parm_rel_name, get_rel_id,
-                                          get_rel_name)
 from pangalactic.core.units       import alt_units
 from pangalactic.node.libraries   import LibraryListView
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -27,64 +27,6 @@ from pangalactic.node.widgets     import PlaceHolder, NameLabel, ValueLabel
 from pangalactic.node.systemtree  import SystemTreeView
 
 req_wizard_state = {}
-
-def gen_req_id(project, version=None, prev_ver_reqt=None):
-    """
-    Generate the `id` attribute for a new requirement. (NOTE:  this function
-    assumes that the requirement has already been saved and is therefore
-    included in the count of requirements for the project). The format of the
-    returned `id` is as follows:
-
-        project_id.seq[.version]
-
-    Args:
-        project (Project):  a Project instance
-
-    Keyword Args:
-        version (str):  a version string or number
-        prev_ver_reqt (Requirement):  the previous version of this requirement
-    """
-    orb.log.info('* gen_req_id:  generating a new requirement "id".')
-    # TODO:  if version is not 0, use seq number of previous version
-    if (prev_ver_reqt and
-        isinstance(prev_ver_reqt, orb.classes['Requirement'])):
-        parts = prev_ver_reqt.id.split('.')
-        if len(parts) == 3:
-            if version is not None and version:
-                # if a version is specified, use it
-                version = str(version)
-            else:
-                # if a version is not specified, try to increment
-                previous_version = parts[2]
-                try:
-                    version = int(previous_version) + 1
-                except:
-                    orb.log.info('  - previous version not integer; using 0.')
-            seq = parts[1]
-        else:
-            orb.log.info('  - previous version of reqt. has malformed "id".')
-    else:
-        if version is not None and version:
-            version = str(version)
-        idvs = orb.get_idvs('Requirement')
-        # NOTE:  must check that idv[0] is not None (i.e. id is not assigned)
-        project_idvs = [idv for idv in idvs
-                        if idv[0] and (idv[0].split('.'))[0] == project.id]
-        if project_idvs:
-            seq = max([int(idv[0].split('.')[1]) for idv in project_idvs]) + 1
-        else:
-            seq = 1
-    new_id = build_req_id(project, seq, version)
-    orb.log.info('* gen_req_id: generated reqt. id: {}'.format(new_id))
-    return new_id
-
-def build_req_id(project, seq, version):
-    # TODO:  versioning system TBD
-    if version:
-        version = str(version)
-    else:
-        version = '0'
-    return '.'.join([project.id, str(seq), version])
 
 
 class QHLine(QFrame):
@@ -265,9 +207,10 @@ class RequirementIDPage(QWizardPage):
         else:
             # NOTE: requirement id must be generated before cloning new reqt.;
             # otherwise, generator will get confused
-            req_id = gen_req_id(self.project)
+            req_id = self.project.id + '-TBD'
             self.req = clone("Requirement", id=req_id, owner=self.project,
                              public=True)
+            self.req.id = orb.gen_req_id(self.req)
             orb.save([self.req])
             dispatcher.send(signal='new object', obj=self.req)
             new = True
@@ -503,14 +446,10 @@ class ReqAllocPage(QWizardPage):
     def on_select_node(self, index):
         link = None
         allocated_item = ''
-        if len(self.sys_tree.selectedIndexes()) == 1:
-            i = self.sys_tree.selectedIndexes()[0]
-            mapped_i = self.sys_tree.proxy_model.mapToSource(i)
-            # NOTE: might want to use obj -- getting it indirectly below for
-            # Acu as "assembly"
-            # obj = self.sys_tree.source_model.get_node(mapped_i).obj
-            link = self.sys_tree.source_model.get_node(mapped_i).link
+        mapped_i = self.sys_tree.proxy_model.mapToSource(index)
+        link = self.sys_tree.source_model.get_node(mapped_i).link
         if not link or not self.req:
+            orb.log.debug('  could not find link (or no self.req).')
             return
         if hasattr(link, 'system'):
             if self.req in link.system_requirements:
@@ -535,7 +474,7 @@ class ReqAllocPage(QWizardPage):
         # the expandToDepth is needed to make it repaint to show the allocation
         # node as yellow-highlighted
         self.sys_tree.expandToDepth(1)
-        self.sys_tree.scrollTo(i)
+        self.sys_tree.scrollTo(index)
         # TODO: get the selected name/product so it can be used in the shall
         # statement.
         if allocated_item:

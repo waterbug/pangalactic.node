@@ -15,7 +15,6 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QWidget)
 
 from louie      import dispatcher
-from sqlalchemy import ForeignKey
 from sqlalchemy.orm.collections import InstrumentedList
 
 # pangalactic
@@ -25,6 +24,7 @@ from pangalactic.core.meta import (MAIN_VIEWS, PGEF_DIMENSION_ORDER, PGXN_HIDE,
                                    PGXN_HIDE_PARMS, PGXN_MASK,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
                                    SELECTION_FILTERS)
+from pangalactic.core.names       import get_attr_ext_name
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           data_elementz, de_defz,
                                           delete_parameter,
@@ -38,7 +38,6 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
 from pangalactic.core.uberorb         import orb
 from pangalactic.core.units           import alt_units, in_si, ureg
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.utils.meta      import get_attr_ext_name
 from pangalactic.core.utils.reports   import write_mel_to_tsv
 from pangalactic.core.validation      import get_bom, validate_all
 from pangalactic.node.buttons         import SizedButton
@@ -468,7 +467,7 @@ class PgxnForm(QWidget):
             return None
         for field_name in this_view:
             field_type = schema['fields'][field_name]['field_type']
-            if field_type == ForeignKey:
+            if field_type == 'object':
                 val = getattr(obj, field_name, None)
             else:
                 # TODO: explicitly set a default value of the correct type

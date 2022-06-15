@@ -16,7 +16,7 @@ from binaryornot.check import is_binary
 
 from pangalactic.core                 import config, state
 from pangalactic.core.uberorb         import orb
-from pangalactic.core.utils.meta      import get_ra_id, get_ra_name
+from pangalactic.core.names           import get_ra_id, get_ra_name
 from pangalactic.node.buttons         import ButtonLabel, SizedButton
 from pangalactic.node.dialogs         import ObjectSelectionDialog
 from pangalactic.node.libraries       import LibraryListWidget

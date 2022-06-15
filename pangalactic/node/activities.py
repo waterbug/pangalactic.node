@@ -17,11 +17,11 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
+from pangalactic.core.names       import (get_acr_id, get_acr_name,
+                                          get_link_name)
 from pangalactic.core.parametrics import (get_pval_as_str,
                                           get_variable_and_context,
                                           mode_defz, parameterz)
-from pangalactic.core.utils.meta  import (get_acr_id, get_acr_name,
-                                          get_link_name)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog

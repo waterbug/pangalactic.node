@@ -326,7 +326,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
             orb.log.debug('  instantiating UrlButton')
             widget = widget_class(value=value, maxlen=maxlen,
                                   editable=False)
-        elif editable or field_type == ForeignKey:
+        elif editable or field_type == "object":
             widget = widget_class(value=value, maxlen=maxlen,
                                   related_cname=related_cname, obj_pk=obj_pk,
                                   field_name=field_name, nullable=nullable,
@@ -741,6 +741,7 @@ widgets = {
     Unicode     : UnicodeFieldWidget,
     Time        : TimeFieldWidget,
     ForeignKey  : FkButton,
+    'object'    : FkButton,
     'parameter' : StringFieldWidget,
     # these are for data elements, 'de_type'
     'bool'      : BooleanFieldWidget,

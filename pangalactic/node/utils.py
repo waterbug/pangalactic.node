@@ -20,7 +20,7 @@ from louie import dispatcher
 from sqlalchemy import ForeignKey
 
 from pangalactic.core             import state
-from pangalactic.core.utils.meta  import (get_display_name, get_acu_id,
+from pangalactic.core.names       import (get_display_name, get_acu_id,
                                           get_acu_name, get_external_name,
                                           get_next_port_seq, get_next_ref_des,
                                           get_port_abbr, get_port_id,

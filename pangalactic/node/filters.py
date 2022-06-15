@@ -13,10 +13,10 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
-from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.meta  import (get_external_name_plural,
+from pangalactic.core.names       import (get_external_name_plural,
                                           get_attr_ext_name,
                                           pname_to_header_label)
+from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ObjectTableModel
@@ -215,12 +215,12 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
         * numeric sort (for integers and floats)
         * version sort (for version strings: 'x.x.x', etc.)
-        * requirement sort for reqt id:  [project id].[sequence].[version]
+        * requirement sort:  [project id]-[parent sequence].[sequence]
         * text sort for everything else
     """
     versionpat = r'[0-9][0-9]*(\.[0-9][0-9]*)*'
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
-    reqpat = r'[a-zA-Z][a-zA-Z0-9]*(\.[0-9][0-9]*)(\.[a-zA-Z0-9][a-zA-Z0-9]*)'
+    reqpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)(\.[0-9][0-9]*)*'
 
     def __init__(self, view=None, col_labels=None, col_defs=None,
                  col_dtypes=None, parent=None):

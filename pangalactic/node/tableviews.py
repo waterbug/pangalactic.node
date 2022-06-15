@@ -17,10 +17,10 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
+from pangalactic.core.names       import get_external_name_plural
 from pangalactic.core.serializers import serialize
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.utils.meta  import get_external_name_plural
 from pangalactic.node.tablemodels import (ObjectTableModel,
                                           CompareTableModel,
                                           SpecialSortModel)
