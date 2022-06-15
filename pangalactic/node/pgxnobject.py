@@ -521,8 +521,6 @@ class PgxnForm(QWidget):
                         widget.clicked.connect(self.on_select_related)
                     elif val is not None:
                         widget.clicked.connect(self.on_view_related)
-                # if editable and field_name == 'id':
-                    # widget.textChanged.connect(self.on_id_text_changed)
         if required_note:
             form.addRow(QWidget(), QLabel())
             rnote = QLabel("** required fields\n  (cannot be empty or None)")
@@ -687,32 +685,6 @@ class PgxnForm(QWidget):
                                       units=u_cur)
         state['current_parm_dim'] = self.parm_dims[index]
         self.pgxo.build_from_object()
-
-    # def on_id_text_changed(self, text):
-        # # UNCOMMENT THIS FOR INTENSIVE DEBUGGING ONLY
-        # # orb.log.debug(' - id value entered: "{}" ...'.format(text))
-        # match_text = ''
-        # valid = True
-        # if text in self.all_ids:
-            # match_text = text
-            # valid = False
-        # else:
-            # # find shortest containing id
-            # starters = [s for s in self.all_ids if s.startswith(text)]
-            # if starters:
-                # match_text = reduce(
-                           # lambda u, v: u if len(u) < len(v) else v, starters)
-        # if hasattr(self, 'popup'):
-            # try:
-                # self.popup.close()
-            # except:
-                # pass  # (C++ object was deleted)
-        # if match_text:
-            # dlg = IdValidationPopup(match_text, valid=valid,
-                                    # parent=self.editable_widgets['id'])
-            # dlg.show()
-            # self.popup = dlg
-            # QTimer.singleShot(200, dlg.close)
 
 
 class ParameterForm(PgxnForm):
