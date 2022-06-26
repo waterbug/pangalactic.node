@@ -268,11 +268,6 @@ class SystemSelectionView(QTreeView):
         # NOTE: this logging is only needed for deep debugging
         # orb.log.debug('* SystemTreeView initializing with ...')
         # orb.log.debug('  - root node: "{}"'.format(obj.id))
-        # if selected_system:
-            # sid = selected_system.id
-            # orb.log.debug('  - selected system: "{}"'.format(sid))
-        # else:
-            # orb.log.debug('  - no selection specified.')
         tree_model = SystemTreeModel(obj, refdes=refdes,
                                      show_mode_systems=True, parent=self)
         self.proxy_model = SystemTreeProxyModel(tree_model, parent=self)

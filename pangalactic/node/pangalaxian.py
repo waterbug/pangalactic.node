@@ -1998,8 +1998,6 @@ class Main(QMainWindow):
                                     "Create New Project",
                                     slot=self.new_project,
                                     tip="Create a New Project")
-        # NOTE: to delete a collaborative project, collaboration must first be
-        # disabled ...
         self.delete_project_action = self.create_action(
                                     "Delete This Project",
                                     slot=self.delete_project,
@@ -3604,10 +3602,9 @@ class Main(QMainWindow):
                     elif global_admin:
                         role_label_txt = 'Global Administrator'
                 if state['connected']:
-                    if (project_is_local and 
-                        ((p.creator == self.local_user) or global_admin)):
-                        # it is local -> it can be deleted by its creator or
-                        # collaboration can be enabled
+                    if ((p.creator is self.local_user) or global_admin):
+                        # a project can be deleted by its creator or by a
+                        # global admin
                         self.delete_project_action.setEnabled(True)
                         self.delete_project_action.setVisible(True)
                     else:
