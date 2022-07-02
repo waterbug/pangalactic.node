@@ -5,9 +5,6 @@ A set of custom TableModels for use with QTableView.
 import os, re
 from textwrap import wrap
 
-# SqlAlchemy
-from sqlalchemy import ForeignKey
-
 # louie
 # from louie import dispatcher
 
@@ -207,7 +204,8 @@ class ObjectTableModel(MappingTableModel):
             self.schema = orb.schemas.get(self.cname) or {}
             if self.schema and self.view:
                 # sanity-check view
-                self.view = [a for a in self.view if a in self.schema['field_names']]
+                self.view = [a for a in self.view
+                             if a in self.schema['field_names']]
             # TODO:  handle foreign key fields somehow ...
             # for a in view:
                 # fk_cname = schema['fields'][a].get('related_cname')
@@ -259,7 +257,7 @@ class ObjectTableModel(MappingTableModel):
                 val = (getattr(obj, name) or ' ').replace('\n', ' ')
             elif self.schema['fields'][name]['range'] == 'datetime':
                 val = dt2local_tz_str(getattr(obj, name))
-            elif self.schema['fields'][name]['field_type'] == ForeignKey:
+            elif self.schema['fields'][name]['field_type'] == 'object':
                 val = (getattr(getattr(obj, name), 'name', None)
                        or getattr(getattr(obj, name), 'id', '[None]'))
             else:
@@ -443,7 +441,7 @@ class XObjectTableModel(MappingTableModel):
                 val = (getattr(obj, name) or ' ').replace('\n', ' ')
             elif self.schema['fields'][name]['range'] == 'datetime':
                 val = dt2local_tz_str(getattr(obj, name))
-            elif self.schema['fields'][name]['field_type'] == ForeignKey:
+            elif self.schema['fields'][name]['field_type'] == 'object':
                 val = (getattr(getattr(obj, name), 'name', None)
                        or getattr(getattr(obj, name), 'id', '[None]'))
             else:

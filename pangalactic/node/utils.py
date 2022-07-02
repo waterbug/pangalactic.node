@@ -16,9 +16,6 @@ from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QIcon, QPalette,
 # Louie
 from louie import dispatcher
 
-# SqlAlchemy
-from sqlalchemy import ForeignKey
-
 from pangalactic.core             import state
 from pangalactic.core.names       import (get_display_name, get_acu_id,
                                           get_acu_name, get_external_name,
@@ -103,7 +100,7 @@ def clone(what, include_ports=True, include_components=True,
         schema = orb.schemas[cname]
         fields = schema['fields']
         non_fk_fields = {a : fields[a] for a in fields
-                         if fields[a]['field_type'] is not ForeignKey}
+                         if fields[a]['field_type'] != "object"}
         cls = obj.__class__
         newkw = {}
         # populate all fields passed in kw args and all non-fk fields from obj

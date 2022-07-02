@@ -93,7 +93,8 @@ class SizedButton(QPushButton):
 
 class FkButton(QPushButton):
     """
-    Button for rendering a `ForeignKey` field.
+    Button for rendering an "object" field (a.k.a. a foreign key or an
+    ObjectProperty).
     """
     def __init__(self, parent=None, value=None, related_cname=None,
                  obj_pk=None, field_name=None, nullable=True, editable=False,
