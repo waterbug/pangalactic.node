@@ -890,8 +890,10 @@ class FilterPanel(QWidget):
 
 
 class FilterDialog(QDialog):
-    def __init__(self, objs, view=None, label='', width=None, height=None,
-                 parent=None):
+    def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
+                 width=None, min_width=None, height=None, as_library=False,
+                 cname=None, external_filters=False, excluded_oids=None,
+                 word_wrap=False, parent=None):
         """
         Initialize.
 
@@ -900,13 +902,35 @@ class FilterDialog(QDialog):
 
         Keyword Args:
             view (iterable):  attributes of object to be shown
+            sized_cols (iterable):  ids of columns to be sized to fit contents
+            schema (dict):  metadata for non-domain object (such as
+                PartsListItem instances); schema must contain the keys
+                'field_names' (a list of strings) and 'fields', a dict that
+                maps each field name to a dict that contains 'definition' and
+                'range' (str of the field type).
             label (str):  string to use for title
-            width (int):  width of dialog widget
+            width (int):  width dialog widget will be initially resized to
+            min_width (int):  minimum width of dialog widget
+            as_library (bool):  (default: False) flag whether to act as library
+                -- i.e. its objects can be drag/dropped onto other widgets
+            cname (str):  class name of the objects to be displayed ("objs" arg
+                will be ignored)
+            external_filters (bool):  (default: False) flag whether external
+                widgets will be called to select additional filter states --
+                so far this is only used for the Product library
+            excluded_oids (list of str) oids of objs to be excluded from a
+                "library"
+            word_wrap (bool):  set word wrapping for table cells
             height (int):  height of dialog widget
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
-        panel = FilterPanel(objs, view=view, label=label, parent=self)
+        panel = FilterPanel(objs, schema=schema, view=view,
+                    sized_cols=sized_cols, label=label, width=width,
+                    min_width=min_width, height=height, as_library=as_library,
+                    cname=cname, external_filters=external_filters,
+                    excluded_oids=excluded_oids, word_wrap=word_wrap,
+                    parent=self)
         vbox = QVBoxLayout()
         vbox.addWidget(panel)
         self.buttons = QDialogButtonBox(QDialogButtonBox.Cancel,

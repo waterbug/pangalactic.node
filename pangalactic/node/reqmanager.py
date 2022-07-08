@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
                              QSizePolicy, QVBoxLayout)
 
+from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.dialogs     import ReqFieldsDialog, ReqParmDialog
@@ -31,9 +32,7 @@ class RequirementManager(QDialog):
     def __init__(self, project=None, width=None, height=None, view=None,
                  req=None, parent=None):
         super().__init__(parent=parent)
-        default_view = ['id', 'req_level', 'name', 'req_type',
-                        'req_compliance', 'description', 'rationale',
-                        'justification', 'comment']
+        default_view = MAIN_VIEWS['Requirement']
         view = view or default_view
         sized_cols = {'id': 0, 'name': 150}
         self.req = req
