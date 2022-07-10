@@ -5185,11 +5185,10 @@ class Main(QMainWindow):
             return
 
     def import_excel_data(self):
-        if not state.get('last_path'):
-            state['last_path'] = self.user_home
-        fpath, filters = QFileDialog.getOpenFileName(
-                                    self, 'Open File',
-                                    state['last_path'],
+        start_path = state.get('excel_file_path') or state.get('last_path')
+        start_path = start_path or self.user_home
+        fpath, _ = QFileDialog.getOpenFileName(
+                                    self, 'Open File', start_path,
                                     "Excel Files (*.xlsx | *.xls)")
         if fpath:
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
@@ -5200,8 +5199,7 @@ class Main(QMainWindow):
                             QMessageBox.Ok, self)
                 popup.show()
                 return
-            state['last_path'] = os.path.dirname(fpath)
-            # try:
+            state['excel_file_path'] = os.path.dirname(fpath)
             wizard = DataImportWizard(file_path=fpath,
                             height=self.geometry().height(),
                             width=self.geometry().width(),

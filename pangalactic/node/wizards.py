@@ -48,6 +48,10 @@ class PrintLogger:
         print(txt)
 
 
+#################################
+#  Data Import Wizard Pages
+#################################
+
 class DataImportWizard(QtWidgets.QWizard):
     """
     Wizard to assist with importing data from a file.
@@ -75,126 +79,20 @@ class DataImportWizard(QtWidgets.QWizard):
         txt += 'This wizard will assist in importing data ...'
         intro_label = QtWidgets.QLabel(txt)
         intro_label.setWordWrap(False)
-        self.addPage(IntroPage(intro_label, parent=self))
-        self.addPage(DataSetPage(parent=self))
-        # self.addPage(ObjectTypePage(parent=self))
-        self.addPage(HeaderPage(parent=self))
+        self.addPage(DataIntroPage(intro_label, parent=self))
+        self.addPage(DataSheetPage(parent=self))
+        self.addPage(DataHeaderPage(parent=self))
+        self.addPage(DataObjectTypePage(parent=self))
+        self.addPage(MetaDataPage(parent=self))
         self.addPage(DataImportConclusionPage(self))
         self.setGeometry(50, 50, width, height)
         self.setSizeGripEnabled(True)
         self.setWindowTitle("Data Import Wizard")
 
 
-class NewProductWizard(QtWidgets.QWizard):
+class DataIntroPage(QtWidgets.QWizardPage):
     """
-    Wizard to assist in creating new components (Products) and associated Models.
-    """
-
-    def __init__(self, parent=None): 
-        super().__init__(parent=parent)
-        orb.log.info('* opening Product Wizard ...')
-        self.setWizardStyle(QtWidgets.QWizard.ClassicStyle)
-        # the included buttons must be specified using setButtonLayout in order
-        # to get the "Back" button on Windows (it is automatically included on
-        # Linux but not on Windows)
-        included_buttons = [QtWidgets.QWizard.Stretch,
-                            QtWidgets.QWizard.BackButton,
-                            QtWidgets.QWizard.NextButton,
-                            QtWidgets.QWizard.FinishButton,
-                            QtWidgets.QWizard.CancelButton]
-        self.setButtonLayout(included_buttons)
-        self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
-        wizard_state['product_oid'] = None
-        intro_label = QtWidgets.QLabel(
-                "<h2>System / Component Wizard</h2>"
-                "This wizard will assist you in creating or editing systems "
-                "and components or subsystems!")
-        project_oid = state.get('project')
-        if project_oid:
-            proj = orb.get(project_oid)
-        else:
-            proj = None
-        self.project = proj
-        # 0. Identify Product
-        self.addPage(IdentificationPage(intro_label, parent=self))
-        # 1. Select Product Type
-        ### NOTE:  now using pgxnobject to select the product type
-        # self.addPage(ProductTypePage(parent=self))
-        # 2. Select Maturity Level (TRL)
-        self.addPage(MaturityLevelPage(parent=self))
-        # 3. Specify Interfaces and Parameter Values
-        #    * Mass
-        #    * Power
-        #    * Data Interface(s)
-        #    * Dimensions
-        #    * Image
-        #    * CAD Model
-        # self.addPage(ParametersPage(parent=self))
-        self.addPage(NewProductWizardConclusionPage(self))
-        self.setMinimumSize(800, 800)
-        self.setSizeGripEnabled(True)
-        self.setWindowTitle("System / Component Wizard")
-
-
-class NewProductTypeWizard(QtWidgets.QWizard):
-    """
-    Wizard to assist in creating new Product Types.
-    """
-
-    def __init__(self, parent=None): 
-        super().__init__(parent=parent)
-        intro_label = QtWidgets.QLabel(
-                "<h2>Product Type Wizard</h2>"
-                "This wizard will assist you in creating new product "
-                "types, which enable grouping of products by their "
-                "common parameters and by the engineering disciplines "
-                "that define and use them.")
-
-        project_oid = state.get('project')
-        if project_oid:
-            proj = orb.get(project_oid)
-        else:
-            proj = None
-        self.project = proj
-        # 0. Identify Product
-        self.addPage(IdentificationPage(intro_label, parent=self))
-        # 3. Specify Parameter Values
-        #    * Mass
-        #    * Power
-        #    * Data Interface(s)
-        #    * Dimensions
-        #    * Image
-        #    * CAD Model
-        # self.addPage(ParametersPage(parent=self))
-        self.addPage(NewProductWizardConclusionPage(self))
-        self.setGeometry(50, 50, 800, 500)
-        self.setSizeGripEnabled(True)
-        self.setWindowTitle("Component Wizard")
-
-
-class ConceptWizard(QtWidgets.QWizard):
-    """
-    Wizard to assist in defining requirements and potential architectures and
-    components for a conceptual design.
-    """
-
-    def __init__(self, parent=None): 
-        super().__init__(parent=parent)
-        intro_label = QtWidgets.QLabel(
-                "<p/>Blah blah blah."
-                "<br>This wizard will assist in blah!")
-        self.addPage(IntroPage(intro_label, parent=self))
-        self.addPage(HeaderPage(parent=self))
-        # self.addPage(MetaDataPage(parent=self))
-        self.addPage(ConceptConclusionPage(self))
-        self.setGeometry(50, 50, 800, 500)
-        self.setSizeGripEnabled(True)
-        self.setWindowTitle("Concept Wizard")
-
-
-class IntroPage(QtWidgets.QWizardPage):
-    """
-    Generic wizard intro page.
+    Data Import Wizard intro page.
     """
     def __init__(self, intro_label, parent=None):
         super().__init__(parent=parent)
@@ -212,62 +110,58 @@ class IntroPage(QtWidgets.QWizardPage):
         self.setLayout(layout)
 
 
-#################################
-#  Data Import Wizard Pages
-#################################
-
-class DataSetPage(QtWidgets.QWizardPage):
+class DataSheetPage(QtWidgets.QWizardPage):
+    """
+    Page for selecting the sheet to import from an Excel file.
+    """
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         # only file type currently supported is 'excel' ...
-        file_path = wizard_state['file_path']
-        # TODO: test for file type ...
-        file_type = 'excel'
-        if file_type == 'excel':
+        fpath = wizard_state.get('file_path')
+        if fpath:
             self.setTitle('Sheets loaded from the file: '
                           '<font color="blue"><code>%s</code></font>'
-                          % os.path.basename(file_path))
+                          % os.path.basename(fpath))
             # self.setSubTitle("Select a sheet to import...")
             # import raw data from excel file
             self.datasets = {}
-            if file_path.endswith('.xls'):
-                self.datasets = get_raw_excel_data(file_path,
+            if fpath.endswith('.xls'):
+                self.datasets = get_raw_excel_data(fpath,
                                                    clear_empty_rows=False)
-            elif file_path.endswith('.xlsx'):
-                self.datasets = get_raw_xlsx_data(file_path,
+            elif fpath.endswith('.xlsx'):
+                self.datasets = get_raw_xlsx_data(fpath,
                                                   clear_empty_rows=False,
                                                   read_only=True)
-            datasets_list_label = QtWidgets.QLabel(
-                                        "<b>Select a sheet<br>to import:</b>")
-            # sheet list widget
-            self.sl_model = QtGui.QStandardItemModel(parent=self)
-            sheet_names = list(self.datasets.keys())
-            if sheet_names:
-                for name in sheet_names:
-                    self.sl_model.appendRow(QtGui.QStandardItem(name))
-            else:
-                self.sl_model.appendRow('None')
-            self.sheet_list_widget = AutosizingListView(self)
-            self.sheet_list_widget.setModel(self.sl_model)
-            self.sheet_list_widget.clicked.connect(self.on_select_dataset)
-            self.sheet_list_widget.setSelectionMode(
-                                    QtWidgets.QAbstractItemView.ExtendedSelection)
-            self.selection_model = self.sheet_list_widget.selectionModel()
-            self.selection_model.select(self.sl_model.createIndex(0, 0),
-                                    QtCore.QItemSelectionModel.ToggleCurrent)
-            self.vbox = QtWidgets.QVBoxLayout()
-            self.vbox.addWidget(datasets_list_label,
-                                alignment=Qt.AlignLeft|Qt.AlignTop)
-            self.vbox.addWidget(self.sheet_list_widget,
-                                alignment=Qt.AlignLeft|Qt.AlignTop)
-            self.vbox.setStretch(1, 1)
-            self.hbox = QtWidgets.QHBoxLayout()
-            self.hbox.addLayout(self.vbox)
-            self.set_dataset(sheet_names[0])
-            self.setLayout(self.hbox)
         else:
-            self.setTitle("Data Sets")
-            self.setSubTitle("Select the data set that you want to import...")
+            return
+        datasets_list_label = QtWidgets.QLabel(
+                                    "<b>Select a sheet<br>to import:</b>")
+        # sheet list widget
+        self.sl_model = QtGui.QStandardItemModel(parent=self)
+        sheet_names = list(self.datasets.keys())
+        if sheet_names:
+            for name in sheet_names:
+                self.sl_model.appendRow(QtGui.QStandardItem(name))
+        else:
+            self.sl_model.appendRow('None')
+        self.sheet_list_widget = AutosizingListView(self)
+        self.sheet_list_widget.setModel(self.sl_model)
+        self.sheet_list_widget.clicked.connect(self.on_select_dataset)
+        self.sheet_list_widget.setSelectionMode(
+                                QtWidgets.QAbstractItemView.ExtendedSelection)
+        self.selection_model = self.sheet_list_widget.selectionModel()
+        self.selection_model.select(self.sl_model.createIndex(0, 0),
+                                QtCore.QItemSelectionModel.ToggleCurrent)
+        self.vbox = QtWidgets.QVBoxLayout()
+        self.vbox.addWidget(datasets_list_label,
+                            alignment=Qt.AlignLeft|Qt.AlignTop)
+        self.vbox.addWidget(self.sheet_list_widget,
+                            alignment=Qt.AlignLeft|Qt.AlignTop)
+        self.vbox.setStretch(1, 1)
+        self.hbox = QtWidgets.QHBoxLayout()
+        self.hbox.addLayout(self.vbox)
+        self.set_dataset(sheet_names[0])
+        self.setLayout(self.hbox)
 
     def on_select_dataset(self, idx):
         row = idx.row()
@@ -284,7 +178,11 @@ class DataSetPage(QtWidgets.QWizardPage):
             wizard_state['dataset'] = self.datasets[dataset_name]
         if hasattr(self, 'tableview'):
             self.hbox.removeWidget(self.tableview)
-        tablemodel = ListTableModel(self.datasets[dataset_name], parent=self)
+            self.tableview.setAttribute(Qt.WA_DeleteOnClose)
+            self.tableview.parent = None
+            self.tableview.close()
+        tablemodel = ListTableModel(self.datasets[dataset_name],
+                                    parent=self)
         self.tableview = QtWidgets.QTableView(self)
         self.tableview.setModel(tablemodel)
         self.tableview.resizeColumnsToContents()
@@ -295,27 +193,7 @@ class DataSetPage(QtWidgets.QWizardPage):
         self.updateGeometry()
 
 
-class ObjectTypePage(QtWidgets.QWizardPage):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
-        self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                           QtWidgets.QSizePolicy.MinimumExpanding)
-        self.vbox = QtWidgets.QVBoxLayout()
-        self.hbox = QtWidgets.QHBoxLayout()
-        self.hbox.addLayout(self.vbox)
-
-    def initializePage(self):
-        self.setTitle('Select the Type of Objects to be created from Data')
-        self.object_type_cb = QtWidgets.QComboBox()
-        self.object_type_cb.addItem('HardwareProduct')
-        self.object_type_cb.addItem('Requirement')
-        if wizard_state.get('cname', None):
-            self.object_type_cb.setCurrentText(wizard_state['cname'])
-        self.vbox.addWidget(self.object_type_cb,
-                            alignment=Qt.AlignLeft|Qt.AlignTop)
-
-
-class HeaderPage(QtWidgets.QWizardPage):
+class DataHeaderPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.candidate_column_names = [] 
@@ -443,7 +321,46 @@ class HeaderPage(QtWidgets.QWizardPage):
             return False
 
 
+class DataObjectTypePage(QtWidgets.QWizardPage):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
+                           QtWidgets.QSizePolicy.MinimumExpanding)
+        self.vbox = QtWidgets.QVBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
+        hbox.addLayout(self.vbox)
+        self.setLayout(hbox)
+
+    def initializePage(self):
+        self.setTitle('Select the Type of Objects to be created from Data')
+        self.object_types = ['HardwareProduct', 'Requirement']
+        self.object_type_cb = QtWidgets.QComboBox()
+        self.object_type_cb.addItem('HardwareProduct')
+        self.object_type_cb.addItem('Requirement')
+        self.object_type_cb.activated.connect(self.on_select_type)
+        if wizard_state.get('cname', None):
+            self.object_type_cb.setCurrentText(wizard_state['cname'])
+            self.object_type = wizard_state['cname']
+        else:
+            self.object_type_cb.setCurrentText('HardwareProduct')
+            self.object_type = 'HardwareProduct'
+        orb.log.debug(f'* object type: "{self.object_type}"')
+        self.vbox.addWidget(self.object_type_cb,
+                            alignment=Qt.AlignLeft|Qt.AlignTop)
+
+    def on_select_type(self, index):
+        """
+        Handle selection of object type.
+        """
+        self.object_type = self.object_types[index]
+        orb.log.debug(f'* object type: "{self.object_type}"')
+
+
 class MetaDataPage(QtWidgets.QWizardPage):
+    """
+    Page to specify a mapping from the imported data columns into attributes of
+    the objects into which the data will be imported.
+    """
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         # TODO:  this page will:
@@ -517,8 +434,6 @@ class DataImportConclusionPage(QtWidgets.QWizardPage):
     def initializePage(self):
         # finishText = self.wizard().buttonText(QtWidgets.QWizard.FinishButton)
         # finishText.replace('&', '')
-        # TODO:  this will be on the MetaDataPage when that is implemented ...
-        # remove rows above the specified heading_row ...
         new_dataset = wizard_state['dataset'][wizard_state['heading_row']:]
         # include only the columns specified for import ...
         new_dataset = [[row[i] for i in wizard_state['column_numbers']]
@@ -548,6 +463,57 @@ class DataImportConclusionPage(QtWidgets.QWizardPage):
 #################################
 #  New Product Wizard Pages
 #################################
+
+class NewProductWizard(QtWidgets.QWizard):
+    """
+    Wizard to assist in creating new components (Products) and associated Models.
+    """
+
+    def __init__(self, parent=None): 
+        super().__init__(parent=parent)
+        orb.log.info('* opening Product Wizard ...')
+        self.setWizardStyle(QtWidgets.QWizard.ClassicStyle)
+        # the included buttons must be specified using setButtonLayout in order
+        # to get the "Back" button on Windows (it is automatically included on
+        # Linux but not on Windows)
+        included_buttons = [QtWidgets.QWizard.Stretch,
+                            QtWidgets.QWizard.BackButton,
+                            QtWidgets.QWizard.NextButton,
+                            QtWidgets.QWizard.FinishButton,
+                            QtWidgets.QWizard.CancelButton]
+        self.setButtonLayout(included_buttons)
+        self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
+        wizard_state['product_oid'] = None
+        intro_label = QtWidgets.QLabel(
+                "<h2>System / Component Wizard</h2>"
+                "This wizard will assist you in creating or editing systems "
+                "and components or subsystems!")
+        project_oid = state.get('project')
+        if project_oid:
+            proj = orb.get(project_oid)
+        else:
+            proj = None
+        self.project = proj
+        # 0. Identify Product
+        self.addPage(IdentificationPage(intro_label, parent=self))
+        # 1. Select Product Type
+        ### NOTE:  now using pgxnobject to select the product type
+        # self.addPage(ProductTypePage(parent=self))
+        # 2. Select Maturity Level (TRL)
+        self.addPage(MaturityLevelPage(parent=self))
+        # 3. Specify Interfaces and Parameter Values
+        #    * Mass
+        #    * Power
+        #    * Data Interface(s)
+        #    * Dimensions
+        #    * Image
+        #    * CAD Model
+        # self.addPage(ParametersPage(parent=self))
+        self.addPage(NewProductWizardConclusionPage(self))
+        self.setMinimumSize(800, 800)
+        self.setSizeGripEnabled(True)
+        self.setWindowTitle("System / Component Wizard")
+
 
 instructions = """
 <h3>Instructions</h3>
@@ -947,6 +913,39 @@ class NewProductWizardConclusionPage(QtWidgets.QWizardPage):
 #################################
 #  Concept Wizard Pages
 #################################
+
+class ConceptWizard(QtWidgets.QWizard):
+    """
+    Wizard to assist in defining top-level requirements and parameters for a
+    Mission or Instrument Concept.
+    """
+    def __init__(self, parent=None): 
+        super().__init__(parent=parent)
+        intro_label = QtWidgets.QLabel(
+                "<p/>Blah blah blah."
+                "<br>This wizard will assist in blah!")
+        self.addPage(ConceptIntroPage(intro_label, parent=self))
+        self.addPage(ConceptConclusionPage(self))
+        self.setGeometry(50, 50, 800, 500)
+        self.setSizeGripEnabled(True)
+        self.setWindowTitle("Concept Wizard")
+
+
+class ConceptIntroPage(QtWidgets.QWizardPage):
+    """
+    Intro page for Concept Wizard.
+    """
+    def __init__(self, intro_label, parent=None):
+        super().__init__(parent=parent)
+        self.setTitle("Introduction")
+        layout = QtWidgets.QHBoxLayout()
+        logo_path = config.get('tall_logo')
+        if logo_path:
+            image_path = os.path.join(orb.image_dir, logo_path)
+            layout.addWidget(PlaceHolder(image=image_path, parent=self))
+        layout.addWidget(intro_label)
+        self.setLayout(layout)
+
 
 class ConceptConclusionPage(object):
     pass
