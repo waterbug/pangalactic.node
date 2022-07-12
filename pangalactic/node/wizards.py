@@ -82,7 +82,6 @@ class DataImportWizard(QtWidgets.QWizard):
         self.addPage(DataIntroPage(intro_label, parent=self))
         self.addPage(DataSheetPage(parent=self))
         self.addPage(DataHeaderPage(parent=self))
-        self.addPage(DataObjectTypePage(parent=self))
         self.addPage(MetaDataPage(parent=self))
         self.addPage(DataImportConclusionPage(self))
         self.setGeometry(50, 50, width, height)
@@ -321,72 +320,139 @@ class DataHeaderPage(QtWidgets.QWizardPage):
             return False
 
 
-class DataObjectTypePage(QtWidgets.QWizardPage):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
-        self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                           QtWidgets.QSizePolicy.MinimumExpanding)
-        self.vbox = QtWidgets.QVBoxLayout()
-        hbox = QtWidgets.QHBoxLayout()
-        hbox.addLayout(self.vbox)
-        self.setLayout(hbox)
-
-    def initializePage(self):
-        self.setTitle('Select the Type of Objects to be created from Data')
-        self.object_types = ['HardwareProduct', 'Requirement']
-        self.object_type_cb = QtWidgets.QComboBox()
-        self.object_type_cb.addItem('HardwareProduct')
-        self.object_type_cb.addItem('Requirement')
-        self.object_type_cb.activated.connect(self.on_select_type)
-        if wizard_state.get('cname', None):
-            self.object_type_cb.setCurrentText(wizard_state['cname'])
-            self.object_type = wizard_state['cname']
-        else:
-            self.object_type_cb.setCurrentText('HardwareProduct')
-            self.object_type = 'HardwareProduct'
-        orb.log.debug(f'* object type: "{self.object_type}"')
-        self.vbox.addWidget(self.object_type_cb,
-                            alignment=Qt.AlignLeft|Qt.AlignTop)
-
-    def on_select_type(self, index):
-        """
-        Handle selection of object type.
-        """
-        self.object_type = self.object_types[index]
-        orb.log.debug(f'* object type: "{self.object_type}"')
-
-
 class MetaDataPage(QtWidgets.QWizardPage):
     """
-    Page to specify a mapping from the imported data columns into attributes of
-    the objects into which the data will be imported.
+    Page to specify the object type to map the data into and a mapping from the
+    data columns to attributes into which the data will be imported.
     """
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        # TODO:  this page will:
-        # [1]  provide a form for metadata about the dataset
-        # [2]  offer to map the dataset to a standard schema
-        # [3]  import the data into a database or create a db for it.
-        self.directions = QtWidgets.QLabel("<b>Metadata</b><br>"
-                                       "<hr>")
+        self.object_types = ['HardwareProduct', 'Requirement']
+        self.widgets_added = False
+        self.column_names = wizard_state.get('column_names') or []
+
+    def initializePage(self):
+        if self.widgets_added:
+            if self.column_names != wizard_state.get('column_names'):
+                # re-generate mapping area for the new column selections ...
+                if getattr(self, 'mapping_scrollarea', None):
+                    self.vbox.removeWidget(self.mapping_scrollarea)
+                    self.mapping_scrollarea.setAttribute(Qt.WA_DeleteOnClose)
+                    self.mapping_scrollarea.parent = None
+                    self.mapping_scrollarea.close()
+                    self.mapping_scrollarea = None
+                self.mapping_scrollarea = QtWidgets.QScrollArea()
+                self.mapping_scrollarea.setWidgetResizable(True)
+                self.mapping_scrollarea.setMinimumWidth(300)
+                mapping_container = QtWidgets.QWidget()
+                self.mapping_scrollarea.setWidget(mapping_container)
+                mapping_layout = QtWidgets.QGridLayout(mapping_container)
+                arrow_image = QtGui.QPixmap(os.path.join(
+                                                orb.home, 'icons', 'right_arrow.png'))
+                arrow_label = QtWidgets.QLabel()
+                arrow_label.setPixmap(arrow_image)
+                for i, name in enumerate(wizard_state['column_names']):
+                    col_label = QtWidgets.QLabel(f'<b>{name}</b>')
+                    col_label.setFixedWidth(100)
+                    col_label.setWordWrap(True)
+                    col_label.setStyleSheet('border: 1px solid black;')
+                    arrow_label = QtWidgets.QLabel()
+                    arrow_label.setFixedWidth(20)
+                    arrow_label.setPixmap(arrow_image)
+                    target_label = QtWidgets.QLabel('<p>      </p>')
+                    target_label.setFixedWidth(100)
+                    target_label.setStyleSheet('border: 1px solid black;')
+                    mapping_layout.addWidget(col_label, i, 0)
+                    mapping_layout.addWidget(arrow_label, i, 1)
+                    mapping_layout.addWidget(target_label, i, 2)
+                self.vbox.addWidget(self.mapping_scrollarea)
+                                    # alignment=Qt.AlignLeft|Qt.AlignTop)
+                self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
+        else:
+            self.add_widgets()
+
+    def add_widgets(self):
+        self.directions = QtWidgets.QLabel(
+                                "<h3>Directions:</h3>"
+                                "<ol><b>"
+                                "<li>Select target object type</li>"
+                                "<li>Map data columns to attributes</li>"
+                                "</ol></b><hr>")
         # set min. width so that when the column name checkboxes are added, the
         # panel is wide enough that no horizontal scroll bar appears ...
         self.directions.setMinimumWidth(200)
         self.vbox = QtWidgets.QVBoxLayout()
+        self.vbox.setSpacing(10)
         self.vbox.addWidget(self.directions,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
         self.hbox = QtWidgets.QHBoxLayout()
+        self.hbox.setSpacing(50)
         self.hbox.addLayout(self.vbox)
-
-    def initializePage(self):
+        self.setTitle('Data Mapping for <font color="blue">%s</font>'
+                      % wizard_state['dataset_name'])
+        self.vbox.addWidget(QtWidgets.QLabel(
+                        "<b>Select target object type</b>"),
+                        alignment=Qt.AlignLeft|Qt.AlignTop)
+        self.object_type_buttons = QtWidgets.QButtonGroup()
+        self.hw_button = QtWidgets.QRadioButton('HardwareProduct')
+        self.reqt_button = QtWidgets.QRadioButton('Requirement')
+        self.object_type_buttons.addButton(self.hw_button)
+        self.object_type_buttons.addButton(self.reqt_button)
+        if wizard_state.get('cname', None):
+            self.object_type = wizard_state['cname']
+        else:
+            self.object_type = 'HardwareProduct'
+        orb.log.debug(f'* object type: "{self.object_type}"')
+        if self.object_type == 'HardwareProduct':
+            self.hw_button.setChecked(True)
+        elif self.object_type == 'Requirement':
+            self.reqt_button.setChecked(True)
+        self.object_type_buttons.buttonClicked.connect(
+                                        self.on_set_object_type)
+        radio_button_layout = QtWidgets.QVBoxLayout()
+        radio_button_layout.addWidget(self.hw_button)
+        radio_button_layout.addWidget(self.reqt_button)
+        self.vbox.addLayout(radio_button_layout)
+        self.vbox.addWidget(QtWidgets.QLabel("<hr>"))
+        # mapping construction, using 3 vertical columns:
+        # (1) selected column names
+        # (2) empty labels into which the target attribute will be dropped
+        # (3) attributes of the target object type
+        self.mapping_scrollarea = QtWidgets.QScrollArea()
+        self.mapping_scrollarea.setWidgetResizable(True)
+        self.mapping_scrollarea.setMinimumWidth(300)
+        mapping_container = QtWidgets.QWidget()
+        self.mapping_scrollarea.setWidget(mapping_container)
+        mapping_layout = QtWidgets.QGridLayout(mapping_container)
+        arrow_image = QtGui.QPixmap(os.path.join(
+                                        orb.home, 'icons', 'right_arrow.png'))
+        arrow_label = QtWidgets.QLabel()
+        arrow_label.setPixmap(arrow_image)
+        for i, name in enumerate(wizard_state['column_names']):
+            col_label = QtWidgets.QLabel(f'<b>{name}</b>')
+            col_label.setFixedWidth(100)
+            col_label.setWordWrap(True)
+            col_label.setStyleSheet('border: 1px solid black;')
+            arrow_label = QtWidgets.QLabel()
+            arrow_label.setFixedWidth(20)
+            arrow_label.setPixmap(arrow_image)
+            target_label = QtWidgets.QLabel('<p>      </p>')
+            target_label.setFixedWidth(100)
+            target_label.setStyleSheet('border: 1px solid black;')
+            mapping_layout.addWidget(col_label, i, 0)
+            mapping_layout.addWidget(arrow_label, i, 1)
+            mapping_layout.addWidget(target_label, i, 2)
+        self.vbox.addWidget(self.mapping_scrollarea)
+                            # alignment=Qt.AlignLeft|Qt.AlignTop)
+        self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
+        # *******************************************************************
+        # Table displaying the selected dataset ...
+        # *******************************************************************
         # remove rows above the specified heading_row ...
         new_dataset = wizard_state['dataset'][wizard_state['heading_row']:]
         # include only the columns specified for import ...
         new_dataset = [[row[i] for i in wizard_state['column_numbers']]
                                              for row in new_dataset]
-        self.setTitle('Metadata for <font color="blue">%s</font>'
-                      % wizard_state['dataset_name'])
-        self.setSubTitle("Specify the type of each column ...")
         tablemodel = ListTableModel(new_dataset, parent=self)
         if hasattr(self, 'tableview'):
             self.tableview.setParent(None)
@@ -401,8 +467,18 @@ class MetaDataPage(QtWidgets.QWizardPage):
         row_header.sectionClicked.connect(self.on_row_header_clicked)
         self.hbox.addWidget(self.tableview, stretch=1,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
-        self.updateGeometry()
         self.setLayout(self.hbox)
+        self.updateGeometry()
+        self.widgets_added = True
+
+    def on_set_object_type(self):
+        """
+        Handle selection of object type.
+        """
+        b = self.object_type_buttons.checkedButton()
+        self.object_type = b.text()
+        wizard_state['cname'] = self.object_type
+        orb.log.debug(f'* object type: "{self.object_type}"')
 
     def on_row_clicked(self, idx):
         orb.log.debug('* wizard: row {} is selected'.format(idx.row()))
