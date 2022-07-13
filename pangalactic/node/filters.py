@@ -458,9 +458,9 @@ class FilterPanel(QWidget):
     """
 
     def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
-                 width=None, min_width=None, height=None, as_library=False,
-                 cname=None, external_filters=False, excluded_oids=None,
-                 word_wrap=False, parent=None):
+                 title='', width=None, min_width=None, height=None,
+                 as_library=False, cname=None, external_filters=False,
+                 excluded_oids=None, word_wrap=False, parent=None):
         """
         Initialize.
 
@@ -475,7 +475,8 @@ class FilterPanel(QWidget):
                 'field_names' (a list of strings) and 'fields', a dict that
                 maps each field name to a dict that contains 'definition' and
                 'range' (str of the field type).
-            label (str):  string to use for title
+            label (str):  string to incorporate in title
+            title (str):  string to use for title
             width (int):  width dialog widget will be initially resized to
             min_width (int):  minimum width of dialog widget
             as_library (bool):  (default: False) flag whether to act as library
@@ -619,13 +620,13 @@ class FilterPanel(QWidget):
         proxy_layout.addWidget(self.proxy_view, stretch=1)
         proxy_group_box = QGroupBox()
         proxy_group_box.setLayout(proxy_layout)
-        if as_library:
-            label += ' Library'
-        title = NameLabel(label)
-        title.setStyleSheet(
+        if not title and as_library:
+            title = label + ' Library'
+        title_widget = NameLabel(title)
+        title_widget.setStyleSheet(
             'font-weight: bold; font-size: 18px; color: purple')
         main_layout = QVBoxLayout()
-        main_layout.addWidget(title)
+        main_layout.addWidget(title_widget)
         main_layout.addWidget(proxy_group_box)
         self.setLayout(main_layout)
         self.setWindowTitle("Custom Sort/Filter Model")
@@ -891,9 +892,9 @@ class FilterPanel(QWidget):
 
 class FilterDialog(QDialog):
     def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
-                 width=None, min_width=None, height=None, as_library=False,
-                 cname=None, external_filters=False, excluded_oids=None,
-                 word_wrap=False, parent=None):
+                 title='', width=None, min_width=None, height=None,
+                 as_library=False, cname=None, external_filters=False,
+                 excluded_oids=None, word_wrap=False, parent=None):
         """
         Initialize.
 
@@ -908,7 +909,8 @@ class FilterDialog(QDialog):
                 'field_names' (a list of strings) and 'fields', a dict that
                 maps each field name to a dict that contains 'definition' and
                 'range' (str of the field type).
-            label (str):  string to use for title
+            label (str):  string to incorporate into title
+            title (str):  string to use for title
             width (int):  width dialog widget will be initially resized to
             min_width (int):  minimum width of dialog widget
             as_library (bool):  (default: False) flag whether to act as library
@@ -926,9 +928,10 @@ class FilterDialog(QDialog):
         """
         super().__init__(parent=parent)
         panel = FilterPanel(objs, schema=schema, view=view,
-                    sized_cols=sized_cols, label=label, width=width,
-                    min_width=min_width, height=height, as_library=as_library,
-                    cname=cname, external_filters=external_filters,
+                    sized_cols=sized_cols, label=label, title=title,
+                    width=width, min_width=min_width, height=height,
+                    as_library=as_library, cname=cname,
+                    external_filters=external_filters,
                     excluded_oids=excluded_oids, word_wrap=word_wrap,
                     parent=self)
         vbox = QVBoxLayout()

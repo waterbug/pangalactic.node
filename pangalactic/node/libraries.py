@@ -546,9 +546,9 @@ class LibraryDialog(QDialog):
     """
     Dialog containing a table or list of library items.
     """
-    def __init__(self, cname, include_subtypes=False, icon_size=None,
-                 tabular=True, prefilter=None, view=None, width=None,
-                 height=None, parent=None):
+    def __init__(self, cname, objs=None, include_subtypes=False,
+                 icon_size=None, tabular=True, prefilter=None, view=None,
+                 word_wrap=False, width=None, height=None, parent=None):
         """
         Initialize the library dialog.
 
@@ -556,10 +556,12 @@ class LibraryDialog(QDialog):
             cname (str):  class name of the library objects
 
         Keyword Args:
+            objs (list):  list of objects to include, rather than all
+                instances of the specified class
             include_subtypes (bool): flag, if True include subtypes
             icon_size (Qsize):  size of the icons to be used for library items
             tabular (bool):  if True [default]: table, else: list
-            prefilter (str):  filter to select the base libary objects
+            prefilter (str):  filter to select the base library objects
             view (list):  list of attributes/parameters to be used for columns
             parent (QWidget):  the library view's parent widget
         """
@@ -569,7 +571,8 @@ class LibraryDialog(QDialog):
         self.product_types = None
         self.cname = cname
         # TODO:  include_subtypes, prefilter ...
-        objs = orb.get_by_type(cname)
+        if not objs:
+            objs = orb.get_by_type(cname)
         label = get_external_name_plural(cname)
         if tabular:
             if self.cname == 'HardwareProduct':
@@ -590,7 +593,8 @@ class LibraryDialog(QDialog):
                     label = 'System and Component Templates'
                 self.setWindowTitle(label)
                 lib_view = FilterPanel(objs, view=view, as_library=True,
-                                       label=label, parent=self)
+                                       word_wrap=word_wrap, label=label,
+                                       parent=self)
             # only listen for these signals if using FilterPanel, which does
             # not itself listen for them; if using LibraryListView, it already
             # listens for them

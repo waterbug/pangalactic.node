@@ -20,12 +20,12 @@ from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
-from pangalactic.node.filters     import FilterPanel
+from pangalactic.node.filters     import FilterPanel, FilterDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
-from pangalactic.node.utils       import clone
-from pangalactic.node.widgets     import (AutosizingListView, NameLabel,
-                                          PlaceHolder, ValueLabel)
+from pangalactic.node.utils       import clone, extract_mime_data
+from pangalactic.node.widgets     import (AutosizingListView, ColorLabel,
+                                          NameLabel, PlaceHolder, ValueLabel)
 from functools import reduce
 
 # wizard_state keys:
@@ -46,6 +46,150 @@ class PrintLogger:
         print(txt)
     def debug(self, txt):
         print(txt)
+
+
+# TODO:  add "domain" to DataElementDefinition
+def get_dedef(property_name):
+    e = orb.registry.pes.get(property_name)
+    if e:
+        PGANA = orb.get('pgefobjects:PGANA')
+        dedef_oid = e['oid'] + '.DataElementDefinition'
+        dedef = orb.get(dedef_oid)
+        if not dedef:
+            DEDef = orb.classes['DataElementDefinition']
+            dedef = DEDef(oid=dedef_oid, id=e['id'], id_ns=e['id_ns'],
+                          name=e['name'], owner=PGANA,
+                          description=e['definition'],
+                          range_datatype=e['range'])
+        return dedef
+    else:
+        return None
+
+
+class PropertyDropLabel(ColorLabel):
+    """
+    A Label that represents a property (a DataElementDefinition or a
+    ParameterDefinition), for use in the DataImportWizard.  This label accepts
+    a drag/drop event: a dropped property replaces the property currently
+    referenced by the label and modifies the mapping accordingly.  It also has
+    a context menu with a 'delete' choice that deletes its referenced property.  
+    """
+    def __init__(self, idx, color=None, element=None, border=None, margin=None,
+                 parent=None, **kw):
+        """
+        Initialize.
+
+        Args:
+            idx (int): the index of this label in the sequence of labels
+                corresponding to the list of data columns to be mapped
+
+        Keyword Args:
+            color (str):  color to use for text
+            element (str):  html element to use for label
+            border (int):  thickness of border (default: no border)
+            margin (int):  width of margin surrounding contents
+            parent (QWidget):  parent widget
+        """
+        super().__init__('', color=color, element=element,
+                         border=border, margin=margin, parent=None)
+        self.setStyleSheet('background-color: white')
+        self.setAcceptDrops(True)
+        self.mime_types = ['application/x-pgef-data-element-definition',
+                           'application/x-pgef-parameter-definition']
+        self.idx = idx
+        self.dedef = None
+        self.setup_context_menu()
+        # dispatcher.connect(self.adjust_parent_size, 'dedef label resized')
+
+    def setup_context_menu(self):
+        delete_dedef_action = QtWidgets.QAction('Delete', self)
+        delete_dedef_action.triggered.connect(self.delete_dedef)
+        self.addAction(delete_dedef_action)
+        # self.setContextMenuPolicy(Qt.ActionsContextMenu)
+        self.menu = QtWidgets.QMenu(self)
+        self.menu.setStyleSheet(
+            'QMenu::item {color: purple; background: white;} '
+            'QMenu::item:selected {color: white; background: purple;}')
+        self.menu.addAction(delete_dedef_action)
+
+    def delete_dedef(self, event):
+        """
+        Remove a DataElementDefinition from the mapping.
+        """
+        if getattr(self, 'dedef', None):
+            self.dedef = None
+
+    # NOTE: probably unnecessary for this ...
+    # def adjust_parent_size(self):
+        # self.parent().adjustSize()
+        # dispatcher.send(signal='admin contents resized')
+
+    def mimeTypes(self):
+        """
+        Return MIME Types accepted for drops.
+        """
+        return self.mime_types
+
+    def supportedDropActions(self):
+        return Qt.CopyAction
+
+    def dragEnterEvent(self, event):
+        # orb.log.debug(f'* a drag entered label {self.idx} ...')
+        if (event.mimeData().hasFormat(
+                'application/x-pgef-data-element-definition')
+                or event.mimeData().hasFormat(
+                'application/x-pgef-parameter-definition')):
+            self.setStyleSheet('background-color: yellow')
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event):
+        self.setStyleSheet('background-color: white')
+        event.accept()
+
+    def dragMoveEvent(self, event):
+        if (event.mimeData().hasFormat(
+                'application/x-pgef-data-element-definition')
+                or event.mimeData().hasFormat(
+                'application/x-pgef-parameter-definition')):
+            event.setDropAction(Qt.CopyAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def contextMenuEvent(self, event):
+        if self.menu:
+            self.menu.exec_(self.mapToGlobal(event.pos()))
+
+    def dropEvent(self, event):
+        """
+        Handle drop events (map the corresponding column from the input data to
+        this DataElementDefinition).  Note that this will remove the
+        DataElementDefinition object currently associated with the label from
+        the mapping and add the dropped one to the mapping.
+        """
+        orb.log.debug(f'* label {self.idx} got a drop ...')
+        if event.mimeData().hasFormat(
+                                'application/x-pgef-data-element-definition'):
+            data = extract_mime_data(event,
+                                'application/x-pgef-data-element-definition')
+            icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
+            self.dedef = orb.get(dedef_oid)
+            self.setText(dedef_id)
+            self.adjustSize()
+            dispatcher.send(signal='dedef label resized')
+        elif event.mimeData().hasFormat(
+                                'application/x-pgef-parameter-definition'):
+            data = extract_mime_data(event,
+                                'application/x-pgef-parameter-definition')
+            icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
+            self.dedef = orb.get(dedef_oid)
+            self.setText(dedef_id)
+            self.adjustSize()
+            dispatcher.send(signal='dedef label resized')
+        else:
+            event.ignore()
 
 
 #################################
@@ -328,6 +472,7 @@ class MetaDataPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.object_types = ['HardwareProduct', 'Requirement']
+        self.object_type = ''
         self.widgets_added = False
         self.column_names = wizard_state.get('column_names') or []
 
@@ -359,9 +504,9 @@ class MetaDataPage(QtWidgets.QWizardPage):
                     arrow_label = QtWidgets.QLabel()
                     arrow_label.setFixedWidth(20)
                     arrow_label.setPixmap(arrow_image)
-                    target_label = QtWidgets.QLabel('<p>      </p>')
-                    target_label.setFixedWidth(100)
-                    target_label.setStyleSheet('border: 1px solid black;')
+                    target_label = PropertyDropLabel(i, margin=2, border=1)
+                    # target_label.setFixedWidth(100)
+                    # target_label.setStyleSheet('border: 1px solid black;')
                     mapping_layout.addWidget(col_label, i, 0)
                     mapping_layout.addWidget(arrow_label, i, 1)
                     mapping_layout.addWidget(target_label, i, 2)
@@ -398,15 +543,15 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.reqt_button = QtWidgets.QRadioButton('Requirement')
         self.object_type_buttons.addButton(self.hw_button)
         self.object_type_buttons.addButton(self.reqt_button)
-        if wizard_state.get('cname', None):
-            self.object_type = wizard_state['cname']
-        else:
-            self.object_type = 'HardwareProduct'
-        orb.log.debug(f'* object type: "{self.object_type}"')
-        if self.object_type == 'HardwareProduct':
-            self.hw_button.setChecked(True)
-        elif self.object_type == 'Requirement':
-            self.reqt_button.setChecked(True)
+        # if wizard_state.get('cname', None):
+            # self.object_type = wizard_state['cname']
+        # else:
+            # self.object_type = 'HardwareProduct'
+        # orb.log.debug(f'* object type: "{self.object_type}"')
+        # if self.object_type == 'HardwareProduct':
+            # self.hw_button.setChecked(True)
+        # elif self.object_type == 'Requirement':
+            # self.reqt_button.setChecked(True)
         self.object_type_buttons.buttonClicked.connect(
                                         self.on_set_object_type)
         radio_button_layout = QtWidgets.QVBoxLayout()
@@ -436,9 +581,9 @@ class MetaDataPage(QtWidgets.QWizardPage):
             arrow_label = QtWidgets.QLabel()
             arrow_label.setFixedWidth(20)
             arrow_label.setPixmap(arrow_image)
-            target_label = QtWidgets.QLabel('<p>      </p>')
-            target_label.setFixedWidth(100)
-            target_label.setStyleSheet('border: 1px solid black;')
+            target_label = PropertyDropLabel(i, margin=2, border=1)
+            # target_label.setFixedWidth(100)
+            # target_label.setStyleSheet('border: 1px solid black;')
             mapping_layout.addWidget(col_label, i, 0)
             mapping_layout.addWidget(arrow_label, i, 1)
             mapping_layout.addWidget(target_label, i, 2)
@@ -479,6 +624,21 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.object_type = b.text()
         wizard_state['cname'] = self.object_type
         orb.log.debug(f'* object type: "{self.object_type}"')
+        objs = []
+        for fname in orb.schemas[self.object_type]['field_names']:
+            objs.append(get_dedef(fname))
+        gsfc_dedefs = orb.search_exact(cname='DataElementDefinition',
+                                       id_ns='gsfc.mel')
+        if gsfc_dedefs:
+            objs.append(gsfc_dedefs)
+        objs += orb.get_by_type('ParameterDefinition')
+        dlg = FilterDialog(objs=objs, as_library=True,
+                           title=f'Properties of {self.object_type}',
+                           sized_cols={'id': 0, 'range_datatype': 0},
+                           view=['id', 'range_datatype'],
+                           height=self.geometry().height(),
+                           width=450, parent=self)
+        dlg.show()
 
     def on_row_clicked(self, idx):
         orb.log.debug('* wizard: row {} is selected'.format(idx.row()))

@@ -38,21 +38,24 @@ class RADropLabel(ColorLabel):
     the label and modifies the RoleAssignment accordingly.  It also has a
     context menu with a 'delete' choice that deletes its referenced
     RoleAssignment.  
-
-    Args:
-        name (str):  label text
-        ra (RoleAssignment):  the RoleAssignment object
-
-    Keyword Args:
-        color (str):  color to use for text
-        element (str):  html element to use for label
-        border (int):  thickness of border (default: no border)
-        margin (int):  width of margin surrounding contents
-        mime (str):  mime type of dropped objects to be accepted
-        parent (QWidget):  parent widget
     """
     def __init__(self, name, ra, color=None, element=None, border=None,
                  margin=None, mime=None, parent=None, **kw):
+        """
+        Initialize.
+
+        Args:
+            name (str):  label text
+            ra (RoleAssignment):  the RoleAssignment object
+
+        Keyword Args:
+            color (str):  color to use for text
+            element (str):  html element to use for label
+            border (int):  thickness of border (default: no border)
+            margin (int):  width of margin surrounding contents
+            mime (str):  mime type of dropped objects to be accepted
+            parent (QWidget):  parent widget
+        """
         super().__init__(name, color=color, element=element,
                                           border=border, margin=margin,
                                           parent=None)
