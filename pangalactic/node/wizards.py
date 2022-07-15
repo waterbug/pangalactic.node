@@ -4,6 +4,7 @@ Wizards
 """
 import os
 from collections import OrderedDict as OD
+from textwrap import wrap
 
 from PyQt5 import QtGui, QtWidgets, QtCore
 from PyQt5.QtCore import Qt
@@ -20,6 +21,7 @@ from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
+from pangalactic.node.buttons     import CheckButtonLabel
 from pangalactic.node.filters     import FilterPanel, FilterDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
@@ -98,6 +100,10 @@ class PropertyDropLabel(ColorLabel):
         """
         super().__init__('', color=color, element=element,
                          border=border, margin=margin, parent=None)
+        self.color = color
+        self.element = element
+        self.border = border
+        self.margin = margin
         self.setStyleSheet('background-color: white')
         self.setAcceptDrops(True)
         self.mime_types = ['application/x-pgef-data-element-definition',
@@ -106,6 +112,18 @@ class PropertyDropLabel(ColorLabel):
         self.dedef = None
         self.setup_context_menu()
         # dispatcher.connect(self.adjust_parent_size, 'dedef label resized')
+
+    def set_content(self, name, color=None, element=None, border=None,
+                    margin=None, parent=None):
+        self.name = name
+        self.color = color or 'purple'
+        self.element = getattr(self, 'element', None) or element
+        self.border = getattr(self, 'border', None) or border
+        self.margin = getattr(self, 'margin', None) or margin
+        super().set_content(self.name, color=self.color, element=self.element,
+                            border=self.border, margin=self.margin) 
+        if self.name:
+            self.setStyleSheet('background-color: yellow')
 
     def setup_context_menu(self):
         delete_dedef_action = QtWidgets.QAction('Delete', self)
@@ -124,6 +142,9 @@ class PropertyDropLabel(ColorLabel):
         """
         if getattr(self, 'dedef', None):
             self.dedef = None
+        if self.text():
+            self.setText('')
+            self.setStyleSheet('background-color: white')
 
     # NOTE: probably unnecessary for this ...
     # def adjust_parent_size(self):
@@ -182,7 +203,8 @@ class PropertyDropLabel(ColorLabel):
                                 'application/x-pgef-data-element-definition')
             icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
             self.dedef = orb.get(dedef_oid)
-            self.setText(dedef_id)
+            self.set_content(dedef_id)
+            self.setStyleSheet('background-color: yellow')
             self.adjustSize()
             dispatcher.send(signal='dedef drop', dedef_id=dedef_id,
                             idx=self.idx)
@@ -192,11 +214,13 @@ class PropertyDropLabel(ColorLabel):
                                 'application/x-pgef-parameter-definition')
             icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
             self.dedef = orb.get(dedef_oid)
-            self.setText(dedef_id)
+            self.set_content(dedef_id)
+            self.setStyleSheet('background-color: yellow')
             self.adjustSize()
             dispatcher.send(signal='dedef drop', dedef_id=dedef_id,
                             idx=self.idx)
         else:
+            self.setStyleSheet('background-color: white')
             event.ignore()
 
 
@@ -227,9 +251,9 @@ class DataImportWizard(QtWidgets.QWizard):
         self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
         data_wizard_state['column_mapping'] = {}
         data_wizard_state['file_path'] = file_path
-        txt = '<p/>You have selected the file<br>'
+        txt = '<h2>You have selected the file<br>'
         txt += f'<font color="green"><b>&lt;{file_path}&gt;</b></font>.<br>'
-        txt += 'This wizard will assist in importing data ...'
+        txt += 'This wizard will assist in importing data ...</h2>'
         intro_label = QtWidgets.QLabel(txt)
         intro_label.setWordWrap(False)
         self.addPage(DataIntroPage(intro_label, parent=self))
@@ -271,9 +295,9 @@ class DataSheetPage(QtWidgets.QWizardPage):
         # only file type currently supported is 'excel' ...
         fpath = data_wizard_state.get('file_path')
         if fpath:
+            fname = os.path.basename(fpath)
             self.setTitle('Sheets loaded from the file: '
-                          '<font color="blue"><code>%s</code></font>'
-                          % os.path.basename(fpath))
+                          f'<font color="blue"><code>{fname}</code></font>')
             # self.setSubTitle("Select a sheet to import...")
             # import raw data from excel file
             self.datasets = {}
@@ -286,8 +310,14 @@ class DataSheetPage(QtWidgets.QWizardPage):
                                                   read_only=True)
         else:
             return
-        datasets_list_label = QtWidgets.QLabel(
-                                    "<b>Select a sheet<br>to import:</b>")
+        # datasets_list_label = QtWidgets.QLabel(
+                                    # '<font color="green">'
+                                    # "<h3>Select a sheet<br>to import:"
+                                    # "</font></h3>")
+        datasets_list_label = ColorLabel(
+                                    "Select a sheet to import:",
+                                    color="green", element='h3',
+                                    border=1, margin=10)
         # sheet list widget
         self.sl_model = QtGui.QStandardItemModel(parent=self)
         sheet_names = list(self.datasets.keys())
@@ -352,10 +382,11 @@ class DataHeaderPage(QtWidgets.QWizardPage):
         data_wizard_state['heading_row'] = 0
         data_wizard_state['column_names'] = []
         data_wizard_state['column_numbers'] = []
-        self.directions = QtWidgets.QLabel("<b>Click on the row<br>"
-                                       "that contains<br>"
-                                       "the column names...</b><br>"
-                                       "<hr>")
+        self.directions = ColorLabel('Click on the row<br>'
+                                     'that contains<br>'
+                                     'the column names...',
+                                     color="green", element='h3',
+                                     border=1, margin=10)
         # set min. width so that when the column name checkboxes are added, the
         # panel is wide enough that no horizontal scroll bar appears ...
         self.directions.setMinimumWidth(200)
@@ -400,9 +431,15 @@ class DataHeaderPage(QtWidgets.QWizardPage):
         """
         self.candidate_column_names = data_wizard_state['dataset'][row] 
         data_wizard_state['heading_row'] = row
-        self.directions.setText("<b>Select the columns<br>"
-                                "to be imported:</b><br>"
-                                "<hr>")
+        # self.directions.setText(
+                    # '<font color="green">'
+                    # '<h3>Select the row that contains<br>'
+                    # 'the columns to be imported:</h3></font>'
+                    # '<hr>')
+        self.directions.set_content(
+                    'Select the columns<br>to be imported:',
+                    color="green", element='h3',
+                    border=1, margin=10)
         # if there are checkboxes from a previous call, remove them ...
         if hasattr(self, 'cb_layout'):
             for i in reversed(list(range(self.cb_layout.count()))):
@@ -411,6 +448,7 @@ class DataHeaderPage(QtWidgets.QWizardPage):
             self.cb_container.setParent(None)
             self.cb_scrollarea.setParent(None)
         self.cbs = []
+        self.cb_labels = {}
         self.cb_scrollarea = QtWidgets.QScrollArea()
         self.cb_scrollarea.setWidgetResizable(True)
         self.cb_container = QtWidgets.QWidget()
@@ -427,9 +465,25 @@ class DataHeaderPage(QtWidgets.QWizardPage):
             cb = QtWidgets.QCheckBox()
             cb.clicked.connect(self.completeChanged)
             cb.clicked.connect(self.on_check_cb)
-            cb_label = QtWidgets.QLabel(name)
+            if i in data_wizard_state['column_numbers']:
+                cb.setChecked(True)
+            height = 25
+            label_text = name
+            if not name:
+                label_text = '[no name]'
+            elif len(name) > 15:
+                wrapped_lines = wrap(name, width=15, break_long_words=False)
+                label_text = '\n'.join(wrapped_lines)
+                height = len(wrapped_lines) * 25
+            cb_label = CheckButtonLabel(label_text, h=height, w=300)
+            cb_label.setChecked(False)
+            if name in data_wizard_state['column_names']:
+                cb_label.setChecked(True)
+            cb_label.clicked.connect(self.on_click_label)
+            cb_label.clicked.connect(self.completeChanged)
             cb_label.setFixedWidth(100)
-            cb_label.setWordWrap(True)
+            self.cb_labels[name] = cb_label
+            # cb_label.setWordWrap(True)
             self.cbs.append(cb)
             self.cb_layout.addWidget(cb, i+1, 0)
             self.cb_layout.addWidget(cb_label, i+1, 1)
@@ -446,13 +500,31 @@ class DataHeaderPage(QtWidgets.QWizardPage):
                 cb.setChecked(False)
         self.on_check_cb()
 
+    def on_click_label(self):
+        for i, name in enumerate(self.candidate_column_names):
+            if self.cb_labels.get(name):
+                if self.cb_labels[name].isChecked():
+                    self.cb_labels[name].setStyleSheet(
+                            'color: purple; background-color: yellow; '
+                            'border: 1px solid black;')
+                    self.cbs[i+1].setChecked(True)
+                else:
+                    self.cb_labels[name].setStyleSheet(
+                            'color: purple; background-color: white; '
+                            'border: 1px solid black;')
+                    self.cbs[i+1].setChecked(False)
+        self.on_check_cb()
+
     def on_check_cb(self):
         data_wizard_state['column_names'] = []
         data_wizard_state['column_numbers'] = []
-        for i in range(len(self.candidate_column_names)):
+        for i, name in enumerate(self.candidate_column_names):
             if self.cbs[i+1].isChecked():
+                self.cb_labels[name].setChecked(True)
                 data_wizard_state['column_names'].append(self.candidate_column_names[i])
                 data_wizard_state['column_numbers'].append(i)
+            else:
+                self.cb_labels[name].setChecked(False)
         orb.log.debug('* wizard: selected columns:')
         for i, n in zip(data_wizard_state['column_numbers'],
                         data_wizard_state['column_names']):
@@ -518,7 +590,7 @@ class MetaDataPage(QtWidgets.QWizardPage):
                     arrow_label.setPixmap(arrow_image)
                     target_label = PropertyDropLabel(i, margin=2, border=1)
                     if col_map and col_map.get(name):
-                        target_label.setText(col_map[name])
+                        target_label.set_content(col_map[name])
                     # target_label.setFixedWidth(100)
                     # target_label.setStyleSheet('border: 1px solid black;')
                     mapping_layout.addWidget(col_label, i, 0)
@@ -531,12 +603,21 @@ class MetaDataPage(QtWidgets.QWizardPage):
             self.add_widgets()
 
     def add_widgets(self):
-        self.directions = QtWidgets.QLabel(
-                                "<h3>Directions:</h3>"
-                                "<ol><b>"
-                                "<li>Select target object type</li>"
-                                "<li>Map data columns to attributes</li>"
-                                "</ol></b><hr>")
+        # self.directions = QtWidgets.QLabel(
+                                # '<font color="green">'
+                                # '<h3>Directions:'
+                                # '<ol>'
+                                # '<li>Select target object type</li>'
+                                # '<li>Map data columns to attributes</li>'
+                                # '</ol></h3></font><hr>')
+        self.directions = ColorLabel(
+                                # 'Directions:'
+                                '<ol>'
+                                '<li>Select the target object type</li>'
+                                '<li>Map column names to object attributes</li>'
+                                '</ol>',
+                                color="green", element='h3',
+                                border=1, margin=10)
         # set min. width so that when the column name checkboxes are added, the
         # panel is wide enough that no horizontal scroll bar appears ...
         self.directions.setMinimumWidth(200)
@@ -591,7 +672,7 @@ class MetaDataPage(QtWidgets.QWizardPage):
             arrow_label.setPixmap(arrow_image)
             target_label = PropertyDropLabel(i, margin=2, border=1)
             if col_map and col_map.get(name):
-                target_label.setText(col_map[name])
+                target_label.set_content(col_map[name], color="purple")
             # target_label.setFixedWidth(100)
             # target_label.setStyleSheet('border: 1px solid black;')
             mapping_layout.addWidget(col_label, i, 0)

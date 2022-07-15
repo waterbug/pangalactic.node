@@ -113,6 +113,7 @@ class ColorLabel(QLabel):
     def __init__(self, name, color=None, element=None, border=None,
                  margin=0, parent=None):
         super().__init__(margin=margin, parent=parent)
+        self.name = name
         self.set_content(name, color=color, element=element, border=border,
                          margin=margin)
 
@@ -138,6 +139,9 @@ class ColorLabel(QLabel):
         hint = self.sizeHint()
         if hint.isValid():
             self.setMinimumSize(hint)
+
+    def get_content(self):
+        return self.name
 
 
 class NameLabel(QLabel):

@@ -80,6 +80,54 @@ class ButtonLabel(QPushButton):
                            'border: 1px solid black;')
 
 
+class CheckButtonLabel(QPushButton):
+    """
+    A checkable button with specifiable minimum size.
+    """
+    def __init__(self, value, w=None, h=None, parent=None):
+        """
+        Args:
+            value (str):  text for the button label
+
+        Keyword Args:
+            w (int):  minimum width of the button
+            h (int):  minimum height of the button
+            parent (QWidget): parent widget
+        """
+        super().__init__(value, parent=parent)
+        self.setFlat(True)
+        self.setCheckable(True)
+        width = w or 200
+        height = h or 25
+        self.setMinimumSize(QSize(width, height))
+        self.setStyleSheet('color: purple; background-color: white; '
+                           'border: 1px solid black;')
+
+    def keyPressEvent(self, event):
+        if self.isChecked():
+            self.setStyleSheet('color: purple; background-color: yellow; '
+                               'border: 1px solid black;')
+        else:
+            self.setStyleSheet('color: purple; background-color: white; '
+                               'border: 1px solid black;')
+
+    def enterEvent(self, event):
+        if self.isChecked():
+            self.setStyleSheet('color: purple; background-color: yellow; '
+                               'border: 2px solid purple;')
+        else:
+            self.setStyleSheet('color: purple; background-color: white; '
+                               'border: 2px solid purple;')
+
+    def leaveEvent(self, event):
+        if self.isChecked():
+            self.setStyleSheet('color: purple; background-color: yellow; '
+                               'border: 1px solid black;')
+        else:
+            self.setStyleSheet('color: purple; background-color: white; '
+                               'border: 1px solid black;')
+
+
 class SizedButton(QPushButton):
 
     def __init__(self, text, color='purple', parent=None):
