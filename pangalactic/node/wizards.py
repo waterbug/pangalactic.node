@@ -28,15 +28,21 @@ from pangalactic.node.widgets     import (AutosizingListView, ColorLabel,
                                           NameLabel, PlaceHolder, ValueLabel)
 from functools import reduce
 
-# wizard_state keys:
+# data wizard_state keys:
 #   - file_path
 #   - dataset_name
 #   - dataset
 #   - heading_row
 #   - column_names
 #   - column_numbers
+#   - column_mapping (dict)
+
+data_wizard_state = {}
+
+# new product wizard_state keys:
 #   - product
-#   - product_type
+#   - product_oid
+#   - trl
 
 wizard_state = {}
 
@@ -178,7 +184,8 @@ class PropertyDropLabel(ColorLabel):
             self.dedef = orb.get(dedef_oid)
             self.setText(dedef_id)
             self.adjustSize()
-            dispatcher.send(signal='dedef label resized')
+            dispatcher.send(signal='dedef drop', dedef_id=dedef_id,
+                            idx=self.idx)
         elif event.mimeData().hasFormat(
                                 'application/x-pgef-parameter-definition'):
             data = extract_mime_data(event,
@@ -187,7 +194,8 @@ class PropertyDropLabel(ColorLabel):
             self.dedef = orb.get(dedef_oid)
             self.setText(dedef_id)
             self.adjustSize()
-            dispatcher.send(signal='dedef label resized')
+            dispatcher.send(signal='dedef drop', dedef_id=dedef_id,
+                            idx=self.idx)
         else:
             event.ignore()
 
@@ -217,7 +225,8 @@ class DataImportWizard(QtWidgets.QWizard):
                             QtWidgets.QWizard.CancelButton]
         self.setButtonLayout(included_buttons)
         self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
-        wizard_state['file_path'] = file_path
+        data_wizard_state['column_mapping'] = {}
+        data_wizard_state['file_path'] = file_path
         txt = '<p/>You have selected the file<br>'
         txt += f'<font color="green"><b>&lt;{file_path}&gt;</b></font>.<br>'
         txt += 'This wizard will assist in importing data ...'
@@ -260,7 +269,7 @@ class DataSheetPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         # only file type currently supported is 'excel' ...
-        fpath = wizard_state.get('file_path')
+        fpath = data_wizard_state.get('file_path')
         if fpath:
             self.setTitle('Sheets loaded from the file: '
                           '<font color="blue"><code>%s</code></font>'
@@ -313,12 +322,12 @@ class DataSheetPage(QtWidgets.QWizardPage):
         self.set_dataset(dataset_name)
 
     def set_dataset(self, dataset_name):
-        current = wizard_state.get('dataset_name')
+        current = data_wizard_state.get('dataset_name')
         if current and (current == dataset_name):
             return
         else:
-            wizard_state['dataset_name'] = str(dataset_name)
-            wizard_state['dataset'] = self.datasets[dataset_name]
+            data_wizard_state['dataset_name'] = str(dataset_name)
+            data_wizard_state['dataset'] = self.datasets[dataset_name]
         if hasattr(self, 'tableview'):
             self.hbox.removeWidget(self.tableview)
             self.tableview.setAttribute(Qt.WA_DeleteOnClose)
@@ -340,9 +349,9 @@ class DataHeaderPage(QtWidgets.QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.candidate_column_names = [] 
-        wizard_state['heading_row'] = 0
-        wizard_state['column_names'] = []
-        wizard_state['column_numbers'] = []
+        data_wizard_state['heading_row'] = 0
+        data_wizard_state['column_names'] = []
+        data_wizard_state['column_numbers'] = []
         self.directions = QtWidgets.QLabel("<b>Click on the row<br>"
                                        "that contains<br>"
                                        "the column names...</b><br>"
@@ -359,9 +368,10 @@ class DataHeaderPage(QtWidgets.QWizardPage):
     def initializePage(self):
         # TODO:  check self.vbox for a column listing from a previous
         # instantiation -- if one is found, remove it ...
-        self.setTitle('Column Headings for <font color="blue">%s</font>'
-                      % wizard_state['dataset_name'])
-        tablemodel = ListTableModel(wizard_state['dataset'], parent=self)
+        ds_name = data_wizard_state["dataset_name"]
+        self.setTitle(
+            f'Column Headings for <font color="blue">{ds_name}</font>')
+        tablemodel = ListTableModel(data_wizard_state['dataset'], parent=self)
         if hasattr(self, 'tableview'):
             self.tableview.setParent(None)
         self.tableview = QtWidgets.QTableView(self)
@@ -388,8 +398,8 @@ class DataHeaderPage(QtWidgets.QWizardPage):
         """
         Get data contents of row that is specified to contain column names.
         """
-        self.candidate_column_names = wizard_state['dataset'][row] 
-        wizard_state['heading_row'] = row
+        self.candidate_column_names = data_wizard_state['dataset'][row] 
+        data_wizard_state['heading_row'] = row
         self.directions.setText("<b>Select the columns<br>"
                                 "to be imported:</b><br>"
                                 "<hr>")
@@ -437,15 +447,15 @@ class DataHeaderPage(QtWidgets.QWizardPage):
         self.on_check_cb()
 
     def on_check_cb(self):
-        wizard_state['column_names'] = []
-        wizard_state['column_numbers'] = []
+        data_wizard_state['column_names'] = []
+        data_wizard_state['column_numbers'] = []
         for i in range(len(self.candidate_column_names)):
             if self.cbs[i+1].isChecked():
-                wizard_state['column_names'].append(self.candidate_column_names[i])
-                wizard_state['column_numbers'].append(i)
+                data_wizard_state['column_names'].append(self.candidate_column_names[i])
+                data_wizard_state['column_numbers'].append(i)
         orb.log.debug('* wizard: selected columns:')
-        for i, n in zip(wizard_state['column_numbers'],
-                        wizard_state['column_names']):
+        for i, n in zip(data_wizard_state['column_numbers'],
+                        data_wizard_state['column_names']):
             orb.log.debug('  * [{}] {}'.format(i, n))
 
     def isComplete(self):
@@ -474,11 +484,12 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.object_types = ['HardwareProduct', 'Requirement']
         self.object_type = ''
         self.widgets_added = False
-        self.column_names = wizard_state.get('column_names') or []
+        self.column_names = data_wizard_state.get('column_names') or []
+        dispatcher.connect(self.on_dedef_drop, 'dedef drop')
 
     def initializePage(self):
         if self.widgets_added:
-            if self.column_names != wizard_state.get('column_names'):
+            if self.column_names != data_wizard_state.get('column_names'):
                 # re-generate mapping area for the new column selections ...
                 if getattr(self, 'mapping_scrollarea', None):
                     self.vbox.removeWidget(self.mapping_scrollarea)
@@ -496,7 +507,8 @@ class MetaDataPage(QtWidgets.QWizardPage):
                                                 orb.home, 'icons', 'right_arrow.png'))
                 arrow_label = QtWidgets.QLabel()
                 arrow_label.setPixmap(arrow_image)
-                for i, name in enumerate(wizard_state['column_names']):
+                col_map = data_wizard_state.get('column_mapping') or {}
+                for i, name in enumerate(data_wizard_state['column_names']):
                     col_label = QtWidgets.QLabel(f'<b>{name}</b>')
                     col_label.setFixedWidth(100)
                     col_label.setWordWrap(True)
@@ -505,6 +517,8 @@ class MetaDataPage(QtWidgets.QWizardPage):
                     arrow_label.setFixedWidth(20)
                     arrow_label.setPixmap(arrow_image)
                     target_label = PropertyDropLabel(i, margin=2, border=1)
+                    if col_map and col_map.get(name):
+                        target_label.setText(col_map[name])
                     # target_label.setFixedWidth(100)
                     # target_label.setStyleSheet('border: 1px solid black;')
                     mapping_layout.addWidget(col_label, i, 0)
@@ -534,7 +548,7 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.hbox.setSpacing(50)
         self.hbox.addLayout(self.vbox)
         self.setTitle('Data Mapping for <font color="blue">%s</font>'
-                      % wizard_state['dataset_name'])
+                      % data_wizard_state['dataset_name'])
         self.vbox.addWidget(QtWidgets.QLabel(
                         "<b>Select target object type</b>"),
                         alignment=Qt.AlignLeft|Qt.AlignTop)
@@ -543,15 +557,6 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.reqt_button = QtWidgets.QRadioButton('Requirement')
         self.object_type_buttons.addButton(self.hw_button)
         self.object_type_buttons.addButton(self.reqt_button)
-        # if wizard_state.get('cname', None):
-            # self.object_type = wizard_state['cname']
-        # else:
-            # self.object_type = 'HardwareProduct'
-        # orb.log.debug(f'* object type: "{self.object_type}"')
-        # if self.object_type == 'HardwareProduct':
-            # self.hw_button.setChecked(True)
-        # elif self.object_type == 'Requirement':
-            # self.reqt_button.setChecked(True)
         self.object_type_buttons.buttonClicked.connect(
                                         self.on_set_object_type)
         radio_button_layout = QtWidgets.QVBoxLayout()
@@ -559,10 +564,12 @@ class MetaDataPage(QtWidgets.QWizardPage):
         radio_button_layout.addWidget(self.reqt_button)
         self.vbox.addLayout(radio_button_layout)
         self.vbox.addWidget(QtWidgets.QLabel("<hr>"))
-        # mapping construction, using 3 vertical columns:
+        # mapping construction, using 2 vertical columns:
         # (1) selected column names
         # (2) empty labels into which the target attribute will be dropped
-        # (3) attributes of the target object type
+        #
+        # - attributes of the target object type are brought up in a separate
+        # dialog, from which they can be dragged/dropped onto the empty labels
         self.mapping_scrollarea = QtWidgets.QScrollArea()
         self.mapping_scrollarea.setWidgetResizable(True)
         self.mapping_scrollarea.setMinimumWidth(300)
@@ -573,7 +580,8 @@ class MetaDataPage(QtWidgets.QWizardPage):
                                         orb.home, 'icons', 'right_arrow.png'))
         arrow_label = QtWidgets.QLabel()
         arrow_label.setPixmap(arrow_image)
-        for i, name in enumerate(wizard_state['column_names']):
+        col_map = data_wizard_state.get('column_mapping') or {}
+        for i, name in enumerate(data_wizard_state['column_names']):
             col_label = QtWidgets.QLabel(f'<b>{name}</b>')
             col_label.setFixedWidth(100)
             col_label.setWordWrap(True)
@@ -582,6 +590,8 @@ class MetaDataPage(QtWidgets.QWizardPage):
             arrow_label.setFixedWidth(20)
             arrow_label.setPixmap(arrow_image)
             target_label = PropertyDropLabel(i, margin=2, border=1)
+            if col_map and col_map.get(name):
+                target_label.setText(col_map[name])
             # target_label.setFixedWidth(100)
             # target_label.setStyleSheet('border: 1px solid black;')
             mapping_layout.addWidget(col_label, i, 0)
@@ -594,9 +604,9 @@ class MetaDataPage(QtWidgets.QWizardPage):
         # Table displaying the selected dataset ...
         # *******************************************************************
         # remove rows above the specified heading_row ...
-        new_dataset = wizard_state['dataset'][wizard_state['heading_row']:]
+        new_dataset = data_wizard_state['dataset'][data_wizard_state['heading_row']:]
         # include only the columns specified for import ...
-        new_dataset = [[row[i] for i in wizard_state['column_numbers']]
+        new_dataset = [[row[i] for i in data_wizard_state['column_numbers']]
                                              for row in new_dataset]
         tablemodel = ListTableModel(new_dataset, parent=self)
         if hasattr(self, 'tableview'):
@@ -607,9 +617,9 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.tableview.setSizeAdjustPolicy(self.tableview.AdjustToContents)
         self.tableview.setSelectionBehavior(self.tableview.SelectRows)
         self.tableview.setSelectionMode(self.tableview.SingleSelection)
-        self.tableview.clicked.connect(self.on_row_clicked)
-        row_header = self.tableview.verticalHeader()
-        row_header.sectionClicked.connect(self.on_row_header_clicked)
+        # self.tableview.clicked.connect(self.on_row_clicked)
+        # row_header = self.tableview.verticalHeader()
+        # row_header.sectionClicked.connect(self.on_row_header_clicked)
         self.hbox.addWidget(self.tableview, stretch=1,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
         self.setLayout(self.hbox)
@@ -622,16 +632,19 @@ class MetaDataPage(QtWidgets.QWizardPage):
         """
         b = self.object_type_buttons.checkedButton()
         self.object_type = b.text()
-        wizard_state['cname'] = self.object_type
+        data_wizard_state['cname'] = self.object_type
         orb.log.debug(f'* object type: "{self.object_type}"')
         objs = []
         for fname in orb.schemas[self.object_type]['field_names']:
             objs.append(get_dedef(fname))
-        gsfc_dedefs = orb.search_exact(cname='DataElementDefinition',
-                                       id_ns='gsfc.mel')
-        if gsfc_dedefs:
-            objs.append(gsfc_dedefs)
-        objs += orb.get_by_type('ParameterDefinition')
+        if self.object_type == 'HardwareProduct':
+            # for HardwareProducts, can map columns to parameters and MEL data
+            # elements
+            gsfc_dedefs = orb.search_exact(cname='DataElementDefinition',
+                                           id_ns='gsfc.mel')
+            if gsfc_dedefs:
+                objs += gsfc_dedefs
+            objs += orb.get_by_type('ParameterDefinition')
         dlg = FilterDialog(objs=objs, as_library=True,
                            title=f'Properties of {self.object_type}',
                            sized_cols={'id': 0, 'range_datatype': 0},
@@ -640,25 +653,21 @@ class MetaDataPage(QtWidgets.QWizardPage):
                            width=450, parent=self)
         dlg.show()
 
-    def on_row_clicked(self, idx):
-        orb.log.debug('* wizard: row {} is selected'.format(idx.row()))
-        self.get_col_names(idx.row())
-
-    def on_row_header_clicked(self, idx):
-        orb.log.debug('Row header {} was clicked'.format(idx))
-        self.get_col_names(idx)
+    def on_dedef_drop(self, dedef_id=None, idx=None):
+        col_names = data_wizard_state['column_names']
+        col_map = data_wizard_state['column_mapping']
+        col_map[col_names[idx]] = dedef_id
+        self.completeChanged.emit()
+        orb.log.debug(f'column mapping is now: {col_map}')
 
     def isComplete(self):
         """
         Return `True` when the page is complete, which cases the **Next**
         button to be activated.
         """
-        # TODO:  return True when all column types have been set.
-        if hasattr(self, 'cbs'):
-            for cb in self.cbs:
-                if cb.isChecked():
-                    return True
-            return False
+        # TODO:  return True as soon as any column is mapped
+        if data_wizard_state.get('column_mapping'):
+            return True
         else:
             return False
 
@@ -670,12 +679,13 @@ class DataImportConclusionPage(QtWidgets.QWizardPage):
     def initializePage(self):
         # finishText = self.wizard().buttonText(QtWidgets.QWizard.FinishButton)
         # finishText.replace('&', '')
-        new_dataset = wizard_state['dataset'][wizard_state['heading_row']:]
+        new_dataset = data_wizard_state['dataset'][
+                                        data_wizard_state['heading_row']:]
         # include only the columns specified for import ...
-        new_dataset = [[row[i] for i in wizard_state['column_numbers']]
+        new_dataset = [[row[i] for i in data_wizard_state['column_numbers']]
                                              for row in new_dataset]
         self.setTitle('Dataset <font color="blue">%s</font>'
-                      % wizard_state['dataset_name'])
+                      % data_wizard_state['dataset_name'])
         self.setSubTitle("Click <b>Finish</b> to save this dataset ...")
         tablemodel = ListTableModel(new_dataset, parent=self)
         if hasattr(self, 'tableview'):
