@@ -172,7 +172,8 @@ class PropertyDropLabel(ColorLabel):
             event.ignore()
 
     def dragLeaveEvent(self, event):
-        self.setStyleSheet('background-color: white')
+        if not self.dedef:
+            self.setStyleSheet('background-color: white')
         event.accept()
 
     def dragMoveEvent(self, event):
@@ -603,18 +604,13 @@ class MetaDataPage(QtWidgets.QWizardPage):
             self.add_widgets()
 
     def add_widgets(self):
-        # self.directions = QtWidgets.QLabel(
-                                # '<font color="green">'
-                                # '<h3>Directions:'
-                                # '<ol>'
-                                # '<li>Select target object type</li>'
-                                # '<li>Map data columns to attributes</li>'
-                                # '</ol></h3></font><hr>')
         self.directions = ColorLabel(
                                 # 'Directions:'
                                 '<ol>'
                                 '<li>Select the target object type</li>'
-                                '<li>Map column names to object attributes</li>'
+                                '<li>Map column names to object properties<br>'
+                                'by dragging and dropping a property onto<br>'
+                                'the blank field next to a column name.</li>'
                                 '</ol>',
                                 color="green", element='h3',
                                 border=1, margin=10)
