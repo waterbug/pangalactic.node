@@ -769,6 +769,7 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
     """
     def __init__(self, parent=None):
         super().__init__(parent=parent)
+        orb.log.debug('* Object Creation Page')
         self.widgets_added = False
         self.objs = []
         project_oid = state.get('project')
@@ -781,15 +782,31 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
 
     def initializePage(self):
         self.object_type = data_wizard_state['object_type']
-        col_names = data_wizard_state['column_names']
         self.col_map = data_wizard_state['column_mapping']
+        orb.log.debug(f'* column mapping: {self.col_map}')
         self.dataset = data_wizard_state['selected_dataset']
-        for row in self.dataset:
+        for i, row in enumerate(self.dataset):
             kw = {self.col_map[name] : row[i]
-                  for i, name in enumerate(col_names)}
-            if self.project:
-                kw['owner'] = self.project
-            self.objs.append(clone(self.object_type, **kw))
+                  for i, name in enumerate(self.col_map)}
+            if self.object_type == 'Requirement':
+                if 'level' not in kw:
+                    kw['level'] = 1
+                if self.project:
+                    kw['owner'] = self.project
+                    kw['id'] = f"{self.project.id}-{kw['level']}.{i}"
+                else:
+                    kw['id'] = f"SANDBOX.{i}"
+            # for cleanup after test run ...
+            kw['comment'] = "test"
+            obj = clone(self.object_type, **kw)
+            # save before generating "id" ...
+            orb.save([obj])
+            # if self.object_type == 'Requirement':
+                # obj.id = orb.gen_req_id(obj)
+            if self.object_type == 'HardwareProduct':
+                obj.id = orb.gen_product_id(obj)
+            orb.db.commit()
+            self.objs.append(obj)
         self.vbox = QtWidgets.QVBoxLayout(self)
         if self.widgets_added:
             # make sure state is consistent with MetaDataPage results

@@ -240,7 +240,7 @@ class ReqFieldsDialog(QDialog):
         super().__init__(parent)
         self.req = req
         self.setWindowTitle("Requirement {req.id}")
-        names = ['abbreviation', 'req_compliance', 'rationale',
+        names = ['name', 'abbreviation', 'req_compliance', 'rationale',
                  'justification', 'comment']
         if req.req_type == 'functional':
             names.insert(1, 'description')

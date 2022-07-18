@@ -5380,6 +5380,9 @@ class Main(QMainWindow):
         sys.exit()
 
 def cleanup_and_save():
+    test_objs = orb.search_exact(comment='test')
+    if test_objs:
+        orb.delete(test_objs)
     write_config(os.path.join(orb.home, 'config'))
     write_prefs(os.path.join(orb.home, 'prefs'))
     # clear synced, synced_oids, and synced_projects
