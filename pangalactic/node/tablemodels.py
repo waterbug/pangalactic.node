@@ -258,8 +258,8 @@ class ObjectTableModel(MappingTableModel):
             elif self.schema['fields'][name]['range'] == 'datetime':
                 val = dt2local_tz_str(getattr(obj, name))
             elif self.schema['fields'][name]['field_type'] == 'object':
-                val = (getattr(getattr(obj, name), 'name', None)
-                       or getattr(getattr(obj, name), 'id', '[None]'))
+                val = (getattr(getattr(obj, name), 'id', None)
+                       or '[id unknown]')
             else:
                 val = str(getattr(obj, name))
             d[name] = val
