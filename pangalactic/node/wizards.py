@@ -795,7 +795,7 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
                     kw['owner'] = self.project
                     kw['id'] = f"{self.project.id}-{kw['level']}.{i}"
                 else:
-                    kw['id'] = f"SANDBOX.{i}"
+                    kw['id'] = f"SANDBOX-{kw['level']}.{i}"
             # for cleanup after test run ...
             kw['comment'] = "test"
             obj = clone(self.object_type, **kw)
