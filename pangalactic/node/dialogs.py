@@ -629,6 +629,7 @@ class UnitPrefsDialog(QDialog):
         if not prefs.get('units'):
             prefs['units'] = {}
         settables = [dims for dims in parmz_by_dimz if alt_units.get(dims)]
+        settables.sort()
         for dims in settables:
             if dims:
                 dim_labels[dims] = QLabel(dims, self)
