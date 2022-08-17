@@ -5403,7 +5403,7 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
     if 'Fusion' in styles:
         app.setStyle(QStyleFactory.create('Fusion'))
     screen_resolution = app.desktop().screenGeometry()
-    splash_image = splash_image or 'pangalactic_logo.png'
+    splash_image = splash_image or 'pangalactic_logo_splash.png'
     # Create and display the splash screen
     # * if home is set, use image dir inside home
     splash_path = ''
