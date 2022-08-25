@@ -205,7 +205,7 @@ class RequirementIDPage(QWizardPage):
             self.req = req
             new = False
         else:
-            # NOTE: requirement id must be generated before cloning new reqt.;
+            # NOTE: requirement id must be generated *after* cloning new reqt.;
             # otherwise, generator will get confused
             req_id = self.project.id + '-TBD'
             self.req = clone("Requirement", id=req_id, owner=self.project,

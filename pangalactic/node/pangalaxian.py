@@ -2311,9 +2311,6 @@ class Main(QMainWindow):
         """
         Set the current mode.
         """
-        # # NOTE: this is used if 'data' mode is temporarily disabled:
-        # if mode == 'data':
-            # mode = 'system'
         initial_size = self.size()
         if hasattr(orb, 'store'):
             orb.db.commit()
@@ -3472,7 +3469,7 @@ class Main(QMainWindow):
         # and update themselves, so no need to call them.
         if self.mode == 'db':
             self.set_db_interface()
-        if (self.mode == 'component' and
+        elif (self.mode == 'component' and
             cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                       'Port', 'Flow']):
             # DIAGRAM MAY NEED UPDATING
@@ -3480,7 +3477,7 @@ class Main(QMainWindow):
             # this will set placeholders in place of PgxnObject and diagram
             dispatcher.send('refresh diagram')
             self.set_product_modeler_interface()
-        if (self.mode == 'system' and
+        elif (self.mode == 'system' and
               cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                         'Port', 'Flow']):
             # DIAGRAM MAY NEED UPDATING
@@ -3529,7 +3526,6 @@ class Main(QMainWindow):
              and project_oid not in state.get('synced_projects', []))
              or resync)
              and state.get('connected')):
-            # TODO: if project is "local", activate "enable collab" action
             orb.log.debug('  calling sync_current_project()')
             rpc = self.sync_current_project(None, msg=msg)
             rpc.addCallback(self.on_project_sync_result)

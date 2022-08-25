@@ -31,14 +31,13 @@ class PgxnAuthSession(_ApplicationSession):
         if self.auth_method == 'cryptosign':
             # load the client private key (raw format)
             try:
-                self._key = cryptosign.SigningKey.from_raw_key(
+                self._key = cryptosign.CryptosignKey.from_file(
                                                 self.config.extra['key_path'])
+                self.log.info("public key loaded: {}".format(
+                              self._key.public_key()))
             except Exception as e:
                 self.log.error("failed to load private key: {log_failure}",
                                log_failure=e)
-            else:
-                self.log.info("public key loaded: {}".format(
-                              self._key.public_key()))
 
     @inlineCallbacks
     def onConnect(self):
@@ -71,7 +70,7 @@ class PgxnAuthSession(_ApplicationSession):
             self.log.info("authentication challenge received: {challenge}",
                           challenge=challenge)
             # sign challenge with private key.
-            signed_challenge = self._key.sign_challenge(self, challenge)
+            signed_challenge = self._key.sign_challenge(challenge)
             # return signed challenge for verification
             return signed_challenge
         else:

@@ -303,7 +303,7 @@ class ObjectBlock(Block):
                     and len(self.obj.components))
 
     def get_usage(self):
-        return self.__usage
+        return self._usage
 
     def set_usage(self, link):
         if not isinstance(link,
@@ -375,7 +375,7 @@ class ObjectBlock(Block):
                                            color='darkMagenta')
         self.description_label.setPos(2.0 * POINT_SIZE,
                                       0.0 * POINT_SIZE)
-        self.__usage = link
+        self._usage = link
         # NOTE: update() repaints the area covered by the block
         self.update()
 
