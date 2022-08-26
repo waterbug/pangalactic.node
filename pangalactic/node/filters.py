@@ -3,14 +3,13 @@ from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
         QCheckBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel,
-        QLineEdit, QMessageBox, QSizePolicy, QTableView, QVBoxLayout, QWidget)
+        QLineEdit, QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
 import re
 from textwrap import wrap
 from louie import dispatcher
 
 from pangalactic.core             import prefs, state
-from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.names       import (get_external_name_plural,
@@ -728,13 +727,10 @@ class FilterPanel(QWidget):
         self.pgxnobj_action.triggered.connect(self.display_object)
         txt = 'Edit parameters of this requirement'
         self.req_parms_action = QAction(txt, self)
-        self.req_parms_action.triggered.connect(self.edit_req_parms)
         txt = 'Edit fields of this requirement'
         self.req_fields_action = QAction(txt, self)
-        self.req_fields_action.triggered.connect(self.edit_req_fields)
         txt = 'Edit this requirement in the wizard'
         self.reqwizard_action = QAction(txt, self)
-        self.reqwizard_action.triggered.connect(self.edit_requirement)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
         self.template_action = QAction('Create template from object', self)
         self.template_action.triggered.connect(self.create_template)
@@ -764,75 +760,6 @@ class FilterPanel(QWidget):
                 obj = orb.get(oid)
                 dlg = PgxnObject(obj, parent=self)
                 dlg.show()
-
-    def edit_requirement(self):
-        orb.log.debug('* edit_requirement()')
-        req = None
-        if len(self.proxy_view.selectedIndexes()) >= 1:
-            i = self.proxy_model.mapToSource(
-                self.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
-            if oid:
-                req = orb.get(oid)
-        if req:
-            if 'modify' in get_perms(req):
-                self.edit_req_calls +=1
-                dispatcher.send('edit requirement', obj=req,
-                                call=self.edit_req_calls)
-            else:
-                message = "Not Authorized"
-                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
-                                    message, QMessageBox.Ok, self)
-                popup.show()
-
-    def edit_req_parms(self):
-        orb.log.debug('* edit_req_parms()')
-        req = None
-        if len(self.proxy_view.selectedIndexes()) >= 1:
-            i = self.proxy_model.mapToSource(
-                self.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
-            if oid:
-                req = orb.get(oid)
-        if req and req.req_type == 'performance':
-            if 'modify' in get_perms(req):
-                parm = None
-                if req.req_constraint_type == 'maximum':
-                    parm = 'req_maximum_value'
-                elif req.req_constraint_type == 'minimum':
-                    parm = 'req_minimum_value'
-                elif req.req_constraint_type == 'single_value':
-                    parm = 'req_target_value'
-                if parm:
-                    dispatcher.send('edit req parm', req=req, parm=parm)
-            else:
-                message = "Not Authorized"
-                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
-                                    message, QMessageBox.Ok, self)
-                popup.show()
-
-    def edit_req_fields(self):
-        orb.log.debug('* edit_req_fields()')
-        req = None
-        if len(self.proxy_view.selectedIndexes()) >= 1:
-            i = self.proxy_model.mapToSource(
-                self.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
-            if oid:
-                req = orb.get(oid)
-        if req:
-            if 'modify' in get_perms(req):
-                self.edit_req_fields_calls +=1
-                dispatcher.send('edit req fields', req=req,
-                                call=self.edit_req_fields_calls)
-            else:
-                message = "Not Authorized"
-                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
-                                    message, QMessageBox.Ok, self)
-                popup.show()
 
     def create_template(self):
         """

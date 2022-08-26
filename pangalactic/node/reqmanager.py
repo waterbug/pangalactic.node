@@ -4,8 +4,9 @@ Requirement Manager
 """
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
-                             QSizePolicy, QVBoxLayout)
+                             QMessageBox, QSizePolicy, QVBoxLayout)
 
+from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
@@ -36,7 +37,6 @@ class RequirementManager(QDialog):
         view = view or default_view
         sized_cols = {'id': 0, 'name': 150}
         self.req = req
-        self.req_wiz_calls = []
         self.project = project
         rqts = orb.search_exact(cname='Requirement', owner=project)
         title_txt = 'Project Requirements for {}'.format(project.id)
@@ -64,17 +64,15 @@ class RequirementManager(QDialog):
                                   word_wrap=True, parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.fpanel.proxy_view.clicked.connect(self.on_select_req)
+        self.fpanel.reqwizard_action.triggered.connect(self.edit_requirement)
+        self.fpanel.req_parms_action.triggered.connect(self.edit_req_parms)
+        self.fpanel.req_fields_action.triggered.connect(self.edit_req_fields)
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
         # TODO:  make project a property; in its setter, enable the checkbox
         # that opens the "allocation panel" (tree)
         self.display_allocation_panel()
-        dispatcher.connect(self.on_edit_req_signal, 'edit requirement')
-        dispatcher.connect(self.on_edit_req_parm_signal, 'edit req parm')
-        dispatcher.connect(self.on_edit_req_fields_signal, 'edit req fields')
-        self.editing_parm = False
-        self.editing_fields = False
         width = width or 600
         height = height or 500
         self.resize(width, height)
@@ -86,6 +84,96 @@ class RequirementManager(QDialog):
     @req.setter
     def req(self, r):
         self._req = r
+
+    def edit_requirement(self):
+        orb.log.debug('* edit_requirement()')
+        req = None
+        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
+            i = self.fpanel.proxy_model.mapToSource(
+                self.fpanel.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i], 'oid', '')
+            if oid:
+                req = orb.get(oid)
+        if req:
+            if 'modify' in get_perms(req):
+                is_perf = (req.req_type == 'performance')
+                wizard = ReqWizard(parent=self, req=req, performance=is_perf)
+                if wizard.exec_() == QDialog.Accepted:
+                    orb.log.info('* req wizard completed.')
+                else:
+                    orb.log.info('* req wizard cancelled...')
+            else:
+                message = "Not Authorized"
+                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
+                                    message, QMessageBox.Ok, self)
+                popup.show()
+
+    def edit_req_parms(self):
+        orb.log.debug('* edit_req_parms()')
+        req = None
+        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
+            i = self.fpanel.proxy_model.mapToSource(
+                self.fpanel.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
+                          'oid', '')
+            if oid:
+                req = orb.get(oid)
+        if req and req.req_type == 'performance':
+            if 'modify' in get_perms(req):
+                parm = None
+                if req.req_constraint_type == 'maximum':
+                    parm = 'req_maximum_value'
+                elif req.req_constraint_type == 'minimum':
+                    parm = 'req_minimum_value'
+                elif req.req_constraint_type == 'single_value':
+                    parm = 'req_target_value'
+                if parm:
+                    # dispatcher.send('edit req parm', req=req, parm=parm)
+                    dlg = ReqParmDialog(req, parm, parent=self)
+                    if dlg.exec_() == QDialog.Accepted:
+                        orb.log.info('* req parm edited.')
+                        dlg.close()
+                    else:
+                        orb.log.info('* req parm editing cancelled.')
+                        dlg.close()
+                else:
+                    message = "No editable parameter found."
+                    popup = QMessageBox(QMessageBox.Warning, 'No Parameter',
+                                        message, QMessageBox.Ok, self)
+                    popup.show()
+            else:
+                message = "Not Authorized"
+                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
+                                    message, QMessageBox.Ok, self)
+                popup.show()
+
+    def edit_req_fields(self):
+        orb.log.debug('* edit_req_fields()')
+        req = None
+        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
+            i = self.fpanel.proxy_model.mapToSource(
+                self.fpanel.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
+                          'oid', '')
+            if oid:
+                req = orb.get(oid)
+        if req:
+            if 'modify' in get_perms(req):
+                dlg = ReqFieldsDialog(req, parent=self)
+                if dlg.exec_() == QDialog.Accepted:
+                    orb.log.info('* req fields edited.')
+                    dlg.close()
+                else:
+                    orb.log.info('* req fields editing cancelled.')
+                    dlg.close()
+            else:
+                message = "Not Authorized"
+                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
+                                    message, QMessageBox.Ok, self)
+                popup.show()
 
     def hide_allocation_panel(self, evt):
         self.content_layout.removeItem(self.tree_layout)
@@ -116,31 +204,19 @@ class RequirementManager(QDialog):
         # otherwise, filtering behavior (as above) is in effect.
         pass
 
-    def on_edit_req_signal(self, obj=None, call=0):
-        orb.log.info('* RequirementManager: on_edit_req_signal()')
-        if obj and call not in self.req_wiz_calls:
-            is_perf = (obj.req_type == 'performance')
-            wizard = ReqWizard(parent=self, req=obj, performance=is_perf)
-            if wizard.exec_() == QDialog.Accepted:
-                orb.log.info('* req wizard completed.')
-                self.req_wiz_calls.append(call)
-            else:
-                orb.log.info('* req wizard cancelled...')
-                self.req_wiz_calls.append(call)
-
-    def on_edit_req_parm_signal(self, req=None, parm=None):
-        orb.log.info('* RequirementManager: on_edit_req_parm_signal()')
-        if req and parm and not self.editing_parm:
-            self.editing_parm = True
-            dlg = ReqParmDialog(req, parm, parent=self)
-            if dlg.exec_() == QDialog.Accepted:
-                orb.log.info('* req parm edited.')
-                self.editing_parm = False
-                dlg.close()
-            else:
-                orb.log.info('* req parm editing cancelled.')
-                self.editing_parm = False
-                dlg.close()
+    # def on_edit_req_parm_signal(self, req=None, parm=None):
+        # orb.log.info('* RequirementManager: on_edit_req_parm_signal()')
+        # if req and parm and not self.editing_parm:
+            # self.editing_parm = True
+            # dlg = ReqParmDialog(req, parm, parent=self)
+            # if dlg.exec_() == QDialog.Accepted:
+                # orb.log.info('* req parm edited.')
+                # self.editing_parm = False
+                # dlg.close()
+            # else:
+                # orb.log.info('* req parm editing cancelled.')
+                # self.editing_parm = False
+                # dlg.close()
 
     def on_edit_req_fields_signal(self, req=None):
         orb.log.info('* RequirementManager: on_edit_req_fields_signal()')
