@@ -266,9 +266,8 @@ class PersonSearchDialog(QDialog):
             form_layout.addRow(NameLabel(name), self.form_widgets[name])
         self.criteria_panel.setLayout(form_layout)
         outer_vbox.addWidget(self.criteria_panel)
-        search_button = SizedButton('Search')
-        search_button.clicked.connect(self.do_search)
-        outer_vbox.addWidget(search_button)
+        self.search_button = SizedButton('Search')
+        outer_vbox.addWidget(self.search_button)
         self.test_mode_checkbox = QCheckBox('Test Mode')
         self.test_mode_checkbox.clicked.connect(self.on_check_cb)
         outer_vbox.addWidget(self.test_mode_checkbox)
@@ -281,25 +280,6 @@ class PersonSearchDialog(QDialog):
         else:
             orb.log.info('* LDAP search test mode deactivated')
             self.test_mode = False
-
-    def do_search(self):
-        orb.log.info('* PersonSearchDialog: do_search()')
-        q = {}
-        if self.test_mode:
-            q = {'test': 'result'}
-        for name, w in self.form_widgets.items():
-            val = w.get_value()
-            if val:
-                q[self.schema[name]] = val
-        if q.get('id') or q.get('oid') or q.get('last_name'):
-            orb.log.info('  query: {}'.format(str(q)))
-            dispatcher.send('ldap search', query=q)
-        else:
-            orb.log.info('  bad query: must have Last Name, AUID, or UUPIC')
-            message = "Query must include Last Name, AUID, or UUPIC"
-            popup = QMessageBox(QMessageBox.Warning, 'Invalid Query',
-                                message, QMessageBox.Ok, self)
-            popup.show()
 
     def on_search_result(self, res=None):
         """
@@ -397,8 +377,8 @@ class PersonSearchDialog(QDialog):
         orb.log.debug('* on_add_person()')
         data = {self.ldap_schema[a]: self.person_data[a]
                 for a in self.person_data}
-        dlg = AddPersonDialog(data=data, parent=self)
-        dlg.show()
+        self.add_person_dlg = AddPersonDialog(data=data, parent=self)
+        self.add_person_dlg.show()
 
 
 class AddPersonDialog(QDialog):
@@ -446,7 +426,8 @@ class AddPersonDialog(QDialog):
         outer_vbox.addWidget(save_button)
         # make sure we are deleted when closed
         self.setAttribute(Qt.WA_DeleteOnClose)
-        dispatcher.connect(self.on_person_added_success, 'person added')
+        # DEPRECATED:  now closed by pangalaxian
+        # dispatcher.connect(self.on_person_added_success, 'person added')
 
     def on_get_key(self):
         orb.log.debug('* on_get_key()')
@@ -520,8 +501,9 @@ class AddPersonDialog(QDialog):
         # send signal to call rpc "vger.add_person"
         dispatcher.send('add person', data=data)
 
-    def on_person_added_success(self):
-        self.close()
+    # DEPRECATED:  now closed by pangalaxian
+    # def on_person_added_success(self):
+        # self.close()
 
 
 class AdminDialog(QDialog):
@@ -570,7 +552,6 @@ class AdminDialog(QDialog):
         # if we have an ldap_schema, add an LDAP search button
         if config.get('ldap_schema'):
             self.ldap_search_button = SizedButton('Search for a Person')
-            self.ldap_search_button.clicked.connect(self.do_person_search)
             self.right_vbox.addWidget(self.ldap_search_button)
         # populate Role and Person library widgets
         cnames = ['Role', 'Person']
@@ -584,16 +565,12 @@ class AdminDialog(QDialog):
         dispatcher.connect(self.adjust_size, 'admin contents resized')
         dispatcher.connect(self.refresh_roles, 'deleted object')
         dispatcher.connect(self.refresh_roles, 'remote: deleted')
-        dispatcher.connect(self.on_person_added_success, 'person added')
-        dispatcher.connect(self.on_got_people, 'got people')
+        # DEPRECATED: on_person_added_success() now called directly in
+        # pangalaxian
+        # dispatcher.connect(self.on_person_added_success, 'person added')
+        # DEPRECATED: on_got_people() now called directly in pgxn
+        # dispatcher.connect(self.on_got_people, 'got people')
         dispatcher.connect(self.refresh_roles, 'refresh admin tool')
-
-    def do_person_search(self):
-        """
-        Invoke the PersonSearchDialog.
-        """
-        dlg = PersonSearchDialog(parent=self)
-        dlg.show()
 
     def on_got_people(self):
         """

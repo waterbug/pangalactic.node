@@ -60,7 +60,7 @@ from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.activities       import ModesTool
-from pangalactic.node.admin            import AdminDialog
+from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
@@ -265,7 +265,7 @@ class Main(QMainWindow):
                                                     'refresh tree and dash')
         dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
-        dispatcher.connect(self.on_ldap_search, 'ldap search')
+        # dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')
         dispatcher.connect(self.on_update_person, 'update person')
         dispatcher.connect(self.on_delete_person, 'delete person')
@@ -1768,18 +1768,16 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_received_objects)
             rpc.addErrback(self.on_failure)
 
-    def on_ldap_search(self, query=None):
-        """
-        Send 'vger.search_ldap' rpc when 'ldap search' signal is received.
-        """
-        if state['connected']:
-            q = query or {}
-            rpc = self.mbus.session.call('vger.search_ldap', **q)
-            rpc.addCallback(self.on_rpc_ldap_result)
-            rpc.addErrback(self.on_failure)
-
-    def on_rpc_ldap_result(self, res):
-        dispatcher.send('ldap result', res=res)
+    # DEPRECATED -- now using person search dlg directly ...
+    # def on_ldap_search(self, query=None):
+        # """
+        # Send 'vger.search_ldap' rpc when 'ldap search' signal is received.
+        # """
+        # if state['connected']:
+            # q = query or {}
+            # rpc = self.mbus.session.call('vger.search_ldap', **q)
+            # rpc.addCallback(self.on_rpc_ldap_result)
+            # rpc.addErrback(self.on_failure)
 
     def on_add_person(self, data=None):
         """
@@ -1807,7 +1805,16 @@ class Main(QMainWindow):
             for so in ser_objs:
                 if so.get('_cname') == 'Person':
                     userid = so.get('id') or ''
-            dispatcher.send('person added', userid=userid, pk_added=pk_added)
+            # dispatcher.send('person added', userid=userid, pk_added=pk_added)
+            self.admin_dlg.on_person_added_success(userid=userid,
+                                                   pk_added=pk_added)
+            if (getattr(self, 'person_dlg', None) and
+                getattr(self.person_dlg, 'add_person_dlg', None)):
+                try:
+                    self.person_dlg.add_person_dlg.close()
+                    self.person_dlg.close()
+                except:
+                    pass
         else:
             orb.log.debug('- rpc failed: no data received!')
 
@@ -1862,7 +1869,8 @@ class Main(QMainWindow):
                 if actives:
                     orb.log.debug('  - active users: {}'.format(
                                   state['active_users']))
-                dispatcher.send('got people')
+                # dispatcher.send('got people')
+                self.admin_dlg.on_got_people()
         else:
             orb.log.debug('- rpc failed: no data received!')
 
@@ -5247,8 +5255,52 @@ class Main(QMainWindow):
 
     def do_admin_stuff(self):
         orb.log.debug('* do_admin_stuff()')
-        dlg = AdminDialog(org=self.project, parent=self)
-        dlg.show()
+        self.admin_dlg = AdminDialog(org=self.project, parent=self)
+        self.admin_dlg.ldap_search_button.clicked.connect(
+                                                self.open_person_dlg)
+        self.admin_dlg.show()
+
+    def open_person_dlg(self):
+        """
+        Invoke the PersonSearchDialog.
+        """
+        self.person_dlg = PersonSearchDialog(parent=self)
+        self.person_dlg.search_button.clicked.connect(self.do_person_search)
+        self.person_dlg.show()
+
+    def do_person_search(self):
+        orb.log.info('* do_person_search()')
+        q = {}
+        if self.person_dlg.test_mode:
+            q = {'test': 'result'}
+        for name, w in self.person_dlg.form_widgets.items():
+            val = w.get_value()
+            if val:
+                q[self.person_dlg.schema[name]] = val
+        if q.get('id') or q.get('oid') or q.get('last_name'):
+            orb.log.info('  query: {}'.format(str(q)))
+            # dispatcher.send('ldap search', query=q)
+            if state['connected']:
+                rpc = self.mbus.session.call('vger.search_ldap', **q)
+                rpc.addCallback(self.on_rpc_ldap_result)
+                rpc.addErrback(self.on_failure)
+        else:
+            orb.log.info('  bad query: must have Last Name, AUID, or UUPIC')
+            message = "Query must include Last Name, AUID, or UUPIC"
+            popup = QMessageBox(QMessageBox.Warning, 'Invalid Query',
+                                message, QMessageBox.Ok, self)
+            popup.show()
+
+    def on_rpc_ldap_result(self, res):
+        """
+        Display result of LDAP search and enable selection of person for
+        addition to repository for role assignments.
+
+        Keyword Args:
+            res (tuple): a tuple containing [0] the ldap search string and [1]
+                the result of the search or a test result.
+        """
+        self.person_dlg.on_search_result(res=res)
 
     # def compare_items(self):
         # # TODO:  this is just a mock-up for prototyping -- FIXME!
