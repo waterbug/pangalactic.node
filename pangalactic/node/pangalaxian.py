@@ -1851,8 +1851,8 @@ class Main(QMainWindow):
             res (list): if the rpc was successful, a list of tuples
                 (has_pk, display_name, Person); otherwise, an empty list
         """
-        orb.log.info("* on_rpc_get_people_result()")
-        # orb.log.debug("  res: {}".format(str(res)))
+        orb.log.debug("* on_rpc_get_people_result()")
+        orb.log.debug("  res: {}".format(str(res)))
         if res:
             actives = 0
             state['active_users'] = []

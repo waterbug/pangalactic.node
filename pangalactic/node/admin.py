@@ -271,7 +271,7 @@ class PersonSearchDialog(QDialog):
         self.test_mode_checkbox = QCheckBox('Test Mode')
         self.test_mode_checkbox.clicked.connect(self.on_check_cb)
         outer_vbox.addWidget(self.test_mode_checkbox)
-        dispatcher.connect(self.on_search_result, 'ldap result')
+        # dispatcher.connect(self.on_search_result, 'ldap result')
 
     def on_check_cb(self):
         if self.test_mode_checkbox.isChecked():
@@ -292,7 +292,14 @@ class PersonSearchDialog(QDialog):
         """
         orb.log.info('* PersonSearchDialog: on_search_result()')
         orb.log.info('  result: {}'.format(res))
-        search_string, records = res
+        if len(res) == 2:
+            search_string, records = res
+        else:
+            orb.log.info('  nothing found.')
+            message = "No result."
+            popup = QMessageBox(QMessageBox.Warning, 'No result',
+                                message, QMessageBox.Ok, self)
+            popup.show()
         self.ldap_schema = config['ldap_schema']
         res_cols = list(self.ldap_schema.values())
         res_headers = {self.ldap_schema[a]:a for a in self.ldap_schema}
