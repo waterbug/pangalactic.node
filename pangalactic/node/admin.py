@@ -294,58 +294,58 @@ class PersonSearchDialog(QDialog):
         orb.log.info('  result: {}'.format(res))
         if len(res) == 2:
             search_string, records = res
+            self.ldap_schema = config['ldap_schema']
+            res_cols = list(self.ldap_schema.values())
+            res_headers = {self.ldap_schema[a]:a for a in self.ldap_schema}
+            layout = self.layout()
+            search_string_label = NameLabel('LDAP Search String:')
+            search_string_field = ValueLabel(search_string, w=300)
+            ss_hbox = QHBoxLayout()
+            ss_hbox.addWidget(search_string_label)
+            ss_hbox.addWidget(search_string_field, alignment=Qt.AlignLeft,
+                              stretch=1)
+            layout.addLayout(ss_hbox)
+            self.ldap_data = []
+            for res_item in records:
+                ldap_rec = OrderedDict()
+                for col in res_cols:
+                    ldap_rec[res_headers[col]] = res_item.get(col, '[none]')
+                self.ldap_data.append(ldap_rec)
+            ldap_model = MappingTableModel(self.ldap_data)
+            self.ldap_table = QTableView()
+            # self.ldap_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
+            self.ldap_table.setModel(ldap_model)
+            self.ldap_table.setAlternatingRowColors(True)
+            self.ldap_table.setShowGrid(False)
+            self.ldap_table.setSelectionBehavior(1)
+            self.ldap_table.setStyleSheet('font-size: 12px')
+            self.ldap_table.verticalHeader().hide()
+            self.ldap_table.clicked.connect(self.person_selected)
+            col_header = self.ldap_table.horizontalHeader()
+            col_header.setSectionResizeMode(col_header.Stretch)
+            col_header.setStyleSheet('font-weight: bold')
+            # self.ldap_table.setSizePolicy(QSizePolicy.Expanding,
+                                         # QSizePolicy.Expanding)
+            self.ldap_table.resizeColumnsToContents()
+            layout.addWidget(self.ldap_table)
+            self.add_person_panel = QWidget()
+            hbox = QHBoxLayout()
+            self.add_person_panel.setLayout(hbox)
+            self.add_person_button = SizedButton('Add Person')
+            self.add_person_button.clicked.connect(self.on_add_person)
+            hbox.addWidget(self.add_person_button)
+            self.person_label = ColorLabel('tbd')
+            hbox.addWidget(self.person_label)
+            layout.addWidget(self.add_person_panel)
+            self.add_person_panel.setVisible(False)
+            self.resize(700, 600)
+            # self.adjustSize()
         else:
             orb.log.info('  nothing found.')
             message = "No result."
             popup = QMessageBox(QMessageBox.Warning, 'No result',
                                 message, QMessageBox.Ok, self)
             popup.show()
-        self.ldap_schema = config['ldap_schema']
-        res_cols = list(self.ldap_schema.values())
-        res_headers = {self.ldap_schema[a]:a for a in self.ldap_schema}
-        layout = self.layout()
-        search_string_label = NameLabel('LDAP Search String:')
-        search_string_field = ValueLabel(search_string, w=300)
-        ss_hbox = QHBoxLayout()
-        ss_hbox.addWidget(search_string_label)
-        ss_hbox.addWidget(search_string_field, alignment=Qt.AlignLeft,
-                          stretch=1)
-        layout.addLayout(ss_hbox)
-        self.ldap_data = []
-        for res_item in records:
-            ldap_rec = OrderedDict()
-            for col in res_cols:
-                ldap_rec[res_headers[col]] = res_item.get(col, '[none]')
-            self.ldap_data.append(ldap_rec)
-        ldap_model = MappingTableModel(self.ldap_data)
-        self.ldap_table = QTableView()
-        # self.ldap_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
-        self.ldap_table.setModel(ldap_model)
-        self.ldap_table.setAlternatingRowColors(True)
-        self.ldap_table.setShowGrid(False)
-        self.ldap_table.setSelectionBehavior(1)
-        self.ldap_table.setStyleSheet('font-size: 12px')
-        self.ldap_table.verticalHeader().hide()
-        self.ldap_table.clicked.connect(self.person_selected)
-        col_header = self.ldap_table.horizontalHeader()
-        col_header.setSectionResizeMode(col_header.Stretch)
-        col_header.setStyleSheet('font-weight: bold')
-        # self.ldap_table.setSizePolicy(QSizePolicy.Expanding,
-                                     # QSizePolicy.Expanding)
-        self.ldap_table.resizeColumnsToContents()
-        layout.addWidget(self.ldap_table)
-        self.add_person_panel = QWidget()
-        hbox = QHBoxLayout()
-        self.add_person_panel.setLayout(hbox)
-        self.add_person_button = SizedButton('Add Person')
-        self.add_person_button.clicked.connect(self.on_add_person)
-        hbox.addWidget(self.add_person_button)
-        self.person_label = ColorLabel('tbd')
-        hbox.addWidget(self.person_label)
-        layout.addWidget(self.add_person_panel)
-        self.add_person_panel.setVisible(False)
-        self.resize(700, 600)
-        # self.adjustSize()
 
     def person_selected(self, clicked_index):
         orb.log.debug('* person_selected()')

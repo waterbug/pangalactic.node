@@ -1848,8 +1848,8 @@ class Main(QMainWindow):
         Handle the result of 'vger.get_people' rpc.
 
         Arg:
-            res (list): if the rpc was successful, a list of tuples
-                (has_pk, display_name, Person); otherwise, an empty list
+            res (list): if the rpc was successful, a list of lists
+                (has_pk, serialized Person); otherwise, an empty list
         """
         orb.log.debug("* on_rpc_get_people_result()")
         orb.log.debug("  res: {}".format(str(res)))
@@ -1866,9 +1866,8 @@ class Main(QMainWindow):
             except:
                 orb.log.debug('  - could not process received data.')
             finally:
-                if actives:
-                    orb.log.debug('  - active users: {}'.format(
-                                  state['active_users']))
+                orb.log.debug('  - active users: {}'.format(
+                              state['active_users']))
                 # dispatcher.send('got people')
                 self.admin_dlg.on_got_people()
         else:
