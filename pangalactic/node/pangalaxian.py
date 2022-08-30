@@ -1376,7 +1376,7 @@ class Main(QMainWindow):
                 dispatcher.send('remote: thawed', oids=thawed_oids)
             # except:
                 # orb.log.debug(f'  failed: could not parse content "{attrs}".')
-        if self.mode =="system" and (frozen_oids or thawed_oids):
+        if self.mode == "system" and (frozen_oids or thawed_oids):
             self.refresh_tree_and_dashboard()
         if hasattr(self, 'library_widget'):
             self.library_widget.refresh()
@@ -1973,8 +1973,7 @@ class Main(QMainWindow):
             if hasattr(self, 'library_widget'):
                 # orb.log.debug('  - refreshing library_widget')
                 self.library_widget.refresh(cname=cname)
-        if (need_to_refresh_tree and
-            getattr(self, 'sys_tree', None)):
+        if (need_to_refresh_tree and state.get('mode') == 'system'):
             self.refresh_tree_views()
         if (need_to_refresh_dashboard and
             getattr(self, 'dashboard', None)):
@@ -3025,7 +3024,7 @@ class Main(QMainWindow):
                 dispatcher.send("activity remote mod", activity=obj)
             elif hasattr(self, 'library_widget'):
                 self.library_widget.refresh(cname=cname)
-            if getattr(self, 'sys_tree', None):
+            if self.mode == 'system':
                 orb.log.debug('  updating system tree ...')
                 if isinstance(obj, (orb.classes['HardwareProduct'],
                                     orb.classes['Acu'],
@@ -3130,7 +3129,7 @@ class Main(QMainWindow):
             # NOTE: the library widget refreshes itself (it listens for "new object",
             # "modified object", etc.), so no need to worry about
             # self.library_widget
-            if (getattr(self, 'sys_tree', None)
+            if (self.mode == 'system'
                 and isinstance(obj, (orb.classes['HardwareProduct'],
                                      orb.classes['Acu'],
                                      orb.classes['ProjectSystemUsage']))):
@@ -5000,7 +4999,7 @@ class Main(QMainWindow):
                 orb.recompute_parmz()
                 if hasattr(self, 'library_widget'):
                     self.library_widget.refresh()
-                if hasattr(self, 'sys_tree'):
+                if self.mode == 'system':
                     for obj in new_products_psus_or_acus:
                         self.update_object_in_trees(obj)
                     # might need to refresh dashboard, e.g. if acu quantities
@@ -5116,8 +5115,9 @@ class Main(QMainWindow):
             if new_products_psus_or_acus:
                 orb.recompute_parmz()
                 if hasattr(self, 'library_widget'):
+                    # library_widget can mean 'system' *or* 'component' mode
                     self.library_widget.refresh()
-                if hasattr(self, 'sys_tree'):
+                if self.mode == 'system':
                     for obj in new_products_psus_or_acus:
                         self.update_object_in_trees(obj)
                     # might need to refresh dashboard, e.g. if acu quantities
