@@ -1978,10 +1978,11 @@ class Main(QMainWindow):
         if (need_to_refresh_dashboard and
             getattr(self, 'dashboard', None)):
             self.refresh_dashboard()
-        if need_to_refresh_diagram:
+        if (need_to_refresh_diagram and
+            getattr(self, 'system_model_window', None)):
             # rebuild diagram in case an object corresponded to a
             # block in the current diagram
-            dispatcher.send('refresh diagram')
+            self.system_model_window.on_signal_to_refresh()
         return True
 
     def _create_actions(self):
@@ -3034,8 +3035,11 @@ class Main(QMainWindow):
                 orb.log.debug('  have diagram, check if update is needed ...')
                 if (isinstance(obj, orb.classes['HardwareProduct'])
                     and obj.oid in self.system_model_window.diagram_oids):
-                    orb.log.debug('  sending "block mod" signal...')
-                    dispatcher.send(signal='block mod', oid=obj.oid)
+                    # DEPRECATED: "block mod" signal just refreshes the
+                    # diagram, so just do that instead ...
+                    # orb.log.debug('  sending "block mod" signal...')
+                    # dispatcher.send(signal='block mod', oid=obj.oid)
+                    self.system_model_window.on_signal_to_refresh()
                 elif isinstance(obj, orb.classes['Acu']):
                     if obj.assembly is self.system_model_window.obj:
                         msg = 'assembly is subject of diagram, refresh ...'
@@ -3059,8 +3063,8 @@ class Main(QMainWindow):
             elif self.mode == 'db' and cname == state.get('current_cname'):
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
-        if refresh_diagram:
-            dispatcher.send('refresh diagram')
+        if (refresh_diagram and getattr(self, 'system_model_window', None)):
+            self.system_model_window.on_signal_to_refresh()
         if mod_oids:
             orb.log.info('  - dispatching signal "update pgxno"')
             orb.log.info(f'    with oids: {str(mod_oids)}')
@@ -3469,7 +3473,10 @@ class Main(QMainWindow):
             cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
             orb.recompute_parmz()
             self.refresh_tree_and_dashboard()
-            dispatcher.send('refresh diagram')
+            if getattr(self, 'system_model_window', None):
+                # rebuild diagram in case an object corresponded to a
+                # block in the current diagram
+                self.system_model_window.on_signal_to_refresh()
         # TODO:  other actions may be needed ...
         # NOTE:  libraries are now subscribed to the 'deleted object' signal
         # and update themselves, so no need to call them.
@@ -3481,14 +3488,16 @@ class Main(QMainWindow):
             # DIAGRAM MAY NEED UPDATING
             # update state['product'] if needed, and regenerate diagram
             # this will set placeholders in place of PgxnObject and diagram
-            dispatcher.send('refresh diagram')
             self.set_product_modeler_interface()
+            if getattr(self, 'system_model_window', None):
+                self.system_model_window.on_signal_to_refresh()
         elif (self.mode == 'system' and
               cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                         'Port', 'Flow']):
             # DIAGRAM MAY NEED UPDATING
             # regenerate diagram
-            dispatcher.send('refresh diagram')
+            if getattr(self, 'system_model_window', None):
+                self.system_model_window.on_signal_to_refresh()
         # the "not remote" here is *extremely* important, to prevent a cycle ...
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')

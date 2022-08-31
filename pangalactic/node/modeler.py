@@ -655,58 +655,6 @@ class ModelWindow(QMainWindow):
             # orb.log.debug('  ... could not cache (C++ obj deleted?)')
             pass
 
-    # DEPRECATED:  now using diagramz cache, not block model files
-    # def write_block_model(self, cached_model=None, fpath=None):
-        # """
-        # Write the specified cached block model to a file (or if none is provided, the cached block
-        # model of the current subject).
-
-        # Args:
-            # cached_model (dict): a serialized block model
-
-        # Keyword args:
-            # fpath (str):  path of file to be written.
-        # """
-        # orb.log.debug('* Modeler: write_block_model()')
-        # # TODO: find or create a Representation with 'of_object' == model.oid
-        # # and a RepresentationFile that will get the file path as its 'url'
-        # # attribute.
-        # if not cached_model:
-            # if (not self.obj or
-                # not diagramz.get(self.obj.oid)):
-                # orb.log.debug('  no cached block model found; returning.')
-                # return
-            # cached_model = diagramz[self.obj.oid]
-        # fname = get_block_model_file_name(self.obj)
-        # if not fpath:
-            # # write to vault if fpath is not given
-            # orb.log.debug('  writing to vault: {}'.format(fname))
-            # fpath = os.path.join(orb.vault, fname)
-        # f = open(fpath, 'w')
-        # orb.log.debug('  writing to path {} ...'.format(fpath))
-        # f.write(json.dumps(cached_model,
-                           # separators=(',', ':'),
-                           # indent=4, sort_keys=True))
-        # f.close()
-
-    # DEPRECATED:  now using diagramz cache, not block model files
-    # def read_block_model(self, fpath):
-        # """
-        # Read a serialized block model (dict) from the specified file path.
-
-        # Args:
-            # fpath (str): path to a serialized block model file
-        # """
-        # orb.log.debug('* Modeler: read_block_model({})'.format(fpath))
-        # if not os.path.exists(fpath):
-            # orb.log.debug('  - path does not exist.')
-            # return None
-        # f = open(fpath)
-        # orb.log.debug('  reading model from path {} ...'.format(fpath))
-        # m = json.loads(f.read())
-        # f.close()
-        # return m
-
     # NOTE: 'set_canvas' is not currently used but should be
     def set_canvas(self, widget=None, name=None):
         if hasattr(self, 'canvas_widget') and self.canvas_widget is not None:

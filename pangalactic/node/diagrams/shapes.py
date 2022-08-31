@@ -290,7 +290,6 @@ class ObjectBlock(Block):
         self.rebuild_port_blocks()
         # NOTE: update() repaints the area covered by the block
         self.update()
-        dispatcher.connect(self.on_block_mod_signal, 'block mod')
 
     @property
     def obj(self):
@@ -383,26 +382,6 @@ class ObjectBlock(Block):
         pass
 
     usage = property(get_usage, set_usage, del_usage, 'usage property')
-
-    def on_block_mod_signal(self, oid=None):
-        """
-        Handler for "block mod" signal.
-        """
-        try:
-            if oid == self.obj.oid:
-                orb.log.debug('* received "block mod" signal')
-                # setting usage calls set_usage(), which recreates label
-                self.usage = self.usage
-                # update() repaints the area covered by the block
-                self.update()
-        except:
-            # wrapped C/C++ object may have been deleted
-            orb.log.debug('* "block mod" signal failed, refreshing diagram...')
-            dispatcher.send('refresh diagram')
-
-    # def something(self):
-        # orb.log.info('* doing something ...')
-        # pass
 
     def parentWidget(self):
         return self.scene().views()[0]
@@ -878,7 +857,6 @@ class SubjectBlock(Block):
         # ObjectBlocks can receive mouse events)
         z_value = 0.0
         self.setZValue(z_value)
-        dispatcher.connect(self.on_block_mod_signal, 'block mod')
 
     def rebuild(self):
         name = getattr(self.obj, 'name', None)
@@ -929,18 +907,6 @@ class SubjectBlock(Block):
             pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRect(self.rect)
-
-    def on_block_mod_signal(self, oid=None):
-        """
-        Handler for "block mod" signal.
-        """
-        try:
-            if oid == self.obj.oid:
-                orb.log.debug('* received "block mod" signal')
-                dispatcher.send('refresh diagram')
-        except:
-            # wrapped C/C++ object may have been deleted
-            orb.log.debug('* received "block mod" signal but exception ...')
 
     def mimeTypes(self):
         """
@@ -1046,9 +1012,7 @@ class SubjectBlock(Block):
             else:
                 orb.log.info("  - dropped product oid not in db.")
                 event.ignore()
-            target_cname = drop_target.__class__.__name__
-            if issubclass(orb.classes[target_cname],
-                          orb.classes['Product']):
+            if isinstance(drop_target, orb.classes['Product']):
                 orb.log.debug('    + target is a Product ...')
                 bom_oids = get_bom_oids(dropped_item)
                 if drop_target.oid in bom_oids:
@@ -1118,23 +1082,23 @@ class SubjectBlock(Block):
                 # parameters must be recomputed, etc.)
                 drop_target.mod_datetime = dtstamp()
                 drop_target.modifier = user
+                # add block before orb.save(), which takes time ...
+                self.scene().create_block(ObjectBlock, usage=new_acu)
                 orb.save([new_acu, drop_target])
                 # orb.log.debug('      Acu created: {}'.format(
                               # new_acu.name))
-                self.scene().create_block(ObjectBlock, usage=new_acu)
                 dispatcher.send('new object', obj=new_acu)
                 dispatcher.send('new diagram block', acu=new_acu)
                 dispatcher.send('modified object', obj=drop_target)
-            elif target_cname == 'Project':
+            elif isinstance(drop_target, orb.classes['Project']):
                 # ------------------------------------------------------------
                 # 3: drop target is a Project ->
                 #    if drop item is a Product *and* it is not already in use
                 #    on the Project, use it to create a new ProjectSystemUsage
                 # ------------------------------------------------------------
-                if (isinstance(dropped_item.owner,
-                      orb.classes['Project']) and
-                      dropped_item.owner.oid != drop_target.oid
-                      and not dropped_item.frozen):
+                if (isinstance(dropped_item.owner, orb.classes['Project'])
+                    and dropped_item.owner.oid != drop_target.oid
+                    and not dropped_item.frozen):
                     msg = '<b>The spec for the dropped item is owned '
                     msg += 'by another project and is not frozen, '
                     msg += 'so it cannot be used on this project. '
