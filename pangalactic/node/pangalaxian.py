@@ -2197,21 +2197,25 @@ class Main(QMainWindow):
                                 tip="Generate Key Pair...",
                                 modes=['system', 'component', 'data', 'db'])
         # actions accessible via the 'Import Data or Objects' toolbar menu:
-        # * import_excel_data_action
-        self.import_excel_data_action = self.create_action(
-                                    "Import Data from Excel...",
-                                    slot=self.import_excel_data)
+        # * import_reqts_excel_action
+        self.import_reqts_excel_action = self.create_action(
+                                    "Import Requirements from Excel...",
+                                    slot=self.import_reqts_from_excel)
+        # * import_products_excel_action
+        self.import_products_excel_action = self.create_action(
+                                    "Import Products from Excel...",
+                                    slot=self.import_products_from_excel)
         # * import_objects (import project or other serialized objs)
         self.import_objects_action = self.create_action(
-                                    "Import Objects from a File...",
-                                    slot=self.import_objects,
-                                    tip="Import Objects from a File...",
-                                    modes=['system'])
+                        "Import Serialized Objects...",
+                        slot=self.import_objects,
+                        tip="Import Serialized Objects from a File...",
+                        modes=['system'])
         self.import_reqts_from_file_action = self.create_action(
-                            "Import Project Requirements from a File...",
-                            slot=self.import_reqts_from_file,
-                            tip="Import Project Requirements from a File...",
-                            modes=['system'])
+                        "Import Serialized Project Requirements...",
+                        slot=self.import_reqts_from_file,
+                        tip="Import Serialized Requirements from a File...",
+                        modes=['system'])
         # * load_test_objects
         # Load Test Objects needs more work -- make it local, or at least
         # non-polluting somehow ...
@@ -2623,7 +2627,8 @@ class Main(QMainWindow):
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         import_icon_path = os.path.join(icon_dir, import_icon_file)
         import_actions = [
-                          self.import_excel_data_action,
+                          self.import_reqts_excel_action,
+                          self.import_products_excel_action,
                           self.import_objects_action,
                           self.import_reqts_from_file_action
                           # Load Test Objects is currently flaky unless ONLY
@@ -2633,7 +2638,8 @@ class Main(QMainWindow):
                           # manager's "close" on the window
                           # self.exit_action
                           ]
-        self.import_excel_data_action.setEnabled(True)
+        self.import_reqts_excel_action.setEnabled(True)
+        self.import_products_excel_action.setEnabled(True)
         import_button = MenuButton(QIcon(import_icon_path),
                                    text='Input',
                                    tooltip='Import Data or Objects',
@@ -5196,7 +5202,7 @@ class Main(QMainWindow):
             popup.show()
             return
 
-    def import_excel_data(self):
+    def import_reqts_from_excel(self):
         start_path = state.get('excel_file_path') or state.get('last_path')
         start_path = start_path or self.user_home
         fpath, _ = QFileDialog.getOpenFileName(
@@ -5212,12 +5218,42 @@ class Main(QMainWindow):
                 popup.show()
                 return
             state['excel_file_path'] = os.path.dirname(fpath)
-            wizard = DataImportWizard(file_path=fpath,
+            wizard = DataImportWizard(
+                            object_type='Requirement',
+                            file_path=fpath,
                             height=self.geometry().height(),
                             width=self.geometry().width(),
                             parent=self)
             wizard.exec_()
-            orb.log.debug('* import_excel_data: dialog completed.')
+            orb.log.debug('* import_reqts_from_excel: dialog completed.')
+        else:
+            return
+
+    def import_products_from_excel(self):
+        start_path = (state.get('prod_excel_file_path')
+                      or state.get('last_path'))
+        start_path = start_path or self.user_home
+        fpath, _ = QFileDialog.getOpenFileName(
+                                    self, 'Open File', start_path,
+                                    "Excel Files (*.xlsx | *.xls)")
+        if fpath:
+            fpath = str(fpath)    # QFileDialog fpath is unicode; make str
+            if not (fpath.endswith('.xls') or fpath.endswith('.xlsx')):
+                message = "File '%s' is not an Excel file." % fpath
+                popup = QMessageBox(QMessageBox.Warning,
+                            "Wrong file type", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                return
+            state['prod_excel_file_path'] = os.path.dirname(fpath)
+            wizard = DataImportWizard(
+                            object_type='HardwareProduct',
+                            file_path=fpath,
+                            height=self.geometry().height(),
+                            width=self.geometry().width(),
+                            parent=self)
+            wizard.exec_()
+            orb.log.debug('* import_products_from_excel: dialog completed.')
         else:
             return
 
@@ -5436,7 +5472,7 @@ class Main(QMainWindow):
         sys.exit()
 
 def cleanup_and_save():
-    test_objs = orb.search_exact(comment='test')
+    test_objs = orb.search_exact(comment='TEST TEST TEST')
     if test_objs:
         orb.delete(test_objs)
     write_config(os.path.join(orb.home, 'config'))

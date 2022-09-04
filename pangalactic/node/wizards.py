@@ -23,7 +23,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.node.buttons     import CheckButtonLabel
-from pangalactic.node.filters     import FilterPanel, FilterDialog
+from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
 from pangalactic.node.utils       import clone, extract_mime_data
@@ -66,13 +66,22 @@ class PrintLogger:
 class DataImportWizard(QtWidgets.QWizard):
     """
     Wizard to assist with importing data from a file.
-    """
 
-    def __init__(self, file_path='', width=1200, height=700, parent=None): 
+    Keyword Args:
+        object_type: class of objects to be created from the data
+        file_path: path to the data file
+        width: width of the widget
+        height: height of the widget
+        parent: parent widget
+    """
+    def __init__(self, object_type='', file_path='', width=1200, height=700,
+                 parent=None): 
         super().__init__(parent=parent)
         if not hasattr(orb, 'log'):
             orb.log = PrintLogger()
-        orb.log.info('* [data import wizard]')
+        orb.log.info('* DataImportWizard')
+        data_wizard_state['object_type'] = object_type
+        orb.log.info(f'  - object type: {object_type}')
         self.setWizardStyle(QtWidgets.QWizard.ClassicStyle)
         # the included buttons must be specified using setButtonLayout in order
         # to get the "Back" button on Windows (it is automatically included on
@@ -94,9 +103,8 @@ class DataImportWizard(QtWidgets.QWizard):
         self.addPage(DataIntroPage(intro_label, parent=self))
         self.addPage(DataSheetPage(parent=self))
         self.addPage(DataHeaderPage(parent=self))
-        self.addPage(MetaDataPage(parent=self))
+        self.addPage(MappingPage(parent=self))
         self.addPage(ObjectCreationPage(parent=self))
-        self.addPage(DataImportConclusionPage(self))
         self.setGeometry(50, 50, width, height)
         self.setSizeGripEnabled(True)
         self.setWindowTitle("Data Import Wizard")
@@ -552,14 +560,13 @@ class PropertyDropLabel(ColorLabel):
             event.ignore()
 
 
-class MetaDataPage(QtWidgets.QWizardPage):
+class MappingPage(QtWidgets.QWizardPage):
     """
-    Page to specify the object type to map the data into and a mapping from the
-    data columns to attributes into which the data will be imported.
+    Page to specify a mapping from the data columns to attributes into which
+    the data will be imported.
     """
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.object_types = ['HardwareProduct', 'Requirement']
         self.object_type = data_wizard_state.get('object_type') or ''
         self.widgets_added = False
         self.column_names = data_wizard_state.get('column_names') or []
@@ -610,13 +617,11 @@ class MetaDataPage(QtWidgets.QWizardPage):
 
     def add_widgets(self):
         self.directions = ColorLabel(
-                                # 'Directions:'
-                                '<ol>'
-                                '<li>Select the target object type</li>'
-                                '<li>Map column names to object properties<br>'
+                                'Directions:'
+                                '<hr>'
+                                'Map column names to object properties<br>'
                                 'by dragging and dropping a property onto<br>'
-                                'the blank field next to a column name.</li>'
-                                '</ol>',
+                                'the blank field next to a column name.',
                                 color="green", element='h3',
                                 border=1, margin=10)
         # set min. width so that when the column name checkboxes are added, the
@@ -631,27 +636,27 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.hbox.addLayout(self.vbox)
         self.setTitle('Data Mapping for <font color="blue">%s</font>'
                       % data_wizard_state['dataset_name'])
-        self.vbox.addWidget(QtWidgets.QLabel(
-                        "<b>Select target object type</b>"),
-                        alignment=Qt.AlignLeft|Qt.AlignTop)
-        self.object_type_buttons = QtWidgets.QButtonGroup()
-        self.hw_button = QtWidgets.QRadioButton('HardwareProduct')
-        self.reqt_button = QtWidgets.QRadioButton('Requirement')
-        self.object_type_buttons.addButton(self.hw_button)
-        self.object_type_buttons.addButton(self.reqt_button)
-        self.object_type_buttons.buttonClicked.connect(
-                                        self.on_set_object_type)
-        radio_button_layout = QtWidgets.QVBoxLayout()
-        radio_button_layout.addWidget(self.hw_button)
-        radio_button_layout.addWidget(self.reqt_button)
-        self.vbox.addLayout(radio_button_layout)
-        self.vbox.addWidget(QtWidgets.QLabel("<hr>"))
-        # mapping construction, using 2 vertical columns:
+        # DEPRECATED section:  object_type set when wizard is initialized ...
+        # self.vbox.addWidget(QtWidgets.QLabel(
+                        # "<b>Select target object type</b>"),
+                        # alignment=Qt.AlignLeft|Qt.AlignTop)
+        # self.object_type_buttons = QtWidgets.QButtonGroup()
+        # self.hw_button = QtWidgets.QRadioButton('HardwareProduct')
+        # self.reqt_button = QtWidgets.QRadioButton('Requirement')
+        # self.object_type_buttons.addButton(self.hw_button)
+        # self.object_type_buttons.addButton(self.reqt_button)
+        # self.object_type_buttons.buttonClicked.connect(
+                                        # self.on_set_object_type)
+        # radio_button_layout = QtWidgets.QVBoxLayout()
+        # radio_button_layout.addWidget(self.hw_button)
+        # radio_button_layout.addWidget(self.reqt_button)
+        # self.vbox.addLayout(radio_button_layout)
+        # self.vbox.addWidget(QtWidgets.QLabel("<hr>"))
+
+        # Mapping construction, using 3 vertical columns, of which the first 2
+        # columns are inside the self.vbox layout:
         # (1) selected column names
         # (2) empty labels into which the target attribute will be dropped
-        #
-        # - attributes of the target object type are brought up in a separate
-        # dialog, from which they can be dragged/dropped onto the empty labels
         self.mapping_scrollarea = QtWidgets.QScrollArea()
         self.mapping_scrollarea.setWidgetResizable(True)
         self.mapping_scrollarea.setMinimumWidth(300)
@@ -680,8 +685,36 @@ class MetaDataPage(QtWidgets.QWizardPage):
             mapping_layout.addWidget(arrow_label, i, 1)
             mapping_layout.addWidget(target_label, i, 2)
         self.vbox.addWidget(self.mapping_scrollarea)
-                            # alignment=Qt.AlignLeft|Qt.AlignTop)
         self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
+
+        # ... and the 3rd column is in self.attr_vbox ...
+        # (3) attributes of the target object type shown in a list from which
+        # they can be dragged/dropped onto the empty labels
+        self.attr_vbox = QtWidgets.QVBoxLayout()
+        self.hbox.addLayout(self.attr_vbox)
+        objs = []
+        for fname in orb.schemas[self.object_type]['field_names']:
+            # exclude object properties
+            if (orb.schemas[self.object_type]['fields'][fname]['range']
+                not in orb.classes):
+                objs.append(get_dedef(fname))
+        if self.object_type == 'HardwareProduct':
+            # for HardwareProducts, can map columns to parameters and MEL data
+            # elements
+            gsfc_dedefs = orb.search_exact(cname='DataElementDefinition',
+                                           id_ns='gsfc.mel')
+            if gsfc_dedefs:
+                objs += gsfc_dedefs
+            objs += orb.get_by_type('ParameterDefinition')
+        self.attr_panel = FilterPanel(objs=objs, as_library=True,
+                                   title=f'Properties of {self.object_type}',
+                                   sized_cols={'id': 0, 'range_datatype': 0},
+                                   view=['id', 'range_datatype'],
+                                   height=self.geometry().height(),
+                                   width=450, parent=self)
+        self.attr_vbox.addWidget(self.attr_panel)
+        self.attr_vbox.setStretchFactor(self.attr_panel, 1)
+
         # *******************************************************************
         # Table displaying the selected dataset ...
         # *******************************************************************
@@ -710,35 +743,36 @@ class MetaDataPage(QtWidgets.QWizardPage):
         self.updateGeometry()
         self.widgets_added = True
 
-    def on_set_object_type(self):
-        """
-        Handle selection of object type.
-        """
-        b = self.object_type_buttons.checkedButton()
-        self.object_type = b.text()
-        data_wizard_state['object_type'] = self.object_type
-        orb.log.debug(f'* object type: "{self.object_type}"')
-        objs = []
-        for fname in orb.schemas[self.object_type]['field_names']:
-            # exclude object properties
-            if (orb.schemas[self.object_type]['fields'][fname]['range']
-                not in orb.classes):
-                objs.append(get_dedef(fname))
-        if self.object_type == 'HardwareProduct':
-            # for HardwareProducts, can map columns to parameters and MEL data
-            # elements
-            gsfc_dedefs = orb.search_exact(cname='DataElementDefinition',
-                                           id_ns='gsfc.mel')
-            if gsfc_dedefs:
-                objs += gsfc_dedefs
-            objs += orb.get_by_type('ParameterDefinition')
-        dlg = FilterDialog(objs=objs, as_library=True,
-                           title=f'Properties of {self.object_type}',
-                           sized_cols={'id': 0, 'range_datatype': 0},
-                           view=['id', 'range_datatype'],
-                           height=self.geometry().height(),
-                           width=450, parent=self)
-        dlg.show()
+    # DEPRECATED:  object_type set when wizard is initialized ...
+    # def on_set_object_type(self):
+        # """
+        # Handle selection of object type.
+        # """
+        # b = self.object_type_buttons.checkedButton()
+        # self.object_type = b.text()
+        # data_wizard_state['object_type'] = self.object_type
+        # orb.log.debug(f'* object type: "{self.object_type}"')
+        # objs = []
+        # for fname in orb.schemas[self.object_type]['field_names']:
+            # # exclude object properties
+            # if (orb.schemas[self.object_type]['fields'][fname]['range']
+                # not in orb.classes):
+                # objs.append(get_dedef(fname))
+        # if self.object_type == 'HardwareProduct':
+            # # for HardwareProducts, can map columns to parameters and MEL data
+            # # elements
+            # gsfc_dedefs = orb.search_exact(cname='DataElementDefinition',
+                                           # id_ns='gsfc.mel')
+            # if gsfc_dedefs:
+                # objs += gsfc_dedefs
+            # objs += orb.get_by_type('ParameterDefinition')
+        # dlg = FilterDialog(objs=objs, as_library=True,
+                           # title=f'Properties of {self.object_type}',
+                           # sized_cols={'id': 0, 'range_datatype': 0},
+                           # view=['id', 'range_datatype'],
+                           # height=self.geometry().height(),
+                           # width=450, parent=self)
+        # dlg.show()
 
     def on_dedef_drop(self, dedef_id=None, idx=None):
         col_names = data_wizard_state['column_names']
@@ -797,19 +831,19 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
                 else:
                     kw['id'] = f"SANDBOX-{kw['level']}.{i}"
             # for cleanup after test run ...
-            kw['comment'] = "test"
+            kw['comment'] = "TEST TEST TEST"
             obj = clone(self.object_type, **kw)
             # save before generating "id" ...
-            orb.save([obj])
-            # if self.object_type == 'Requirement':
-                # obj.id = orb.gen_req_id(obj)
             if self.object_type == 'HardwareProduct':
                 obj.id = orb.gen_product_id(obj)
             orb.db.commit()
             self.objs.append(obj)
+        orb.save(self.objs)
+        # if self.object_type == 'Requirement':
+            # obj.id = orb.gen_req_id(obj)
         self.vbox = QtWidgets.QVBoxLayout(self)
         if self.widgets_added:
-            # make sure state is consistent with MetaDataPage results
+            # make sure state is consistent with MappingPage results
             pass
         else:
             self.add_widgets()
