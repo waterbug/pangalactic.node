@@ -888,21 +888,6 @@ class TimelineWidget(QWidget):
             # except:
                 # orb.log.debug("  - TLWidget.change_subsystem() failed.")
 
-    def make_new_system(self, system_name):
-        """
-        (Deprecated) Make a new subsystem if one does not exist.
-        """
-        pro_type = orb.select("ProductType", id=system_name)
-        new_subsystem = clone("HardwareProduct", owner=self.system.owner,
-                              product_type=pro_type, id=pro_type.id,
-                              name=pro_type.id, public=True)
-        acu = clone("Acu", assembly=self.system, component=new_subsystem)
-        self.act_of = new_subsystem
-        orb.save([new_subsystem, acu])
-        orb.log.debug('* sending "new object" signal')
-        dispatcher.send("new object", obj=new_subsystem)
-        dispatcher.send("new object", obj=acu)
-
 
 class ConOpsModeler(QMainWindow):
     """

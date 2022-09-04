@@ -33,11 +33,16 @@ from pangalactic.core.utils.datetimes import dtstamp
 
 def clone(what, include_ports=True, include_components=True,
           include_specified_components=None, generate_id=False,
-          flatten=False, **kw):
+          flatten=False, save_hw=True, **kw):
     """
     Create a new object either (1) from a class using keywords or (2) by
     copying an existing object.  NOTE:  clone() does not save/commit the
-    object, so orb.save() or orb.db.commit() must be called after cloning.
+    object, so orb.save() or orb.db.commit() must be called after cloning --
+    *but* "HardwareProduct" is a special case: unless the "save_hw" kw arg is
+    set to False, the dispatcher signal "new hardware clone" is sent, which
+    triggers pangalaxian to switch to Component Mode and send the "vger.save()"
+    rpc with the HardwareProduct object and any newly created associated
+    objects (e.g. Port instances and/or, for white box clones, Acu instances).
 
     (1) If `what` is a string, create a new instance of the class with
     that name, and assign it the values in the `kw` dict.  If the named
@@ -76,6 +81,12 @@ def clone(what, include_ports=True, include_components=True,
         flatten (bool):  for a black box clone (no components), populate the
             Mass, Power, and Data Rate parameters with the corresponding 'CBE'
             parameter values from the original object
+        save_hw (bool): applies to clones of HardwareProduct -- if True, the
+            dispatcher "new hardware clone" is sent, which triggers pangalaxian
+            to switch to Component Mode and send the "vger.save()" rpc;
+            if False, that will not be done, so the clone must be explicitly
+            saved.
+    Mode and to send the "vger.save()" rpc
         kw (dict):  attributes for the clone
     """
     orb.log.info('* clone({})'.format(what))
@@ -182,16 +193,9 @@ def clone(what, include_ports=True, include_components=True,
             new_parameters = deepcopy(parameterz[obj.oid])
             parameterz[newkw['oid']] = new_parameters
             recompute_needed = True
-        if from_object and data_elementz.get(getattr(obj, 'oid', None)):
+        if data_elementz.get(getattr(obj, 'oid', None)):
             new_data = deepcopy(data_elementz[obj.oid])
             data_elementz[newkw['oid']] = new_data
-    else:   # NOT from_object -- new_obj is a brand-new object
-        # NOTE:  this will add both class-specific and (for HardwareProducts)
-        # ProductType-specific default parameters, as well as any custom
-        # parameters specified in "config" and "prefs" for HardwareProduct
-        # instances ...
-        add_default_data_elements(new_obj)
-        add_default_parameters(new_obj)
     # operations specific to HardwareProducts ...
     if isinstance(new_obj, orb.classes['HardwareProduct']):
         new_ports = []
@@ -275,13 +279,22 @@ def clone(what, include_ports=True, include_components=True,
                     pid_cbe = pid + '[CBE]'
                     cbe_val = get_pval(obj.oid, pid_cbe)
                     set_pval(new_obj.oid, pid, cbe_val)
-        # the 'id' must be generated *after* the product_type is assigned
+        else:   # NOT from_object -> new_obj is a brand-new object
+            # NOTE:  this will add both class-specific and (for HardwareProducts)
+            # ProductType-specific default parameters, as well as any custom
+            # parameters specified in "config" and "prefs" for HardwareProduct
+            # instances ...
+            add_default_data_elements(new_obj)
+            add_default_parameters(new_obj)
         new_obj.id = orb.gen_product_id(new_obj)
         new_objs = []
         new_objs += new_ports
         new_objs += new_acus
-        dispatcher.send(signal='new hardware clone', product=new_obj,
-                        objs=new_objs)
+        # the "new hardware clone" signal causes pangalaxian to switch to
+        # Component Mode
+        if save_hw:
+            dispatcher.send(signal='new hardware clone', product=new_obj,
+                            objs=new_objs)
     if recompute_needed:
         orb.recompute_parmz()
     return new_obj

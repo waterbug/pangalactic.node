@@ -23,6 +23,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.node.buttons     import CheckButtonLabel
+from pangalactic.node.dialogs     import ProgressDialog
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
@@ -819,6 +820,13 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
         self.col_map = data_wizard_state['column_mapping']
         orb.log.debug(f'* column mapping: {self.col_map}')
         self.dataset = data_wizard_state['selected_dataset']
+        text = f'Creating {self.object_type} objects from Excel data ...'
+        self.progress_dialog = ProgressDialog(title='Creating Objects',
+                                              label=text, parent=self)
+        self.progress_dialog.setAttribute(Qt.WA_DeleteOnClose)
+        self.progress_dialog.setMaximum(len(self.dataset))
+        self.progress_dialog.setValue(0)
+        self.progress_dialog.setMinimumDuration(2000)
         for i, row in enumerate(self.dataset):
             kw = {self.col_map[name] : row[i]
                   for i, name in enumerate(self.col_map)}
@@ -832,13 +840,18 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
                     kw['id'] = f"SANDBOX-{kw['level']}.{i}"
             # for cleanup after test run ...
             kw['comment'] = "TEST TEST TEST"
-            obj = clone(self.object_type, **kw)
-            # save before generating "id" ...
             if self.object_type == 'HardwareProduct':
+                # NOTE: save_hw=False prevents the saving of hw objects one at
+                # a time -- much more efficient to save after all are cloned
+                obj = clone(self.object_type, save_hw=False, **kw)
                 obj.id = orb.gen_product_id(obj)
-            orb.db.commit()
+            else:
+                obj = clone(self.object_type, **kw)
             self.objs.append(obj)
+            orb.db.commit()
+            self.progress_dialog.setValue(i+1)
         orb.save(self.objs)
+        self.progress_dialog.done(0)
         # if self.object_type == 'Requirement':
             # obj.id = orb.gen_req_id(obj)
         self.vbox = QtWidgets.QVBoxLayout(self)
