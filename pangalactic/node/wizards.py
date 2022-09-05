@@ -682,7 +682,7 @@ class MappingPage(QtWidgets.QWizardPage):
                 objs += gsfc_dedefs
             objs += orb.get_by_type('ParameterDefinition')
         self.attr_panel = FilterPanel(objs=objs, as_library=True,
-                                   title=f'Properties of {self.object_type}',
+                                   title=f'{self.object_type} Properties',
                                    sized_cols={'id': 0, 'range_datatype': 0},
                                    view=['id', 'range_datatype'],
                                    height=self.geometry().height(),
@@ -721,8 +721,11 @@ class MappingPage(QtWidgets.QWizardPage):
     def instructions(self):
         text =  '<h3>Map selected column names to properties by dragging and '
         text += 'dropping a property name from the <font color="purple">'
-        text += f'Properties&nbsp;of&nbsp;{self.object_type}</font> list '
+        text += f'{self.object_type}&nbsp;Properties</font> list '
         text += 'to the empty box next to a column name.</h3>'
+        text += '<hr>'
+        text += '<b>NOTE: to see the definition of a property, '
+        text += 'hover the mouse over its name.</b>'
         QtWidgets.QMessageBox.question(self, 'Instructions', text,
                                        QtWidgets.QMessageBox.Ok)
 
