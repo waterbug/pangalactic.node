@@ -949,7 +949,7 @@ class PerformReqShallPage(QWizardPage):
         self.setSubTitle('Inspect the "shall statement" and provide the '
                          'rationale ...')
 
-        # button with label to access instructions
+        # button to pop up instructions
         inst_button = QPushButton('Instructions')
         inst_button.clicked.connect(self.instructions)
         inst_button.setMaximumSize(150,35)

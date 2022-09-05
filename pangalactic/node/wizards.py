@@ -259,7 +259,8 @@ class DataHeaderPage(QtWidgets.QWizardPage):
         self.tableview.clicked.connect(self.on_row_clicked)
         row_header = self.tableview.verticalHeader()
         row_header.sectionClicked.connect(self.on_row_header_clicked)
-        self.hbox.addWidget(self.tableview, stretch=1,
+        # self.hbox.addWidget(self.tableview, stretch=1,
+        self.hbox.addWidget(self.tableview,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
         self.updateGeometry()
         self.setLayout(self.hbox)
@@ -276,13 +277,8 @@ class DataHeaderPage(QtWidgets.QWizardPage):
         """
         self.candidate_column_names = data_wizard_state['dataset'][row] 
         data_wizard_state['heading_row'] = row
-        # self.directions.setText(
-                    # '<font color="green">'
-                    # '<h3>Select the row that contains<br>'
-                    # 'the columns to be imported:</h3></font>'
-                    # '<hr>')
         self.directions.set_content(
-                    'Select the columns<br>to be imported:',
+                    'Click on the labels of columns<br>to be imported:',
                     color="green", element='h3',
                     border=1, margin=10)
         # if there are checkboxes from a previous call, remove them ...
@@ -611,49 +607,26 @@ class MappingPage(QtWidgets.QWizardPage):
                     mapping_layout.addWidget(arrow_label, i, 1)
                     mapping_layout.addWidget(target_label, i, 2)
                 self.vbox.addWidget(self.mapping_scrollarea)
-                                    # alignment=Qt.AlignLeft|Qt.AlignTop)
-                self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
+                # self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
         else:
             self.add_widgets()
 
     def add_widgets(self):
-        self.directions = ColorLabel(
-                                'Directions:'
-                                '<hr>'
-                                'Map column names to object properties<br>'
-                                'by dragging and dropping a property onto<br>'
-                                'the blank field next to a column name.',
-                                color="green", element='h3',
-                                border=1, margin=10)
+        # button to pop up instructions
+        instructions_button = QtWidgets.QPushButton('View Instructions')
+        instructions_button.clicked.connect(self.instructions)
+        instructions_button.setMaximumSize(150,35)
         # set min. width so that when the column name checkboxes are added, the
         # panel is wide enough that no horizontal scroll bar appears ...
-        self.directions.setMinimumWidth(200)
         self.vbox = QtWidgets.QVBoxLayout()
         self.vbox.setSpacing(10)
-        self.vbox.addWidget(self.directions,
+        self.vbox.addWidget(instructions_button,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
         self.hbox = QtWidgets.QHBoxLayout()
         self.hbox.setSpacing(50)
         self.hbox.addLayout(self.vbox)
         self.setTitle('Data Mapping for <font color="blue">%s</font>'
                       % data_wizard_state['dataset_name'])
-        # DEPRECATED section:  object_type set when wizard is initialized ...
-        # self.vbox.addWidget(QtWidgets.QLabel(
-                        # "<b>Select target object type</b>"),
-                        # alignment=Qt.AlignLeft|Qt.AlignTop)
-        # self.object_type_buttons = QtWidgets.QButtonGroup()
-        # self.hw_button = QtWidgets.QRadioButton('HardwareProduct')
-        # self.reqt_button = QtWidgets.QRadioButton('Requirement')
-        # self.object_type_buttons.addButton(self.hw_button)
-        # self.object_type_buttons.addButton(self.reqt_button)
-        # self.object_type_buttons.buttonClicked.connect(
-                                        # self.on_set_object_type)
-        # radio_button_layout = QtWidgets.QVBoxLayout()
-        # radio_button_layout.addWidget(self.hw_button)
-        # radio_button_layout.addWidget(self.reqt_button)
-        # self.vbox.addLayout(radio_button_layout)
-        # self.vbox.addWidget(QtWidgets.QLabel("<hr>"))
-
         # Mapping construction, using 3 vertical columns, of which the first 2
         # columns are inside the self.vbox layout:
         # (1) selected column names
@@ -672,20 +645,21 @@ class MappingPage(QtWidgets.QWizardPage):
         for i, name in enumerate(data_wizard_state['column_names']):
             col_label = QtWidgets.QLabel(f'<b>{name}</b>')
             col_label.setFixedWidth(100)
+            col_label.setMargin(10)
             col_label.setWordWrap(True)
             col_label.setStyleSheet('border: 1px solid black;')
+            col_label.setMaximumSize(col_label.sizeHint())
             arrow_label = QtWidgets.QLabel()
             arrow_label.setFixedWidth(20)
             arrow_label.setPixmap(arrow_image)
-            target_label = PropertyDropLabel(i, margin=2, border=1)
+            target_label = PropertyDropLabel(i, margin=10, border=1)
             if col_map and col_map.get(name):
                 target_label.set_content(col_map[name], color="purple")
-            # target_label.setFixedWidth(100)
-            # target_label.setStyleSheet('border: 1px solid black;')
             mapping_layout.addWidget(col_label, i, 0)
             mapping_layout.addWidget(arrow_label, i, 1)
             mapping_layout.addWidget(target_label, i, 2)
         self.vbox.addWidget(self.mapping_scrollarea)
+        self.vbox.addStretch()
         self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
 
         # ... and the 3rd column is in self.attr_vbox ...
@@ -744,36 +718,13 @@ class MappingPage(QtWidgets.QWizardPage):
         self.updateGeometry()
         self.widgets_added = True
 
-    # DEPRECATED:  object_type set when wizard is initialized ...
-    # def on_set_object_type(self):
-        # """
-        # Handle selection of object type.
-        # """
-        # b = self.object_type_buttons.checkedButton()
-        # self.object_type = b.text()
-        # data_wizard_state['object_type'] = self.object_type
-        # orb.log.debug(f'* object type: "{self.object_type}"')
-        # objs = []
-        # for fname in orb.schemas[self.object_type]['field_names']:
-            # # exclude object properties
-            # if (orb.schemas[self.object_type]['fields'][fname]['range']
-                # not in orb.classes):
-                # objs.append(get_dedef(fname))
-        # if self.object_type == 'HardwareProduct':
-            # # for HardwareProducts, can map columns to parameters and MEL data
-            # # elements
-            # gsfc_dedefs = orb.search_exact(cname='DataElementDefinition',
-                                           # id_ns='gsfc.mel')
-            # if gsfc_dedefs:
-                # objs += gsfc_dedefs
-            # objs += orb.get_by_type('ParameterDefinition')
-        # dlg = FilterDialog(objs=objs, as_library=True,
-                           # title=f'Properties of {self.object_type}',
-                           # sized_cols={'id': 0, 'range_datatype': 0},
-                           # view=['id', 'range_datatype'],
-                           # height=self.geometry().height(),
-                           # width=450, parent=self)
-        # dlg.show()
+    def instructions(self):
+        text =  '<h3>Map selected column names to properties by dragging and '
+        text += 'dropping a property name from the <font color="purple">'
+        text += f'Properties&nbsp;of&nbsp;{self.object_type}</font> list '
+        text += 'to the empty box next to a column name.</h3>'
+        QtWidgets.QMessageBox.question(self, 'Instructions', text,
+                                       QtWidgets.QMessageBox.Ok)
 
     def on_dedef_drop(self, dedef_id=None, idx=None):
         col_names = data_wizard_state['column_names']
