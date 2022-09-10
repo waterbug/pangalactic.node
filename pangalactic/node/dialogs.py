@@ -28,8 +28,9 @@ from louie import dispatcher
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
-                                          SELECTABLE_VALUES, SELECTION_VIEWS,
-                                          TEXT_PROPERTIES)
+                                          PGXN_REQD, SELECTABLE_VALUES,
+                                          SELECTION_VIEWS, TEXT_PROPERTIES,
+                                          SELECTION_FILTERS)
 from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
                                           get_dval, mode_defz, set_dval)
 from pangalactic.core.uberorb     import orb
@@ -38,7 +39,7 @@ from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.names       import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.core.utils.reports import get_mel_data, write_mel_to_tsv
-from pangalactic.node.buttons     import SizedButton, UrlButton
+from pangalactic.node.buttons     import SizedButton, UrlButton, FkButton
 from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.utils       import clone
@@ -232,6 +233,92 @@ class ProgressDialog(QProgressDialog):
         self.show()
 
 
+class HWFieldsDialog(QDialog):
+    """
+    A dialog to edit selected fields of a HardwareProduct.
+    """
+    def __init__(self, hw_item, parent=None):
+        super().__init__(parent)
+        self.hw_item = hw_item
+        self.setWindowTitle("Product {hw_item.id}")
+        names = ['name', 'description', 'product_type', 'owner']
+        vbox = QVBoxLayout(self)
+        self.form = QFormLayout()
+        self.fields = {}
+        vbox.addLayout(self.form)
+        for name in names:
+            ename = get_attr_ext_name('HardwareProduct', name)
+            schema = orb.schemas['HardwareProduct']
+            if name in SELECTABLE_VALUES:
+                val = getattr(hw_item, name)
+                if val:
+                    widget = StringSelectWidget(parent=self, field_name=name,
+                                                value=val)
+                else:
+                    widget = StringSelectWidget(parent=self, field_name=name)
+                widget.setStyleSheet('font-weight: bold;')
+            elif name in TEXT_PROPERTIES:
+                val = getattr(hw_item, name) or ''
+                widget = TextFieldWidget(parent=self, value=val)
+            elif schema['fields'][name]['range'] in orb.classes:
+                val = getattr(hw_item, name) or None
+                widget = FkButton(parent=self, value=val)
+                widget.field_name = name
+                widget.clicked.connect(self.on_select_related)
+            else:
+                val = getattr(hw_item, name) or ''
+                widget = StringFieldWidget(parent=self, value=val)
+            label = QLabel(ename, self)
+            self.fields[name] = widget
+            self.form.addRow(label, widget)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        vbox.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.on_save)
+        self.buttons.rejected.connect(self.reject)
+
+    def on_select_related(self):
+        # orb.log.info('* [pgxo] select related object ...')
+        widget = self.sender()
+        # TODO:  if None, give option to create a new object
+        # orb.log.debug('  [pgxo] current object: %s' % str(obj))
+        cname = 'Requirement'
+        field_name = widget.field_name
+        # SELECTION_FILTERS define the set of valid objects for this field
+        objs = []
+        if SELECTION_FILTERS.get(field_name):
+            fltrs = SELECTION_FILTERS[field_name]
+            for cname in fltrs:
+                if fltrs[cname]:
+                    objs += orb.select(cname, **fltrs[cname])
+                else:
+                    objs += orb.get_by_type(cname)
+        else:
+            objs = orb.get_all_subtypes(cname)
+        if objs:
+            # orb.log.debug('  [pgxo] object being edited: {}'.format(
+                                                            # self.obj.oid))
+            objs.sort(key=lambda x: getattr(x, 'id', '') or '')
+            dlg = ObjectSelectionDialog(objs, with_none=False, parent=self)
+            if dlg.exec_():
+                new_oid = dlg.get_oid()
+                new_obj = orb.get(new_oid)
+                widget.set_value(new_obj)
+        else:
+            # TODO:  pop-up message about no objects being available
+            pass
+
+    def on_save(self):
+        for name, widget in self.fields.items():
+            setattr(self.hw_item, name, widget.get_value())
+        orb.save([self.hw_item])
+        dispatcher.send(signal='modified object', obj=self.hw_item,
+                        cname='HardwareProduct')
+        self.accept()
+
+
 class ReqFieldsDialog(QDialog):
     """
     A dialog to edit fields of a requirement.
@@ -250,6 +337,7 @@ class ReqFieldsDialog(QDialog):
         vbox.addLayout(self.form)
         for name in names:
             ename = get_attr_ext_name('Requirement', name)
+            schema = orb.schemas['Requirement']
             if name in SELECTABLE_VALUES:
                 val = getattr(req, name)
                 if val:
@@ -261,6 +349,11 @@ class ReqFieldsDialog(QDialog):
             elif name in TEXT_PROPERTIES:
                 val = getattr(req, name) or ''
                 widget = TextFieldWidget(parent=self, value=val)
+            elif schema['fields'][name]['range'] in orb.classes:
+                val = getattr(req, name) or None
+                widget = FkButton(parent=self, value=val)
+                widget.field_name = name
+                widget.clicked.connect(self.on_select_related)
             else:
                 val = getattr(req, name) or ''
                 widget = StringFieldWidget(parent=self, value=val)
@@ -274,6 +367,37 @@ class ReqFieldsDialog(QDialog):
         vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.on_save)
         self.buttons.rejected.connect(self.reject)
+
+    def on_select_related(self):
+        # orb.log.info('* [pgxo] select related object ...')
+        widget = self.sender()
+        # TODO:  if None, give option to create a new object
+        # orb.log.debug('  [pgxo] current object: %s' % str(obj))
+        cname = 'Requirement'
+        field_name = widget.field_name
+        # SELECTION_FILTERS define the set of valid objects for this field
+        objs = []
+        if SELECTION_FILTERS.get(field_name):
+            fltrs = SELECTION_FILTERS[field_name]
+            for cname in fltrs:
+                if fltrs[cname]:
+                    objs += orb.select(cname, **fltrs[cname])
+                else:
+                    objs += orb.get_by_type(cname)
+        else:
+            objs = orb.get_all_subtypes(cname)
+        if objs:
+            # orb.log.debug('  [pgxo] object being edited: {}'.format(
+                                                            # self.obj.oid))
+            objs.sort(key=lambda x: getattr(x, 'id', '') or '')
+            dlg = ObjectSelectionDialog(objs, with_none=False, parent=self)
+            if dlg.exec_():
+                new_oid = dlg.get_oid()
+                new_obj = orb.get(new_oid)
+                widget.set_value(new_obj)
+        else:
+            # TODO:  pop-up message about no objects being available
+            pass
 
     def on_save(self):
         for name, widget in self.fields.items():

@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+"""
+Filtering widgets: dialogs, tables, etc.
+"""
 from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
                           QSortFilterProxyModel, QTimer, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
@@ -723,11 +727,13 @@ class FilterPanel(QWidget):
         dispatcher.send('only mine toggled')
 
     def create_actions(self):
-        self.pgxnobj_action = QAction('View this object', self)
+        self.pgxnobj_action = QAction('View or edit this object', self)
         self.pgxnobj_action.triggered.connect(self.display_object)
+        txt = 'Edit selected fields of this hardware item'
+        self.hw_fields_action = QAction(txt, self)
         txt = 'Edit parameters of this requirement'
         self.req_parms_action = QAction(txt, self)
-        txt = 'Edit fields of this requirement'
+        txt = 'Edit selected fields of this requirement'
         self.req_fields_action = QAction(txt, self)
         txt = 'Edit this requirement in the wizard'
         self.reqwizard_action = QAction(txt, self)
@@ -742,11 +748,14 @@ class FilterPanel(QWidget):
             self.proxy_view.addAction(self.req_parms_action)
             self.proxy_view.addAction(self.req_fields_action)
             self.proxy_view.addAction(self.reqwizard_action)
+        elif self.cname == 'HardwareProduct':
+            self.proxy_view.addAction(self.hw_fields_action)
+            self.proxy_view.addAction(self.pgxnobj_action)
+            # NOTE: disabled because templates need more work
+            # self.proxy_view.addAction(self.template_action)
         else:
             # for all objs other than Requirements, use PgxnObject
             self.proxy_view.addAction(self.pgxnobj_action)
-        # if self.cname == 'HardwareProduct':
-            # self.proxy_view.addAction(self.template_action)
         self.proxy_view.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def display_object(self):

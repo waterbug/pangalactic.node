@@ -23,7 +23,8 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.node.buttons     import CheckButtonLabel
-from pangalactic.node.dialogs     import ProgressDialog
+from pangalactic.node.dialogs     import (ProgressDialog, HWFieldsDialog,
+                                          ReqFieldsDialog)
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
@@ -823,41 +824,61 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
         view = MAIN_VIEWS[self.object_type]
         self.fpanel = FilterPanel(self.objs, view=view, sized_cols=sized_cols,
                                   word_wrap=True, parent=self)
+        if self.object_type == 'Requirement':
+            self.fpanel.req_fields_action.triggered.connect(
+                                                    self.edit_req_fields)
+        elif self.object_type == 'HardwareProduct':
+            self.fpanel.hw_fields_action.triggered.connect(
+                                                    self.edit_hw_fields)
         self.vbox.addWidget(self.fpanel, stretch=1)
 
+    def edit_req_fields(self):
+        """
+        Edit the selected product in the table, to populate fields that are not
+        present in the imported data.
+        """
+        orb.log.debug('* edit_req_fields()')
+        req = None
+        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
+            i = self.fpanel.proxy_model.mapToSource(
+                self.fpanel.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
+                          'oid', '')
+            if oid:
+                req = orb.get(oid)
+        if req:
+            dlg = ReqFieldsDialog(req, parent=self)
+            if dlg.exec_() == QtWidgets.QDialog.Accepted:
+                orb.log.info('* req fields edited.')
+                dlg.close()
+            else:
+                orb.log.info('* req fields editing cancelled.')
+                dlg.close()
 
-class DataImportConclusionPage(QtWidgets.QWizardPage):
-    def __init__(self, parent=None):
-        super().__init__(parent=parent)
-
-    def initializePage(self):
-        # finishText = self.wizard().buttonText(QtWidgets.QWizard.FinishButton)
-        # finishText.replace('&', '')
-        new_dataset = data_wizard_state['dataset'][
-                                        data_wizard_state['heading_row']:]
-        # include only the columns specified for import ...
-        new_dataset = [[row[i] for i in data_wizard_state['column_numbers']]
-                                             for row in new_dataset]
-        self.setTitle('Dataset <font color="blue">%s</font>'
-                      % data_wizard_state['dataset_name'])
-        self.setSubTitle("Click <b>Finish</b> to save this dataset ...")
-        tablemodel = ListTableModel(new_dataset, parent=self)
-        if hasattr(self, 'tableview'):
-            self.tableview.setParent(None)
-        self.tableview = QtWidgets.QTableView(self)
-        self.tableview.setModel(tablemodel)
-        self.tableview.resizeColumnsToContents()
-        self.tableview.setSizeAdjustPolicy(self.tableview.AdjustToContents)
-        self.tableview.setSelectionBehavior(self.tableview.SelectRows)
-        self.tableview.setSelectionMode(self.tableview.SingleSelection)
-        # row_header = self.tableview.verticalHeader()
-        # self.vbox = QtWidgets.QVBoxLayout()
-        # self.vbox.addWidget(self.tableview, stretch=1,
-                            # alignment=Qt.AlignLeft|Qt.AlignTop)
-        # self.addLayout(self.vbox)
-        self.updateGeometry()
-        self.resize(self.parent().geometry().width(),
-                    self.parent().geometry().height())
+    def edit_hw_fields(self):
+        """
+        Edit the selected product in the table, to populate fields that are not
+        present in the imported data.
+        """
+        orb.log.debug('* edit_hw_fields()')
+        hw = None
+        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
+            i = self.fpanel.proxy_model.mapToSource(
+                self.fpanel.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
+                          'oid', '')
+            if oid:
+                hw = orb.get(oid)
+        if hw:
+            dlg = HWFieldsDialog(hw, parent=self)
+            if dlg.exec_() == QtWidgets.QDialog.Accepted:
+                orb.log.info('* hw item fields edited.')
+                dlg.close()
+            else:
+                orb.log.info('* hw item fields editing cancelled.')
+                dlg.close()
 
 
 #################################
@@ -896,12 +917,9 @@ class NewProductWizard(QtWidgets.QWizard):
         self.project = proj
         # 0. Identify Product
         self.addPage(IdentificationPage(intro_label, parent=self))
-        # 1. Select Product Type
-        ### NOTE:  now using pgxnobject to select the product type
-        # self.addPage(ProductTypePage(parent=self))
-        # 2. Select Maturity Level (TRL)
+        # 1. Select Maturity Level (TRL)
         self.addPage(MaturityLevelPage(parent=self))
-        # 3. Specify Interfaces and Parameter Values
+        # 2. Specify Interfaces and Parameter Values
         #    * Mass
         #    * Power
         #    * Data Interface(s)
