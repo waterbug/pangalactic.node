@@ -571,48 +571,69 @@ class MappingPage(QtWidgets.QWizardPage):
         dispatcher.connect(self.on_dedef_drop, 'dedef drop')
 
     def initializePage(self):
-        if self.widgets_added:
-            if self.column_names != data_wizard_state.get('column_names'):
-                # re-generate mapping area for the new column selections ...
-                if getattr(self, 'mapping_scrollarea', None):
-                    self.vbox.removeWidget(self.mapping_scrollarea)
-                    self.mapping_scrollarea.setAttribute(Qt.WA_DeleteOnClose)
-                    self.mapping_scrollarea.parent = None
-                    self.mapping_scrollarea.close()
-                    self.mapping_scrollarea = None
-                self.mapping_scrollarea = QtWidgets.QScrollArea()
-                self.mapping_scrollarea.setWidgetResizable(True)
-                self.mapping_scrollarea.setMinimumWidth(300)
-                mapping_container = QtWidgets.QWidget()
-                self.mapping_scrollarea.setWidget(mapping_container)
-                mapping_layout = QtWidgets.QGridLayout(mapping_container)
-                arrow_image = QtGui.QPixmap(os.path.join(
-                                                orb.home, 'icons', 'right_arrow.png'))
-                arrow_label = QtWidgets.QLabel()
-                arrow_label.setPixmap(arrow_image)
-                col_map = data_wizard_state.get('column_mapping') or {}
-                for i, name in enumerate(data_wizard_state['column_names']):
-                    col_label = QtWidgets.QLabel(f'<b>{name}</b>')
-                    col_label.setFixedWidth(100)
-                    col_label.setWordWrap(True)
-                    col_label.setStyleSheet('border: 1px solid black;')
-                    arrow_label = QtWidgets.QLabel()
-                    arrow_label.setFixedWidth(20)
-                    arrow_label.setPixmap(arrow_image)
-                    target_label = PropertyDropLabel(i, margin=2, border=1)
-                    if col_map and col_map.get(name):
-                        target_label.set_content(col_map[name])
-                    # target_label.setFixedWidth(100)
-                    # target_label.setStyleSheet('border: 1px solid black;')
-                    mapping_layout.addWidget(col_label, i, 0)
-                    mapping_layout.addWidget(arrow_label, i, 1)
-                    mapping_layout.addWidget(target_label, i, 2)
-                self.vbox.addWidget(self.mapping_scrollarea)
-                # self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
-        else:
+        orb.log.debug('* MappingPage.initializePage()')
+        if not self.widgets_added:
             self.add_widgets()
+        # if self.widgets_added:
+        # re-generate mapping area ...
+        # if self.column_names != data_wizard_state.get('column_names'):
+            # re-generate mapping area for the new column selections ...
+        if getattr(self, 'mapping_layout', None):
+            self.vbox.removeWidget(self.mapping_scrollarea)
+            self.mapping_scrollarea.setAttribute(Qt.WA_DeleteOnClose)
+            self.mapping_scrollarea.parent = None
+            self.mapping_scrollarea.close()
+            self.mapping_scrollarea = None
+            self.mapping_container.setAttribute(Qt.WA_DeleteOnClose)
+            self.mapping_container.parent = None
+            self.mapping_container.close()
+            self.mapping_container = None
+        self.mapping_scrollarea = QtWidgets.QScrollArea()
+        self.mapping_scrollarea.setWidgetResizable(True)
+        self.mapping_scrollarea.setMinimumWidth(300)
+        self.mapping_container = QtWidgets.QWidget()
+        self.mapping_scrollarea.setWidget(self.mapping_container)
+        self.mapping_scrollarea.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+        self.mapping_layout = QtWidgets.QGridLayout(
+                                                self.mapping_container)
+        arrow_image = QtGui.QPixmap(os.path.join(
+                                orb.home, 'icons', 'right_arrow.png'))
+        arrow_label = QtWidgets.QLabel()
+        arrow_label.setPixmap(arrow_image)
+        col_map = data_wizard_state.get('column_mapping') or {}
+        col_labels_height = 0
+        for i, name in enumerate(data_wizard_state['column_names']):
+            col_label = ColorLabel(name, element='p', border=1)
+            # col_label = ColorLabel(f'<b>{name}</b>')
+            # col_label.setWordWrap(True)
+            # col_label.setStyleSheet('border: 1px solid black;')
+            col_label.setFixedWidth(100)
+            col_label.setMaximumSize(col_label.sizeHint())
+            col_labels_height += col_label.height() + 10
+            arrow_label = QtWidgets.QLabel()
+            arrow_label.setFixedWidth(20)
+            arrow_label.setPixmap(arrow_image)
+            target_label = PropertyDropLabel(i, margin=2, border=1)
+            if col_map and col_map.get(name):
+                target_label.set_content(col_map[name])
+            # target_label.setFixedWidth(100)
+            # target_label.setStyleSheet('border: 1px solid black;')
+            self.mapping_layout.addWidget(col_label, i, 0)
+            self.mapping_layout.addWidget(arrow_label, i, 1)
+            self.mapping_layout.addWidget(target_label, i, 2)
+        msa_height = min([self.parent().height() - 70, col_labels_height])
+        orb.log.debug(f'  - col_labels_height: {col_labels_height}')
+        orb.log.debug(f'  - mapping_scrollarea height set to: {msa_height}')
+        self.mapping_scrollarea.setMinimumHeight(msa_height)
+        self.vbox.addWidget(self.mapping_scrollarea,
+                            alignment=Qt.AlignLeft|Qt.AlignTop)
+        self.vbox.addStretch()
+        self.updateGeometry()
+        # else:
+            # self.add_widgets()
 
     def add_widgets(self):
+        orb.log.debug('* MappingPage.add_widgets()')
         # button to pop up instructions
         instructions_button = QtWidgets.QPushButton('View Instructions')
         instructions_button.clicked.connect(self.instructions)
@@ -635,20 +656,22 @@ class MappingPage(QtWidgets.QWizardPage):
         self.mapping_scrollarea = QtWidgets.QScrollArea()
         self.mapping_scrollarea.setWidgetResizable(True)
         self.mapping_scrollarea.setMinimumWidth(300)
-        mapping_container = QtWidgets.QWidget()
-        self.mapping_scrollarea.setWidget(mapping_container)
-        mapping_layout = QtWidgets.QGridLayout(mapping_container)
+        self.mapping_container = QtWidgets.QWidget()
+        self.mapping_scrollarea.setWidget(self.mapping_container)
+        self.mapping_scrollarea.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+        self.mapping_layout = QtWidgets.QGridLayout(self.mapping_container)
         arrow_image = QtGui.QPixmap(os.path.join(
                                         orb.home, 'icons', 'right_arrow.png'))
         arrow_label = QtWidgets.QLabel()
         arrow_label.setPixmap(arrow_image)
         col_map = data_wizard_state.get('column_mapping') or {}
         for i, name in enumerate(data_wizard_state['column_names']):
-            col_label = QtWidgets.QLabel(f'<b>{name}</b>')
+            col_label = ColorLabel(name, element='p', border=1)
+            # col_label = ColorLabel(name, margin=10, border=1)
             col_label.setFixedWidth(100)
-            col_label.setMargin(10)
-            col_label.setWordWrap(True)
-            col_label.setStyleSheet('border: 1px solid black;')
+            # col_label.setMargin(10)
+            # col_label.setWordWrap(True)
+            # col_label.setStyleSheet('border: 1px solid black;')
             col_label.setMaximumSize(col_label.sizeHint())
             arrow_label = QtWidgets.QLabel()
             arrow_label.setFixedWidth(20)
@@ -656,12 +679,13 @@ class MappingPage(QtWidgets.QWizardPage):
             target_label = PropertyDropLabel(i, margin=10, border=1)
             if col_map and col_map.get(name):
                 target_label.set_content(col_map[name], color="purple")
-            mapping_layout.addWidget(col_label, i, 0)
-            mapping_layout.addWidget(arrow_label, i, 1)
-            mapping_layout.addWidget(target_label, i, 2)
-        self.vbox.addWidget(self.mapping_scrollarea)
+            self.mapping_layout.addWidget(col_label, i, 0)
+            self.mapping_layout.addWidget(arrow_label, i, 1)
+            self.mapping_layout.addWidget(target_label, i, 2)
+        self.vbox.addWidget(self.mapping_scrollarea,
+                            alignment=Qt.AlignLeft|Qt.AlignTop)
+        # self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
         self.vbox.addStretch()
-        self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
 
         # ... and the 3rd column is in self.attr_vbox ...
         # (3) attributes of the target object type shown in a list from which
@@ -689,7 +713,6 @@ class MappingPage(QtWidgets.QWizardPage):
                                    height=self.geometry().height(),
                                    width=450, parent=self)
         self.attr_vbox.addWidget(self.attr_panel)
-        self.attr_vbox.setStretchFactor(self.attr_panel, 1)
 
         # *******************************************************************
         # Table displaying the selected dataset ...

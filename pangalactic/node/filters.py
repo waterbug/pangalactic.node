@@ -490,8 +490,9 @@ class FilterPanel(QWidget):
                 'range' (str of the field type).
             label (str):  string to incorporate in title
             title (str):  string to use for title
-            width (int):  width dialog widget will be initially resized to
-            min_width (int):  minimum width of dialog widget
+            width (int):  width widget will be initially resized to
+            min_width (int):  minimum width of widget
+            height (int):  height of widget
             as_library (bool):  (default: False) flag whether to act as library
                 -- i.e. its objects can be drag/dropped onto other widgets
             cname (str):  class name of the objects to be displayed ("objs" arg
@@ -502,7 +503,6 @@ class FilterPanel(QWidget):
             excluded_oids (list of str) oids of objs to be excluded from a
                 "library"
             word_wrap (bool):  set word wrapping for table cells
-            height (int):  height of dialog widget
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
@@ -606,7 +606,7 @@ class FilterPanel(QWidget):
         # the sort (i.e. wrong) unless this is done:
         # [2020-10-22 SCW] NO, not necessary because not word-wrapping -> rows
         # are all the same height!
-        # [2021-01-16 SCW] now necessary because word-wrapping ...
+        # [2021-01-16 SCW] now necessary again because word-wrapping ...
         self.proxy_model.layoutChanged.connect(
                                     self.proxy_view.resizeRowsToContents)
         self.proxy_model.layoutChanged.connect(
