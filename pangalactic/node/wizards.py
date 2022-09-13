@@ -603,10 +603,12 @@ class MappingPage(QtWidgets.QWizardPage):
         col_map = data_wizard_state.get('column_mapping') or {}
         col_labels_height = 0
         for i, name in enumerate(data_wizard_state['column_names']):
-            col_label = ColorLabel(name, element='p', border=1)
+            # col_label = ColorLabel(name, element='p', border=1)
             # col_label = ColorLabel(f'<b>{name}</b>')
-            # col_label.setWordWrap(True)
-            # col_label.setStyleSheet('border: 1px solid black;')
+            col_label = QtWidgets.QLabel(name)
+            col_label.setWordWrap(True)
+            col_label.setMargin(10)
+            col_label.setStyleSheet('border: 1px solid black;')
             col_label.setFixedWidth(100)
             col_label.setMaximumSize(col_label.sizeHint())
             col_labels_height += col_label.height() + 10
@@ -665,14 +667,17 @@ class MappingPage(QtWidgets.QWizardPage):
         arrow_label = QtWidgets.QLabel()
         arrow_label.setPixmap(arrow_image)
         col_map = data_wizard_state.get('column_mapping') or {}
+        col_labels_height = 0
         for i, name in enumerate(data_wizard_state['column_names']):
-            col_label = ColorLabel(name, element='p', border=1)
+            # col_label = ColorLabel(name, element='p', border=1)
             # col_label = ColorLabel(name, margin=10, border=1)
+            col_label = QtWidgets.QLabel(name)
             col_label.setFixedWidth(100)
-            # col_label.setMargin(10)
-            # col_label.setWordWrap(True)
-            # col_label.setStyleSheet('border: 1px solid black;')
+            col_label.setMargin(10)
+            col_label.setWordWrap(True)
+            col_label.setStyleSheet('border: 1px solid black;')
             col_label.setMaximumSize(col_label.sizeHint())
+            col_labels_height += col_label.height() + 10
             arrow_label = QtWidgets.QLabel()
             arrow_label.setFixedWidth(20)
             arrow_label.setPixmap(arrow_image)
@@ -684,6 +689,10 @@ class MappingPage(QtWidgets.QWizardPage):
             self.mapping_layout.addWidget(target_label, i, 2)
         self.vbox.addWidget(self.mapping_scrollarea,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
+        msa_height = min([self.parent().height() - 70, col_labels_height])
+        orb.log.debug(f'  - col_labels_height: {col_labels_height}')
+        orb.log.debug(f'  - mapping_scrollarea height set to: {msa_height}')
+        self.mapping_scrollarea.setMinimumHeight(msa_height)
         # self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
         self.vbox.addStretch()
 
