@@ -2,7 +2,7 @@
 """
 Wizards
 """
-import os
+import os, pprint
 from collections import OrderedDict as OD
 from textwrap import wrap
 
@@ -33,16 +33,17 @@ from pangalactic.node.widgets     import (AutosizingListView, ColorLabel,
                                           NameLabel, PlaceHolder, ValueLabel)
 from functools import reduce
 
-# data wizard_state keys:
-#   - file_path
-#   - dataset
-#   - dataset_name
-#   - selected_dataset
-#   - heading_row
-#   - object_type
-#   - column_names
-#   - column_numbers
-#   - column_mapping (dict)
+# data_wizard_state keys:
+#   - file_path:         path of input data file
+#   - dataset:           input data
+#   - dataset_name:      name given to input data
+#   - selected_dataset:  data for selected columns
+#   - heading_row:       row in input data that contains column names
+#   - object_type:       type of objects to be created
+#   - column_names:      list containing the selected column names
+#   - column_numbers:    list containing the selected column numbers
+#   - col_map:           dict mapping column names to object properties
+#   - dictified:         list of dicts mapping selected cols to data
 
 data_wizard_state = {}
 
@@ -95,7 +96,7 @@ class DataImportWizard(QtWidgets.QWizard):
                             QtWidgets.QWizard.CancelButton]
         self.setButtonLayout(included_buttons)
         self.setOptions(QtWidgets.QWizard.NoBackButtonOnStartPage)
-        data_wizard_state['column_mapping'] = {}
+        data_wizard_state['col_map'] = {}
         data_wizard_state['file_path'] = file_path
         txt = '<h2>You have selected the file<br>'
         txt += f'<font color="green"><b>&lt;{file_path}&gt;</b></font>.<br>'
@@ -222,6 +223,10 @@ class DataSheetPage(QtWidgets.QWizardPage):
 
 
 class DataHeaderPage(QtWidgets.QWizardPage):
+    """
+    Page to select the row that contains the column names and select which
+    columns are to be imported.
+    """
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.candidate_column_names = [] 
@@ -274,7 +279,7 @@ class DataHeaderPage(QtWidgets.QWizardPage):
 
     def get_col_names(self, row):
         """
-        Get data contents of row that is specified to contain column names.
+        Get contents of row that is specified to contain column names.
         """
         self.candidate_column_names = data_wizard_state['dataset'][row] 
         data_wizard_state['heading_row'] = row
@@ -574,10 +579,7 @@ class MappingPage(QtWidgets.QWizardPage):
         orb.log.debug('* MappingPage.initializePage()')
         if not self.widgets_added:
             self.add_widgets()
-        # if self.widgets_added:
-        # re-generate mapping area ...
-        # if self.column_names != data_wizard_state.get('column_names'):
-            # re-generate mapping area for the new column selections ...
+        # after adding all widgets, redo the mapping area for proper sizing
         if getattr(self, 'mapping_layout', None):
             self.vbox.removeWidget(self.mapping_scrollarea)
             self.mapping_scrollarea.setAttribute(Qt.WA_DeleteOnClose)
@@ -600,11 +602,9 @@ class MappingPage(QtWidgets.QWizardPage):
                                 orb.home, 'icons', 'right_arrow.png'))
         arrow_label = QtWidgets.QLabel()
         arrow_label.setPixmap(arrow_image)
-        col_map = data_wizard_state.get('column_mapping') or {}
+        col_map = data_wizard_state['col_map']
         col_labels_height = 0
         for i, name in enumerate(data_wizard_state['column_names']):
-            # col_label = ColorLabel(name, element='p', border=1)
-            # col_label = ColorLabel(f'<b>{name}</b>')
             col_label = QtWidgets.QLabel(name)
             col_label.setWordWrap(True)
             col_label.setMargin(10)
@@ -618,8 +618,6 @@ class MappingPage(QtWidgets.QWizardPage):
             target_label = PropertyDropLabel(i, margin=2, border=1)
             if col_map and col_map.get(name):
                 target_label.set_content(col_map[name])
-            # target_label.setFixedWidth(100)
-            # target_label.setStyleSheet('border: 1px solid black;')
             self.mapping_layout.addWidget(col_label, i, 0)
             self.mapping_layout.addWidget(arrow_label, i, 1)
             self.mapping_layout.addWidget(target_label, i, 2)
@@ -631,8 +629,6 @@ class MappingPage(QtWidgets.QWizardPage):
                             alignment=Qt.AlignLeft|Qt.AlignTop)
         self.vbox.addStretch()
         self.updateGeometry()
-        # else:
-            # self.add_widgets()
 
     def add_widgets(self):
         orb.log.debug('* MappingPage.add_widgets()')
@@ -666,11 +662,9 @@ class MappingPage(QtWidgets.QWizardPage):
                                         orb.home, 'icons', 'right_arrow.png'))
         arrow_label = QtWidgets.QLabel()
         arrow_label.setPixmap(arrow_image)
-        col_map = data_wizard_state.get('column_mapping') or {}
+        col_map = data_wizard_state['col_map']
         col_labels_height = 0
         for i, name in enumerate(data_wizard_state['column_names']):
-            # col_label = ColorLabel(name, element='p', border=1)
-            # col_label = ColorLabel(name, margin=10, border=1)
             col_label = QtWidgets.QLabel(name)
             col_label.setFixedWidth(100)
             col_label.setMargin(10)
@@ -689,11 +683,11 @@ class MappingPage(QtWidgets.QWizardPage):
             self.mapping_layout.addWidget(target_label, i, 2)
         self.vbox.addWidget(self.mapping_scrollarea,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
+        # scroll area does not properly size itself so this is required:
         msa_height = min([self.parent().height() - 70, col_labels_height])
         orb.log.debug(f'  - col_labels_height: {col_labels_height}')
         orb.log.debug(f'  - mapping_scrollarea height set to: {msa_height}')
         self.mapping_scrollarea.setMinimumHeight(msa_height)
-        # self.vbox.setStretchFactor(self.mapping_scrollarea, 1)
         self.vbox.addStretch()
 
         # ... and the 3rd column is in self.attr_vbox ...
@@ -727,13 +721,22 @@ class MappingPage(QtWidgets.QWizardPage):
         # Table displaying the selected dataset ...
         # *******************************************************************
         # remove rows above the specified heading_row ...
-        new_dataset = data_wizard_state['dataset'][
+        data_rows = data_wizard_state['dataset'][
                                     data_wizard_state['heading_row']+1:]
         # include only the columns specified for import ...
         new_dataset = [[row[i] for i in data_wizard_state['column_numbers']]
-                               for row in new_dataset]
+                        for row in data_rows]
         data_wizard_state['selected_dataset'] = new_dataset
-        tablemodel = ListTableModel(new_dataset, parent=self)
+
+        data_wizard_state['dictified'] = []
+        dictified = data_wizard_state['dictified']
+        for i, row in enumerate(new_dataset):
+            dictified.append({col_name : new_dataset[i][j] for j, col_name
+                              in enumerate(data_wizard_state['column_names'])})
+        orb.log.debug('  dictified:')
+        orb.log.debug(pprint.pformat(dictified))
+        # tablemodel = ListTableModel(new_dataset, parent=self)
+        tablemodel = MappingTableModel(dictified, parent=self)
         if hasattr(self, 'tableview'):
             self.tableview.setParent(None)
         self.tableview = QtWidgets.QTableView(self)
@@ -764,7 +767,7 @@ class MappingPage(QtWidgets.QWizardPage):
 
     def on_dedef_drop(self, dedef_id=None, idx=None):
         col_names = data_wizard_state['column_names']
-        col_map = data_wizard_state['column_mapping']
+        col_map = data_wizard_state['col_map']
         col_map[col_names[idx]] = dedef_id
         self.completeChanged.emit()
         orb.log.debug(f'column mapping is now: {col_map}')
@@ -775,7 +778,7 @@ class MappingPage(QtWidgets.QWizardPage):
         button to be activated.
         """
         # TODO:  return True as soon as any column is mapped
-        if data_wizard_state.get('column_mapping'):
+        if data_wizard_state.get('col_map'):
             # TODO:  validate that mapped columns are type-compatible with the
             # properties they are mapped to -- which basically means check that
             # any values mapped to int, float, or bool can be cast
@@ -789,10 +792,10 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
     """
     Page to create objects from the specified data.
     """
-    def __init__(self, parent=None):
+    def __init__(self, test_mode=True, parent=None):
         super().__init__(parent=parent)
         orb.log.debug('* Object Creation Page')
-        self.widgets_added = False
+        self.test_mode = test_mode
         self.objs = []
         project_oid = state.get('project')
         self.project = None
@@ -801,11 +804,16 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
             self.title_txt = f'New Project Requirements for {self.project.id}'
         else:
             self.title_txt = 'New Requirements'
+        self.setTitle(self.title_txt)
 
     def initializePage(self):
+        if self.objs:
+            # if objs exist, it means we are re-entering; delete them
+            orb.delete(self.objs)
         self.object_type = data_wizard_state['object_type']
-        self.col_map = data_wizard_state['column_mapping']
-        orb.log.debug(f'* column mapping: {self.col_map}')
+        col_map = data_wizard_state['col_map']
+        orb.log.debug(f'* column mapping: {col_map}')
+
         self.dataset = data_wizard_state['selected_dataset']
         text = f'Creating {self.object_type} objects from Excel data ...'
         self.progress_dialog = ProgressDialog(title='Creating Objects',
@@ -814,9 +822,10 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
         self.progress_dialog.setMaximum(len(self.dataset))
         self.progress_dialog.setValue(0)
         self.progress_dialog.setMinimumDuration(2000)
-        for i, row in enumerate(self.dataset):
-            kw = {self.col_map[name] : row[i]
-                  for i, name in enumerate(self.col_map)}
+        dictified = data_wizard_state['dictified']
+        for i, row in enumerate(dictified):
+            kw = {col_map.get(name) : val
+                  for name, val in row.items() if name in col_map}
             if self.object_type == 'Requirement':
                 if 'level' not in kw:
                     kw['level'] = 1
@@ -826,7 +835,8 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
                 else:
                     kw['id'] = f"SANDBOX-{kw['level']}.{i}"
             # for cleanup after test run ...
-            kw['comment'] = "TEST TEST TEST"
+            if self.test_mode:
+                kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'HardwareProduct':
                 # NOTE: save_hw=False prevents the saving of hw objects one at
                 # a time -- much more efficient to save after all are cloned
@@ -839,21 +849,19 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
             self.progress_dialog.setValue(i+1)
         orb.save(self.objs)
         self.progress_dialog.done(0)
-        # if self.object_type == 'Requirement':
-            # obj.id = orb.gen_req_id(obj)
-        self.vbox = QtWidgets.QVBoxLayout(self)
-        if self.widgets_added:
-            # make sure state is consistent with MappingPage results
-            pass
-        else:
-            self.add_widgets()
+        self.add_widgets()
 
     def add_widgets(self):
-        self.title = QtWidgets.QLabel(self.title_txt)
-        self.title.setStyleSheet('font-weight: bold; font-size: 20px')
-        self.vbox.addWidget(self.title)
+        if not hasattr(self, 'vbox'):
+            self.vbox = QtWidgets.QVBoxLayout(self)
         sized_cols = {'id': 0, 'name': 150}
         view = MAIN_VIEWS[self.object_type]
+        if getattr(self, 'fpanel', None):
+            self.vbox.removeWidget(self.fpanel)
+            self.fpanel.setAttribute(Qt.WA_DeleteOnClose)
+            self.fpanel.parent = None
+            self.fpanel.close()
+            self.fpanel = None
         self.fpanel = FilterPanel(self.objs, view=view, sized_cols=sized_cols,
                                   word_wrap=True, parent=self)
         if self.object_type == 'Requirement':
