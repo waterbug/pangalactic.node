@@ -19,6 +19,7 @@ from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
 from pangalactic.core.names       import (get_external_name_plural,
                                           get_attr_ext_name,
                                           pname_to_header_label)
+from pangalactic.core.parametrics import de_defz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -533,30 +534,36 @@ class FilterPanel(QWidget):
                 self.cname = 'Product'
         if self.cname:
             schema = orb.schemas[self.cname]
-            if not view and (prefs.get('views') or {}).get(self.cname):
-                # if no view is provided and there is a preferred view, use it
-                view = prefs['views'][self.cname]
-            else:
-                view = view or MAIN_VIEWS.get(self.cname,
+            self.view = view or MAIN_VIEWS.get(self.cname,
                                           ['id', 'name', 'description'])
-            self.view = [a for a in view if a in schema['field_names']]
             # if col name, use that; otherwise, use external name
             col_labels = [PGEF_COL_NAMES.get(a, get_attr_ext_name(self.cname, a))
                           for a in self.view]
             col_defs = []
             col_dtypes = []
             for a in self.view:
-                col_defs.append('\n'.join(wrap(
-                                schema['fields'][a]['definition'],
-                                width=30, break_long_words=False)))
-                col_dtypes.append(schema['fields'][a]['range'])
+                if a in schema['fields']:
+                    col_defs.append('\n'.join(wrap(
+                                    schema['fields'][a]['definition'],
+                                    width=30, break_long_words=False)))
+                    col_dtypes.append(schema['fields'][a]['range'])
+                elif a in parm_defz:
+                    col_defs.append('\n'.join(wrap(
+                                    parm_defz[a]['description'],
+                                    width=30, break_long_words=False)))
+                    col_dtypes.append(parm_defz[a]['range_datatype'])
+                elif a in de_defz:
+                    col_defs.append('\n'.join(wrap(
+                                    de_defz[a]['description'],
+                                    width=30, break_long_words=False)))
+                    col_dtypes.append(de_defz[a]['range_datatype'])
             self.proxy_model = ObjectSortFilterProxyModel(
                                                     view=self.view,
                                                     col_labels=col_labels,
                                                     col_defs=col_defs,
                                                     col_dtypes=col_dtypes,
                                                     parent=self)
-        else:
+        elif schema:
             self.view = [a for a in view if a in schema['field_names']]
             col_labels = [pname_to_header_label(a) for a in self.view]
             col_defs = []

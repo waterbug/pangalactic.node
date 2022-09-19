@@ -17,7 +17,8 @@ from louie import dispatcher
 from pangalactic.core             import config, state
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import get_external_name_plural
-from pangalactic.core.parametrics import set_dval
+from pangalactic.core.parametrics import (de_defz, parm_defz, set_dval,
+                                          set_dval_from_str, set_pval_from_str)
 from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
@@ -824,8 +825,11 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
         self.progress_dialog.setMinimumDuration(2000)
         dictified = data_wizard_state['dictified']
         for i, row in enumerate(dictified):
-            kw = {col_map.get(name) : val
+            kw = {col_map.get(name) : str(val or '').strip()
                   for name, val in row.items() if name in col_map}
+            # for cleanup after test run ...
+            if self.test_mode:
+                kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'Requirement':
                 if 'level' not in kw:
                     kw['level'] = 1
@@ -834,14 +838,30 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
                     kw['id'] = f"{self.project.id}-{kw['level']}.{i}"
                 else:
                     kw['id'] = f"SANDBOX-{kw['level']}.{i}"
-            # for cleanup after test run ...
-            if self.test_mode:
-                kw['comment'] = "TEST TEST TEST"
-            if self.object_type == 'HardwareProduct':
+                obj = clone(self.object_type, **kw)
+            elif self.object_type == 'HardwareProduct':
+                # first check kw for parameter and data element id's that do
+                # not collide with properties (i.e., are not in the
+                # HardwareProduct schema)
+                parms = {}
+                des = {}
+                p_names = set(orb.schemas['HardwareProduct']['field_names'])
+                np_names = set(list(kw.keys())) - p_names
+                for np_name in np_names:
+                    if np_name in parm_defz:
+                        parms[np_name] = kw.pop(np_name)
+                    elif np_name in de_defz:
+                        des[np_name] = kw.pop(np_name)
                 # NOTE: save_hw=False prevents the saving of hw objects one at
                 # a time -- much more efficient to save after all are cloned
                 obj = clone(self.object_type, save_hw=False, **kw)
                 obj.id = orb.gen_product_id(obj)
+                if parms:
+                    for pid, val in parms.items():
+                        set_pval_from_str(obj.oid, pid, val)
+                if des:
+                    for deid, val in des.items():
+                        set_dval_from_str(obj.oid, deid, val)
             else:
                 obj = clone(self.object_type, **kw)
             self.objs.append(obj)
@@ -855,7 +875,10 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
         if not hasattr(self, 'vbox'):
             self.vbox = QtWidgets.QVBoxLayout(self)
         sized_cols = {'id': 0, 'name': 150}
-        view = MAIN_VIEWS[self.object_type]
+        col_map = data_wizard_state['col_map']
+        add_cols = set(col_map.values()) - set(MAIN_VIEWS[self.object_type])
+        view = MAIN_VIEWS[self.object_type] + sorted(list(add_cols))
+        orb.log.debug(f'  - fpanel view: {view}')
         if getattr(self, 'fpanel', None):
             self.vbox.removeWidget(self.fpanel)
             self.fpanel.setAttribute(Qt.WA_DeleteOnClose)

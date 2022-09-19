@@ -204,8 +204,10 @@ class ObjectTableModel(MappingTableModel):
             self.schema = orb.schemas.get(self.cname) or {}
             if self.schema and self.view:
                 # sanity-check view
-                self.view = [a for a in self.view
-                             if a in self.schema['field_names']]
+                self.view = [a for a in self.view if
+                             (a in self.schema['field_names']
+                              or a in parm_defz
+                              or a in de_defz)]
             # TODO:  handle foreign key fields somehow ...
             # for a in view:
                 # fk_cname = schema['fields'][a].get('related_cname')
@@ -249,19 +251,24 @@ class ObjectTableModel(MappingTableModel):
         """
         d = dict()
         for name in view:
-            if name not in self.schema['fields']:
-                val = '-'
-            elif name == 'id':
-                val = display_id(obj)
-            elif name in TEXT_PROPERTIES:
-                val = (getattr(obj, name) or ' ').replace('\n', ' ')
-            elif self.schema['fields'][name]['range'] == 'datetime':
-                val = dt2local_tz_str(getattr(obj, name))
-            elif self.schema['fields'][name]['field_type'] == 'object':
-                val = (getattr(getattr(obj, name), 'id', None)
-                       or '[id unknown]')
+            if name in self.schema['fields']:
+                if name == 'id':
+                    val = display_id(obj)
+                elif name in TEXT_PROPERTIES:
+                    val = (getattr(obj, name) or ' ').replace('\n', ' ')
+                elif self.schema['fields'][name]['range'] == 'datetime':
+                    val = dt2local_tz_str(getattr(obj, name))
+                elif self.schema['fields'][name]['field_type'] == 'object':
+                    val = (getattr(getattr(obj, name), 'id', None)
+                           or '[id unknown]')
+                else:
+                    val = str(getattr(obj, name))
+            elif name in parm_defz:
+                val = get_pval_as_str(obj.oid, name)
+            elif name in de_defz:
+                val = get_dval_as_str(obj.oid, name)
             else:
-                val = str(getattr(obj, name))
+                val = '-'
             d[name] = val
         return d
 
