@@ -10,7 +10,9 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
         QLineEdit, QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
 import re
+from functools import reduce
 from textwrap import wrap
+
 from louie import dispatcher
 
 from pangalactic.core             import prefs, state
@@ -28,7 +30,6 @@ from pangalactic.node.utils       import (create_mime_data,
                                           create_template_from_product,
                                           get_pixmap)
 from pangalactic.node.widgets     import NameLabel
-from functools import reduce
 
 
 class ProductFilterDialog(QDialog):
