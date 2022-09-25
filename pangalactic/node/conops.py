@@ -311,6 +311,7 @@ class TimelineScene(QGraphicsScene):
                         composite_activity=self.current_activity,
                         act_of=self.act_of, position=self.position)
         self.update()
+        dispatcher.send("new object", obj=acr)
 
     def edit_parameters(self, activity):
         view = ['id', 'name', 'description']
@@ -402,7 +403,6 @@ class TimelineWidget(QWidget):
         # self.show_history()
         self.sceneScaleChanged("70%")
         self.current_subsystem_index = 0
-        self.temp_serialized = []
         self.deleted_acts = []
         dispatcher.connect(self.change_subsystem, "make combo box")
         dispatcher.connect(self.delete_activity, "remove activity")
@@ -580,10 +580,15 @@ class TimelineWidget(QWidget):
         if act in current_subacts:
             self.undo_action.setEnabled(True)
             self.deleted_acts.append(self.serialize_act_rels(act))
-            orb.delete([act] + act.where_occurs + act.sub_activities)
+            objs_to_delete = [act] + act.where_occurs + act.sub_activities
+            del_data = [(obj.oid, obj.__class__.__name__)
+                        for obj in objs_to_delete]
+            orb.delete(objs_to_delete)
             dispatcher.send("removed activity",
                             composite_activity=self.subject_activity,
                             act_of=self.act_of, position=self.position)
+            for oid, cname in del_data:
+                dispatcher.send("deleted object", oid=oid, cname=cname)
         else:
             # if activity is not in the current diagram, ignore
             return
@@ -601,15 +606,6 @@ class TimelineWidget(QWidget):
         Args:
             act (Activity): target activity
         """
-        # if len(act.sub_activities) <= 0:
-            # serialized_act = serialize(orb, [act, act.where_occurs[0]],
-                                       # include_sub_activities=True)
-            # self.temp_serialized.extend(serialized_act)
-        # elif len(act.sub_activities) > 0:
-            # for acr in act.sub_activities:
-                # self.serialize_act_rels(act=acr.sub_activity)
-            # serialized_act = serialize(orb, [act, act.where_occurs[0]],
-                                       # include_sub_activities=True)
         return serialize(orb, [act] + act.where_occurs + act.sub_activities)
 
     def delete_children(self, act=None):
@@ -619,12 +615,15 @@ class TimelineWidget(QWidget):
         Keyword Args:
             act (Activity): parent activity of the children to be deleted
         """
+        act_oid = act.oid
         if len(act.sub_activities) <= 0:
             orb.delete([act])
+            dispatcher.send("deleted object", oid=act_oid, cname='Activity')
         elif len(act.sub_activities) > 0:
             for acr in act.sub_activities:
                 self.delete_children(act=acr.sub_activity)
             orb.delete([act])
+            dispatcher.send("deleted object", oid=act_oid, cname='Activity')
 
     def clear_activities(self):
         """
@@ -633,11 +632,9 @@ class TimelineWidget(QWidget):
         children = [acr.sub_activity
                     for acr in self.subject_activity.sub_activities]
         for child in children:
-            self.serialize_act_rels(child)
+            self.deleted_acts.append(self.serialize_act_rels(child))
             self.delete_children(act=child)
         self.undo_action.setEnabled(True)
-        self.deleted_acts.append(self.temp_serialized)
-        self.temp_serialized = []
         self.scene = self.set_new_scene()
         self.update_view()
         self.clear_activities_action.setDisabled(True)
@@ -856,7 +853,10 @@ class TimelineWidget(QWidget):
         self.update_view()
 
     def change_subsystem(self, index=None):
-        orb.log.debug("* change subsystem called ...)")
+        orb.log.debug(f"* change_subsystem(index={index})")
+        if index >= len(self.subsys_ids):
+            orb.log.debug(f"  - index {index} is out of range")
+            return
         act_of_name = getattr(self.act_of, 'name', 'unknown')
         orb.log.debug(f"  - self.act_of: {act_of_name}")
         sys_name = getattr(self.system, 'name', 'unknown')
@@ -864,29 +864,30 @@ class TimelineWidget(QWidget):
         orb.log.debug("---------------------------------")
         if self.act_of != self.system:
             if hasattr(self, 'subsys_ids'):
-                orb.log.debug(f"self.subsys_ids: {self.subsys_ids}")
-            # try:
-            subsys_id = self.subsys_ids[index]
-            if self.subject_activity.activity_type.id == 'cycle':
-                pass
-            else:
-                existing_subsystems = [acu.component for acu
-                                       in self.system.components]
-                for subsystem in existing_subsystems:
-                    orb.log.debug(f"  - looking for: {subsys_id}")
-                    orb.log.debug(getattr(subsystem, 'id', 'NA'))
-                    if getattr(subsystem, 'id', '') == subsys_id:
-                        orb.log.debug(f"  - found: {subsys_id}")
-                        self.act_of = subsystem
-                self.scene = self.set_new_scene()
-                self.update_view()
-            orb.log.debug('* sending "changed subsystem" signal')
-            dispatcher.send("changed subsystem",
-                            act=self.subject_activity,
-                            act_of=self.act_of,
-                            position=self.position)
-            # except:
-                # orb.log.debug("  - TLWidget.change_subsystem() failed.")
+                log_msg = f"  - self.subsys_ids: {self.subsys_ids}"
+                orb.log.debug(log_msg)
+            try:
+                subsys_id = self.subsys_ids[index]
+                if self.subject_activity.activity_type.id == 'cycle':
+                    pass
+                else:
+                    existing_subsystems = [acu.component for acu
+                                           in self.system.components]
+                    for subsystem in existing_subsystems:
+                        orb.log.debug(f"  - looking for: {subsys_id}")
+                        orb.log.debug(getattr(subsystem, 'id', 'NA'))
+                        if getattr(subsystem, 'id', '') == subsys_id:
+                            orb.log.debug(f"  - found: {subsys_id}")
+                            self.act_of = subsystem
+                    self.scene = self.set_new_scene()
+                    self.update_view()
+                orb.log.debug('* sending "changed subsystem" signal')
+                dispatcher.send("changed subsystem",
+                                act=self.subject_activity,
+                                act_of=self.act_of,
+                                position=self.position)
+            except:
+                orb.log.debug("  - TLWidget.change_subsystem() failed.")
 
 
 class ConOpsModeler(QMainWindow):

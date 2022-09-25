@@ -3149,9 +3149,6 @@ class Main(QMainWindow):
                 # signals -- i.e., DiagramScene (in view.py)
             # NOTE: no need to do anything in 'db' mode -- the object table now
             # listens for the 'mod object' signal and handles it ...
-            # elif self.mode == 'db':
-                # self.refresh_cname_list()
-                # self.set_object_table_for(cname)
             if (state.get('connected')
                 and not getattr(obj, 'project', None) is self.sandbox):
                 # SANDBOX PSUs are not saved to the server
