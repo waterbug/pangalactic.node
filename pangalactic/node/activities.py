@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from collections import OrderedDict
 from copy import deepcopy
 # from pprint import pprint
 from textwrap import wrap, fill
@@ -49,7 +48,8 @@ class ActivityTable(QWidget):
                 shown in the table
             preferred_size (tuple):  default size -- (width, height)
             parent (QWidget):  parent widget
-            act_of (Product):  Product of which the subject is an Activity
+            act_of (Acu or PSU):  Acu or PSU of which the subject is an
+                Activity
             position (str): the table "role" of the table in the ConOps tool,
                 as the "top" or "middle" table, which will determine its
                 response to signals
@@ -97,8 +97,8 @@ class ActivityTable(QWidget):
                 txt += ' ' + self.subject_activity.activity_type.name
             txt += ': '
             title_txt = red_text.format(txt)
-        # if isinstance(self.act_of, orb.classes['Product']):
-        sys_name = getattr(self.act_of, 'name', '')
+        sys_name = (getattr(self.act_of, 'reference_designator', '') or
+                    getattr(self.act_of, 'system_role', ''))
         title_txt += blue_text.format(sys_name) + ' '
         if self.position == "top":
             title_txt += 'Activity Details'
@@ -112,16 +112,17 @@ class ActivityTable(QWidget):
         """
         The relevant sub-activities that the table will display, namely the
         sub-activities of the "subject" activity which are activities of the
-        table's "act_of" Product.
+        table's "act_of".
         """
         subj = getattr(self, 'subject', None)
         if not subj:
             return []
         system_acrs = []
         for acr in subj.sub_activities:
-            if self.act_of == acr.sub_activity.activity_of:
+            if self.act_of in [acr.sub_activity.of_function,
+                               acr.sub_activity.of_system]:
                 system_acrs.append(acr)
-        all_acrs = [(acr.sub_activity_role, acr)
+        all_acrs = [(acr.sub_activity_sequence, acr)
                     for acr in system_acrs]
         all_acrs.sort()
         return [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
@@ -134,7 +135,7 @@ class ActivityTable(QWidget):
                            description='Description')
         d_list = []
         for act in self.activities:
-            obj_dict = OrderedDict()
+            obj_dict = {}
             for col in table_cols:
                 if col in orb.schemas['Activity']['field_names']:
                     str_val = getattr(act, col, '')
