@@ -164,7 +164,7 @@ class PgxnForm(QWidget):
             # special case for parameters panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            orb.log.info('* [pgxo] building "parameters" form ...')
+            orb.log.info('* [pgxnf] building "parameters" form ...')
             dim_label = QLabel('Dimension:')
             dim_label.setStyleSheet('font-size: 16px; font-weight: bold;')
             self.dim_select = QComboBox()
@@ -183,7 +183,7 @@ class PgxnForm(QWidget):
             for pid in sorted(list(parmz), key=str.lower):  # case-independent
                 if pid not in pids:
                     pids.append(pid)
-            orb.log.info(f'* [pgxo] parameters of this object: {pids}')
+            orb.log.info(f'* [pgxnf] parameters of this object: {pids}')
             # a parameter is editable if:
             # (1) not defined as "computed" OR
             # (2) a "contingency" parameter [NOTE: this may change in the
@@ -192,18 +192,18 @@ class PgxnForm(QWidget):
                          if (not parm_defz[pid].get('computed')
                              or pid in contingencies)]
             if pids:
-                # orb.log.info('* [pgxo] parameters found: {}'.format(
+                # orb.log.info('* [pgxnf] parameters found: {}'.format(
                                                             # str(pids)))
                 dims = set([parm_defz[pid]['dimensions']
                             for pid in pids if pid not in contingencies])
                 # txt = f'selecting dims from: {PGEF_DIMENSION_ORDER}'
-                # orb.log.info(f'* [pgxo] {txt}')
+                # orb.log.info(f'* [pgxnf] {txt}')
                 for dim in PGEF_DIMENSION_ORDER:
                     if dim in dims:
                         label = PGEF_DIMENSION_ORDER[dim]
                         self.parm_dims.append(dim)
                         self.dim_select.addItem(label, QVariant)
-                # orb.log.info(f'* [pgxo] dimensions found: {self.parm_dims}')
+                # orb.log.info(f'* [pgxnf] dimensions found: {self.parm_dims}')
                 if self.parm_dims and (current_parm_dim not in self.parm_dims):
                     current_parm_dim = self.parm_dims[0]
                     state['current_parm_dim'] = self.parm_dims[0]
@@ -218,14 +218,14 @@ class PgxnForm(QWidget):
                 computeds = [pid for pid in pids if pid not in editables]
                 p_ordering = [pid for pid in editables + computeds
                               if pid not in contingencies]
-                # orb.log.info('  [pgxo] parameter ordering: {}'.format(
+                # orb.log.info('  [pgxnf] parameter ordering: {}'.format(
                                                             # str(p_ordering)))
                 relevant_pids = [pid for pid in pids
                           if parm_defz[pid]['dimensions'] == current_parm_dim]
-                # orb.log.info(f'* [pgxo] relevant parameters: {relevant_pids}')
+                # orb.log.info(f'* [pgxnf] relevant params: {relevant_pids}')
                 pids_on_panel = [pid for pid in p_ordering
                                  if pid in relevant_pids]
-                # orb.log.info(f'* [pgxo] parameters on panel: {pids_on_panel}')
+                # orb.log.info(f'* [pgxnf] params on panel: {pids_on_panel}')
                 # NOTE: not using 'seq' for parameters now, but set it anyway
                 seq = None
                 for pid in pids_on_panel:
@@ -292,7 +292,7 @@ class PgxnForm(QWidget):
                                                       parm_type='float')
                     if widget:
                         # *** this is EXTREMELY verbose, even for debugging!
-                        # orb.log.debug('  [pgxo]'
+                        # orb.log.debug('  [pgxnf]'
                                # ' - got widget (%s) and label, "%s"' % (
                                                  # str(widget),
                                                  # str(label.text())))
@@ -338,7 +338,7 @@ class PgxnForm(QWidget):
                             value_layout.addWidget(c_widget)
                             value_layout.addWidget(c_units_widget)
                         form.addRow(label, value_layout)
-                        # orb.log.debug('* [pgxo] size hint: %s' % str(
+                        # orb.log.debug('* [pgxnf] size hint: %s' % str(
                                                     # widget.sizeHint()))
                 if computed_note:
                     form.addRow(QWidget(), QLabel())
@@ -346,7 +346,7 @@ class PgxnForm(QWidget):
                     cnote.setStyleSheet('font-weight: bold;color: purple')
                     form.addRow(cnote)
             else:
-                # orb.log.info('* [pgxo] no parameters found.')
+                # orb.log.info('* [pgxnf] no parameters found.')
                 label = QLabel('No parameters have been specified yet.')
                 label.setStyleSheet('font-weight: bold')
                 form.addRow(label)
@@ -357,11 +357,11 @@ class PgxnForm(QWidget):
             # special case for data panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            # orb.log.info('* [pgxo] building "data" form ...')
+            # orb.log.info('* [pgxnf] building "data" form ...')
             de_dict = data_elementz.get(obj.oid) or {}
             deids = sorted(list(de_dict))
             if deids:
-                # orb.log.info('* [pgxo] data elements found: {}'.format(
+                # orb.log.info('* [pgxnf] data elements found: {}'.format(
                                                             # str(deids)))
                 if seq is None:
                     # orb.log.debug('  seq is None; only one "data" page.')
@@ -398,7 +398,7 @@ class PgxnForm(QWidget):
                                                de_type=de_type)
                     if widget:
                         # *** this is EXTREMELY verbose, even for debugging!
-                        # orb.log.debug('  [pgxo]'
+                        # orb.log.debug('  [pgxnf]'
                                # ' - got widget (%s) and label, "%s"' % (
                                                  # str(widget),
                                                  # str(label.text())))
@@ -417,10 +417,10 @@ class PgxnForm(QWidget):
                         value_layout = QHBoxLayout()
                         value_layout.addWidget(widget)
                         form.addRow(label, value_layout)
-                        # orb.log.debug('* [pgxo] size hint: %s' % str(
+                        # orb.log.debug('* [pgxnf] size hint: %s' % str(
                                                     # widget.sizeHint()))
             else:
-                # orb.log.info('* [pgxo] no data elements found.')
+                # orb.log.info('* [pgxnf] no data elements found.')
                 label = QLabel('No data elements have been specified yet.')
                 label.setStyleSheet('font-weight: bold')
                 form.addRow(label)
@@ -490,7 +490,7 @@ class PgxnForm(QWidget):
                 editable = False
             related_cname = schema['fields'][field_name].get('related_cname')
             # NOTE: this should be uncommented if needed for debugging
-            # orb.log.debug('* [pgxo] get_widget("{}", {})'.format(
+            # orb.log.debug('* [pgxnf] get_widget("{}", {})'.format(
                                                         # field_name,
                                                         # str(field_type)))
             widget, label = get_widget(field_name, field_type, value=val,
@@ -501,7 +501,7 @@ class PgxnForm(QWidget):
                                    placeholder=placeholders.get(field_name),
                                    choices=choices, tooltip=definition)
             if widget:
-                # orb.log.debug('  [pgxo]'
+                # orb.log.debug('  [pgxnf]'
                               # ' - got widget (%s) and label, "%s"' % (
                                                      # str(widget),
                                                      # str(label.text())))
@@ -514,7 +514,7 @@ class PgxnForm(QWidget):
                     label.setText(text)
                     required_note = True
                 form.addRow(label, widget)
-                # orb.log.debug('* [pgxo] widget size hint: %s' % str(
+                # orb.log.debug('* [pgxnf] widget size hint: %s' % str(
                                                         # widget.sizeHint()))
                 if related_cname:
                     if editable:
@@ -556,7 +556,7 @@ class PgxnForm(QWidget):
         # 'x-pgef-data-element-id' (just a string) in the future ...
         if self.edit_mode and event.mimeData().hasFormat(
             "application/x-pgef-data-element-definition"):
-            # orb.log.info("* dropEvent: got data element")
+            # orb.log.info("* [pgxnf] dropEvent: got data element")
             data = extract_mime_data(event,
                              "application/x-pgef-data-element-definition")
             icon, ded_oid, deid, de_name, ded_cname = data
@@ -577,7 +577,7 @@ class PgxnForm(QWidget):
                              # "we already got one, it's verra nahss!")
 
     def on_set_units(self):
-        # orb.log.info('* [pgxo] setting units ...')
+        # orb.log.info('* [pgxnf] setting units ...')
         units_widget = self.sender()
         new_units = units_widget.get_value()
         # orb.log.debug('            new units: "{}"'.format(new_units))
@@ -603,7 +603,7 @@ class PgxnForm(QWidget):
         self.previous_units[pid] = new_units
 
     def on_select_related(self):
-        # orb.log.info('* [pgxo] select related object ...')
+        orb.log.info('* [pgxnf] select related object ...')
         widget = self.sender()
         # obj = widget.get_value()
         # TODO:  if None, give option to create a new object

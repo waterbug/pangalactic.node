@@ -1039,26 +1039,27 @@ class IdentificationPage(QtWidgets.QWizardPage):
             image_path = os.path.join(orb.image_dir, logo_path)
             layout.addWidget(PlaceHolder(image=image_path, parent=self))
         self.setLayout(layout)
+        self.product = None
+        dispatcher.connect(self.on_new_object_signal, 'new object')
 
     def initializePage(self):
         orb.log.info('* [comp wizard] new_product()')
         # TODO:  new dialog to select Template
         proj_oid = state.get('project')
         project = orb.get(proj_oid)
-        product = clone('HardwareProduct', owner=project, public=True)
-        wizard_state['product_oid'] = product.oid
+        self.product = clone('HardwareProduct', owner=project, public=True)
+        wizard_state['product_oid'] = self.product.oid
         # include version -- but it's allowed to be empty (blank)
         view = ['id', 'name', 'product_type', 'version', 'owner',
                 'description', 'public']
         required = ['name', 'description', 'owner', 'product_type']
         panels = ['main']
-        self.pgxn_obj = PgxnObject(product, embedded=True, panels=panels,
+        self.pgxn_obj = PgxnObject(self.product, embedded=True, panels=panels,
                                    view=view, required=required,
                                    edit_mode=True, new=True,
                                    enable_delete=False)
         # hide tool bar (clone etc.)
         self.pgxn_obj.toolbar.hide()
-        self.pgxn_obj.save_button.clicked.connect(self.completeChanged)
         self.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
         self.wizard().button(QtWidgets.QWizard.FinishButton).clicked.connect(
                                                          self.close_pgxn_obj)
@@ -1070,6 +1071,14 @@ class IdentificationPage(QtWidgets.QWizardPage):
         main_layout = self.layout()
         main_layout.addLayout(id_panel_layout)
 
+    def on_new_object_signal(self, obj=None, cname=''):
+        """
+        Handle "new object" dispatcher signal, emitted when PgxnObject saves.
+        """
+        orb.log.info('  - "new object" signal received')
+        if obj is self.product:
+            self.completeChanged.emit()
+
     def close_pgxn_obj(self):
         if getattr(self, 'pgxn_obj', None):
             self.pgxn_obj.close()
@@ -1077,16 +1086,18 @@ class IdentificationPage(QtWidgets.QWizardPage):
 
     def isComplete(self):
         """
-        Return `True` when the page is complete, which activates the `Next`
-        button.
+        Return `True` when the product_type has been set, which activates the
+        `Next` button.
         """
-        if self.pgxn_obj.edit_mode:
-            if hasattr(self.pgxn_obj, 'save_button'):
-                self.pgxn_obj.save_button.clicked.connect(self.completeChanged)
+        orb.log.info('* IdentificationPage.isComplete()')
+        if (self.product and self.product.id and self.product.name and
+            self.product.product_type):
+            orb.log.info('  - product validated successfully')
+            return True
+        else:
+            orb.log.info('  - product did NOT validate successfully')
+            orb.log.info('  - returning False')
             return False
-        if hasattr(self.pgxn_obj, 'edit_button'):
-            self.pgxn_obj.edit_button.clicked.connect(self.completeChanged)
-        return True
 
 
 class ProductTypePage(QtWidgets.QWizardPage):
