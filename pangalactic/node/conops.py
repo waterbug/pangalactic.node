@@ -322,17 +322,18 @@ class TimelineScene(QGraphicsScene):
                   'Timeline')
         act_id = '-'.join([prefix, activity_type_name, str(seq)])
         act_name = ' '.join([prefix, activity_type_name, str(seq)])
+        project = orb.get(state.get('project'))
         if isinstance(self.act_of, orb.classes['Acu']):
             activity = clone("Activity", id=act_id, name=act_name,
-                             activity_type=activity_type,
+                             activity_type=activity_type, owner=project,
                              of_function=self.act_of)
         elif isinstance(self.act_of, orb.classes['ProjectSystemUsage']):
             activity = clone("Activity", id=act_id, name=act_name,
-                             activity_type=activity_type,
+                             activity_type=activity_type, owner=project,
                              of_system=self.act_of)
         else:
             activity = clone("Activity", id=act_id, name=act_name,
-                             activity_type=activity_type)
+                             activity_type=activity_type, owner=project)
         acr_id = get_acr_id(self.current_activity.id, activity.id, seq)
         acr_name = get_acr_name(self.current_activity.name, activity.name, seq)
         acr = clone("ActCompRel", composite_activity=self.current_activity,

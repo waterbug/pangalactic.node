@@ -1027,6 +1027,7 @@ if __name__ == '__main__':
                                              create_test_users)
     orb.start(home='junk_home', debug=True)
     mission = orb.get('test:Mission.H2G2')
+    H2G2 = orb.get('H2G2')
     if not mission:
         if not state.get('test_users_loaded'):
             # print('* loading test users ...')
@@ -1036,7 +1037,8 @@ if __name__ == '__main__':
         deserialize(orb, create_test_project())
         mission = orb.get('test:Mission.H2G2')
     if not mission.sub_activities:
-        launch = clone('Activity', id='launch', name='Launch')
+        launch = clone('Activity', id='launch', name='Launch',
+                       owner=H2G2)
         sub_act_role = '1'
         acr = clone('ActCompRel', id=get_acr_id(mission.id, sub_act_role),
                     name=get_acr_name(mission.name, sub_act_role),

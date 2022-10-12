@@ -580,7 +580,7 @@ class Main(QMainWindow):
     def sync_with_services(self, force=False):
         self.force = force
         self.synced = dtstamp()
-        self.role_label.setText('syncing data ...')
+        self.role_label.setText('syncing library data ...')
         orb.log.debug('* calling rpc "vger.get_user_roles"')
         userid = state.get('userid', '')
         orb.log.debug('  with userid: "{}"'.format(userid))
@@ -716,10 +716,13 @@ class Main(QMainWindow):
         else:
             orb.log.debug('    no invalid orgs found.')
         # deserialize all new Project and Organization objects
+        self.statusbar.showMessage('receiving organizations ...')
         self.load_serialized_objects(szd_orgs)
         # deserialize all new Person objects
+        self.statusbar.showMessage('receiving users ...')
         self.load_serialized_objects(szd_people)
         orb.log.debug('  - deserializing role assignments ...')
+        self.statusbar.showMessage('receiving role assignments ...')
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE, so
         # delete any role assignments whose oids are not known to the server
         ras_local = orb.get_by_type('RoleAssignment')
@@ -4952,7 +4955,7 @@ class Main(QMainWindow):
                     else:
                         msg = f"data has been {end}."
             else:
-                start_msg = f'{begin} data ...'
+                start_msg = f'{begin} library data ...'
                 if end == 'synced' and state.get('chunks_to_get'):
                     n = len(state['chunks_to_get'])
                     if n == 1:
@@ -5073,7 +5076,7 @@ class Main(QMainWindow):
                     else:
                         msg = f"data has been {end}."
             else:
-                start_msg = f'{begin} data ...'
+                start_msg = f'{begin} library data ...'
                 if end == 'synced' and state.get('chunks_to_get'):
                     n = len(state['chunks_to_get'])
                     if n == 1:
