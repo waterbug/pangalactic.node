@@ -3859,16 +3859,17 @@ class Main(QMainWindow):
             # orb.log.debug('  + self.sys_tree exists ...')
             # if dashboard exists, it has to be destroyed too since the tree
             # and dashboard share their model()
-            # if hasattr(self, 'dashboard_panel'):
-            # orb.log.debug('  + destroying existing dashboard, if any ...')
-            dashboard_layout = self.dashboard_panel.layout()
-            dashboard_layout.removeWidget(self.dashboard)
-            self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
-            self.dashboard.hide()
-            self.dashboard.parent = None
-            self.dashboard.close()
-            self.dashboard = None
-            self.dashboard_rebuilt = False
+            if hasattr(self, 'dashboard_panel'):
+                orb.log.debug('  + destroying existing dashboard, if any ...')
+                dashboard_layout = self.dashboard_panel.layout()
+                if getattr(self, 'dashboard', None):
+                    dashboard_layout.removeWidget(self.dashboard)
+                    self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
+                    self.dashboard.hide()
+                    self.dashboard.parent = None
+                    self.dashboard.close()
+                    self.dashboard = None
+                    self.dashboard_rebuilt = False
         except:
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
@@ -4001,9 +4002,14 @@ class Main(QMainWindow):
                 # orb.log.debug('           dashboard_layout has a layout ...')
                 # orb.log.debug('           clearing out old stuff ...')
                 dashboard_layout_layout = dashboard_layout.layout()
-                dashboard_layout_layout.removeWidget(self.dashboard)
+        if getattr(self, 'dashboard', None):
+            if getattr(self, 'dash_select', None):
                 dashboard_layout_layout.removeWidget(self.dash_select)
+                self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
+                self.dash_select.close()
+                self.dash_select = None
             if getattr(self, 'dashboard', None):
+                dashboard_layout_layout.removeWidget(self.dashboard)
                 self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
                 self.dashboard.close()
                 self.dashboard = None
