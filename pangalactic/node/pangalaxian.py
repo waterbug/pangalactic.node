@@ -249,11 +249,10 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
-        # DEPRECATED: remote: frozen signal is handled by pgxnobj
-        # dispatcher.connect(self.on_remote_frozen_signal, 'remote: frozen')
         dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
+        dispatcher.connect(self.on_get_parmz, 'get parmz')
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
@@ -485,7 +484,6 @@ class Main(QMainWindow):
                 state['connected'] = False
                 state['done_with_progress'] = False
                 state['synced_projects'] = []
-                state['synced_oids'] = []
             else:
                 orb.log.info('* already disconnected from message bus.')
             self.login_label.setText('Login: ')
@@ -520,7 +518,6 @@ class Main(QMainWindow):
         # first make sure state indicates that nothing is yet synced ...
         state['done_with_progress'] = False
         state['synced_projects'] = []
-        state['synced_oids'] = []
         state['connected'] = True
         # set userid from the returned session details ...
         state['userid'] = self.mbus.session.details.authid
@@ -657,7 +654,6 @@ class Main(QMainWindow):
             state['connected'] = False
             state['done_with_progress'] = False
             state['synced_projects'] = []
-            state['synced_oids'] = []
             if self.connect_to_bus_action.isChecked():
                 self.connect_to_bus_action.setChecked(False)
             self.login_label.setText('Login: ')
@@ -806,7 +802,6 @@ class Main(QMainWindow):
             state['connected'] = False
             state['done_with_progress'] = False
             state['synced_projects'] = []
-            state['synced_oids'] = []
         else:
             orb.log.info('* already disconnected from message bus.')
         if self.connect_to_bus_action.isChecked():
@@ -1058,6 +1053,10 @@ class Main(QMainWindow):
                 orb.log.debug('      - deserialization failure')
                 orb.log.debug('        oids: {}'.format(
                              str([so.get('oid', 'no oid') for so in sobjs])))
+        else:
+            if hasattr(self, 'proj_sync_progress'):
+                self.proj_sync_progress.done(0)
+                QApplication.processEvents()
         created_sos = []
         sobjs_to_save = serialize(orb, orb.get(oids=to_update))
         if local_only:
@@ -2863,6 +2862,10 @@ class Main(QMainWindow):
             # rpc.addCallback(self.on_null_result)
             # rpc.addErrback(self.on_failure)
 
+    # def on_null_result(self):
+        # orb.log.debug('  rpc success.')
+        # self.statusbar.showMessage('synced.')
+
     # DEPRECATED (now using on_received_objects())
     def on_remote_modified_signal(self, content=None):
         """
@@ -3098,20 +3101,6 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_freeze_result)
             rpc.addErrback(self.on_failure)
 
-    # DEPRECATE: remote "frozen" message now returns a list of tuples of attrs
-    # of the frozen objects
-    # def on_remote_frozen_signal(self, frozen_oid=None):
-        # """
-        # Handle remote "frozen" messages for individual objects.
-        # """
-        # if state.get('connected') and frozen_oid:
-            # QApplication.processEvents()
-            # num_frozens = state.get('remote_frozens', 0)
-            # num_frozens += 1
-            # state['remote_frozens'] = num_frozens
-            # if getattr(self, 'freeze_progress', None):
-                # self.freeze_progress.setValue(num_frozens)
-
     def on_thaw_signal(self, oids=None):
         if state.get('connected') and oids:
             rpc = self.mbus.session.call('vger.thaw', oids)
@@ -3228,9 +3217,23 @@ class Main(QMainWindow):
             orb.log.info('* malformed "remote: de del" message:')
             orb.log.info(f'  content: {str(content)}')
 
-    # def on_null_result(self):
-        # orb.log.debug('  rpc success.')
-        # self.statusbar.showMessage('synced.')
+    # ------------------------------------------------------------------------
+    # NEW [2022-10-11]: when in "connected" state, call vger.get_parmz()
+    # instead of recomputing parameters locally
+    # ------------------------------------------------------------------------
+
+    def on_get_parmz(self, oids=None):
+        """
+        Handle local dispatcher signal "get parmz".
+        """
+        rpc = self.mbus.session.call('vger.get_parmz', oids=oids)
+        rpc.addCallback(self.on_vger_get_parmz_result)
+        rpc.addErrback(self.on_failure)
+
+    def on_vger_get_parmz_result(self, data):
+        if data:
+            orb.log.info('* got parmz data, updating ...')
+            parameterz.update(data)
 
     def on_vger_save_result(self, stuff):
         orb.log.debug('- vger.save rpc result: {}'.format(str(stuff)))
@@ -3547,6 +3550,15 @@ class Main(QMainWindow):
              and project_oid not in state.get('synced_projects', []))
              or resync)
              and state.get('connected')):
+            project = orb.get(project_oid)
+            title_text = f'Syncing project {project.id}'
+            self.proj_sync_progress = ProgressDialog(title=title_text,
+                                              label='receiving items ...',
+                                              parent=self)
+            self.proj_sync_progress.setAttribute(Qt.WA_DeleteOnClose)
+            self.proj_sync_progress.setValue(0)
+            self.proj_sync_progress.setMinimumDuration(2000)
+            QApplication.processEvents()
             orb.log.debug('  calling sync_current_project()')
             rpc = self.sync_current_project(None, msg=msg)
             rpc.addCallback(self.on_project_sync_result)
@@ -4968,6 +4980,8 @@ class Main(QMainWindow):
             self.pb.show()
             self.pb.setValue(0)
             self.pb.setMaximum(len(sobjs))
+            if hasattr(self, 'proj_sync_progress'):
+                self.proj_sync_progress.setMaximum(len(sobjs))
             i = 0
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
             for cname in DESERIALIZATION_ORDER:
@@ -4976,6 +4990,8 @@ class Main(QMainWindow):
                                         force_no_recompute=True)
                     n = len(objs)
                     self.pb.setValue(n)
+                    if hasattr(self, 'proj_sync_progress'):
+                        self.proj_sync_progress.setValue(n)
                     self.statusbar.showMessage(f'{n} {cname} deserialized')
                     # DEPRECATED (was more informative but slow!)
                     # for so in byclass[cname]:
@@ -5002,7 +5018,12 @@ class Main(QMainWindow):
                         objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
                         self.pb.setValue(i)
+                        if hasattr(self, 'proj_sync_progress'):
+                            self.proj_sync_progress.setValue(i)
             self.pb.hide()
+            if hasattr(self, 'proj_sync_progress'):
+                self.proj_sync_progress.done(0)
+                QApplication.processEvents()
             if not msg:
                 msg = "data has been {}.".format(end)
             self.statusbar.showMessage(msg)
@@ -5477,8 +5498,7 @@ def cleanup_and_save():
         orb.delete(test_objs)
     write_config(os.path.join(orb.home, 'config'))
     write_prefs(os.path.join(orb.home, 'prefs'))
-    # clear synced, synced_oids, and synced_projects
-    state['synced_oids'] = []
+    # clear 'synced_projects' and 'network_warning_displayed'
     state['synced_projects'] = []
     state['network_warning_displayed'] = False
     write_state(os.path.join(orb.home, 'state'))

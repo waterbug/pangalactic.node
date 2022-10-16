@@ -24,8 +24,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.node.buttons     import CheckButtonLabel
-from pangalactic.node.dialogs     import (ProgressDialog, HWFieldsDialog,
-                                          ReqFieldsDialog)
+from pangalactic.node.dialogs     import ProgressDialog
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
@@ -581,16 +580,19 @@ class MappingPage(QtWidgets.QWizardPage):
         if not self.widgets_added:
             self.add_widgets()
         # after adding all widgets, redo the mapping area for proper sizing
+        # NOTE: order is important here -- remove mapping_container before
+        # mapping_scrollarea
+        if getattr(self, 'mapping_container', None):
+            self.mapping_container.setAttribute(Qt.WA_DeleteOnClose)
+            self.mapping_container.parent = None
+            self.mapping_container.close()
+            self.mapping_container = None
         if getattr(self, 'mapping_layout', None):
             self.vbox.removeWidget(self.mapping_scrollarea)
             self.mapping_scrollarea.setAttribute(Qt.WA_DeleteOnClose)
             self.mapping_scrollarea.parent = None
             self.mapping_scrollarea.close()
             self.mapping_scrollarea = None
-            self.mapping_container.setAttribute(Qt.WA_DeleteOnClose)
-            self.mapping_container.parent = None
-            self.mapping_container.close()
-            self.mapping_container = None
         self.mapping_scrollarea = QtWidgets.QScrollArea()
         self.mapping_scrollarea.setWidgetResizable(True)
         self.mapping_scrollarea.setMinimumWidth(300)
@@ -887,61 +889,8 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
             self.fpanel = None
         self.fpanel = FilterPanel(self.objs, view=view, sized_cols=sized_cols,
                                   word_wrap=True, parent=self)
-        if self.object_type == 'Requirement':
-            self.fpanel.req_fields_action.triggered.connect(
-                                                    self.edit_req_fields)
-        elif self.object_type == 'HardwareProduct':
-            self.fpanel.hw_fields_action.triggered.connect(
-                                                    self.edit_hw_fields)
+        self.fpanel.proxy_view.addAction(self.fpanel.hw_fields_action)
         self.vbox.addWidget(self.fpanel, stretch=1)
-
-    def edit_req_fields(self):
-        """
-        Edit the selected product in the table, to populate fields that are not
-        present in the imported data.
-        """
-        orb.log.debug('* edit_req_fields()')
-        req = None
-        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
-            i = self.fpanel.proxy_model.mapToSource(
-                self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
-                          'oid', '')
-            if oid:
-                req = orb.get(oid)
-        if req:
-            dlg = ReqFieldsDialog(req, parent=self)
-            if dlg.exec_() == QtWidgets.QDialog.Accepted:
-                orb.log.info('* req fields edited.')
-                dlg.close()
-            else:
-                orb.log.info('* req fields editing cancelled.')
-                dlg.close()
-
-    def edit_hw_fields(self):
-        """
-        Edit the selected product in the table, to populate fields that are not
-        present in the imported data.
-        """
-        orb.log.debug('* edit_hw_fields()')
-        hw = None
-        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
-            i = self.fpanel.proxy_model.mapToSource(
-                self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
-                          'oid', '')
-            if oid:
-                hw = orb.get(oid)
-        if hw:
-            dlg = HWFieldsDialog(hw, parent=self)
-            if dlg.exec_() == QtWidgets.QDialog.Accepted:
-                orb.log.info('* hw item fields edited.')
-                dlg.close()
-            else:
-                orb.log.info('* hw item fields editing cancelled.')
-                dlg.close()
 
 
 #################################

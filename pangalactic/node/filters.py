@@ -24,6 +24,7 @@ from pangalactic.core.names       import (get_external_name_plural,
 from pangalactic.core.parametrics import de_defz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
+from pangalactic.node.dialogs     import HWFieldsDialog, ReqFieldsDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.utils       import (create_mime_data,
@@ -737,12 +738,17 @@ class FilterPanel(QWidget):
     def create_actions(self):
         self.pgxnobj_action = QAction('View or edit this object', self)
         self.pgxnobj_action.triggered.connect(self.display_object)
+        # the hw_fields_action is only used by the DataImportWizard when
+        # importing HW Product data (because it assumes edit perms exist), so
+        # it is only added to the context menu in the wizard module
         txt = 'Edit selected fields of this hardware item'
         self.hw_fields_action = QAction(txt, self)
+        self.hw_fields_action.triggered.connect(self.edit_hw_fields)
         txt = 'Edit parameters of this requirement'
         self.req_parms_action = QAction(txt, self)
         txt = 'Edit selected fields of this requirement'
         self.req_fields_action = QAction(txt, self)
+        self.req_fields_action.triggered.connect(self.edit_req_fields)
         txt = 'Edit this requirement in the wizard'
         self.reqwizard_action = QAction(txt, self)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
@@ -757,7 +763,6 @@ class FilterPanel(QWidget):
             self.proxy_view.addAction(self.req_fields_action)
             self.proxy_view.addAction(self.reqwizard_action)
         elif self.cname == 'HardwareProduct':
-            self.proxy_view.addAction(self.hw_fields_action)
             self.proxy_view.addAction(self.pgxnobj_action)
             # NOTE: disabled because templates need more work
             # self.proxy_view.addAction(self.template_action)
@@ -765,6 +770,50 @@ class FilterPanel(QWidget):
             # for all objs other than Requirements, use PgxnObject
             self.proxy_view.addAction(self.pgxnobj_action)
         self.proxy_view.setContextMenuPolicy(Qt.ActionsContextMenu)
+
+    def edit_req_fields(self):
+        """
+        Edit some fields of the selected requirement in the table.
+        """
+        orb.log.debug('* edit_req_fields()')
+        req = None
+        if len(self.proxy_view.selectedIndexes()) >= 1:
+            i = self.proxy_model.mapToSource(
+                            self.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
+            if oid:
+                req = orb.get(oid)
+        if req:
+            dlg = ReqFieldsDialog(req, parent=self)
+            if dlg.exec_() == QDialog.Accepted:
+                orb.log.info('* req fields edited.')
+                dlg.close()
+            else:
+                orb.log.info('* req fields editing cancelled.')
+                dlg.close()
+
+    def edit_hw_fields(self):
+        """
+        Edit some fields of the selected product in the table.
+        """
+        orb.log.debug('* edit_hw_fields()')
+        hw = None
+        if len(self.proxy_view.selectedIndexes()) >= 1:
+            i = self.proxy_model.mapToSource(
+                            self.proxy_view.selectedIndexes()[0]).row()
+            # orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
+            if oid:
+                hw = orb.get(oid)
+        if hw:
+            dlg = HWFieldsDialog(hw, parent=self)
+            if dlg.exec_() == QDialog.Accepted:
+                orb.log.info('* hw item fields edited.')
+                dlg.close()
+            else:
+                orb.log.info('* hw item fields editing cancelled.')
+                dlg.close()
 
     def display_object(self):
         orb.log.debug('* display object ...')

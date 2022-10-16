@@ -327,6 +327,9 @@ class LibraryListWidget(QWidget):
         self.expand_button = SizedButton('Collapse', color='green')
         self.expand_button.clicked.connect(self.toggle_size)
         hbox.addWidget(self.expand_button)
+        self.view_button = SizedButton('Set View')
+        self.view_button.clicked.connect(self.set_hw_library_view)
+        hbox.addWidget(self.view_button)
         layout.addLayout(hbox)
         self.library_select = QComboBox()
         self.library_select.setStyleSheet('font-weight: bold; font-size: 14px')
@@ -445,9 +448,17 @@ class LibraryListWidget(QWidget):
 
     def set_library(self, index):
         """
-        Set the library view.
+        Set the selected library widget.
         """
         self.stack.setCurrentIndex(index)
+
+    def set_hw_library_view(self, view):
+        """
+        Set the view of the selected library widget.
+        """
+        view = ['id', 'name', 'm', 'product_type', 'description']
+        self.libraries['HardwareProduct'].view = view
+        self.refresh(cname='HardwareProduct')
 
     def toggle_size(self, evt):
         if self.expanded:

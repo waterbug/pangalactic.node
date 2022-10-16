@@ -240,7 +240,7 @@ class HWFieldsDialog(QDialog):
     def __init__(self, hw_item, parent=None):
         super().__init__(parent)
         self.hw_item = hw_item
-        self.setWindowTitle("Product {hw_item.id}")
+        self.setWindowTitle(f"Product {hw_item.id}")
         names = ['name', 'description', 'product_type', 'owner']
         vbox = QVBoxLayout(self)
         self.form = QFormLayout()
@@ -326,7 +326,7 @@ class ReqFieldsDialog(QDialog):
     def __init__(self, req, parent=None):
         super().__init__(parent)
         self.req = req
-        self.setWindowTitle("Requirement {req.id}")
+        self.setWindowTitle(f"Requirement {req.id}")
         names = ['name', 'abbreviation', 'req_compliance', 'rationale',
                  'justification', 'comment']
         if req.req_type == 'functional':

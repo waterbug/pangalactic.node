@@ -1229,12 +1229,7 @@ class PgxnObject(QDialog):
                                     tip='Clone this object',
                                     modes=['edit', 'view'])
             self.toolbar.addAction(self.clone_action)
-            if state.get('connected'):
-                self.clone_action.setEnabled(True)
-            else:
-                # do not allow cloning when not connected to repo
-                # NOTE: may allow in future when some offline ops are allowed
-                self.clone_action.setEnabled(False)
+            self.clone_action.setEnabled(True)
         if (isinstance(self.obj, orb.classes['HardwareProduct'])
             and self.obj.components):
             # the "Mini MEL" action only makes sense for white box objects
