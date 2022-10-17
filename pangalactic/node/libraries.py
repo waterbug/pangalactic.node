@@ -456,8 +456,8 @@ class LibraryListWidget(QWidget):
         """
         Set the view of the selected library widget.
         """
-        view = ['id', 'name', 'm', 'product_type', 'description']
-        self.libraries['HardwareProduct'].view = view
+        view = ['id', 'name', 'm[CBE]', 'P[CBE]', 'product_type', 'description']
+        self.libraries['HardwareProduct'].set_view(view)
         self.refresh(cname='HardwareProduct')
 
     def toggle_size(self, evt):

@@ -19,7 +19,6 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.names       import (get_external_name_plural,
-                                          get_attr_ext_name,
                                           pname_to_header_label)
 from pangalactic.core.parametrics import de_defz, parm_defz
 from pangalactic.core.uberorb     import orb
@@ -276,6 +275,8 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             dtype = self.col_dtypes[left.column()]
         except:
             dtype = 'str'
+        l_no_commas = ''.join(left.data().split(','))
+        r_no_commas = ''.join(right.data().split(','))
         # Requirement ID Sort
         # * tests for strings of [project id]-[level].[sequence](.[sequence])*
         if (self.is_reqt_id(left.data()) and
@@ -317,10 +318,10 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             return lefties < righties
         # Numeric Sort
         # * tests for strings of integers separated by a single dot.
-        elif (self.is_numeric(left.data()) and
-              self.is_numeric(right.data())):
-            lvalue = float(left.data())
-            rvalue = float(right.data())
+        elif (self.is_numeric(l_no_commas) and
+              self.is_numeric(r_no_commas)):
+            lvalue = float(l_no_commas)
+            rvalue = float(r_no_commas)
             if lvalue and rvalue:
                 return lvalue < rvalue
             else:
@@ -536,10 +537,17 @@ class FilterPanel(QWidget):
                 self.cname = 'Product'
         if self.cname:
             schema = orb.schemas[self.cname]
-            self.view = view or MAIN_VIEWS.get(self.cname,
+            # make sure items in a supplied view are valid ...
+            if view:
+                self.view = [a for a in view
+                             if ((a in schema['field_names']) or
+                                 (a in parm_defz) or
+                                 (a in de_defz))]
+            else:
+                self.view = MAIN_VIEWS.get(self.cname,
                                           ['id', 'name', 'description'])
-            # if col name, use that; otherwise, use external name
-            col_labels = [PGEF_COL_NAMES.get(a, get_attr_ext_name(self.cname, a))
+            # if col name, use that; otherwise, create header label
+            col_labels = [PGEF_COL_NAMES.get(a, pname_to_header_label(a))
                           for a in self.view]
             col_defs = []
             col_dtypes = []
@@ -566,7 +574,15 @@ class FilterPanel(QWidget):
                                                     col_dtypes=col_dtypes,
                                                     parent=self)
         elif schema:
-            self.view = [a for a in view if a in schema['field_names']]
+            # make sure items in a supplied view are valid ...
+            if view:
+                self.view = [a for a in view
+                             if ((a in schema['field_names']) or
+                                 (a in parm_defz) or
+                                 (a in de_defz))]
+            else:
+                self.view = [a for a in ['id', 'name', 'description']
+                             if a in schema['field_names']]
             col_labels = [pname_to_header_label(a) for a in self.view]
             col_defs = []
             col_dtypes = []
@@ -581,6 +597,7 @@ class FilterPanel(QWidget):
                                                     col_defs=col_defs,
                                                     col_dtypes=col_dtypes,
                                                     parent=self)
+        self.schema = schema
         self.proxy_model.setDynamicSortFilter(True)
         if external_filters:
             self.ext_filters = SizedButton("Filters")
@@ -692,6 +709,39 @@ class FilterPanel(QWidget):
         model = ObjectTableModel(self.objs, view=self.view,
                                  as_library=self.as_library)
         return model
+
+    def set_view(self, view):
+        """
+        Set a new view.
+
+        Args:
+            view (iterable):  view to be set.
+        """
+        self.view = view
+        col_labels = [PGEF_COL_NAMES.get(a, pname_to_header_label(a))
+                      for a in view]
+        col_defs = []
+        col_dtypes = []
+        for a in view:
+            if a in self.schema['fields']:
+                col_defs.append('\n'.join(wrap(
+                                self.schema['fields'][a]['definition'],
+                                width=30, break_long_words=False)))
+                col_dtypes.append(self.schema['fields'][a]['range'])
+            elif a in parm_defz:
+                col_defs.append('\n'.join(wrap(
+                                parm_defz[a]['description'],
+                                width=30, break_long_words=False)))
+                col_dtypes.append(parm_defz[a]['range_datatype'])
+            elif a in de_defz:
+                col_defs.append('\n'.join(wrap(
+                                de_defz[a]['description'],
+                                width=30, break_long_words=False)))
+                col_dtypes.append(de_defz[a]['range_datatype'])
+        self.proxy_model.view = view
+        self.proxy_model.col_labels = col_labels
+        self.proxy_model.col_defs = col_defs
+        self.proxy_model.col_dtypes = col_dtypes
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
