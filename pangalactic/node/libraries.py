@@ -457,7 +457,9 @@ class LibraryListWidget(QWidget):
         Set the selected library widget.
         """
         self.stack.setCurrentIndex(index)
-        if self.library_select.currentText == "HardwareProducts":
+        current_text = self.library_select.currentText()
+        # orb.log.debug(f'* library label text is: "{current_text}"')
+        if "Hardware Products" in current_text:
             if 'm[CBE]' in self.libraries['HardwareProduct'].view:
                 self.set_view_button.hide()
                 self.reset_view_button.show()
