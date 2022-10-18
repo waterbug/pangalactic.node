@@ -322,14 +322,20 @@ class LibraryListWidget(QWidget):
         title = title or 'Libraries'
         title = QLabel(title)
         title.setStyleSheet('font-weight: bold; font-size: 18px')
+        self.hw_parm_view = ['id', 'name', 'm[CBE]', 'P[CBE]', 'R_D[CBE]',
+                             'product_type', 'description']
         hbox.addWidget(title, alignment=Qt.AlignLeft)
         self.expanded = True
         self.expand_button = SizedButton('Collapse', color='green')
         self.expand_button.clicked.connect(self.toggle_size)
         hbox.addWidget(self.expand_button)
-        self.view_button = SizedButton('Set View')
-        self.view_button.clicked.connect(self.set_hw_library_view)
-        hbox.addWidget(self.view_button)
+        self.set_view_button = SizedButton('Show Parameters')
+        self.set_view_button.clicked.connect(self.set_hw_library_view)
+        hbox.addWidget(self.set_view_button)
+        self.reset_view_button = SizedButton('Hide Parameters')
+        self.reset_view_button.clicked.connect(self.reset_hw_library_view)
+        self.reset_view_button.hide()
+        hbox.addWidget(self.reset_view_button)
         layout.addLayout(hbox)
         self.library_select = QComboBox()
         self.library_select.setStyleSheet('font-weight: bold; font-size: 14px')
@@ -451,13 +457,34 @@ class LibraryListWidget(QWidget):
         Set the selected library widget.
         """
         self.stack.setCurrentIndex(index)
+        if self.library_select.currentText == "HardwareProducts":
+            if 'm[CBE]' in self.libraries['HardwareProduct'].view:
+                self.set_view_button.hide()
+                self.reset_view_button.show()
+            else:
+                self.reset_view_button.hide()
+                self.set_view_button.show()
+        else:
+            self.reset_view_button.hide()
+            self.set_view_button.hide()
 
     def set_hw_library_view(self, view):
         """
-        Set the view of the selected library widget.
+        Set the view of the hardware library widget to parameter view.
         """
-        view = ['id', 'name', 'm[CBE]', 'P[CBE]', 'product_type', 'description']
-        self.libraries['HardwareProduct'].set_view(view)
+        self.set_view_button.hide()
+        self.reset_view_button.show()
+        self.libraries['HardwareProduct'].set_view(self.hw_parm_view)
+        self.refresh(cname='HardwareProduct')
+
+    def reset_hw_library_view(self):
+        """
+        Reset the view of the hardware library widget to its previous value.
+        """
+        self.reset_view_button.hide()
+        self.set_view_button.show()
+        self.libraries['HardwareProduct'].set_view(
+                                self.libraries['HardwareProduct'].last_view)
         self.refresh(cname='HardwareProduct')
 
     def toggle_size(self, evt):

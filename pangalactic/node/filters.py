@@ -717,6 +717,7 @@ class FilterPanel(QWidget):
         Args:
             view (iterable):  view to be set.
         """
+        self.last_view = self.view
         self.view = view
         col_labels = [PGEF_COL_NAMES.get(a, pname_to_header_label(a))
                       for a in view]
