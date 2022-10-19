@@ -1982,6 +1982,7 @@ class Main(QMainWindow):
             # rebuild diagram in case an object corresponded to a
             # block in the current diagram
             self.system_model_window.on_signal_to_refresh()
+        self.resync_current_project(msg='resync for received objects')
         return True
 
     def _create_actions(self):
@@ -3183,6 +3184,7 @@ class Main(QMainWindow):
             orb.log.debug(f'* vger: del parameter "{pid}" from "{oid}"')
             # local=False is *extremely* important here, to avoid cycles!
             delete_parameter(oid, pid, local=False)
+            self.resync_current_project(msg='resync for parameter deletion')
         except:
             orb.log.info('* malformed "remote: parm del" message:')
             orb.log.info(f'  content: {str(content)}')
@@ -3505,6 +3507,7 @@ class Main(QMainWindow):
             if getattr(self, 'system_model_window', None):
                 self.system_model_window.on_signal_to_refresh()
         # the "not remote" here is *extremely* important, to prevent a cycle ...
+        self.resync_current_project(msg='resync for deleted object')
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
