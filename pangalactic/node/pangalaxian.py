@@ -165,7 +165,6 @@ class Main(QMainWindow):
         self.app_version = app_version
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
-        self.progress_value = 0
         self.proc_pool = pool
         # initialize internal "_product" attr, so getter for "product" works
         self._product = None
@@ -291,6 +290,10 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_comp_back, 'comp modeler back')
         # connect dispatcher signals for message bus events
         dispatcher.connect(self.on_mbus_joined, 'onjoined')
+        # dispatcher.connect(self.sync_progress_dlg_update,
+                                                    # "deserialized object")
+        # dispatcher.connect(self.sync_progress_dlg_set_max,
+                                                    # "deserializing")
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
@@ -302,8 +305,6 @@ class Main(QMainWindow):
             self.system_mode_action.trigger()
         elif mode == 'db':
             self.db_mode_action.trigger()
-        # else:
-            # self.data_mode_action.trigger()
         state['done_with_progress'] = False
         parm_des_unavail = ''
         parms_unavail = orb.parmz_status in ['fail', 'not found']
@@ -1053,10 +1054,6 @@ class Main(QMainWindow):
                 orb.log.debug('      - deserialization failure')
                 orb.log.debug('        oids: {}'.format(
                              str([so.get('oid', 'no oid') for so in sobjs])))
-        else:
-            if hasattr(self, 'proj_sync_progress'):
-                self.proj_sync_progress.done(0)
-                QApplication.processEvents()
         created_sos = []
         sobjs_to_save = serialize(orb, orb.get(oids=to_update))
         if local_only:
@@ -3550,15 +3547,16 @@ class Main(QMainWindow):
              and project_oid not in state.get('synced_projects', []))
              or resync)
              and state.get('connected')):
-            project = orb.get(project_oid)
-            title_text = f'Syncing project {project.id}'
-            self.proj_sync_progress = ProgressDialog(title=title_text,
-                                              label='receiving items ...',
-                                              parent=self)
-            self.proj_sync_progress.setAttribute(Qt.WA_DeleteOnClose)
-            self.proj_sync_progress.setValue(0)
-            self.proj_sync_progress.setMinimumDuration(2000)
-            QApplication.processEvents()
+            # project = orb.get(project_oid)
+            # title_text = f'Syncing project {project.id}'
+            # label_text = f'Receiving {project.id} items ... '
+            # self.proj_sync_progress = ProgressDialog(title=title_text,
+                                              # label=label_text,
+                                              # parent=self)
+            # self.proj_sync_progress.setAttribute(Qt.WA_DeleteOnClose)
+            # self.proj_sync_progress.setValue(0)
+            # self.proj_sync_progress.setMinimumDuration(2000)
+            # QApplication.processEvents()
             orb.log.debug('  calling sync_current_project()')
             rpc = self.sync_current_project(None, msg=msg)
             rpc.addCallback(self.on_project_sync_result)
@@ -4986,31 +4984,27 @@ class Main(QMainWindow):
             self.pb.show()
             self.pb.setValue(0)
             self.pb.setMaximum(len(sobjs))
-            if hasattr(self, 'proj_sync_progress'):
-                self.proj_sync_progress.setMaximum(len(sobjs))
             i = 0
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
             for cname in DESERIALIZATION_ORDER:
                 if cname in byclass:
-                    objs += deserialize(orb, byclass[cname],
-                                        force_no_recompute=True)
-                    n = len(objs)
-                    self.pb.setValue(n)
-                    if hasattr(self, 'proj_sync_progress'):
-                        self.proj_sync_progress.setValue(n)
-                    self.statusbar.showMessage(f'{n} {cname} deserialized')
+                    # objs += deserialize(orb, byclass[cname],
+                                        # force_no_recompute=True)
+                    # n = len(objs)
+                    # self.pb.setValue(n)
+                    # self.statusbar.showMessage(f'{n} {cname} deserialized')
                     # DEPRECATED (was more informative but slow!)
-                    # for so in byclass[cname]:
-                        # # if objs are still owned by 'me' but user has
-                        # # logged in and has a local_user object ...
-                        # if so.get('creator') == 'me' and not user_is_me:
-                            # so['creator'] = self.local_user.oid
-                            # so['modifier'] = self.local_user.oid
-                        # objs += deserialize(orb, [so], force_no_recompute=True)
-                        # i += 1
-                        # self.pb.setValue(i)
-                        # self.statusbar.showMessage('{}: {}'.format(cname,
-                                                       # so.get('id', '')))
+                    for so in byclass[cname]:
+                        # if objs are still owned by 'me' but user has
+                        # logged in and has a local_user object ...
+                        if so.get('creator') == 'me' and not user_is_me:
+                            so['creator'] = self.local_user.oid
+                            so['modifier'] = self.local_user.oid
+                        objs += deserialize(orb, [so], force_no_recompute=True)
+                        i += 1
+                        self.pb.setValue(i)
+                        self.statusbar.showMessage('{}: {}'.format(cname,
+                                                       so.get('id', '')))
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
@@ -5024,12 +5018,7 @@ class Main(QMainWindow):
                         objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
                         self.pb.setValue(i)
-                        if hasattr(self, 'proj_sync_progress'):
-                            self.proj_sync_progress.setValue(i)
             self.pb.hide()
-            if hasattr(self, 'proj_sync_progress'):
-                self.proj_sync_progress.done(0)
-                QApplication.processEvents()
             if not msg:
                 msg = "data has been {}.".format(end)
             self.statusbar.showMessage(msg)
@@ -5061,6 +5050,24 @@ class Main(QMainWindow):
                             QMessageBox.Ok, self)
                 popup.show()
             return []
+
+    # def sync_progress_dlg_set_max(self, n=0):
+        # if hasattr(self, 'proj_sync_progress'):
+            # if n:
+                # self.proj_sync_progress.setMaximum(n)
+            # else:
+                # self.proj_sync_progress.done(0)
+            # QApplication.processEvents()
+
+    # def sync_progress_dlg_update(self, msg='unknown'):
+        # if hasattr(self, 'proj_sync_progress'):
+            # val = self.proj_sync_progress.value()
+            # val += 1
+            # if val >= self.proj_sync_progress.maximum():
+                # self.proj_sync_progress.done(0)
+            # else:
+                # self.proj_sync_progress.setValue(val)
+            # QApplication.processEvents()
 
     def force_load_serialized_objects(self, sobjs, importing=False):
         """

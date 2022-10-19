@@ -474,6 +474,10 @@ class FilterPanel(QWidget):
     A widget containing a filterable table of objects.
     """
 
+    # for prototyping, a basic HW view with parameters ...
+    hw_parm_view = ['id', 'name', 'm[CBE]', 'P[CBE]', 'R_D[CBE]',
+                    'product_type', 'description']
+
     def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
                  title='', width=None, min_width=None, height=None,
                  as_library=False, cname=None, external_filters=False,
@@ -614,6 +618,13 @@ class FilterPanel(QWidget):
             self.only_mine_label = QLabel("Only My Products")
             self.only_mine_label.setStyleSheet(
                                            'font-weight: bold; color: green;')
+
+            self.set_view_button = SizedButton('Show Parameters')
+            self.set_view_button.clicked.connect(self.set_hw_parm_view)
+            self.reset_view_button = SizedButton('Hide Parameters')
+            self.reset_view_button.clicked.connect(self.reset_view)
+            self.reset_view_button.hide()
+
         self.filter_case_checkbox = QCheckBox("case sensitive")
         filter_pattern_label = QLabel("Text Filter:")
         filter_pattern_label.setStyleSheet('font-weight: bold; color: purple;')
@@ -644,6 +655,8 @@ class FilterPanel(QWidget):
             only_mine_hbox.addWidget(self.only_mine_checkbox)
             only_mine_hbox.addWidget(self.only_mine_label)
             only_mine_hbox.addStretch(1)
+            only_mine_hbox.addWidget(self.set_view_button)
+            only_mine_hbox.addWidget(self.reset_view_button)
             proxy_layout.addLayout(only_mine_hbox)
             filters_hbox = QHBoxLayout()
             filters_hbox.addWidget(self.ext_filters)
@@ -709,6 +722,24 @@ class FilterPanel(QWidget):
         model = ObjectTableModel(self.objs, view=self.view,
                                  as_library=self.as_library)
         return model
+
+    def set_hw_parm_view(self, view):
+        """
+        Set the view to a HW parameter view.
+        """
+        self.set_view_button.hide()
+        self.reset_view_button.show()
+        self.set_view(self.hw_parm_view)
+        self.refresh()
+
+    def reset_view(self):
+        """
+        Reset the view to its previous value.
+        """
+        self.reset_view_button.hide()
+        self.set_view_button.show()
+        self.set_view(self.last_view)
+        self.refresh()
 
     def set_view(self, view):
         """
