@@ -1,6 +1,6 @@
 package:
   name: pangalaxian
-  version: "3.0.dev1"
+  version: "3.0.dev2"
 
 source:
   # path to source ... modify if necessary
@@ -19,7 +19,7 @@ requirements:
   run:
     - python {{PY_VER}}
     - menuinst
-    - pangalactic.node >=3.0.dev1
+    - pangalactic.node >=3.0.dev2
 
 about:
   # home: [url]
