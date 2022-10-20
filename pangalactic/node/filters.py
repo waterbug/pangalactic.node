@@ -275,13 +275,17 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             dtype = self.col_dtypes[left.column()]
         except:
             dtype = 'str'
-        l_no_commas = ''.join(left.data().split(','))
-        r_no_commas = ''.join(right.data().split(','))
+        # left.data() and right.data() can have a value of None -- we need them
+        # to be strings ...
+        ldata = left.data() or ''
+        rdata = right.data() or ''
+        l_no_commas = ''.join(ldata.split(','))
+        r_no_commas = ''.join(rdata.split(','))
         # Requirement ID Sort
         # * tests for strings of [project id]-[level].[sequence](.[sequence])*
-        if (self.is_reqt_id(left.data()) and
-              self.is_reqt_id(right.data())):
-            ldash_split = left.data().split('-')
+        if (self.is_reqt_id(ldata) and
+              self.is_reqt_id(rdata)):
+            ldash_split = ldata.split('-')
             lnum = ldash_split[-1]
             ld_proj = '-'.join(ldash_split[:-1])
             ld = lnum.split('.')
@@ -291,7 +295,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
                 lvalue = [ld_proj.lower(), int(ld[0]), int(ld[1])]
             elif len(ld) == 1:
                 lvalue = [ld_proj.lower(), int(ld[0])]
-            rdash_split = right.data().split('-')
+            rdash_split = rdata.split('-')
             rnum = rdash_split[-1]
             rd_proj = '-'.join(rdash_split[:-1])
             rd = rnum.split('.')
@@ -311,10 +315,10 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
         #   integer to the right, etc.
         # **** TODO:  needs exception handling!
         elif (dtype == 'str' and
-            self.is_version(left.data()) and
-            self.is_version(right.data())):
-            lefties = [int(i) for i in left.data().split('.')]
-            righties = [int(i) for i in right.data().split('.')]
+            self.is_version(ldata) and
+            self.is_version(rdata)):
+            lefties = [int(i) for i in ldata.split('.')]
+            righties = [int(i) for i in rdata.split('.')]
             return lefties < righties
         # Numeric Sort
         # * tests for strings of integers separated by a single dot.
