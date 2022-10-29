@@ -28,9 +28,8 @@ from louie import dispatcher
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
-                                          PGXN_REQD, SELECTABLE_VALUES,
-                                          SELECTION_VIEWS, TEXT_PROPERTIES,
-                                          SELECTION_FILTERS)
+                                          SELECTABLE_VALUES, SELECTION_VIEWS,
+                                          TEXT_PROPERTIES, SELECTION_FILTERS)
 from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
                                           get_dval, mode_defz, set_dval)
 from pangalactic.core.uberorb     import orb
@@ -45,7 +44,7 @@ from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import UnitsWidget
 from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
-                                          StringFieldWidget,
+                                          LogWidget, StringFieldWidget,
                                           StringSelectWidget, TextFieldWidget)
 
 COLORS = {True: 'green', False: 'red'}
@@ -1324,6 +1323,28 @@ class CloningDialog(QDialog):
             else:
                 self.new_obj = clone(self.obj, include_components=False)
         super().accept()
+
+
+class LogDialog(QDialog):
+    """
+    Dialog for displaying log messages while syncing.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        orb.log.debug('* LogDialog started ...')
+        self.setWindowTitle("Syncing")
+        main_layout = QVBoxLayout(self)
+        title = QLabel('<h3>Syncing with repository ...</h3>', self)
+        main_layout.addWidget(title)
+        self.log_widget = LogWidget(parent=self)
+        main_layout.addWidget(self.log_widget, 1)
+        self.resize(550, 700)
+        self.updateGeometry()
+
+    def write(self, txt):
+        self.log_widget.append(txt)
 
 
 freezing_instructions = """

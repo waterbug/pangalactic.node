@@ -66,6 +66,7 @@ from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.dialogs          import (FullSyncDialog,
+                                               LogDialog,
                                                LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
@@ -4991,6 +4992,8 @@ class Main(QMainWindow):
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
             for cname in DESERIALIZATION_ORDER:
                 if cname in byclass:
+                    log_dlg = LogDialog(parent=self)
+                    log_dlg.show()
                     # objs += deserialize(orb, byclass[cname],
                                         # force_no_recompute=True)
                     # n = len(objs)
@@ -5006,9 +5009,12 @@ class Main(QMainWindow):
                         objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
                         self.pb.setValue(i)
-                        self.statusbar.showMessage('{}: {}'.format(cname,
-                                                       so.get('id', '')))
+                        status_txt = '{}: {}'.format(cname, so.get('id', ''))
+                        self.statusbar.showMessage(status_txt)
+                        log_dlg.write(status_txt)
+                        QApplication.processEvents()
                     byclass.pop(cname)
+                    log_dlg.close()
             # deserialize any other classes ...
             if byclass:
                 for cname in byclass:

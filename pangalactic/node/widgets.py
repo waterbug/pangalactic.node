@@ -3,8 +3,8 @@ from PyQt5.QtGui  import (QDoubleValidator, QDrag, QIntValidator, QPainter,
                           QPixmap, QTextOption)
 from PyQt5.QtWidgets  import (QApplication, QCheckBox, QComboBox, QDateEdit,
                               QDateTimeEdit, QFrame, QLabel, QLineEdit,
-                              QListView, QListWidget, QSizePolicy, QTextEdit,
-                              QVBoxLayout)
+                              QListView, QListWidget, QSizePolicy,
+                              QTextBrowser, QTextEdit, QVBoxLayout)
 from sqlalchemy   import (BigInteger, Boolean, Date, DateTime, Float,
                           ForeignKey, Integer, String, Text, Time, Unicode)
 
@@ -78,6 +78,14 @@ class PlaceHolder(QLabel):
         new_pixmap.load(self.image)
         pixmap_resized = new_pixmap.scaled(width, height, Qt.KeepAspectRatio)
         self.setPixmap(pixmap_resized)
+
+
+class LogWidget(QTextBrowser):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet('font-size: 16px')
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
 
 
 class LeftPlaceHolder(QLabel):

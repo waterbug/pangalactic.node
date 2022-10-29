@@ -21,7 +21,7 @@ from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
                              QFileDialog, QFormLayout, QHBoxLayout, QLabel,
                              QMainWindow, QMessageBox, QPushButton,
-                             QSizePolicy, QTextBrowser, QVBoxLayout, QWidget)
+                             QSizePolicy, QVBoxLayout, QWidget)
 from louie import dispatcher
 # packaging
 from packaging.version import Version
@@ -45,7 +45,7 @@ from pangalactic.core.uberorb         import orb
 # from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dialogs         import LoginDialog, ProgressDialog
 from pangalactic.node.utils           import clone
-from pangalactic.node.widgets         import ModeLabel
+from pangalactic.node.widgets         import LogWidget, ModeLabel
 from pangalactic.node.widgets         import AutosizingListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus
 
@@ -116,17 +116,6 @@ class CircleWidget(QWidget):
                 painter.drawEllipse(QRectF(
                     -math.ceil(diameter/2.0), -math.ceil(diameter/2.0),
                     diameter, diameter))
-
-
-class LogWidget(QTextBrowser):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        palette = QPalette()
-        palette.setColor(QPalette.Base, QColor("#ddddfd"))
-        self.setPalette(palette)
-        self.setStyleSheet('font-size: 18px')
-        self.setSizePolicy(QSizePolicy.Expanding,
-                           QSizePolicy.Expanding)
 
 
 class MainWindow(QMainWindow):
