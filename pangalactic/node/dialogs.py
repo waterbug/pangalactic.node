@@ -1334,14 +1334,17 @@ class LogDialog(QDialog):
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
         orb.log.debug('* LogDialog started ...')
-        self.setWindowTitle("Syncing")
+        self.setWindowTitle("syncing with repository")
         main_layout = QVBoxLayout(self)
-        title = QLabel('<h3>Syncing with repository ...</h3>', self)
-        main_layout.addWidget(title)
+        self.title = QLabel('<h3>Receiving objects ...</h3>', self)
+        main_layout.addWidget(self.title)
         self.log_widget = LogWidget(parent=self)
         main_layout.addWidget(self.log_widget, 1)
-        self.resize(550, 700)
+        self.resize(900, 700)
         self.updateGeometry()
+
+    def set_title(self, txt):
+        self.title.setText(f'<h3>Receiving {txt} ...</h3>')
 
     def write(self, txt):
         self.log_widget.append(txt)
