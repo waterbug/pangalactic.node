@@ -1340,7 +1340,7 @@ class LogDialog(QDialog):
         main_layout.addWidget(self.title)
         self.log_widget = LogWidget(parent=self)
         main_layout.addWidget(self.log_widget, 1)
-        self.resize(900, 700)
+        self.resize(900, 900)
         self.updateGeometry()
 
     def set_title(self, txt):

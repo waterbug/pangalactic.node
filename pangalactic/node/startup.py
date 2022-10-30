@@ -2,14 +2,30 @@
 """
 Startup processes for pangalaxian.
 """
-import os, platform, shutil
+import os, shutil
+# import platform
 from copy import deepcopy
 
 # pangalactic
 from pangalactic.core         import config, prefs, state
 from pangalactic.core.meta    import MODEL_TYPE_PREFS, PGXN_PARAMETERS
 from pangalactic.core.uberorb import orb
-from pangalactic.node         import icons, images
+from pangalactic.node         import icons, images, init_ref_db
+
+
+def setup_db_with_ref_data(home):
+    # copy sqlite `local.db` file containing pgef ref data to home
+    if not os.path.exists(os.path.join(home, 'local.db')):
+        ref_db_mod_path = init_ref_db.__path__[0]
+        ref_db_files = set([s for s in os.listdir(ref_db_mod_path)
+                            if (not s.startswith('__init__')
+                            and not s.startswith('__pycache__'))
+                            ])
+        if ref_db_files:
+            print('  - copying db file into home dir ...')
+            for p in ref_db_files:
+                shutil.copy(os.path.join(ref_db_mod_path, p), home)
+                print('  - ref db installed: {p}')
 
 
 def setup_dirs_and_state():
@@ -57,7 +73,7 @@ def setup_dirs_and_state():
             prefs['dashboards'] = deepcopy(app_dbds)
         else:
             prefs['dashboards'] = {'Mass-Power-Data':
-                        ['m_total', 'm', 'P_total', 'P', 'R_total', 'R_D']}
+                    ['m_total', 'm', 'P_total', 'P', 'R_total', 'R_D']}
         prefs['dashboard_names'] = list(prefs['dashboards'].keys())
     if not state.get('dashboard_name'):
         state['dashboard_name'] = prefs['dashboard_names'][0]

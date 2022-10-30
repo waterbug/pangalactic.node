@@ -56,7 +56,6 @@ from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
 from pangalactic.core.uberorb          import orb
 from pangalactic.core.meta             import asciify
-from pangalactic.core.names            import get_external_name_plural
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
@@ -67,7 +66,6 @@ from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.dialogs          import (FullSyncDialog,
-                                               LogDialog,
                                                LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
@@ -78,11 +76,13 @@ from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
 from pangalactic.node.pgxnobject       import PgxnObject
-from pangalactic.node.startup          import setup_dirs_and_state
+from pangalactic.node.startup          import (setup_db_with_ref_data,
+                                               setup_dirs_and_state)
 from pangalactic.node.systemtree       import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews  import CompareWidget
 from pangalactic.node.tableviews       import ObjectTableView
+from pangalactic.node.threads          import threadpool, Worker
 from pangalactic.node.utils            import clone
 from pangalactic.node.widgets          import (AutosizingListWidget,
                                                ModeLabel, PlaceHolder)
@@ -144,8 +144,10 @@ class Main(QMainWindow):
         Keyword Args:
             home (str):        path to home directory
             test_data (list):  list of serialized test objects (dicts)
-            width (int):       width of main window (default: screen w - 300)
-            height (int):      height of main window (default: screen h - 200)
+            width (int):       width of main window
+                               (default: max of (screen w - 300) or 1000)
+            height (int):      height of main window
+                               (default: max of (screen h - 200) or 600)
             use_tls (bool):    use tls to connect to message bus
             auth_method (str): authentication method ("cryptosign" or "ticket")
             reactor (Reactor): twisted Reactor instance
@@ -177,6 +179,10 @@ class Main(QMainWindow):
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
+        # copy a `local.db` file containing ref data into home
+        # NOTE: ref data used to be deserialized at initial startup -- time
+        # consuming and unnecessary!
+        setup_db_with_ref_data(home)
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)
         orb.start(home=home, console=console, debug=debug)
@@ -230,8 +236,8 @@ class Main(QMainWindow):
         orb.log.debug('*** projects:  %s' % str([p.id for p in self.projects]))
         self.add_splash_msg('... projects identified ...')
         screen_resolution = QApplication.desktop().screenGeometry()
-        default_width = min(screen_resolution.width() - 300, 900)
-        default_height = min(screen_resolution.height() - 200, 400)
+        default_width = min(screen_resolution.width(), 1650)
+        default_height = min(screen_resolution.height(), 800)
         width = state.get('width') or default_width
         height = state.get('height') or default_height
         self._init_ui(width, height)
@@ -541,32 +547,32 @@ class Main(QMainWindow):
             self.sync_with_services()
         else:
             now = dtstamp()
-            # if (now - self.synced >= timedelta(seconds=10)
-                # and not state.get('network_warning_displayed')):
-                    # state['network_warning_displayed'] = True
-                    # html = '<h3><font color="red">Warning: Unreliable Network'
-                    # html += '</font></h3>'
-                    # html += '<p><b>Connection to repository was lost '
-                    # html += 'for 10 seconds or more -- <br>this can result '
-                    # html += 'in out-of-sync conditions.</b></p>'
-                    # html += '<p><b>Automatic re-sync is currently set '
-                    # html += 'to occur when connection is lost<br>for '
-                    # html += f'<font color="green">{delta}</font> seconds or '
-                    # html += 'more -- this interval can be set in<br>'
-                    # html += '<font color="blue">"Tools" / '
-                    # html += '"Edit Preferences" /<br>'
-                    # html += '"Disconnect Resync Interval [seconds]".'
-                    # dlg = NotificationDialog(html, news=False, parent=self)
-                    # dlg.show()
-                    # self.net_status.setPixmap(self.spotty_nw_icon)
-                    # self.net_status.setToolTip('spotty network connection')
+            if (now - self.synced >= timedelta(seconds=10)
+                and not state.get('network_warning_displayed')):
+                    state['network_warning_displayed'] = True
+                    html = '<h3><font color="red">Warning: Unreliable Network'
+                    html += '</font></h3>'
+                    html += '<p><b>Connection to repository was lost '
+                    html += 'for 10 seconds or more -- <br>this can result '
+                    html += 'in out-of-sync conditions.</b></p>'
+                    html += '<p><b>Automatic re-sync is currently set '
+                    html += 'to occur when connection is lost<br>for '
+                    html += f'<font color="green">{delta}</font> seconds or '
+                    html += 'more -- this interval can be set in<br>'
+                    html += '<font color="blue">"Tools" / '
+                    html += '"Edit Preferences" /<br>'
+                    html += '"Disconnect Resync Interval [seconds]".'
+                    dlg = NotificationDialog(html, news=False, parent=self)
+                    dlg.show()
+                    self.net_status.setPixmap(self.spotty_nw_icon)
+                    self.net_status.setToolTip('unreliable network connection')
             if (now - self.synced > timedelta(seconds=delta)):
                 # it's been more than [delta] seconds since we synced ...
-                # self.net_status.setPixmap(self.spotty_nw_icon)
-                # self.net_status.setToolTip('spotty network connection')
+                self.net_status.setPixmap(self.spotty_nw_icon)
+                self.net_status.setToolTip('unreliable network connection')
                 msg = f'reconnect > {delta} seconds since last sync, re-syncing.'
                 orb.log.info(f'  {msg}')
-                self.resync_current_project(msg='reconnecting: ')
+                self.resync_current_project(msg='connection lost, reconnecting: ')
             else:
                 # it's been less than [delta] seconds since we synced -> NO re-sync
                 msg = f'disconnected < {delta} seconds; reconnected, no re-sync'
@@ -969,14 +975,6 @@ class Main(QMainWindow):
             if msg:
                 status_msg = f'{msg} {status_msg} ...'
             self.statusbar.showMessage(status_msg)
-            self.sync_progress = ProgressDialog(title='Syncing ...',
-                                              label=status_msg,
-                                              parent=self)
-            self.sync_progress.setAttribute(Qt.WA_DeleteOnClose)
-            self.sync_progress.setMinimum(0)
-            self.sync_progress.setMaximum(0)
-            self.sync_progress.setMinimumDuration(500)
-            QApplication.processEvents()
             local_objs = orb.get_objects_for_project(project)
             if local_objs:
                 for obj in local_objs:
@@ -1028,9 +1026,6 @@ class Main(QMainWindow):
             deferred:  result of `vger.save` rpc
         """
         orb.log.info('* on_sync_result()')
-        if getattr(self, 'sync_progress', None):
-            self.sync_progress.done(0)
-            QApplication.processEvents()
         sync_type = ''
         if project_sync:
             sync_type = 'project'
@@ -1062,7 +1057,14 @@ class Main(QMainWindow):
                 txt = 'objects syncing ...'
                 dispatcher.send('sync progress', txt=txt)
                 # deserialize(orb, sobjs)
-                self.load_serialized_objects(sobjs)
+                # self.load_serialized_objects(sobjs)
+                args = (orb, sobjs)
+                worker = Worker(deserialize, *args)
+                worker.signals.progress.connect(self.incr_deser_progress)
+                worker.signals.result.connect(self.report_result)
+                worker.signals.error.connect(self.log_error)
+                worker.signals.finished.connect(self.progress_done)
+                threadpool.start(worker)
             except:
                 orb.log.debug('      - deserialization failure')
                 orb.log.debug('        oids: {}'.format(
@@ -5002,9 +5004,6 @@ class Main(QMainWindow):
             self.pb.setMaximum(len(sobjs))
             i = 0
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
-            log_dlg = LogDialog(parent=self)
-            log_dlg.show()
-            QApplication.processEvents()
             for cname in DESERIALIZATION_ORDER:
                 if cname in byclass:
                     # objs += deserialize(orb, byclass[cname],
@@ -5012,7 +5011,7 @@ class Main(QMainWindow):
                     # n = len(objs)
                     # self.pb.setValue(n)
                     # self.statusbar.showMessage(f'{n} {cname} deserialized')
-                    log_dlg.set_title(get_external_name_plural(cname))
+                    # DEPRECATED (was more informative but slow!)
                     for so in byclass[cname]:
                         # if objs are still owned by 'me' but user has
                         # logged in and has a local_user object ...
@@ -5022,16 +5021,12 @@ class Main(QMainWindow):
                         objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
                         self.pb.setValue(i)
-                        status_txt = '{} ({})'.format(so.get('name', ''),
-                                                     so.get('id', ''))
-                        self.statusbar.showMessage(status_txt)
-                        log_dlg.write(status_txt)
-                        QApplication.processEvents()
+                        self.statusbar.showMessage('{}: {}'.format(cname,
+                                                       so.get('id', '')))
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
                 for cname in byclass:
-                    log_dlg.set_title(get_external_name_plural(cname))
                     for so in byclass[cname]:
                         # if objs are still owned by 'me' but user has
                         # logged in and has a local_user object ...
@@ -5041,12 +5036,7 @@ class Main(QMainWindow):
                         objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
                         self.pb.setValue(i)
-                        status_txt = '{} ({})'.format(so.get('name', ''),
-                                                     so.get('id', ''))
-                        log_dlg.write(status_txt)
-                        QApplication.processEvents()
             self.pb.hide()
-            log_dlg.close()
             if not msg:
                 msg = "data has been {}.".format(end)
             self.statusbar.showMessage(msg)
