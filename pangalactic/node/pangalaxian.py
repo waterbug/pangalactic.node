@@ -1038,8 +1038,11 @@ class Main(QMainWindow):
         """
         orb.log.info('* on_sync_result()')
         if getattr(self, 'sync_progress', None):
-            self.sync_progress.done(0)
-            QApplication.processEvents()
+            try:
+                self.sync_progress.done(0)
+                QApplication.processEvents()
+            except:
+                orb.log.debug('  - progress dialog C++ obj already deleted.'
         sync_type = ''
         if project_sync:
             sync_type = 'project'
