@@ -82,7 +82,6 @@ from pangalactic.node.systemtree       import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews  import CompareWidget
 from pangalactic.node.tableviews       import ObjectTableView
-from pangalactic.node.threads          import threadpool, Worker
 from pangalactic.node.utils            import clone
 from pangalactic.node.widgets          import (AutosizingListWidget,
                                                ModeLabel, PlaceHolder)
@@ -179,9 +178,9 @@ class Main(QMainWindow):
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
-        # copy a `local.db` file containing ref data into home
-        # NOTE: ref data used to be deserialized at initial startup -- time
-        # consuming and unnecessary!
+        # copy a `local.db` file containing ref data into home (NOTE: ref data
+        # used to be deserialized at initial startup -- that was time consuming
+        # and unnecessary!)
         setup_db_with_ref_data(home)
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)
@@ -976,6 +975,18 @@ class Main(QMainWindow):
                 status_msg = f'{msg} {status_msg} ...'
             self.statusbar.showMessage(status_msg)
             local_objs = orb.get_objects_for_project(project)
+            title_text = 'Syncing with Repository'
+            project_text = f'<font color="blue">{project.id}</font>'
+            label_text = f'<h3>Getting {project_text} data ...</h3>'
+            self.sync_progress = ProgressDialog(title=title_text,
+                                                label=label_text,
+                                                parent=self)
+            self.sync_progress.setAttribute(Qt.WA_DeleteOnClose)
+            self.sync_progress.setMinimum(0)
+            self.sync_progress.setMaximum(0)
+            self.sync_progress.setMinimumDuration(500)
+            self.sync_progress.resize(400, 100)
+            QApplication.processEvents()
             if local_objs:
                 for obj in local_objs:
                     # exclude reference data (ref_oids)
@@ -1026,6 +1037,9 @@ class Main(QMainWindow):
             deferred:  result of `vger.save` rpc
         """
         orb.log.info('* on_sync_result()')
+        if getattr(self, 'sync_progress', None):
+            self.sync_progress.done(0)
+            QApplication.processEvents()
         sync_type = ''
         if project_sync:
             sync_type = 'project'
@@ -1051,24 +1065,12 @@ class Main(QMainWindow):
         # TODO:  create a progress bar for this ...
         n = len(sobjs)
         if n:
-            try:
-                self.statusbar.showMessage(
-                    'deserializing {} objects ...'.format(n))
-                txt = 'objects syncing ...'
-                dispatcher.send('sync progress', txt=txt)
-                # deserialize(orb, sobjs)
-                # self.load_serialized_objects(sobjs)
-                args = (orb, sobjs)
-                worker = Worker(deserialize, *args)
-                worker.signals.progress.connect(self.incr_deser_progress)
-                worker.signals.result.connect(self.report_result)
-                worker.signals.error.connect(self.log_error)
-                worker.signals.finished.connect(self.progress_done)
-                threadpool.start(worker)
-            except:
-                orb.log.debug('      - deserialization failure')
-                orb.log.debug('        oids: {}'.format(
-                             str([so.get('oid', 'no oid') for so in sobjs])))
+            self.statusbar.showMessage(
+                'deserializing {} objects ...'.format(n))
+            txt = 'objects syncing ...'
+            dispatcher.send('sync progress', txt=txt)
+            # deserialize(orb, sobjs)
+            self.load_serialized_objects(sobjs)
         created_sos = []
         sobjs_to_save = serialize(orb, orb.get(oids=to_update))
         if local_only:
@@ -3565,6 +3567,8 @@ class Main(QMainWindow):
              and project_oid not in state.get('synced_projects', []))
              or resync)
              and state.get('connected')):
+            # NOTE: ProgressDialog stuff caused mbus to lose its transport --
+            # BAD! -- so is disabled unless some way to do it async is found
             # project = orb.get(project_oid)
             # title_text = f'Syncing project {project.id}'
             # label_text = f'Receiving {project.id} items ... '
@@ -5157,6 +5161,7 @@ class Main(QMainWindow):
                         self.pb.setValue(i)
                         self.statusbar.showMessage('{}: {}'.format(cname,
                                                        so.get('id', '')))
+                        QApplication.processEvents()
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
@@ -5171,6 +5176,7 @@ class Main(QMainWindow):
                                             force_update=True)
                         i += 1
                         self.pb.setValue(i)
+                        QApplication.processEvents()
             self.pb.hide()
             if not msg:
                 msg = "data has been {}.".format(end)

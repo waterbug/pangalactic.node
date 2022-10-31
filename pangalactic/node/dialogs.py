@@ -224,11 +224,11 @@ class ProgressDialog(QProgressDialog):
         self.setModal(True)
         self.setWindowTitle(title)
         self.setLabelText(label)
-        # self.setMinimum(0)
         self.setMaximum(maximum)
-        # this sets minimum duration at 100 ms (i.e. sure to display)
         self.setMinimumDuration(0)
         self.setValue(0)
+        # do not show a cancel button:
+        self.setCancelButton(None)
         self.show()
 
 
