@@ -1446,10 +1446,12 @@ class Main(QMainWindow):
     def on_toggle_library_size(self, expand=False):
         if getattr(self, 'library_widget', None):
             if expand:
-                self.right_dock.setFixedWidth(600)
+                self.library_widget.setMaximumWidth(600)
+                self.library_widget.setMinimumWidth(600)
                 self.library_widget.expanded = True
             else:
-                self.right_dock.setFixedWidth(200)
+                self.library_widget.setMaximumWidth(200)
+                self.library_widget.setMinimumWidth(200)
                 self.library_widget.expanded = False
             self.update()
 
@@ -3786,10 +3788,28 @@ class Main(QMainWindow):
         self.right_dock.setObjectName('RightDock')
         self.right_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
-        self.right_dock.setFixedWidth(600)
+        self.right_dock.topLevelChanged.connect(self.on_library_floated)
         self.library_widget = self.create_lib_list_widget()
+        self.library_widget.setMinimumWidth(600)
+        self.library_widget.setMaximumWidth(600)
         self.right_dock.setWidget(self.library_widget)
         self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
+
+    def on_library_floated(self):
+        if getattr(self, 'right_dock', None):
+            if self.right_dock.isFloating():
+                orb.log.debug('* library is floating now!')
+                self.library_widget.expand_button.hide()
+                self.library_widget.setMaximumWidth(self.geometry().width())
+                self.library_widget.resize(self.geometry().width() - 200,
+                                           self.geometry().height())
+                self.library_widget.update()
+            else:
+                orb.log.debug('* library is docked')
+                self.library_widget.setMaximumWidth(600)
+                self.library_widget.expanded = True
+                self.library_widget.expand_button.setVisible(True)
+                self.library_widget.expand_button.setText('Collapse')
 
     def update_pgxn_obj_panel(self, create_new=True):
         """
