@@ -22,10 +22,10 @@ def setup_db_with_ref_data(home):
                             and not s.startswith('__pycache__'))
                             ])
         if ref_db_files:
-            print('  - copying db file into home dir ...')
+            # print('  - copying db file into home dir ...')
             for p in ref_db_files:
                 shutil.copy(os.path.join(ref_db_mod_path, p), home)
-                print('  - ref db installed: {p}')
+                # print('  - ref db installed: {p}')
 
 
 def setup_dirs_and_state():
