@@ -10,13 +10,13 @@ from copy import deepcopy
 from pangalactic.core         import config, prefs, state
 from pangalactic.core.meta    import MODEL_TYPE_PREFS, PGXN_PARAMETERS
 from pangalactic.core.uberorb import orb
-from pangalactic.node         import icons, images, init_ref_db
+from pangalactic.node         import icons, images, ref_db
 
 
 def setup_db_with_ref_data(home):
     # copy sqlite `local.db` file containing pgef ref data to home
     if not os.path.exists(os.path.join(home, 'local.db')):
-        ref_db_mod_path = init_ref_db.__path__[0]
+        ref_db_mod_path = ref_db.__path__[0]
         ref_db_files = set([s for s in os.listdir(ref_db_mod_path)
                             if (not s.startswith('__init__')
                             and not s.startswith('__pycache__'))

@@ -15,6 +15,10 @@ image_mod_path = os.path.join('pangalactic', 'node', 'images')
 image_paths = [os.path.join(image_mod_path, p)
                for p in os.listdir(image_mod_path)
                if not p.startswith('__init__')]
+ref_db_mod_path = os.path.join('pangalactic', 'node', 'ref_db')
+ref_db_paths = [os.path.join(ref_db_mod_path, p)
+               for p in os.listdir(ref_db_mod_path)
+               if not p.startswith('__init__')]
 sitepkg_dir = [p for p in site.getsitepackages()
                if p.endswith('site-packages')][0]
 
@@ -37,7 +41,9 @@ setup(
         # icon files
         (os.path.join(sitepkg_dir, icon_mod_path), icon_paths),
         # image files
-        (os.path.join(sitepkg_dir, image_mod_path), image_paths)
+        (os.path.join(sitepkg_dir, image_mod_path), image_paths),
+        # ref db files
+        (os.path.join(sitepkg_dir, ref_db_mod_path), ref_db_paths)
         ],
     zip_safe=False
 )
