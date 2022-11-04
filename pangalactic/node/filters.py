@@ -20,10 +20,11 @@ from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.names       import (get_external_name_plural,
                                           pname_to_header_label)
-from pangalactic.core.parametrics import de_defz, parm_defz
+from pangalactic.core.parametrics import de_defz, parameterz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import HWFieldsDialog, ReqFieldsDialog
+from pangalactic.node.dialogs     import (HWFieldsDialog, ReqFieldsDialog,
+                                          SelectHWLibraryColsDialog)
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.utils       import (create_mime_data,
@@ -623,11 +624,13 @@ class FilterPanel(QWidget):
             self.only_mine_label.setStyleSheet(
                                            'font-weight: bold; color: green;')
 
-            self.set_view_button = SizedButton('Show Parameters')
-            self.set_view_button.clicked.connect(self.set_hw_parm_view)
-            self.reset_view_button = SizedButton('Hide Parameters')
-            self.reset_view_button.clicked.connect(self.reset_view)
-            self.reset_view_button.hide()
+            self.set_view_button = SizedButton('Customize Columns')
+            self.set_view_button.clicked.connect(self.set_custom_view)
+            # self.set_view_button = SizedButton('Show Parameters')
+            # self.set_view_button.clicked.connect(self.set_hw_parm_view)
+            # self.reset_view_button = SizedButton('Hide Parameters')
+            # self.reset_view_button.clicked.connect(self.reset_view)
+            # self.reset_view_button.hide()
 
         self.filter_case_checkbox = QCheckBox("case sensitive")
         filter_pattern_label = QLabel("Text Filter:")
@@ -660,7 +663,7 @@ class FilterPanel(QWidget):
             only_mine_hbox.addWidget(self.only_mine_label)
             only_mine_hbox.addStretch(1)
             only_mine_hbox.addWidget(self.set_view_button)
-            only_mine_hbox.addWidget(self.reset_view_button)
+            # only_mine_hbox.addWidget(self.reset_view_button)
             proxy_layout.addLayout(only_mine_hbox)
             filters_hbox = QHBoxLayout()
             filters_hbox.addWidget(self.ext_filters)
@@ -727,23 +730,47 @@ class FilterPanel(QWidget):
                                  as_library=self.as_library)
         return model
 
-    def set_hw_parm_view(self, view):
+    def set_hw_parm_view(self):
         """
         Set the view to a HW parameter view.
         """
-        self.set_view_button.hide()
-        self.reset_view_button.show()
-        self.set_view(self.hw_parm_view)
-        self.refresh()
+        # self.set_view_button.hide()
+        # self.reset_view_button.show()
+        # self.set_view(self.hw_parm_view)
+        # self.refresh()
 
-    def reset_view(self):
-        """
-        Reset the view to its previous value.
-        """
-        self.reset_view_button.hide()
-        self.set_view_button.show()
-        self.set_view(self.last_view)
-        self.refresh()
+    def set_custom_view(self):
+        # parms = ['m[CBE]', 'P[CBE]', 'R_D[CBE]']
+        oids = [o.oid for o in self.objs]
+        parms = reduce(lambda x,y: x.union(y),
+                       [set(parameterz.get(oid, [])) for oid in oids])
+        parms = [pid for pid in parms]
+        parms.sort()
+        dlg = SelectHWLibraryColsDialog(parms, self.view, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            old_view = self.view[:]
+            new_view = []
+            # add any columns from old_view first
+            for col in old_view:
+                if col in dlg.checkboxes and dlg.checkboxes[col].isChecked():
+                    new_view.append(col)
+            # then append any newly selected columns
+            for col in dlg.checkboxes:
+                if col not in new_view and dlg.checkboxes[col].isChecked():
+                    new_view.append(col)
+            prefs['hw_library_view'] = new_view[:]
+            self.set_view(new_view[:])
+            orb.log.debug(f'* new HW Library view: {new_view}')
+            self.refresh()
+
+    # def reset_view(self):
+        # """
+        # Reset the view to its previous value.
+        # """
+        # self.reset_view_button.hide()
+        # self.set_view_button.show()
+        # self.set_view(self.last_view)
+        # self.refresh()
 
     def set_view(self, view):
         """
@@ -754,8 +781,7 @@ class FilterPanel(QWidget):
         """
         self.last_view = self.view
         self.view = view
-        col_labels = [PGEF_COL_NAMES.get(a, pname_to_header_label(a))
-                      for a in view]
+        col_labels = [PGEF_COL_NAMES.get(a, a) for a in view]
         col_defs = []
         col_dtypes = []
         for a in view:
@@ -781,9 +807,11 @@ class FilterPanel(QWidget):
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
-        if self.as_library and self.cname:
-            objs = orb.get_by_type(self.cname)
-            self.objs = [o for o in objs if o.oid not in self.excluded_oids]
+        if not self.objs:
+            if self.as_library and self.cname:
+                objs = orb.get_by_type(self.cname)
+                self.objs = [o for o in objs
+                             if o.oid not in self.excluded_oids]
         self.set_source_model(self.create_model(objs=self.objs))
 
     def on_column_moved(self, old_index=None, new_index=None):

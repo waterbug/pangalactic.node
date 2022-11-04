@@ -995,6 +995,8 @@ class Main(QMainWindow):
                         oid_dts[obj.oid] = dts
         else:
             self.statusbar.showMessage('project synced.')
+        # NOTE: callback to on_project_sync_result() to handle result is added
+        # by on_set_current_project_signal()
         return self.mbus.session.call('vger.sync_project', proj_oid, oid_dts)
 
     def on_user_objs_sync_result(self, data):

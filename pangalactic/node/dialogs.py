@@ -27,24 +27,26 @@ from louie import dispatcher
 
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.meta        import (NUMERIC_FORMATS, NUMERIC_PRECISION,
-                                          SELECTABLE_VALUES, SELECTION_VIEWS,
-                                          TEXT_PROPERTIES, SELECTION_FILTERS)
+from pangalactic.core.meta        import (M2M, NUMERIC_FORMATS, ONE2M,
+                                          NUMERIC_PRECISION, SELECTABLE_VALUES,
+                                          SELECTION_FILTERS, SELECTION_VIEWS,
+                                          TEXT_PROPERTIES)
+from pangalactic.core.names       import (get_attr_ext_name,
+                                          get_external_name_plural)
 from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
                                           get_dval, mode_defz, set_dval)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.names       import (get_attr_ext_name,
-                                          get_external_name_plural)
 from pangalactic.core.utils.reports import get_mel_data, write_mel_to_tsv
 from pangalactic.node.buttons     import SizedButton, UrlButton, FkButton
 from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import UnitsWidget
-from pangalactic.node.widgets     import (FloatFieldWidget, IntegerFieldWidget,
-                                          LogWidget, StringFieldWidget,
+from pangalactic.node.widgets     import (FloatFieldWidget, HLine,
+                                          IntegerFieldWidget, LogWidget,
+                                          StringFieldWidget,
                                           StringSelectWidget, TextFieldWidget)
 
 COLORS = {True: 'green', False: 'red'}
@@ -906,12 +908,10 @@ class SelectColsDialog(QDialog):
             col_def = de_defz.get(col) or parm_defz.get(col)
             if col_def:
                 dtxt = col_def.get('description', '')
-                dtype = col_def.get('range_datatype', '')
                 dims = col_def.get('dimensions', '')
-                tt = f'<font><color="green">{dtype}</color></font>'
+                tt = f'<p><b>Definition:</b> {dtxt}</p>'
                 if dims:
-                    tt += f' <font><color="purple">[{dims}]</color></font>'
-                tt += f' {dtxt}'
+                    tt += f'<b>Dimensions:</b> {dims}'
                 label.setToolTip(tt)
             self.checkboxes[col] = QCheckBox(self)
             if col in view:
@@ -929,6 +929,90 @@ class SelectColsDialog(QDialog):
         form.addRow(self.buttons)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
+
+
+class SelectHWLibraryColsDialog(QDialog):
+    """
+    Dialog for selecting columns to be displayed in the Hardware Products
+    library table.
+
+    Args:
+        parameters (list of str):  list of parameter ids to select from
+        view (list of str):  the current view to be customized
+    """
+    def __init__(self, parameters, view, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select Columns")
+        vbox = QVBoxLayout(self)
+        properties_label = QLabel(
+            '<h3><font color="purple">Properties</font></h3>')
+        vbox.addWidget(properties_label)
+        schema = orb.schemas['HardwareProduct']
+        fields = [name for name in schema['field_names']
+                  if (name not in M2M and name not in ONE2M)]
+        n = len(fields) // 2
+        form = QFormLayout()
+        r_form = QFormLayout()
+        hbox = QHBoxLayout(self)
+        hbox.addLayout(form)
+        hbox.addLayout(r_form)
+        self.checkboxes = {}
+        for i, col in enumerate(fields):
+            label = QLabel(col, self)
+            col_def = schema['fields'][col]['definition']
+            tt = f'<p><b>Definition:</b> {col_def}</p>'
+            label.setToolTip(tt)
+            self.checkboxes[col] = QCheckBox(self)
+            if col in view:
+                self.checkboxes[col].setChecked(True)
+            else:
+                self.checkboxes[col].setChecked(False)
+            if i < n:
+                form.addRow(self.checkboxes[col], label)
+            else:
+                r_form.addRow(self.checkboxes[col], label)
+        vbox.addLayout(hbox)
+        parm_sep = HLine()
+        vbox.addWidget(parm_sep)
+        parameters_label = QLabel(
+            '<h3><font color="purple">Parameters</font></h3>')
+        vbox.addWidget(parameters_label)
+        plen = len(parameters)
+        m = plen // 10
+        if plen % 10:
+            forms = {i : QFormLayout() for i in range(m + 1)}
+        else:
+            forms = {i : QFormLayout() for i in range(m)}
+        parm_hbox = QHBoxLayout(self)
+        for form in forms.values():
+            parm_hbox.addLayout(form)
+        for i, col in enumerate(parameters):
+            label = QLabel(col, self)
+            col_def = de_defz.get(col) or parm_defz.get(col)
+            if col_def:
+                dtxt = col_def.get('description', '')
+                dims = col_def.get('dimensions', '')
+                tt = f'<p><b>Definition:</b> {dtxt}</p>'
+                if dims:
+                    tt += f'<b>Dimensions:</b> {dims}'
+                label.setToolTip(tt)
+            self.checkboxes[col] = QCheckBox(self)
+            if col in view:
+                self.checkboxes[col].setChecked(True)
+            else:
+                self.checkboxes[col].setChecked(False)
+            idx = i // 10
+            forms[idx].addRow(self.checkboxes[col], label)
+        vbox.addLayout(parm_hbox)
+        button_sep = HLine()
+        vbox.addWidget(button_sep)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        vbox.addWidget(self.buttons)
 
 
 class CustomizeColsDialog(QDialog):
