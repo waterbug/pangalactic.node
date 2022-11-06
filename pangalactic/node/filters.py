@@ -381,7 +381,7 @@ class ProxyView(QTableView):
         # TODO:  add a handler to set column order pref when sections are moved
         col_header.setSectionsMovable(True)
         col_header.setStyleSheet('font-weight: bold')
-        col_header.sectionMoved.connect(self.on_section_moved)
+        # col_header.sectionMoved.connect(self.on_section_moved)
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -437,13 +437,14 @@ class ProxyView(QTableView):
                 except:
                     continue
 
-    def on_section_moved(self, logical_index, old_index, new_index):
-        # orb.log.debug('* FilterPanel.on_section_moved() ...')
+    # def on_section_moved(self, logical_index, old_index, new_index):
+        # orb.log.debug('* ProxyView.on_section_moved()')
+        # orb.log.debug('  sending "column moved signal ...')
         # orb.log.debug('  logical index: {}'.format(logical_index))
         # orb.log.debug('  old index: {}'.format(old_index))
         # orb.log.debug('  new index: {}'.format(new_index))
-        dispatcher.send(signal='column moved', old_index=old_index,
-                        new_index=new_index)
+        # dispatcher.send(signal='column moved', old_index=old_index,
+                        # new_index=new_index)
 
     def mouseMoveEvent(self, event):
         if self.dragEnabled():
@@ -478,11 +479,6 @@ class FilterPanel(QWidget):
     """
     A widget containing a filterable table of objects.
     """
-
-    # for prototyping, a basic HW view with parameters ...
-    hw_parm_view = ['id', 'name', 'm[CBE]', 'P[CBE]', 'R_D[CBE]',
-                    'product_type', 'description']
-
     def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
                  title='', width=None, min_width=None, height=None,
                  as_library=False, cname=None, external_filters=False,
@@ -494,8 +490,9 @@ class FilterPanel(QWidget):
             objs (Identifiable):  objects to be displayed
 
         Keyword Args:
-            view (iterable):  attributes of object to be shown
-            sized_cols (iterable):  ids of columns to be sized to fit contents
+            view (iterable):  names of columns to be shown
+            sized_cols (iterable):  names of columns to be sized to fit
+                contents
             schema (dict):  metadata for non-domain object (such as
                 PartsListItem instances); schema must contain the keys
                 'field_names' (a list of strings) and 'fields', a dict that
@@ -519,6 +516,7 @@ class FilterPanel(QWidget):
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
+        orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
         self.as_library = as_library
         self.excluded_oids = excluded_oids or []
         self.edit_req_calls = 0
@@ -526,8 +524,7 @@ class FilterPanel(QWidget):
         if as_library and cname:
             self.cname = cname
             if cname in orb.classes:
-                # orb.log.debug('* FilterPanel is {} library ...'.format(
-                                                                # cname))
+                # orb.log.debug(f'* FilterPanel is {cname} library ...')
                 objs = orb.get_by_type(cname) or [orb.get('pgefobjects:TBD')]
                 self.objs = [o for o in objs
                              if o.oid not in self.excluded_oids]
@@ -547,17 +544,22 @@ class FilterPanel(QWidget):
         if self.cname:
             schema = orb.schemas[self.cname]
             # make sure items in a supplied view are valid ...
+            orb.log.debug('  - setting view ...')
             if view:
+                orb.log.debug('    using specified view')
                 self.view = [a for a in view
                              if ((a in schema['field_names']) or
                                  (a in parm_defz) or
                                  (a in de_defz))]
             else:
-                self.view = MAIN_VIEWS.get(self.cname,
-                                          ['id', 'name', 'description'])
-            # if col name, use that; otherwise, create header label
-            col_labels = [PGEF_COL_NAMES.get(a, pname_to_header_label(a))
-                          for a in self.view]
+                if (self.cname == 'HardwareProduct'
+                    and prefs.get('hw_library_view')):
+                    orb.log.debug('    using prefs["hw_library_view"]')
+                    self.view = prefs['hw_library_view'][:]
+                else:
+                    orb.log.debug('    using default class view')
+                    self.view = MAIN_VIEWS.get(self.cname,
+                                               ['id', 'name', 'description'])
             col_defs = []
             col_dtypes = []
             for a in self.view:
@@ -578,7 +580,7 @@ class FilterPanel(QWidget):
                     col_dtypes.append(de_defz[a]['range_datatype'])
             self.proxy_model = ObjectSortFilterProxyModel(
                                                     view=self.view,
-                                                    col_labels=col_labels,
+                                                    col_labels=self.col_labels,
                                                     col_defs=col_defs,
                                                     col_dtypes=col_dtypes,
                                                     parent=self)
@@ -592,7 +594,6 @@ class FilterPanel(QWidget):
             else:
                 self.view = [a for a in ['id', 'name', 'description']
                              if a in schema['field_names']]
-            col_labels = [pname_to_header_label(a) for a in self.view]
             col_defs = []
             col_dtypes = []
             for a in self.view:
@@ -602,7 +603,7 @@ class FilterPanel(QWidget):
                 col_dtypes.append(schema['fields'][a]['range'])
             self.proxy_model = ObjectSortFilterProxyModel(
                                                     view=self.view,
-                                                    col_labels=col_labels,
+                                                    col_labels=self.col_labels,
                                                     col_defs=col_defs,
                                                     col_dtypes=col_dtypes,
                                                     parent=self)
@@ -625,12 +626,7 @@ class FilterPanel(QWidget):
                                            'font-weight: bold; color: green;')
 
             self.set_view_button = SizedButton('Customize Columns')
-            self.set_view_button.clicked.connect(self.set_custom_view)
-            # self.set_view_button = SizedButton('Show Parameters')
-            # self.set_view_button.clicked.connect(self.set_hw_parm_view)
-            # self.reset_view_button = SizedButton('Hide Parameters')
-            # self.reset_view_button.clicked.connect(self.reset_view)
-            # self.reset_view_button.hide()
+            self.set_view_button.clicked.connect(self.set_custom_hw_lib_view)
 
         self.filter_case_checkbox = QCheckBox("case sensitive")
         filter_pattern_label = QLabel("Text Filter:")
@@ -646,6 +642,8 @@ class FilterPanel(QWidget):
         self.proxy_view = ProxyView(self.proxy_model, sized_cols=sized_cols,
                                     as_library=as_library, word_wrap=word_wrap,
                                     parent=self)
+        self.proxy_view.horizontalHeader().sectionMoved.connect(
+                                                        self.on_column_moved)
         # IMPORTANT:  after a sort, rows retain the heights they had before
         # the sort (i.e. wrong) unless this is done:
         # [2020-10-22 SCW] NO, not necessary because not word-wrapping -> rows
@@ -700,8 +698,13 @@ class FilterPanel(QWidget):
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_del_object_signal, 'deleted object')
-        dispatcher.connect(self.on_column_moved, 'column moved')
+        # dispatcher.connect(self.on_column_moved, 'column moved')
         self.dirty = False
+
+    @property
+    def col_labels(self):
+        return [PGEF_COL_NAMES.get(a, pname_to_header_label(a))
+                for a in self.view]
 
     def set_source_model(self, model):
         # orb.log.debug('  - FilterPanel.set_source_model()')
@@ -726,26 +729,19 @@ class FilterPanel(QWidget):
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
         self.objs = objs or [orb.get('pgefobjects:TBD')]
-        model = ObjectTableModel(self.objs, view=self.view,
-                                 as_library=self.as_library)
-        return model
+        self.model = ObjectTableModel(self.objs, view=self.view,
+                                      as_library=self.as_library)
+        return self.model
 
-    def set_hw_parm_view(self):
+    def set_custom_hw_lib_view(self):
         """
-        Set the view to a HW parameter view.
+        Set a specified view for the panel when used for the HW Library.
         """
-        # self.set_view_button.hide()
-        # self.reset_view_button.show()
-        # self.set_view(self.hw_parm_view)
-        # self.refresh()
-
-    def set_custom_view(self):
-        # parms = ['m[CBE]', 'P[CBE]', 'R_D[CBE]']
         oids = [o.oid for o in self.objs]
         parms = reduce(lambda x,y: x.union(y),
                        [set(parameterz.get(oid, [])) for oid in oids])
         parms = [pid for pid in parms]
-        parms.sort()
+        parms.sort(key=lambda x: x.lower())
         dlg = SelectHWLibraryColsDialog(parms, self.view, parent=self)
         if dlg.exec_() == QDialog.Accepted:
             old_view = self.view[:]
@@ -763,15 +759,6 @@ class FilterPanel(QWidget):
             orb.log.debug(f'* new HW Library view: {new_view}')
             self.refresh()
 
-    # def reset_view(self):
-        # """
-        # Reset the view to its previous value.
-        # """
-        # self.reset_view_button.hide()
-        # self.set_view_button.show()
-        # self.set_view(self.last_view)
-        # self.refresh()
-
     def set_view(self, view):
         """
         Set a new view.
@@ -779,9 +766,7 @@ class FilterPanel(QWidget):
         Args:
             view (iterable):  view to be set.
         """
-        self.last_view = self.view
         self.view = view
-        col_labels = [PGEF_COL_NAMES.get(a, a) for a in view]
         col_defs = []
         col_dtypes = []
         for a in view:
@@ -800,8 +785,8 @@ class FilterPanel(QWidget):
                                 de_defz[a]['description'],
                                 width=30, break_long_words=False)))
                 col_dtypes.append(de_defz[a]['range_datatype'])
-        self.proxy_model.view = view
-        self.proxy_model.col_labels = col_labels
+        self.proxy_model.view = self.view
+        self.proxy_model.col_labels = self.col_labels
         self.proxy_model.col_defs = col_defs
         self.proxy_model.col_dtypes = col_dtypes
 
@@ -814,14 +799,22 @@ class FilterPanel(QWidget):
                              if o.oid not in self.excluded_oids]
         self.set_source_model(self.create_model(objs=self.objs))
 
-    def on_column_moved(self, old_index=None, new_index=None):
-        # orb.log.debug('* FilterPanel.on_column_moved()')
+    def on_column_moved(self, logical_index, old_index, new_index):
+        orb.log.debug('* FilterPanel.on_column_moved():')
+        orb.log.debug(f'  old index: {old_index}')
+        orb.log.debug(f'  new index: {new_index}')
+        orb.log.debug(f'  self.view: {self.view}')
+        modified_view = self.view[:]
         if 0 <= old_index < len(self.view):
-            item = self.view.pop(old_index)
-            self.view.insert(new_index, item)
+            item = modified_view.pop(old_index)
+            modified_view.insert(new_index, item)
+            orb.log.debug(f'  modified view is: {modified_view}')
             if not prefs.get('views'):
                 prefs['views'] = {}
-            prefs['views'][self.cname] = self.view[:]
+            prefs['views'][self.cname] = modified_view[:]
+            if self.as_library and self.cname == 'HardwareProduct':
+                prefs['hw_library_view'] = modified_view[:]
+            self.view = modified_view[:]
         else:
             orb.log.debug('  - could not move: old col out of range.')
 

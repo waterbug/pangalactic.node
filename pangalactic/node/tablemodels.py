@@ -173,7 +173,7 @@ class ObjectTableModel(MappingTableModel):
 
     Attributes:
         cname (str): class name of the objects
-        column_labels (list):  list of column header labels (strings)
+        col_labels (list):  list of column header labels (strings)
     """
 
     def __init__(self, objs, view=None, with_none=False, as_library=False,
@@ -196,7 +196,6 @@ class ObjectTableModel(MappingTableModel):
             # orb.log.debug("  ... as library ...")
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
         # orb.log.debug("  ... with {} objects.".format(len(objs)))
-        self.column_labels = ['No Data']
         self.view = view or ['']
         self.cname = ''
         if self.objs:
@@ -227,7 +226,6 @@ class ObjectTableModel(MappingTableModel):
             # NOTE:  this works but may need performance optimization when
             # the table holds a large number of objects
             ds = [self.get_mapping_for_obj(o, self.view) for o in self.objs]
-            self.column_labels = [pname_to_header_label(x) for x in self.view]
         else:
             ds = [{0:'no data'}]
             self.view = ['id']
@@ -244,6 +242,13 @@ class ObjectTableModel(MappingTableModel):
                 ds = [d]
         super().__init__(ds, as_library=as_library, icons=icons,
                          parent=parent, **kwargs)
+
+    @property
+    def col_labels(self):
+        if self.objs:
+            return [pname_to_header_label(x) for x in self.view]
+        else:
+            return ['No Data']
 
     def get_mapping_for_obj(self, obj, view):
         """
@@ -274,7 +279,7 @@ class ObjectTableModel(MappingTableModel):
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
-            return self.column_labels[section]
+            return self.col_labels[section]
         return QAbstractTableModel.headerData(self, section, orientation, role)
 
     def setData(self, index, obj, role=Qt.UserRole):

@@ -316,6 +316,7 @@ class LibraryListWidget(QWidget):
             parent (QWidget):  the library view's parent widget
         """
         super().__init__(parent)
+        orb.log.debug(f'* LibraryListWidget(cnames={cnames})')
         layout = QVBoxLayout(self)
         hbox = QHBoxLayout()
         # layout.setSizeConstraint(layout.SetMinimumSize)
@@ -380,8 +381,7 @@ class LibraryListWidget(QWidget):
         # special cases for HardwareProduct, ParameterDefinition, Person
         if cname == 'HardwareProduct':
             select_label = 'Systems & Components (Hardware Products)'
-            view = ['id', 'name', 'product_type', 'description']
-            lib_table = FilterPanel(None, view=view, as_library=True,
+            lib_table = FilterPanel(None, as_library=True,
                                     cname=cname, label=select_label,
                                     external_filters=True,
                                     min_width=min_width,
