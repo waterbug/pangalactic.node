@@ -253,6 +253,18 @@ class LibraryListView(QListView):
 
 def select_product_types(lib_view, msg='', only_mine=False,
                          product_types=None):
+    """
+    Apply a product_type-based filter to the Hardware Product Library.
+
+    Args:
+        lib_view (FilterPanel): the HW Product Library's FilterPanel
+
+    Keyword Args:
+        msg (str): the message associated with the originating event
+        only_mine (bool): whether to restrict the displayed products to those
+            created by the user
+        product_types (list of ProductType): the product types to be displayed
+    """
     label_text = ''
     if msg == 'All Product Types':
         # -> "SELECT ALL / CLEAR SELECTIONS" is checked in Disciplines

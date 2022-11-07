@@ -20,7 +20,9 @@ from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.names       import (get_external_name_plural,
                                           pname_to_header_label)
-from pangalactic.core.parametrics import de_defz, parameterz, parm_defz
+from pangalactic.core.parametrics import (de_defz, get_dval_as_str,
+                                          get_pval_as_str, parameterz,
+                                          parm_defz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.dialogs     import (HWFieldsDialog, ReqFieldsDialog,
@@ -228,20 +230,57 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
     reqpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)(\.[0-9][0-9]*)*'
 
-    def __init__(self, view=None, col_labels=None, col_defs=None,
-                 col_dtypes=None, parent=None):
+    def __init__(self, view=None, cname=None, parent=None):
         super().__init__(parent=parent)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
-        if view:
-            self.ncols = len(view)
-        else:
-            self.ncols = 2
         self.view = view or []
-        self.col_labels = col_labels or []
-        self.col_defs = col_defs or []
-        self.col_dtypes = col_dtypes or []
-        # NOTE:  col_labels are derived from the view in source model
-        self.col_to_label = dict(zip(self.view, self.col_labels))
+        self.cname = cname
+        self.schema = orb.schemas[self.cname]
+
+    @property
+    def ncols(self):
+        if self.view:
+            return len(self.view)
+        return 2
+
+    @property
+    def col_labels(self):
+        return [PGEF_COL_NAMES.get(a, pname_to_header_label(a))
+                for a in self.view]
+
+    @property
+    def col_defs(self):
+        defs = []
+        for a in self.view:
+            if a in self.schema['fields']:
+                defs.append('\n'.join(wrap(
+                                self.schema['fields'][a]['definition'],
+                                width=30, break_long_words=False)))
+            elif a in parm_defz:
+                defs.append('\n'.join(wrap(
+                                parm_defz[a]['description'],
+                                width=30, break_long_words=False)))
+            elif a in de_defz:
+                defs.append('\n'.join(wrap(
+                                de_defz[a]['description'],
+                                width=30, break_long_words=False)))
+        return defs
+
+    @property
+    def col_dtypes(self):
+        dtypes = []
+        for a in self.view:
+            if a in self.schema['fields']:
+                dtypes.append(self.schema['fields'][a]['range'])
+            elif a in parm_defz:
+                dtypes.append(parm_defz[a]['range_datatype'])
+            elif a in de_defz:
+                dtypes.append(de_defz[a]['range_datatype'])
+        return dtypes
+
+    @property
+    def col_to_label(self):
+        return dict(zip(self.view, self.col_labels))
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         idxs = []
@@ -345,17 +384,34 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             return str(lvalue).lower() < str(rvalue).lower()
 
     def data(self, index, role):
-        if role == Qt.ToolTipRole:
-            model = self.sourceModel()
-            if (getattr(model, 'objs', None) and index.row() < len(model.objs)
-                and hasattr(model.objs[0], 'description')):
-                model_idx = self.mapToSource(index)
-                descr = model.objs[model_idx.row()].description or ''
-                tt = '\n'.join(wrap(descr, width=30, break_long_words=False))
-                return tt
+        model = self.sourceModel()
+        if (getattr(model, 'objs', None) and (index.row() < len(model.objs))):
+            model_idx = self.mapToSource(index)
+            if role == Qt.ToolTipRole:
+                if hasattr(model.objs[0], 'description'):
+                    descr = model.objs[model_idx.row()].description or ''
+                    tt = '\n'.join(wrap(descr, width=30, break_long_words=False))
+                    return tt
+                else:
+                    return ''
+            elif role == Qt.DisplayRole:
+                obj = model.objs[model_idx.row()]
+                a = self.view[model_idx.column()]
+                if a in self.schema['field_names']:
+                    if self.schema['fields'][a]['range'] == 'str':
+                        return (getattr(obj, a) or '').replace('\n', ' ')
+                    else:
+                        return str(getattr(obj, a))
+                elif a in parm_defz:
+                    return get_pval_as_str(obj.oid, a)
+                elif a in de_defz:
+                    return get_dval_as_str(obj.oid, a)
+                else:
+                    return ''
             else:
-                return ''
-        return super().data(index, role)
+                return super().data(index, role)
+        else:
+            return ''
 
     def headerData(self, section, orientation, role):
         if (orientation == Qt.Horizontal and
@@ -393,6 +449,7 @@ class ProxyView(QTableView):
         self.setSortingEnabled(True)
         if as_library:
             # orb.log.debug('  ... as library.')
+            self.setWordWrap(False)
             self.setDragEnabled(True)
             self.setDragDropMode(QAbstractItemView.DragDrop)
         else:
@@ -437,15 +494,6 @@ class ProxyView(QTableView):
                 except:
                     continue
 
-    # def on_section_moved(self, logical_index, old_index, new_index):
-        # orb.log.debug('* ProxyView.on_section_moved()')
-        # orb.log.debug('  sending "column moved signal ...')
-        # orb.log.debug('  logical index: {}'.format(logical_index))
-        # orb.log.debug('  old index: {}'.format(old_index))
-        # orb.log.debug('  new index: {}'.format(new_index))
-        # dispatcher.send(signal='column moved', old_index=old_index,
-                        # new_index=new_index)
-
     def mouseMoveEvent(self, event):
         if self.dragEnabled():
             self.startDrag(event)
@@ -479,10 +527,10 @@ class FilterPanel(QWidget):
     """
     A widget containing a filterable table of objects.
     """
-    def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
+    def __init__(self, objs, cname=None, view=None, sized_cols=None, label='',
                  title='', width=None, min_width=None, height=None,
-                 as_library=False, cname=None, external_filters=False,
-                 excluded_oids=None, word_wrap=False, parent=None):
+                 as_library=False, external_filters=False, excluded_oids=None,
+                 word_wrap=False, parent=None):
         """
         Initialize.
 
@@ -490,14 +538,12 @@ class FilterPanel(QWidget):
             objs (Identifiable):  objects to be displayed
 
         Keyword Args:
+            cname (str): name of a PGEF class (orb.classes) -- NOTE: if cname
+                is supplied, 'objs' may be None, and if not None, must be
+                instances of cname
             view (iterable):  names of columns to be shown
             sized_cols (iterable):  names of columns to be sized to fit
                 contents
-            schema (dict):  metadata for non-domain object (such as
-                PartsListItem instances); schema must contain the keys
-                'field_names' (a list of strings) and 'fields', a dict that
-                maps each field name to a dict that contains 'definition' and
-                'range' (str of the field type).
             label (str):  string to incorporate in title
             title (str):  string to use for title
             width (int):  width widget will be initially resized to
@@ -505,8 +551,6 @@ class FilterPanel(QWidget):
             height (int):  height of widget
             as_library (bool):  (default: False) flag whether to act as library
                 -- i.e. its objects can be drag/dropped onto other widgets
-            cname (str):  class name of the objects to be displayed ("objs" arg
-                will be ignored)
             external_filters (bool):  (default: False) flag whether external
                 widgets will be called to select additional filter states --
                 so far this is only used for the Product library
@@ -538,76 +582,30 @@ class FilterPanel(QWidget):
                 self.objs = objs
                 self.cname = self.objs[0].__class__.__name__
             else:
-                # empty table -- schema doesn't matter ...
+                # empty table
                 self.objs = [orb.get('pgefobjects:TBD')]
                 self.cname = 'Product'
-        if self.cname:
-            schema = orb.schemas[self.cname]
-            # make sure items in a supplied view are valid ...
-            orb.log.debug('  - setting view ...')
-            if view:
-                orb.log.debug('    using specified view')
-                self.view = [a for a in view
-                             if ((a in schema['field_names']) or
-                                 (a in parm_defz) or
-                                 (a in de_defz))]
+        self.schema = orb.schemas[self.cname]
+        # make sure items in a supplied view are valid ...
+        orb.log.debug('  - setting view ...')
+        if view:
+            orb.log.debug('    using specified view')
+            self.view = [a for a in view
+                         if ((a in self.schema['field_names']) or
+                             (a in parm_defz) or
+                             (a in de_defz))]
+        else:
+            if (self.cname == 'HardwareProduct'
+                and prefs.get('hw_library_view')):
+                orb.log.debug('    using prefs["hw_library_view"]')
+                self.view = prefs['hw_library_view'][:]
             else:
-                if (self.cname == 'HardwareProduct'
-                    and prefs.get('hw_library_view')):
-                    orb.log.debug('    using prefs["hw_library_view"]')
-                    self.view = prefs['hw_library_view'][:]
-                else:
-                    orb.log.debug('    using default class view')
-                    self.view = MAIN_VIEWS.get(self.cname,
-                                               ['id', 'name', 'description'])
-            col_defs = []
-            col_dtypes = []
-            for a in self.view:
-                if a in schema['fields']:
-                    col_defs.append('\n'.join(wrap(
-                                    schema['fields'][a]['definition'],
-                                    width=30, break_long_words=False)))
-                    col_dtypes.append(schema['fields'][a]['range'])
-                elif a in parm_defz:
-                    col_defs.append('\n'.join(wrap(
-                                    parm_defz[a]['description'],
-                                    width=30, break_long_words=False)))
-                    col_dtypes.append(parm_defz[a]['range_datatype'])
-                elif a in de_defz:
-                    col_defs.append('\n'.join(wrap(
-                                    de_defz[a]['description'],
-                                    width=30, break_long_words=False)))
-                    col_dtypes.append(de_defz[a]['range_datatype'])
-            self.proxy_model = ObjectSortFilterProxyModel(
-                                                    view=self.view,
-                                                    col_labels=self.col_labels,
-                                                    col_defs=col_defs,
-                                                    col_dtypes=col_dtypes,
-                                                    parent=self)
-        elif schema:
-            # make sure items in a supplied view are valid ...
-            if view:
-                self.view = [a for a in view
-                             if ((a in schema['field_names']) or
-                                 (a in parm_defz) or
-                                 (a in de_defz))]
-            else:
-                self.view = [a for a in ['id', 'name', 'description']
-                             if a in schema['field_names']]
-            col_defs = []
-            col_dtypes = []
-            for a in self.view:
-                col_defs.append('\n'.join(wrap(
-                                schema['fields'][a]['definition'],
-                                width=30, break_long_words=False)))
-                col_dtypes.append(schema['fields'][a]['range'])
-            self.proxy_model = ObjectSortFilterProxyModel(
-                                                    view=self.view,
-                                                    col_labels=self.col_labels,
-                                                    col_defs=col_defs,
-                                                    col_dtypes=col_dtypes,
-                                                    parent=self)
-        self.schema = schema
+                orb.log.debug('    using default class view')
+                self.view = MAIN_VIEWS.get(self.cname,
+                                           ['id', 'name', 'description'])
+        self.proxy_model = ObjectSortFilterProxyModel(view=self.view,
+                                                      cname=self.cname,
+                                                      parent=self)
         self.proxy_model.setDynamicSortFilter(True)
         if external_filters:
             self.ext_filters = SizedButton("Filters")
@@ -701,11 +699,6 @@ class FilterPanel(QWidget):
         # dispatcher.connect(self.on_column_moved, 'column moved')
         self.dirty = False
 
-    @property
-    def col_labels(self):
-        return [PGEF_COL_NAMES.get(a, pname_to_header_label(a))
-                for a in self.view]
-
     def set_source_model(self, model):
         # orb.log.debug('  - FilterPanel.set_source_model()')
         self.proxy_model.setSourceModel(model)
@@ -767,28 +760,7 @@ class FilterPanel(QWidget):
             view (iterable):  view to be set.
         """
         self.view = view
-        col_defs = []
-        col_dtypes = []
-        for a in view:
-            if a in self.schema['fields']:
-                col_defs.append('\n'.join(wrap(
-                                self.schema['fields'][a]['definition'],
-                                width=30, break_long_words=False)))
-                col_dtypes.append(self.schema['fields'][a]['range'])
-            elif a in parm_defz:
-                col_defs.append('\n'.join(wrap(
-                                parm_defz[a]['description'],
-                                width=30, break_long_words=False)))
-                col_dtypes.append(parm_defz[a]['range_datatype'])
-            elif a in de_defz:
-                col_defs.append('\n'.join(wrap(
-                                de_defz[a]['description'],
-                                width=30, break_long_words=False)))
-                col_dtypes.append(de_defz[a]['range_datatype'])
         self.proxy_model.view = self.view
-        self.proxy_model.col_labels = self.col_labels
-        self.proxy_model.col_defs = col_defs
-        self.proxy_model.col_dtypes = col_dtypes
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
