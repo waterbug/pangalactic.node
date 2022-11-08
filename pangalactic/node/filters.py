@@ -20,9 +20,7 @@ from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.names       import (get_external_name_plural,
                                           pname_to_header_label)
-from pangalactic.core.parametrics import (de_defz, get_dval_as_str,
-                                          get_pval_as_str, parameterz,
-                                          parm_defz)
+from pangalactic.core.parametrics import de_defz, parameterz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.dialogs     import (HWFieldsDialog, ReqFieldsDialog,
@@ -386,26 +384,12 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     def data(self, index, role):
         model = self.sourceModel()
         if (getattr(model, 'objs', None) and (index.row() < len(model.objs))):
-            model_idx = self.mapToSource(index)
             if role == Qt.ToolTipRole:
+                model_idx = self.mapToSource(index)
                 if hasattr(model.objs[0], 'description'):
                     descr = model.objs[model_idx.row()].description or ''
                     tt = '\n'.join(wrap(descr, width=30, break_long_words=False))
                     return tt
-                else:
-                    return ''
-            elif role == Qt.DisplayRole:
-                obj = model.objs[model_idx.row()]
-                a = self.view[model_idx.column()]
-                if a in self.schema['field_names']:
-                    if self.schema['fields'][a]['range'] == 'str':
-                        return (getattr(obj, a) or '').replace('\n', ' ')
-                    else:
-                        return str(getattr(obj, a))
-                elif a in parm_defz:
-                    return get_pval_as_str(obj.oid, a)
-                elif a in de_defz:
-                    return get_dval_as_str(obj.oid, a)
                 else:
                     return ''
             else:
