@@ -579,10 +579,14 @@ class FilterPanel(QWidget):
                              (a in parm_defz) or
                              (a in de_defz))]
         else:
-            if (self.cname == 'HardwareProduct'
-                and prefs.get('hw_library_view')):
-                orb.log.debug('    using prefs["hw_library_view"]')
-                self.view = prefs['hw_library_view'][:]
+            if self.cname == 'HardwareProduct':
+                if prefs.get('hw_library_view'):
+                    orb.log.debug('    using prefs["hw_library_view"]')
+                    self.view = prefs['hw_library_view'][:]
+                else:
+                    # default HW Product Lib view (don't need to include
+                    # description because it is in the tooltip)
+                    self.view = ['id', 'name', 'product_type']
             else:
                 orb.log.debug('    using default class view')
                 self.view = MAIN_VIEWS.get(self.cname,
@@ -744,7 +748,7 @@ class FilterPanel(QWidget):
             view (iterable):  view to be set.
         """
         self.view = view
-        self.proxy_model.view = self.view
+        self.proxy_model.view = view
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
@@ -770,7 +774,6 @@ class FilterPanel(QWidget):
             prefs['views'][self.cname] = modified_view[:]
             if self.as_library and self.cname == 'HardwareProduct':
                 prefs['hw_library_view'] = modified_view[:]
-            self.view = modified_view[:]
         else:
             orb.log.debug('  - could not move: old col out of range.')
 
