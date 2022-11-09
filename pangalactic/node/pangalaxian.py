@@ -297,10 +297,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_comp_back, 'comp modeler back')
         # connect dispatcher signals for message bus events
         dispatcher.connect(self.on_mbus_joined, 'onjoined')
-        # dispatcher.connect(self.sync_progress_dlg_update,
-                                                    # "deserialized object")
-        # dispatcher.connect(self.sync_progress_dlg_set_max,
-                                                    # "deserializing")
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
@@ -2006,7 +2002,15 @@ class Main(QMainWindow):
             # rebuild diagram in case an object corresponded to a
             # block in the current diagram
             self.system_model_window.on_signal_to_refresh()
-        self.resync_current_project(msg='resync for received objects')
+        # *******************************************************************
+        # NOTE: this resync was causing severe problems in the GUI, mainly
+        # caused by the progress dialog getting "stuck" ... possibly revisit
+        # in the future ... something is needed to prevent the out-of-sync
+        # condition that sometimes happens after an update ... possibly use
+        # a simple parameter resync (get 'parameterz' cache from repo).
+        # *******************************************************************
+        # self.resync_current_project(msg='resync for received objects')
+        # *******************************************************************
         return True
 
     def _create_actions(self):
@@ -3531,7 +3535,15 @@ class Main(QMainWindow):
             if getattr(self, 'system_model_window', None):
                 self.system_model_window.on_signal_to_refresh()
         # the "not remote" here is *extremely* important, to prevent a cycle ...
-        self.resync_current_project(msg='resync for deleted object')
+        # *******************************************************************
+        # NOTE: this resync was causing severe problems in the GUI, mainly
+        # caused by the progress dialog getting "stuck" ... possibly revisit
+        # in the future ... something is needed to prevent the out-of-sync
+        # condition that sometimes happens after an update ... possibly use
+        # a simple parameter resync (get 'parameterz' cache from repo).
+        # *******************************************************************
+        # self.resync_current_project(msg='resync for deleted object')
+        # *******************************************************************
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
@@ -5097,24 +5109,6 @@ class Main(QMainWindow):
                             QMessageBox.Ok, self)
                 popup.show()
             return []
-
-    # def sync_progress_dlg_set_max(self, n=0):
-        # if hasattr(self, 'proj_sync_progress'):
-            # if n:
-                # self.proj_sync_progress.setMaximum(n)
-            # else:
-                # self.proj_sync_progress.done(0)
-            # QApplication.processEvents()
-
-    # def sync_progress_dlg_update(self, msg='unknown'):
-        # if hasattr(self, 'proj_sync_progress'):
-            # val = self.proj_sync_progress.value()
-            # val += 1
-            # if val >= self.proj_sync_progress.maximum():
-                # self.proj_sync_progress.done(0)
-            # else:
-                # self.proj_sync_progress.setValue(val)
-            # QApplication.processEvents()
 
     def force_load_serialized_objects(self, sobjs, importing=False):
         """
