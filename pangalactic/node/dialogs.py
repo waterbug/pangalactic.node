@@ -950,6 +950,7 @@ class SelectHWLibraryColsDialog(QDialog):
         schema = orb.schemas['HardwareProduct']
         fields = [name for name in schema['field_names']
                   if (name not in M2M and name not in ONE2M)]
+        fields.sort(key=lambda x: x.lower())
         n = len(fields) // 2
         form = QFormLayout()
         r_form = QFormLayout()
