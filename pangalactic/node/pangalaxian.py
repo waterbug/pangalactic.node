@@ -121,6 +121,9 @@ class Main(QMainWindow):
             (its oid is persisted as `project` in the `state` dict)
         projects (list of Project):  current authorized Projects in db
             (a read-only property linked to the local db)
+        project_oids (list of str):  oids of the current project objects, used
+            in calling vger.get_parmz() to update parameters of the current
+            project objects [added 2022-11-09]
         library_widget (LibraryListWidget):  a panel widget containing library
             views for specified classes and a selector (combo box)
         sys_tree (SystemTreeView):  the system tree widget (in left dock)
@@ -169,6 +172,7 @@ class Main(QMainWindow):
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.proc_pool = pool
+        self.project_oids = []
         # initialize internal "_product" attr, so getter for "product" works
         self._product = None
         # set flag to monitor when connecting to server
@@ -1056,6 +1060,9 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_vger_save_result)
             rpc.addErrback(self.on_failure)
             return rpc
+        # [2022-11-09] "project_oids" attr used in updating parms of proj objs
+        if project_sync:
+            self.project_oids = list(parm_data)
         # update parameterz and data_elementz
         orb.log.debug('  - updating parameters ...')
         parameterz.update(parm_data)
@@ -1929,7 +1936,10 @@ class Main(QMainWindow):
         orb.log.debug('  {}'.format(str(rep)))
         need_to_refresh_libraries = []
         need_to_refresh_tree = False
-        need_to_refresh_dashboard = False
+        # NOTE:  need_to_refresh_dashboard has become unnecessary because
+        # dashboard will be refreshed as a result of on_get_parmz(), called
+        # below ...
+        # need_to_refresh_dashboard = False
         need_to_refresh_diagram = False
         to_delete = []
         for obj in objs:
@@ -1943,7 +1953,7 @@ class Main(QMainWindow):
             elif isinstance(obj, orb.classes['HardwareProduct']):
                 need_to_refresh_libraries.append('HardwareProduct')
                 need_to_refresh_diagram = True
-                need_to_refresh_dashboard = True
+                # need_to_refresh_dashboard = True
             elif isinstance(obj, orb.classes['Template']):
                 need_to_refresh_libraries.append('Template')
             elif isinstance(obj, orb.classes['PortTemplate']):
@@ -1963,7 +1973,7 @@ class Main(QMainWindow):
                 need_to_refresh_diagram = True
                 if hasattr(self, 'sys_tree'):
                     need_to_refresh_tree = True
-                    need_to_refresh_dashboard = True
+                    # need_to_refresh_dashboard = True
             elif isinstance(obj, orb.classes['RoleAssignment']):
                 if getattr(obj, 'assigned_to', None) is self.local_user:
                     html = '<h3>You have been assigned the role:</h3>'
@@ -1994,9 +2004,11 @@ class Main(QMainWindow):
                 self.library_widget.refresh(cname=cname)
         if (need_to_refresh_tree and state.get('mode') == 'system'):
             self.refresh_tree_views()
-        if (need_to_refresh_dashboard and
-            getattr(self, 'dashboard', None)):
-            self.refresh_dashboard()
+        # NOTE: this dashboard refresh is now unnecessary because it will be
+        # called by the result of the call to on_get_parmz(), below ...
+        # if (need_to_refresh_dashboard and
+            # getattr(self, 'dashboard', None)):
+            # self.refresh_dashboard()
         if (need_to_refresh_diagram and
             getattr(self, 'system_model_window', None)):
             # rebuild diagram in case an object corresponded to a
@@ -2006,11 +2018,13 @@ class Main(QMainWindow):
         # NOTE: this resync was causing severe problems in the GUI, mainly
         # caused by the progress dialog getting "stuck" ... possibly revisit
         # in the future ... something is needed to prevent the out-of-sync
-        # condition that sometimes happens after an update ... possibly use
-        # a simple parameter resync (get 'parameterz' cache from repo).
+        # condition that sometimes happens after an update ... instead, use
+        # on_get_parmz() to sync project parameters.
         # *******************************************************************
-        # self.resync_current_project(msg='resync for received objects')
+        # self.resync_current_project(msg='resync for deleted object')
         # *******************************************************************
+        if self.project_oids:
+            self.on_get_parmz(oids=self.project_oids)
         return True
 
     def _create_actions(self):
@@ -3261,6 +3275,8 @@ class Main(QMainWindow):
         if data:
             orb.log.info('* got parmz data, updating ...')
             parameterz.update(data)
+            if getattr(self, 'dashboard_panel', None):
+                self.rebuild_dashboard()
 
     def on_vger_save_result(self, stuff):
         orb.log.debug('- vger.save rpc result: {}'.format(str(stuff)))
@@ -3534,16 +3550,18 @@ class Main(QMainWindow):
             # regenerate diagram
             if getattr(self, 'system_model_window', None):
                 self.system_model_window.on_signal_to_refresh()
-        # the "not remote" here is *extremely* important, to prevent a cycle ...
         # *******************************************************************
         # NOTE: this resync was causing severe problems in the GUI, mainly
         # caused by the progress dialog getting "stuck" ... possibly revisit
         # in the future ... something is needed to prevent the out-of-sync
-        # condition that sometimes happens after an update ... possibly use
-        # a simple parameter resync (get 'parameterz' cache from repo).
+        # condition that sometimes happens after an update ... instead, use
+        # on_get_parmz() to sync project parameters.
         # *******************************************************************
         # self.resync_current_project(msg='resync for deleted object')
         # *******************************************************************
+        if self.project_oids:
+            self.on_get_parmz(oids=self.project_oids)
+        # the "not remote" here is *extremely* important, to prevent a cycle ...
         if not remote and state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             # cname is not needed for pub/sub msg because if it is of interest
