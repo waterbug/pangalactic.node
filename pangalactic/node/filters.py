@@ -578,6 +578,8 @@ class FilterPanel(QWidget):
                          if ((a in self.schema['field_names']) or
                              (a in parm_defz) or
                              (a in de_defz))]
+            if self.cname == 'HardwareProduct':
+                prefs['hw_library_view'] = self.view
         else:
             if self.cname == 'HardwareProduct':
                 if prefs.get('hw_library_view'):
@@ -587,6 +589,7 @@ class FilterPanel(QWidget):
                     # default HW Product Lib view (don't need to include
                     # description because it is in the tooltip)
                     self.view = ['id', 'name', 'product_type']
+                    prefs['hw_library_view'] = self.view
             else:
                 orb.log.debug('    using default class view')
                 self.view = MAIN_VIEWS.get(self.cname,
@@ -684,7 +687,6 @@ class FilterPanel(QWidget):
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_del_object_signal, 'deleted object')
-        # dispatcher.connect(self.on_column_moved, 'column moved')
         self.dirty = False
 
     def set_source_model(self, model):
@@ -725,7 +727,7 @@ class FilterPanel(QWidget):
         parms.sort(key=lambda x: x.lower())
         dlg = SelectHWLibraryColsDialog(parms, self.view, parent=self)
         if dlg.exec_() == QDialog.Accepted:
-            old_view = self.view[:]
+            old_view = self.proxy_model.view[:]
             new_view = []
             # add any columns from old_view first
             for col in old_view:
@@ -763,17 +765,21 @@ class FilterPanel(QWidget):
         orb.log.debug('* FilterPanel.on_column_moved():')
         orb.log.debug(f'  old index: {old_index}')
         orb.log.debug(f'  new index: {new_index}')
-        orb.log.debug(f'  self.view: {self.view}')
-        modified_view = self.view[:]
+        if self.cname == 'HardwareProduct':
+            new_view = prefs['hw_library_view']
+            orb.log.debug(f'* HW Library view: {new_view}')
+        else:
+            new_view = self.view
         if 0 <= old_index < len(self.view):
-            item = modified_view.pop(old_index)
-            modified_view.insert(new_index, item)
-            orb.log.debug(f'  modified view is: {modified_view}')
+            item = new_view.pop(old_index)
+            new_view.insert(new_index, item)
+            orb.log.debug(f'  modified view is: {new_view}')
             if not prefs.get('views'):
                 prefs['views'] = {}
-            prefs['views'][self.cname] = modified_view[:]
+            prefs['views'][self.cname] = new_view[:]
             if self.as_library and self.cname == 'HardwareProduct':
-                prefs['hw_library_view'] = modified_view[:]
+                orb.log.debug(f'* new HW Library view: {new_view}')
+                prefs['hw_library_view'] = new_view[:]
         else:
             orb.log.debug('  - could not move: old col out of range.')
 
