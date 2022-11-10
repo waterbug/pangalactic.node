@@ -1405,49 +1405,6 @@ class Main(QMainWindow):
         if hasattr(self, 'library_widget'):
             self.library_widget.refresh()
 
-        # DEPRECATED:  old process [2022-03-05 SCW]
-        # if oids:
-            # orb.log.debug('  getting objects ...')
-            # # chunks = chunkify(newer, 5)   # set chunks small for testing
-            # # chunks = chunkify(newer, 100)
-            # chunks = chunkify(oids, 50)   # 100 is too big sometimes
-            # n_chunks = len(chunks)
-            # c = 'chunks'
-            # if n_chunks == 1:
-                # c = 'chunk'
-            # orb.log.debug(f'  will get in {n_chunks} {c} ...')
-            # chunk = chunks.pop(0)
-            # state['chunks_to_get'] = chunks
-            # rpc = self.mbus.session.call('vger.get_objects', chunk,
-                                         # include_components=False)
-            # rpc.addCallback(self.on_get_frozen_thawed_objects_result)
-            # rpc.addErrback(self.on_failure)
-        # else:
-            # orb.log.debug('  no oids specified, ignoring.')
-            # return
-
-    # DEPRECATED:  remote freeze/thaw now handled differently [2022-03-05 SCW]
-    # def on_get_frozen_thawed_objects_result(self, data):
-        # """
-        # Handler for the result of the rpc 'vger.get_objects()' when called by
-        # 'on_freeze_or_thaw()'.
-
-        # Args:
-            # data (list):  a list of serialized objects
-        # """
-        # orb.log.debug('* on_get_frozen_thawed_objects_result()')
-        # if data is not None:
-            # orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
-            # self.load_serialized_objects(data)
-        # if state.get('chunks_to_get'):
-            # chunk = state['chunks_to_get'].pop(0)
-            # orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
-            # rpc = self.mbus.session.call('vger.get_objects', chunk)
-            # rpc.addCallback(self.on_get_library_objects_result)
-            # rpc.addErrback(self.on_failure)
-        # else:
-            # self.resync_current_project()
-
     def on_toggle_library_size(self, expand=False):
         if getattr(self, 'library_widget', None):
             if expand:
@@ -3325,6 +3282,15 @@ class Main(QMainWindow):
         orb.log.debug(f'* {msg}')
         self.statusbar.showMessage(msg)
 
+    def on_rpc_vger_delete_result(self, res):
+        """
+        Handle callback to the vger.delete rpc.
+        """
+        oids_not_found, oids_deleted = res
+        for oid in (oids_not_found + oids_deleted):
+            if oid in state.get('synced_oids', []):
+                state['synced_oids'].remove(oid)
+
     def on_freeze_result(self, stuff):
         """
         Handle result of 'vger.freeze' rpc.
@@ -3520,57 +3486,69 @@ class Main(QMainWindow):
                 # otherwise, set to empty string
                 orb.log.debug('  to empty')
                 state['product'] = ''
-        # only attempt to update tree and dashboard if in "system" mode ...
-        if ((self.mode == 'system') and
-            cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
+        if not state.get('connected'):
             orb.recompute_parmz()
-            self.refresh_tree_and_dashboard()
-            if getattr(self, 'system_model_window', None):
-                # rebuild diagram in case an object corresponded to a
-                # block in the current diagram
-                self.system_model_window.on_signal_to_refresh()
-        # TODO:  other actions may be needed ...
-        # NOTE:  libraries are now subscribed to the 'deleted object' signal
-        # and update themselves, so no need to call them.
-        if self.mode == 'db':
-            self.set_db_interface()
-        elif (self.mode == 'component' and
-            cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                      'Port', 'Flow']):
-            # DIAGRAM MAY NEED UPDATING
-            # update state['product'] if needed, and regenerate diagram
-            # this will set placeholders in place of PgxnObject and diagram
-            self.set_product_modeler_interface()
-            if getattr(self, 'system_model_window', None):
-                self.system_model_window.on_signal_to_refresh()
-        elif (self.mode == 'system' and
-              cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                        'Port', 'Flow']):
-            # DIAGRAM MAY NEED UPDATING
-            # regenerate diagram
-            if getattr(self, 'system_model_window', None):
-                self.system_model_window.on_signal_to_refresh()
-        # *******************************************************************
-        # NOTE: this resync was causing severe problems in the GUI, mainly
-        # caused by the progress dialog getting "stuck" ... possibly revisit
-        # in the future ... something is needed to prevent the out-of-sync
-        # condition that sometimes happens after an update ... instead, use
-        # on_get_parmz() to sync project parameters.
-        # *******************************************************************
-        # self.resync_current_project(msg='resync for deleted object')
-        # *******************************************************************
-        if self.project_oids:
-            self.on_get_parmz(oids=self.project_oids)
-        # the "not remote" here is *extremely* important, to prevent a cycle ...
-        if not remote and state.get('connected'):
+            # only attempt to update tree and dashboard if in "system" mode ...
+            if ((self.mode == 'system') and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
+                self.refresh_tree_and_dashboard()
+                if getattr(self, 'system_model_window', None):
+                    # rebuild diagram in case an object corresponded to a
+                    # block in the current diagram
+                    self.system_model_window.on_signal_to_refresh()
+            elif self.mode == 'db':
+                self.set_db_interface()
+            elif (self.mode == 'component' and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # update state['product'] if needed, and regenerate diagram
+                # this will set placeholders in place of PgxnObject and diagram
+                self.set_product_modeler_interface()
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
+            elif (self.mode == 'system' and
+                  cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                            'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # regenerate diagram
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
+        if remote and state.get('connected'):
+            if self.project_oids:
+                self.on_get_parmz(oids=self.project_oids)
+            # only attempt to update tree and dashboard if in "system" mode ...
+            if ((self.mode == 'system') and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
+                self.refresh_tree_and_dashboard()
+                if getattr(self, 'system_model_window', None):
+                    # rebuild diagram in case an object corresponded to a
+                    # block in the current diagram
+                    self.system_model_window.on_signal_to_refresh()
+            elif self.mode == 'db':
+                self.set_db_interface()
+            elif (self.mode == 'component' and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # update state['product'] if needed, and regenerate diagram
+                # this will set placeholders in place of PgxnObject and diagram
+                self.set_product_modeler_interface()
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
+            elif (self.mode == 'system' and
+                  cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                            'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # regenerate diagram
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
+        elif not remote and state.get('connected'):
+            # the "not remote" here is *extremely* important, to prevent a cycle ...
             orb.log.info('  - calling "vger.delete"')
-            # cname is not needed for pub/sub msg because if it is of interest
-            # to a remote user, they have the object
             rpc = self.mbus.session.call('vger.delete', [oid])
-            rpc.addCallback(self.on_result)
+            rpc.addCallback(self.on_rpc_vger_delete_result)
             rpc.addErrback(self.on_failure)
-            if oid in state.get('synced_oids', []):
-                state['synced_oids'].remove(oid)
 
     def resync_current_project(self, msg=''):
         """
@@ -3903,7 +3881,8 @@ class Main(QMainWindow):
         Tree / dashboard refresh.  Can be user-activated by menu item.
         """
         # orb.log.debug('* refresh_tree_and_dashboard()')
-        orb.recompute_parmz()
+        if not state.get('connected'):
+            orb.recompute_parmz()
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.refresh_tree_views(selected_link_oid=selected_link_oid)
@@ -5104,21 +5083,28 @@ class Main(QMainWindow):
                                           orb.classes['Acu'],
                                           orb.classes['ProjectSystemUsage']))]
             if new_products_psus_or_acus:
-                orb.recompute_parmz()
-                if hasattr(self, 'library_widget'):
-                    self.library_widget.refresh()
-                if self.mode == 'system':
-                    for obj in new_products_psus_or_acus:
-                        self.update_object_in_trees(obj)
-                    # might need to refresh dashboard, e.g. if acu quantities
-                    # have changed ...
-                    self.refresh_dashboard()
+                if state.get('connected'):
+                    # if connected, call get_parmz() ...
+                    rpc = self.mbus.session.call('vger.get_parmz',
+                                                 oids=self.project_oids)
+                    rpc.addCallback(self.on_vger_get_parmz_result)
+                    rpc.addErrback(self.on_failure)
+                else:
+                    # if not connected, work in synchronous mode ...
+                    orb.recompute_parmz()
+                    if hasattr(self, 'library_widget'):
+                        self.library_widget.refresh()
+                    if self.mode == 'system':
+                        for obj in new_products_psus_or_acus:
+                            self.update_object_in_trees(obj)
+                        # might need to refresh dashboard, e.g. if acu quantities
+                        # have changed ...
+                        self.refresh_dashboard()
             if importing:
                 popup = QMessageBox(QMessageBox.Information,
                             "Project Data Import", msg,
                             QMessageBox.Ok, self)
                 popup.show()
-            return objs
         else:
             if importing:
                 msg = "no data found."
@@ -5126,7 +5112,6 @@ class Main(QMainWindow):
                             "no data found.", msg,
                             QMessageBox.Ok, self)
                 popup.show()
-            return []
 
     def force_load_serialized_objects(self, sobjs, importing=False):
         """
@@ -5223,22 +5208,28 @@ class Main(QMainWindow):
                                           orb.classes['Acu'],
                                           orb.classes['ProjectSystemUsage']))]
             if new_products_psus_or_acus:
-                orb.recompute_parmz()
-                if hasattr(self, 'library_widget'):
-                    # library_widget can mean 'system' *or* 'component' mode
-                    self.library_widget.refresh()
-                if self.mode == 'system':
-                    for obj in new_products_psus_or_acus:
-                        self.update_object_in_trees(obj)
-                    # might need to refresh dashboard, e.g. if acu quantities
-                    # have changed ...
-                    self.refresh_dashboard()
+                if state.get('connected'):
+                    # if connected, call get_parmz() ...
+                    rpc = self.mbus.session.call('vger.get_parmz',
+                                                 oids=self.project_oids)
+                    rpc.addCallback(self.on_vger_get_parmz_result)
+                    rpc.addErrback(self.on_failure)
+                else:
+                    # if not connected, work in synchronous mode ...
+                    orb.recompute_parmz()
+                    if hasattr(self, 'library_widget'):
+                        self.library_widget.refresh()
+                    if self.mode == 'system':
+                        for obj in new_products_psus_or_acus:
+                            self.update_object_in_trees(obj)
+                        # might need to refresh dashboard, e.g. if acu
+                        # quantities have changed ...
+                        self.refresh_dashboard()
             if importing:
                 popup = QMessageBox(QMessageBox.Information,
                             "Project Data Import", msg,
                             QMessageBox.Ok, self)
                 popup.show()
-            return objs
         else:
             if importing:
                 msg = "no data found."
@@ -5246,7 +5237,6 @@ class Main(QMainWindow):
                             "no data found.", msg,
                             QMessageBox.Ok, self)
                 popup.show()
-            return []
 
     def load_test_objects(self):
         if not state.get('test_objects_loaded'):

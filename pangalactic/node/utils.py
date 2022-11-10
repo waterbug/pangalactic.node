@@ -153,6 +153,7 @@ def clone(what, include_ports=True, include_components=True,
     newkw.update(dict([(dts, NOW) for dts in ['create_datetime',
                                               'mod_datetime']]))
     local_user = orb.get(state.get('local_user_oid'))
+    project = orb.get(state.get('project'))  # None if not set
     if issubclass(cls, orb.classes['Modelable']) and local_user:
         if 'creator' in fields:
             newkw['creator'] = local_user
@@ -177,9 +178,8 @@ def clone(what, include_ports=True, include_components=True,
             # the clone gets the product_type of the original object
             newkw['product_type'] = obj.product_type
     if issubclass(orb.classes[cname], orb.classes['ManagedObject']):
-        owner = orb.get(state.get('project'))  # None if not set
-        if owner:
-            newkw['owner'] = owner
+        if project:
+            newkw['owner'] = project
         else:
             # use PGANA
             pgana = orb.get('pgefobjects:PGANA')
@@ -296,7 +296,12 @@ def clone(what, include_ports=True, include_components=True,
             dispatcher.send(signal='new hardware clone', product=new_obj,
                             objs=new_objs)
     if recompute_needed:
-        orb.recompute_parmz()
+        if state.get('connected'):
+            project_oids = [obj.oid for obj in
+                            orb.get_objects_for_project(project)]
+            dispatcher.send(signal='get parmz', oids=project_oids)
+        else:
+            orb.recompute_parmz()
     return new_obj
 
 def get_all_usages(usage):
