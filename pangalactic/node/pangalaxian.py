@@ -3224,6 +3224,8 @@ class Main(QMainWindow):
         """
         Handle local dispatcher signal "get parmz".
         """
+        if not oids:
+            oids = self.project_oids
         rpc = self.mbus.session.call('vger.get_parmz', oids=oids)
         rpc.addCallback(self.on_vger_get_parmz_result)
         rpc.addErrback(self.on_failure)
@@ -3233,7 +3235,9 @@ class Main(QMainWindow):
             orb.log.info('* got parmz data, updating ...')
             parameterz.update(data)
             if getattr(self, 'dashboard_panel', None):
-                self.rebuild_dashboard()
+                # self.rebuild_dashboard(force=True)
+                # NOTE: testing to see if refresh_dashboard() is enough
+                self.refresh_dashboard()
 
     def on_vger_save_result(self, stuff):
         orb.log.debug('- vger.save rpc result: {}'.format(str(stuff)))
@@ -4046,7 +4050,9 @@ class Main(QMainWindow):
         # rebuilding dashboard is only needed in "system" mode
         if self.mode == 'system':
             try:
-                self.rebuild_dashboard(dashboard_mod=True)
+                # self.rebuild_dashboard(force=True)
+                # NOTE: testing to see if refresh_dashboard() is enough
+                self.refresh_dashboard()
             except:
                 # sometimes mode might be set to "system" but transitioning to
                 # "component", in which case the C++ object for the dashboard
@@ -4056,12 +4062,13 @@ class Main(QMainWindow):
     def mod_dashboard(self):
         self.rebuild_dashboard(dashboard_mod=True)
 
-    def rebuild_dashboard(self, dashboard_mod=False):
-        # orb.log.debug('* rebuild_dashboard()')
-        if (not dashboard_mod and
+    def rebuild_dashboard(self, dashboard_mod=False, force=False):
+        orb.log.debug('* rebuild_dashboard()')
+        if (not force and not dashboard_mod and
             (not self.sys_tree_rebuilt or self.dashboard_rebuilt)):
-            # orb.log.debug(' + no dashboard mod and either tree not rebuilt')
-            # orb.log.debug('   or dashboard already rebuilt; not rebuilding.')
+            orb.log.debug('  + no force and no dashboard mod and either tree')
+            orb.log.debug('    not rebuilt or dashboard already rebuilt;')
+            orb.log.debug('    not rebuilding.')
             return
         # orb.log.debug(' + rebuilding ...')
         if getattr(self, 'dashboard_panel', None):
@@ -4131,6 +4138,9 @@ class Main(QMainWindow):
         model = self.dashboard.model().sourceModel()
         for column in range(model.columnCount()):
             self.dashboard.resizeColumnToContents(column)
+        self.dashboard.setFocus(True)
+        self.dashboard.update()
+        self.update()
         self.dashboard_rebuilt = True
 
     def set_dashboard(self, index):
@@ -4141,7 +4151,7 @@ class Main(QMainWindow):
         self.refresh_tree_and_dashboard()
 
     def refresh_dashboard(self):
-        # orb.log.debug('* refreshing dashboard ...')
+        orb.log.debug('* refreshing dashboard ...')
         if hasattr(self, 'dashboard') and self.dashboard.model():
             self.dashboard.setFocus()
             for column in range(self.dashboard.model().columnCount(

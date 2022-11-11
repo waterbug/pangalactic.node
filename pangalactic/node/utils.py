@@ -297,9 +297,7 @@ def clone(what, include_ports=True, include_components=True,
                             objs=new_objs)
     if recompute_needed:
         if state.get('connected'):
-            project_oids = [obj.oid for obj in
-                            orb.get_objects_for_project(project)]
-            dispatcher.send(signal='get parmz', oids=project_oids)
+            dispatcher.send(signal='get parmz')
         else:
             orb.recompute_parmz()
     return new_obj
