@@ -23,7 +23,7 @@ from pangalactic.core.names       import (get_external_name_plural,
 from pangalactic.core.parametrics import de_defz, parameterz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import (HWFieldsDialog, ReqFieldsDialog,
+from pangalactic.node.dialogs     import (HWFieldsDialog,
                                           SelectHWLibraryColsDialog)
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ObjectTableModel
@@ -820,7 +820,6 @@ class FilterPanel(QWidget):
         self.req_parms_action = QAction(txt, self)
         txt = 'Edit selected fields of this requirement'
         self.req_fields_action = QAction(txt, self)
-        self.req_fields_action.triggered.connect(self.edit_req_fields)
         txt = 'Edit this requirement in the wizard'
         self.reqwizard_action = QAction(txt, self)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
@@ -842,28 +841,6 @@ class FilterPanel(QWidget):
             # for all objs other than Requirements, use PgxnObject
             self.proxy_view.addAction(self.pgxnobj_action)
         self.proxy_view.setContextMenuPolicy(Qt.ActionsContextMenu)
-
-    def edit_req_fields(self):
-        """
-        Edit some fields of the selected requirement in the table.
-        """
-        orb.log.debug('* edit_req_fields()')
-        req = None
-        if len(self.proxy_view.selectedIndexes()) >= 1:
-            i = self.proxy_model.mapToSource(
-                            self.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
-            if oid:
-                req = orb.get(oid)
-        if req:
-            dlg = ReqFieldsDialog(req, parent=self)
-            if dlg.exec_() == QDialog.Accepted:
-                orb.log.info('* req fields edited.')
-                dlg.close()
-            else:
-                orb.log.info('* req fields editing cancelled.')
-                dlg.close()
 
     def edit_hw_fields(self):
         """

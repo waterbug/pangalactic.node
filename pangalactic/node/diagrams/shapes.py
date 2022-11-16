@@ -423,7 +423,10 @@ class ObjectBlock(Block):
             self.allocs = self.usage.allocated_requirements
         if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
             obj = self.usage.system
-            self.allocs = self.usage.system_requirements
+            # DEPRECATED attribute 'system_requirements' =>
+            # IS NOW 'allocated_requirements'
+            # self.allocs = self.usage.system_requirements
+            self.allocs = self.usage.allocated_requirements
         orb.log.debug("  permissions on usage: {}".format(str(perms)))
         if getattr(obj, 'id', 'TBD') == 'TBD':
             if isinstance(self.usage, orb.classes['Acu']):

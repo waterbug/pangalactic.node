@@ -714,9 +714,11 @@ class SystemTreeModel(QAbstractItemModel):
         if role == Qt.BackgroundRole and self.req and self.show_allocs:
             # in case node.link is an Acu:
             allocs = getattr(node.link, 'allocated_requirements', [])
-            # in case node.link is a ProjectSystemUsage:
-            srs = getattr(node.link, 'system_requirements', [])
-            if self.req in allocs or self.req in srs:
+            proj_allocs = []
+            # in case node is the project node:
+            if node.cname == 'Project':
+                proj_allocs = getattr(node.obj, 'allocated_requirements', [])
+            if self.req in allocs or self.req in proj_allocs:
                 return self.YELLOW_BRUSH
             else:
                 return self.WHITE_BRUSH

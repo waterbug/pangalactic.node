@@ -130,7 +130,6 @@ class RequirementManager(QDialog):
                 elif req.req_constraint_type == 'single_value':
                     parm = 'req_target_value'
                 if parm:
-                    # dispatcher.send('edit req parm', req=req, parm=parm)
                     dlg = ReqParmDialog(req, parm, parent=self)
                     if dlg.exec_() == QDialog.Accepted:
                         orb.log.info('* req parm edited.')
@@ -249,7 +248,7 @@ class RequirementManager(QDialog):
                 # if allocated to an acu, send signal to ensure that node of
                 # the tree is made visible -- not necessary if allocated to a
                 # "system", since tree will be expanded to at least 1 level
-                acu = req.allocated_to_function
+                acu = req.allocated_to
                 if acu:
                     dispatcher.send(signal='show alloc acu', acu=acu)
             else:

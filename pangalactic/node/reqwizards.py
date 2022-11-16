@@ -435,53 +435,60 @@ class ReqAllocPage(QWizardPage):
         content_layout.addLayout(tree_layout)
         content_layout.addLayout(summary_layout)
         self.update_summary()
-        if getattr(self.req, 'allocated_to_function', None):
-            allocation = self.req.allocated_to_function.reference_designator
-        elif getattr(self.req, 'allocated_to_system', None):
-            allocation = self.req.allocated_to_system.system_role
-        else:
-            allocation = self.project.id + ' project'
+        alloc = getattr(self.req, 'allocated_to', None)
+        allocation = 'None'
+        if alloc:
+            if hasattr(alloc, 'component'):
+                allocation = alloc.reference_designator
+            elif hasattr(alloc, 'system'):
+                allocation = alloc.system_role
+            else:
+                allocation = alloc.id + ' project'
         req_wizard_state['allocation'] = allocation
 
     def on_select_node(self, index):
         link = None
-        allocated_item = ''
+        allocated_item = 'None'
         mapped_i = self.sys_tree.proxy_model.mapToSource(index)
         link = self.sys_tree.source_model.get_node(mapped_i).link
-        if not link or not self.req:
-            orb.log.debug('  could not find link (or no self.req).')
+        cname = self.sys_tree.source_model.get_node(mapped_i).cname
+        if (not link and not (cname == 'Project')) or not self.req:
+            orb.log.debug('  node is not link or project (or no self.req).')
             return
-        if hasattr(link, 'system'):
-            if self.req in link.system_requirements:
-                # if this is an existing allocation, remove it
-                self.req.allocated_to_system = None
+            # DEPRECATED attribute 'system_requirements'
+            # if self.req in link.system_requirements:
+                # # if this is an existing allocation, remove it
+                # self.req.allocated_to_system = None
+            # else:
+                # self.req.allocated_to_system = link
+                # # if allocating to system, remove any allocation to function
+                # if self.req.allocated_to_function:
+                    # self.req.allocated_to_function = None
+            # allocated_item = link.system_role
+        if cname == 'Project':
+            if self.req.allocated_to is self.project:
+                # if allocated, de-allocate
+                self.req.allocated_to = None
             else:
-                self.req.allocated_to_system = link
-                # if allocating to system, remove any allocation to function
-                if self.req.allocated_to_function:
-                    self.req.allocated_to_function = None
-            allocated_item = link.system_role
-        elif hasattr(link, 'component'):
-            if self.req in link.allocated_requirements:
-                # if this is an existing allocation, remove it
-                self.req.allocated_to_function = None
+                self.req.allocated_to = self.project
+                allocated_item = self.project.id + ' project'
+        else:
+            if self.req.allocated_to is link:
+                # if allocated, de-allocate
+                self.req.allocated_to = None
             else:
-                self.req.allocated_to_function = link
-                # if allocating to function, remove any allocation to system
-                if self.req.allocated_to_system:
-                    self.req.allocated_to_system = None
-            allocated_item = link.reference_designator
+                self.req.allocated_to = link
+                if hasattr(link, 'system'):
+                    allocated_item = link.system_role
+                elif hasattr(link, 'component'):
+                    allocated_item = link.reference_designator
         # the expandToDepth is needed to make it repaint to show the allocation
         # node as yellow-highlighted
         self.sys_tree.expandToDepth(1)
         self.sys_tree.scrollTo(index)
         # TODO: get the selected name/product so it can be used in the shall
         # statement.
-        if allocated_item:
-            allocation = allocated_item
-        else:
-            allocation = self.project.id + ' project'
-        req_wizard_state['allocation'] = allocation
+        req_wizard_state['allocation'] = allocated_item
         self.update_summary()
 
     def update_summary(self):
@@ -489,16 +496,23 @@ class ReqAllocPage(QWizardPage):
         Update the summary of current allocations.
         """
         msg = '<h3>Requirement Allocation:</h3><ul><li><b>'
-        if self.req.allocated_to_system:
-            msg += '<font color="green">'
-            msg += self.req.allocated_to_system.system_role
-            msg += '</font>'
-        elif self.req.allocated_to_function:
-            msg += '<font color="green">'
-            msg += self.req.allocated_to_function.reference_designator
-            msg += '</font>'
-        else:
-            msg += '[None]'
+        alloc = self.req.allocated_to
+        if alloc:
+            if hasattr(alloc, 'system'):
+                msg += '<font color="green">'
+                msg += alloc.system_role
+                msg += '</font>'
+            elif hasattr(alloc, 'component'):
+                msg += '<font color="green">'
+                msg += alloc.reference_designator
+                msg += '</font>'
+            elif hasattr(alloc, 'id'):
+                # Project
+                msg += '<font color="green">'
+                msg += alloc.id
+                msg += '</font>'
+            else:
+                msg += "None"
         msg += '</b></li></ul>'
         self.summary.setText(msg)
 
@@ -824,8 +838,7 @@ class PerformReqShallPage(QWizardPage):
     """
     Finalize the "shall statement" (Requirement.description) and add the
     rationale and justification.  The 3 components of the shall statement are:
-    [1] req_subject:  'name' attribute of 'allocated_to_function' or
-    'allocated_to_system'
+    [1] req_subject:  'name' attribute of 'allocated_to'
     [2] req_predicate:  'shall be' + phrase generated based on
     'req_constraint_type' (e.g. "less than", etc.)
     [3] req_object:  parameter value(s) and units in a form based on the
@@ -1069,12 +1082,14 @@ class PerformReqShallPage(QWizardPage):
 
         # subject (allocated item / parameter)
         allocated_item = '[unallocated]'
-        acu = self.req.allocated_to_function
-        psu = self.req.allocated_to_system
-        if acu:
-            allocated_item = acu.reference_designator
-        elif psu:
-            allocated_item = psu.system_role
+        alloc = self.req.allocated_to
+        if alloc:
+            if hasattr(alloc, 'component'):
+                allocated_item = alloc.reference_designator
+            elif hasattr(alloc, 'system'):
+                allocated_item = alloc.system_role
+            elif hasattr(alloc, 'id'):
+                allocated_item = alloc.id
         parm_name = '[parameter not selected]'
         pid = req_wizard_state.get('req_parameter')
         if pid:
