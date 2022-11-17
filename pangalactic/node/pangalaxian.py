@@ -1980,8 +1980,7 @@ class Main(QMainWindow):
         # *******************************************************************
         # self.resync_current_project(msg='resync for deleted object')
         # *******************************************************************
-        if self.project_oids:
-            self.on_get_parmz(oids=self.project_oids)
+        self.on_get_parmz()
         return True
 
     def _create_actions(self):
@@ -3155,6 +3154,7 @@ class Main(QMainWindow):
                                                           obj.id, obj.oid))
                     rpc = self.mbus.session.call('vger.save', serialized_objs)
                     rpc.addCallback(self.on_vger_save_result)
+                    rpc.addCallback(self.on_get_parmz)
                 rpc.addErrback(self.on_failure)
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
@@ -3224,20 +3224,22 @@ class Main(QMainWindow):
         """
         Handle local dispatcher signal "get parmz".
         """
-        if not oids:
-            oids = self.project_oids
-        rpc = self.mbus.session.call('vger.get_parmz', oids=oids)
-        rpc.addCallback(self.on_vger_get_parmz_result)
-        rpc.addErrback(self.on_failure)
+        if state.get('connected'):
+            if not oids:
+                oids = self.project_oids
+            rpc = self.mbus.session.call('vger.get_parmz', oids=oids)
+            rpc.addCallback(self.on_vger_get_parmz_result)
+            rpc.addErrback(self.on_failure)
 
     def on_vger_get_parmz_result(self, data):
         if data:
             orb.log.info('* got parmz data, updating ...')
             parameterz.update(data)
             if getattr(self, 'dashboard_panel', None):
-                # self.rebuild_dashboard(force=True)
                 # NOTE: testing to see if refresh_dashboard() is enough
-                self.refresh_dashboard()
+                # NOTE: it wasn't!!
+                # self.refresh_dashboard()
+                self.rebuild_dashboard(force=True)
 
     def on_vger_save_result(self, stuff):
         orb.log.debug('- vger.save rpc result: {}'.format(str(stuff)))
@@ -3294,8 +3296,7 @@ class Main(QMainWindow):
         for oid in (oids_not_found + oids_deleted):
             if oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(oid)
-        if self.project_oids:
-            self.on_get_parmz(oids=self.project_oids)
+        self.on_get_parmz()
         # only attempt to update tree and dashboard if in "system" mode ...
         if self.mode == 'system':
             self.refresh_tree_and_dashboard()
@@ -3539,8 +3540,7 @@ class Main(QMainWindow):
                 if getattr(self, 'system_model_window', None):
                     self.system_model_window.on_signal_to_refresh()
         if remote and state.get('connected'):
-            if self.project_oids:
-                self.on_get_parmz(oids=self.project_oids)
+            self.on_get_parmz()
             # only attempt to update tree and dashboard if in "system" mode ...
             if ((self.mode == 'system') and
                 cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
@@ -3567,6 +3567,7 @@ class Main(QMainWindow):
             orb.log.info('  - calling "vger.delete"')
             rpc = self.mbus.session.call('vger.delete', [oid])
             rpc.addCallback(self.on_rpc_vger_delete_result)
+            rpc.addCallback(self.on_get_parmz)
             rpc.addErrback(self.on_failure)
 
     def resync_current_project(self, msg=''):
@@ -4602,6 +4603,7 @@ class Main(QMainWindow):
             sobjs = serialize(orb, [product] + objs)
             rpc = self.mbus.session.call('vger.save', sobjs)
             rpc.addCallback(self.on_vger_save_result)
+            rpc.addCallback(self.on_get_parmz)
             rpc.addErrback(self.on_failure)
 
     def new_product_wizard(self):
