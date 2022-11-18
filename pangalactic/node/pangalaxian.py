@@ -5525,7 +5525,7 @@ class Main(QMainWindow):
         f.write(privkey.encode())
         f.close()
         os.chmod(self.key_path, 0o400)
-        sk = cryptosign.SigningKey.from_raw_key(self.key_path)
+        sk = cryptosign.CryptosignKey.from_file(self.key_path)
         public_key_path = os.path.join(orb.home, 'public.key')
         f = open(public_key_path, 'w')
         f.write(sk.public_key())
