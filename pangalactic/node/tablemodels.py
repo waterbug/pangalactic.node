@@ -207,11 +207,6 @@ class ObjectTableModel(MappingTableModel):
                              (a in self.schema['field_names']
                               or a in parm_defz
                               or a in de_defz)]
-            # TODO:  handle foreign key fields somehow ...
-            # for a in view:
-                # fk_cname = schema['fields'][a].get('related_cname')
-                # if fk_cname in orb.classes:
-                    # pass
             if not self.view:
                 self.view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
