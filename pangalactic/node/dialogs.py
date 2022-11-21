@@ -314,6 +314,10 @@ class HWFieldsDialog(QDialog):
     def on_save(self):
         for name, widget in self.fields.items():
             setattr(self.hw_item, name, widget.get_value())
+        NOW = dtstamp()
+        user = orb.get(state.get('local_user_oid'))
+        self.hw_item.mod_datetime = NOW
+        self.hw_item.modifier = user
         orb.save([self.hw_item])
         dispatcher.send(signal='modified object', obj=self.hw_item,
                         cname='HardwareProduct')
