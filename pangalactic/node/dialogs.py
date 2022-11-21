@@ -403,6 +403,10 @@ class ReqFieldsDialog(QDialog):
     def on_save(self):
         for name, widget in self.fields.items():
             setattr(self.req, name, widget.get_value())
+        NOW = dtstamp()
+        user = orb.get(state.get('local_user_oid'))
+        self.req.mod_datetime = NOW
+        self.req.modifier = user
         orb.save([self.req])
         dispatcher.send(signal='modified object', obj=self.req,
                         cname='Requirement')
@@ -447,6 +451,10 @@ class ReqParmDialog(QDialog):
                                          str(self.req.req_predicate),
                                          str(self.parm_field.get_value()),
                                          str(self.req.req_units)])
+        NOW = dtstamp()
+        user = orb.get(state.get('local_user_oid'))
+        self.req.mod_datetime = NOW
+        self.req.modifier = user
         orb.save([self.req])
         dispatcher.send(signal='modified object', obj=self.req,
                         cname='Requirement')
