@@ -259,8 +259,15 @@ class ObjectTableModel(MappingTableModel):
                 elif self.schema['fields'][name]['range'] == 'datetime':
                     val = dt2local_tz_str(getattr(obj, name))
                 elif self.schema['fields'][name]['field_type'] == 'object':
-                    val = (getattr(getattr(obj, name), 'id', None)
-                           or '[id unknown]')
+                    rel_obj = getattr(obj, name)
+                    if rel_obj.__class__.__name__ == 'ProductType':
+                        val = rel_obj.abbreviation or ''
+                    elif rel_obj.__class__.__name__ in ['HardwareProduct',
+                                                        'Organization',
+                                                        'Person', 'Project']:
+                        val = rel_obj.id or rel_obj.name or '[unnamed]'
+                    else:
+                        val = getattr(rel_obj, 'name', None) or '[unnamed]'
                 else:
                     val = str(getattr(obj, name))
             elif name in parm_defz:

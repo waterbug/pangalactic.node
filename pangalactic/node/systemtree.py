@@ -14,13 +14,13 @@ from PyQt5.QtWidgets import QAction, QMenu, QSizePolicy, QTreeView
 
 # pangalactic
 from pangalactic.core             import prefs, state
-from pangalactic.core.names       import get_display_name
+from pangalactic.core.names       import (get_display_name,
+                                          pname_to_header_label)
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
                                           get_usage_mode_val_as_str, get_pval,
                                           get_pval_as_str, parm_defz,
                                           mode_defz)
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.units       import in_si
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -363,29 +363,7 @@ class SystemTreeModel(QAbstractItemModel):
         return [self.col_def(col_id) for col_id in data_cols]
 
     def get_header(self, pid):
-        pd = parm_defz.get(pid)
-        de_def = de_defz.get(pid, '')
-        modes = (mode_defz.get(self.project.oid) or {}).get('modes')
-        if pd:
-            units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
-                                                    pd['dimensions'], '')
-            if units:
-                units = '(' + units + ')'
-            return '   \n   '.join(wrap(pd['name'], width=7,
-                                   break_long_words=False) + [units])
-        elif de_def:
-            return '   \n   '.join(wrap(de_def['name'], width=7,
-                                   break_long_words=False))
-        elif modes and pid in modes:
-            units = prefs['units'].get('power') or 'W'
-            if units:
-                units = '(' + units + ')'
-            return '   \n   '.join(wrap(pid, width=7,
-                                   break_long_words=False) + [units])
-        else:
-            # log_msg = 'nothing found for id "{}"'.format(pid)
-            # orb.log.debug('  - get_header: {}'.format(log_msg))
-            return 'Unknown'
+        return pname_to_header_label(pid, project_oid=self.project.oid)
 
     @property
     def req(self):

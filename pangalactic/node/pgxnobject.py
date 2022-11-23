@@ -474,7 +474,7 @@ class PgxnForm(QWidget):
                 val = getattr(obj, field_name, '')
             # external_name will be shown on the label in the user
             # interface
-            external_name = get_attr_ext_name(cname, field_name)
+            external_name = get_attr_ext_name(field_name)
             obj_pk = getattr(obj, 'oid')
             max_length = schema['fields'][field_name].get('max_length', 80)
             nullable = schema['fields'][field_name].get('null')

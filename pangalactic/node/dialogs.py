@@ -248,7 +248,7 @@ class HWFieldsDialog(QDialog):
         self.fields = {}
         vbox.addLayout(self.form)
         for name in names:
-            ename = get_attr_ext_name('HardwareProduct', name)
+            ename = get_attr_ext_name(name)
             schema = orb.schemas['HardwareProduct']
             if name in SELECTABLE_VALUES:
                 val = getattr(hw_item, name)
@@ -341,7 +341,7 @@ class ReqFieldsDialog(QDialog):
         self.fields = {}
         vbox.addLayout(self.form)
         for name in names:
-            ename = get_attr_ext_name('Requirement', name)
+            ename = get_attr_ext_name(name)
             schema = orb.schemas['Requirement']
             if name in SELECTABLE_VALUES:
                 val = getattr(req, name)
@@ -426,7 +426,7 @@ class ReqParmDialog(QDialog):
         self.setWindowTitle("Requirement Parameters")
         self.req = req
         self.parm = parm
-        parm_name = get_attr_ext_name('Requirement', parm)
+        parm_name = get_attr_ext_name(parm)
         parm_label = QLabel(parm_name, self)
         parm_val = getattr(req, parm, 0.0)
         self.parm_field = FloatFieldWidget(parent=self, value=parm_val)
