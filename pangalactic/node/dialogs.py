@@ -971,7 +971,7 @@ class SelectHWLibraryColsDialog(QDialog):
         hbox.addLayout(r_form)
         self.checkboxes = {}
         for i, col in enumerate(fields):
-            label = QLabel(col, self)
+            label = QLabel(get_attr_ext_name(col), self)
             col_def = schema['fields'][col]['definition']
             tt = f'<p><b>Definition:</b> {col_def}</p>'
             label.setToolTip(tt)
@@ -999,16 +999,21 @@ class SelectHWLibraryColsDialog(QDialog):
         parm_hbox = QHBoxLayout(self)
         for form in forms.values():
             parm_hbox.addLayout(form)
+        parameters.sort(key=lambda x: (de_defz.get(x, {}).get('name')
+                                       or parm_defz.get(x, {}).get('name')
+                                       or x).lower())
         for i, col in enumerate(parameters):
-            label = QLabel(col, self)
             col_def = de_defz.get(col) or parm_defz.get(col)
             if col_def:
+                label = QLabel(col_def['name'], self)
                 dtxt = col_def.get('description', '')
                 dims = col_def.get('dimensions', '')
                 tt = f'<p><b>Definition:</b> {dtxt}</p>'
                 if dims:
                     tt += f'<b>Dimensions:</b> {dims}'
                 label.setToolTip(tt)
+            else:
+                label = QLabel(col, self)
             self.checkboxes[col] = QCheckBox(self)
             if col in view:
                 self.checkboxes[col].setChecked(True)
@@ -1045,7 +1050,6 @@ class CustomizeColsDialog(QDialog):
         cols = cols or []
         self.checkboxes = {}
         selectables = selectables or []
-        names = self.get_col_names(selectables)
         nbr_of_cols = len(selectables) // 40
         if len(selectables) % 40:
             nbr_of_cols += 1
@@ -1058,7 +1062,8 @@ class CustomizeColsDialog(QDialog):
         for subform in subforms:
             hbox.addLayout(subform)
         for i, col_id in enumerate(selectables):
-            label = QLabel(names[i], self)
+            ext_name = get_attr_ext_name(col_id)
+            label = QLabel(ext_name, self)
             col_def = de_defz.get(col_id) or parm_defz.get(col_id)
             if col_def:
                 dtxt = col_def.get('description', '')

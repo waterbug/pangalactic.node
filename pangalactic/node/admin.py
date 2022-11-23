@@ -367,14 +367,6 @@ class PersonSearchDialog(QDialog):
             self.person_label.set_content(person_display_name)
             self.add_person_panel.setVisible(True)
 
-    def create_person(self):
-        """
-        Handler for the create_person_button click: clones a new Person object
-        using the object editor and dispatches the "add person" signal, which
-        will trigger pangalaxian to send the 'vger.add_person' rpc.
-        """
-        pass
-
     def on_add_person(self):
         """
         Handler for the add_person_button click: dispatches the "add person"
@@ -507,10 +499,6 @@ class AddPersonDialog(QDialog):
             data['public_key'] = self.public_key
         # send signal to call rpc "vger.add_person"
         dispatcher.send('add person', data=data)
-
-    # DEPRECATED:  now closed by pangalaxian
-    # def on_person_added_success(self):
-        # self.close()
 
 
 class AdminDialog(QDialog):
