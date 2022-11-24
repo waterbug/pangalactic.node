@@ -4,6 +4,7 @@ A set of custom TableModels for use with QTableView.
 # stdlib
 import os, re
 from textwrap import wrap
+from collections.abc import Mapping
 
 # louie
 # from louie import dispatcher
@@ -66,9 +67,7 @@ class ListTableModel(QAbstractTableModel):
 
 class MappingTableModel(QAbstractTableModel):
     """
-    A table model based on a list of dict instances.  (In the python 2 version,
-    this was based on OrderedDict; in python 3, the builtin dict is ordered so
-    OrderedDict is unnecessary.)
+    A table model based on a list of dict instances.
     """
     def __init__(self, ds, as_library=False, icons=None, aligns=None,
                  parent=None, **kwargs):
@@ -167,6 +166,47 @@ class NullObject(object):
     oid = None
 
 
+class ObjViewDict(Mapping):
+    def __init__(self, obj, view=None):
+        self.obj = obj
+        self.view = view or ['']
+        self.schema = orb.schemas[obj.__class__.__name__]
+
+    def __getitem__(self, a):
+        if a in self.schema['field_names']:
+            if a == 'id':
+                return self.obj.id
+            elif a in TEXT_PROPERTIES:
+                return (getattr(self.obj, a) or ' ').replace('\n', ' ')
+            elif self.schema['fields'][a]['range'] == 'datetime':
+                return dt2local_tz_str(getattr(self.obj, a))
+            elif self.schema['fields'][a]['field_type'] == 'object':
+                rel_obj = getattr(self.obj, a)
+                if rel_obj.__class__.__name__ == 'ProductType':
+                    return rel_obj.abbreviation or ''
+                elif rel_obj.__class__.__name__ in ['HardwareProduct',
+                                                    'Organization',
+                                                    'Person', 'Project']:
+                    return rel_obj.id or rel_obj.name or '[unnamed]'
+                else:
+                    return getattr(rel_obj, 'name', None) or '[unnamed]'
+            else:
+                return str(getattr(self.obj, a, '-'))
+        elif a in parm_defz:
+            pd = parm_defz.get(a)
+            units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                    pd['dimensions'], '')
+            return get_pval_as_str(self.obj.oid, a, units=units)
+        elif a in de_defz:
+            return get_dval_as_str(self.obj.oid, a)
+
+    def __iter__(self):
+        return iter(self.view)
+
+    def __len__(self):
+        return len(self.view)
+
+
 class ObjectTableModel(MappingTableModel):
     """
     A MappingTableModel subclass based on a list of objects.
@@ -220,7 +260,7 @@ class ObjectTableModel(MappingTableModel):
                 self.objs.insert(0, null_obj)
             # NOTE:  this works but may need performance optimization when
             # the table holds a large number of objects
-            ds = [self.get_mapping_for_obj(o, self.view) for o in self.objs]
+            ds = [ObjViewDict(o, view=self.view) for o in self.objs]
         else:
             ds = [{0:'no data'}]
             self.view = ['id']
@@ -244,40 +284,6 @@ class ObjectTableModel(MappingTableModel):
             return [pname_to_header_label(x) for x in self.view]
         else:
             return ['No Data']
-
-    def get_mapping_for_obj(self, obj, view):
-        """
-        Return the dict representation of an object.
-        """
-        d = dict()
-        for name in view:
-            if name in self.schema['fields']:
-                if name == 'id':
-                    val = display_id(obj)
-                elif name in TEXT_PROPERTIES:
-                    val = (getattr(obj, name) or ' ').replace('\n', ' ')
-                elif self.schema['fields'][name]['range'] == 'datetime':
-                    val = dt2local_tz_str(getattr(obj, name))
-                elif self.schema['fields'][name]['field_type'] == 'object':
-                    rel_obj = getattr(obj, name)
-                    if rel_obj.__class__.__name__ == 'ProductType':
-                        val = rel_obj.abbreviation or ''
-                    elif rel_obj.__class__.__name__ in ['HardwareProduct',
-                                                        'Organization',
-                                                        'Person', 'Project']:
-                        val = rel_obj.id or rel_obj.name or '[unnamed]'
-                    else:
-                        val = getattr(rel_obj, 'name', None) or '[unnamed]'
-                else:
-                    val = str(getattr(obj, name))
-            elif name in parm_defz:
-                val = get_pval_as_str(obj.oid, name)
-            elif name in de_defz:
-                val = get_dval_as_str(obj.oid, name)
-            else:
-                val = '-'
-            d[name] = val
-        return d
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
