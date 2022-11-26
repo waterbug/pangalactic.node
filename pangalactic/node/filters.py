@@ -6,8 +6,9 @@ from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
                           QSortFilterProxyModel, QTimer, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
-        QCheckBox, QDialog, QDialogButtonBox, QGroupBox, QHBoxLayout, QLabel,
-        QLineEdit, QSizePolicy, QTableView, QVBoxLayout, QWidget)
+                             QCheckBox, QDialog, QDialogButtonBox, QGroupBox,
+                             QHBoxLayout, QLabel, QLineEdit, QSizePolicy,
+                             QTableView, QVBoxLayout, QWidget)
 
 import re
 from functools import reduce
@@ -23,7 +24,7 @@ from pangalactic.core.names       import (get_external_name_plural,
 from pangalactic.core.parametrics import de_defz, parameterz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import (HWFieldsDialog,
+from pangalactic.node.dialogs     import (ProgressDialog, HWFieldsDialog,
                                           SelectHWLibraryColsDialog)
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ObjectTableModel
@@ -309,6 +310,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             return False
 
     def lessThan(self, left, right):
+        QApplication.processEvents()
         try:
             dtype = self.col_dtypes[left.column()]
         except:
@@ -415,13 +417,16 @@ class ProxyView(QTableView):
     def __init__(self, proxy_model, sized_cols=None, as_library=False,
                  word_wrap=False, parent=None):
         super().__init__(parent=parent)
+        self.initializing = True
         self.sized_cols = sized_cols or {'name': 150}
-        col_header = self.horizontalHeader()
-        # col_header.setSectionResizeMode(col_header.Stretch)
-        # TODO:  add a handler to set column order pref when sections are moved
-        col_header.setSectionsMovable(True)
-        col_header.setStyleSheet('font-weight: bold')
-        # col_header.sectionMoved.connect(self.on_section_moved)
+        self.col_header = self.horizontalHeader()
+        # self.col_header = SpecialHeaderView(parent=self)
+        # self.setHorizontalHeader(self.col_header)
+        # commented out because this makes all sections the same size ...
+        # self.col_header.setSectionResizeMode(self.col_header.Stretch)
+        self.col_header.setSectionsMovable(True)
+        self.col_header.setSortIndicatorShown(False)
+        self.col_header.setStyleSheet('font-weight: bold')
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -430,6 +435,8 @@ class ProxyView(QTableView):
             self.setWordWrap(False)
         if proxy_model:
             self.setModel(proxy_model)
+        self.model().layoutAboutToBeChanged.connect(self.on_latbc)
+        self.model().layoutChanged.connect(self.on_lc)
         self.setSortingEnabled(True)
         if as_library:
             # orb.log.debug('  ... as library.')
@@ -455,6 +462,41 @@ class ProxyView(QTableView):
         # else:
             # QTimer.singleShot(0, self.resizeColumnsToContents)
         QTimer.singleShot(0, self.resize_sized_cols)
+        self.initializing = False
+
+    def on_latbc(self, idx_list, hint=None):
+        """
+        Respond to layoutAboutToBeChanged signal: if hint indicates a vertical
+        sort, start the sort progress dialog.
+        """
+        # orb.log.debug('* layout about to be changed ...')
+        # QAbstractItemModel.VerticalSortHint is 1
+        if not self.initializing and hint == 1:
+            # orb.log.debug('  ... sorting ...')
+            self.sort_progress = ProgressDialog(title='Sorting',
+                                                label='<b>sorting ...</b>',
+                                                parent=self)
+            self.sort_progress.setAttribute(Qt.WA_DeleteOnClose)
+            self.sort_progress.setMinimum(0)
+            self.sort_progress.setMaximum(0)
+            self.sort_progress.setMinimumDuration(500)
+            self.sort_progress.resize(400, 100)
+            QApplication.processEvents()
+        QApplication.processEvents()
+
+    def on_lc(self):
+        """
+        Respond to layoutChanged signal (end the sort progress dialog).
+        """
+        sort_prog = getattr(self, 'sort_progress', None)
+        if sort_prog:
+            # orb.log.debug('  ... finished sorting.')
+            try:
+                self.sort_progress.done(0)
+                QApplication.processEvents()
+            except:
+                # C++ obj gc'ed
+                pass
 
     def resize_sized_cols(self):
         labels = [self.model().headerData(i, Qt.Horizontal, Qt.DisplayRole)
