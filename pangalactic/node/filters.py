@@ -419,14 +419,6 @@ class ProxyView(QTableView):
         super().__init__(parent=parent)
         self.initializing = True
         self.sized_cols = sized_cols or {'name': 150}
-        self.col_header = self.horizontalHeader()
-        # self.col_header = SpecialHeaderView(parent=self)
-        # self.setHorizontalHeader(self.col_header)
-        # commented out because this makes all sections the same size ...
-        # self.col_header.setSectionResizeMode(self.col_header.Stretch)
-        self.col_header.setSectionsMovable(True)
-        self.col_header.setSortIndicatorShown(False)
-        self.col_header.setStyleSheet('font-weight: bold')
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -438,6 +430,14 @@ class ProxyView(QTableView):
         self.model().layoutAboutToBeChanged.connect(self.on_latbc)
         self.model().layoutChanged.connect(self.on_lc)
         self.setSortingEnabled(True)
+        self.col_header = self.horizontalHeader()
+        # self.col_header = SpecialHeaderView(parent=self)
+        # self.setHorizontalHeader(self.col_header)
+        # commented out because this makes all sections the same size ...
+        # self.col_header.setSectionResizeMode(self.col_header.Stretch)
+        self.col_header.setSectionsMovable(True)
+        self.col_header.setSortIndicatorShown(False)
+        self.col_header.setStyleSheet('font-weight: bold')
         if as_library:
             # orb.log.debug('  ... as library.')
             self.setWordWrap(False)
