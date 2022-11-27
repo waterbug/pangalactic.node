@@ -966,7 +966,7 @@ class SelectHWLibraryColsDialog(QDialog):
         n = len(fields) // 2
         form = QFormLayout()
         r_form = QFormLayout()
-        hbox = QHBoxLayout(self)
+        hbox = QHBoxLayout()
         hbox.addLayout(form)
         hbox.addLayout(r_form)
         self.checkboxes = {}
@@ -996,7 +996,7 @@ class SelectHWLibraryColsDialog(QDialog):
             forms = {i : QFormLayout() for i in range(m + 1)}
         else:
             forms = {i : QFormLayout() for i in range(m)}
-        parm_hbox = QHBoxLayout(self)
+        parm_hbox = QHBoxLayout()
         for form in forms.values():
             parm_hbox.addLayout(form)
         parameters.sort(key=lambda x: (de_defz.get(x, {}).get('name')

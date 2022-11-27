@@ -692,7 +692,6 @@ class FilterPanel(QWidget):
             only_mine_hbox.addWidget(self.only_mine_label)
             only_mine_hbox.addStretch(1)
             only_mine_hbox.addWidget(self.set_view_button)
-            # only_mine_hbox.addWidget(self.reset_view_button)
             proxy_layout.addLayout(only_mine_hbox)
             filters_hbox = QHBoxLayout()
             filters_hbox.addWidget(self.ext_filters)
