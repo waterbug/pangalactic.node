@@ -791,6 +791,7 @@ class UnitPrefsDialog(QDialog):
             val = widget.get_value()
             prefs['units'][dims] = val
             orb.log.debug(f'  - {dims}: {val}')
+        dispatcher.send('units set')
 
 
 class PrefsDialog(QDialog):

@@ -4,7 +4,6 @@ A set of custom TableModels for use with QTableView.
 # stdlib
 import os, re
 from textwrap import wrap
-from collections.abc import Mapping
 
 # louie
 # from louie import dispatcher
@@ -166,45 +165,37 @@ class NullObject(object):
     oid = None
 
 
-class ObjViewDict(Mapping):
-    def __init__(self, obj, view=None):
-        self.obj = obj
-        self.view = view or ['']
-        self.schema = orb.schemas[obj.__class__.__name__]
-
-    def __getitem__(self, a):
-        if a in self.schema['field_names']:
+def obj_view_to_dict(obj, view):
+    d = {}
+    schema = orb.schemas[obj.__class__.__name__]
+    for a in view:
+        if a in schema['field_names']:
             if a == 'id':
-                return self.obj.id
+                d[a] = obj.id
             elif a in TEXT_PROPERTIES:
-                return (getattr(self.obj, a) or ' ').replace('\n', ' ')
-            elif self.schema['fields'][a]['range'] == 'datetime':
-                return dt2local_tz_str(getattr(self.obj, a))
-            elif self.schema['fields'][a]['field_type'] == 'object':
-                rel_obj = getattr(self.obj, a)
+                d[a] = (getattr(obj, a) or ' ').replace('\n', ' ')
+            elif schema['fields'][a]['range'] == 'datetime':
+                d[a] = dt2local_tz_str(getattr(obj, a))
+            elif schema['fields'][a]['field_type'] == 'object':
+                rel_obj = getattr(obj, a)
                 if rel_obj.__class__.__name__ == 'ProductType':
-                    return rel_obj.abbreviation or ''
+                    d[a] = rel_obj.abbreviation or ''
                 elif rel_obj.__class__.__name__ in ['HardwareProduct',
                                                     'Organization',
                                                     'Person', 'Project']:
-                    return rel_obj.id or rel_obj.name or '[unnamed]'
+                    d[a] = rel_obj.id or rel_obj.name or '[unnamed]'
                 else:
-                    return getattr(rel_obj, 'name', None) or '[unnamed]'
+                    d[a] = getattr(rel_obj, 'name', None) or '[unnamed]'
             else:
-                return str(getattr(self.obj, a, '-'))
+                d[a] = str(getattr(obj, a))
         elif a in parm_defz:
             pd = parm_defz.get(a)
             units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
                                                     pd['dimensions'], '')
-            return get_pval_as_str(self.obj.oid, a, units=units)
+            d[a] = get_pval_as_str(obj.oid, a, units=units)
         elif a in de_defz:
-            return get_dval_as_str(self.obj.oid, a)
-
-    def __iter__(self):
-        return iter(self.view)
-
-    def __len__(self):
-        return len(self.view)
+            d[a] = get_dval_as_str(obj.oid, a)
+    return d
 
 
 class ObjectTableModel(MappingTableModel):
@@ -258,9 +249,7 @@ class ObjectTableModel(MappingTableModel):
                         val = 'None'
                     setattr(null_obj, name, val)
                 self.objs.insert(0, null_obj)
-            # NOTE:  this works but may need performance optimization when
-            # the table holds a large number of objects
-            ds = [ObjViewDict(o, view=self.view) for o in self.objs]
+            ds = [obj_view_to_dict(o, self.view) for o in self.objs]
         else:
             ds = [{0:'no data'}]
             self.view = ['id']

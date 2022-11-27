@@ -728,6 +728,7 @@ class FilterPanel(QWidget):
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.on_del_object_signal, 'deleted object')
+        dispatcher.connect(self.refresh, 'units set')
         self.dirty = False
 
     def set_source_model(self, model):
