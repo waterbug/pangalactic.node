@@ -284,9 +284,7 @@ class Main(QMainWindow):
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
-        # dispatcher.connect(self.on_remote_new_or_decloaked_signal,
         dispatcher.connect(self.on_received_objects, 'remote: decloaked')
-        # dispatcher.connect(self.on_remote_new_or_decloaked_signal,
         dispatcher.connect(self.on_received_objects, 'remote: new')
         # dispatcher.connect(self.on_remote_modified_signal,
         dispatcher.connect(self.on_received_objects, 'remote: modified')
@@ -1432,19 +1430,26 @@ class Main(QMainWindow):
             obj_id = '[unknown]'
             # base msg
             msg = "remote {}: ".format(subject)
-            # generate log "msg" values ...
             if subject == 'decloaked':
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
                 # obj_oid, obj_id = content
                 n = len(content)
                 msg += f'received {n} decloaked objects'
+                self.statusbar.showMessage(msg)
+                # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
+                dispatcher.send(signal="remote: decloaked", content=content)
             elif subject == 'new':
                 # NOTE: content of 'new' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
                 # obj_oid, obj_id = content
                 n = len(content)
                 msg += f'received {n} new objects'
+                self.statusbar.showMessage(msg)
+                # NOTE: content of 'new' msg changed in version 2.2.dev8 -- it
+                # is now a list of serialized objects
+                dispatcher.send(signal="remote: new", content=content)
             elif subject == 'new mode defs':
                 orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
                 md_dts, ser_md, userid = content
@@ -1557,22 +1562,18 @@ class Main(QMainWindow):
                 # obj_oid, obj_id, obj_mod_datetime = content
                 n = len(content)
                 msg += f"received {n} modified objects"
-                # obj = orb.get(obj_oid)
-                # if obj and obj.name:
-                    # if isinstance(obj, orb.classes['Product']):
-                        # pt = getattr(obj.product_type, 'name', 'unknown type')
-                        # msg += "{} ({}) [{}]".format(obj_id, obj.name, pt)
-                    # elif isinstance(obj, orb.classes['Acu']):
-                        # pth = getattr(obj.product_type_hint, 'name',
-                                      # 'unknown type')
-                        # msg += "{} [{}]".format(obj_id, pth)
-                # else:
-                    # msg += obj_id
-            # DEPRECATED:  old 'frozen' superceded by new 'frozen' message
-            # elif subject == 'frozen':
-                # # content is an oid
-                # dispatcher.send(signal="remote: frozen", frozen_oid=content)
-
+                # don't show msg in statusbar -- may not be relevant
+                # NOTE: content of 'modified' msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
+                dispatcher.send(signal="remote: modified", content=content)
+            elif subject == 'deleted':
+                obj_oid = content
+                obj = orb.get(obj_oid)
+                if obj:
+                    obj_id = obj.id
+                msg += obj_id
+                self.statusbar.showMessage(msg)
+                dispatcher.send(signal="remote: deleted", content=content)
             elif subject == 'frozen':
                 # content is a list of tuples:
                 #   (obj.oid, str(obj.mod_datetime), obj.modifier.oid) 
@@ -1645,12 +1646,12 @@ class Main(QMainWindow):
                         self.on_remote_freeze_or_thaw(thawed_attrs, 'thaw')
                 else:
                     orb.log.info('  but it was empty!')
-            elif subject == 'deleted':
-                obj_oid = content
-                obj = orb.get(obj_oid)
-                if obj:
-                    obj_id = obj.id
-                msg += obj_id
+            elif subject == 'de del':
+                self.statusbar.showMessage(msg)
+                dispatcher.send(signal="remote: de del", content=content)
+            elif subject == 'parm del':
+                self.statusbar.showMessage(msg)
+                dispatcher.send(signal="remote: parm del", content=content)
             elif subject == 'organization':
                 obj_oid = content['oid']
                 obj_id = content['id']
@@ -1687,69 +1688,40 @@ class Main(QMainWindow):
                     d = str(content)
                     orb.log.debug(f'- could process received data: {d}')
                 self.statusbar.showMessage(msg)
-            # dispatcher signals to send ...
-            if subject == 'decloaked':
-                self.statusbar.showMessage(msg)
-                # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
-                # -- it is now a list of serialized objects
-                dispatcher.send(signal="remote: decloaked", content=content)
-            elif subject == 'new':
-                self.statusbar.showMessage(msg)
-                # NOTE: content of 'new' msg changed in version 2.2.dev8 -- it
-                # is now a list of serialized objects
-                dispatcher.send(signal="remote: new", content=content)
-            elif subject == 'modified':
-                # don't show msg in statusbar -- may not be relevant
-                # NOTE: content of 'modified' msg changed in version 2.2.dev8
-                # -- it is now a list of serialized objects
-                dispatcher.send(signal="remote: modified", content=content)
-            elif subject == 'deleted':
-                self.statusbar.showMessage(msg)
-                dispatcher.send(signal="remote: deleted", content=content)
-            elif subject == 'de del':
-                self.statusbar.showMessage(msg)
-                dispatcher.send(signal="remote: de del", content=content)
-            elif subject == 'parm del':
-                self.statusbar.showMessage(msg)
-                dispatcher.send(signal="remote: parm del", content=content)
-            # elif subject == 'parameter set':
-                # dispatcher.send(signal="remote pval set", content=content)
-            # elif subject == 'data element set':
-                # dispatcher.send(signal="remote dval set", content=content)
 
     # DEPRECATED (now using on_received_objects())
-    def on_remote_new_or_decloaked_signal(self, content=None):
-        """
-        Call functions to update applicable widgets when a pub/sub message is
-        received from the repository service indicating that a new object has
-        been decloaked or an existing decloaked object has been modified.
+    # def on_remote_new_or_decloaked_signal(self, content=None):
+        # """
+        # Call functions to update applicable widgets when a pub/sub message is
+        # received from the repository service indicating that a new object has
+        # been decloaked or an existing decloaked object has been modified.
 
-        Keyword Args:
-            content (tuple):  content of the pub/sub message, which has the
-                form of a 4-tuple:  (obj_oid, obj_id, actor_oid, actor_id)
-        """
-        # TODO:  other actions will be needed ...
-        orb.log.info('* "remote: [new|decloaked]" signal received ...')
-        if not content:
-            orb.log.debug(' - content was empty.')
-            return
-        try:
-            obj_oid, obj_id = content
-        except:
-            # handle the error (pop up a notification dialog)
-            orb.log.debug('  - content could not be parsed:')
-            orb.log.debug('    {}'.format(str(content)))
-            return
-        obj = orb.get(obj_oid)
-        if obj:
-            orb.log.debug('  - decloaked object is already in local db.')
-        elif state['connected']:
-            # get object from repository ...
-            orb.log.debug('  - object unknown -- get from repo...')
-            rpc = self.mbus.session.call('vger.get_object', obj_oid,
-                                         include_components=True)
-            rpc.addCallback(self.on_received_objects)
-            rpc.addErrback(self.on_failure)
+        # Keyword Args:
+            # content (tuple):  content of the pub/sub message, which has the
+                # form of a 4-tuple:  (obj_oid, obj_id, actor_oid, actor_id)
+        # """
+        # # TODO:  other actions will be needed ...
+        # orb.log.info('* "remote: [new|decloaked]" signal received ...')
+        # if not content:
+            # orb.log.debug(' - content was empty.')
+            # return
+        # try:
+            # obj_oid, obj_id = content
+        # except:
+            # # handle the error (pop up a notification dialog)
+            # orb.log.debug('  - content could not be parsed:')
+            # orb.log.debug('    {}'.format(str(content)))
+            # return
+        # obj = orb.get(obj_oid)
+        # if obj:
+            # orb.log.debug('  - decloaked object is already in local db.')
+        # elif state['connected']:
+            # # get object from repository ...
+            # orb.log.debug('  - object unknown -- get from repo...')
+            # rpc = self.mbus.session.call('vger.get_object', obj_oid,
+                                         # include_components=True)
+            # rpc.addCallback(self.on_received_objects)
+            # rpc.addErrback(self.on_failure)
 
     # DEPRECATED -- now using person search dlg directly ...
     # def on_ldap_search(self, query=None):
@@ -4065,6 +4037,9 @@ class Main(QMainWindow):
 
     def rebuild_dashboard(self, dashboard_mod=False, force=False):
         orb.log.debug('* rebuild_dashboard()')
+        if not self.mode == 'system':
+            orb.log.debug('    not in "system mode" -- ignoring.')
+            return
         if (not force and not dashboard_mod and
             (not self.sys_tree_rebuilt or self.dashboard_rebuilt)):
             orb.log.debug('  + no force and no dashboard mod and either tree')
