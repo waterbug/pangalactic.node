@@ -492,13 +492,13 @@ class LibraryListWidget(QWidget):
             for cname in self.libraries:
                 lib_widget = self.libraries[cname]
                 if hasattr(lib_widget, 'refresh'):
-                    orb.log.debug("  lib_widget.refresh() for {}".format(
-                                                                    cname))
+                    # orb.log.debug("  lib_widget.refresh() for {}".format(
+                                                                    # cname))
                     lib_widget.refresh()
                 elif (hasattr(lib_widget, 'model') and
                       hasattr(lib_widget.model(), 'refresh')):
-                    orb.log.debug("  lib_widget.model().refresh()")
-                    orb.log.debug("  for {}".format(cname))
+                    # orb.log.debug("  lib_widget.model().refresh()")
+                    # orb.log.debug("  for {}".format(cname))
                     lib_widget.model().refresh()
         # call on_only_mine_toggled() to ensure filtering is consistent with
         # state after a refresh
