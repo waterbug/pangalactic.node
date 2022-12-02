@@ -173,6 +173,9 @@ class Main(QMainWindow):
         self.dashboard_rebuilt = False
         self.proc_pool = pool
         self.project_oids = []
+        # the "client" state is needed to enable the 'access' module to
+        # differentiate permissions between client and server
+        state['client'] = True
         # initialize internal "_product" attr, so getter for "product" works
         self._product = None
         # set flag to monitor when connecting to server
@@ -1863,7 +1866,7 @@ class Main(QMainWindow):
                            for obj in objs])
         orb.log.debug('  deserializes as:')
         orb.log.debug('  {}'.format(str(rep)))
-        need_to_refresh_libraries = []
+        need_to_refresh_libraries = set()
         need_to_refresh_tree = False
         # NOTE:  need_to_refresh_dashboard has become unnecessary because
         # dashboard will be refreshed as a result of on_get_parmz(), called
@@ -1876,19 +1879,19 @@ class Main(QMainWindow):
             # tree and/or diagram before rebuilding them ...
             cname = obj.__class__.__name__
             if isinstance(obj, orb.classes['ParameterDefinition']):
-                need_to_refresh_libraries.append('ParameterDefinition')
+                need_to_refresh_libraries.add('ParameterDefinition')
             elif isinstance(obj, orb.classes['DataElementDefinition']):
-                need_to_refresh_libraries.append('DataElementDefinition')
+                need_to_refresh_libraries.add('DataElementDefinition')
             elif isinstance(obj, orb.classes['HardwareProduct']):
-                need_to_refresh_libraries.append('HardwareProduct')
+                need_to_refresh_libraries.add('HardwareProduct')
                 need_to_refresh_diagram = True
                 # need_to_refresh_dashboard = True
             elif isinstance(obj, orb.classes['Template']):
-                need_to_refresh_libraries.append('Template')
+                need_to_refresh_libraries.add('Template')
             elif isinstance(obj, orb.classes['PortTemplate']):
-                need_to_refresh_libraries.append('PortTemplate')
+                need_to_refresh_libraries.add('PortTemplate')
             elif isinstance(obj, orb.classes['PortType']):
-                need_to_refresh_libraries.append('PortType')
+                need_to_refresh_libraries.add('PortType')
             elif isinstance(obj, (orb.classes['Port'], orb.classes['Flow'])):
                 need_to_refresh_diagram = True
             elif isinstance(obj, (orb.classes['Acu'],
@@ -1925,12 +1928,6 @@ class Main(QMainWindow):
         if to_delete:
             # delete any SANDBOX PSUs that were received
             orb.delete(to_delete)
-        for cname in need_to_refresh_libraries:
-            # refresh library widgets ...
-            orb.log.debug('  updating libraries with: "{}"'.format(obj.id))
-            if hasattr(self, 'library_widget'):
-                # orb.log.debug('  - refreshing library_widget')
-                self.library_widget.refresh(cname=cname)
         if (need_to_refresh_tree and state.get('mode') == 'system'):
             self.refresh_tree_views()
         # NOTE: this dashboard refresh is now unnecessary because it will be
@@ -1943,6 +1940,12 @@ class Main(QMainWindow):
             # rebuild diagram in case an object corresponded to a
             # block in the current diagram
             self.system_model_window.on_signal_to_refresh()
+        for cname in need_to_refresh_libraries:
+            # refresh library widgets ...
+            orb.log.debug('  updating libraries with: "{}"'.format(obj.id))
+            if hasattr(self, 'library_widget'):
+                # orb.log.debug('  - refreshing library_widget')
+                self.library_widget.refresh(cname=cname)
         # *******************************************************************
         # NOTE: this resync was causing severe problems in the GUI, mainly
         # caused by the progress dialog getting "stuck" ... possibly revisit
@@ -3207,11 +3210,14 @@ class Main(QMainWindow):
         if data:
             orb.log.info('* got parmz data, updating ...')
             parameterz.update(data)
+            # refresh dashboard and hw library if appropriate ...
             if getattr(self, 'dashboard_panel', None):
                 # NOTE: testing to see if refresh_dashboard() is enough
                 # NOTE: it wasn't!!
                 # self.refresh_dashboard()
                 self.rebuild_dashboard(force=True)
+            if hasattr(self, 'library_widget'):
+                self.library_widget.refresh(cname='HardwareProduct')
 
     def on_vger_save_result(self, stuff):
         orb.log.debug('- vger.save rpc result: {}'.format(str(stuff)))
@@ -5094,14 +5100,14 @@ class Main(QMainWindow):
                 else:
                     # if not connected, work in synchronous mode ...
                     orb.recompute_parmz()
-                    if hasattr(self, 'library_widget'):
-                        self.library_widget.refresh()
                     if self.mode == 'system':
                         for obj in new_products_psus_or_acus:
                             self.update_object_in_trees(obj)
                         # might need to refresh dashboard, e.g. if acu quantities
                         # have changed ...
                         self.refresh_dashboard()
+                    if hasattr(self, 'library_widget'):
+                        self.library_widget.refresh()
             if importing:
                 popup = QMessageBox(QMessageBox.Information,
                             "Project Data Import", msg,
