@@ -17,8 +17,10 @@ from louie import dispatcher
 from pangalactic.core             import config, state
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import get_external_name_plural
-from pangalactic.core.parametrics import (de_defz, parm_defz, set_dval,
-                                          set_dval_from_str, set_pval_from_str)
+from pangalactic.core.parametrics import (add_default_parameters, de_defz,
+                                          parm_defz, set_dval,
+                                          set_dval_from_str,
+                                          set_pval_from_str)
 from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
@@ -1042,6 +1044,7 @@ class IdentificationPage(QtWidgets.QWizardPage):
         if (self.product and self.product.id and self.product.name and
             self.product.product_type):
             orb.log.info('  - product validated successfully')
+            add_default_parameters(self.product)
             return True
         else:
             orb.log.info('  - product did NOT validate successfully')

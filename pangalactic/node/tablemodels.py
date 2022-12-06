@@ -162,12 +162,23 @@ class MappingTableModel(QAbstractTableModel):
 
 
 class NullObject(object):
-    oid = None
+    def __init__(self):
+        self.oid = None
+        self.id = 'None'
+        self.name = ''
+        self.description = ''
 
 
 def obj_view_to_dict(obj, view):
     d = {}
-    schema = orb.schemas[obj.__class__.__name__]
+    schema = orb.schemas.get(obj.__class__.__name__)
+    if not schema:
+        # this will only be the case for a NullObject, which is only used for
+        # ObjectSelectionDialog as a "None" choice, so the only fields needed
+        # are id, name, description
+        return {'id': 'None',
+                'name': '',
+                'description': ''}
     for a in view:
         if a in schema['field_names']:
             if a == 'id':
