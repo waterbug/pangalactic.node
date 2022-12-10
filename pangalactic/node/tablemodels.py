@@ -285,6 +285,33 @@ class ObjectTableModel(MappingTableModel):
         else:
             return ['No Data']
 
+    def get_mapping_for_obj(self, obj, view):
+        """
+        Return the dict representation of an extended object.
+        """
+        d = dict()
+        for name in view:
+            if name not in self.schema['fields']:
+                if name in parm_defz:
+                    val = get_pval_as_str(obj.oid, name)
+                elif name in de_defz:
+                    val = get_dval_as_str(obj.oid, name)
+                else:
+                    val = '-'
+            elif name == 'id':
+                val = display_id(obj)
+            elif name in TEXT_PROPERTIES:
+                val = (getattr(obj, name) or ' ').replace('\n', ' ')
+            elif self.schema['fields'][name]['range'] == 'datetime':
+                val = dt2local_tz_str(getattr(obj, name))
+            elif self.schema['fields'][name]['field_type'] == 'object':
+                val = (getattr(getattr(obj, name), 'name', None)
+                       or getattr(getattr(obj, name), 'id', '[None]'))
+            else:
+                val = str(getattr(obj, name))
+            d[name] = val
+        return d
+
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
             return self.col_labels[section]

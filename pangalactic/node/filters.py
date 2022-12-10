@@ -655,7 +655,6 @@ class FilterPanel(QWidget):
             self.only_mine_label = QLabel("Only My Products")
             self.only_mine_label.setStyleSheet(
                                            'font-weight: bold; color: green;')
-
             self.set_view_button = SizedButton('Customize Columns')
             self.set_view_button.clicked.connect(self.set_custom_hw_lib_view)
 
