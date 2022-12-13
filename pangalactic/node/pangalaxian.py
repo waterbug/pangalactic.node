@@ -265,6 +265,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
+        dispatcher.connect(self.on_des_set, 'des set')
         dispatcher.connect(self.on_get_parmz, 'get parmz')
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
@@ -3173,6 +3174,22 @@ class Main(QMainWindow):
             rpc.addErrback(self.on_failure)
 
     def on_vger_del_de_result(self, msg):
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+
+    def on_des_set(self, des=None):
+        """
+        Handle local dispatcher signal "des set".
+
+        Keyword Args:
+            des (dict): dict of oids / data elements to update
+        """
+        if des:
+            rpc = self.mbus.session.call('vger.set_data_elements', des=des)
+            rpc.addCallback(self.on_vger_set_des_result)
+            rpc.addErrback(self.on_failure)
+
+    def on_vger_set_des_result(self, msg):
         if msg:
             orb.log.info(f'* vger: {msg}.')
 

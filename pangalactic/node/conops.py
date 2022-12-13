@@ -36,8 +36,8 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QPushButton, QGraphicsPathItem, QVBoxLayout,
                              QToolBar, QWidgetAction, QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
-from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPen, QPixmap,
-                         QCursor, QPainterPath, QPolygonF, QTransform)
+from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPen, QPixmap, QCursor,
+                         QPainter, QPainterPath, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 
 # pangalactic
@@ -95,7 +95,6 @@ class EventBlock(QGraphicsPolygonItem):
         else:
             path.addEllipse(-100, 0, 200, 200)
             self.myPolygon = path.toFillPolygon(QTransform())
-            self.setFlag(QGraphicsItem.ItemSendsGeometryChanges)
         self.setPolygon(self.myPolygon)
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
                                       self, point_size=8)
@@ -155,6 +154,7 @@ class EventBlock(QGraphicsPolygonItem):
 class TimelineView(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setRenderHint(QPainter.Antialiasing)
 
     def dragEnterEvent(self, event):
         try:
@@ -404,6 +404,7 @@ class ToolButton(QPushButton):
 # all SC's, ground system, all of the above, etc.), or (2) if TimelineWidget
 # activity is a non-Mission activity instance, all subsystems of the current
 # activity's "of_function" component or "of_system" system.
+
 class TimelineWidget(QWidget):
     def __init__(self, activity, position=None, parent=None):
         super().__init__(parent=parent)
@@ -1108,10 +1109,10 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug(' - set_widgets() ...')
         self.system_widget = TimelineWidget(self.activity, position='top')
-        self.system_widget.setMinimumSize(900, 200)
+        self.system_widget.setMinimumSize(900, 150)
         self.sub_widget = TimelineWidget(current_activity, position='middle')
         self.sub_widget.setEnabled(False)
-        self.sub_widget.setMinimumSize(900, 200)
+        self.sub_widget.setMinimumSize(900, 150)
         self.outer_layout = QGridLayout()
         act_of = self.activity.of_function or self.activity.of_system
         system_table = ActivityTable(subject=self.activity, parent=self,

@@ -294,9 +294,10 @@ class SystemTreeModel(QAbstractItemModel):
 
         Keyword Args:
             refdes (bool):  flag indicating whether to display the reference
-                designator as part of the tooltip
+                designator as part of the tooltip (default: True)
             show_allocs (bool):  flag indicating whether to highlight nodes to
-                which a specified requirement has been allocated
+                which a specified requirement has been allocated (default:
+                False)
             req (Requirement):  the requirement whose allocations should be
                 highlighted if 'show_allocs' is True
             show_mode_systems (bool):  flag indicating whether to highlight
