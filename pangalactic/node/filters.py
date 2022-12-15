@@ -10,7 +10,6 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QHBoxLayout, QLabel, QLineEdit, QSizePolicy,
                              QTableView, QVBoxLayout, QWidget)
 
-
 import re
 from functools import reduce
 from textwrap import wrap
@@ -230,12 +229,12 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
     reqpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)(\.[0-9][0-9]*)*'
 
-    def __init__(self, view=None, cname=None, cols_are_ids=False, parent=None):
+    def __init__(self, view=None, cname=None, headers_are_ids=False, parent=None):
         super().__init__(parent=parent)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
         self.view = view or []
         self.cname = cname
-        self.cols_are_ids = cols_are_ids
+        self.headers_are_ids = headers_are_ids
         self.schema = orb.schemas[self.cname]
 
     @property
@@ -246,9 +245,8 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     @property
     def col_labels(self):
-        use_ids = self.cols_are_ids
         return [PGEF_COL_NAMES.get(a, pname_to_header_label(
-                                   a, cols_are_ids=use_ids))
+                                   a, headers_are_ids=self.headers_are_ids))
                 for a in self.view]
 
     @property
@@ -419,7 +417,7 @@ class ProxyView(QTableView):
     Presentation table view for a filtered set of objects.
     """
     def __init__(self, proxy_model, sized_cols=None, as_library=False,
-                 cols_are_ids=False, word_wrap=False, parent=None):
+                 headers_are_ids=False, word_wrap=False, parent=None):
         super().__init__(parent=parent)
         self.initializing = True
         self.sized_cols = sized_cols or {'name': 150}
@@ -554,7 +552,7 @@ class FilterPanel(QWidget):
     A widget containing a filterable table of objects.
     """
     def __init__(self, objs, cname=None, view=None, sized_cols=None, label='',
-                 title='', cols_are_ids=False, width=None, min_width=None,
+                 title='', headers_are_ids=False, width=None, min_width=None,
                  height=None, as_library=False, external_filters=False,
                  excluded_oids=None, word_wrap=False, parent=None):
         """
@@ -572,7 +570,7 @@ class FilterPanel(QWidget):
                 contents
             label (str):  string to incorporate in title
             title (str):  string to use for title
-            cols_are_ids (str):  use ids of column items as their titles;
+            headers_are_ids (str):  use ids of column items as their headers;
                 otherwise, use item names or labels (default: False)
             width (int):  width widget will be initially resized to
             min_width (int):  minimum width of widget
@@ -590,7 +588,7 @@ class FilterPanel(QWidget):
         super().__init__(parent=parent)
         orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
         self.as_library = as_library
-        self.cols_are_ids = cols_are_ids
+        self.headers_are_ids = headers_are_ids
         self.excluded_oids = excluded_oids or []
         self.edit_req_calls = 0
         self.edit_req_fields_calls = 0
@@ -642,7 +640,7 @@ class FilterPanel(QWidget):
         self.proxy_model = ObjectSortFilterProxyModel(
                                                 view=self.view,
                                                 cname=self.cname,
-                                                cols_are_ids=self.cols_are_ids,
+                                                headers_are_ids=self.headers_are_ids,
                                                 parent=self)
         self.proxy_model.setDynamicSortFilter(True)
         if external_filters:
@@ -676,7 +674,7 @@ class FilterPanel(QWidget):
         self.filter_case_checkbox.toggled.connect(self.textFilterChanged)
         self.proxy_view = ProxyView(self.proxy_model, sized_cols=sized_cols,
                                     as_library=as_library, word_wrap=word_wrap,
-                                    cols_are_ids=self.cols_are_ids,
+                                    headers_are_ids=self.headers_are_ids,
                                     parent=self)
         self.proxy_view.horizontalHeader().sectionMoved.connect(
                                                         self.on_column_moved)
