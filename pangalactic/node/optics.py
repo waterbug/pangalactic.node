@@ -15,20 +15,18 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsPathItem, QSizePolicy, QToolBar,
                              QVBoxLayout, QWidgetAction)
 # from PyQt5.QtWidgets import (QMessageBox, QStatusBar, QToolBox,
-#                              QTreeWidgetItem, QTreeWidget)
 from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPen, QCursor, QPainterPath,
                          QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 
 # pangalactic
 from pangalactic.core             import state
-# from pangalactic.core.names       import get_acu_id, get_acu_name
 from pangalactic.core.parametrics import get_dval, set_dval
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
+from pangalactic.node.tableviews  import SystemInfoTable
 # from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 
@@ -504,11 +502,8 @@ class OpticalSystemModeler(QMainWindow):
         self.system_widget = OpticalSystemWidget(self.system)
         self.system_widget.setMinimumSize(900, 150)
         # FilterPanel with all optical system components
-        if self.system:
-            comps = [acu.component for acu in self.system.components]
-        else:
-            comps = []
-        view = ['RoC', 'K',
+        view = ['ref des',
+                'RoC', 'K',
                 'X_vertex',
                 'Y_vertex',
                 'Z_vertex',
@@ -521,9 +516,8 @@ class OpticalSystemModeler(QMainWindow):
                 'dLOSx_rx', 'dLOSx_ry', 'dLOSx_rz',
                 'dLOSy_dx', 'dLOSy_dy', 'dLOSy_dz',
                 'dLOSy_rx', 'dLOSy_ry', 'dLOSy_rz']
-        self.system_table = FilterPanel(comps, title='Optical System Table',
-                                        view=view, headers_are_ids=True,
-                                        parent=self)
+        self.system_table = SystemInfoTable(system=self.system, view=view,
+                                            parent=self)
         # self.system_table.setMinimumSize(500, 300)
         self.system_table.setSizePolicy(QSizePolicy.Expanding,
                                         QSizePolicy.Expanding)

@@ -1,5 +1,5 @@
 """
-Widgets based on QTableView
+Widgets based on QTableView and QTableWidget
 """
 import os
 
@@ -7,9 +7,12 @@ import os
 import ruamel_yaml as yaml
 
 # PyQt
-from PyQt5.QtWidgets import (QAction, QDialog, QDialogButtonBox, QFileDialog,
-                             QSizePolicy, QTableView, QVBoxLayout)
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore    import pyqtSlot, Qt, QRect, QTimer
+from PyQt5.QtGui     import QPalette
+from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
+                             QFileDialog, QHeaderView, QLabel, QProxyStyle,
+                             QSizePolicy, QStyle, QStyleOptionHeader,
+                             QTableView, QTableWidget, QVBoxLayout)
 
 # Louie
 from louie import dispatcher
@@ -18,6 +21,8 @@ from louie import dispatcher
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names       import get_external_name_plural
+from pangalactic.core.parametrics import (make_de_html, make_parm_html, de_defz,
+                                          parm_defz)
 from pangalactic.core.serializers import serialize
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
@@ -26,6 +31,155 @@ from pangalactic.node.tablemodels import (ObjectTableModel,
                                           SpecialSortModel)
 from pangalactic.node.dialogs     import NotificationDialog, SelectColsDialog
 from pangalactic.node.pgxnobject  import PgxnObject
+
+
+class HeaderProxyStyle(QProxyStyle):
+    def drawControl(self, element, option, painter, widget=None):
+        if element == QStyle.CE_Header:
+            option.text = ""
+        super(HeaderProxyStyle, self).drawControl(
+            element, option, painter, widget)
+
+
+class LabelHeaderView(QHeaderView):
+    def __init__(self, parent, widths=None):
+        super(LabelHeaderView, self).__init__(Qt.Horizontal, parent)
+        self.m_labels = []
+        self.widths = widths or []
+        self.sectionResized.connect(self.adjustPositions)
+        # self.setSectionResizeMode(self.ResizeToContents)
+        self.sectionCountChanged.connect(self.onSectionCountChanged)
+        self.parent().horizontalScrollBar().valueChanged.connect(
+                                                self.adjustPositions)
+        proxy_style = HeaderProxyStyle(self.style())
+        self.setStyle(proxy_style)
+
+    @pyqtSlot()
+    def onSectionCountChanged(self):
+        while self.m_labels:
+            label = self.m_labels.pop()
+            label.deleteLater()
+        for i in range(self.count()):
+            label = QLabel(self, alignment=Qt.AlignCenter)
+            label.setTextFormat(Qt.RichText)
+            self.m_labels.append(label)
+            self.update_data()
+            if len(self.widths) > i:
+                self.resizeSection(i, self.widths[i])
+            self.adjustPositions()
+
+    def setModel(self, model):
+        super(LabelHeaderView, self).setModel(model)
+        if self.model() is not None:
+            self.model().headerDataChanged.connect(self.update_data)
+
+    def update_data(self):
+        option = QStyleOptionHeader()
+        self.initStyleOption(option)
+        for i, label in enumerate(self.m_labels):
+            text = self.model().headerData(
+                i, self.orientation(), Qt.DisplayRole)
+            label.setText(str(text))
+            pal = label.palette()
+            bc = self.model().headerData(
+                i, self.orientation(), Qt.BackgroundRole)
+            if bc is None:
+                bc = option.palette.brush(QPalette.Window)
+            pal.setBrush(QPalette.Window, bc)
+            fc = self.model().headerData(
+                i, self.orientation(), Qt.ForegroundRole)
+            if fc is None:
+                fc = option.palette.brush(QPalette.ButtonText)
+            pal.setBrush(QPalette.ButtonText, fc)
+            label.setPalette(pal)
+            textAlignment = self.model().headerData(
+                i, self.orientation(), Qt.TextAlignmentRole)
+            if textAlignment is None:
+                textAlignment = self.defaultAlignment()
+            label.setAlignment(textAlignment)
+
+    def updateGeometries(self):
+        super(LabelHeaderView, self).updateGeometries()
+        self.adjustPositions()
+
+    @pyqtSlot()
+    def adjustPositions(self):
+        for index, label in enumerate(self.m_labels):
+            geom = QRect(
+                self.sectionViewportPosition(index),
+                0,
+                self.sectionSize(index),
+                self.height())
+            geom.adjust(2, 0, -2, 0)
+            label.setGeometry(geom)
+
+
+class SystemInfoTable(QTableWidget):
+    """
+    Table whose main purpose is to provide an editable view of one level of a
+    system assembly (BOM = Bill Of Materials) and possibly additional related
+    items (e.g., for the Error Budget of an optical system, sources of errors
+    may also be included).  The rows of the table contain properties and
+    parameters of components, their usages in the assembly, and possibly
+    related items.
+    """
+    def __init__(self, system=None, view=None, parent=None):
+        """
+        Initialize
+
+        system (HardwareProduct):  the system whose assembly is shown
+        view (list of str):  specified properties, parameters, and data
+            elements (columns)
+        """
+        super().__init__(parent=parent)
+        orb.log.info('* [SystemInfoTable] initializing ...')
+        self.system = system
+        # TODO: get default view from prefs / config
+        default_view = [
+            'ref des',
+            'X_vertex',
+            'Y_vertex',
+            'Z_vertex',
+            'RotX_vertex',
+            'RotY_vertex',
+            'RotZ_vertex',
+            'dRMSWFE_dx',
+            'dRMSWFE_rx',
+            'dLOSx_dx',
+            'dLOSx_rx'
+            ]
+        self.view = view or default_view[:]
+        self.setup_table()
+
+    def setup_table(self):
+        self.setColumnCount(len(self.view))
+        comps = getattr(self.system, 'components', []) or []
+        if comps:
+            self.setRowCount(len(comps))
+        else:
+            self.setRowCount(1)
+        header_labels = []
+        widths = []
+        for pname in self.view:
+            if pname in parm_defz:
+                header_label = make_parm_html(pname, tag='h3')
+            elif pname in de_defz:
+                header_label = make_de_html(pname, tag='h3')
+            else:
+                html = pname
+                header_label = f'<h3>{html}</h3>'
+            header_labels.append(header_label)
+            if '_' in pname:
+                base, sub = pname.split('_')
+                width = len(base)*15 + len(sub)*8
+            else:
+                width = len(pname)*15
+            widths.append(width)
+        header = LabelHeaderView(self, widths=widths)
+        self.setHorizontalHeader(header)
+        self.setHorizontalHeaderLabels(header_labels)
+        width_fit = sum(w for w in widths) + 50
+        self.resize(width_fit, 240)
 
 
 class ObjectTableView(QTableView):
@@ -291,4 +445,13 @@ class CompareWidget(QDialog):
             self.layout.addWidget(self.bbox)
             self.resize(self.tableview.width()-200,
                         self.tableview.height()-100)
+
+
+if __name__ == "__main__":
+    import sys
+    orb.start(home='junk_home_dev', debug=True, test=True, console=True)
+    app = QApplication(sys.argv)
+    w = SystemInfoTable()
+    w.show()
+    sys.exit(app.exec_())
 
