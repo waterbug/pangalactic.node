@@ -35,7 +35,8 @@ from pangalactic.node.pgxnobject  import PgxnObject
 
 class HeaderProxyStyle(QProxyStyle):
     def drawControl(self, element, option, painter, widget=None):
-        if element == QStyle.CE_Header:
+        if element in [QStyle.CE_Header, QStyle.CE_HeaderLabel,
+                       QStyle.CE_HeaderSection]:
             option.text = ""
         super(HeaderProxyStyle, self).drawControl(
             element, option, painter, widget)
@@ -47,7 +48,6 @@ class LabelHeaderView(QHeaderView):
         self.m_labels = []
         self.widths = widths or []
         self.sectionResized.connect(self.adjustPositions)
-        # self.setSectionResizeMode(self.ResizeToContents)
         self.sectionCountChanged.connect(self.onSectionCountChanged)
         self.parent().horizontalScrollBar().valueChanged.connect(
                                                 self.adjustPositions)
@@ -132,7 +132,7 @@ class SystemInfoTable(QTableWidget):
             elements (columns)
         """
         super().__init__(parent=parent)
-        orb.log.info('* [SystemInfoTable] initializing ...')
+        # orb.log.info('* [SystemInfoTable] initializing ...')
         self.system = system
         # TODO: get default view from prefs / config
         default_view = [
@@ -195,7 +195,7 @@ class ObjectTableView(QTableView):
         view (list of str):  specified attributes (columns)
         """
         super().__init__(parent=parent)
-        orb.log.info('* [ObjectTableView] initializing ...')
+        # orb.log.info('* [ObjectTableView] initializing ...')
         self.objs = objs
         self.view = view
         self.setup_table()
@@ -206,13 +206,13 @@ class ObjectTableView(QTableView):
         # if a main_table_proxy exists, remove it so gui doesn't get confused
         if self.objs:
             self.cname = self.objs[0].__class__.__name__
-            orb.log.info('  - for class: "{}"'.format(self.cname))
+            # orb.log.info('  - for class: "{}"'.format(self.cname))
             if not self.view:
                 # if no view is specified, use the preferred view, if any
                 if (prefs.get('db_views') or {}).get(self.cname):
                     self.view = prefs['db_views'][self.cname][:]
-        else:
-            orb.log.info('  - no objects provided.')
+        # else:
+            # orb.log.info('  - no objects provided.')
         # if there is neither a specified view nor a preferred view, use the
         # default view
         view = self.view or MAIN_VIEWS.get(self.cname, IDENTITY)

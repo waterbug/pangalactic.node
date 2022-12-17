@@ -75,6 +75,7 @@ from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
+from pangalactic.node.optics           import OpticalSystemModeler
 from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.startup          import (setup_db_with_ref_data,
                                                setup_dirs_and_state)
@@ -2033,6 +2034,12 @@ class Main(QMainWindow):
                                 icon='lander',
                                 tip="42 Attitude Control System Modeler",
                                 modes=['system', 'component'])
+        self.optics_modeler_action = self.create_action(
+                                "Optics / Error Budget Modeler",
+                                slot=self.optics_modeler,
+                                icon='view_16',
+                                tip="Optical System Modeler",
+                                modes=['system', 'component'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         self.product_lib_action = self.create_action(
                                     hw_lib_title,
@@ -2654,6 +2661,7 @@ class Main(QMainWindow):
                                 self.modes_def_action,
                                 self.conops_modeler_action,
                                 self.modeler42_action,
+                                self.optics_modeler_action,
                                 self.product_lib_action,
                                 self.template_lib_action,
                                 self.product_types_lib_action,
@@ -4767,6 +4775,10 @@ class Main(QMainWindow):
         w = 4 * self.geometry().width() / 5
         h = self.geometry().height()
         window = SC42Window(width=w, height=h, parent=self)
+        window.show()
+
+    def optics_modeler(self):
+        window = OpticalSystemModeler(parent=self)
         window.show()
 
     def product_types_library(self):
