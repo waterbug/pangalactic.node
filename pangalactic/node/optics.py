@@ -32,8 +32,9 @@ from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
-from pangalactic.node.utils       import clone, extract_mime_data
-from pangalactic.node.widgets     import NameLabel
+from pangalactic.node.utils       import (clone, extract_mime_data,
+                                          create_product_from_template)
+from pangalactic.node.widgets     import NameLabel, ValueLabel
 
 
 class OpticalComponentBlock(QGraphicsPolygonItem):
@@ -416,42 +417,166 @@ class ToolButton(QPushButton):
         event.setAccepted(True)
 
 
+class SystemInfoPanel(QWidget):
+
+    def __init__(self, system=None, parent=None):
+        super().__init__(parent)
+        orb.log.debug('* SystemInfoPanel initializing ...')
+        self.system = system
+        if not system and state.get('optical_system'):
+            system = orb.get(state['optical_system'])
+            if system:
+                self.set_system(system)
+        self.setAcceptDrops(True)
+        # system frame
+        system_frame_vbox = QVBoxLayout()
+        system_frame_vbox.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+        system_frame_vbox.setSizeConstraint(QVBoxLayout.SetMinimumSize)
+        sys_name = getattr(system, 'name', 'No System Loaded')
+        sys_name = sys_name or 'No System Loaded'
+        self.title = NameLabel(sys_name)
+        self.title.setStyleSheet('font-weight: bold; font-size: 18px')
+        system_frame_vbox.addWidget(self.title)
+        system_info_layout = QHBoxLayout()
+        system_info_layout.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+        system_id_label = NameLabel('id:')
+        system_id_label.setStyleSheet('font-weight: bold')
+        system_info_layout.addWidget(system_id_label)
+        self.system_id_value_label = ValueLabel('No System Loaded', w=200)
+        system_info_layout.addWidget(self.system_id_value_label)
+        system_name_label = NameLabel('name:')
+        system_name_label.setStyleSheet('font-weight: bold')
+        system_info_layout.addWidget(system_name_label)
+        self.system_name_value_label = ValueLabel(
+                            'Drag/Drop an Optical System here ...', w=320)
+        system_info_layout.addWidget(self.system_name_value_label)
+        system_version_label = NameLabel('version:')
+        system_version_label.setStyleSheet('font-weight: bold')
+        system_info_layout.addWidget(system_version_label)
+        self.system_version_value_label = ValueLabel('', w=150)
+        system_info_layout.addWidget(self.system_version_value_label)
+        self.setLayout(system_frame_vbox)
+        system_frame_vbox.addLayout(system_info_layout)
+        self.setMinimumWidth(600)
+        self.setMaximumHeight(150)
+        dispatcher.connect(self.on_update, 'update system modeler')
+
+    def on_update(self, obj=None):
+        if obj:
+            self.set_system(obj)
+
+    def supportedDropActions(self):
+        return Qt.CopyAction
+
+    def mimeTypes(self):
+        # TODO:  should return mime types for Product and *ALL* subclasses
+        return ["application/x-pgef-hardware-product",
+                "application/x-pgef-template"]
+
+    def dragEnterEvent(self, event):
+        if (event.mimeData().hasFormat(
+                        "application/x-pgef-hardware-product") or
+            event.mimeData().hasFormat(
+                        "application/x-pgef-template")):
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.mimeData().hasFormat(
+                                "application/x-pgef-hardware-product"):
+            data = extract_mime_data(event,
+                                     "application/x-pgef-hardware-product")
+            icon, p_oid, p_id, p_name, p_cname = data
+            system = orb.get(p_oid)
+            if system:
+                dispatcher.send("drop on system info", p=system)
+            else:
+                event.ignore()
+                orb.log.debug("* drop event: ignoring oid '%s' -- "
+                              "not found in db." % p_oid)
+        elif event.mimeData().hasFormat("application/x-pgef-template"):
+            # drop item is Template -> create a new system from it
+            data = extract_mime_data(event, "application/x-pgef-template")
+            icon, t_oid, t_id, t_name, t_cname = data
+            template = orb.get(t_oid)
+            system = create_product_from_template(template)
+            # NOTE: the below stuff is unnecessary, I think
+            # if system.components:
+                # orb.save(system.components)
+                # for acu in system.components:
+                    # dispatcher.send('new object', obj=acu)
+            dispatcher.send("drop on system info", obj=system)
+            dispatcher.send('new object', obj=system)
+        else:
+            event.ignore()
+
+    def set_system(self, system=None):
+        """
+        Set a system in the modeler context.
+        """
+        # orb.log.debug('* SystemInfoPanel: set_system')
+        # system_oid = state.get('optical_system')
+        # system = orb.get(system_oid)
+        if system:
+            # if not a HardwareProduct, system is ignored
+            if system.__class__.__name__ != 'HardwareProduct':
+                # orb.log.debug('  - not a HardwareProduct -- ignored.')
+                return
+            # orb.log.debug('  - oid: %s' % system.oid)
+            self.system_id_value_label.setText(system.id)
+            self.system_name_value_label.setText(system.name)
+            if hasattr(system, 'version'):
+                self.system_version_value_label.setText(getattr(system,
+                                                              'version'))
+            self.system_id_value_label.setEnabled(True)
+            self.system_name_value_label.setEnabled(True)
+            self.system_version_value_label.setEnabled(True)
+        else:
+            # orb.log.debug('  - None')
+            # set widgets to disabled state
+            self.system_id_value_label.setEnabled(False)
+            self.system_name_value_label.setEnabled(False)
+            self.system_version_value_label.setEnabled(False)
+
+
 class OpticalSystemWidget(QWidget):
     def __init__(self, system=None, parent=None):
         super().__init__(parent=parent)
         orb.log.debug(' - initializing OpticalSystemWidget ...')
         self.system = system
-        self.title = NameLabel('Optical System')
-        self.set_title_text()
-        self.plot_win = None
-        self.subsys_ids = []
+        self.info_panel = SystemInfoPanel(self.system)
         self.init_toolbar()
-        # self.title.setStyleSheet(
-                        # 'font-weight: bold; font-size: 18px; color: purple')
-        # self.setVisible(visible)
         self.scene = self.set_new_scene()
         self.view = OpticalSystemView(self)
         self.update_view()
-        # self.statusbar = QStatusBar()
         self.layout = QVBoxLayout()
-        # self.layout.addWidget(self.title)
+        self.layout.addWidget(self.info_panel)
         self.layout.addWidget(self.toolbar)
         self.layout.addWidget(self.view)
-        # self.layout.addWidget(self.statusbar)
         self.setLayout(self.layout)
-        # self.show_history()
         self.sceneScaleChanged("70%")
         dispatcher.connect(self.delete_component, "remove component")
         # dispatcher.connect(self.on_component_edited, 'component edited')
         dispatcher.connect(self.on_rescale_optical_path, "rescale optical_path")
         self.setUpdatesEnabled(True)
 
-    def set_title_text(self):
-        title_text = 'Optical System'
-        sys_name = getattr(self.system, 'name', '')
-        if sys_name:
-            title_text += f' {sys_name}'
-        self.title.setText(title_text)
+    def init_toolbar(self):
+        self.toolbar = QToolBar(parent=self)
+        self.toolbar.setObjectName('ActionsToolBar')
+        #create and add scene scale menu
+        self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
+        self.scene_scale_select = QComboBox()
+        self.scene_scale_select.addItems(self.scene_scales)
+        self.scene_scale_select.setCurrentIndex(5)
+        self.scene_scale_select.currentIndexChanged[str].connect(
+                                                    self.sceneScaleChanged)
+        self.toolbar.addWidget(self.scene_scale_select)
+
+    def set_title(self):
+        sys_name = getattr(self.system, 'name', 'No System Loaded')
+        sys_name = sys_name or 'No System Loaded'
+        self.info_panel.title.setText(sys_name)
 
     def set_new_scene(self):
         """
@@ -475,7 +600,7 @@ class OpticalSystemWidget(QWidget):
                 item_list.append(item)
                 scene.addItem(item)
             scene.diagram.populate(item_list)
-        self.set_title_text()
+        self.set_title()
         scene.update()
         return scene
 
@@ -493,18 +618,6 @@ class OpticalSystemWidget(QWidget):
         """
         self.view.setScene(self.scene)
         self.view.show()
-
-    def init_toolbar(self):
-        self.toolbar = QToolBar(parent=self)
-        self.toolbar.setObjectName('ActionsToolBar')
-        #create and add scene scale menu
-        self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
-        self.scene_scale_select = QComboBox()
-        self.scene_scale_select.addItems(self.scene_scales)
-        self.scene_scale_select.setCurrentIndex(5)
-        self.scene_scale_select.currentIndexChanged[str].connect(
-                                                    self.sceneScaleChanged)
-        self.toolbar.addWidget(self.scene_scale_select)
 
     def delete_component(self, acu=None):
         """
@@ -581,23 +694,23 @@ class OpticalSystemModeler(QMainWindow):
         self.system = system
         project = orb.get(state.get('project'))
         self.project = project
-        self.setup_library()
+        # self.setup_library()
         self.init_toolbar()
         self.set_widgets(init=True)
         dispatcher.connect(self.double_clicked_handler, "double clicked")
 
     def set_widgets(self, init=False):
         """
-        Add an OpticalSystemWidget containing all components of the system.
+        Populate the OpticalSystemModeler with an OpticalSystemWidget and a
+        SystemInfoTable.
 
-        Note that focusing (mouse click) on a component in the current system
-        optical_path will select that component in the system table.
+        Note that clicking on a component in the OpticalSystemWidget will
+        select that component in the SystemInfoTable.
         """
         orb.log.debug(' - set_widgets() ...')
         self.system_widget = OpticalSystemWidget(system=self.system,
                                                  parent=self)
-        self.system_widget.setMinimumSize(900, 150)
-        # SystemInfoTable with all optical system components
+        self.system_widget.setMinimumSize(900, 250)
         view = ['ref des',
                 'RoC', 'K',
                 'X_vertex',
