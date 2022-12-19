@@ -135,6 +135,7 @@ class SystemInfoTable(QTableWidget):
         super().__init__(parent=parent)
         # orb.log.info('* [SystemInfoTable] initializing ...')
         self.system = system
+        self.min_col_width = min_col_width
         # TODO: get default view from prefs / config
         default_view = [
             'ref des',
@@ -176,7 +177,7 @@ class SystemInfoTable(QTableWidget):
                 width = len(base)*20 + len(sub)*8
             else:
                 width = len(pname)*20
-            width = max(width, min_col_width)
+            width = max(width, self.min_col_width)
             widths.append(width)
         header = LabelHeaderView(self, widths=widths)
         self.setHorizontalHeader(header)
