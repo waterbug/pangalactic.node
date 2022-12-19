@@ -124,7 +124,7 @@ class SystemInfoTable(QTableWidget):
     parameters of components, their usages in the assembly, and possibly
     related items.
     """
-    def __init__(self, system=None, view=None, parent=None):
+    def __init__(self, system=None, view=None, min_col_width=100, parent=None):
         """
         Initialize
 
@@ -170,11 +170,13 @@ class SystemInfoTable(QTableWidget):
                 html = pname
                 header_label = f'<h3>{html}</h3>'
             header_labels.append(header_label)
+            # set col widths based on length of header text
             if '_' in pname:
                 base, sub = pname.split('_')
                 width = len(base)*20 + len(sub)*8
             else:
                 width = len(pname)*20
+            width = max(width, min_col_width)
             widths.append(width)
         header = LabelHeaderView(self, widths=widths)
         self.setHorizontalHeader(header)
