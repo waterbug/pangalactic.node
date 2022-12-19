@@ -129,9 +129,10 @@ class SystemInfoTable(QTableWidget):
         """
         Initialize
 
-        system (HardwareProduct):  the system whose assembly is shown
-        view (list of str):  specified properties, parameters, and data
-            elements (columns)
+        Keyword Args:
+            system (HardwareProduct):  the system whose assembly is shown
+            view (list of str):  specified properties, parameters, and data
+                elements (columns)
         """
         super().__init__(parent=parent)
         # orb.log.info('* [SystemInfoTable] initializing ...')
@@ -140,17 +141,9 @@ class SystemInfoTable(QTableWidget):
         self.max_col_width = max_col_width
         # TODO: get default view from prefs / config
         default_view = [
-            'ref des',
-            'X_vertex',
-            'Y_vertex',
-            'Z_vertex',
-            'RotX_vertex',
-            'RotY_vertex',
-            'RotZ_vertex',
-            'dRMSWFE_dx',
-            'dRMSWFE_rx',
-            'dLOSx_dx',
-            'dLOSx_rx'
+            'm[CBE]',
+            'P[CBE]',
+            'R_D[CBE]'
             ]
         self.view = view or default_view[:]
         self.setup_table()
@@ -457,7 +450,22 @@ if __name__ == "__main__":
     import sys
     orb.start(home='junk_home_dev', debug=True, test=True, console=True)
     app = QApplication(sys.argv)
-    w = SystemInfoTable()
+    test_view = [
+        'System Name',
+        'System Description',
+        'X_vertex',
+        'Y_vertex',
+        'Z_vertex',
+        'RotX_vertex',
+        'RotY_vertex',
+        'RotZ_vertex',
+        'dRMSWFE_dx',
+        'dRMSWFE_rx',
+        'dLOSx_dx',
+        'dLOSx_rx'
+        ]
+    w = SystemInfoTable(view=test_view)
+    # w = SystemInfoTable()
     w.show()
     sys.exit(app.exec_())
 
