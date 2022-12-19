@@ -62,6 +62,7 @@ class LabelHeaderView(QHeaderView):
         for i in range(self.count()):
             label = QLabel(self, alignment=Qt.AlignCenter)
             label.setTextFormat(Qt.RichText)
+            label.setStyleSheet('font-size: 14px')
             self.m_labels.append(label)
             self.update_data()
             if len(self.widths) > i:
@@ -109,8 +110,8 @@ class LabelHeaderView(QHeaderView):
                 self.sectionViewportPosition(index),
                 0,
                 self.sectionSize(index),
-                self.height())
-            geom.adjust(2, 0, -2, 0)
+                self.height() - 4)
+            geom.adjust(8, -16, -8, 16)
             label.setGeometry(geom)
 
 

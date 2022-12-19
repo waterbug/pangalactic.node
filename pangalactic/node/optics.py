@@ -267,7 +267,6 @@ class OpticalSystemScene(QGraphicsScene):
             popup.show()
             event.ignore()
             return
-        # TODO: come up with refdes
         if self.system and not 'modify' in get_perms(self.system):
             # --------------------------------------------------------
             # 00: user permissions prohibit operation -> abort
@@ -417,53 +416,98 @@ class ToolButton(QPushButton):
         event.setAccepted(True)
 
 
-class SystemInfoPanel(QWidget):
+class OpticalSysInfoPanel(QWidget):
 
     def __init__(self, system=None, parent=None):
+        """
+        Initialize OpticalSysInfoPanel.
+
+        Keyword Args:
+            system (HardwareProduct): an optical system
+            parent (QWidget): the parent widget
+        """
+        # TODO: add a "Create Error Budget" button
+        # TODO: display a selection list of optical systems to which the user
+        # has "modify" perms
+        # - if only one, just load it
+        # - if more than one but state has 'optical_system', load that one
+        # TODO: make fields editable if "Create a New System" is clicked
+        # - product_type is auto-set to "optical system"
+        # - add "owner" field (selection list of orgs)
+        # - add "TRL" field (selection list)
+        # - "save" button validates fields ...
         super().__init__(parent)
-        orb.log.debug('* SystemInfoPanel initializing ...')
-        self.system = system
-        if not system and state.get('optical_system'):
-            system = orb.get(state['optical_system'])
-            if system:
-                self.set_system(system)
+        orb.log.debug('* OpticalSysInfoPanel initializing ...')
         self.setAcceptDrops(True)
-        # system frame
-        system_frame_vbox = QVBoxLayout()
-        system_frame_vbox.setAlignment(Qt.AlignLeft|Qt.AlignTop)
-        system_frame_vbox.setSizeConstraint(QVBoxLayout.SetMinimumSize)
-        sys_name = getattr(system, 'name', 'No System Loaded')
-        sys_name = sys_name or 'No System Loaded'
-        self.title = NameLabel(sys_name)
+        frame_vbox = QVBoxLayout()
+        frame_vbox.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+        frame_vbox.setSizeConstraint(QVBoxLayout.SetMinimumSize)
+        self.title = NameLabel('No System Loaded')
         self.title.setStyleSheet('font-weight: bold; font-size: 18px')
-        system_frame_vbox.addWidget(self.title)
-        system_info_layout = QHBoxLayout()
-        system_info_layout.setAlignment(Qt.AlignLeft|Qt.AlignTop)
-        system_id_label = NameLabel('id:')
-        system_id_label.setStyleSheet('font-weight: bold')
-        system_info_layout.addWidget(system_id_label)
+        frame_vbox.addWidget(self.title)
+        info_panel_layout = QHBoxLayout()
+        info_panel_layout.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+        self.system_id_label = NameLabel('id:')
+        self.system_id_label.setStyleSheet('font-weight: bold')
+        info_panel_layout.addWidget(self.system_id_label)
         self.system_id_value_label = ValueLabel('No System Loaded', w=200)
-        system_info_layout.addWidget(self.system_id_value_label)
+        info_panel_layout.addWidget(self.system_id_value_label)
         system_name_label = NameLabel('name:')
         system_name_label.setStyleSheet('font-weight: bold')
-        system_info_layout.addWidget(system_name_label)
+        info_panel_layout.addWidget(system_name_label)
         self.system_name_value_label = ValueLabel(
                             'Drag/Drop an Optical System here ...', w=320)
-        system_info_layout.addWidget(self.system_name_value_label)
+        info_panel_layout.addWidget(self.system_name_value_label)
         system_version_label = NameLabel('version:')
         system_version_label.setStyleSheet('font-weight: bold')
-        system_info_layout.addWidget(system_version_label)
+        info_panel_layout.addWidget(system_version_label)
         self.system_version_value_label = ValueLabel('', w=150)
-        system_info_layout.addWidget(self.system_version_value_label)
-        self.setLayout(system_frame_vbox)
-        system_frame_vbox.addLayout(system_info_layout)
+        info_panel_layout.addWidget(self.system_version_value_label)
+        self.setLayout(frame_vbox)
+        frame_vbox.addLayout(info_panel_layout)
         self.setMinimumWidth(600)
         self.setMaximumHeight(150)
-        dispatcher.connect(self.on_update, 'update system modeler')
+        self._system = system
+        if not self.system and state.get('optical_system'):
+            self.system = orb.get(state['optical_system'])
 
-    def on_update(self, obj=None):
-        if obj:
-            self.set_system(obj)
+    # property: system
+
+    def _get_system(self):
+        return getattr(self, '_system', None)
+
+    def _set_system(self, obj):
+        orb.log.debug('* OpticalSysInfoPanel: set_system')
+        product_type = getattr(obj, 'product_type', None) or None
+        optical_system = orb.get('pgefobjects:ProductType.optical_system')
+        if product_type and (product_type is optical_system):
+            self._system = obj
+        else:
+            orb.log.debug('  - not an Optical System -- ignored.')
+        if not self._system:
+            # set widgets to disabled state
+            self.title.setText('No System Loaded')
+            self.system_id_value_label.setText('No System Loaded')
+            self.system_id_value_label.setEnabled(False)
+            self.system_name_value_label.setText(
+                                'Drag/Drop an Optical System here ...')
+            self.system_name_value_label.setEnabled(False)
+            self.system_version_value_label.setText('')
+            self.system_version_value_label.setEnabled(False)
+            return
+        self.system_id_value_label.setText(obj.id)
+        self.system_name_value_label.setText(obj.name)
+        if obj.version:
+            self.system_version_value_label.setText(obj.version)
+        self.system_id_value_label.setEnabled(True)
+        self.system_name_value_label.setEnabled(True)
+        self.system_version_value_label.setEnabled(True)
+        state['optical_system'] = obj.oid
+
+    system = property(fget=_get_system, fset=_set_system)
+
+    def create_system(self):
+        pass
 
     def supportedDropActions(self):
         return Qt.CopyAction
@@ -483,6 +527,7 @@ class SystemInfoPanel(QWidget):
             event.ignore()
 
     def dropEvent(self, event):
+        orb.log.debug("* OpticalSysInfoPanel: hm, something dropped on me ...")
         if event.mimeData().hasFormat(
                                 "application/x-pgef-hardware-product"):
             data = extract_mime_data(event,
@@ -490,7 +535,7 @@ class SystemInfoPanel(QWidget):
             icon, p_oid, p_id, p_name, p_cname = data
             system = orb.get(p_oid)
             if system:
-                dispatcher.send("drop on system info", p=system)
+                self.system = system
             else:
                 event.ignore()
                 orb.log.debug("* drop event: ignoring oid '%s' -- "
@@ -515,15 +560,16 @@ class SystemInfoPanel(QWidget):
         """
         Set a system in the modeler context.
         """
-        # orb.log.debug('* SystemInfoPanel: set_system')
+        orb.log.debug('* OpticalSysInfoPanel: set_system')
         # system_oid = state.get('optical_system')
         # system = orb.get(system_oid)
         if system:
             # if not a HardwareProduct, system is ignored
             if system.__class__.__name__ != 'HardwareProduct':
-                # orb.log.debug('  - not a HardwareProduct -- ignored.')
+                orb.log.debug('  - not a HardwareProduct -- ignored.')
                 return
             # orb.log.debug('  - oid: %s' % system.oid)
+            self.system = system
             self.system_id_value_label.setText(system.id)
             self.system_name_value_label.setText(system.name)
             if hasattr(system, 'version'):
@@ -532,6 +578,7 @@ class SystemInfoPanel(QWidget):
             self.system_id_value_label.setEnabled(True)
             self.system_name_value_label.setEnabled(True)
             self.system_version_value_label.setEnabled(True)
+            state['optical_system'] = system.oid
         else:
             # orb.log.debug('  - None')
             # set widgets to disabled state
@@ -545,7 +592,7 @@ class OpticalSystemWidget(QWidget):
         super().__init__(parent=parent)
         orb.log.debug(' - initializing OpticalSystemWidget ...')
         self.system = system
-        self.info_panel = SystemInfoPanel(self.system)
+        self.info_panel = OpticalSysInfoPanel(self.system)
         self.init_toolbar()
         self.scene = self.set_new_scene()
         self.view = OpticalSystemView(self)
@@ -585,17 +632,11 @@ class OpticalSystemWidget(QWidget):
         orb.log.debug(' - set_new_scene ...')
         scene = OpticalSystemScene(system=self.system, parent=self)
         # TODO:  replace this with a sort function ...
-        comps = getattr(self.system, 'components', []) or []
-        if comps:
-            all_acus = [(get_dval(acu, 'position_in_optical_path'), acu)
-                        for acu in comps]
-            try:
-                all_acus.sort()
-            except:
-                pass
+        acus = getattr(self.system, 'components', []) or []
+        if acus:
+            acus.sort(lambda x: get_dval(x.oid, 'position_in_optical_path'))
             item_list=[]
-            for acu_tuple in all_acus:
-                acu = acu_tuple[1]
+            for acu in acus:
                 item = OpticalComponentBlock(usage=acu)
                 item_list.append(item)
                 scene.addItem(item)
