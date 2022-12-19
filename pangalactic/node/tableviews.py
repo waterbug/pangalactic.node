@@ -172,14 +172,14 @@ class SystemInfoTable(QTableWidget):
             header_labels.append(header_label)
             if '_' in pname:
                 base, sub = pname.split('_')
-                width = len(base)*15 + len(sub)*8
+                width = len(base)*20 + len(sub)*8
             else:
-                width = len(pname)*15
+                width = len(pname)*20
             widths.append(width)
         header = LabelHeaderView(self, widths=widths)
         self.setHorizontalHeader(header)
         self.setHorizontalHeaderLabels(header_labels)
-        width_fit = sum(w for w in widths) + 50
+        width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
 
 
