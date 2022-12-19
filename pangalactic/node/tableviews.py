@@ -124,7 +124,8 @@ class SystemInfoTable(QTableWidget):
     parameters of components, their usages in the assembly, and possibly
     related items.
     """
-    def __init__(self, system=None, view=None, min_col_width=100, parent=None):
+    def __init__(self, system=None, view=None, min_col_width=100,
+                 max_col_width=300, parent=None):
         """
         Initialize
 
@@ -136,6 +137,7 @@ class SystemInfoTable(QTableWidget):
         # orb.log.info('* [SystemInfoTable] initializing ...')
         self.system = system
         self.min_col_width = min_col_width
+        self.max_col_width = max_col_width
         # TODO: get default view from prefs / config
         default_view = [
             'ref des',
@@ -177,7 +179,7 @@ class SystemInfoTable(QTableWidget):
                 width = len(base)*20 + len(sub)*8
             else:
                 width = len(pname)*20
-            width = max(width, self.min_col_width)
+            width = min(max(width, self.min_col_width), self.max_col_width)
             widths.append(width)
         header = LabelHeaderView(self, widths=widths)
         self.setHorizontalHeader(header)

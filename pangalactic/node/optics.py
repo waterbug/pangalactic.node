@@ -752,7 +752,8 @@ class OpticalSystemModeler(QMainWindow):
         self.system_widget = OpticalSystemWidget(system=self.system,
                                                  parent=self)
         self.system_widget.setMinimumSize(900, 250)
-        view = ['ref des',
+        view = ['Optical Surface Label',
+                'Optical Surface Description',
                 'RoC', 'K',
                 'X_vertex',
                 'Y_vertex',
