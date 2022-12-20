@@ -7,21 +7,21 @@ import os
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
+from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
                              QGraphicsView, QHBoxLayout, QMenu, QMessageBox,
-                             QPushButton, QGraphicsPathItem, QSizePolicy,
-                             QToolBar, QVBoxLayout, QWidgetAction)
+                             QGraphicsPathItem, QSizePolicy, QToolBar,
+                             QVBoxLayout, QWidgetAction)
 # from PyQt5.QtWidgets import (QMessageBox, QStatusBar, QToolBox,
-from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPen, QCursor, QPainterPath,
-                         QPolygonF, QTransform)
+from PyQt5.QtGui import QIcon, QCursor, QPainterPath, QPolygonF, QTransform
 # from PyQt5.QtGui import QGraphicsProxyWidget
 
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.access      import get_perms
+from pangalactic.core.meta        import PGXN_PLACEHOLDERS
 from pangalactic.core.names       import (get_acu_id, get_acu_name,
                                           get_next_ref_des)
 from pangalactic.core.parametrics import get_dval, set_dval
@@ -29,12 +29,13 @@ from pangalactic.core.parametrics import get_dval, set_dval
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_bom_oids
+from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
 from pangalactic.node.utils       import (clone, extract_mime_data,
                                           create_product_from_template)
-from pangalactic.node.widgets     import NameLabel, ValueLabel
+from pangalactic.node.widgets     import NameLabel, StringFieldWidget, ValueLabel
 
 
 class OpticalComponentBlock(QGraphicsPolygonItem):
@@ -380,42 +381,6 @@ class OpticalSystemScene(QGraphicsScene):
         super().mouseDoubleClickEvent(event)
 
 
-class ToolButton(QPushButton):
-    def __init__(self, pixmap, text, parent=None):
-        self.pixmap = pixmap
-        super().__init__(QIcon(pixmap), text, parent)
-        self.setFlat(True)
-
-    def boundingRect(self):
-        return QRectF(-5 , -5, 20, 20)
-
-    def paint(self, painter, option, widget):
-        painter.setPen(QPen(Qt.black, 1))
-        painter.setBrush(QBrush(Qt.white))
-        painter.drawRect(-5, -5, 20, 20)
-
-    def mouseMoveEvent(self, event):
-        event.accept()
-        drag = QDrag(self)
-        mime = QMimeData()
-        drag.setMimeData(mime)
-        mime.setText(self.mime)
-        dragCursor = QCursor()
-        dragCursor.setShape(Qt.ClosedHandCursor)
-        drag.setDragCursor(self.pixmap, Qt.IgnoreAction)
-        self.setCursor(Qt.OpenHandCursor)
-        drag.setPixmap(self.pixmap)
-        drag.setHotSpot(QPoint(15, 20))
-        drag.exec_()
-        self.clearFocus()
-
-    def setData(self, mimeData):
-        self.mime = mimeData
-
-    def dragMoveEvent(self, event):
-        event.setAccepted(True)
-
-
 class OpticalSysInfoPanel(QWidget):
 
     def __init__(self, system=None, parent=None):
@@ -427,15 +392,15 @@ class OpticalSysInfoPanel(QWidget):
             parent (QWidget): the parent widget
         """
         # TODO: add a "Create Error Budget" button
-        # TODO: display a selection list of optical systems to which the user
-        # has "modify" perms
-        # - if only one, just load it
-        # - if more than one but state has 'optical_system', load that one
         # TODO: make fields editable if "Create a New System" is clicked
         # - product_type is auto-set to "optical system"
         # - add "owner" field (selection list of orgs)
         # - add "TRL" field (selection list)
         # - "save" button validates fields ...
+        # TODO: display a selection list of optical systems to which the user
+        # has "modify" perms
+        # - if only one, just load it
+        # - if more than one but state has 'optical_system', load that one
         super().__init__(parent)
         orb.log.debug('* OpticalSysInfoPanel initializing ...')
         self.setAcceptDrops(True)
@@ -452,17 +417,40 @@ class OpticalSysInfoPanel(QWidget):
         info_panel_layout.addWidget(self.system_id_label)
         self.system_id_value_label = ValueLabel('No System Loaded', w=200)
         info_panel_layout.addWidget(self.system_id_value_label)
+        self.system_id_value_field = StringFieldWidget(value='', width=200,
+            placeholder='generated (not editable)', parent=self)
+        self.system_id_value_field.setEnabled(False)
+        self.system_id_value_field.setVisible(False)
+        info_panel_layout.addWidget(self.system_id_value_field)
         system_name_label = NameLabel('name:')
         system_name_label.setStyleSheet('font-weight: bold')
         info_panel_layout.addWidget(system_name_label)
         self.system_name_value_label = ValueLabel(
                             'Drag/Drop an Optical System here ...', w=320)
         info_panel_layout.addWidget(self.system_name_value_label)
-        system_version_label = NameLabel('version:')
-        system_version_label.setStyleSheet('font-weight: bold')
-        info_panel_layout.addWidget(system_version_label)
-        self.system_version_value_label = ValueLabel('', w=150)
-        info_panel_layout.addWidget(self.system_version_value_label)
+        self.system_name_value_label = ValueLabel('No System Loaded', w=200)
+        name_placeholder = PGXN_PLACEHOLDERS.get('name', '')
+        self.system_name_value_field = StringFieldWidget(value='', width=200,
+                                    placeholder=name_placeholder, parent=self)
+        self.system_name_value_field.setVisible(False)
+        info_panel_layout.addWidget(self.system_name_value_field)
+        system_owner_label = NameLabel('owner:')
+        system_owner_label.setStyleSheet('font-weight: bold')
+        info_panel_layout.addWidget(system_owner_label)
+        self.system_owner_value_label = ValueLabel('', w=320)
+        info_panel_layout.addWidget(self.system_owner_value_label)
+        self.system_owner_value_label = ValueLabel('No Owner Specified', w=200)
+        owner_placeholder = PGXN_PLACEHOLDERS.get('owner', '')
+        self.system_owner_value_field = StringFieldWidget(value='', width=200,
+                                    placeholder=name_placeholder, parent=self)
+        self.system_owner_value_field.setVisible(False)
+        info_panel_layout.addWidget(self.system_owner_value_field)
+        info_panel_layout.addStretch(1)
+        self.new_system_button = SizedButton("Define New System")
+        info_panel_layout.addWidget(self.new_system_button)
+        self.new_system_button.clicked.connect(self.define_new_system)
+        self.error_budget_button = SizedButton("Create Error Budget")
+        info_panel_layout.addWidget(self.error_budget_button)
         self.setLayout(frame_vbox)
         frame_vbox.addLayout(info_panel_layout)
         self.setMinimumWidth(600)
@@ -506,7 +494,7 @@ class OpticalSysInfoPanel(QWidget):
 
     system = property(fget=_get_system, fset=_set_system)
 
-    def create_system(self):
+    def define_new_system(self):
         pass
 
     def supportedDropActions(self):
@@ -611,7 +599,6 @@ class OpticalSystemWidget(QWidget):
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
         self.toolbar.setObjectName('ActionsToolBar')
-        #create and add scene scale menu
         self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(self.scene_scales)
@@ -735,10 +722,16 @@ class OpticalSystemModeler(QMainWindow):
         self.system = system
         project = orb.get(state.get('project'))
         self.project = project
-        # self.setup_library()
+        self.create_library()
         self.init_toolbar()
         self.set_widgets(init=True)
         dispatcher.connect(self.double_clicked_handler, "double clicked")
+
+    def create_library(self):
+        """
+        Create the library of optical component block types.
+        """
+        pass
 
     def set_widgets(self, init=False):
         """
@@ -783,13 +776,6 @@ class OpticalSystemModeler(QMainWindow):
         self.top_dock.setAllowedAreas(Qt.TopDockWidgetArea)
         self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock)
         self.top_dock.setWidget(self.system_widget)
-
-    def setup_library(self):
-        """
-        Set up the library of optical system components
-        """
-        orb.log.debug(' - setup_library() ...')
-        # set up a HW library widget filtered by "optical component"
 
     # TODO -- *MAYBE* do drill-down later ... whatever it means here ...
     def double_clicked_handler(self, acu):

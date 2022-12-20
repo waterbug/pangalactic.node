@@ -3,7 +3,8 @@ PanGalactic widgets based on QPushButton
 """
 import webbrowser
 
-from PyQt5.QtCore import QSize
+from PyQt5.QtCore import Qt, QRectF, QSize, QPoint, QMimeData
+from PyQt5.QtGui import QBrush, QDrag, QIcon, QPen, QCursor
 from PyQt5.QtWidgets  import QMenu, QPushButton
 
 from pangalactic.core.meta import asciify
@@ -247,4 +248,41 @@ class UrlButton(QPushButton):
     def open_url(self, evt):
         if self.value:
             webbrowser.open_new(self.value)
+
+
+class ToolButton(QPushButton):
+    def __init__(self, pixmap, text, parent=None):
+        self.pixmap = pixmap
+        super().__init__(QIcon(pixmap), text, parent)
+        self.setFlat(True)
+
+    def boundingRect(self):
+        return QRectF(-5 , -5, 20, 20)
+
+    def paint(self, painter, option, widget):
+        painter.setPen(QPen(Qt.black, 1))
+        painter.setBrush(QBrush(Qt.white))
+        painter.drawRect(-5, -5, 20, 20)
+
+    def mouseMoveEvent(self, event):
+        event.accept()
+        drag = QDrag(self)
+        mime = QMimeData()
+        drag.setMimeData(mime)
+        mime.setText(self.mime)
+        dragCursor = QCursor()
+        dragCursor.setShape(Qt.ClosedHandCursor)
+        drag.setDragCursor(self.pixmap, Qt.IgnoreAction)
+        self.setCursor(Qt.OpenHandCursor)
+        drag.setPixmap(self.pixmap)
+        drag.setHotSpot(QPoint(15, 20))
+        drag.exec_()
+        self.clearFocus()
+
+    def setData(self, mimeData):
+        self.mime = mimeData
+
+    def dragMoveEvent(self, event):
+        event.setAccepted(True)
+
 

@@ -28,16 +28,16 @@ import os
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint, QMimeData
+from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
                              QGraphicsView, QGridLayout, QMenu, QToolBox,
-                             QPushButton, QGraphicsPathItem, QVBoxLayout,
-                             QToolBar, QWidgetAction, QMessageBox)
+                             QGraphicsPathItem, QVBoxLayout, QToolBar,
+                             QWidgetAction, QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
-from PyQt5.QtGui import (QBrush, QDrag, QIcon, QPen, QPixmap, QCursor,
-                         QPainter, QPainterPath, QPolygonF, QTransform)
+from PyQt5.QtGui import (QIcon, QPixmap, QCursor, QPainter, QPainterPath,
+                         QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 
 # pangalactic
@@ -45,7 +45,7 @@ from pangalactic.core             import state
 from pangalactic.core.names       import get_acr_id, get_acr_name
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.activities  import ActivityTable, ModesTool
-from pangalactic.node.buttons     import SizedButton
+from pangalactic.node.buttons     import SizedButton, ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
@@ -360,42 +360,6 @@ class TimelineScene(QGraphicsScene):
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
-
-
-class ToolButton(QPushButton):
-    def __init__(self, pixmap, text, parent=None):
-        self.pixmap = pixmap
-        super().__init__(QIcon(pixmap), text, parent)
-        self.setFlat(True)
-
-    def boundingRect(self):
-        return QRectF(-5 , -5, 20, 20)
-
-    def paint(self, painter, option, widget):
-        painter.setPen(QPen(Qt.black, 1))
-        painter.setBrush(QBrush(Qt.white))
-        painter.drawRect(-5, -5, 20, 20)
-
-    def mouseMoveEvent(self, event):
-        event.accept()
-        drag = QDrag(self)
-        mime = QMimeData()
-        drag.setMimeData(mime)
-        mime.setText(self.mime)
-        dragCursor = QCursor()
-        dragCursor.setShape(Qt.ClosedHandCursor)
-        drag.setDragCursor(self.pixmap, Qt.IgnoreAction)
-        self.setCursor(Qt.OpenHandCursor)
-        drag.setPixmap(self.pixmap)
-        drag.setHotSpot(QPoint(15, 20))
-        drag.exec_()
-        self.clearFocus()
-
-    def setData(self, mimeData):
-        self.mime = mimeData
-
-    def dragMoveEvent(self, event):
-        event.setAccepted(True)
 
 
 # TODO:  we need a subclass of TimelineWidget (maybe SubTimelineWidget) that
@@ -1007,7 +971,6 @@ class ConOpsModeler(QMainWindow):
         # self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         # self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
         # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
-
         self.set_widgets(current_activity=self.activity, init=True)
         dispatcher.connect(self.double_clicked_handler, "double clicked")
         dispatcher.connect(self.view_subsystem_activities, "activity focused")
