@@ -264,7 +264,7 @@ class OpticalSystemScene(QGraphicsScene):
                   QMessageBox.Critical,
                   "No System",
                   "Cannot add a component",
-                  QMessageBox.Ok, self.parentWidget())
+                  QMessageBox.Ok, self.parent())
             popup.show()
             event.ignore()
             return
@@ -276,7 +276,7 @@ class OpticalSystemScene(QGraphicsScene):
                   QMessageBox.Critical,
                   "Unauthorized Operation",
                   "User's roles do not permit this operation",
-                  QMessageBox.Ok, self.parentWidget())
+                  QMessageBox.Ok, self.parent())
             popup.show()
             event.ignore()
             return
@@ -294,7 +294,7 @@ class OpticalSystemScene(QGraphicsScene):
                             QMessageBox.Critical,
                             "Assembly same as Component",
                             "A product cannot be a component of itself.",
-                            QMessageBox.Ok, self.parentWidget())
+                            QMessageBox.Ok, self.parent())
                 popup.show()
                 event.ignore()
                 return
@@ -314,7 +314,7 @@ class OpticalSystemScene(QGraphicsScene):
                         QMessageBox.Critical,
                         "Prohibited Operation",
                         "Product cannot be used in its own assembly.",
-                        QMessageBox.Ok, self.parentWidget())
+                        QMessageBox.Ok, self.parent())
                 popup.show()
                 event.ignore()
                 return
@@ -331,7 +331,7 @@ class OpticalSystemScene(QGraphicsScene):
                 popup = QMessageBox(
                       QMessageBox.Critical,
                       "Prohibited Operation", msg,
-                      QMessageBox.Ok, self.parentWidget())
+                      QMessageBox.Ok, self.parent())
                 popup.show()
                 return
             # --------------------------------------------------------
@@ -403,6 +403,7 @@ class OpticalSysInfoPanel(QWidget):
         # - if more than one but state has 'optical_system', load that one
         super().__init__(parent)
         orb.log.debug('* OpticalSysInfoPanel initializing ...')
+        self._system = None
         self.setAcceptDrops(True)
         frame_vbox = QVBoxLayout()
         frame_vbox.setAlignment(Qt.AlignLeft|Qt.AlignTop)
@@ -455,7 +456,7 @@ class OpticalSysInfoPanel(QWidget):
         frame_vbox.addLayout(info_panel_layout)
         self.setMinimumWidth(600)
         self.setMaximumHeight(150)
-        self._system = system
+        self.system = system
         if not self.system and state.get('optical_system'):
             self.system = orb.get(state['optical_system'])
 
@@ -465,9 +466,14 @@ class OpticalSysInfoPanel(QWidget):
         return getattr(self, '_system', None)
 
     def _set_system(self, obj):
-        orb.log.debug('* OpticalSysInfoPanel: set_system')
+        orb.log.debug('* OpticalSysInfoPanel: _set_system')
         product_type = getattr(obj, 'product_type', None) or None
+        if product_type:
+            orb.log.debug(f'  - obj product type: {product_type.oid}')
+        else:
+            orb.log.debug('  - obj product type: None')
         optical_system = orb.get('pgefobjects:ProductType.optical_system')
+        orb.log.debug(f'  - optical system product type: {optical_system}')
         if product_type and (product_type is optical_system):
             self._system = obj
         else:
@@ -480,16 +486,12 @@ class OpticalSysInfoPanel(QWidget):
             self.system_name_value_label.setText(
                                 'Drag/Drop an Optical System here ...')
             self.system_name_value_label.setEnabled(False)
-            self.system_version_value_label.setText('')
-            self.system_version_value_label.setEnabled(False)
             return
+        self.title.setText(obj.name)
         self.system_id_value_label.setText(obj.id)
         self.system_name_value_label.setText(obj.name)
-        if obj.version:
-            self.system_version_value_label.setText(obj.version)
         self.system_id_value_label.setEnabled(True)
         self.system_name_value_label.setEnabled(True)
-        self.system_version_value_label.setEnabled(True)
         state['optical_system'] = obj.oid
 
     system = property(fget=_get_system, fset=_set_system)
@@ -543,36 +545,6 @@ class OpticalSysInfoPanel(QWidget):
             dispatcher.send('new object', obj=system)
         else:
             event.ignore()
-
-    def set_system(self, system=None):
-        """
-        Set a system in the modeler context.
-        """
-        orb.log.debug('* OpticalSysInfoPanel: set_system')
-        # system_oid = state.get('optical_system')
-        # system = orb.get(system_oid)
-        if system:
-            # if not a HardwareProduct, system is ignored
-            if system.__class__.__name__ != 'HardwareProduct':
-                orb.log.debug('  - not a HardwareProduct -- ignored.')
-                return
-            # orb.log.debug('  - oid: %s' % system.oid)
-            self.system = system
-            self.system_id_value_label.setText(system.id)
-            self.system_name_value_label.setText(system.name)
-            if hasattr(system, 'version'):
-                self.system_version_value_label.setText(getattr(system,
-                                                              'version'))
-            self.system_id_value_label.setEnabled(True)
-            self.system_name_value_label.setEnabled(True)
-            self.system_version_value_label.setEnabled(True)
-            state['optical_system'] = system.oid
-        else:
-            # orb.log.debug('  - None')
-            # set widgets to disabled state
-            self.system_id_value_label.setEnabled(False)
-            self.system_name_value_label.setEnabled(False)
-            self.system_version_value_label.setEnabled(False)
 
 
 class OpticalSystemWidget(QWidget):
