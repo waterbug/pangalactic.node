@@ -2117,7 +2117,7 @@ class BlockLabel(QGraphicsTextItem):
 
     Args:
         text (str):  text of label
-        parent (QWidget): parent item
+        parent (QGraphicsItem): parent item
 
     Keyword Args:
         font (QFont):  style of font
@@ -2170,7 +2170,7 @@ class TextLabel(QGraphicsTextItem):
 
     Args:
         text (str):  text of label
-        parent (QWidget): parent item
+        parent (QGraphicsItem): parent item
 
     Keyword Args:
         font (QFont):  style of font
@@ -2212,11 +2212,11 @@ class TextLabel(QGraphicsTextItem):
 
 class TextItem(QGraphicsTextItem):
     """
-    Widget to contain a blob of text, which may contain spaces (and therefore
+    Item containing a blob of text, which may contain spaces (and therefore
     may be wrapped).
 
     Args:
-        text (str):  text of label
+        text (str):  text
         position (QPointF): position in the scene
         scene (QGraphicsScene):  the containing scene
 

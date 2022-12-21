@@ -7,7 +7,7 @@ import os
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint
+from PyQt5.QtCore import Qt, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
@@ -15,7 +15,8 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsPathItem, QSizePolicy, QToolBar,
                              QVBoxLayout, QWidgetAction)
 # from PyQt5.QtWidgets import (QMessageBox, QStatusBar, QToolBox,
-from PyQt5.QtGui import QIcon, QCursor, QPainterPath, QPolygonF, QTransform
+from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
+                         QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 
 # pangalactic
@@ -30,7 +31,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.diagrams.shapes import BlockLabel
+from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
 from pangalactic.node.utils       import (clone, extract_mime_data,
@@ -142,10 +143,11 @@ class OpticalSystemDiagram(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
         super().__init__(parent)
+        self.scene = scene
         self.item_list = []
         self.path_length = 1000
         self.make_path()
-        self.length = self.path.length() - 2 * self.circle_length
+        self.length = self.path.length() - 200
         if getattr(scene.system, 'components', None):
             self.num_of_item = len(scene.system.components)
         else:
@@ -154,11 +156,17 @@ class OpticalSystemDiagram(QGraphicsPathItem):
         self.current_positions = []
 
     def make_path(self):
-        self.path =  QPainterPath(QPointF(100, 250))
-        self.path.arcTo(QRectF(0, 200, 100, 100), 0, 360)
-        self.circle_length = self.path.length()
-        self.path.arcTo(QRectF(self.path_length, 200, 100, 100), 180, 360)
+        start_point = QPointF(100, 250)
+        self.path = QPainterPath(start_point)
+        self.path.addRect(0, 200, 100, 100)
+        self.path.moveTo(100, 250)
+        self.path.lineTo(1100, 250)
+        self.path.addRect(1100, 200, 100, 100)
         self.setPath(self.path)
+        # TextItem automatically adds itself to the specified scene
+        obj_text = TextItem("object", QPointF(10, 230), self.scene,
+                            font=QFont("Arial", 18))
+        obj_text.setSelected(False)
 
     def remove_item(self, item):
         if item in self.item_list:
@@ -189,7 +197,7 @@ class OpticalSystemDiagram(QGraphicsPathItem):
             dispatcher.send("rescale optical_path", percentscale=pscale)
 
     def make_point_list(self):
-        self.length = self.path.length() - 2 * self.circle_length
+        self.length = self.path.length() - 200
         factor = self.length/(len(self.item_list) + 1)
         self.list_of_pos = [(n + 1) * factor + 100
                             for n in range(0, len(self.item_list))]
@@ -408,7 +416,7 @@ class OpticalSysInfoPanel(QWidget):
         frame_vbox = QVBoxLayout()
         frame_vbox.setAlignment(Qt.AlignLeft|Qt.AlignTop)
         frame_vbox.setSizeConstraint(QVBoxLayout.SetMinimumSize)
-        self.title = NameLabel('No System Loaded')
+        self.title = NameLabel('No System Loaded', parent=self)
         self.title.setStyleSheet('font-weight: bold; font-size: 18px')
         frame_vbox.addWidget(self.title)
         info_panel_layout = QHBoxLayout()
@@ -429,10 +437,10 @@ class OpticalSysInfoPanel(QWidget):
         self.system_name_value_label = ValueLabel(
                             'Drag/Drop an Optical System here ...', w=320)
         info_panel_layout.addWidget(self.system_name_value_label)
-        self.system_name_value_label = ValueLabel('No System Loaded', w=200)
         name_placeholder = PGXN_PLACEHOLDERS.get('name', '')
         self.system_name_value_field = StringFieldWidget(value='', width=200,
-                                    placeholder=name_placeholder, parent=self)
+                                            placeholder=name_placeholder,
+                                            parent=self)
         self.system_name_value_field.setVisible(False)
         info_panel_layout.addWidget(self.system_name_value_field)
         system_owner_label = NameLabel('owner:')
@@ -441,9 +449,9 @@ class OpticalSysInfoPanel(QWidget):
         self.system_owner_value_label = ValueLabel('', w=320)
         info_panel_layout.addWidget(self.system_owner_value_label)
         self.system_owner_value_label = ValueLabel('No Owner Specified', w=200)
-        owner_placeholder = PGXN_PLACEHOLDERS.get('owner', '')
         self.system_owner_value_field = StringFieldWidget(value='', width=200,
-                                    placeholder=name_placeholder, parent=self)
+                                            placeholder=name_placeholder,
+                                            parent=self)
         self.system_owner_value_field.setVisible(False)
         info_panel_layout.addWidget(self.system_owner_value_field)
         info_panel_layout.addStretch(1)
@@ -452,8 +460,8 @@ class OpticalSysInfoPanel(QWidget):
         self.new_system_button.clicked.connect(self.define_new_system)
         self.error_budget_button = SizedButton("Create Error Budget")
         info_panel_layout.addWidget(self.error_budget_button)
-        self.setLayout(frame_vbox)
         frame_vbox.addLayout(info_panel_layout)
+        self.setLayout(frame_vbox)
         self.setMinimumWidth(600)
         self.setMaximumHeight(150)
         self.system = system
@@ -467,32 +475,32 @@ class OpticalSysInfoPanel(QWidget):
 
     def _set_system(self, obj):
         orb.log.debug('* OpticalSysInfoPanel: _set_system')
+        self._system = obj
         product_type = getattr(obj, 'product_type', None) or None
         if product_type:
-            orb.log.debug(f'  - obj product type: {product_type.oid}')
+            # orb.log.debug(f'  - obj product type: {product_type.name}')
+            optical_system = orb.get('pgefobjects:ProductType.optical_system')
+            if product_type is optical_system:
+                # orb.log.debug('  - populating panel widgets ...')
+                self.title.setText(obj.name)
+                self.title.repaint()
+                self.system_id_value_label.setEnabled(True)
+                self.system_name_value_label.setEnabled(True)
+                self.system_id_value_label.setText(obj.id)
+                self.system_name_value_label.setText(obj.name)
+                state['optical_system'] = obj.oid
+            else:
+                # orb.log.debug('  - not an Optical System -- ignored.')
+                # set widgets to disabled state
+                self.title.setText('No System Loaded')
+                self.system_id_value_label.setText('No System Loaded')
+                self.system_id_value_label.setEnabled(False)
+                self.system_name_value_label.setText(
+                                    'Drag/Drop an Optical System here ...')
+                self.system_name_value_label.setEnabled(False)
         else:
-            orb.log.debug('  - obj product type: None')
-        optical_system = orb.get('pgefobjects:ProductType.optical_system')
-        orb.log.debug(f'  - optical system product type: {optical_system}')
-        if product_type and (product_type is optical_system):
-            self._system = obj
-        else:
-            orb.log.debug('  - not an Optical System -- ignored.')
-        if not self._system:
-            # set widgets to disabled state
-            self.title.setText('No System Loaded')
-            self.system_id_value_label.setText('No System Loaded')
-            self.system_id_value_label.setEnabled(False)
-            self.system_name_value_label.setText(
-                                'Drag/Drop an Optical System here ...')
-            self.system_name_value_label.setEnabled(False)
+            orb.log.debug('  - no product type, ignored')
             return
-        self.title.setText(obj.name)
-        self.system_id_value_label.setText(obj.id)
-        self.system_name_value_label.setText(obj.name)
-        self.system_id_value_label.setEnabled(True)
-        self.system_name_value_label.setEnabled(True)
-        state['optical_system'] = obj.oid
 
     system = property(fget=_get_system, fset=_set_system)
 
@@ -579,16 +587,11 @@ class OpticalSystemWidget(QWidget):
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
 
-    def set_title(self):
-        sys_name = getattr(self.system, 'name', 'No System Loaded')
-        sys_name = sys_name or 'No System Loaded'
-        self.info_panel.title.setText(sys_name)
-
     def set_new_scene(self):
         """
         Return a new scene with new system or an empty scene if no system.
         """
-        orb.log.debug(' - set_new_scene ...')
+        # orb.log.debug(' - set_new_scene ...')
         scene = OpticalSystemScene(system=self.system, parent=self)
         # TODO:  replace this with a sort function ...
         acus = getattr(self.system, 'components', []) or []
@@ -600,7 +603,6 @@ class OpticalSystemWidget(QWidget):
                 item_list.append(item)
                 scene.addItem(item)
             scene.diagram.populate(item_list)
-        self.set_title()
         scene.update()
         return scene
 
@@ -608,7 +610,6 @@ class OpticalSystemWidget(QWidget):
         """
         Return an empty scene.
         """
-        self.set_title()
         scene = QGraphicsScene()
         return scene
 
@@ -651,10 +652,6 @@ class OpticalSystemWidget(QWidget):
             self.scene_scale_select.setCurrentIndex(new_index)
         else:
             orb.log.debug(f'* rescale factor {percentscale} unavailable')
-
-    # def on_component_edited(self, component=None):
-        # if component == self.component:
-            # self.set_title()
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
