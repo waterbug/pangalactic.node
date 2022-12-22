@@ -167,6 +167,9 @@ class OpticalSystemDiagram(QGraphicsPathItem):
         obj_text = TextItem("object", QPointF(10, 230), self.scene,
                             font=QFont("Arial", 18))
         obj_text.setSelected(False)
+        img_text = TextItem("image", QPointF(1110, 230), self.scene,
+                            font=QFont("Arial", 18))
+        img_text.setSelected(False)
 
     def remove_item(self, item):
         if item in self.item_list:
@@ -455,7 +458,7 @@ class OpticalSysInfoPanel(QWidget):
         self.system_owner_value_field.setVisible(False)
         info_panel_layout.addWidget(self.system_owner_value_field)
         info_panel_layout.addStretch(1)
-        self.new_system_button = SizedButton("Define New System")
+        self.new_system_button = SizedButton("Define New System", color="blue")
         info_panel_layout.addWidget(self.new_system_button)
         self.new_system_button.clicked.connect(self.define_new_system)
         self.error_budget_button = SizedButton("Create Error Budget")
@@ -716,13 +719,13 @@ class OpticalSystemModeler(QMainWindow):
         self.system_widget.setMinimumSize(900, 250)
         view = ['Optical Surface Label',
                 'Optical Surface Description',
-                'RoC', 'K',
-                'X_vertex',
-                'Y_vertex',
-                'Z_vertex',
-                'RotX_vertex',
-                'RotY_vertex',
-                'RotZ_vertex',
+                # 'RoC', 'K',
+                # 'X_vertex',
+                # 'Y_vertex',
+                # 'Z_vertex',
+                # 'RotX_vertex',
+                # 'RotY_vertex',
+                # 'RotZ_vertex',
                 'dRMSWFE_dx', 'dRMSWFE_dy', 'dRMSWFE_dz',
                 'dRMSWFE_rx', 'dRMSWFE_ry', 'dRMSWFE_rz',
                 'dLOSx_dx', 'dLOSx_dy', 'dLOSx_dz',

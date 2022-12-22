@@ -131,13 +131,13 @@ class CheckButtonLabel(QPushButton):
 
 class SizedButton(QPushButton):
 
-    def __init__(self, text, color='purple', parent=None):
+    def __init__(self, text, color="purple", parent=None):
         super().__init__(text, parent=parent)
+        self.setStyleSheet(';'.join([
+            f'color: white; background-color: {color}',
+            'font-weight: bold;']))
         width = self.fontMetrics().boundingRect(text).width() + 30
         self.setMaximumWidth(width)
-        self.setStyleSheet(';'.join([
-            'color: white; background-color: {}'.format(color),
-            'font-weight: bold']))
 
 
 class FkButton(QPushButton):
