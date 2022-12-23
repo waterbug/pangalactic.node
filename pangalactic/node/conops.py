@@ -176,7 +176,6 @@ class Timeline(QGraphicsPathItem):
         self.item_list = []
         self.path_length = 1000
         self.make_path()
-        self.length = self.path.length()-2*self.circle_length
         self.num_of_item = len(scene.current_activity.sub_activities)
         self.make_point_list()
         self.current_positions = []
@@ -217,9 +216,9 @@ class Timeline(QGraphicsPathItem):
             dispatcher.send("rescale timeline", percentscale=pscale)
 
     def make_point_list(self):
-        self.length = self.path.length()-2*self.circle_length
-        factor = self.length/(len(self.item_list)+1)
-        self.list_of_pos = [(n+1)*factor+100
+        self.length = round(self.path.length() - 2 * self.circle_length)
+        factor = self.length // (len(self.item_list) + 1)
+        self.list_of_pos = [(n+1) * factor + 100
                             for n in range(0, len(self.item_list))]
 
     def populate(self, item_list):
@@ -246,15 +245,14 @@ class Timeline(QGraphicsPathItem):
             # used more than once in the timeline ...
             acr = orb.select("ActCompRel", composite_activity=parent_act,
                              sub_activity=item.activity)
-            acr.sub_activity_sequence = self.list_of_pos[i]
+            acr.sub_activity_sequence = i
             orb.save([acr])
             # dispatcher.send("modified object", obj=acr)
             if initial:
                 acr.sub_activity.id = (acr.sub_activity.id or
-                                       acr.sub_activity_sequence)
+                                       f'{parent_act.id}-subactivity-{i}')
                 acr.sub_activity.name = (acr.sub_activity.name or
-                                         "{} {}".format(parent_act.name,
-                                                        str(i)))
+                                         f"{parent_act.name} component {i}")
                 orb.save([acr.sub_activity])
                 dispatcher.send("repositioned activity",
                                 activity=acr.sub_activity)
@@ -1106,8 +1104,10 @@ class ConOpsModeler(QMainWindow):
 
 if __name__ == '__main__':
     import sys
-    orb.start(home='junk_home', debug=True)
+    # orb.start(home='junk_home', debug=True)
+    orb.start(home='/home/waterbug/cattens_home_dev', debug=True)
     app = QApplication(sys.argv)
     mw = ConOpsModeler()
     mw.show()
     sys.exit(app.exec_())
+

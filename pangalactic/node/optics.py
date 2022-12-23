@@ -110,7 +110,7 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
 
     def delete_item(self):
         orb.log.debug('* sending "remove component" signal')
-        dispatcher.send("remove component", acu=self.component)
+        dispatcher.send("remove component", acu=self.usage)
 
     def itemChange(self, change, value):
         return value
@@ -122,130 +122,19 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
         super().mouseMoveEvent(event)
 
 
-class OpticalSystemView(QGraphicsView):
+class OpticalSystemScene(QGraphicsScene):
     def __init__(self, parent=None):
         super().__init__(parent)
-
-    def dragEnterEvent(self, event):
-        try:
-            event.accept()
-        except:
-            pass
-
-    def dragMoveEvent(self, event):
-        event.accept()
-
-    def dragLeaveEvent(self, event):
-        event.accept()
-
-
-class OpticalSystemDiagram(QGraphicsPathItem):
-
-    def __init__(self, scene, parent=None):
-        super().__init__(parent)
-        self.scene = scene
-        self.item_list = []
-        self.path_length = 1000
-        self.make_path()
-        self.length = self.path.length() - 200
-        if getattr(scene.system, 'components', None):
-            self.num_of_item = len(scene.system.components)
-        else:
-            self.num_of_item = 0
-        self.make_point_list()
-        self.current_positions = []
-
-    def make_path(self):
-        start_point = QPointF(100, 250)
-        self.path = QPainterPath(start_point)
-        self.path.addRect(0, 200, 100, 100)
-        self.path.moveTo(100, 250)
-        self.path.lineTo(1100, 250)
-        self.path.addRect(1100, 200, 100, 100)
-        self.setPath(self.path)
-        # TextItem automatically adds itself to the specified scene
-        obj_text = TextItem("object", QPointF(10, 230), self.scene,
-                            font=QFont("Arial", 18))
-        obj_text.setSelected(False)
-        img_text = TextItem("image", QPointF(1110, 230), self.scene,
-                            font=QFont("Arial", 18))
-        img_text.setSelected(False)
-
-    def remove_item(self, item):
-        if item in self.item_list:
-            self.item_list.remove(item)
-            self.num_of_item = len(self.item_list)
-        self.update_optical_path()
-
-    def add_item(self, item):
-        self.item_list.append(item)
-        self.num_of_item = len(self.item_list)
-        self.update_optical_path()
-
-    def update_optical_path(self):
-        self.calc_length()
-        self.make_path()
-        self.make_point_list()
-        self.arrange()
-
-    def calc_length(self):
-        if len(self.item_list) <= 5:
-            self.path_length = 1000
-        else:
-            # adjust optical_path length and rescale scene
-            delta = len(self.item_list) - 5
-            self.path_length = 1000 + (delta // 2) * 300
-            scale = 70 - (delta // 2) * 10
-            pscale = str(scale) + "%"
-            dispatcher.send("rescale optical_path", percentscale=pscale)
-
-    def make_point_list(self):
-        self.length = self.path.length() - 200
-        factor = self.length/(len(self.item_list) + 1)
-        self.list_of_pos = [(n + 1) * factor + 100
-                            for n in range(0, len(self.item_list))]
-
-    def populate(self, item_list):
-        self.item_list = item_list
-        # if len(self.item_list) > 5 :
-        #     self.extend_optical_path()
-        # self.make_point_list()
-        # self.arrange()
-        self.update_optical_path()
-
-    def arrange(self):
-        item_list_copy = self.item_list[:]
-        self.item_list.sort(key=lambda x: x.scenePos().x())
-        same = True
-        for item in self.item_list:
-            if self.item_list.index(item) != item_list_copy.index(item):
-                same = False
-        if not same:
-            des = {}
-            for i, item in enumerate(self.item_list):
-                item.setPos(QPoint(self.list_of_pos[i], 250))
-                acu = item.usage
-                set_dval(acu.oid, 'position_in_optical_path',
-                         self.list_of_pos[i])
-                des[acu.oid] = {}
-                des[acu.oid]['position_in_optical_path'] = self.list_of_pos[i]
-            # "des set" triggers pgxn to call rpc vger.set_data_elements()
-            dispatcher.send("des set", des=des)
-            # "order changed" only triggers the system table to update
-            dispatcher.send("order changed")
-        self.update()
-
-
-class OpticalSystemScene(QGraphicsScene):
-    def __init__(self, system=None, parent=None):
-        super().__init__(parent)
-        self.system = system
-        self.diagram = OpticalSystemDiagram(self)
-        self.addItem(self.diagram)
+        self.optical_path = OpticalPathDiagram(self)
+        self.addItem(self.optical_path)
         # NOTE: not clear if this is necessary
         # self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
         self.grabbed_item = None
+
+    @property
+    def system(self):
+        return orb.get(state.get('optical_system', ''))
 
     # def focus_changed_handler(self, new_item, old_item):
         # if (new_item is not None and
@@ -263,7 +152,7 @@ class OpticalSystemScene(QGraphicsScene):
         super().mouseReleaseEvent(event)
         if self.grabbed_item != None:
             self.grabbed_item.setPos(event.scenePos().x(), 250)
-            self.diagram.arrange()
+            self.optical_path.arrange()
         self.grabbed_item == None
 
     def dropEvent(self, event):
@@ -390,6 +279,127 @@ class OpticalSystemScene(QGraphicsScene):
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
+
+
+class OpticalPathDiagram(QGraphicsPathItem):
+
+    def __init__(self, scene, parent=None):
+        super().__init__(parent)
+        self.scene = scene
+        self.item_list = []
+        self.path_length = 1000
+        self.make_path()
+        # self.length = self.path.length() - 200
+        if getattr(scene.system, 'components', None):
+            self.num_of_item = len(scene.system.components)
+        else:
+            self.num_of_item = 0
+        self.make_point_list()
+        self.current_positions = []
+
+    @property
+    def system(self):
+        return orb.get(state.get('optical_system', ''))
+
+    def make_path(self):
+        start_point = QPointF(100, 250)
+        self.path = QPainterPath(start_point)
+        self.path.addRect(0, 200, 100, 100)
+        self.path.moveTo(100, 250)
+        end_x = 100 + self.path_length
+        self.path.lineTo(end_x, 250)
+        self.path.addRect(end_x, 200, 100, 100)
+        self.setPath(self.path)
+        # TextItem automatically adds itself to the specified scene
+        obj_text = TextItem("object", QPointF(10, 230), self.scene,
+                            font=QFont("Arial", 18))
+        obj_text.setSelected(False)
+        img_text = TextItem("image", QPointF(1110, 230), self.scene,
+                            font=QFont("Arial", 18))
+        img_text.setSelected(False)
+
+    def remove_item(self, item):
+        if item in self.item_list:
+            self.item_list.remove(item)
+            self.num_of_item = len(self.item_list)
+        self.update_optical_path()
+
+    def add_item(self, item):
+        self.item_list.append(item)
+        self.num_of_item = len(self.item_list)
+        self.update_optical_path()
+
+    def update_optical_path(self):
+        self.calc_length()
+        self.make_path()
+        self.make_point_list()
+        self.arrange()
+
+    def calc_length(self):
+        if len(self.item_list) <= 5:
+            self.path_length = 1000
+        else:
+            # adjust optical_path length and rescale scene
+            delta = len(self.item_list) - 5
+            self.path_length = 1000 + (delta // 2) * 300
+            scale = 70 - (delta // 2) * 10
+            pscale = str(scale) + "%"
+            dispatcher.send("rescale optical_path", percentscale=pscale)
+
+    def make_point_list(self):
+        self.length = round(self.path.length() - 800)
+        factor = self.length // (len(self.item_list) + 1)
+        self.list_of_pos = [(n + 1) * factor + 100
+                            for n in range(0, len(self.item_list))]
+
+    def populate(self, item_list):
+        self.item_list = item_list
+        # if len(self.item_list) > 5 :
+        #     self.extend_optical_path()
+        # self.make_point_list()
+        # self.arrange()
+        self.update_optical_path()
+
+    def arrange(self, initial=False):
+        item_list_copy = self.item_list[:]
+        self.item_list.sort(key=lambda x: x.scenePos().x())
+        same = True
+        for item in self.item_list:
+            if self.item_list.index(item) != item_list_copy.index(item):
+                same = False
+
+        for i, item in enumerate(self.item_list):
+            item.setPos(QPoint(self.list_of_pos[i], 250))
+            # FIXME: this will not select a unique activity if an activity is
+            # used more than once in the timeline ...
+            acu = orb.select(
+                        cname="Acu", assembly=self.system,
+                        component=item.component,
+                        reference_designator=item.usage.reference_designator)
+            set_dval(acu.oid, 'position_in_optical_path', i)
+            # dispatcher.send("modified object", obj=acr)
+            # if initial:
+                # acu.component.id = (acu.component.id or
+                                    # f'{self.system.id}-component-{i}')
+                # acu.component.name = (acu.component.name or
+                                      # f"{system.name} component {i}")
+                # orb.save([acu.component])
+                # FIXME: why is this commented???
+                # dispatcher.send("modified object", obj=acr.sub_activity)
+
+        if not same:
+            des = {}
+            for i, item in enumerate(self.item_list):
+                item.setPos(QPoint(self.list_of_pos[i], 250))
+                acu = item.usage
+                set_dval(acu.oid, 'position_in_optical_path', i)
+                des[acu.oid] = {}
+                des[acu.oid]['position_in_optical_path'] = self.list_of_pos[i]
+            # "des set" triggers pgxn to call rpc vger.set_data_elements()
+            dispatcher.send("des set", des=des)
+            # "order changed" only triggers the system table to update
+            dispatcher.send("order changed")
+        self.update()
 
 
 class OpticalSysInfoPanel(QWidget):
@@ -558,11 +568,27 @@ class OpticalSysInfoPanel(QWidget):
             event.ignore()
 
 
+class OpticalSystemView(QGraphicsView):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def dragEnterEvent(self, event):
+        try:
+            event.accept()
+        except:
+            pass
+
+    def dragMoveEvent(self, event):
+        event.accept()
+
+    def dragLeaveEvent(self, event):
+        event.accept()
+
+
 class OpticalSystemWidget(QWidget):
-    def __init__(self, system=None, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent=parent)
         orb.log.debug(' - initializing OpticalSystemWidget ...')
-        self.system = system
         self.info_panel = OpticalSysInfoPanel(self.system)
         self.init_toolbar()
         self.scene = self.set_new_scene()
@@ -576,8 +602,13 @@ class OpticalSystemWidget(QWidget):
         self.sceneScaleChanged("70%")
         dispatcher.connect(self.delete_component, "remove component")
         # dispatcher.connect(self.on_component_edited, 'component edited')
-        dispatcher.connect(self.on_rescale_optical_path, "rescale optical_path")
+        dispatcher.connect(self.on_rescale_optical_path,
+                           "rescale optical_path")
         self.setUpdatesEnabled(True)
+
+    @property
+    def system(self):
+        return orb.get(state.get('optical_system', ''))
 
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
@@ -595,17 +626,18 @@ class OpticalSystemWidget(QWidget):
         Return a new scene with new system or an empty scene if no system.
         """
         # orb.log.debug(' - set_new_scene ...')
-        scene = OpticalSystemScene(system=self.system, parent=self)
+        scene = OpticalSystemScene(parent=self)
         # TODO:  replace this with a sort function ...
         acus = getattr(self.system, 'components', []) or []
         if acus:
-            acus.sort(lambda x: get_dval(x.oid, 'position_in_optical_path'))
+            acus.sort(key=lambda x:
+                      get_dval(x.oid, 'position_in_optical_path'))
             item_list=[]
             for acu in acus:
                 item = OpticalComponentBlock(usage=acu)
                 item_list.append(item)
                 scene.addItem(item)
-            scene.diagram.populate(item_list)
+            scene.optical_path.populate(item_list)
         scene.update()
         return scene
 
@@ -636,11 +668,11 @@ class OpticalSystemWidget(QWidget):
         if oid is None:
             return
         if acu in getattr(self.system, 'components', []):
-            orb.delete(acu)
+            orb.delete([acu])
             dispatcher.send("removed component",
                             assembly=self.system)
         else:
-            # if component is not in the current diagram, ignore
+            # if component is not in the current optical system, ignore
             return
         self.scene = self.set_new_scene()
         self.update_view()
@@ -679,25 +711,25 @@ class OpticalSystemModeler(QMainWindow):
     Tool for modeling a Mission Concept of Operations for the currently
     selected project.
     """
-    def __init__(self, system=None, parent=None):
+    def __init__(self, parent=None):
         """
         Initialize the tool.
 
         Keyword Args:
             parent (QWidget):  parent widget
-
-        Keyword Args:
-            system (HardwareProduct): the optical system being modeled
         """
         super().__init__(parent=parent)
         orb.log.info('* OpticalSystemModeler initializing')
-        self.system = system
         project = orb.get(state.get('project'))
         self.project = project
         self.create_library()
         self.init_toolbar()
         self.set_widgets(init=True)
         dispatcher.connect(self.double_clicked_handler, "double clicked")
+
+    @property
+    def system(self):
+        return orb.get(state.get('optical_system', ''))
 
     def create_library(self):
         """
@@ -714,9 +746,8 @@ class OpticalSystemModeler(QMainWindow):
         select that component in the SystemInfoTable.
         """
         orb.log.debug(' - set_widgets() ...')
-        self.system_widget = OpticalSystemWidget(system=self.system,
-                                                 parent=self)
-        self.system_widget.setMinimumSize(900, 250)
+        self.system_widget = OpticalSystemWidget(parent=self)
+        self.system_widget.setMinimumSize(900, 400)
         view = ['Optical Surface Label',
                 'Optical Surface Description',
                 # 'RoC', 'K',
@@ -737,7 +768,7 @@ class OpticalSystemModeler(QMainWindow):
         self.system_table.setSizePolicy(QSizePolicy.Expanding,
                                         QSizePolicy.Expanding)
         self.system_table_panel = QWidget()
-        self.system_table_panel.setMinimumSize(1200, 600)
+        self.system_table_panel.setMinimumSize(1200, 300)
         system_table_layout = QHBoxLayout()
         system_table_layout.addWidget(self.system_table)
         self.system_table_panel.setLayout(system_table_layout)
