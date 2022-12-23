@@ -2117,13 +2117,17 @@ class BlockLabel(QGraphicsTextItem):
 
     Args:
         text (str):  text of label
-        parent (QGraphicsItem): parent item
+        parent (QGraphicsItem): item to be labeled
 
     Keyword Args:
-        font (QFont):  style of font
+        font_name (str):  name of font (default: Arial)
+        point_size (int):  point size of font (default: 10)
+        weight (str):  point size of font (default: bold)
+        color (str):  color of font (see QTCOLORS)
+        centered (bool):  whether to center the label on the item
+            (default: True)
         x (int):  x location in local coordinates
         y (int):  y location in local coordinates
-        color (str):  color of font (see QTCOLORS)
     """
     def __init__(self, text, parent, font_name=None, point_size=None,
                  weight=None, color=None, centered=True, x=None, y=None):
@@ -2152,13 +2156,15 @@ class BlockLabel(QGraphicsTextItem):
         self.setParentItem(self.parent)
         self.adjustSize()
         self.setTextWidth(self.parent.boundingRect().width() - 50)
-        if self.centered:
-            w = self.boundingRect().width()
-            x = self.parent.boundingRect().center().x() - w/2
-            h = self.boundingRect().height()
-            y = self.parent.boundingRect().center().y() - h/2
-        else:
+        w = self.boundingRect().width()
+        h = self.boundingRect().height()
+        centered_x = self.parent.boundingRect().center().x() - w/2
+        centered_y = self.parent.boundingRect().center().y() - h/2
+        x = centered_x
+        y = centered_y
+        if self.x:
             x = self.x
+        if self.y:
             y = self.y
         self.setPos(x, y)
 

@@ -79,7 +79,7 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
             ])
         self.setPolygon(self.myPolygon)
         label_txt = getattr(self.usage, 'reference_designator', '') or ''
-        self.block_label = BlockLabel(label_txt, self, point_size=8)
+        self.block_label = BlockLabel(label_txt, self, y=-100, centered=False)
 
     def on_component_edited(self, component=None):
         oid = getattr(component, 'oid', None)
@@ -306,17 +306,23 @@ class OpticalPathDiagram(QGraphicsPathItem):
         self.path = QPainterPath(start_point)
         self.path.addRect(0, 200, 100, 100)
         self.path.moveTo(100, 250)
-        end_x = 100 + self.path_length
-        self.path.lineTo(end_x, 250)
-        self.path.addRect(end_x, 200, 100, 100)
+        self.end_x = 100 + self.path_length
+        self.path.lineTo(self.end_x, 250)
+        self.path.addRect(self.end_x, 200, 100, 100)
         self.setPath(self.path)
         # TextItem automatically adds itself to the specified scene
-        obj_text = TextItem("object", QPointF(10, 230), self.scene,
-                            font=QFont("Arial", 18))
-        obj_text.setSelected(False)
-        img_text = TextItem("image", QPointF(1110, 230), self.scene,
-                            font=QFont("Arial", 18))
-        img_text.setSelected(False)
+        self.obj_text = TextItem("object", QPointF(10, 230), self.scene,
+                                 font=QFont("Arial", 18))
+        self.obj_text.setSelected(False)
+        self.add_image_label()
+
+    def add_image_label(self):
+        current_image_label = getattr(self, 'img_text', None)
+        if current_image_label:
+            self.scene.removeItem(current_image_label)
+        self.img_text = TextItem("image", QPointF(self.end_x + 10, 230),
+                                 self.scene, font=QFont("Arial", 18))
+        self.img_text.setSelected(False)
 
     def remove_item(self, item):
         if item in self.item_list:
@@ -344,7 +350,7 @@ class OpticalPathDiagram(QGraphicsPathItem):
             self.path_length = 1000 + (delta // 2) * 300
             scale = 70 - (delta // 2) * 10
             pscale = str(scale) + "%"
-            dispatcher.send("rescale optical_path", percentscale=pscale)
+            dispatcher.send("rescale optical path", percentscale=pscale)
 
     def make_point_list(self):
         self.length = round(self.path.length() - 800)
@@ -603,7 +609,7 @@ class OpticalSystemWidget(QWidget):
         dispatcher.connect(self.delete_component, "remove component")
         # dispatcher.connect(self.on_component_edited, 'component edited')
         dispatcher.connect(self.on_rescale_optical_path,
-                           "rescale optical_path")
+                           "rescale optical path")
         self.setUpdatesEnabled(True)
 
     @property
