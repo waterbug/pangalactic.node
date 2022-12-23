@@ -396,8 +396,8 @@ class LibraryListWidget(QWidget):
                                                     self.clear_product_filters)
                 dispatcher.connect(self.on_product_types_selected,
                                    'product types selected')
-                dispatcher.connect(self.on_only_mine_toggled,
-                                   'only mine toggled')
+                lib_table.only_mine_checkbox.clicked.connect(
+                                                self.on_only_mine_toggled)
         elif cname == 'ParameterDefinition':
             select_label = 'Parameters'
             lib_table = ParmDefTreeView(parent=self)
@@ -582,8 +582,8 @@ class LibraryDialog(QDialog):
                                                 self.clear_product_filters)
                 dispatcher.connect(self.on_product_types_selected,
                                    'product types selected')
-                dispatcher.connect(self.on_only_mine_toggled,
-                                   'only mine toggled')
+                lib_view.only_mine_checkbox.clicked.connect(
+                                                self.on_only_mine_toggled)
             else:
                 if self.cname == 'Template':
                     label = 'System and Component Templates'

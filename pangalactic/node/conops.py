@@ -970,7 +970,7 @@ class ConOpsModeler(QMainWindow):
         # self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
         # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
         self.set_widgets(current_activity=self.activity, init=True)
-        dispatcher.connect(self.double_clicked_handler, "double clicked")
+        dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.view_subsystem_activities, "activity focused")
 
     def create_library(self):
@@ -1022,16 +1022,15 @@ class ConOpsModeler(QMainWindow):
     def resizeEvent(self, event):
         state['model_window_size'] = (self.width(), self.height())
 
-    def double_clicked_handler(self, act):
-        oid = getattr(act, "oid", None)
+    def on_double_click(self, act):
+        orb.log.debug("  - on_double_click()...")
         try:
-            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-            print(get_pval(oid, 'duration'))
+            orb.log.debug(f'     + activity: {act.id}')
+            if act.activity_type.id == 'cycle':
+                self.system_widget.widget_drill_down(act)
         except Exception as e:
-            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-            print(e)
-        if act.activity_type.id == 'cycle':
-            self.system_widget.widget_drill_down(act)
+            orb.log.debug("    exception occurred:")
+            orb.log.debug(e)
 
     def view_subsystem_activities(self, act=None):
         """

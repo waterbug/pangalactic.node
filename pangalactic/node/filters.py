@@ -850,7 +850,6 @@ class FilterPanel(QWidget):
             state['only_mine'] = False
         else:
             state['only_mine'] = True
-        dispatcher.send('only mine toggled')
 
     def create_actions(self):
         self.pgxnobj_action = QAction('View or edit this object', self)

@@ -32,6 +32,7 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
+from pangalactic.node.libraries   import LibraryDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
 from pangalactic.node.utils       import (clone, extract_mime_data,
@@ -474,6 +475,9 @@ class OpticalSysInfoPanel(QWidget):
         self.system_owner_value_field.setVisible(False)
         info_panel_layout.addWidget(self.system_owner_value_field)
         info_panel_layout.addStretch(1)
+        self.library_button = SizedButton("Optical Components Library",
+                                             color="green")
+        info_panel_layout.addWidget(self.library_button)
         self.new_system_button = SizedButton("Define New System", color="blue")
         info_panel_layout.addWidget(self.new_system_button)
         self.new_system_button.clicked.connect(self.define_new_system)
@@ -596,6 +600,7 @@ class OpticalSystemWidget(QWidget):
         super().__init__(parent=parent)
         orb.log.debug(' - initializing OpticalSystemWidget ...')
         self.info_panel = OpticalSysInfoPanel(self.system)
+        self.library_button = self.info_panel.library_button
         self.init_toolbar()
         self.scene = self.set_new_scene()
         self.view = OpticalSystemView(self)
@@ -728,20 +733,38 @@ class OpticalSystemModeler(QMainWindow):
         orb.log.info('* OpticalSystemModeler initializing')
         project = orb.get(state.get('project'))
         self.project = project
-        self.create_library()
         self.init_toolbar()
         self.set_widgets(init=True)
-        dispatcher.connect(self.double_clicked_handler, "double clicked")
+        sys_widget_w = self.system_widget.width()
+        sys_widget_h = self.system_widget.height()
+        sys_table_h = self.system_table.rowCount() * 20
+        self.resize(sys_widget_w + 400,
+                    sys_widget_h + sys_table_h + 200)
+        self.system_widget.library_button.clicked.connect(self.display_library)
+        dispatcher.connect(self.on_double_click, "double clicked")
 
     @property
     def system(self):
         return orb.get(state.get('optical_system', ''))
 
-    def create_library(self):
+    def display_library(self):
         """
-        Create the library of optical component block types.
+        Open dialog with library of optical component blocks.
         """
-        pass
+        hw = orb.get_by_type('HardwareProduct')
+        optical_system = orb.select('ProductType', id='optical_system')
+        optical_component = orb.select('ProductType', id='optical_component')
+        lens = orb.select('ProductType', id='lens')
+        mirror = orb.select('ProductType', id='mirror')
+        pts = [optical_system, optical_component, lens, mirror]
+        dlg = LibraryDialog('HardwareProduct',
+                            height=self.geometry().height(),
+                            width=self.geometry().width() // 2,
+                            parent=self)
+        dlg.lib_view.only_mine_checkbox.setChecked(False)
+        state['only_mine'] = False
+        dlg.on_product_types_selected(objs=pts)
+        dlg.show()
 
     def set_widgets(self, init=False):
         """
@@ -786,15 +809,14 @@ class OpticalSystemModeler(QMainWindow):
         self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock)
         self.top_dock.setWidget(self.system_widget)
 
-    # TODO -- *MAYBE* do drill-down later ... whatever it means here ...
-    def double_clicked_handler(self, acu):
+    def on_double_click(self, acu):
         # """
-        # Handle a double-click event on an eventblock, creating and
+        # Handle a double-click event on a OpticalComponentBlock, creating and
         # displaying a new view.
         # Args:
-            # obj (EventBlock):  the block that received the double-click
+            # obj (OpticalComponentBlock):  the block that received the
+            #   double-click
         # """
-        # dispatcher.send("drill down", obj=acu)
         # self.component = acu
         # self.scene = self.set_new_scene()
         # self.update_view()
