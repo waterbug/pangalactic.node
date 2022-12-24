@@ -69,8 +69,8 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
             self.myPolygon = path.toFillPolygon(QTransform())
         elif self.component.product_type.name == "Mirror":
             self.myPolygon = QPolygonF([
-                    QPointF(-1, 50), QPointF(1, 50),
-                    QPointF(1, -50), QPointF(-1, -50)
+                    QPointF(0, 50), QPointF(1, 50),
+                    QPointF(1, -50), QPointF(0, -50)
             ])
         else:
             # generic optical component
@@ -777,22 +777,21 @@ class OpticalSystemModeler(QMainWindow):
         orb.log.debug(' - set_widgets() ...')
         self.system_widget = OpticalSystemWidget(parent=self)
         self.system_widget.setMinimumSize(900, 400)
-        view = ['Optical Surface Label',
-                'Optical Surface Description',
-                # 'RoC', 'K',
-                # 'X_vertex',
-                # 'Y_vertex',
-                # 'Z_vertex',
-                # 'RotX_vertex',
-                # 'RotY_vertex',
-                # 'RotZ_vertex',
+        comp_view = dict(name='Optical Surface Label',
+                         description='Optical Surface Description')
+        usage_view = [
                 'dRMSWFE_dx', 'dRMSWFE_dy', 'dRMSWFE_dz',
                 'dRMSWFE_rx', 'dRMSWFE_ry', 'dRMSWFE_rz',
                 'dLOSx_dx', 'dLOSx_dy', 'dLOSx_dz',
                 'dLOSx_rx', 'dLOSx_ry', 'dLOSx_rz',
                 'dLOSy_dx', 'dLOSy_dy', 'dLOSy_dz',
                 'dLOSy_rx', 'dLOSy_ry', 'dLOSy_rz']
-        self.system_table = SystemInfoTable(system=self.system, view=view,
+                # 'RoC', 'K',
+                # 'X_vertex', 'Y_vertex', 'Z_vertex',
+                # 'RotX_vertex', 'RotY_vertex', 'RotZ_vertex',
+        self.system_table = SystemInfoTable(system=self.system,
+                                            component_view=comp_view,
+                                            usage_view=usage_view,
                                             parent=self)
         self.system_table.setSizePolicy(QSizePolicy.Expanding,
                                         QSizePolicy.Expanding)

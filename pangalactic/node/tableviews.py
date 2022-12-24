@@ -12,7 +12,8 @@ from PyQt5.QtGui     import QPalette
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFileDialog, QHeaderView, QLabel, QProxyStyle,
                              QSizePolicy, QStyle, QStyleOptionHeader,
-                             QTableView, QTableWidget, QVBoxLayout)
+                             QTableView, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout)
 
 # Louie
 from louie import dispatcher
@@ -21,10 +22,12 @@ from louie import dispatcher
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names       import get_external_name_plural
-from pangalactic.core.parametrics import (make_de_html, make_parm_html, de_defz,
-                                          parm_defz)
+from pangalactic.core.parametrics import (make_de_html, make_parm_html,
+                                          de_defz, get_dval_as_str,
+                                          get_pval_as_str, parm_defz)
 from pangalactic.core.serializers import serialize
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.units       import in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.node.tablemodels import (ObjectTableModel,
                                           CompareTableModel,
@@ -115,6 +118,46 @@ class LabelHeaderView(QHeaderView):
             label.setGeometry(geom)
 
 
+def get_str_value(obj, pname):
+    """
+    Return the string-cast value of the specified property for the specified
+    object.
+
+    Args:
+        obj (Identifiable): the object
+        pname (str): name of the property (attr, parameter, or data element)
+    """
+    schema = orb.schemas.get(obj.__class__.__name__)
+    field_names = []
+    if schema:
+        field_names = schema.get('field_names', [])
+    if field_names and pname in field_names:
+        return getattr(obj, pname, '') or ''
+    elif pname in parm_defz:
+        pd = parm_defz.get(pname)
+        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                pd['dimensions'], '')
+        return get_pval_as_str(obj.oid, pname, units=units)
+    elif pname in de_defz:
+        return get_dval_as_str(obj.oid, pname)
+    return '[undefined]'
+
+
+class InfoTableItem(QTableWidgetItem):
+
+    def __init__(self, text=None):
+        if text is not None:
+            super().__init__(text)
+        else:
+            super().__init__()
+        self.isResolving = False
+
+    def setData(self, role, value):
+        super().setData(role, value)
+        if self.tableWidget():
+            self.tableWidget().viewport().update()
+
+
 class SystemInfoTable(QTableWidget):
     """
     Table whose main purpose is to provide an editable view of one level of a
@@ -124,15 +167,19 @@ class SystemInfoTable(QTableWidget):
     parameters of components, their usages in the assembly, and possibly
     related items.
     """
-    def __init__(self, system=None, view=None, min_col_width=100,
-                 max_col_width=300, parent=None):
+    def __init__(self, system=None, component_view=None, usage_view=None,
+                 min_col_width=100, max_col_width=300, parent=None):
         """
         Initialize
 
         Keyword Args:
             system (HardwareProduct):  the system whose assembly is shown
-            view (list of str):  specified properties, parameters, and data
-                elements (columns)
+            component_view (list or dict):  specified properties of components;
+                if list, ids; if dict, mapping of ids to column names
+            usage_view (list or dict):  specified properties of usages (Acus);
+                if list, ids; if dict, mapping of ids to column names
+            min_col_width (int): minimum column width (default: 100)
+            max_col_width (int): maximum column width (default: 300)
         """
         super().__init__(parent=parent)
         # orb.log.info('* [SystemInfoTable] initializing ...')
@@ -140,43 +187,98 @@ class SystemInfoTable(QTableWidget):
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         # TODO: get default view from prefs / config
-        default_view = [
+        default_component_view = [
             'm[CBE]',
             'P[CBE]',
             'R_D[CBE]'
             ]
-        self.view = view or default_view[:]
+        self.component_view = component_view or default_component_view[:]
+        self.usage_view = usage_view or []
         self.setup_table()
 
     def setup_table(self):
-        self.setColumnCount(len(self.view))
-        comps = getattr(self.system, 'components', []) or []
-        if comps:
-            self.setRowCount(len(comps))
+        self.setColumnCount(len(self.component_view) + len(self.usage_view))
+        acus = getattr(self.system, 'components', []) or []
+        if acus:
+            self.setRowCount(len(acus))
         else:
             self.setRowCount(1)
         header_labels = []
         widths = []
-        for pname in self.view:
-            if pname in parm_defz:
-                header_label = make_parm_html(pname, tag='h3')
-            elif pname in de_defz:
-                header_label = make_de_html(pname, tag='h3')
-            else:
+        if self.component_view and isinstance(self.component_view, list):
+            for pname in self.component_view:
+                if pname in parm_defz:
+                    header_label = make_parm_html(pname, tag='h3')
+                elif pname in de_defz:
+                    header_label = make_de_html(pname, tag='h3')
+                else:
+                    html = pname
+                    header_label = f'<h3>{html}</h3>'
+                header_labels.append(header_label)
+                # set col widths based on length of header text
+                if '_' in pname:
+                    base, sub = pname.split('_')
+                    width = len(base)*20 + len(sub)*8
+                else:
+                    width = len(pname)*20
+                width = min(max(width, self.min_col_width), self.max_col_width)
+                widths.append(width)
+        elif self.component_view and isinstance(self.component_view, dict):
+            for pname in self.component_view.values():
                 html = pname
                 header_label = f'<h3>{html}</h3>'
-            header_labels.append(header_label)
-            # set col widths based on length of header text
-            if '_' in pname:
-                base, sub = pname.split('_')
-                width = len(base)*20 + len(sub)*8
-            else:
-                width = len(pname)*20
-            width = min(max(width, self.min_col_width), self.max_col_width)
-            widths.append(width)
+                header_labels.append(header_label)
+                # set col widths based on length of header text
+                if '_' in pname:
+                    base, sub = pname.split('_')
+                    width = len(base)*20 + len(sub)*8
+                else:
+                    width = len(pname)*20
+                width = min(max(width, self.min_col_width), self.max_col_width)
+                widths.append(width)
+        if self.usage_view and isinstance(self.usage_view, list):
+            for pname in self.usage_view:
+                if pname in parm_defz:
+                    header_label = make_parm_html(pname, tag='h3')
+                elif pname in de_defz:
+                    header_label = make_de_html(pname, tag='h3')
+                else:
+                    html = pname
+                    header_label = f'<h3>{html}</h3>'
+                header_labels.append(header_label)
+                # set col widths based on length of header text
+                if '_' in pname:
+                    base, sub = pname.split('_')
+                    width = len(base)*20 + len(sub)*8
+                else:
+                    width = len(pname)*20
+                width = min(max(width, self.min_col_width), self.max_col_width)
+                widths.append(width)
+        elif self.usage_view and isinstance(self.usage_view, dict):
+            for pname in self.usage_view.values():
+                html = pname
+                header_label = f'<h3>{html}</h3>'
+                header_labels.append(header_label)
+                # set col widths based on length of header text
+                if '_' in pname:
+                    base, sub = pname.split('_')
+                    width = len(base)*20 + len(sub)*8
+                else:
+                    width = len(pname)*20
+                width = min(max(width, self.min_col_width), self.max_col_width)
+                widths.append(width)
         header = LabelHeaderView(self, widths=widths)
         self.setHorizontalHeader(header)
         self.setHorizontalHeaderLabels(header_labels)
+        # populate relevant data
+        if acus:
+            for i, acu in enumerate(acus):
+                for j, pid in enumerate(self.component_view):
+                    self.setItem(i, j,
+                     InfoTableItem(get_str_value(acu.component, pid) or ''))
+                for j, pid in enumerate(self.usage_view):
+                    self.setItem(i, j + len(self.component_view),
+                     InfoTableItem(get_str_value(acu, pid) or ''))
         width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
 
@@ -450,7 +552,7 @@ if __name__ == "__main__":
     import sys
     orb.start(home='junk_home_dev', debug=True, test=True, console=True)
     app = QApplication(sys.argv)
-    test_view = [
+    test_cview = [
         'System Name',
         'System Description',
         'X_vertex',
@@ -458,13 +560,14 @@ if __name__ == "__main__":
         'Z_vertex',
         'RotX_vertex',
         'RotY_vertex',
-        'RotZ_vertex',
+        'RotZ_vertex']
+    test_uview = [
         'dRMSWFE_dx',
         'dRMSWFE_rx',
         'dLOSx_dx',
         'dLOSx_rx'
         ]
-    w = SystemInfoTable(view=test_view)
+    w = SystemInfoTable(component_view=test_cview, usage_view=test_uview)
     # w = SystemInfoTable()
     w.show()
     sys.exit(app.exec_())
