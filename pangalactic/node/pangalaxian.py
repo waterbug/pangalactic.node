@@ -3932,7 +3932,7 @@ class Main(QMainWindow):
             # if dashboard exists, it has to be destroyed too since the tree
             # and dashboard share their model()
             if hasattr(self, 'dashboard_panel'):
-                orb.log.debug('  + destroying existing dashboard, if any ...')
+                # orb.log.debug('  + destroying existing dashboard, if any ...')
                 dashboard_layout = self.dashboard_panel.layout()
                 if getattr(self, 'dashboard', None):
                     dashboard_layout.removeWidget(self.dashboard)
@@ -4026,7 +4026,7 @@ class Main(QMainWindow):
             dispatcher.send(signal='set selected system')
 
     def rebuild_dash_selector(self, modes_edited=False):
-        orb.log.debug('* rebuild_dash_selector()')
+        # orb.log.debug('* rebuild_dash_selector()')
         if getattr(self, 'dashboard_title_layout', None):
             orb.log.debug('  - dashboard_title_layout exists ...')
             orb.log.debug('  - removing old dash selector ...')
@@ -4040,6 +4040,8 @@ class Main(QMainWindow):
                                 'font-weight: bold; font-size: 14px')
             for dash_name in prefs['dashboard_names']:
                 new_dash_select.addItem(dash_name, QVariant)
+            if state.get('project', '') in mode_defz:
+                new_dash_select.addItem('System Power Modes', QVariant)
             new_dash_select.setCurrentIndex(0)
             new_dash_select.activated.connect(self.set_dashboard)
             self.dash_select = new_dash_select
@@ -4062,7 +4064,7 @@ class Main(QMainWindow):
         self.rebuild_dashboard(dashboard_mod=True)
 
     def rebuild_dashboard(self, dashboard_mod=False, force=False):
-        orb.log.debug('* rebuild_dashboard()')
+        # orb.log.debug('* rebuild_dashboard()')
         if not self.mode == 'system':
             orb.log.debug('    not in "system mode" -- ignoring.')
             return
@@ -4110,10 +4112,12 @@ class Main(QMainWindow):
         self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
         for dash_name in prefs['dashboard_names']:
             self.dash_select.addItem(dash_name, QVariant)
-        dash_name = state.get('dashboard_name', 'MEL')
-        if (dash_name == 'System Power Modes' and
+        if state.get('project', '') in mode_defz:
+            self.dash_select.addItem('System Power Modes', QVariant)
+        if (state.get('dashboard_name') == 'System Power Modes' and
             not (state.get('project', '') in mode_defz)):
-            dash_name = 'MEL'
+            state['dashboard_name'] = 'MEL'
+        dash_name = state.get('dashboard_name', 'MEL')
         state['dashboard_name'] = dash_name
         self.dash_select.setCurrentText(dash_name)
         self.dash_select.activated.connect(self.set_dashboard)
@@ -4154,11 +4158,12 @@ class Main(QMainWindow):
         if (dash_name == 'System Power Modes' and
             not (state.get('project', '') in mode_defz)):
             dash_name = 'MEL'
+        self.dash_select.setCurrentText(dash_name)
         state['dashboard_name'] = dash_name
         self.refresh_tree_and_dashboard()
 
     def refresh_dashboard(self):
-        orb.log.debug('* refreshing dashboard ...')
+        # orb.log.debug('* refreshing dashboard ...')
         if hasattr(self, 'dashboard') and self.dashboard.model():
             self.dashboard.setFocus()
             for column in range(self.dashboard.model().columnCount(
