@@ -552,23 +552,23 @@ if __name__ == "__main__":
     import sys
     orb.start(home='junk_home_dev', debug=True, test=True, console=True)
     app = QApplication(sys.argv)
-    test_cview = [
+    cview = [
         'System Name',
-        'System Description',
+        'System Description'
+        ]
+    uview = [
         'X_vertex',
         'Y_vertex',
         'Z_vertex',
         'RotX_vertex',
         'RotY_vertex',
-        'RotZ_vertex']
-    test_uview = [
+        'RotZ_vertex',
         'dRMSWFE_dx',
         'dRMSWFE_rx',
         'dLOSx_dx',
         'dLOSx_rx'
         ]
-    w = SystemInfoTable(component_view=test_cview, usage_view=test_uview)
-    # w = SystemInfoTable()
+    w = SystemInfoTable(component_view=cview, usage_view=uview)
     w.show()
     sys.exit(app.exec_())
 

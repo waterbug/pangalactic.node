@@ -85,6 +85,7 @@ from pangalactic.node.systemtree       import SystemTreeView
 from pangalactic.node.tableviews       import ObjectTableView
 from pangalactic.node.utils            import clone
 from pangalactic.node.widgets          import (AutosizingListWidget,
+                                               DashSelectCombo,
                                                ModeLabel, PlaceHolder)
 from pangalactic.node.wizards          import (NewProductWizard,
                                                DataImportWizard,
@@ -221,9 +222,6 @@ class Main(QMainWindow):
         state['connected'] = False
         if not prefs.get('dashboard_names'):
             prefs['dashboard_names'] = ['MEL']
-        if (mode_defz and
-            ('System Power Modes' not in prefs['dashboard_names'])):
-            prefs['dashboard_names'].append('System Power Modes')
         state['dashboard_name'] = prefs['dashboard_names'][0]
         # set path to server cert
         self.cert_path = os.path.join(orb.home, 'server_cert.pem')
@@ -1211,9 +1209,6 @@ class Main(QMainWindow):
             orb.log.debug('  - updating mode_defz ...')
             all_proj_modes = json.loads(md_data)
             mode_defz.update(all_proj_modes)
-            if (mode_defz and
-                ('System Power Modes' not in prefs['dashboard_names'])):
-                prefs['dashboard_names'].append('System Power Modes')
         else:
             orb.log.debug('  - mode_defz is up to date.')
         # then collect any local objects that need to be saved to the repo ...
@@ -1475,11 +1470,6 @@ class Main(QMainWindow):
                         all_proj_modes = json.loads(ser_md)
                         mode_defz.update(all_proj_modes)
                         state['mode_defz_dts'] = md_dts
-                        if (mode_defz and
-                            ('System Power Modes' not in
-                                                    prefs['dashboard_names'])):
-                            prefs['dashboard_names'].append(
-                                                        'System Power Modes')
                         orb.log.debug('    mode_defz updated.')
                         orb.log.debug('    sending "modes published" signal')
                         dispatcher.send(signal='modes published')
@@ -2413,6 +2403,11 @@ class Main(QMainWindow):
             state['project'] = 'pgefobjects:SANDBOX'
             if not state['system'].get('pgefobjects:SANDBOX'):
                 state['system']['pgefobjects:SANDBOX'] = 'pgefobjects:SANDBOX'
+        # ensure proper dashboard selection state
+        dash_name = state.get('dashboard_name', 'MEL')
+        if (dash_name == 'System Power Modes' and
+            not (state.get('project') in mode_defz)):
+            state['dashboard_name'] = 'MEL'
         if not state['sys_tree_expansion'].get(self.project.oid):
             # orb.log.debug('* setting sys tree expansion level to default (2)')
             state['sys_tree_expansion'][self.project.oid] = 0
@@ -4030,7 +4025,7 @@ class Main(QMainWindow):
             # after expanding, set the selected system
             dispatcher.send(signal='set selected system')
 
-    def rebuild_dash_selector(self):
+    def rebuild_dash_selector(self, modes_edited=False):
         orb.log.debug('* rebuild_dash_selector()')
         if getattr(self, 'dashboard_title_layout', None):
             orb.log.debug('  - dashboard_title_layout exists ...')
@@ -4040,7 +4035,7 @@ class Main(QMainWindow):
             self.dash_select.close()
             self.dash_select = None
             # orb.log.debug('  - creating new dash selector ...')
-            new_dash_select = QComboBox()
+            new_dash_select = DashSelectCombo()
             new_dash_select.setStyleSheet(
                                 'font-weight: bold; font-size: 14px')
             for dash_name in prefs['dashboard_names']:
@@ -4111,15 +4106,16 @@ class Main(QMainWindow):
         self.dash_title = QLabel()
         # orb.log.debug('           adding title ...')
         self.dashboard_title_layout.addWidget(self.dash_title)
-        self.dash_select = QComboBox()
+        self.dash_select = DashSelectCombo()
         self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
         for dash_name in prefs['dashboard_names']:
             self.dash_select.addItem(dash_name, QVariant)
-        dash_idx = 0
         dash_name = state.get('dashboard_name', 'MEL')
-        if dash_name in prefs['dashboard_names']:
-            dash_idx = prefs['dashboard_names'].index(dash_name)
-        self.dash_select.setCurrentIndex(dash_idx)
+        if (dash_name == 'System Power Modes' and
+            not (state.get('project', '') in mode_defz)):
+            dash_name = 'MEL'
+        state['dashboard_name'] = dash_name
+        self.dash_select.setCurrentText(dash_name)
         self.dash_select.activated.connect(self.set_dashboard)
         # orb.log.debug('           adding dashboard selector ...')
         self.dashboard_title_layout.addWidget(self.dash_select)
@@ -4154,7 +4150,11 @@ class Main(QMainWindow):
         """
         Set the dashboard state to the selected view.
         """
-        state['dashboard_name'] = prefs['dashboard_names'][index]
+        dash_name = self.dash_select.currentText()
+        if (dash_name == 'System Power Modes' and
+            not (state.get('project', '') in mode_defz)):
+            dash_name = 'MEL'
+        state['dashboard_name'] = dash_name
         self.refresh_tree_and_dashboard()
 
     def refresh_dashboard(self):

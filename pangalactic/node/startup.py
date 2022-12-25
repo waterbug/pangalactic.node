@@ -54,27 +54,46 @@ def setup_dirs_and_state():
     for item in default_config:
         if item not in config:
             config[item] = default_config[item]
-    # state contains app-specified dashboards (app_dashboards)
     # NOTE: "app_" items in state are NOT restored when state is loaded from
     # the save state file -- that way "app_" items are ALWAYS set from the
     # current app release.
-    app_dbds = state.get('app_dashboards')
-    if prefs.get('dashboards'):
-        # update prefs from any new app dashboards in state
-        if app_dbds:
-            for dash_name in app_dbds:
-                if dash_name not in prefs['dashboards']:
-                    prefs['dashboards'][dash_name] = deepcopy(app_dbds[
-                                                                dash_name])
-                    # append it to dashboard_names
-                    prefs['dashboard_names'].append(dash_name)
-    else:
-        if app_dbds:
-            prefs['dashboards'] = deepcopy(app_dbds)
-        else:
-            prefs['dashboards'] = {'Mass-Power-Data':
-                    ['m_total', 'm', 'P_total', 'P', 'R_total', 'R_D']}
+    if not prefs.get('dashboards'):
+        prefs['dashboards'] = {
+            'MEL' : 
+                ['m[CBE]', 'm[Ctgcy]', 'm[MEV]',
+                 'P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]',
+                 'R_D[CBE]', 'R_D[Ctgcy]', 'R_D[MEV]',
+                 'Vendor', 'Cost', 'TRL'],
+            'Mass':
+                ['m[CBE]', 'm[Ctgcy]', 'm[MEV]'],
+            'Power':
+                ['P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]', 'P[survival]',
+                 'Area_active', 'Area_substrate'],
+            'Data Rates':
+                ['R_D[CBE]', 'R_D[Ctgcy]', 'R_D[MEV]'],
+            'Mechanical':
+                ['m[CBE]', 'm[Ctgcy]', 'm[MEV]', 'height', 'width', 'depth'],
+            'Thermal':
+                ['T[operational_max]', 'T[operational_min]', 'T[survival_max]',
+                 'T[survival_min]', 'P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]',
+                 'P[survival]'],
+            'System Resources':
+                ['m[CBE]', 'm[Ctgcy]', 'm[MEV]', 'm[NTE]', 'm[Margin]',
+                 'P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]', 'P[NTE]',
+                 'P[Margin]', 'R_D[CBE]', 'R_D[Ctgcy]', 'R_D[MEV]',
+                 'R_D[NTE]', 'R_D[Margin]']
+            }
         prefs['dashboard_names'] = list(prefs['dashboards'].keys())
+    # state contains app-specified dashboards (app_dashboards)
+    # update prefs from any new app dashboards in state
+    app_dbds = state.get('app_dashboards')
+    if app_dbds:
+        for dash_name in app_dbds:
+            if dash_name not in prefs['dashboards']:
+                prefs['dashboards'][dash_name] = deepcopy(app_dbds[
+                                                            dash_name])
+                # append it to dashboard_names
+                prefs['dashboard_names'].append(dash_name)
     if not state.get('dashboard_name'):
         state['dashboard_name'] = prefs['dashboard_names'][0]
     # app config will have been loaded -- add any missing default_parameters or

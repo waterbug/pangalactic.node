@@ -481,7 +481,7 @@ class SystemDashboard(QTreeView):
                     write_data_to_tsv(data, file_path=fpath)
                 else:
                     # TODO: pop-up notification to this effect ...
-                    orb.log.debug('  ... no modes table for this project.')
+                    orb.log.debug('  ... no modes defined for this project.')
                     return
             else:
                 write_mel_to_tsv(model.project, schema=data_cols,
