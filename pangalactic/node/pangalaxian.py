@@ -222,7 +222,8 @@ class Main(QMainWindow):
         state['connected'] = False
         if not prefs.get('dashboard_names'):
             prefs['dashboard_names'] = ['MEL']
-        state['dashboard_name'] = prefs['dashboard_names'][0]
+        if not state.get('dashboard_name'):
+            state['dashboard_name'] = prefs['dashboard_names'][0]
         # set path to server cert
         self.cert_path = os.path.join(orb.home, 'server_cert.pem')
         if os.path.exists(self.cert_path):
