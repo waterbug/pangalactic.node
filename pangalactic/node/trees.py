@@ -100,11 +100,6 @@ class ParmDefTreeModel(QAbstractItemModel):
         self.root_item = ParmDefItem(root=True, view=self.view)
         self.refresh_data()
 
-    ### NOTE: hmmm, I don't see this being used, maybe lose it?
-    # @property
-    # def pd_matrix(self):
-        # return [parm_defz[pid] for pid in sorted(parm_defz)]
-
     def columnCount(self, parent):
         if parent.isValid():
             return parent.internalPointer().columnCount()
@@ -181,7 +176,7 @@ class ParmDefTreeModel(QAbstractItemModel):
         parm_contexts = orb.search_exact(cname='ParameterContext',
                                          context_type='prescriptive')
         prescriptive_contexts = [obj.id for obj in parm_contexts]
-        pids = sorted(list(parm_defz))
+        pids = sorted(list(parm_defz), key=lambda x: (x.split('[')[0].lower(), x))
         selectable_pids = [pid for pid in pids
                            # if not (pid.endswith('[Ctgcy]') or
                            if parm_defz[pid]['context']

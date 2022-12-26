@@ -172,10 +172,6 @@ class LibraryListView(QListView):
             self.setDragDropMode(QAbstractItemView.DragDrop)
         else:
             self.setDragEnabled(False)
-        # NOTE: old ParameterDefinitions generated icons are not used now!
-        # if self.cname != "ParameterDefinition":
-            # default_icon_size = QSize(125, 20)
-        # else:
         default_icon_size = QSize(16, 16)
         self.icon_size = icon_size or default_icon_size
         self.setIconSize(self.icon_size)

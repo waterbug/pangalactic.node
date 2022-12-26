@@ -3229,13 +3229,11 @@ class Main(QMainWindow):
 
     def on_vger_get_parmz_result(self, data):
         if data:
-            orb.log.info('* got parmz data, updating ...')
+            # orb.log.info('* got parmz data, updating ...')
             parameterz.update(data)
             # refresh dashboard and hw library if appropriate ...
             if getattr(self, 'dashboard_panel', None):
-                # NOTE: testing to see if refresh_dashboard() is enough
-                # NOTE: it wasn't!!
-                # self.refresh_dashboard()
+                # NOTE: self.refresh_dashboard() is not enough.
                 self.rebuild_dashboard(force=True)
             if hasattr(self, 'library_widget'):
                 self.library_widget.refresh(cname='HardwareProduct')
