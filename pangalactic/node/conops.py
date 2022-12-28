@@ -238,7 +238,6 @@ class Timeline(QGraphicsPathItem):
         for item in self.item_list:
             if self.item_list.index(item) != item_list_copy.index(item):
                 same = False
-
         for i, item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
             # FIXME: this will not select a unique activity if an activity is

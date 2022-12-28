@@ -395,7 +395,7 @@ class OpticalPathDiagram(QGraphicsPathItem):
                         component=item.component,
                         reference_designator=item.usage.reference_designator)
             set_dval(acu.oid, 'position_in_optical_path', i)
-            # dispatcher.send("modified object", obj=acr)
+            self.scene.new_or_modified_objects.emit([acu.oid])
             # if initial:
                 # acu.component.id = (acu.component.id or
                                     # f'{self.system.id}-component-{i}')
