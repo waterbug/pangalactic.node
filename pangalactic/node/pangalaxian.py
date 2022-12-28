@@ -3507,6 +3507,12 @@ class Main(QMainWindow):
     def rpc_save_entity_result(self, result):
         orb.log.debug(f'* "vger.save_entity" result: "{result}"')
 
+    def on_object_deleted_qtsignal(self, oid):
+        """
+        Respond to a pyqtSignal that a local object has been deleted.
+        """
+        self.on_deleted_object_signal(oid=oid)
+
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
         Call functions to update applicable widgets when an object has been
@@ -4819,6 +4825,8 @@ class Main(QMainWindow):
         window = OpticalSystemModeler(parent=self)
         window.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects_qtsignal)
+        window.local_object_deleted.connect(
+                                    self.on_object_deleted_qtsignal)
         window.show()
 
     def product_types_library(self):

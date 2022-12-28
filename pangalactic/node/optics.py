@@ -114,7 +114,7 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
 
     def delete_item(self):
         orb.log.debug('* emitting "remove_scene_usage" signal')
-        self.scene.remove_scene_usage(self.usage.oid)
+        self.scene.remove_scene_usage.emit(self.usage.oid)
 
     def itemChange(self, change, value):
         return value
@@ -596,6 +596,7 @@ class OpticalSystemView(QGraphicsView):
 class OpticalSystemWidget(QWidget):
 
     new_or_modified_objects = pyqtSignal(list)
+    object_deleted = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -653,6 +654,7 @@ class OpticalSystemWidget(QWidget):
                 scene.addItem(item)
             scene.optical_path.populate(item_list)
         scene.update()
+        # signal from local (graphical) item deletion
         scene.remove_scene_usage.connect(self.delete_usage)
         return scene
 
@@ -673,26 +675,35 @@ class OpticalSystemWidget(QWidget):
         self.view.setScene(self.scene)
         self.view.show()
 
-    def delete_usage(self, oid):
+    def remote_objects_deleted(self, oids):
+        """
+        Respond to remote deletions.
+
+        Args:
+            oids (list): oids of deleted objects.
+        """
+        for oid in oids:
+            self.delete_usage(oid, remote=True)
+
+    def delete_usage(self, oid, remote=False):
         """
         Delete a component usage (Acu)
 
         Args:
             oid (str): oid of the Acu to be deleted
         """
-        # NOTE: DO NOT use dispatcher.send("deleted object") !!
-        # -- that will cause a cycle
         acu = orb.get(oid)
         if not acu:
+            # the acu does not exist in local db, so ignore
             return
-        if acu in getattr(self.system, 'components', []):
-            orb.delete([acu])
-            # TODO: send a signal to update sys info table
-        else:
-            # if component is not in the current optical system, ignore
+        if acu not in getattr(self.system, 'components', []):
+            # component is not in the current optical system, ignore
             return
+        orb.delete([acu])
         self.scene = self.set_new_scene()
         self.update_view()
+        if not remote:
+            self.object_deleted.emit(oid)
 
     def scene_scale_changed(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -730,6 +741,7 @@ class OpticalSystemModeler(QMainWindow):
     """
 
     new_or_modified_objects = pyqtSignal(list)
+    local_object_deleted = pyqtSignal(str)
 
     def __init__(self, parent=None):
         """
@@ -788,6 +800,7 @@ class OpticalSystemModeler(QMainWindow):
         self.system_widget.setMinimumSize(900, 400)
         self.system_widget.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects)
+        self.system_widget.object_deleted.connect(self.on_local_object_deleted)
         comp_view = dict(name='Optical Surface Label',
                          description='Optical Surface Description')
         usage_view = [
@@ -818,6 +831,20 @@ class OpticalSystemModeler(QMainWindow):
         self.top_dock.setAllowedAreas(Qt.TopDockWidgetArea)
         self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock)
         self.top_dock.setWidget(self.system_widget)
+
+    def remote_objects_deleted(self, oids):
+        """
+        Respond to deletion of remote objects by calling scene to be updated.
+        """
+        if getattr(self, 'system_widget', None):
+            self.system_widget.remote_objects_deleted(oids)
+
+    def on_local_object_deleted(self, oid):
+        """
+        Pass along the signal when an item is removed from the scene and its
+        usage is deleted.
+        """
+        self.local_object_deleted.emit(oid)
 
     def on_new_or_modified_objects(self, oids):
         self.new_or_modified_objects.emit(oids)
