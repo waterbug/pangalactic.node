@@ -3083,6 +3083,40 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_result)
             rpc.addErrback(self.on_failure)
 
+    # NOTE TODO: handle RoleAssignment objects separately -- need to call
+    # vger.assign_role() for them ...
+    # NOTE TODO: also need to update the diagram -- i.e., DiagramScene
+    # (in view.py)
+    def on_new_or_modified_objects_qtsignal(self, oids):
+        """
+        Handle local pyqtSignal "new_or_modified_objects".
+        """
+        orb.log.info('* received local "new_or_modified_objects" pyqtSignal')
+        objs = [orb.get(oid) for oid in oids]
+        if objs:
+            if state.get('connected'):
+                serialized_objs = serialize(orb, objs,
+                                            include_components=True)
+                orb.log.debug('  calling rpc vger.save() ...')
+                ids = [obj.id for obj in objs]
+                orb.log.debug(f'  - saved obj ids: {ids}')
+                rpc = self.mbus.session.call('vger.save', serialized_objs)
+                rpc.addCallback(self.on_vger_save_result)
+                rpc.addCallback(self.on_get_parmz)
+                rpc.addErrback(self.on_failure)
+            else:
+                hw = [obj for obj in objs
+                      if isinstance(obj,
+                                (orb.classes['HardwareProduct'],
+                                 orb.classes['Acu'],
+                                 orb.classes['ProjectSystemUsage']))]
+                if hw and (self.mode == 'system'):
+                    # update system tree and dashboard as necessary
+                    for obj in hw:
+                        self.update_object_in_trees(obj)
+        else:
+            orb.log.debug('  *** no objects found -- ignoring! ***')
+
     def on_new_object_signal(self, obj=None, cname=''):
         """
         Handle local dispatcher signal for "new object".
@@ -3094,7 +3128,7 @@ class Main(QMainWindow):
         """
         Handle local "new object" and "modified object" signals.
         """
-        orb.log.info('* on_mod_object_signal()')
+        # orb.log.info('* on_mod_object_signal()')
         if new:
             orb.log.info('* received local "new object" signal')
         else:
@@ -4783,6 +4817,8 @@ class Main(QMainWindow):
 
     def optics_modeler(self):
         window = OpticalSystemModeler(parent=self)
+        window.new_or_modified_objects.connect(
+                                    self.on_new_or_modified_objects_qtsignal)
         window.show()
 
     def product_types_library(self):

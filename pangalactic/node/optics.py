@@ -7,7 +7,7 @@ import os
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QPointF, QPoint
+from PyQt5.QtCore import pyqtSignal, Qt, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
@@ -42,13 +42,14 @@ from pangalactic.node.widgets     import NameLabel, StringFieldWidget, ValueLabe
 
 class OpticalComponentBlock(QGraphicsPolygonItem):
 
-    def __init__(self, usage=None, style=None, parent=None):
+    def __init__(self, usage=None, scene=None, style=None, parent=None):
         """
         Initialize Optical Component Block.
 
         Keyword Args:
             usage (Acu):  optical component usage that the block
                 represents
+            scene (QGraphicsScene):  scene containing this item
             style (Qt.PenStyle):  style of block border
             parent (QGraphicsItem): graphical parent of this item
         """
@@ -59,6 +60,7 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
                       QGraphicsItem.ItemSendsGeometryChanges)
         self.style = style or Qt.SolidLine
         self.usage = usage
+        self.scene = scene
         self.component = usage.component
         self.setBrush(Qt.white)
         path = QPainterPath()
@@ -90,7 +92,8 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
-        dispatcher.send("double clicked", acu=self.component)
+        # TODO: replace with pyqtSignal
+        # dispatcher.send("double clicked", acu=self.component)
 
     def contextMenuEvent(self, event):
         self.menu = QMenu()
@@ -99,19 +102,19 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
-        self.delete_action = QAction("Delete", self.scene(),
+        self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Item",
                                      triggered=self.delete_item)
-        self.edit_action = QAction("Edit", self.scene(),
+        self.edit_action = QAction("Edit", self.scene,
                                    statusTip="Edit component",
                                    triggered=self.edit_component)
 
     def edit_component(self):
-        self.scene().edit_parameters(self.component)
+        self.scene.edit_parameters(self.component)
 
     def delete_item(self):
-        orb.log.debug('* sending "remove component" signal')
-        dispatcher.send("remove component", acu=self.usage)
+        orb.log.debug('* emitting "remove_scene_usage" signal')
+        self.scene.remove_scene_usage(self.usage.oid)
 
     def itemChange(self, change, value):
         return value
@@ -124,6 +127,11 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
 
 
 class OpticalSystemScene(QGraphicsScene):
+
+    new_or_modified_objects = pyqtSignal(list)
+    remove_scene_usage = pyqtSignal(str)
+    rescale_optical_path = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.optical_path = OpticalPathDiagram(self)
@@ -136,6 +144,9 @@ class OpticalSystemScene(QGraphicsScene):
     @property
     def system(self):
         return orb.get(state.get('optical_system', ''))
+
+    def remove_usage(self, oid):
+        self.remove_scene_usage.emit(oid)
 
     # def focus_changed_handler(self, new_item, old_item):
         # if (new_item is not None and
@@ -260,15 +271,16 @@ class OpticalSystemScene(QGraphicsScene):
             self.system.mod_datetime = dtstamp()
             self.system.modifier = user
             # add block before orb.save(), which takes time ...
-            item = OpticalComponentBlock(usage=new_acu)
+            item = OpticalComponentBlock(usage=new_acu, scene=self)
             item.setPos(event.scenePos())
             self.addItem(item)
             self.optical_path.add_item(item)
             orb.save([new_acu, self.system])
             # orb.log.debug('      Acu created: {}'.format(
                           # new_acu.name))
-            dispatcher.send('new object', obj=new_acu)
-            dispatcher.send('modified object', obj=self.system)
+            # dispatcher.send('new object', obj=new_acu)
+            # dispatcher.send('modified object', obj=self.system)
+            self.new_or_modified_objects.emit([new_acu.oid, self.system.oid])
             self.update()
 
     def edit_parameters(self, component):
@@ -350,8 +362,8 @@ class OpticalPathDiagram(QGraphicsPathItem):
             delta = len(self.item_list) - 5
             self.path_length = 1000 + (delta // 2) * 300
             scale = 70 - (delta // 2) * 10
-            pscale = str(scale) + "%"
-            dispatcher.send("rescale optical path", percentscale=pscale)
+            percentscale = str(scale) + "%"
+            self.scene.rescale_optical_path.emit(percentscale)
 
     def make_point_list(self):
         self.length = round(self.path.length() - 800)
@@ -374,7 +386,6 @@ class OpticalPathDiagram(QGraphicsPathItem):
         for item in self.item_list:
             if self.item_list.index(item) != item_list_copy.index(item):
                 same = False
-
         for i, item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
             # FIXME: this will not select a unique activity if an activity is
@@ -393,7 +404,6 @@ class OpticalPathDiagram(QGraphicsPathItem):
                 # orb.save([acu.component])
                 # FIXME: why is this commented???
                 # dispatcher.send("modified object", obj=acr.sub_activity)
-
         if not same:
             des = {}
             for i, item in enumerate(self.item_list):
@@ -596,6 +606,9 @@ class OpticalSystemView(QGraphicsView):
 
 
 class OpticalSystemWidget(QWidget):
+
+    new_or_modified_objects = pyqtSignal(list)
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         orb.log.debug(' - initializing OpticalSystemWidget ...')
@@ -603,6 +616,8 @@ class OpticalSystemWidget(QWidget):
         self.library_button = self.info_panel.library_button
         self.init_toolbar()
         self.scene = self.set_new_scene()
+        self.scene.new_or_modified_objects.connect(
+                                    self.on_new_or_modified_objects)
         self.view = OpticalSystemView(self)
         self.update_view()
         self.layout = QVBoxLayout()
@@ -611,10 +626,10 @@ class OpticalSystemWidget(QWidget):
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
         self.sceneScaleChanged("70%")
-        dispatcher.connect(self.delete_component, "remove component")
         # dispatcher.connect(self.on_component_edited, 'component edited')
-        dispatcher.connect(self.on_rescale_optical_path,
-                           "rescale optical path")
+        # dispatcher.connect(self.on_rescale_optical_path,
+                           # "rescale optical path")
+        self.scene.rescale_optical_path.connect(self.on_rescale_optical_path)
         self.setUpdatesEnabled(True)
 
     @property
@@ -645,12 +660,16 @@ class OpticalSystemWidget(QWidget):
                       get_dval(x.oid, 'position_in_optical_path'))
             item_list=[]
             for acu in acus:
-                item = OpticalComponentBlock(usage=acu)
+                item = OpticalComponentBlock(usage=acu, scene=scene)
                 item_list.append(item)
                 scene.addItem(item)
             scene.optical_path.populate(item_list)
         scene.update()
+        scene.remove_scene_usage.connect(self.delete_usage)
         return scene
+
+    def on_new_or_modified_objects(self, oids):
+        self.new_or_modified_objects.emit(oids)
 
     def show_empty_scene(self):
         """
@@ -666,22 +685,21 @@ class OpticalSystemWidget(QWidget):
         self.view.setScene(self.scene)
         self.view.show()
 
-    def delete_component(self, acu=None):
+    def delete_usage(self, oid):
         """
-        Delete a component.
+        Delete a component usage (Acu)
 
-        Keyword Args:
-            acu (Acu): the component to be deleted
+        Args:
+            oid (str): oid of the Acu to be deleted
         """
         # NOTE: DO NOT use dispatcher.send("deleted object") !!
         # -- that will cause a cycle
-        oid = getattr(acu, "oid", None)
-        if oid is None:
+        acu = orb.get(oid)
+        if not acu:
             return
         if acu in getattr(self.system, 'components', []):
             orb.delete([acu])
-            dispatcher.send("removed component",
-                            assembly=self.system)
+            # TODO: send a signal to update sys info table
         else:
             # if component is not in the current optical system, ignore
             return
@@ -692,7 +710,7 @@ class OpticalSystemWidget(QWidget):
         newscale = float(percentscale[:-1]) / 100.0
         self.view.setTransform(QTransform().scale(newscale, newscale))
 
-    def on_rescale_optical_path(self, percentscale=None):
+    def on_rescale_optical_path(self, percentscale):
         if percentscale in self.scene_scales:
             new_index = self.scene_scales.index(percentscale)
             self.scene_scale_select.setCurrentIndex(new_index)
@@ -722,6 +740,9 @@ class OpticalSystemModeler(QMainWindow):
     Tool for modeling a Mission Concept of Operations for the currently
     selected project.
     """
+
+    new_or_modified_objects = pyqtSignal(list)
+
     def __init__(self, parent=None):
         """
         Initialize the tool.
@@ -741,7 +762,8 @@ class OpticalSystemModeler(QMainWindow):
         self.resize(sys_widget_w + 400,
                     sys_widget_h + sys_table_h + 200)
         self.system_widget.library_button.clicked.connect(self.display_library)
-        dispatcher.connect(self.on_double_click, "double clicked")
+        # TODO: replace dispatcher with pyqtSignal
+        # dispatcher.connect(self.on_double_click, "double clicked")
 
     @property
     def system(self):
@@ -751,7 +773,6 @@ class OpticalSystemModeler(QMainWindow):
         """
         Open dialog with library of optical component blocks.
         """
-        hw = orb.get_by_type('HardwareProduct')
         optical_system = orb.select('ProductType', id='optical_system')
         optical_component = orb.select('ProductType', id='optical_component')
         lens = orb.select('ProductType', id='lens')
@@ -777,6 +798,8 @@ class OpticalSystemModeler(QMainWindow):
         orb.log.debug(' - set_widgets() ...')
         self.system_widget = OpticalSystemWidget(parent=self)
         self.system_widget.setMinimumSize(900, 400)
+        self.system_widget.new_or_modified_objects.connect(
+                                    self.on_new_or_modified_objects)
         comp_view = dict(name='Optical Surface Label',
                          description='Optical Surface Description')
         usage_view = [
@@ -807,6 +830,9 @@ class OpticalSystemModeler(QMainWindow):
         self.top_dock.setAllowedAreas(Qt.TopDockWidgetArea)
         self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock)
         self.top_dock.setWidget(self.system_widget)
+
+    def on_new_or_modified_objects(self, oids):
+        self.new_or_modified_objects.emit(oids)
 
     def on_double_click(self, acu):
         # """

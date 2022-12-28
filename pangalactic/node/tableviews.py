@@ -161,16 +161,24 @@ class InfoTableItem(QTableWidgetItem):
 class SystemInfoTable(QTableWidget):
     """
     Table whose main purpose is to provide an editable view of one level of a
-    system assembly (BOM = Bill Of Materials) and possibly additional related
-    items (e.g., for the Error Budget of an optical system, sources of errors
-    may also be included).  The rows of the table contain properties and
-    parameters of components, their usages in the assembly, and possibly
-    related items.
+    composite system and possibly additional related items. The rows of the
+    table contain properties and parameters of components, their usages in the
+    assembled system, and possibly related items.
+
+    The target use cases are [1] the Error Budget for an optical system, which
+    will also include sources of errors, and [2] a Concept of Operations for a
+    space mission, which is an assembly of Activities.
     """
-    def __init__(self, system=None, component_view=None, usage_view=None,
-                 min_col_width=100, max_col_width=300, parent=None):
+    def __init__(self, system_type="HardwareProduct", system=None,
+                 component_view=None, usage_view=None, min_col_width=100,
+                 max_col_width=300, parent=None):
         """
         Initialize
+
+        Keyword Args:
+            system_type (str): class name of the target system, which can be
+                either "HardwareProduct" or "Activity"
+                (default: "HardwareProduct")
 
         Keyword Args:
             system (HardwareProduct):  the system whose assembly is shown
@@ -183,24 +191,38 @@ class SystemInfoTable(QTableWidget):
         """
         super().__init__(parent=parent)
         # orb.log.info('* [SystemInfoTable] initializing ...')
+        self.system_type = system_type
         self.system = system
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         # TODO: get default view from prefs / config
-        default_component_view = [
-            'm[CBE]',
-            'P[CBE]',
-            'R_D[CBE]'
-            ]
+        if system_type == "HardwareProduct":
+            default_component_view = [
+                'm[CBE]',
+                'P[CBE]',
+                'R_D[CBE]'
+                ]
+        elif system_type == "Activity":
+            default_component_view = [
+                't_start',
+                'duration',
+                't_end'
+                ]
         self.component_view = component_view or default_component_view[:]
         self.usage_view = usage_view or []
         self.setup_table()
 
     def setup_table(self):
+        # "default" system_type: HardwareProduct
+        usages_attr = 'components'
+        component_attr = 'component'
+        if self.system_type == 'Activity':
+            usages_attr = 'sub_activities'
+            component_attr = 'sub_activity'
         self.setColumnCount(len(self.component_view) + len(self.usage_view))
-        acus = getattr(self.system, 'components', []) or []
-        if acus:
-            self.setRowCount(len(acus))
+        usages = getattr(self.system, usages_attr, []) or []
+        if usages:
+            self.setRowCount(len(usages))
         else:
             self.setRowCount(1)
         header_labels = []
@@ -271,14 +293,15 @@ class SystemInfoTable(QTableWidget):
         self.setHorizontalHeader(header)
         self.setHorizontalHeaderLabels(header_labels)
         # populate relevant data
-        if acus:
-            for i, acu in enumerate(acus):
+        if usages:
+            for i, usage in enumerate(usages):
                 for j, pid in enumerate(self.component_view):
+                    component = getattr(usage, component_attr)
                     self.setItem(i, j,
-                     InfoTableItem(get_str_value(acu.component, pid) or ''))
+                     InfoTableItem(get_str_value(component, pid) or ''))
                 for j, pid in enumerate(self.usage_view):
                     self.setItem(i, j + len(self.component_view),
-                     InfoTableItem(get_str_value(acu, pid) or ''))
+                     InfoTableItem(get_str_value(usage, pid) or ''))
         width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
 
