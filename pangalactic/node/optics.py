@@ -302,12 +302,6 @@ class OpticalPathDiagram(QGraphicsPathItem):
         self.item_list = []
         self.path_length = 1000
         self.make_path()
-        # self.length = self.path.length() - 200
-        if getattr(scene.system, 'components', None):
-            self.num_of_item = len(scene.system.components)
-        else:
-            self.num_of_item = 0
-        self.make_point_list()
         self.current_positions = []
 
     @property
@@ -328,6 +322,10 @@ class OpticalPathDiagram(QGraphicsPathItem):
                                  font=QFont("Arial", 18))
         self.obj_text.setSelected(False)
         self.add_image_label()
+        self.length = round(self.path.length() - 800)
+        factor = self.length // (len(self.item_list) + 1)
+        self.list_of_pos = [(n + 1) * factor + 100
+                            for n in range(0, len(self.item_list))]
 
     def add_image_label(self):
         current_image_label = getattr(self, 'img_text', None)
@@ -340,18 +338,15 @@ class OpticalPathDiagram(QGraphicsPathItem):
     def remove_item(self, item):
         if item in self.item_list:
             self.item_list.remove(item)
-            self.num_of_item = len(self.item_list)
         self.update_optical_path()
 
     def add_item(self, item):
         self.item_list.append(item)
-        self.num_of_item = len(self.item_list)
         self.update_optical_path()
 
     def update_optical_path(self):
         self.calc_length()
         self.make_path()
-        self.make_point_list()
         self.arrange()
 
     def calc_length(self):
@@ -365,21 +360,16 @@ class OpticalPathDiagram(QGraphicsPathItem):
             percentscale = str(scale) + "%"
             self.scene.rescale_optical_path.emit(percentscale)
 
-    def make_point_list(self):
-        self.length = round(self.path.length() - 800)
-        factor = self.length // (len(self.item_list) + 1)
-        self.list_of_pos = [(n + 1) * factor + 100
-                            for n in range(0, len(self.item_list))]
-
     def populate(self, item_list):
         self.item_list = item_list
-        # if len(self.item_list) > 5 :
-        #     self.extend_optical_path()
-        # self.make_point_list()
-        # self.arrange()
         self.update_optical_path()
 
     def arrange(self, initial=False):
+        """
+        Arrange the component blocks to be evenly spaced on the optical path,
+        and update their "position_in_optical_path" data element to reflect
+        their updated position.
+        """
         item_list_copy = self.item_list[:]
         self.item_list.sort(key=lambda x: x.scenePos().x())
         same = True
@@ -388,8 +378,6 @@ class OpticalPathDiagram(QGraphicsPathItem):
                 same = False
         for i, item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
-            # FIXME: this will not select a unique activity if an activity is
-            # used more than once in the timeline ...
             acu = orb.select(
                         cname="Acu", assembly=self.system,
                         component=item.component,
@@ -611,7 +599,7 @@ class OpticalSystemWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        orb.log.debug(' - initializing OpticalSystemWidget ...')
+        orb.log.debug('* initializing OpticalSystemWidget ...')
         self.info_panel = OpticalSysInfoPanel(self.system)
         self.library_button = self.info_panel.library_button
         self.init_toolbar()
@@ -625,7 +613,7 @@ class OpticalSystemWidget(QWidget):
         self.layout.addWidget(self.toolbar)
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
-        self.sceneScaleChanged("70%")
+        self.scene_scale_changed("70%")
         # dispatcher.connect(self.on_component_edited, 'component edited')
         # dispatcher.connect(self.on_rescale_optical_path,
                            # "rescale optical path")
@@ -644,7 +632,7 @@ class OpticalSystemWidget(QWidget):
         self.scene_scale_select.addItems(self.scene_scales)
         self.scene_scale_select.setCurrentIndex(5)
         self.scene_scale_select.currentIndexChanged[str].connect(
-                                                    self.sceneScaleChanged)
+                                                    self.scene_scale_changed)
         self.toolbar.addWidget(self.scene_scale_select)
 
     def set_new_scene(self):
@@ -706,7 +694,7 @@ class OpticalSystemWidget(QWidget):
         self.scene = self.set_new_scene()
         self.update_view()
 
-    def sceneScaleChanged(self, percentscale):
+    def scene_scale_changed(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
         self.view.setTransform(QTransform().scale(newscale, newscale))
 

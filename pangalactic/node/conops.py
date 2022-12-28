@@ -170,13 +170,23 @@ class TimelineView(QGraphicsView):
 
 
 class Timeline(QGraphicsPathItem):
+    """
+    A graphical representation of the timeline of sub-activities of a specified
+    activity, which can be a mission or any arbitrary activity.
+    """
 
     def __init__(self, scene, parent=None):
+        """
+        Initialize the timeline.
+
+        Args:
+            scene (TimelineScene): the QGraphicsScene containing the timeline's
+                representation.
+        """
         super().__init__(parent)
         self.item_list = []
         self.path_length = 1000
         self.make_path()
-        self.num_of_item = len(scene.current_activity.sub_activities)
         self.make_point_list()
         self.current_positions = []
 
@@ -190,12 +200,10 @@ class Timeline(QGraphicsPathItem):
     def remove_item(self, item):
         if item in self.item_list:
             self.item_list.remove(item)
-            self.num_of_item = len(self.item_list)
         self.update_timeline()
 
     def add_item(self, item):
         self.item_list.append(item)
-        self.num_of_item = len(self.item_list)
         self.update_timeline(initial=True)
 
     def update_timeline(self, initial=False):
