@@ -2018,7 +2018,7 @@ class Main(QMainWindow):
                                 slot=self.display_conops_modeler,
                                 icon='tools',
                                 tip=conops_tip_text,
-                                modes=['system'])
+                                modes=['system', 'component'])
         self.modeler42_action = self.create_action(
                                 "42 ACS Modeler",
                                 slot=self.sc_42_modeler,

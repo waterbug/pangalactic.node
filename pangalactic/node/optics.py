@@ -364,7 +364,7 @@ class OpticalPathDiagram(QGraphicsPathItem):
         self.item_list = item_list
         self.update_optical_path()
 
-    def arrange(self, initial=False):
+    def arrange(self):
         """
         Arrange the component blocks to be evenly spaced on the optical path,
         and update their "position_in_optical_path" data element to reflect
@@ -378,20 +378,8 @@ class OpticalPathDiagram(QGraphicsPathItem):
                 same = False
         for i, item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
-            acu = orb.select(
-                        cname="Acu", assembly=self.system,
-                        component=item.component,
-                        reference_designator=item.usage.reference_designator)
-            set_dval(acu.oid, 'position_in_optical_path', i)
-            self.scene.new_or_modified_objects.emit([acu.oid])
-            # if initial:
-                # acu.component.id = (acu.component.id or
-                                    # f'{self.system.id}-component-{i}')
-                # acu.component.name = (acu.component.name or
-                                      # f"{system.name} component {i}")
-                # orb.save([acu.component])
-                # FIXME: why is this commented???
-                # dispatcher.send("modified object", obj=acr.sub_activity)
+            set_dval(item.usage.oid, 'position_in_optical_path', i)
+            self.scene.new_or_modified_objects.emit([item.usage.oid])
         if not same:
             des = {}
             for i, item in enumerate(self.item_list):
@@ -553,12 +541,14 @@ class OpticalSysInfoPanel(QWidget):
                                      "application/x-pgef-hardware-product")
             icon, p_oid, p_id, p_name, p_cname = data
             system = orb.get(p_oid)
-            if system:
+            if (system and
+                getattr(system.product_type, 'id', '') == 'optical_system'):
+                # triggers "_set_system()"
                 self.system = system
             else:
                 event.ignore()
-                orb.log.debug("* drop event: ignoring oid '%s' -- "
-                              "not found in db." % p_oid)
+                orb.log.debug("* drop event: ignoring -- "
+                              "not found in db or not an optical system.")
         elif event.mimeData().hasFormat("application/x-pgef-template"):
             # drop item is Template -> create a new system from it
             data = extract_mime_data(event, "application/x-pgef-template")
@@ -604,11 +594,7 @@ class OpticalSystemWidget(QWidget):
         self.info_panel = OpticalSysInfoPanel(self.system)
         self.library_button = self.info_panel.library_button
         self.init_toolbar()
-        self.scene = self.set_new_scene()
-        self.scene.new_or_modified_objects.connect(
-                                    self.on_new_or_modified_objects)
-        self.view = OpticalSystemView(self)
-        self.update_view()
+        self.set_scene_and_view()
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.info_panel)
         self.layout.addWidget(self.toolbar)
@@ -636,11 +622,11 @@ class OpticalSystemWidget(QWidget):
                                                     self.scene_scale_changed)
         self.toolbar.addWidget(self.scene_scale_select)
 
-    def set_new_scene(self):
+    def set_scene_and_view(self):
         """
         Return a new scene with new system or an empty scene if no system.
         """
-        # orb.log.debug(' - set_new_scene ...')
+        orb.log.debug(' - set_scene_and_view() ...')
         scene = OpticalSystemScene(parent=self)
         # TODO:  replace this with a sort function ...
         acus = getattr(self.system, 'components', []) or []
@@ -656,7 +642,13 @@ class OpticalSystemWidget(QWidget):
         scene.update()
         # signal from local (graphical) item deletion
         scene.remove_scene_usage.connect(self.delete_usage)
-        return scene
+        scene.new_or_modified_objects.connect(
+                                    self.on_new_or_modified_objects)
+        self.scene = scene
+        if not getattr(self, 'view', None):
+            self.view = OpticalSystemView(self)
+        self.view.setScene(self.scene)
+        self.view.show()
 
     def on_new_or_modified_objects(self, oids):
         self.new_or_modified_objects.emit(oids)
@@ -667,13 +659,6 @@ class OpticalSystemWidget(QWidget):
         """
         scene = QGraphicsScene()
         return scene
-
-    def update_view(self):
-        """
-        Update the view with a new scene.
-        """
-        self.view.setScene(self.scene)
-        self.view.show()
 
     def remote_objects_deleted(self, oids):
         """
@@ -700,8 +685,7 @@ class OpticalSystemWidget(QWidget):
             # component is not in the current optical system, ignore
             return
         orb.delete([acu])
-        self.scene = self.set_new_scene()
-        self.update_view()
+        self.set_scene_and_view()
         if not remote:
             self.object_deleted.emit(oid)
 
@@ -858,8 +842,7 @@ class OpticalSystemModeler(QMainWindow):
             #   double-click
         # """
         # self.component = acu
-        # self.scene = self.set_new_scene()
-        # self.update_view()
+        # self.set_scene_and_view()
         # previous = acu.where_occurs[0].assembly
         # self.go_back_action.setDisabled(False)
         pass

@@ -16,8 +16,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
-from pangalactic.core.names       import (get_acr_id, get_acr_name,
-                                          get_link_name)
+from pangalactic.core.names       import get_link_name
 from pangalactic.core.parametrics import (get_pval_as_str,
                                           get_variable_and_context,
                                           mode_defz, parameterz)
@@ -37,15 +36,17 @@ class ActivityTable(QWidget):
     Attrs:
         subject (Activity):  the Activity whose sub-activities are shown
     """
-    def __init__(self, subject=None, preferred_size=None, act_of=None,
+    def __init__(self, subject, preferred_size=None, act_of=None,
                  position=None, parent=None):
         """
         Initialize table for displaying the sub-activities of an Activity and
         related data.
 
-        Keyword Args:
+        Args:
             subject (Activity):  Activity whose sub-activities are to be
                 shown in the table
+
+        Keyword Args:
             preferred_size (tuple):  default size -- (width, height)
             parent (QWidget):  parent widget
             act_of (Acu or PSU):  Acu or PSU of which the subject is an
@@ -117,15 +118,15 @@ class ActivityTable(QWidget):
         subj = getattr(self, 'subject', None)
         if not subj:
             return []
-        system_acrs = []
-        for acr in subj.sub_activities:
-            if self.act_of in [acr.sub_activity.of_function,
-                               acr.sub_activity.of_system]:
-                system_acrs.append(acr)
-        all_acrs = [(acr.sub_activity_sequence, acr)
-                    for acr in system_acrs]
-        all_acrs.sort()
-        return [acr_tuple[1].sub_activity for acr_tuple in all_acrs]
+        system_activities = []
+        for activity in subj.sub_activities:
+            if self.act_of in [activity.of_function,
+                               activity.of_system]:
+                system_activities.append(activity)
+        all_activities = [(act.sub_activity_sequence, act)
+                          for act in system_activities]
+        all_activities.sort()
+        return [act_tuple[1] for act_tuple in all_activities]
 
     def set_table(self):
         table_cols = ['id', 'name', 't_start', 'duration', 'description']
@@ -1038,12 +1039,9 @@ if __name__ == '__main__':
         mission = orb.get('test:Mission.H2G2')
     if not mission.sub_activities:
         launch = clone('Activity', id='launch', name='Launch',
-                       owner=H2G2)
+                       owner=H2G2, sub_activity_of=mission)
         sub_act_role = '1'
-        acr = clone('ActCompRel', id=get_acr_id(mission.id, sub_act_role),
-                    name=get_acr_name(mission.name, sub_act_role),
-                    composite_activity=mission, sub_activity=launch)
-        orb.save([launch, acr])
+        orb.save([launch])
     app = QApplication(sys.argv)
     w = ActivityTable(subject=mission)
     w.show()
