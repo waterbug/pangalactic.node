@@ -547,7 +547,7 @@ class QtViewer3DColor(QtBaseViewer):
 class Model3DViewer(QtWidgets.QMainWindow):
     def __init__(self, step_file=None, stl_file=None, parent=None):
         super().__init__(parent=parent)
-        self.setWindowTitle(self.tr("3D Model Viewer"))
+        self.setWindowTitle(self.tr("3D CAD Model Viewer"))
         self.init_viewer_3d()
         self.viewer_in_use = False
         self.resize(800, 600)
