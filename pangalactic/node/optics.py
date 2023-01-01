@@ -7,7 +7,7 @@ import os
 
 from louie import dispatcher
 
-from PyQt5.QtCore import pyqtSignal, Qt, QPointF, QPoint
+from PyQt5.QtCore import pyqtSignal, Qt, QObject, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
@@ -92,8 +92,6 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
-        # TODO: replace with pyqtSignal
-        # dispatcher.send("double clicked", acu=self.component)
 
     def contextMenuEvent(self, event):
         self.menu = QMenu()
@@ -128,6 +126,7 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
 
 class OpticalSystemScene(QGraphicsScene):
 
+    des_set = pyqtSignal(dict)
     new_or_modified_objects = pyqtSignal(list)
     remove_scene_usage = pyqtSignal(str)
     rescale_optical_path = pyqtSignal(str)
@@ -135,6 +134,7 @@ class OpticalSystemScene(QGraphicsScene):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.optical_path = OpticalPathDiagram(self)
+        self.optical_path.signals.des_set.connect(self.on_des_set)
         self.addItem(self.optical_path)
         # NOTE: not clear if this is necessary
         # self.focusItemChanged.connect(self.focus_changed_handler)
@@ -144,6 +144,9 @@ class OpticalSystemScene(QGraphicsScene):
     @property
     def system(self):
         return orb.get(state.get('optical_system', ''))
+
+    def on_des_set(self, des):
+        self.des_set.emit(des)
 
     def remove_usage(self, oid):
         self.remove_scene_usage.emit(oid)
@@ -278,8 +281,6 @@ class OpticalSystemScene(QGraphicsScene):
             orb.save([new_acu, self.system])
             # orb.log.debug('      Acu created: {}'.format(
                           # new_acu.name))
-            # dispatcher.send('new object', obj=new_acu)
-            # dispatcher.send('modified object', obj=self.system)
             self.new_or_modified_objects.emit([new_acu.oid, self.system.oid])
             self.update()
 
@@ -294,10 +295,17 @@ class OpticalSystemScene(QGraphicsScene):
         super().mouseDoubleClickEvent(event)
 
 
+class OpticalPathDiagramSignals(QObject):
+
+    des_set = pyqtSignal(dict)
+    order_changed = pyqtSignal()
+
+
 class OpticalPathDiagram(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
         super().__init__(parent)
+        self.signals = OpticalPathDiagramSignals()
         self.scene = scene
         self.item_list = []
         self.path_length = 1000
@@ -388,10 +396,10 @@ class OpticalPathDiagram(QGraphicsPathItem):
                 set_dval(acu.oid, 'position_in_optical_path', i)
                 des[acu.oid] = {}
                 des[acu.oid]['position_in_optical_path'] = self.list_of_pos[i]
-            # "des set" triggers pgxn to call rpc vger.set_data_elements()
-            dispatcher.send("des set", des=des)
-            # "order changed" only triggers the system table to update
-            dispatcher.send("order changed")
+            # "des_set" triggers pgxn to call rpc vger.set_data_elements()
+            self.signals.des_set.emit(des)
+            # "order_changed" only triggers the system table to update
+            self.signals.order_changed.emit()
         self.update()
 
 
@@ -642,8 +650,7 @@ class OpticalSystemWidget(QWidget):
         scene.update()
         # signal from local (graphical) item deletion
         scene.remove_scene_usage.connect(self.delete_usage)
-        scene.new_or_modified_objects.connect(
-                                    self.on_new_or_modified_objects)
+        scene.new_or_modified_objects.connect(self.on_new_or_modified_objects)
         self.scene = scene
         if not getattr(self, 'view', None):
             self.view = OpticalSystemView(self)
@@ -720,8 +727,7 @@ class OpticalSystemWidget(QWidget):
 
 class OpticalSystemModeler(QMainWindow):
     """
-    Tool for modeling a Mission Concept of Operations for the currently
-    selected project.
+    Tool for modeling an Optical System.
     """
 
     new_or_modified_objects = pyqtSignal(list)
@@ -745,7 +751,8 @@ class OpticalSystemModeler(QMainWindow):
         sys_table_h = self.system_table.rowCount() * 20
         self.resize(sys_widget_w + 400,
                     sys_widget_h + sys_table_h + 200)
-        self.system_widget.library_button.clicked.connect(self.display_library)
+        self.system_widget.library_button.clicked.connect(
+                                                self.display_optics_library)
         # TODO: replace dispatcher with pyqtSignal
         # dispatcher.connect(self.on_double_click, "double clicked")
 
@@ -753,9 +760,9 @@ class OpticalSystemModeler(QMainWindow):
     def system(self):
         return orb.get(state.get('optical_system', ''))
 
-    def display_library(self):
+    def display_optics_library(self):
         """
-        Open dialog with library of optical component blocks.
+        Open dialog with library of optical product types.
         """
         optical_system = orb.select('ProductType', id='optical_system')
         optical_component = orb.select('ProductType', id='optical_component')
@@ -785,6 +792,32 @@ class OpticalSystemModeler(QMainWindow):
         self.system_widget.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects)
         self.system_widget.object_deleted.connect(self.on_local_object_deleted)
+        self.system_widget.scene.optical_path.signals.order_changed.connect(
+                                                    self.rebuild_system_table)
+        self.system_table_panel = QWidget()
+        self.system_table_panel.setMinimumSize(1200, 300)
+        self.system_table_layout = QHBoxLayout()
+        self.create_system_table()
+        self.system_table_layout.addWidget(self.system_table)
+        self.system_table_panel.setLayout(self.system_table_layout)
+        self.setCentralWidget(self.system_table_panel)
+        self.top_dock = QDockWidget()
+        self.top_dock.setObjectName('TopDock')
+        self.top_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.top_dock.setAllowedAreas(Qt.TopDockWidgetArea)
+        self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock)
+        self.top_dock.setWidget(self.system_widget)
+
+    def rebuild_system_table(self):
+        if getattr(self, 'system_table', None):
+            self.system_table_layout.removeWidget(self.system_table)
+            self.system_table.parent = None
+            self.system_table.close()
+            self.system_table = None
+        self.create_system_table()
+        self.system_table_layout.addWidget(self.system_table)
+
+    def create_system_table(self):
         comp_view = dict(name='Optical Surface Label',
                          description='Optical Surface Description')
         usage_view = [
@@ -797,24 +830,16 @@ class OpticalSystemModeler(QMainWindow):
                 # 'RoC', 'K',
                 # 'X_vertex', 'Y_vertex', 'Z_vertex',
                 # 'RotX_vertex', 'RotY_vertex', 'RotZ_vertex',
-        self.system_table = SystemInfoTable(system=self.system,
-                                            component_view=comp_view,
-                                            usage_view=usage_view,
-                                            parent=self)
+        self.system_table = SystemInfoTable(
+                                    system=self.system,
+                                    component_view=comp_view,
+                                    sort_by_field='position_in_optical_path',
+                                    sort_on='usage',
+                                    usage_view=usage_view,
+                                    parent=self)
         self.system_table.setSizePolicy(QSizePolicy.Expanding,
                                         QSizePolicy.Expanding)
-        self.system_table_panel = QWidget()
-        self.system_table_panel.setMinimumSize(1200, 300)
-        system_table_layout = QHBoxLayout()
-        system_table_layout.addWidget(self.system_table)
-        self.system_table_panel.setLayout(system_table_layout)
-        self.setCentralWidget(self.system_table_panel)
-        self.top_dock = QDockWidget()
-        self.top_dock.setObjectName('TopDock')
-        self.top_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        self.top_dock.setAllowedAreas(Qt.TopDockWidgetArea)
-        self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock)
-        self.top_dock.setWidget(self.system_widget)
+        self.system_table.setAttribute(Qt.WA_DeleteOnClose)
 
     def remote_objects_deleted(self, oids):
         """

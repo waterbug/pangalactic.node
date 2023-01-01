@@ -26,7 +26,7 @@ Initially, ConOps shows a blank timeline for the current project
 
 import os
 
-from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint
+from PyQt5.QtCore import pyqtSignal, Qt, QRectF, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
@@ -40,6 +40,8 @@ from PyQt5.QtGui import (QIcon, QPixmap, QCursor, QPainter, QPainterPath,
 
 # pangalactic
 from pangalactic.core             import state
+# from pangalactic.core.parametrics import get_pval
+from pangalactic.core.serializers import deserialize
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.activities  import ActivityTable, ModesTool
 from pangalactic.node.buttons     import SizedButton, ToolButton
@@ -47,8 +49,6 @@ from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
-from pangalactic.core.serializers import deserialize
-# from pangalactic.core.parametrics import get_pval
 
 
 class EventBlock(QGraphicsPolygonItem):
@@ -92,7 +92,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
                                       self, point_size=8)
         # TODO: replace with a pyqtSignal ...
-        # dispatcher.connect(self.set_block_label, 'activity edited')
+        # dispatcher.connect(self.set_block_label, 'activity modified')
 
     def id_changed_handler(self, activity=None):
         try:
@@ -124,8 +124,8 @@ class EventBlock(QGraphicsPolygonItem):
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene(),
-                                     statusTip="Delete Item",
-                                     triggered=self.delete_item)
+                                     statusTip="Delete",
+                                     triggered=self.delete)
         self.edit_action = QAction("Edit", self.scene(),
                                    statusTip="Edit activity",
                                    triggered=self.edit_activity)
@@ -133,10 +133,17 @@ class EventBlock(QGraphicsPolygonItem):
     def edit_activity(self):
         self.scene().edit_parameters(self.activity)
 
-    def delete_item(self):
-        orb.log.debug('* sending "remove activity" signal')
-        # TODO: replace with a pyqtSignal ...
-        # dispatcher.send("remove activity", act=self.activity)
+    def delete(self):
+        orb.log.debug(' - EventBlock.delete()')
+        if getattr(self.activity, 'sub_activities', None):
+            txt = "This activity has sub-activities; delete them first."
+            confirm_dlg = QMessageBox(QMessageBox.Question, "Delete All?", txt,
+                                      QMessageBox.Ok)
+            response = confirm_dlg.exec_()
+        else:
+            self.scene().removeItem(self)
+            if self.activity:
+                orb.delete([self.activity])
 
     def itemChange(self, change, value):
         return value
@@ -254,6 +261,9 @@ class Timeline(QGraphicsPathItem):
 
 
 class TimelineScene(QGraphicsScene):
+
+    activity_got_focus = pyqtSignal(str)
+
     def __init__(self, parent, current_activity=None, act_of=None,
                  position=None):
         super().__init__(parent)
@@ -272,7 +282,7 @@ class TimelineScene(QGraphicsScene):
             new_item != self.current_focus):
             # TODO: replace with a pyqtSignal ...
             # dispatcher.send("activity focused", act=self.focusItem().activity)
-            pass
+            self.activity_got_focus.emit(self.focusItem().activity.oid)
 
     def mousePressEvent(self, mouseEvent):
         super().mousePressEvent(mouseEvent)
@@ -359,34 +369,11 @@ class TimelineWidget(QWidget):
         orb.log.debug(' - initializing TimelineWidget ...')
         self.activity = activity
         self.position = position
-        self.possible_systems = []
-        if state.get('discipline_subsystems'):
-            self.possible_systems = list(state.get(
-                                         'discipline_subsystems').values())
-        self.plot_win = None
-        self.subsys_ids = []
-        self.create_subsys_list()
         self.init_toolbar()
-        #### To do : make different title for subsystem timeline ##############
-        if activity.of_function:
-            ref_des = activity.of_function.reference_designator
-            title_txt = f'{ref_des} {activity.name}'
-            self.title = NameLabel(title_txt)
-        elif activity.of_system:
-            role = activity.of_system.system_role
-            title_txt = f'{role} {activity.name}'
-            self.title = NameLabel(title_txt)
-        elif isinstance(activity, orb.classes['Mission']):
-            title_txt = f'{activity.owner.id} Mission'
-            self.title = NameLabel(title_txt)
-        self.title.setStyleSheet(
-                        'font-weight: bold; font-size: 18px; color: purple')
-        # self.set_title()
-        self.scene = self.set_new_scene()
-        self.view = TimelineView(self)
-        self.update_view()
+        # set_new_scene() calls self.set_title(), which sets a title_widget
+        self.set_new_scene()
         self.layout = QVBoxLayout()
-        self.layout.addWidget(self.title)
+        self.layout.addWidget(self.title_widget)
         self.layout.addWidget(self.toolbar)
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
@@ -396,82 +383,17 @@ class TimelineWidget(QWidget):
         self.current_subsystem_index = 0
         self.deleted_acts = []
         # TODO: replace with pyqtSignals ...
-        # dispatcher.connect(self.change_subsystem, "make combo box")
         # dispatcher.connect(self.delete_activity, "remove activity")
-        # dispatcher.connect(self.disable_widget, "cleared activities")
         # dispatcher.connect(self.enable_clear, "new activity")
-        # dispatcher.connect(self.on_activity_edited, 'activity edited')
+        # dispatcher.connect(self.on_activity_edited, 'activity modified')
         # dispatcher.connect(self.on_rescale_timeline, "rescale timeline")
         self.setUpdatesEnabled(True)
 
     @property
     def system(self):
-        sys = None
-        if self.activity.of_function:
-            sys = self.activity.of_function
-        elif self.activity.of_system:
-            sys = self.activity.of_system
-        return sys
-
-    def enable_clear(self, act_of=None):
-        if self.system == act_of:
-            self.clear_activities_action.setDisabled(False)
-
-    def disable_widget(self, parent_act=None):
-        try:
-            # if ((self.act_of != self.system) and
-                # (self.activity != parent_act)):
-            if self.activity != parent_act:
-                self.scene = self.set_new_scene()
-                self.update_view()
-                self.setDisabled(True)
-                # TODO: replace with a pyqtSignal ...
-                # dispatcher.send("disable widget")
-        except:
-            pass
-
-    def set_title(self):
-        # try:
-        red_text = '<font color="red">{}</font>'
-        blue_text = '<font color="blue">{}</font>'
-        title = ''
-        if isinstance(self.activity, orb.classes['Mission']):
-            txt = ''
-            project = orb.get(state.get('project'))
-            if project:
-                txt = project.id + ' '
-            txt += 'Mission '
-            title = red_text.format(txt)
-        elif isinstance(self.activity, orb.classes['Activity']):
-            txt = self.activity.name
-            if self.activity.activity_type:
-                txt += ' ' + self.activity.activity_type.name
-            txt += ': '
-            title = red_text.format(txt)
-        if isinstance(self.system, orb.classes['Product']):
-            title += blue_text.format(self.system.name + ' System ')
-        title += 'Timeline'
-        self.title.setText(title)
-        # except:
-            # pass
-
-    def widget_drill_down(self, act):
-        """
-        Handle a double-click event on an eventblock, creating and
-        displaying a new view.
-
-        Args:
-            obj (EventBlock):  the block that received the double-click
-        """
-        # TODO: replace with a pyqtSignal ...
-        # dispatcher.send("drill down", obj=act, act_of=self.system,
-                        # position=self.position)
-        self.activity = act
-        self.scene = self.set_new_scene()
-        self.update_view()
-        previous = act.where_occurs[0].composite_activity
-        self.history.append(previous)
-        self.go_back_action.setDisabled(False)
+        return (getattr(self.activity, 'of_function', None)
+                or getattr(self.activity, 'of_system', None)
+                or None)
 
     def set_new_scene(self):
         """
@@ -497,7 +419,62 @@ class TimelineWidget(QWidget):
                 scene.update()
             scene.timeline.populate(item_list)
         self.set_title()
-        return scene
+        self.scene = scene
+        if not getattr(self, 'view', None):
+            self.view = TimelineView(self)
+        self.view.setScene(self.scene)
+        self.view.show()
+
+
+    def enable_clear(self, act_of=None):
+        if self.system == act_of:
+            self.clear_activities_action.setDisabled(False)
+
+    def set_title(self):
+        # try:
+        if not getattr(self, 'title_widget', None):
+            self.title_widget = NameLabel('')
+            self.title_widget.setStyleSheet(
+                'font-weight: bold; font-size: 16px')
+        red_text = '<font color="red">{}</font>'
+        blue_text = '<font color="blue">{}</font>'
+        title = ''
+        if isinstance(self.activity, orb.classes['Mission']):
+            txt = ''
+            project = orb.get(state.get('project'))
+            if project:
+                txt = project.id + ' '
+            txt += 'Mission '
+            title = red_text.format(txt)
+        elif isinstance(self.activity, orb.classes['Activity']):
+            txt = self.activity.name
+            if self.activity.activity_type:
+                txt += ' ' + self.activity.activity_type.name
+            txt += ': '
+            title = red_text.format(txt)
+        if isinstance(self.system, orb.classes['Product']):
+            title += blue_text.format(self.system.name + ' System ')
+        title += 'Timeline'
+        self.title_widget.setText(title)
+        # except:
+            # pass
+
+    def widget_drill_down(self, act):
+        """
+        Handle a double-click event on an eventblock, creating and
+        displaying a new view.
+
+        Args:
+            obj (EventBlock):  the block that received the double-click
+        """
+        # TODO: replace with a pyqtSignal ...
+        # dispatcher.send("drill down", obj=act, act_of=self.system,
+                        # position=self.position)
+        self.activity = act
+        self.set_new_scene()
+        previous = act.where_occurs[0].composite_activity
+        self.history.append(previous)
+        self.go_back_action.setDisabled(False)
 
     def show_empty_scene(self):
         """
@@ -506,13 +483,6 @@ class TimelineWidget(QWidget):
         self.set_title()
         scene = QGraphicsScene()
         return scene
-
-    def update_view(self):
-        """
-        Update the view with a new scene.
-        """
-        self.view.setScene(self.scene)
-        self.view.show()
 
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
@@ -586,9 +556,7 @@ class TimelineWidget(QWidget):
         else:
             # if activity is not in the current diagram, ignore
             return
-        self.scene = self.set_new_scene()
-        self.update_view()
-        # self.update()
+        self.set_new_scene()
         if oid == subj_oid:
             self.setEnabled(False)
 
@@ -624,8 +592,7 @@ class TimelineWidget(QWidget):
             for child in children:
                 self.delete_children(act=child)
             self.undo_action.setEnabled(True)
-            self.scene = self.set_new_scene()
-            self.update_view()
+            self.set_new_scene()
             self.clear_activities_action.setDisabled(True)
             # TODO: replace with pyqtSignal ...
             # dispatcher.send("cleared activities",
@@ -643,20 +610,18 @@ class TimelineWidget(QWidget):
         else:
             orb.log.debug(f'* rescale factor {percentscale} unavailable')
 
-    def on_activity_edited(self, activity=None):
+    def on_activity_modified(self, activity=None):
         if activity == self.activity:
             self.set_title()
-        elif self.system in [activity.of_function, activity.of_system]:
-            self.update_view()
+        if self.system in [activity.of_function, activity.of_system]:
+            self.set_new_scene()
 
     def go_back(self):
         try:
             self.activity = self.history.pop()
             if len(self.history) == 0:
                 self.go_back_action.setDisabled(True)
-            self.scene = self.set_new_scene()
-            self.update_view()
-            self.disable_widget()
+            self.set_new_scene()
             # TODO: replace with pyqtSignal ...
             # dispatcher.send("go back", obj=self.activity,
                             # position=self.position)
@@ -669,8 +634,7 @@ class TimelineWidget(QWidget):
             if len(self.deleted_acts) == 0:
                 self.undo_action.setDisabled(True)
             deserialize(orb, del_acts)
-            self.scene = self.set_new_scene()
-            self.update_view()
+            self.set_new_scene()
             orb.log.debug('* sending "new activity" signal')
             # TODO: replace with pyqtSignal ...
             # dispatcher.send("new activity",
@@ -772,8 +736,8 @@ class TimelineWidget(QWidget):
         # d7.addWidget(t)
         # #p = pg.parametertree.parameterTypes.ActionParameter("parent")
         # lst = []
-        # for system in self.possible_systems:
-            # pair = {'name': system}
+        # for usage in self.system.components:
+            # pair = {'name': usage.component}
             # lst.append(pair)
         # params = [{'name': self.activity.id, 'children': lst}]
         # p = Parameter.create(name='params', type='group', children=params)
@@ -817,89 +781,28 @@ class TimelineWidget(QWidget):
             action.setCheckable(True)
         return action
 
-    def create_subsys_list(self):
-        # allow for degenerate case (self.system is None)
-        if isinstance(self.activity, orb.classes['Mission']):
-            lst = [psu.system
-                   for psu in self.activity.owner.systems]
-        elif hasattr(self.activity.of_function, 'component'):
-            lst = [acu.component
-                   for acu in self.activity.of_function.component.components]
-        elif hasattr(self.activity.of_system, 'system'):
-            lst = [acu.component
-                   for acu in self.activity.of_system.system.components]
-        if lst:
-            for system in lst:
-                try:
-                    subsys_id = system.id
-                    # ignore TBD's
-                    if subsys_id != "TBD":
-                        self.subsys_ids.append(subsys_id)
-                except:
-                    pass
-
-    def make_subsys_selector(self):
-        self.subsys_selector = QComboBox(self)
-        self.subsys_selector.addItems(self.subsys_ids)
-        self.toolbar.addWidget(self.subsys_selector)
-        self.subsys_selector.currentIndexChanged.connect(self.change_subsystem)
-        # self.subsys_selector.setCurrentIndex(0)
-        # TODO: replace with pyqtSignal ...
-        # dispatcher.send("make combo box", index=0)
-
-    # NOTE: this doesn't appear to be called anywhere
-    def update_combo_box(self):
-        self.scene = self.set_new_scene()
-        self.update_view()
-
-    def change_subsystem(self, index=None):
-        orb.log.debug(f"* change_subsystem(index={index})")
-        if index >= len(self.subsys_ids):
-            orb.log.debug(f"  - index {index} is out of range")
-            return
-        system_id = getattr(self.system, 'id', 'unknown')
-        orb.log.debug(f"  - self.system: {system_id}")
-        subsys_id = self.subsys_ids[index]
-        orb.log.debug(f"  - subsystem: {subsys_id}")
-        orb.log.debug("---------------------------------")
-        # Hmmmm ... this is weird
-        if system_id != subsys_id:
-            if hasattr(self, 'subsys_ids'):
-                log_msg = f"  - self.subsys_ids: {self.subsys_ids}"
-                orb.log.debug(log_msg)
-            try:
-                subsys_id = self.subsys_ids[index]
-                if self.activity.activity_type.id == 'cycle':
-                    pass
-                else:
-                    existing_subsystems = [acu.component for acu
-                                           in self.system.components]
-                    for subsystem in existing_subsystems:
-                        orb.log.debug(f"  - looking for: {subsys_id}")
-                        orb.log.debug(getattr(subsystem, 'id', 'NA'))
-                        if getattr(subsystem, 'id', '') == subsys_id:
-                            orb.log.debug(f"  - found: {subsys_id}")
-                            self.act_of = subsystem
-                    self.scene = self.set_new_scene()
-                    self.update_view()
-                orb.log.debug('* sending "changed subsystem" signal')
-                # TODO: replace with pyqtSignal ...
-                # dispatcher.send("changed subsystem",
-                                # act=self.activity,
-                                # act_of=self.act_of,
-                                # position=self.position)
-            except:
-                orb.log.debug("  - TLWidget.change_subsystem() failed.")
-
 
 class ConOpsModeler(QMainWindow):
     """
     Tool for modeling a Mission Concept of Operations for the currently
     selected project.
 
+    GUI structure of the ConOpsModeler is:
+
+    ConOpsModeler (QMainWindow)
+        - main_timeline (TimelineWidget)
+          + scene (TimelineScene)
+        - activity_table (ActivityTable)
+        - sub_timeline (TimelineWidget)
+          + scene (TimelineScene)
+        - sub_activity_table (ActivityTable)
+
     Attrs:
         history (list):  list of previous subject Activity instances
     """
+
+    # activity_focused = pyqtSignal(str)
+
     def __init__(self, parent=None):
         """
         Initialize the tool.
@@ -932,24 +835,25 @@ class ConOpsModeler(QMainWindow):
             # dispatcher.send("new object", obj=mission)
         self.activity = mission
         self.project = project
-        self.create_library()
+        self.create_block_library()
         self.init_toolbar()
-        # NOTE:  bottom dock area is not currently being used
+        self.set_widgets(current_activity=self.activity, init=True)
+        # NOTE:  bottom dock area is not currently being used but may be used
+        # for graphs in the future ...
         # self.bottom_dock = QDockWidget()
         # self.bottom_dock.setObjectName('BottomDock')
         # self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         # self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
         # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
-        self.set_widgets(current_activity=self.activity, init=True)
         # TODO: replace with pyqtSignal ...
         # dispatcher.connect(self.on_double_click, "double clicked")
-        # dispatcher.connect(self.view_subsystem_activities, "activity focused")
+        # dispatcher.connect(self.view_focused_activity, "activity focused")
 
-    def create_library(self):
+    def create_block_library(self):
         """
         Create the library of operation/event block types.
         """
-        orb.log.debug(' - create_library() ...')
+        orb.log.debug(' - create_block_library() ...')
         layout = QGridLayout()
         circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
         triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
@@ -980,10 +884,58 @@ class ConOpsModeler(QMainWindow):
         # self.sc_combo_box.currentIndexChanged.connect(self.change_system)
         # self.toolbar.addWidget(self.sc_combo_box)
         self.modes_tool_button = SizedButton("Modes Tool")
-        self.modes_tool_button.clicked.connect(self.modes_tool)
+        self.modes_tool_button.clicked.connect(self.display_modes_tool)
         self.toolbar.addWidget(self.modes_tool_button)
 
-    def modes_tool(self):
+    def set_widgets(self, current_activity=None, init=False):
+        """
+        Add a TimelineWidget containing all activities of the current system.
+
+        Note that focusing (mouse click) on an activity in the timeline will
+        make that activity the "current_activity" and restrict the graph
+        display to that activity's power graph.
+
+        Keyword Args:
+            current_activity (Activity): the main timeline activity that
+                currently has focus
+        """
+        orb.log.debug(' - set_widgets() ...')
+        self.main_timeline = TimelineWidget(self.activity, position='top')
+        self.main_timeline.setMinimumSize(900, 150)
+        self.main_timeline.scene.activity_got_focus.connect(
+                                                    self.on_activity_got_focus)
+        self.sub_timeline = TimelineWidget(current_activity, position='middle')
+        self.sub_timeline.setEnabled(False)
+        self.sub_timeline.setMinimumSize(900, 150)
+        self.outer_layout = QGridLayout()
+        act_of = self.activity.of_function or self.activity.of_system
+        self.activity_table = ActivityTable(self.activity, parent=self,
+                                     act_of=act_of, position='top')
+        self.activity_table.setMinimumSize(500, 300)
+        self.activity_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.outer_layout.addWidget(self.main_timeline, 0, 1)
+        self.outer_layout.addWidget(self.activity_table, 0, 0)
+        self.sub_activity_table = ActivityTable(self.activity, parent=self,
+                                        position='middle')
+        self.sub_activity_table.setEnabled(False)
+        self.sub_activity_table.setMinimumSize(500, 300)
+        self.sub_activity_table.setSizePolicy(QSizePolicy.Fixed,
+                                              QSizePolicy.Expanding)
+        self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
+        self.outer_layout.addWidget(self.sub_timeline, 1, 1)
+        self.widget = QWidget()
+        self.widget.setMinimumSize(1450, 600)
+        self.widget.setLayout(self.outer_layout)
+        self.setCentralWidget(self.widget)
+        if init:
+            self.right_dock = QDockWidget()
+            self.right_dock.setObjectName('RightDock')
+            self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
+            self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
+            self.right_dock.setWidget(self.library)
+
+    def display_modes_tool(self):
         win = ModesTool(self.project, parent=self)
         win.show()
 
@@ -999,80 +951,20 @@ class ConOpsModeler(QMainWindow):
         try:
             orb.log.debug(f'     + activity: {act.id}')
             if act.activity_type.id == 'cycle':
-                self.system_widget.widget_drill_down(act)
+                self.main_timeline.widget_drill_down(act)
         except Exception as e:
             orb.log.debug("    exception occurred:")
             orb.log.debug(e)
 
-    def view_subsystem_activities(self, act=None):
+    def on_activity_got_focus(self, act_oid):
         """
-        Display timelines for all subsystems of the current system and any of
-        their activities that are sub_activities of the currently focused
-        activity.
+        Display a timeline showing all subactivities of the focused activity.
         """
-        self.sub_widget.activity = act
-        if act.activity_type.id == 'cycle':
-            self.sub_widget.scene = self.sub_widget.show_empty_scene()
-            self.sub_widget.update_view()
-            self.sub_widget.setEnabled(False)
-            # TODO: replace with pyqtSignal ...
-            # dispatcher.send("disable widget")
-        else:
-            self.sub_widget.setEnabled(True)
-            # TODO: replace with pyqtSignal ...
-            # dispatcher.send("enable widget")
-            if hasattr(self.sub_widget, 'subsys_selector'):
-                self.sub_widget.scene = self.sub_widget.set_new_scene()
-                self.sub_widget.update_view()
-            else:
-                self.sub_widget.make_subsys_selector()
-
-    def set_widgets(self, current_activity=None, init=False):
-        """
-        Add a TimelineWidget containing timelines for all subsystems of the
-        current system with all activities of the subsystems.
-
-        Note that focusing (mouse click) on an activity in the current system
-        timeline will make that activity the "current_activity" and restrict
-        the display in the "middle" TimelineWidget to sub-activities of the
-        "current_activity".
-
-        Keyword Args:
-            current_activity (Activity): the main timeline activity that
-                currently has focus
-        """
-        orb.log.debug(' - set_widgets() ...')
-        self.system_widget = TimelineWidget(self.activity, position='top')
-        self.system_widget.setMinimumSize(900, 150)
-        self.sub_widget = TimelineWidget(current_activity, position='middle')
-        self.sub_widget.setEnabled(False)
-        self.sub_widget.setMinimumSize(900, 150)
-        self.outer_layout = QGridLayout()
-        act_of = self.activity.of_function or self.activity.of_system
-        system_table = ActivityTable(self.activity, parent=self,
-                                     act_of=act_of, position='top')
-        system_table.setMinimumSize(500, 300)
-        system_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-        self.outer_layout.addWidget(self.system_widget, 0, 1)
-        self.outer_layout.addWidget(system_table, 0, 0)
-        subsystem_table = ActivityTable(self.activity, parent=self,
-                                        position='middle')
-        subsystem_table.setDisabled(True)
-        subsystem_table.setMinimumSize(500, 300)
-        subsystem_table.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-        self.outer_layout.addWidget(subsystem_table, 1, 0)
-        self.outer_layout.addWidget(self.sub_widget, 1, 1)
-        self.widget = QWidget()
-        self.widget.setMinimumSize(1450, 600)
-        self.widget.setLayout(self.outer_layout)
-        self.setCentralWidget(self.widget)
-        if init:
-            self.right_dock = QDockWidget()
-            self.right_dock.setObjectName('RightDock')
-            self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-            self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
-            self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
-            self.right_dock.setWidget(self.library)
+        act = orb.get(act_oid)
+        self.sub_timeline.activity = act
+        self.sub_timeline.set_new_scene()
+        self.sub_timeline.setEnabled(True)
+        self.sub_activity_table.on_activity_focused(act)
 
 
 if __name__ == '__main__':

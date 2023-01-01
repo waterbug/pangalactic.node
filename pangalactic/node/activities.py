@@ -81,9 +81,7 @@ class ActivityTable(QWidget):
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
-        dispatcher.connect(self.on_activity_focused, 'activity focused')
-        dispatcher.connect(self.on_disable, 'disable widget')
-        dispatcher.connect(self.on_enable, 'enable widget')
+        # dispatcher.connect(self.on_activity_focused, 'activity focused')
         dispatcher.connect(self.on_activities_cleared, 'cleared activities')
 
     def set_title_text(self):
@@ -174,15 +172,15 @@ class ActivityTable(QWidget):
     def on_activity_edited(self, activity=None):
         # txt = '* {} table: on_activity_edited()'
         # orb.log.debug(txt.format(self.position))
-        if getattr(activity, 'oid', None) == self.subject.oid:
+        if activity is self.subject:
             self.set_title_text()
-        elif activity in self.activities:
+        if activity in getattr(self.subject, 'sub_activities', []):
             self.set_table()
 
     def on_activity_remote_mod(self, activity=None):
         # txt = '* {} table: on_activity_remote_mod()'
         # orb.log.debug(txt.format(self.position))
-        if activity and activity.where_occurs:
+        if activity and activity.sub_activity_of:
             composite_activity = getattr(activity.where_occurs[0],
                                          'composite_activity', None)
             if composite_activity:
@@ -238,22 +236,12 @@ class ActivityTable(QWidget):
             self.act_of = act_of
             self.set_table()
 
-    def on_activity_focused(self, act=None):
-        if self.position == 'top':
-            self.statusbar.showMessage("New Activity Selected")
-        elif self.position == 'middle':
-            self.statusbar.showMessage("Table Refreshed")
-            self.subject = act
-            self.set_title_text()
-            self.set_table()
-
-    def on_disable(self):
-        if self.position == 'middle':
-            self.setDisabled(True)
-
-    def on_enable(self):
-        if self.position == 'middle':
-            self.setEnabled(True)
+    def on_activity_focused(self, act):
+        orb.log.debug('  - ActivityTable.on_activity_focused()')
+        self.subject = act
+        self.set_title_text()
+        self.set_table()
+        self.setEnabled(True)
 
 
 class SystemSelectionView(QTreeView):

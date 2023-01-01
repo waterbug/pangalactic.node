@@ -23,8 +23,8 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names       import get_external_name_plural
 from pangalactic.core.parametrics import (make_de_html, make_parm_html,
-                                          de_defz, get_dval_as_str,
-                                          get_pval_as_str, parm_defz)
+                                          de_defz, get_dval_as_str, get_dval,
+                                          get_pval_as_str, get_pval, parm_defz)
 from pangalactic.core.serializers import serialize
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import in_si
@@ -143,6 +143,30 @@ def get_str_value(obj, pname):
     return '[undefined]'
 
 
+def get_pname_value(obj, pname):
+    """
+    Return the value of the specified property for the specified object.
+
+    Args:
+        obj (Identifiable): the object
+        pname (str): name of the property (attr, parameter, or data element)
+    """
+    schema = orb.schemas.get(obj.__class__.__name__)
+    field_names = []
+    if schema:
+        field_names = schema.get('field_names', [])
+    if field_names and pname in field_names:
+        return getattr(obj, pname, '') or ''
+    elif pname in parm_defz:
+        pd = parm_defz.get(pname)
+        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                pd['dimensions'], '')
+        return get_pval(obj.oid, pname, units=units)
+    elif pname in de_defz:
+        return get_dval(obj.oid, pname)
+    return ''
+
+
 class InfoTableItem(QTableWidgetItem):
 
     def __init__(self, text=None):
@@ -165,20 +189,14 @@ class SystemInfoTable(QTableWidget):
     table contain properties and parameters of components, their usages in the
     assembled system, and possibly related items.
 
-    The target use cases are [1] the Error Budget for an optical system, which
-    will also include sources of errors, and [2] a Concept of Operations for a
-    space mission, which is an assembly of Activities.
+    The target use case is the Error Budget for an optical system, which will
+    also include sources of errors.
     """
-    def __init__(self, system_type="HardwareProduct", system=None,
-                 component_view=None, usage_view=None, min_col_width=100,
+    def __init__(self, system=None, component_view=None, usage_view=None,
+                 sort_on='component', sort_by_field=None, min_col_width=100,
                  max_col_width=300, parent=None):
         """
         Initialize
-
-        Keyword Args:
-            system_type (str): class name of the target system, which can be
-                either "HardwareProduct" or "Activity"
-                (default: "HardwareProduct")
 
         Keyword Args:
             system (HardwareProduct):  the system whose assembly is shown
@@ -186,41 +204,32 @@ class SystemInfoTable(QTableWidget):
                 if list, ids; if dict, mapping of ids to column names
             usage_view (list or dict):  specified properties of usages (Acus);
                 if list, ids; if dict, mapping of ids to column names
+            sort_on (str): 'usage' or 'component' (default: 'component')
+            sort_by_field (str): id of attr, parm, or data element to sort by
             min_col_width (int): minimum column width (default: 100)
             max_col_width (int): maximum column width (default: 300)
         """
         super().__init__(parent=parent)
         # orb.log.info('* [SystemInfoTable] initializing ...')
-        self.system_type = system_type
         self.system = system
+        self.sort_on = sort_on
+        self.sort_by_field = sort_by_field
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         # TODO: get default view from prefs / config
-        if system_type == "HardwareProduct":
-            default_component_view = [
-                'm[CBE]',
-                'P[CBE]',
-                'R_D[CBE]'
-                ]
-        elif system_type == "Activity":
-            default_component_view = [
-                't_start',
-                'duration',
-                't_end'
-                ]
+        default_component_view = [
+            'm[CBE]',
+            'P[CBE]',
+            'R_D[CBE]'
+            ]
         self.component_view = component_view or default_component_view[:]
         self.usage_view = usage_view or []
         self.setup_table()
 
     def setup_table(self):
-        # "default" system_type: HardwareProduct
-        usages_attr = 'components'
-        component_attr = 'component'
-        if self.system_type == 'Activity':
-            usages_attr = 'sub_activities'
-            component_attr = 'sub_activity'
+        
         self.setColumnCount(len(self.component_view) + len(self.usage_view))
-        usages = getattr(self.system, usages_attr, []) or []
+        usages = getattr(self.system, 'components', []) or []
         if usages:
             self.setRowCount(len(usages))
         else:
@@ -294,9 +303,16 @@ class SystemInfoTable(QTableWidget):
         self.setHorizontalHeaderLabels(header_labels)
         # populate relevant data
         if usages:
+            if self.sort_by_field:
+                if self.sort_on == 'component':
+                    usages.sort(key=lambda x:get_pname_value(x.component,
+                                                          self.sort_by_field))
+                elif self.sort_on == 'usage':
+                    usages.sort(key=lambda x:
+                                get_pname_value(x, self.sort_by_field))
             for i, usage in enumerate(usages):
                 for j, pid in enumerate(self.component_view):
-                    component = getattr(usage, component_attr)
+                    component = getattr(usage, 'component')
                     self.setItem(i, j,
                      InfoTableItem(get_str_value(component, pid) or ''))
                 for j, pid in enumerate(self.usage_view):

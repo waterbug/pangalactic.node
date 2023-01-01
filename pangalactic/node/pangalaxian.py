@@ -3220,7 +3220,21 @@ class Main(QMainWindow):
         Handle local dispatcher signal "des set".
 
         Keyword Args:
-            des (dict): dict of oids / data elements to update
+            des (dict): dict mapping oids to dicts of the form
+                {deid : value}
+        """
+        if des:
+            rpc = self.mbus.session.call('vger.set_data_elements', des=des)
+            rpc.addCallback(self.on_vger_set_des_result)
+            rpc.addErrback(self.on_failure)
+
+    def on_des_set_qtsignal(self, des):
+        """
+        Handle local pyqtSignal signal "des set".
+
+        Keyword Args:
+            des (dict): dict mapping oids to dicts of the form
+                {deid : value}
         """
         if des:
             rpc = self.mbus.session.call('vger.set_data_elements', des=des)
@@ -4827,6 +4841,7 @@ class Main(QMainWindow):
                                     self.on_new_or_modified_objects_qtsignal)
         window.local_object_deleted.connect(
                                     self.on_object_deleted_qtsignal)
+        window.system_widget.scene.des_set.connect(self.on_des_set_qtsignal)
         window.show()
 
     def product_types_library(self):
