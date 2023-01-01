@@ -46,6 +46,7 @@ class RequirementManager(QDialog):
         # self.setLayout(main_layout)
         # main_layout = self.layout()
         main_layout.addWidget(self.title)
+        self.setWindowTitle('Requirements Manager')
         self.hide_tree_button = SizedButton('Hide Allocations',
                                              color="purple")
         self.hide_tree_button.clicked.connect(self.hide_allocation_panel)

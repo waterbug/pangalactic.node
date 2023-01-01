@@ -1730,6 +1730,7 @@ class SC42Window(QMainWindow):
     """
     def __init__(self, width=None, height=None, embedded=True, parent=None):
         super().__init__(parent=parent)
+        self.setWindowTitle('"42" ACS Modeler Spacecraft Input Form')
         self.w = width or 850
         self.h = height or 900
         self.forms = SC_Form(embedded=embedded)

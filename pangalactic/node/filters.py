@@ -44,7 +44,7 @@ class ProductFilterDialog(QDialog):
         Initialize.
         """
         super().__init__(parent)
-        self.setWindowTitle("Filters")
+        self.setWindowTitle('Filter Products by Type or Discipline')
         self.engineering_discipline_selected = None
         # default is to show all discipline product types -- if
         # user_disciplines are found, this will be overridden below ...
@@ -1023,6 +1023,7 @@ class FilterDialog(QDialog):
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
+        self.setWindowTitle('Filter Products by Type or Discipline')
         panel = FilterPanel(objs, schema=schema, view=view,
                     sized_cols=sized_cols, label=label, title=title,
                     width=width, min_width=min_width, height=height,

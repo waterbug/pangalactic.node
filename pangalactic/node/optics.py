@@ -746,6 +746,7 @@ class OpticalSystemModeler(QMainWindow):
         self.project = project
         self.init_toolbar()
         self.set_widgets(init=True)
+        self.setWindowTitle('Optical System Modeler')
         sys_widget_w = self.system_widget.width()
         sys_widget_h = self.system_widget.height()
         sys_table_h = self.system_table.rowCount() * 20
@@ -833,9 +834,9 @@ class OpticalSystemModeler(QMainWindow):
         self.system_table = SystemInfoTable(
                                     system=self.system,
                                     component_view=comp_view,
+                                    usage_view=usage_view,
                                     sort_by_field='position_in_optical_path',
                                     sort_on='usage',
-                                    usage_view=usage_view,
                                     parent=self)
         self.system_table.setSizePolicy(QSizePolicy.Expanding,
                                         QSizePolicy.Expanding)

@@ -6,7 +6,7 @@ PgxnObject (a domain object viewer/editor)
 import os
 from functools import partial
 
-from PyQt5.QtCore import Qt, QSize, QVariant
+from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,

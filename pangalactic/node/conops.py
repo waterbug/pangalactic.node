@@ -139,7 +139,7 @@ class EventBlock(QGraphicsPolygonItem):
             txt = "This activity has sub-activities; delete them first."
             confirm_dlg = QMessageBox(QMessageBox.Question, "Delete All?", txt,
                                       QMessageBox.Ok)
-            response = confirm_dlg.exec_()
+            confirm_dlg.exec_()
         else:
             self.scene().removeItem(self)
             if self.activity:
@@ -838,6 +838,7 @@ class ConOpsModeler(QMainWindow):
         self.create_block_library()
         self.init_toolbar()
         self.set_widgets(current_activity=self.activity, init=True)
+        self.setWindowTitle('Concept of Operations (Con Ops) Modeler')
         # NOTE:  bottom dock area is not currently being used but may be used
         # for graphs in the future ...
         # self.bottom_dock = QDockWidget()

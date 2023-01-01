@@ -115,6 +115,7 @@ class ModelWindow(QMainWindow):
             preferred_size (tuple):  size to set -- (width, height)
         """
         super().__init__(parent=parent)
+        self.setWindowTitle('Block Modeler')
         # orb.log.debug('* ModelWindow initializing with:')
         # orb.log.debug('  obj "{}"'.format(getattr(obj, 'oid', 'None')))
         self.obj = obj

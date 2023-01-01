@@ -130,7 +130,7 @@ class FullSyncDialog(QDialog):
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
-        self.setWindowTitle("Danger Danger Danger!")
+        self.setWindowTitle("Danger, Will Robinson!")
         msg = '<b><font color="red">Full Re-sync will overwrite '
         msg += 'all local data -- continue?</font></b>'
         msg_label = QLabel(msg, self)
@@ -167,7 +167,7 @@ class NotificationDialog(QDialog):
 class VersionDialog(QDialog):
     def __init__(self, html, url, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Notification")
+        self.setWindowTitle("Download Current Version")
         vbox = QVBoxLayout(self)
         browsable_widget = QTextBrowser(parent=self)
         browsable_widget.setHtml(html)
@@ -472,7 +472,7 @@ class AssemblyNodeDialog(QDialog):
     """
     def __init__(self, ref_des, quantity, system=False, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Edit System Tree Node")
+        self.setWindowTitle("Edit Reference Designator or Quantity")
         self.ref_des = ref_des or ''
         self.quantity = quantity or 1
         form = QFormLayout(self)
@@ -543,6 +543,7 @@ class MiniMelDialog(QDialog):
         self.summary = False
         layout = QVBoxLayout()
         self.setLayout(layout)
+        self.setWindowTitle("Mini MEL")
         self.dash_name = state.get('dashboard_name') or 'MEL'
         dash_schemas = prefs.get('dashboards') or {}
         self.data_cols = dash_schemas.get(self.dash_name)
@@ -702,6 +703,7 @@ class ObjectSelectionDialog(QDialog, PopupDialogMixin):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
+        self.setWindowTitle("Select Object")
         self.objs = objs
         cname = ''
         if objs:
@@ -1302,7 +1304,7 @@ class CloningDialog(QDialog):
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
         orb.log.debug(f'* CloningDialog({obj.id})')
-        self.setWindowTitle("Clone")
+        self.setWindowTitle("Clone a Product")
         self.obj = obj
         self.main_layout = QVBoxLayout(self)
         self.instructions_label = QLabel(cloning_instructions)
@@ -1437,7 +1439,7 @@ class LogDialog(QDialog):
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
         orb.log.debug('* LogDialog started ...')
-        self.setWindowTitle("syncing with repository")
+        self.setWindowTitle("Syncing with Repository")
         main_layout = QVBoxLayout(self)
         self.title = QLabel('<h3>Receiving objects ...</h3>', self)
         main_layout.addWidget(self.title)
@@ -1535,7 +1537,7 @@ class FrozenDialog(QDialog):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
-        self.setWindowTitle("Freeze")
+        self.setWindowTitle("Frozen Products")
         main_layout = QVBoxLayout(self)
         main_title = QLabel('<h3>Frozen Items:</h3>', self)
         main_layout.addWidget(main_title)
@@ -1857,6 +1859,7 @@ class IdValidationPopup(QWidget):
                 False if the text matches another object's `id` value)
         """
         QWidget.__init__(self, parent)
+        self.setWindowTitle("ID attribute validation")
         layout = QHBoxLayout(self)
         label = QLabel(text, self)
         label.setMargin(2)
