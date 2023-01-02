@@ -2015,7 +2015,7 @@ class Main(QMainWindow):
         conops_tip_text = "Model a Concept of Operations"
         self.conops_modeler_action = self.create_action(
                                 "ConOps Modeler",
-                                slot=self.display_conops_modeler,
+                                slot=self.conops_modeler,
                                 icon='tools',
                                 tip=conops_tip_text,
                                 modes=['system', 'component'])
@@ -3521,11 +3521,11 @@ class Main(QMainWindow):
     def rpc_save_entity_result(self, result):
         orb.log.debug(f'* "vger.save_entity" result: "{result}"')
 
-    def on_object_deleted_qtsignal(self, oid):
+    def on_deleted_object_qtsignal(self, oid, cname):
         """
-        Respond to a pyqtSignal that a local object has been deleted.
+        Respond to a pyqtSignal that results from a local object being deleted.
         """
-        self.on_deleted_object_signal(oid=oid)
+        self.on_deleted_object_signal(oid=oid, cname=cname)
 
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
@@ -4821,8 +4821,9 @@ class Main(QMainWindow):
                                  parent=self)
         dlg.show()
 
-    def display_conops_modeler(self):
+    def conops_modeler(self):
         win = ConOpsModeler(parent=self)
+        win.deleted_object.connect(self.on_deleted_object_qtsignal)
         win.show()
 
     def define_op_modes(self):
@@ -4840,7 +4841,7 @@ class Main(QMainWindow):
         window.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects_qtsignal)
         window.local_object_deleted.connect(
-                                    self.on_object_deleted_qtsignal)
+                                    self.on_deleted_object_qtsignal)
         window.system_widget.scene.des_set.connect(self.on_des_set_qtsignal)
         window.show()
 

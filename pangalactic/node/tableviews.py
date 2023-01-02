@@ -192,18 +192,19 @@ class SystemInfoTable(QTableWidget):
     The target use case is the Error Budget for an optical system, which will
     also include sources of errors.
     """
-    def __init__(self, system=None, component_view=None, usage_view=None,
-                 sort_on='component', sort_by_field=None, min_col_width=100,
-                 max_col_width=300, parent=None):
+    def __init__(self, system=None, view=None, sort_on='component',
+                 sort_by_field=None, min_col_width=100, max_col_width=300,
+                 parent=None):
         """
         Initialize
 
         Keyword Args:
             system (HardwareProduct):  the system whose assembly is shown
-            component_view (list or dict):  specified properties of components;
-                if list, ids; if dict, mapping of ids to column names
-            usage_view (list or dict):  specified properties of usages (Acus);
-                if list, ids; if dict, mapping of ids to column names
+            view (list):  list in which each element is a 3-tuple
+                (pname, colname, otype), where pname is the property id,
+                colname is the column name (if empty string, pname is the
+                column name, and otype is either "component" or "usage" (Acu),
+                indicating the owner of the property
             sort_on (str): 'usage' or 'component' (default: 'component')
             sort_by_field (str): id of attr, parm, or data element to sort by
             min_col_width (int): minimum column width (default: 100)
@@ -217,18 +218,16 @@ class SystemInfoTable(QTableWidget):
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         # TODO: get default view from prefs / config
-        default_component_view = [
-            'm[CBE]',
-            'P[CBE]',
-            'R_D[CBE]'
+        default_view = [
+            ('m[CBE]', '', 'component'),
+            ('P[CBE]', '', 'component'),
+            ('R_D[CBE]', '', 'component')
             ]
-        self.component_view = component_view or default_component_view[:]
-        self.usage_view = usage_view or []
+        self.view = view or default_view[:]
         self.setup_table()
 
     def setup_table(self):
-        
-        self.setColumnCount(len(self.component_view) + len(self.usage_view))
+        self.setColumnCount(len(self.view))
         usages = getattr(self.system, 'components', []) or []
         if usages:
             self.setRowCount(len(usages))
@@ -236,8 +235,12 @@ class SystemInfoTable(QTableWidget):
             self.setRowCount(1)
         header_labels = []
         widths = []
-        if self.component_view and isinstance(self.component_view, list):
-            for pname in self.component_view:
+        for pname, colname, otype in self.view:
+            if colname:
+                header_label = f'<h3>{colname}</h3>'
+                header_labels.append(header_label)
+            else:
+                # create col names based on pnames
                 if pname in parm_defz:
                     header_label = make_parm_html(pname, tag='h3')
                 elif pname in de_defz:
@@ -246,58 +249,17 @@ class SystemInfoTable(QTableWidget):
                     html = pname
                     header_label = f'<h3>{html}</h3>'
                 header_labels.append(header_label)
-                # set col widths based on length of header text
+            # set col widths based on length of header text
+            if colname:
+                width = len(colname)*20
+            else:
                 if '_' in pname:
                     base, sub = pname.split('_')
                     width = len(base)*20 + len(sub)*8
                 else:
                     width = len(pname)*20
-                width = min(max(width, self.min_col_width), self.max_col_width)
-                widths.append(width)
-        elif self.component_view and isinstance(self.component_view, dict):
-            for pname in self.component_view.values():
-                html = pname
-                header_label = f'<h3>{html}</h3>'
-                header_labels.append(header_label)
-                # set col widths based on length of header text
-                if '_' in pname:
-                    base, sub = pname.split('_')
-                    width = len(base)*20 + len(sub)*8
-                else:
-                    width = len(pname)*20
-                width = min(max(width, self.min_col_width), self.max_col_width)
-                widths.append(width)
-        if self.usage_view and isinstance(self.usage_view, list):
-            for pname in self.usage_view:
-                if pname in parm_defz:
-                    header_label = make_parm_html(pname, tag='h3')
-                elif pname in de_defz:
-                    header_label = make_de_html(pname, tag='h3')
-                else:
-                    html = pname
-                    header_label = f'<h3>{html}</h3>'
-                header_labels.append(header_label)
-                # set col widths based on length of header text
-                if '_' in pname:
-                    base, sub = pname.split('_')
-                    width = len(base)*20 + len(sub)*8
-                else:
-                    width = len(pname)*20
-                width = min(max(width, self.min_col_width), self.max_col_width)
-                widths.append(width)
-        elif self.usage_view and isinstance(self.usage_view, dict):
-            for pname in self.usage_view.values():
-                html = pname
-                header_label = f'<h3>{html}</h3>'
-                header_labels.append(header_label)
-                # set col widths based on length of header text
-                if '_' in pname:
-                    base, sub = pname.split('_')
-                    width = len(base)*20 + len(sub)*8
-                else:
-                    width = len(pname)*20
-                width = min(max(width, self.min_col_width), self.max_col_width)
-                widths.append(width)
+            width = min(max(width, self.min_col_width), self.max_col_width)
+            widths.append(width)
         header = LabelHeaderView(self, widths=widths)
         self.setHorizontalHeader(header)
         self.setHorizontalHeaderLabels(header_labels)
@@ -311,13 +273,15 @@ class SystemInfoTable(QTableWidget):
                     usages.sort(key=lambda x:
                                 get_pname_value(x, self.sort_by_field))
             for i, usage in enumerate(usages):
-                for j, pid in enumerate(self.component_view):
-                    component = getattr(usage, 'component')
-                    self.setItem(i, j,
-                     InfoTableItem(get_str_value(component, pid) or ''))
-                for j, pid in enumerate(self.usage_view):
-                    self.setItem(i, j + len(self.component_view),
-                     InfoTableItem(get_str_value(usage, pid) or ''))
+                for j, ptuple in enumerate(self.view):
+                    pname, colname, otype = ptuple
+                    if otype == 'component':
+                        component = getattr(usage, 'component')
+                        self.setItem(i, j,
+                         InfoTableItem(get_str_value(component, pname) or ''))
+                    elif otype == 'usage':
+                        self.setItem(i, j,
+                         InfoTableItem(get_str_value(usage, pname) or ''))
         width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
 

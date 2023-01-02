@@ -143,7 +143,9 @@ class EventBlock(QGraphicsPolygonItem):
         else:
             self.scene().removeItem(self)
             if self.activity:
+                oid = self.activity.oid
                 orb.delete([self.activity])
+                self.scene().deleted_object.emit(oid, 'Activity')
 
     def itemChange(self, change, value):
         return value
@@ -262,7 +264,8 @@ class Timeline(QGraphicsPathItem):
 
 class TimelineScene(QGraphicsScene):
 
-    activity_got_focus = pyqtSignal(str)
+    activity_got_focus = pyqtSignal(str)   # arg: oid
+    deleted_object = pyqtSignal(str, str)  # args: oid, cname
 
     def __init__(self, parent, current_activity=None, act_of=None,
                  position=None):
@@ -801,7 +804,7 @@ class ConOpsModeler(QMainWindow):
         history (list):  list of previous subject Activity instances
     """
 
-    # activity_focused = pyqtSignal(str)
+    deleted_object = pyqtSignal(str, str)  # args: oid, cname
 
     def __init__(self, parent=None):
         """
@@ -905,6 +908,7 @@ class ConOpsModeler(QMainWindow):
         self.main_timeline.setMinimumSize(900, 150)
         self.main_timeline.scene.activity_got_focus.connect(
                                                     self.on_activity_got_focus)
+        self.main_timeline.scene.deleted_object.connect(self.on_deleted_object)
         self.sub_timeline = TimelineWidget(current_activity, position='middle')
         self.sub_timeline.setEnabled(False)
         self.sub_timeline.setMinimumSize(900, 150)
@@ -966,6 +970,12 @@ class ConOpsModeler(QMainWindow):
         self.sub_timeline.set_new_scene()
         self.sub_timeline.setEnabled(True)
         self.sub_activity_table.on_activity_focused(act)
+
+    def on_deleted_object(self, oid, cname):
+        """
+        Handle a local object deletion by emitting a "deleted_object" signal.
+        """
+        self.deleted_object.emit(oid, cname)
 
 
 if __name__ == '__main__':

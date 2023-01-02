@@ -381,6 +381,7 @@ class OpticalPathDiagram(QGraphicsPathItem):
         item_list_copy = self.item_list[:]
         self.item_list.sort(key=lambda x: x.scenePos().x())
         same = True
+        table_needs_update = False
         for item in self.item_list:
             if self.item_list.index(item) != item_list_copy.index(item):
                 same = False
@@ -388,6 +389,7 @@ class OpticalPathDiagram(QGraphicsPathItem):
             item.setPos(QPoint(self.list_of_pos[i], 250))
             set_dval(item.usage.oid, 'position_in_optical_path', i)
             self.scene.new_or_modified_objects.emit([item.usage.oid])
+            table_needs_update = True
         if not same:
             des = {}
             for i, item in enumerate(self.item_list):
@@ -398,7 +400,8 @@ class OpticalPathDiagram(QGraphicsPathItem):
                 des[acu.oid]['position_in_optical_path'] = self.list_of_pos[i]
             # "des_set" triggers pgxn to call rpc vger.set_data_elements()
             self.signals.des_set.emit(des)
-            # "order_changed" only triggers the system table to update
+        if not same or table_needs_update:
+            # "order_changed" triggers the system table to update
             self.signals.order_changed.emit()
         self.update()
 
@@ -594,7 +597,7 @@ class OpticalSystemView(QGraphicsView):
 class OpticalSystemWidget(QWidget):
 
     new_or_modified_objects = pyqtSignal(list)
-    object_deleted = pyqtSignal(str)
+    object_deleted = pyqtSignal(str, str)  # args: oid, cname
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -694,7 +697,7 @@ class OpticalSystemWidget(QWidget):
         orb.delete([acu])
         self.set_scene_and_view()
         if not remote:
-            self.object_deleted.emit(oid)
+            self.object_deleted.emit(oid, "Acu")
 
     def scene_scale_changed(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -731,7 +734,7 @@ class OpticalSystemModeler(QMainWindow):
     """
 
     new_or_modified_objects = pyqtSignal(list)
-    local_object_deleted = pyqtSignal(str)
+    local_object_deleted = pyqtSignal(str, str)  # args: oid, cname
 
     def __init__(self, parent=None):
         """
@@ -819,22 +822,29 @@ class OpticalSystemModeler(QMainWindow):
         self.system_table_layout.addWidget(self.system_table)
 
     def create_system_table(self):
-        comp_view = dict(name='Optical Surface Label',
-                         description='Optical Surface Description')
-        usage_view = [
-                'dRMSWFE_dx', 'dRMSWFE_dy', 'dRMSWFE_dz',
-                'dRMSWFE_rx', 'dRMSWFE_ry', 'dRMSWFE_rz',
-                'dLOSx_dx', 'dLOSx_dy', 'dLOSx_dz',
-                'dLOSx_rx', 'dLOSx_ry', 'dLOSx_rz',
-                'dLOSy_dx', 'dLOSy_dy', 'dLOSy_dz',
-                'dLOSy_rx', 'dLOSy_ry', 'dLOSy_rz']
+        view = [('reference_designator', 'Optical Surface Label', 'usage'),
+                ('name', 'Optical Surface Name', 'component'),
+                ('description', 'Optical Surface Description', 'component'),
+                ('dRMSWFE_dx', '', 'usage'),
+                ('dRMSWFE_dy', '', 'usage'),
+                ('dRMSWFE_dz', '', 'usage'),
+                ('dRMSWFE_rx', '', 'usage'),
+                ('dRMSWFE_ry', '', 'usage'),
+                ('dRMSWFE_rz', '', 'usage'),
+                ('dLOSx_dx', '', 'usage'),
+                ('dLOSx_dy', '', 'usage'),
+                ('dLOSx_dz', '', 'usage'),
+                ('dLOSx_rx', '', 'usage'),
+                ('dLOSx_ry', '', 'usage'),
+                ('dLOSx_rz', '', 'usage'),
+                ('dLOSy_dx', '', 'usage'),
+                ('dLOSy_dy', '', 'usage'),
+                ('dLOSy_dz', '', 'usage')]
                 # 'RoC', 'K',
                 # 'X_vertex', 'Y_vertex', 'Z_vertex',
                 # 'RotX_vertex', 'RotY_vertex', 'RotZ_vertex',
         self.system_table = SystemInfoTable(
-                                    system=self.system,
-                                    component_view=comp_view,
-                                    usage_view=usage_view,
+                                    system=self.system, view=view,
                                     sort_by_field='position_in_optical_path',
                                     sort_on='usage',
                                     parent=self)
@@ -849,14 +859,16 @@ class OpticalSystemModeler(QMainWindow):
         if getattr(self, 'system_widget', None):
             self.system_widget.remote_objects_deleted(oids)
 
-    def on_local_object_deleted(self, oid):
+    def on_local_object_deleted(self, oid, cname):
         """
         Pass along the signal when an item is removed from the scene and its
         usage is deleted.
         """
-        self.local_object_deleted.emit(oid)
+        self.rebuild_system_table()
+        self.local_object_deleted.emit(oid, cname)
 
     def on_new_or_modified_objects(self, oids):
+        self.rebuild_system_table()
         self.new_or_modified_objects.emit(oids)
 
     def on_double_click(self, acu):
