@@ -4,7 +4,7 @@ Admin interface
 import sys
 from collections import OrderedDict
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,
                              QHBoxLayout, QLabel, QMenu, QMessageBox,
@@ -39,6 +39,9 @@ class RADropLabel(ColorLabel):
     context menu with a 'delete' choice that deletes its referenced
     RoleAssignment.  
     """
+
+    deleted_object = pyqtSignal(str, str)
+
     def __init__(self, name, ra, color=None, element=None, border=None,
                  margin=None, mime=None, parent=None, **kw):
         """
@@ -85,8 +88,9 @@ class RADropLabel(ColorLabel):
         """
         ra_oid = self.ra.oid
         orb.delete([self.ra])
-        dispatcher.send(signal='deleted object', oid=ra_oid,
-                        cname='RoleAssignment')
+        # dispatcher.send(signal='deleted object', oid=ra_oid,
+                        # cname='RoleAssignment')
+        self.deleted_object.emit(ra_oid, 'RoleAssignment')
 
     def adjust_parent_size(self):
         self.parent().adjustSize()
@@ -175,8 +179,9 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                dispatcher.send(signal='deleted object', oid=deleted_oid,
-                                cname='RoleAssignment')
+                # dispatcher.send(signal='deleted object', oid=deleted_oid,
+                                # cname='RoleAssignment')
+                self.deleted_object.emit(deleted_oid, 'RoleAssignment')
             elif self.mime == 'application/x-pgef-role':
                 data = extract_mime_data(event, 'application/x-pgef-role')
                 icon, r_oid, r_id, r_name, r_cname = data
@@ -216,8 +221,9 @@ class RADropLabel(ColorLabel):
                 self.setText(get_styled_text(role.name))
                 self.adjustSize()
                 dispatcher.send(signal='ra label resized')
-                dispatcher.send(signal='deleted object', oid=deleted_oid,
-                                cname='RoleAssignment')
+                # dispatcher.send(signal='deleted object', oid=deleted_oid,
+                                # cname='RoleAssignment')
+                self.deleted_object.emit(deleted_oid, 'RoleAssignment')
             else:
                 event.ignore()
         else:
@@ -506,6 +512,10 @@ class AdminDialog(QDialog):
     Dialog for admin operations: basically, role provisioning for persons
     relative to organizations.
     """
+
+    deleted_object = pyqtSignal(str, str)
+    new_object = pyqtSignal(str)
+
     def __init__(self, org=None, parent=None):
         """
         Initialize.
@@ -558,14 +568,14 @@ class AdminDialog(QDialog):
         self.right_vbox.addWidget(self.lib_widget, stretch=1)
         self.updateGeometry()
         dispatcher.connect(self.adjust_size, 'admin contents resized')
-        dispatcher.connect(self.refresh_roles, 'deleted object')
-        dispatcher.connect(self.refresh_roles, 'remote: deleted')
+        # dispatcher.connect(self.refresh_roles, 'deleted object')
+        # dispatcher.connect(self.refresh_roles, 'remote: deleted')
         # DEPRECATED: on_person_added_success() now called directly in
         # pangalaxian
         # dispatcher.connect(self.on_person_added_success, 'person added')
         # DEPRECATED: on_got_people() now called directly in pgxn
         # dispatcher.connect(self.on_got_people, 'got people')
-        dispatcher.connect(self.refresh_roles, 'refresh admin tool')
+        # dispatcher.connect(self.refresh_roles, 'refresh admin tool')
 
     def on_got_people(self):
         """
@@ -706,6 +716,7 @@ class AdminDialog(QDialog):
             r_label = RADropLabel(r.name, ra,
                                   mime='application/x-pgef-role',
                                   margin=2, border=1)
+            r_label.deleted_object.connect(self.on_deleted_object)
         else:
             r_label = None
         # Person
@@ -715,7 +726,12 @@ class AdminDialog(QDialog):
         p_label = RADropLabel(p_name, ra,
                               mime='application/x-pgef-person',
                               margin=2, border=1)
+        p_label.deleted_object.connect(self.on_deleted_object)
         return r_label, p_label
+
+    def on_deleted_object(self, oid, cname):
+        self.refresh_roles()
+        self.deleted_object.emit(oid, cname)
 
     def mimeTypes(self):
         """
@@ -793,7 +809,8 @@ class AdminDialog(QDialog):
                 self.refresh_roles()
                 # pangalaxian will handle the 'new object' signal and call the
                 # 'vger.assign_role' rpc ...
-                dispatcher.send(signal='new object', obj=ra)
+                # dispatcher.send(signal='new object', obj=ra)
+                self.new_object.emit(ra.oid)
             else:
                 orb.log.info('[Admin] Unknown Person dropped: "{}"'.format(
                                                                    p_name))

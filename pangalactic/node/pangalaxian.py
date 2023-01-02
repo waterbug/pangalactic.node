@@ -34,6 +34,22 @@ from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
+# fix qt import error -- import this before importing anything in PyQt5
+from pangalactic.node import fix_qt_import_error
+
+# fix Mac Big Sur qt problem -- set before importing PyQt stuff
+if sys.platform == 'darwin':
+    os.environ['QT_MAC_WANTS_LAYER'] = '1'
+
+# PyQt5
+from PyQt5.QtCore import pyqtSignal, Qt, QModelIndex, QPoint, QVariant
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QComboBox,
+                             QDockWidget, QFileDialog, QFrame, QHBoxLayout,
+                             QLabel, QMainWindow, QMessageBox, QDialog,
+                             QProgressBar, QSizePolicy, QStyleFactory,
+                             QVBoxLayout, QWidget)
+
 # pangalactic
 from pangalactic.core                  import __version__
 from pangalactic.core                  import diagramz
@@ -94,22 +110,6 @@ from pangalactic.node.reqmanager       import RequirementManager
 from pangalactic.node.reqwizards       import ReqWizard, req_wizard_state
 from pangalactic.node.splash           import SplashScreen
 
-# fix qt import error -- import this before importing anything in PyQt5
-from pangalactic.node import fix_qt_import_error
-
-# fix Mac Big Sur qt problem -- set before importing PyQt stuff
-if sys.platform == 'darwin':
-    os.environ['QT_MAC_WANTS_LAYER'] = '1'
-
-# PyQt5
-from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QComboBox,
-                             QDockWidget, QFileDialog, QFrame, QHBoxLayout,
-                             QLabel, QMainWindow, QMessageBox, QDialog,
-                             QProgressBar, QSizePolicy, QStyleFactory,
-                             QVBoxLayout, QWidget)
-from PyQt5.QtCore import Qt, QModelIndex, QPoint, QVariant
-
 
 
 class Main(QMainWindow):
@@ -138,6 +138,11 @@ class Main(QMainWindow):
     """
     # enumeration of modes
     modes = ['system', 'component', 'db', 'data']
+
+    deleted_object = pyqtSignal(str, str)
+    new_object = pyqtSignal(str)
+    remote_deleted_object = pyqtSignal(str, str)
+    refresh_admin_tool = pyqtSignal()
 
     def __init__(self, home='', test_data=None, width=None, height=None,
                  use_tls=True, auth_method='cryptosign', reactor=None,
@@ -250,7 +255,12 @@ class Main(QMainWindow):
         state['width'] = width
         state['height'] = height
         # self.create_timer()
-        # register various signals ...
+        # connect pyqtSignals ...
+        self.deleted_object.connect(self.on_deleted_object_qtsignal)
+        self.new_object.connect(self.on_new_object_qtsignal)
+        self.remote_deleted_object.connect(
+                             self.on_remote_deleted_object_qtsignal)
+        # connect dispatcher signals ...
         dispatcher.connect(self.on_log_info_msg, 'log info msg')
         dispatcher.connect(self.on_log_debug_msg, 'log debug msg')
         dispatcher.connect(self.on_toggle_library_size, 'toggle library size')
@@ -1118,15 +1128,17 @@ class Main(QMainWindow):
             state['deleted_oids'] = deleted
             local_objs_to_del = orb.get(oids=server_deleted_oids)
             if local_objs_to_del:
-                deleted_oids = [o.oid for o in local_objs_to_del]
+                deleted_oids = {o.oid : o.__class__.__name__
+                                for o in local_objs_to_del}
                 n = len(local_objs_to_del)
                 orb.log.debug(f'        {n} were found in local db ...')
-                for obj_oid in local_objs_to_del:
-                    orb.log.debug(f'         {obj_oid}')
+                for oid, cname in local_objs_to_del.items():
+                    orb.log.debug(f'         {oid} ({cname})')
                 # delete the objects using the "remote: deleted" signal -- it
                 # must be done that way so all widgets get refreshed properly
-                for oid in deleted_oids:
-                    dispatcher.send('remote: deleted', content=oid)
+                for oid, cname in deleted_oids.items():
+                    # dispatcher.send('remote: deleted', content=oid)
+                    self.remote_deleted_object.emit(oid, cname)
             else:
                 orb.log.debug('        none were found in local db.')
         if user_objs_sync:
@@ -1567,9 +1579,11 @@ class Main(QMainWindow):
                 obj = orb.get(obj_oid)
                 if obj:
                     obj_id = obj.id
+                    cname = obj.__class__.__name__
+                    self.remote_deleted_object.emit(obj_oid, cname)
                 msg += obj_id
                 self.statusbar.showMessage(msg)
-                dispatcher.send(signal="remote: deleted", content=content)
+                # dispatcher.send(signal="remote: deleted", content=content)
             elif subject == 'frozen':
                 # content is a list of tuples:
                 #   (obj.oid, str(obj.mod_datetime), obj.modifier.oid) 
@@ -1912,7 +1926,8 @@ class Main(QMainWindow):
                     self.w.show()
                 # whether ra applies to this user or not, send signal to
                 # refresh the admin tool
-                dispatcher.send('refresh admin tool')
+                # dispatcher.send('refresh admin tool')
+                self.refresh_admin_tool.emit()
             if self.mode == 'db':
                 orb.log.debug('  updating db views with: "{}"'.format(obj.id))
                 self.refresh_cname_list()
@@ -2890,6 +2905,10 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_received_objects)
             rpc.addErrback(self.on_failure)
 
+    def on_remote_deleted_qtsignal(self, oid, cname):
+        self.on_remote_deleted_signal(content=oid)
+
+    # TODO: revise this based on having "cname" in the pyqtSignal signature ...
     def on_remote_deleted_signal(self, content=None):
         """
         Handle louie signal "remote: deleted".
@@ -2931,8 +2950,9 @@ class Main(QMainWindow):
                             orb.log.info('  setting diagram subject failed')
                             # diagram model window C++ object got deleted
                             pass
-                dispatcher.send('deleted object', oid=obj_oid, cname=cname,
-                                remote=True)
+                # dispatcher.send('deleted object', oid=obj_oid, cname=cname,
+                                # remote=True)
+                self.remote_deleted_object.emit(obj_oid, cname)
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
@@ -2948,24 +2968,28 @@ class Main(QMainWindow):
                     self.w.show()
                 orb.delete([obj])
                 orb.log.debug('  deleted.')
-                dispatcher.send('deleted object', oid=obj_oid, cname=cname,
-                                remote=True)
+                # dispatcher.send('deleted object', oid=obj_oid, cname=cname,
+                                # remote=True)
+                self.remote_deleted_object.emit(obj_oid, cname)
                 self.update_project_role_labels()
                 # whether ra applies to this user or not, send signal to
                 # refresh the admin tool
-                dispatcher.send('refresh admin tool')
+                # dispatcher.send('refresh admin tool')
+                self.refresh_admin_tool.emit()
             elif cname == 'Activity':
                 # TODO:  special case for "Mission"
                 dispatcher.send('remove activity', act=obj)
                 orb.delete([obj])
                 orb.log.debug('  deleted.')
-                dispatcher.send('deleted object', oid=obj_oid, cname=cname,
-                                remote=True)
+                # dispatcher.send('deleted object', oid=obj_oid, cname=cname,
+                                # remote=True)
+                self.remote_deleted_object.emit(obj_oid, cname)
             else:
                 orb.delete([obj])
                 orb.log.debug('  deleted.')
-                dispatcher.send('deleted object', oid=obj_oid, cname=cname,
-                                remote=True)
+                # dispatcher.send('deleted object', oid=obj_oid, cname=cname,
+                                # remote=True)
+                self.remote_deleted_object.emit(obj_oid, cname)
         else:
             orb.log.debug('  oid not found in local db; ignoring.')
 
@@ -3116,6 +3140,12 @@ class Main(QMainWindow):
                         self.update_object_in_trees(obj)
         else:
             orb.log.debug('  *** no objects found -- ignoring! ***')
+
+    def on_new_object_qtsignal(self, oid):
+        obj = orb.get(oid)
+        if obj:
+            cname = obj.__class__.__name__
+            self.on_mod_object_signal(obj=obj, cname=cname, new=True)
 
     def on_new_object_signal(self, obj=None, cname=''):
         """
@@ -3526,6 +3556,13 @@ class Main(QMainWindow):
         Respond to a pyqtSignal that results from a local object being deleted.
         """
         self.on_deleted_object_signal(oid=oid, cname=cname)
+
+    def on_remote_deleted_object_qtsignal(self, oid, cname):
+        """
+        Respond to a pyqtSignal that results from a remote object being
+        deleted.
+        """
+        self.on_deleted_object_signal(oid=oid, cname=cname, remote=True)
 
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
@@ -4698,7 +4735,8 @@ class Main(QMainWindow):
                 obj = orb.get(oid)
                 cname = obj.__class__.__name__
                 orb.delete([obj])
-                dispatcher.send(signal='deleted object', oid=oid, cname=cname)
+                # dispatcher.send(signal='deleted object', oid=oid, cname=cname)
+                self.deleted_object.emit(oid, cname)
 
     def new_functional_requirement(self):
         wizard = ReqWizard(parent=self, performance=False)
@@ -5488,6 +5526,11 @@ class Main(QMainWindow):
         self.admin_dlg = AdminDialog(org=self.project, parent=self)
         self.admin_dlg.ldap_search_button.clicked.connect(
                                                 self.open_person_dlg)
+        self.admin_dlg.new_object.connect(self.on_new_object_qtsignal)
+        self.admin_dlg.deleted_object.connect(self.on_deleted_object_qtsignal)
+        self.deleted_object.connect(self.admin_dlg.refresh_roles)
+        self.remote_deleted_object.connect(self.admin_dlg.refresh_roles)
+        self.refresh_admin_tool.connect(self.admin_dlg.refresh_roles)
         self.admin_dlg.show()
 
     def open_person_dlg(self):
