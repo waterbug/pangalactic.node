@@ -4862,6 +4862,7 @@ class Main(QMainWindow):
     def conops_modeler(self):
         win = ConOpsModeler(parent=self)
         win.deleted_object.connect(self.on_deleted_object_qtsignal)
+        win.new_object.connect(self.on_new_object_qtsignal)
         win.show()
 
     def define_op_modes(self):

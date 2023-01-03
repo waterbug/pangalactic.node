@@ -101,8 +101,8 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene,
-                                     statusTip="Delete Item",
-                                     triggered=self.delete_item)
+                                     statusTip="Delete Component",
+                                     triggered=self.delete_block_usage)
         self.edit_action = QAction("Edit", self.scene,
                                    statusTip="Edit component",
                                    triggered=self.edit_component)
@@ -110,9 +110,12 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
     def edit_component(self):
         self.scene.edit_parameters(self.component)
 
-    def delete_item(self):
-        orb.log.debug('* emitting "remove_scene_usage" signal')
-        self.scene.remove_scene_usage.emit(self.usage.oid)
+    def delete_block_usage(self):
+        """
+        Delete the usage (Acu) associated with this block.
+        """
+        orb.log.debug('* calling scene to emit "delete_scene_usage" signal')
+        self.scene.delete_scene_usage.emit(self.usage.oid)
 
     def itemChange(self, change, value):
         return value
@@ -128,7 +131,7 @@ class OpticalSystemScene(QGraphicsScene):
 
     des_set = pyqtSignal(dict)
     new_or_modified_objects = pyqtSignal(list)
-    remove_scene_usage = pyqtSignal(str)
+    delete_scene_usage = pyqtSignal(str)
     rescale_optical_path = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -147,9 +150,6 @@ class OpticalSystemScene(QGraphicsScene):
 
     def on_des_set(self, des):
         self.des_set.emit(des)
-
-    def remove_usage(self, oid):
-        self.remove_scene_usage.emit(oid)
 
     # def focus_changed_handler(self, new_item, old_item):
         # if (new_item is not None and
@@ -652,7 +652,7 @@ class OpticalSystemWidget(QWidget):
             scene.optical_path.populate(item_list)
         scene.update()
         # signal from local (graphical) item deletion
-        scene.remove_scene_usage.connect(self.delete_usage)
+        scene.delete_scene_usage.connect(self.delete_usage)
         scene.new_or_modified_objects.connect(self.on_new_or_modified_objects)
         self.scene = scene
         if not getattr(self, 'view', None):

@@ -70,13 +70,11 @@ class ActivityTable(QWidget):
         self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
         self.main_layout.addWidget(self.title_widget)
         self.set_title_text()
-        self.set_table()
+        self.reset_table()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-        dispatcher.connect(self.on_activity_added, 'new activity')
         dispatcher.connect(self.on_activity_edited, 'activity edited')
         dispatcher.connect(self.on_activity_remote_mod, 'activity remote mod')
-        dispatcher.connect(self.on_activity_removed, 'removed activity')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
@@ -126,7 +124,7 @@ class ActivityTable(QWidget):
         all_activities.sort()
         return [act_tuple[1] for act_tuple in all_activities]
 
-    def set_table(self):
+    def reset_table(self):
         table_cols = ['id', 'name', 't_start', 'duration', 'description']
         table_headers = dict(id='ID', name='Name',
                            t_start='Start\nTime',
@@ -175,7 +173,7 @@ class ActivityTable(QWidget):
         if activity is self.subject:
             self.set_title_text()
         if activity in getattr(self.subject, 'sub_activities', []):
-            self.set_table()
+            self.reset_table()
 
     def on_activity_remote_mod(self, activity=None):
         # txt = '* {} table: on_activity_remote_mod()'
@@ -184,63 +182,52 @@ class ActivityTable(QWidget):
             composite_activity = getattr(activity.where_occurs[0],
                                          'composite_activity', None)
             if composite_activity:
-                self.on_activity_added(composite_activity=composite_activity,
-                                       modified=True)
+                self.on_activity_added(activity.oid)
 
-    def on_activity_added(self, composite_activity=None, modified=False,
-                          act_of=None, position=None):
-        # txt = '* {} table: on_activity_added(modified=True)'
-        # orb.log.debug(txt.format(self.position))
-        if self.position == position:
-            if modified:
-                self.statusbar.showMessage('Activity Modified!')
-                orb.log.debug('  - activity mod!')
-            else:
-                self.statusbar.showMessage('Activity Added!')
-                orb.log.debug('  - activity added!')
-        self.set_table()
+    def on_activity_added(self, oid):
+        orb.log.debug('  - ActivityTable.on_activity_added()')
+        if oid in [act.oid for act in self.activities]:
+            self.reset_table()
 
-    def on_activity_removed(self, composite_activity=None, act_of=None,
-                            position=None):
-        if self.position == position or self.position == 'bottom':
-            self.statusbar.showMessage('Activity Removed!')
-            self.set_table()
+    def on_activity_removed(self, oid):
+        orb.log.debug('  - ActivityTable.on_activity_removed()')
+        self.reset_table()
 
     def on_order_changed(self, composite_activity=None, act_of=None, position=None):
         if self.position == position or self.position == 'bottom':
             self.statusbar.showMessage('Order Updated!')
-            self.set_table()
+            self.reset_table()
 
     def on_drill_down(self, obj=None, position=None):
         if self.position == 'middle':
             self.statusbar.showMessage("Drilled Down!")
-            self.set_table()
+            self.reset_table()
 
     def on_drill_up(self, obj=None, position=None):
         if self.position != 'middle':
             self.statusbar.showMessage("Drilled Up!")
-            self.set_table()
+            self.reset_table()
 
     def on_activities_cleared(self, composite_activity=None, position=None):
         # if self.position == position or self.position == 'bottom':
         self.statusbar.showMessage("Activities Cleared!")
-        self.set_table()
+        self.reset_table()
 
     def on_subsystem_changed(self, act=None, act_of=None, position=None):
         if self.position == 'top':
-            self.set_table()
+            self.reset_table()
         if position == 'middle':
             self.statusbar.showMessage("Subsystem Changed!")
         if self.position == 'middle':
             self.setDisabled(False)
             self.act_of = act_of
-            self.set_table()
+            self.reset_table()
 
     def on_activity_focused(self, act):
         orb.log.debug('  - ActivityTable.on_activity_focused()')
         self.subject = act
         self.set_title_text()
-        self.set_table()
+        self.reset_table()
         self.setEnabled(True)
 
 
