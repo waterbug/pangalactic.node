@@ -280,7 +280,8 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
-        dispatcher.connect(self.on_entity_saved, 'entity saved')
+        # NOTE: Entity apparatus is not currently being used
+        # dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
         dispatcher.connect(self.on_parm_recompute, 'parameters recomputed')
@@ -605,27 +606,29 @@ class Main(QMainWindow):
         data = orb.get_mod_dts(cnames=['Person', 'Organization', 'Project',
                                        'RoleAssignment'])
         this_version = self.app_version or __version__
-        try:
-            rpc = self.mbus.session.call('vger.get_user_roles', userid,
-                                         data=data, version=this_version)
-        except:
-            orb.log.debug('  rpc "vger.get_user_roles" failed.')
-            orb.log.debug('  trying again ...')
-            time.sleep(1)
+        if state.get('connected'):
             try:
                 rpc = self.mbus.session.call('vger.get_user_roles', userid,
                                              data=data, version=this_version)
             except:
-                orb.log.debug('  rpc "vger.get_user_roles" failed again ...')
-                message = "Could not reconnect -- log out and log in again."
-                popup = QMessageBox(QMessageBox.Warning,
-                                    "Connection Lost", message,
-                                    QMessageBox.Ok, self)
-                popup.show()
-        rpc.addTimeout(10, self.reactor,
-                       onTimeoutCancel=self.on_rpc_timeout)
-        rpc.addCallback(self.on_rpc_get_user_roles_result)
-        rpc.addErrback(self.on_rpc_get_user_roles_failure)
+                orb.log.debug('  rpc "vger.get_user_roles" failed.')
+                orb.log.debug('  trying again ...')
+                time.sleep(1)
+                try:
+                    rpc = self.mbus.session.call('vger.get_user_roles', userid,
+                                                 data=data,
+                                                 version=this_version)
+                except:
+                    orb.log.debug('  rpc "vger.get_user_roles" failed again.')
+                    message = "Could not reconnect -- log out & log in again."
+                    popup = QMessageBox(QMessageBox.Warning,
+                                        "Connection Lost", message,
+                                        QMessageBox.Ok, self)
+                    popup.show()
+            rpc.addTimeout(10, self.reactor,
+                           onTimeoutCancel=self.on_rpc_timeout)
+            rpc.addCallback(self.on_rpc_get_user_roles_result)
+            rpc.addErrback(self.on_rpc_get_user_roles_failure)
 
     def on_rpc_timeout(self, result, timeout):
         orb.log.debug(f'* rpc timed out after {timeout} seconds')
@@ -656,7 +659,8 @@ class Main(QMainWindow):
         data = data or ['', '', '', '', '', '']
         szd_user, szd_orgs, szd_people, szd_ras, bad_oids, min_version = data
         this_version = self.app_version or __version__
-        if Version(this_version) < Version(min_version) and state['connected']:
+        if (Version(this_version) < Version(min_version)
+            and state.get('connected')):
             orb.log.info('* disconnecting from message bus ...')
             self.statusbar.showMessage(
                                     'disconnecting from message bus ...')
@@ -3207,7 +3211,7 @@ class Main(QMainWindow):
         """
         Handle local dispatcher signal "parm del".
         """
-        if oid and pid:
+        if oid and pid and state.get('connected'):
             rpc = self.mbus.session.call('vger.del_parm', oid=oid,
                                          pid=pid)
             rpc.addCallback(self.on_vger_del_parm_result)
@@ -3236,7 +3240,7 @@ class Main(QMainWindow):
         """
         Handle local dispatcher signal "de del".
         """
-        if oid and deid:
+        if oid and deid and state.get('connected'):
             rpc = self.mbus.session.call('vger.del_de', oid=oid, deid=deid)
             rpc.addCallback(self.on_vger_del_de_result)
             rpc.addErrback(self.on_failure)
@@ -3253,7 +3257,7 @@ class Main(QMainWindow):
             des (dict): dict mapping oids to dicts of the form
                 {deid : value}
         """
-        if des:
+        if des and state.get('connected'):
             rpc = self.mbus.session.call('vger.set_data_elements', des=des)
             rpc.addCallback(self.on_vger_set_des_result)
             rpc.addErrback(self.on_failure)
@@ -3266,7 +3270,7 @@ class Main(QMainWindow):
             des (dict): dict mapping oids to dicts of the form
                 {deid : value}
         """
-        if des:
+        if des and state.get('connected'):
             rpc = self.mbus.session.call('vger.set_data_elements', des=des)
             rpc.addCallback(self.on_vger_set_des_result)
             rpc.addErrback(self.on_failure)
@@ -3455,20 +3459,23 @@ class Main(QMainWindow):
             project_oid, link_oid, mode, value = datum
             project = orb.get(project_oid)
             link = orb.get(link_oid)
-            orb.log.debug('  - calling vger.set_sys_mode_datum with:')
             orb.log.debug('    =============================')
             orb.log.debug(f'   project: {project.id}')
             orb.log.debug(f'   system:  {link.id}')
             orb.log.debug(f'   mode:    {mode}')
             orb.log.debug(f'   value:   {value}')
             orb.log.debug('    =============================')
-            rpc = self.mbus.session.call('vger.set_sys_mode_datum',
-                                         project_oid=project_oid,
-                                         link_oid=link_oid,
-                                         mode=mode,
-                                         value=value)
-            rpc.addCallback(self.rpc_set_sys_mode_datum_result)
-            rpc.addErrback(self.on_failure)
+            if state.get('connected'):
+                orb.log.debug('  - calling vger.set_sys_mode_datum()')
+                rpc = self.mbus.session.call('vger.set_sys_mode_datum',
+                                             project_oid=project_oid,
+                                             link_oid=link_oid,
+                                             mode=mode,
+                                             value=value)
+                rpc.addCallback(self.rpc_set_sys_mode_datum_result)
+                rpc.addErrback(self.on_failure)
+            else:
+                orb.log.debug('  - not connected, no rpc call.')
         else:
             orb.log.debug('  improper sys mode datum format sent')
 
@@ -3496,7 +3503,6 @@ class Main(QMainWindow):
             project = orb.get(project_oid)
             link = orb.get(link_oid)
             comp = orb.get(comp_oid)
-            orb.log.debug('  - calling vger.set_comp_mode_datum with:')
             orb.log.debug('    =============================')
             orb.log.debug(f'   project:    {project.id}')
             orb.log.debug(f'   system:     {link.id}')
@@ -3504,14 +3510,18 @@ class Main(QMainWindow):
             orb.log.debug(f'   mode:       {mode}')
             orb.log.debug(f'   value:      {value}')
             orb.log.debug('    =============================')
-            rpc = self.mbus.session.call('vger.set_comp_mode_datum',
-                                         project_oid=project_oid,
-                                         link_oid=link_oid,
-                                         comp_oid=comp_oid,
-                                         mode=mode,
-                                         value=value)
-            rpc.addCallback(self.rpc_set_comp_mode_datum_result)
-            rpc.addErrback(self.on_failure)
+            if state.get('connected'):
+                orb.log.debug('  - calling vger.set_comp_mode_datum()')
+                rpc = self.mbus.session.call('vger.set_comp_mode_datum',
+                                             project_oid=project_oid,
+                                             link_oid=link_oid,
+                                             comp_oid=comp_oid,
+                                             mode=mode,
+                                             value=value)
+                rpc.addCallback(self.rpc_set_comp_mode_datum_result)
+                rpc.addErrback(self.on_failure)
+            else:
+                orb.log.debug('  - not connected, no rpc call.')
         else:
             orb.log.debug('  improper comp mode datum format sent')
 
@@ -3529,24 +3539,24 @@ class Main(QMainWindow):
             msg = f'comp mode datum set successfully [dts: {result}]'
         orb.log.debug(f'* {msg}')
 
-    def on_entity_saved(self, e=None):
-        """
-        Handle the event of an entity being saved, as a result of either
-        creation or modification.
+    # def on_entity_saved(self, e=None):
+        # """
+        # Handle the event of an entity being saved, as a result of either
+        # creation or modification.
 
-        Args:
-            e (Entity): the entity that was saved.
-        """
-        if state['connected']:
-            rpc = self.mbus.session.call('vger.save_entity', oid=e.oid,
-                          dm_oid=e.dm_oid, parent_oid=e.parent_oid,
-                          system_oid=e.system_oid, system_name=e.system_name,
-                          owner=e.owner, creator=e.creator,
-                          modifier=e.modifier,
-                          create_datetime=e.create_datetime,
-                          mod_datetime=e.mod_datetime)
-            rpc.addCallback(self.rpc_save_entity_result)
-            rpc.addErrback(self.on_failure)
+        # Args:
+            # e (Entity): the entity that was saved.
+        # """
+        # if state['connected']:
+            # rpc = self.mbus.session.call('vger.save_entity', oid=e.oid,
+                          # dm_oid=e.dm_oid, parent_oid=e.parent_oid,
+                          # system_oid=e.system_oid, system_name=e.system_name,
+                          # owner=e.owner, creator=e.creator,
+                          # modifier=e.modifier,
+                          # create_datetime=e.create_datetime,
+                          # mod_datetime=e.mod_datetime)
+            # rpc.addCallback(self.rpc_save_entity_result)
+            # rpc.addErrback(self.on_failure)
 
     def rpc_save_entity_result(self, result):
         orb.log.debug(f'* "vger.save_entity" result: "{result}"')
