@@ -93,14 +93,10 @@ class EventBlock(QGraphicsPolygonItem):
         self.setPolygon(self.myPolygon)
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
                                       self, point_size=8)
-        # TODO: replace with a pyqtSignal ...
-        # dispatcher.connect(self.set_block_label, 'activity modified')
 
-    def set_block_label(self, activity=None):
-        act_oid = getattr(activity, 'oid', None)
-        if act_oid == self.activity.oid:
-            self.block_label.set_text(getattr(self.activity, 'name',
-                                      'No Name') or 'No Name')
+    def update_block_label(self):
+        self.block_label.set_text(getattr(self.activity, 'name', 'No Name')
+                                          or 'No Name')
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
@@ -122,7 +118,7 @@ class EventBlock(QGraphicsPolygonItem):
                                    triggered=self.edit_activity)
 
     def edit_activity(self):
-        self.scene.edit_parameters(self.activity)
+        self.scene.edit_scene_activity(self.activity)
 
     def delete_block_activity(self):
         orb.log.debug(' - calling scene to emit ()')
@@ -185,7 +181,7 @@ class Timeline(QGraphicsPathItem):
     def update_timeline(self):
         self.calc_length()
         self.make_path()
-        self.reposition()
+        self.arrange()
 
     def calc_length(self):
         if len(self.item_list) <= 5:
@@ -208,7 +204,7 @@ class Timeline(QGraphicsPathItem):
         self.item_list = item_list
         self.update_timeline()
 
-    def reposition(self):
+    def arrange(self):
         # FIXME:  revise to use "of_function"/"of_system" (Acu/PSU)
         parent_act = self.scene().current_activity
         # item_list_copy = self.item_list[:]
@@ -237,6 +233,7 @@ class TimelineScene(QGraphicsScene):
     activity_got_focus = pyqtSignal(str)     # arg: oid
     deleted_object = pyqtSignal(str, str)    # args: oid, cname
     new_activity = pyqtSignal(str)           # args: oid
+    scene_activity_edited = pyqtSignal(str)  # args: oid
     delete_scene_activity = pyqtSignal(str)  # args: oid
 
     def __init__(self, parent, current_activity=None, act_of=None,
@@ -268,7 +265,7 @@ class TimelineScene(QGraphicsScene):
         super().mouseReleaseEvent(event)
         if self.grabbed_item != None:
             self.grabbed_item.setPos(event.scenePos().x(), 250)
-            self.timeline.reposition()
+            self.timeline.arrange()
         self.grabbed_item == None
 
     def dropEvent(self, event):
@@ -312,20 +309,29 @@ class TimelineScene(QGraphicsScene):
         item.setPos(event.scenePos())
         self.addItem(item)
         self.timeline.add_item(item)
-        # self.timeline.reposition()
+        # self.timeline.arrange()
         orb.log.debug('* scene: sending "new_activity" signal')
         self.new_activity.emit(activity.oid)
         self.update()
 
-    def edit_parameters(self, activity):
+    def edit_scene_activity(self, activity):
         view = ['id', 'name', 'description']
         panels = ['main', 'parameters']
-        # don't show contingencies for Activity default parameters
+        # don't use contingencies for Activity default parameters
         # (t_start, t_end, duration)
         noctgcy = DEFAULT_CLASS_PARAMETERS.get('Activity')
         pxo = PgxnObject(activity, edit_mode=True, view=view, noctgcy=noctgcy,
                          panels=panels, modal_mode=True, parent=self.parent())
+        pxo.activity_edited.connect(self.on_activity_edited)
         pxo.show()
+
+    def on_activity_edited(self, oid):
+        # emitted signal causes ActivityTable updates
+        self.scene_activity_edited.emit(oid)
+        # update activity block labels if necessary
+        for item in self.timeline.item_list:
+            if item.activity.oid == oid:
+                item.update_block_label()
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
@@ -906,12 +912,16 @@ class ConOpsModeler(QMainWindow):
                                         self.activity_table.on_activity_added)
         self.main_timeline.scene.timeline.signals.order_changed.connect(
                                         self.rebuild_activity_table)
+        self.main_timeline.scene.scene_activity_edited.connect(
+                                            self.rebuild_activity_table)
         self.outer_layout.addWidget(self.main_timeline, 0, 1)
         self.outer_layout.addWidget(self.activity_table, 0, 0)
         self.create_sub_activity_table()
         self.sub_timeline.scene.new_activity.connect(
                                     self.sub_activity_table.on_activity_added)
         self.sub_timeline.scene.timeline.signals.order_changed.connect(
+                                        self.rebuild_sub_activity_table)
+        self.sub_timeline.scene.scene_activity_edited.connect(
                                         self.rebuild_sub_activity_table)
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
         self.outer_layout.addWidget(self.sub_timeline, 1, 1)

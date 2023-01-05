@@ -73,7 +73,6 @@ class ActivityTable(QWidget):
         self.reset_table()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-        dispatcher.connect(self.on_activity_edited, 'activity edited')
         dispatcher.connect(self.on_activity_remote_mod, 'activity remote mod')
         dispatcher.connect(self.on_order_changed, 'order changed')
         dispatcher.connect(self.on_drill_down, 'drill down')
@@ -166,14 +165,6 @@ class ActivityTable(QWidget):
         if self.preferred_size:
             return QSize(*self.preferred_size)
         return QSize(600, 500)
-
-    def on_activity_edited(self, activity=None):
-        # txt = '* {} table: on_activity_edited()'
-        # orb.log.debug(txt.format(self.position))
-        if activity is self.subject:
-            self.set_title_text()
-        if activity in getattr(self.subject, 'sub_activities', []):
-            self.reset_table()
 
     def on_activity_remote_mod(self, activity=None):
         # txt = '* {} table: on_activity_remote_mod()'

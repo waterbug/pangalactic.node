@@ -6,7 +6,7 @@ PgxnObject (a domain object viewer/editor)
 import os
 from functools import partial
 
-from PyQt5.QtCore import Qt, QVariant
+from PyQt5.QtCore import pyqtSignal, Qt, QVariant
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QDialogButtonBox, QFileDialog, QFormLayout,
@@ -836,6 +836,9 @@ class PgxnObject(QDialog):
             should not be included in the form
         tabs (QTabWidget):  widget holding the interface's tabbed "pages"
     """
+
+    activity_edited = pyqtSignal(str)  # arg: oid
+
     def __init__(self, obj, component=False, embedded=False,
                  edit_mode=False, enable_delete=True, view=None,
                  main_view=None, mask=None, required=None, panels=None,
@@ -2159,8 +2162,7 @@ class PgxnObject(QDialog):
                             cname=cname)
             if isinstance(self.obj, orb.classes['Activity']):
                 # NOTE: this includes 'Mission' subclass of Activity
-                dispatcher.send(signal="activity edited",
-                                activity=self.obj)
+                self.activity_edited.emit(self.obj.oid)
         parent = self.parent()
         if parent:
             parent.setFocus()
