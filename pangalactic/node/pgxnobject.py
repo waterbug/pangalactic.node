@@ -74,8 +74,9 @@ class PgxnForm(QWidget):
             avoid
     """
     def __init__(self, obj, form_type, pgxo=None, view=None, requireds=None,
-                 main_view=None, mask=None, unmask=None, seq=None, idvs=None,
-                 placeholders=None, data_panel_contents=None, parent=None):
+                 main_view=None, mask=None, unmask=None, noctgcy=None,
+                 seq=None, idvs=None, placeholders=None,
+                 data_panel_contents=None, parent=None):
         """
         Initialize.
 
@@ -94,12 +95,18 @@ class PgxnForm(QWidget):
                 (default: None)
             unmask (list of str):  list of fields to be editable which are not
                 editable by default (default: None)
+            noctgcy (list of str): list of parameter ids for which
+                contingencies should not be included in the form
             seq (int):  sequence number of parameter or data panel in
                 pgxnobject
             idvs (list of tuples):  list of current (`id`, `version`) values to
                 avoid
             placeholders (dict of str):  a dict mapping field names to
                 placeholder strings
+            data_panel_contents (list of lists of str): a list of lists of the
+                data elements to go on each data panel (derived in PgxnObject
+                based on the number of data elements that are large text
+                fields)
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
@@ -107,6 +114,7 @@ class PgxnForm(QWidget):
         self.pgxo = pgxo
         self.all_idvs = idvs or []
         requireds = requireds or []
+        self.noctgcy = noctgcy or []
         cname = obj.__class__.__name__
         if cname == 'HardwareProduct':
             # id's are auto-generated for HardwareProduct instances
@@ -183,7 +191,14 @@ class PgxnForm(QWidget):
             for pid in sorted(list(parmz), key=str.lower):  # case-independent
                 if pid not in pids:
                     pids.append(pid)
-            orb.log.info(f'* [pgxnf] parameters of this object: {pids}')
+            # orb.log.debug(f'  - [pgxnf] self.noctgcy: {self.noctgcy}')
+            if self.noctgcy:
+                for pid in self.noctgcy:
+                    c_pid = get_parameter_id(pid, 'Ctgcy')
+                    if c_pid in pids:
+                        # orb.log.debug(f'  - [pgxnf] removing "{c_pid}"')
+                        pids.remove(c_pid)
+            # orb.log.debug(f'* [pgxnf] parameters of this object: {pids}')
             # a parameter is editable if:
             # (1) not defined as "computed" OR
             # (2) a "contingency" parameter [NOTE: this may change in the
@@ -272,10 +287,12 @@ class PgxnForm(QWidget):
                                                parm_type=parm_type)
                     # float parms should have contingency parms -- if so, the
                     # contingency parm will have an entry in parm_defz ...
-                    c_pid = get_parameter_id(pid, 'Ctgcy')
-                    c_pd = parm_defz.get(c_pid)
+                    c_pd = None
                     c_widget = None
-                    if c_pd:
+                    if pid not in self.noctgcy:
+                        c_pid = get_parameter_id(pid, 'Ctgcy')
+                        c_pd = parm_defz.get(c_pid)
+                    if c_pd and (pid not in self.noctgcy):
                         c_ext_name = c_pd.get('name', '') or '[unknown]'
                         c_units = '%'
                         c_units_widget = QLabel(c_units)
@@ -561,7 +578,7 @@ class PgxnForm(QWidget):
                              "application/x-pgef-data-element-definition")
             icon, ded_oid, deid, de_name, ded_cname = data
             obj_des = data_elementz.get(self.obj.oid) or {}
-            orb.log.info(f'* DE drop event: "{de_name}" ("{deid}")')
+            orb.log.debug(f'* DE drop event: "{de_name}" ("{deid}")')
             if deid not in obj_des:
                 event.setDropAction(Qt.CopyAction)
                 event.accept()
@@ -700,8 +717,8 @@ class ParameterForm(PgxnForm):
             self.schema['field_names'])
         mask (list of str):  list of fields to be displayed as read-only
     """
-    def __init__(self, obj, pgxo=None, view=None, mask=None, seq=None,
-                 parent=None):
+    def __init__(self, obj, pgxo=None, view=None, mask=None, noctgcy=None,
+                 seq=None, parent=None):
         """
         Initialize.
 
@@ -713,11 +730,14 @@ class ParameterForm(PgxnForm):
                 self.schema['field_names'])
             mask (list of str):  list of fields to be displayed as read-only
                 (default: None)
+            noctgcy (list of str): list of parameter ids for which
+                contingencies should not be included in the form
         """
         super().__init__(obj, 'parameters', pgxo=pgxo, view=view, mask=mask,
-                         seq=None, parent=parent)
+                         noctgcy=noctgcy, seq=seq, parent=parent)
         self.obj = obj
         self.pgxo = pgxo
+        self.noctgcy = noctgcy
         self.seq = None
         self.setAcceptDrops(True)
         self.accepted_mime_types = set([
@@ -763,7 +783,7 @@ class ParameterForm(PgxnForm):
                 self.pgxo.build_from_object()
             else:
                 event.ignore()
-                # orb.log.info("* Parameter drop event: ignoring '%s' -- "
+                # orb.log.debug("* Parameter drop event: ignoring '%s' -- "
                              # "we already got one, it's verra nahss!"
                              # % pd_name)
         if self.edit_mode and event.mimeData().hasFormat(
@@ -812,13 +832,16 @@ class PgxnObject(QDialog):
             (default: False)
         mask (list of str):  list of fields to be displayed as read-only
         required (list of str):  list of fields that must not be null
+        noctgcy (list of str): list of parameter ids for which contingencies
+            should not be included in the form
         tabs (QTabWidget):  widget holding the interface's tabbed "pages"
     """
     def __init__(self, obj, component=False, embedded=False,
                  edit_mode=False, enable_delete=True, view=None,
                  main_view=None, mask=None, required=None, panels=None,
                  go_to_panel='main', new=False, test=False, title_text=None,
-                 modal_mode=False, view_only=False, parent=None, **kw):
+                 modal_mode=False, view_only=False, noctgcy=None, parent=None,
+                 **kw):
         """
         Initialize the dialog.
 
@@ -855,6 +878,8 @@ class PgxnObject(QDialog):
                 close upon saving (i.e., do not go into "view" mode)
             view_only (bool):  flag indicating that edit mode is unavailable
                 (default: False)
+            noctgcy (list of str): list of parameter ids for which
+                contingencies should not be included in the form
             parent (QWidget): parent widget of this dialog (default: None)
         """
         super().__init__(parent=parent)
@@ -883,6 +908,7 @@ class PgxnObject(QDialog):
         self.main_view    = main_view or []
         self.panels       = panels or []
         self.mask         = mask
+        self.noctgcy      = noctgcy
         self.required     = required
         self.tabs         = QTabWidget()
         self.cname        = obj.__class__.__name__
@@ -1040,7 +1066,8 @@ class PgxnObject(QDialog):
                     n = None
                 setattr(self, tab_name+'_tab',
                         ParameterForm(self.obj, pgxo=self, view=self.view,
-                                      mask=self.mask, seq=n, parent=self))
+                                      mask=self.mask, noctgcy=self.noctgcy,
+                                      seq=n, parent=self))
             elif tab_name.startswith('data'):
                 sufs = ('1', '2', '3', '4', '5', '6', '7', '8', '9')
                 if tab_name.endswith(sufs):
@@ -1049,15 +1076,15 @@ class PgxnObject(QDialog):
                     n = None
                 setattr(self, tab_name+'_tab',
                         PgxnForm(self.obj, 'data', pgxo=self, view=self.view,
-                                 mask=self.mask, seq=n,
+                                 mask=self.mask, seq=n, noctgcy=self.noctgcy,
                                  data_panel_contents=data_panel_contents,
                                  parent=self))
             else:
                 setattr(self, tab_name+'_tab',
                         PgxnForm(self.obj, tab_name, pgxo=self, view=self.view,
                                  main_view=self.main_view, mask=self.mask,
-                                 idvs=self.all_idvs, requireds=self.required,
-                                 parent=self))
+                                 noctgcy=self.noctgcy, idvs=self.all_idvs,
+                                 requireds=self.required, parent=self))
             this_tab = getattr(self, tab_name+'_tab')
             self.editable_widgets.update(this_tab.editable_widgets)
             self.d_widgets.update(this_tab.d_widgets)
@@ -1084,13 +1111,7 @@ class PgxnObject(QDialog):
                         pass
                 self.save_button = self.bbox.addButton('Save',
                                                    QDialogButtonBox.ActionRole)
-                # deletion is not allowed if the object is a product that is
-                # referenced in the "derived_from" of another product (deletion
-                # will cause an fk violation error in postgresql)
-                deriveds = orb.search_exact(derived_from=self.obj)
-                if deriveds:
-                    orb.log.debug('  [pgxo] cannot delete: derived products')
-                if 'delete' in perms and not deriveds and self.enable_delete:
+                if 'delete' in perms and self.enable_delete:
                     self.delete_button = self.bbox.addButton('Delete',
                                                    QDialogButtonBox.ActionRole)
             else:
@@ -1112,19 +1133,9 @@ class PgxnObject(QDialog):
                 self.save_and_close_button = self.bbox.addButton(
                                                'Save and Close',
                                                QDialogButtonBox.ActionRole)
-                deriveds = orb.search_exact(derived_from=self.obj)
-                if deriveds:
-                    orb.log.debug('  [pgxo] cannot delete: derived products')
-                if 'delete' in perms and not deriveds and self.enable_delete:
+                if 'delete' in perms and self.enable_delete:
                     self.delete_button = self.bbox.addButton('Delete',
                                                QDialogButtonBox.ActionRole)
-                # if hasattr(self, 'edit_button'):
-                    # # if switching to edit mode, don't need 'Edit' button
-                    # try:
-                        # self.bbox.removeButton(self.edit_button)
-                    # except:
-                        # # C++ object went away?
-                        # pass
             else:
                 # orb.log.debug('            setting up view mode ...')
                 self.bbox = QDialogButtonBox()
@@ -1593,7 +1604,7 @@ class PgxnObject(QDialog):
                 orb.log.debug('  - components -> show dialog ...')
                 dlg = CloningDialog(self.obj, parent=self)
                 if dlg.exec_():
-                    orb.log.debug('  - dialog accepted.')
+                    # orb.log.debug('  - dialog accepted.')
                     new_obj = getattr(dlg, 'new_obj', None)
                     orb.log.debug(f'    got clone [a]: "{new_obj.id}"')
             else:
@@ -1651,13 +1662,13 @@ class PgxnObject(QDialog):
                                     self, 'Write to tsv File',
                                     suggested_fpath, '(*.tsv)')
         if fpath:
-            orb.log.debug(f'  - file selected: "{fpath}"')
+            # orb.log.debug(f'  - file selected: "{fpath}"')
             fpath = str(fpath)   # extra-cautious :)
             state['mini_mel_last_path'] = os.path.dirname(fpath)
             dash_schemas = prefs.get('dashboards') or {}
             data_cols = dash_schemas.get(dash_name)
             data_cols = data_cols or prefs.get('default_parms')
-            orb.log.debug(f'  - data columns: "{str(data_cols)}"')
+            # orb.log.debug(f'  - data columns: "{str(data_cols)}"')
             write_mel_to_tsv(self.obj, schema=data_cols, file_path=fpath)
             html = '<h3>Success!</h3>'
             msg = 'Dashboard contents exported to file:'
@@ -1666,7 +1677,7 @@ class PgxnObject(QDialog):
             self.w = NotificationDialog(html, news=False, parent=self)
             self.w.show()
         else:
-            orb.log.debug('  ... export to tsv cancelled.')
+            # orb.log.debug('  ... export to tsv cancelled.')
             return
 
     def on_new_version(self):
@@ -1870,22 +1881,7 @@ class PgxnObject(QDialog):
 
     def on_delete(self):
         # orb.log.info('* [pgxo] delete action selected ...')
-        # NOTE: the delete button will not be present if the "deriveds"
-        # condition holds, but it is here for extra caution
-        deriveds = orb.search_exact(derived_from=self.obj)
-        if deriveds:
-            txt = 'This Product cannot be deleted:\n'
-            txt += 'some other products are derived from it.'
-            notice = QMessageBox(QMessageBox.Warning, 'Cannot Delete', txt,
-                                 QMessageBox.Ok, self)
-            assemblies = [acu.assembly for acu in self.obj.where_used]
-            text = '<p><ul>{}</ul></p>'.format('\n'.join(
-                           ['<li><b>{}</b><br></li>'.format(
-                           p.id) for p in deriveds]))
-            notice.setInformativeText(text)
-            notice.show()
-            return
-        elif getattr(self.obj, 'where_used', None):
+        if getattr(self.obj, 'where_used', None):
             txt = 'This Product cannot be deleted:\n'
             txt += 'it is a component in the following assemblies:'
             notice = QMessageBox(QMessageBox.Warning, 'Cannot Delete', txt,

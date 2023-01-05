@@ -295,6 +295,11 @@ def clone(what, include_ports=True, include_components=True,
         if save_hw:
             dispatcher.send(signal='new hardware clone', product=new_obj,
                             objs=new_objs)
+    else:   # not a HardwareProduct
+        if not from_object:
+            # NOTE:  this will add class-specific parameters and data elements
+            add_default_data_elements(new_obj)
+            add_default_parameters(new_obj)
     if recompute_needed:
         if state.get('connected'):
             dispatcher.send(signal='get parmz')
