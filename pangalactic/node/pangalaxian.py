@@ -139,9 +139,10 @@ class Main(QMainWindow):
     # enumeration of modes
     modes = ['system', 'component', 'db', 'data']
 
-    deleted_object = pyqtSignal(str, str)
-    new_object = pyqtSignal(str)
-    remote_deleted_object = pyqtSignal(str, str)
+    deleted_object = pyqtSignal(str, str)         # args: oid, cname
+    modes_published = pyqtSignal()
+    new_object = pyqtSignal(str)                  # args: oid
+    remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
     refresh_admin_tool = pyqtSignal()
 
     def __init__(self, home='', test_data=None, width=None, height=None,
@@ -277,7 +278,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_des_set, 'des set')
         dispatcher.connect(self.on_get_parmz, 'get parmz')
-        dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
         # NOTE: Entity apparatus is not currently being used
@@ -1488,8 +1488,9 @@ class Main(QMainWindow):
                         mode_defz.update(all_proj_modes)
                         state['mode_defz_dts'] = md_dts
                         orb.log.debug('    mode_defz updated.')
-                        orb.log.debug('    sending "modes published" signal')
-                        dispatcher.send(signal='modes published')
+                        orb.log.debug('    emitting "modes_published" signal')
+                        # dispatcher.send(signal='modes published')
+                        self.modes_published.emit()
                     else:
                         orb.log.debug('    same datetime stamp; ignored.')
             elif subject == 'sys mode datum updated':
@@ -3416,11 +3417,11 @@ class Main(QMainWindow):
         # TODO:  add more detailed status message ...
         pass
 
-    def on_mode_defs_edited(self, project_oid=None):
+    def on_mode_defs_edited(self, project_oid):
         """
-        Handle local dispatcher signal for "modes edited".
+        Handle local ModesTool pyqtSignal "modes_edited".
         """
-        orb.log.debug('* signal: "modes edited"')
+        orb.log.debug('* signal: "modes_edited"')
         proj_mode_defs = mode_defz.get(project_oid) or {}
         if proj_mode_defs and state['connected']:
             data = json.dumps(proj_mode_defs)
@@ -4877,6 +4878,8 @@ class Main(QMainWindow):
 
     def define_op_modes(self):
         win = ModesTool(self.project, parent=self)
+        self.modes_published.connect(win.on_modes_published)
+        win.modes_edited.connect(self.on_mode_defs_edited)
         win.show()
 
     def sc_42_modeler(self):

@@ -8,7 +8,7 @@ from textwrap import wrap, fill
 
 from louie import dispatcher
 
-from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
+from PyQt5.QtCore    import pyqtSignal, QSize, Qt, QModelIndex, QVariant
 from PyQt5.QtGui     import QBrush, QStandardItemModel
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QDockWidget, QItemDelegate, QMainWindow,
@@ -363,6 +363,9 @@ class ModesTool(QMainWindow):
     Attrs:
         project (Project): the project in which the systems are operating
     """
+
+    modes_edited = pyqtSignal(str)   # arg: project.oid
+
     default_modes = ['Launch', 'Calibration', 'Slew', 'Safe Hold',
                      'Science Mode, Acquisition', 'Science Mode, Transmitting']
 
@@ -422,8 +425,7 @@ class ModesTool(QMainWindow):
         sys_tree_layout.addWidget(self.sys_select_tree)
         self.left_dock.setWidget(self.sys_tree_panel)
         self.new_window = True
-        dispatcher.connect(self.on_modes_edited, 'modes edited')
-        dispatcher.connect(self.on_modes_published, 'modes published')
+        self.modes_edited.connect(self.on_modes_edited)
         dispatcher.connect(self.on_remote_sys_mode_datum,
                            'remote sys mode datum')
         dispatcher.connect(self.on_remote_comp_mode_datum,
@@ -452,6 +454,21 @@ class ModesTool(QMainWindow):
 
     def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
                                  mode=None, value=None):
+        """
+        Handle remote setting of a sys mode datum.
+
+        Args:
+            project_oid (str): oid of the project object
+            link_oid (str): oid of the link (Acu or PSU)
+            mode (str): name of the mode
+            value (polymorphic): a context name or ...
+        """
+        # TODO: NEW SIGNATURE: instead of "value" -- elements to construct a
+        # PowerState namedtuple:
+        # value_type (str): whether there is a numeric value or a "context"
+        # value (float): value (if any)
+        # context (str): name of a context
+        # contingency (int): interpreted as a percentage
         if ((link_oid is not None) and
             hasattr(self, 'mode_definition_table') and
             (project_oid == self.project.oid)):
@@ -472,7 +489,10 @@ class ModesTool(QMainWindow):
                 comp_dict[link_oid][comp_oid][mode] = value
                 self.set_table_and_adjust()
 
-    def on_modes_edited(self):
+    def on_dlg_modes_edited(self, oid):
+        self.modes_edited.emit(oid)
+
+    def on_modes_edited(self, oid):
         self.set_table_and_adjust()
 
     def on_modes_published(self):
@@ -602,8 +622,7 @@ class ModesTool(QMainWindow):
         self.sys_select_tree.scrollTo(index)
         self.sys_select_tree.clearSelection()
         self.set_table_and_adjust()
-        dispatcher.send(signal='modes edited',
-                        project_oid=self.project.oid)
+        self.modes_edited.emit(self.project.oid)
 
     def wrap_header(self, text):
         return '   \n   '.join(wrap(text, width=7,
@@ -674,6 +693,8 @@ class ModesTool(QMainWindow):
         self.mode_definition_table = ModeDefinitionView(self.project)
         self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mode_definition_table.setModel(model)
+        self.mode_definition_table.modes_edited.connect(
+                                                self.on_dlg_modes_edited)
         self._delegates = []
         for row, item in enumerate(items):
             for sys_oid in sys_dict:
@@ -720,8 +741,7 @@ class ModesTool(QMainWindow):
         # state['mode_def_h'] = self.height()
 
     def closeEvent(self, event):
-        dispatcher.send(signal='modes edited',
-                        project_oid=self.project.oid)
+        self.modes_edited.emit(self.project.oid)
         event.accept()
 
 
@@ -869,6 +889,9 @@ class ModeDefinitionModel(QStandardItemModel):
 
 
 class ModeDefinitionView(QTableView):
+
+    modes_edited = pyqtSignal(str)   # arg: project.oid
+
     def __init__(self, project, parent=None):
         super().__init__(parent=parent)
         self.project = project
@@ -915,11 +938,15 @@ class ModeDefinitionView(QTableView):
         mode_defz[self.project.oid]['modes'] = new_modes_dict
         mode_defz[self.project.oid]['systems'] = new_sys_dict
         mode_defz[self.project.oid]['components'] = new_comp_dict
-        dispatcher.send(signal='modes edited', project_oid=self.project.oid)
+        self.modes_edited.emit(self.project.oid)
 
     def edit_modes(self):
         dlg = EditModesDialog(self.project, parent=self)
+        dlg.modes_edited.connect(self.on_dlg_modes_edited)
         dlg.show()
+
+    def on_dlg_modes_edited(self, oid):
+        self.modes_edited.emit(oid)
 
     def delete_modes(self):
         """
@@ -940,8 +967,7 @@ class ModeDefinitionView(QTableView):
                     # in case all modes have been deleted, add "Undefined" mode
                     modes_dict['Undefined'] = 'Off'
                 orb.log.debug('* ModesTool: modes deleted ...')
-                dispatcher.send(signal='modes edited',
-                                project_oid=self.project.oid)
+                self.modes_edited.emit(self.project.oid)
 
 
 # TODO:  implement this in parametrics module and import it ...

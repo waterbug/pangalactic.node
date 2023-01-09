@@ -14,7 +14,8 @@ Various dialogs.
 import os, sys
 from textwrap import wrap
 
-from PyQt5.QtCore import Qt, QPoint, QRectF, QSize, QTimer, QVariant
+from PyQt5.QtCore import (pyqtSignal, Qt, QPoint, QRectF, QSize, QTimer,
+                          QVariant)
 from PyQt5.QtGui import QColor, QPainter, QPen, QPalette
 from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                              QDialog, QDialogButtonBox, QFileDialog,
@@ -1144,6 +1145,9 @@ class EditModesDialog(QDialog):
     A dialog to edit the name and default context of a new or existing 
     system power mode that is to be defined using p.node.activities.ModesTool.
     """
+
+    modes_edited = pyqtSignal(str)  # arg: project oid
+
     def __init__(self, project, default_modes=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add or Edit a System Power Mode")
@@ -1222,8 +1226,7 @@ class EditModesDialog(QDialog):
             # in case all modes have been deleted, add "Undefined" mode
             modes_dict['Undefined'] = 'Off'
         if deleteds or adds or self.new_mode_fields:
-            dispatcher.send(signal='modes edited',
-                            project_oid=self.project.oid)
+            self.modes_edited.emit(self.project.oid)
         self.accept()
 
 
