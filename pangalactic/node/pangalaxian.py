@@ -383,7 +383,7 @@ class Main(QMainWindow):
         toolbar: connect to or disconnect from the message bus (crossbar
         server).
         """
-        orb.log.debug('* set_bus_state() ...')
+        orb.log.debug('* setting message bus state ...')
         if self.connect_to_bus_action.isChecked():
             # first check whether crossbar is reachable ...
             host = config.get('host', 'localhost')
@@ -582,12 +582,12 @@ class Main(QMainWindow):
                 # it's been more than [delta] seconds since we synced ...
                 self.net_status.setPixmap(self.spotty_nw_icon)
                 self.net_status.setToolTip('unreliable network connection')
-                msg = f'reconnect > {delta} seconds since last sync, re-syncing.'
+                msg = f'reconnect > {delta} seconds since last sync, re-sync'
                 orb.log.info(f'  {msg}')
-                self.resync_current_project(msg='connection lost, reconnecting: ')
+                self.resync_current_project(msg='connection lost, reconnect: ')
             else:
-                # it's been less than [delta] seconds since we synced -> NO re-sync
-                msg = f'disconnected < {delta} seconds; reconnected, no re-sync'
+                # less than [delta] seconds since we synced -> NO re-sync
+                msg = f'disconnected < {delta} secs; reconnected, no re-sync'
                 self.statusbar.showMessage(msg)
                 orb.log.info(f'  {msg}')
                 orb.log.info('  but re-subscribing to channels:')
@@ -880,13 +880,13 @@ class Main(QMainWindow):
         Return:
             deferred: result of `vger.sync_parameter_definitions` rpc
         """
-        orb.log.debug('* rpc: vger.sync_parameter_definitions()')
+        orb.log.debug('* rpc: vger.sync_parameter_definitions')
         self.statusbar.showMessage('syncing parameter definitions ...')
         # exclude refdata (already shared)
         pd_mod_dts = orb.get_mod_dts(cnames=['ParameterDefinition'])
         data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
-        orb.log.debug('  -> rpc: vger.sync_parameter_definitions()')
+        orb.log.debug('  -> rpc: vger.sync_parameter_definitions')
         return self.mbus.session.call('vger.sync_parameter_definitions',
                                         data)
 
@@ -1060,7 +1060,8 @@ class Main(QMainWindow):
                 self.sync_progress.done(0)
                 QApplication.processEvents()
             except:
-                orb.log.debug('  - progress dialog C++ obj already deleted.')
+                # orb.log.debug('  - progress dialog C++ obj already deleted.')
+                pass
         sync_type = ''
         if project_sync:
             sync_type = 'project'
@@ -1277,7 +1278,7 @@ class Main(QMainWindow):
         Args:
             data (list):  a list of serialized objects
         """
-        orb.log.debug('* on_get_library_objects_result()')
+        orb.log.debug('* on_get_library_objects_result')
         if data is not None:
             orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
             self.load_serialized_objects(data)
@@ -4167,13 +4168,13 @@ class Main(QMainWindow):
     def rebuild_dashboard(self, dashboard_mod=False, force=False):
         # orb.log.debug('* rebuild_dashboard()')
         if not self.mode == 'system':
-            orb.log.debug('    not in "system mode" -- ignoring.')
+            # orb.log.debug('    not in "system mode" -- ignoring.')
             return
         if (not force and not dashboard_mod and
             (not self.sys_tree_rebuilt or self.dashboard_rebuilt)):
-            orb.log.debug('  + no force and no dashboard mod and either tree')
-            orb.log.debug('    not rebuilt or dashboard already rebuilt;')
-            orb.log.debug('    not rebuilding.')
+            # orb.log.debug('  + no force and no dash mod and either tree')
+            # orb.log.debug('    not rebuilt or dashboard already rebuilt;')
+            # orb.log.debug('    not rebuilding.')
             return
         # orb.log.debug(' + rebuilding ...')
         if getattr(self, 'dashboard_panel', None):
@@ -4345,8 +4346,9 @@ class Main(QMainWindow):
                     # pass
         except:
             # sys_tree's C++ object had been deleted
-            orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
-                          'might have got deleted, cannot update.')
+            # orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
+                          # 'might have got deleted, cannot update.')
+            pass
 
     ### SET UP 'component' mode (product modeler interface)
 
@@ -4545,13 +4547,13 @@ class Main(QMainWindow):
             cname = self.cnames[idx]
         if not cname == cur_cname:
             state['current_cname'] = str(cname)
-            orb.log.debug('  - class: "%s"' % cname)
+            # orb.log.debug('  - class: "%s"' % cname)
             self.set_object_table_for(cname)
 
     def set_object_table_for(self, cname):
         orb.log.debug('* setting object table for {}'.format(cname))
         if not cname:
-            orb.log.debug('  no class specified, ignoring.')
+            # orb.log.debug('  no class specified, ignoring.')
             return
         objs = list(orb.get_by_type(cname))
         tableview = ObjectTableView(objs)
@@ -4566,7 +4568,7 @@ class Main(QMainWindow):
         Keyword Args:
             cname (str):  class name of the table objects
         """
-        orb.log.debug('* resetting object table view to pref')
+        # orb.log.debug('* resetting object table view to pref')
         if hasattr(self, 'object_tableview'):
             self.object_tableview.setAttribute(Qt.WA_DeleteOnClose)
             self.object_tableview.parent = None
@@ -4689,8 +4691,8 @@ class Main(QMainWindow):
         Display a dialog to create a new Product.  (Now simply calls
         new_product_wizard.)
         """
-        orb.log.debug('* new_product()')
-        orb.log.debug('  calling new_product_wizard() ...')
+        # orb.log.debug('* new_product()')
+        # orb.log.debug('  calling new_product_wizard() ...')
         self.new_product_wizard()
 
     def new_model(self):
@@ -4723,10 +4725,10 @@ class Main(QMainWindow):
         Display New Product Wizard, a guided process to create new Product
         instances.
         """
-        orb.log.debug('* new_product_wizard()')
+        orb.log.debug('* new_product_wizard')
         wizard = NewProductWizard(parent=self)
         if wizard.exec_() == QDialog.Accepted:
-            orb.log.debug('  New Product Wizard completed successfully.')
+            # orb.log.debug('  New Product Wizard completed successfully.')
             product = orb.get(wizard_state.get('product_oid'))
             if product:
                 self.product = product
@@ -4738,7 +4740,7 @@ class Main(QMainWindow):
                 # switch to 'component' mode (in case not already there) ...
                 self.component_mode_action.trigger()
         else:
-            orb.log.debug('  New Product Wizard cancelled.')
+            # orb.log.debug('  New Product Wizard cancelled.')
             oid = wizard_state.get('product_oid')
             # if wizard was canceled before saving the new product, oid will be
             # None and no object was created, so there is nothing to delete
@@ -4752,7 +4754,7 @@ class Main(QMainWindow):
     def new_functional_requirement(self):
         wizard = ReqWizard(parent=self, performance=False)
         if wizard.exec_() == QDialog.Accepted:
-            orb.log.debug('* reqt wizard completed.')
+            # orb.log.debug('* reqt wizard completed.')
             req_oid = req_wizard_state.get('req_oid')
             req = orb.get(req_oid)
             if req and getattr(wizard, 'pgxn_obj', None):
@@ -4761,7 +4763,7 @@ class Main(QMainWindow):
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
-            orb.log.debug('* reqt wizard cancelled.')
+            # orb.log.debug('* reqt wizard cancelled.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
@@ -4771,14 +4773,14 @@ class Main(QMainWindow):
     def new_perform_requirement(self):
         wizard = ReqWizard(parent=self, performance=True)
         if wizard.exec_() == QDialog.Accepted:
-            orb.log.debug('* reqt wizard completed.')
+            # orb.log.debug('* reqt wizard completed.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
-            orb.log.debug('* reqt wizard cancelled...')
+            # orb.log.debug('* reqt wizard cancelled...')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
@@ -5515,7 +5517,7 @@ class Main(QMainWindow):
             return
 
     def set_current_project(self):
-        orb.log.debug('* set_current_project()')
+        orb.log.debug('* set_current_project')
         # this is a good time to save data elements and parameters ...
         save_data_elementz(orb.home)
         save_parmz(orb.home)
@@ -5533,10 +5535,10 @@ class Main(QMainWindow):
         orb.log.debug('* edit_prefs()')
         dlg = PrefsDialog(parent=self)
         if dlg.exec_():
-            orb.log.debug('  - edit_prefs dialog completed.')
+            orb.log.debug('  - prefs dialog completed.')
 
     def do_admin_stuff(self):
-        orb.log.debug('* do_admin_stuff()')
+        orb.log.debug('* admin dialog')
         self.admin_dlg = AdminDialog(org=self.project, parent=self)
         self.admin_dlg.ldap_search_button.clicked.connect(
                                                 self.open_person_dlg)
@@ -5605,7 +5607,7 @@ class Main(QMainWindow):
 
     def dump_database(self):
         self.statusbar.showMessage('Exporting DB to file ...')
-        orb.log.debug('* dump_database()')
+        orb.log.debug('* dump_database')
         dtstr = date2str(dtstamp())
         if not state.get('last_path'):
             state['last_path'] = self.user_home
@@ -5632,7 +5634,7 @@ class Main(QMainWindow):
         access is requested.
         """
         self.statusbar.showMessage('Generating public/private key pair ...')
-        orb.log.debug('* gen_keys()')
+        orb.log.debug('* gen_keys')
         privkey = PrivateKey.generate()
         if os.path.exists(self.key_path):
             # if private key already exists, warn user
