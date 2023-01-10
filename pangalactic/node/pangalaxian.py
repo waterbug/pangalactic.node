@@ -1137,7 +1137,7 @@ class Main(QMainWindow):
                                 for o in local_objs_to_del}
                 n = len(local_objs_to_del)
                 orb.log.debug(f'        {n} were found in local db ...')
-                for oid, cname in local_objs_to_del.items():
+                for oid, cname in deleted_oids.items():
                     orb.log.debug(f'         {oid} ({cname})')
                 # delete the objects using the "remote: deleted" signal -- it
                 # must be done that way so all widgets get refreshed properly
