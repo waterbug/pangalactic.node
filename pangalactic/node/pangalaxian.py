@@ -288,7 +288,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.refresh_tree_and_dashboard,
                                                     'refresh tree and dash')
         dispatcher.connect(self.rebuild_dash_selector, 'dash pref set')
-        dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         # dispatcher.connect(self.on_ldap_search, 'ldap search')
         dispatcher.connect(self.on_add_person, 'add person')
         dispatcher.connect(self.on_update_person, 'update person')
@@ -305,8 +304,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_received_objects, 'remote: modified')
         dispatcher.connect(self.on_remote_parm_del, 'remote: parm del')
         dispatcher.connect(self.on_remote_de_del, 'remote: de del')
-        dispatcher.connect(self.on_remote_deleted_signal,
-                                                    'remote: deleted')
         dispatcher.connect(self.on_set_current_project_signal,
                                                    'set current project')
         dispatcher.connect(self.on_drop_product, 'drop on product info')
@@ -1136,13 +1133,12 @@ class Main(QMainWindow):
                 deleted_oids = {o.oid : o.__class__.__name__
                                 for o in local_objs_to_del}
                 n = len(local_objs_to_del)
-                orb.log.debug(f'        {n} were found in local db ...')
+                orb.log.debug(f'        {n} object(s) found in local db ...')
                 for oid, cname in deleted_oids.items():
                     orb.log.debug(f'         {oid} ({cname})')
-                # delete the objects using the "remote: deleted" signal -- it
-                # must be done that way so all widgets get refreshed properly
+                # delete the objects using "remote_deleted_object" signal so
+                # all widgets get refreshed properly
                 for oid, cname in deleted_oids.items():
-                    # dispatcher.send('remote: deleted', content=oid)
                     self.remote_deleted_object.emit(oid, cname)
             else:
                 orb.log.debug('        none were found in local db.')
@@ -1586,10 +1582,9 @@ class Main(QMainWindow):
                 if obj:
                     obj_id = obj.id
                     cname = obj.__class__.__name__
+                    msg += obj_id
+                    self.statusbar.showMessage(msg)
                     self.remote_deleted_object.emit(obj_oid, cname)
-                msg += obj_id
-                self.statusbar.showMessage(msg)
-                # dispatcher.send(signal="remote: deleted", content=content)
             elif subject == 'frozen':
                 # content is a list of tuples:
                 #   (obj.oid, str(obj.mod_datetime), obj.modifier.oid) 
@@ -2911,94 +2906,6 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_received_objects)
             rpc.addErrback(self.on_failure)
 
-    def on_remote_deleted_qtsignal(self, oid, cname):
-        self.on_remote_deleted_signal(content=oid)
-
-    # TODO: revise this based on having "cname" in the pyqtSignal signature ...
-    def on_remote_deleted_signal(self, content=None):
-        """
-        Handle louie signal "remote: deleted".
-        """
-        orb.log.info('* received "remote: deleted" signal on:')
-        # content is an oid
-        obj_oid = content
-        orb.log.info('  oid: {}'.format(obj_oid))
-        # first check if we have the object
-        obj = orb.get(obj_oid or '')
-        if obj:
-            # if deleted object was the selected system, set selected system
-            # and diagram subject to the project and refresh the diagram
-            selected_sys_oid = state['system'].get(state.get('project'))
-            cname = obj.__class__.__name__
-            orb.log.debug(f'  deleted {cname} exists in local db ...')
-            if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
-                if cname == 'HardwareProduct':
-                    relevant_obj_oid = obj.oid
-                elif cname == 'Acu':
-                    relevant_obj_oid = obj.component.oid
-                elif cname == 'ProjectSystemUsage':
-                    relevant_obj_oid = obj.system.oid
-                orb.delete([obj])
-                orb.log.debug('  deleted.')
-                if selected_sys_oid == relevant_obj_oid:
-                    if (state.get('component_modeler_history') and
-                    relevant_obj_oid in state['component_modeler_history']):
-                        state['component_modeler_history'].remove(obj_oid)
-                    orb.log.info('  deleted object was selected system')
-                    state['system'][state['project']] = state['project']
-                    if hasattr(self, 'system_model_window'):
-                        try:
-                            orb.log.info('  setting diagram subject to project')
-                            self.system_model_window.history.pop()
-                            self.system_model_window.on_set_selected_system(
-                                                                self.project.oid)
-                        except:
-                            orb.log.info('  setting diagram subject failed')
-                            # diagram model window C++ object got deleted
-                            pass
-                # dispatcher.send('deleted object', oid=obj_oid, cname=cname,
-                                # remote=True)
-                self.remote_deleted_object.emit(obj_oid, cname)
-            elif cname == 'RoleAssignment':
-                if obj.assigned_to is self.local_user:
-                    # TODO: if removed role assignment was the last one for
-                    # this user on the project, switch to SANDBOX project
-                    html = '<h3>Your role:</h3>'
-                    html += '<p><b><font color="green">{}</font></b>'.format(
-                                                        obj.assigned_role.name)
-                    html += ' in <b><font color="green">{}</font>'.format(
-                                    getattr(obj.role_assignment_context, 'id',
-                                            'global context'))
-                    html += '<br> has been removed.</b></p>'
-                    self.w = NotificationDialog(html, parent=self)
-                    self.w.show()
-                orb.delete([obj])
-                orb.log.debug('  deleted.')
-                # dispatcher.send('deleted object', oid=obj_oid, cname=cname,
-                                # remote=True)
-                self.remote_deleted_object.emit(obj_oid, cname)
-                self.update_project_role_labels()
-                # whether ra applies to this user or not, send signal to
-                # refresh the admin tool
-                # dispatcher.send('refresh admin tool')
-                self.refresh_admin_tool.emit()
-            elif cname == 'Activity':
-                # TODO:  special case for "Mission"
-                dispatcher.send('remove activity', act=obj)
-                orb.delete([obj])
-                orb.log.debug('  deleted.')
-                # dispatcher.send('deleted object', oid=obj_oid, cname=cname,
-                                # remote=True)
-                self.remote_deleted_object.emit(obj_oid, cname)
-            else:
-                orb.delete([obj])
-                orb.log.debug('  deleted.')
-                # dispatcher.send('deleted object', oid=obj_oid, cname=cname,
-                                # remote=True)
-                self.remote_deleted_object.emit(obj_oid, cname)
-        else:
-            orb.log.debug('  oid not found in local db; ignoring.')
-
     def on_remote_get_mod_object(self, ser_objs):
         """
         Get a list of remote objects that have been modified.
@@ -3563,35 +3470,113 @@ class Main(QMainWindow):
     def rpc_save_entity_result(self, result):
         orb.log.debug(f'* "vger.save_entity" result: "{result}"')
 
-    def on_deleted_object_qtsignal(self, oid, cname):
-        """
-        Respond to a pyqtSignal that results from a local object being deleted.
-        """
-        self.on_deleted_object_signal(oid=oid, cname=cname)
-
     def on_remote_deleted_object_qtsignal(self, oid, cname):
         """
-        Respond to a pyqtSignal that results from a remote object being
-        deleted.
+        Handle pyqtSignal "remote_deleted_object".
         """
-        self.on_deleted_object_signal(oid=oid, cname=cname, remote=True)
+        orb.log.info('* received "remote_deleted" signal on:')
+        # content is an oid
+        obj_oid = oid
+        orb.log.info('  oid: {}'.format(obj_oid))
+        # first check if we have the object
+        obj = orb.get(obj_oid or '')
+        if obj:
+            # if deleted object was the selected system, set selected system
+            # and diagram subject to the project and refresh the diagram
+            selected_sys_oid = state['system'].get(state.get('project'))
+            # cname is now part of the signature (has already been obtained
+            # locally by db lookup)
+            # cname = obj.__class__.__name__
+            orb.log.debug(f'  deleted {cname} exists in local db ...')
+            if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
+                if cname == 'HardwareProduct':
+                    relevant_obj_oid = obj.oid
+                elif cname == 'Acu':
+                    relevant_obj_oid = obj.component.oid
+                elif cname == 'ProjectSystemUsage':
+                    relevant_obj_oid = obj.system.oid
+                orb.delete([obj])
+                orb.log.debug('  deleted.')
+                if selected_sys_oid == relevant_obj_oid:
+                    if (state.get('component_modeler_history') and
+                    relevant_obj_oid in state['component_modeler_history']):
+                        state['component_modeler_history'].remove(obj_oid)
+                    orb.log.info('  deleted object was selected system')
+                    state['system'][state['project']] = state['project']
+                    if hasattr(self, 'system_model_window'):
+                        try:
+                            orb.log.info('  setting diagram subject to project')
+                            self.system_model_window.history.pop()
+                            self.system_model_window.on_set_selected_system(
+                                                                self.project.oid)
+                        except:
+                            orb.log.info('  setting diagram subject failed')
+                            # diagram model window C++ object got deleted
+                            pass
+            elif cname == 'RoleAssignment':
+                if obj.assigned_to is self.local_user:
+                    # TODO: if removed role assignment was the last one for
+                    # this user on the project, switch to SANDBOX project
+                    html = '<h3>Your role:</h3>'
+                    html += '<p><b><font color="green">{}</font></b>'.format(
+                                                        obj.assigned_role.name)
+                    html += ' in <b><font color="green">{}</font>'.format(
+                                    getattr(obj.role_assignment_context, 'id',
+                                            'global context'))
+                    html += '<br> has been removed.</b></p>'
+                    self.w = NotificationDialog(html, parent=self)
+                    self.w.show()
+                orb.delete([obj])
+                orb.log.debug('  deleted.')
+                self.update_project_role_labels()
+                # whether ra applies to this user or not, send signal to
+                # refresh the admin tool
+                self.refresh_admin_tool.emit()
+            elif cname == 'Activity':
+                # TODO:  special case for "Mission"
+                dispatcher.send('remove activity', act=obj)
+                orb.delete([obj])
+                orb.log.debug('  deleted.')
+            else:
+                orb.delete([obj])
+                orb.log.debug('  deleted.')
+            self.on_get_parmz()
+            # only attempt to update tree and dashboard if in "system" mode ...
+            if ((self.mode == 'system') and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          'Port', 'Flow']):
+                self.refresh_tree_and_dashboard()
+                # DIAGRAM MAY NEED UPDATING
+                if getattr(self, 'system_model_window', None):
+                    # rebuild diagram in case an object corresponded to a
+                    # block in the current diagram
+                    self.system_model_window.on_signal_to_refresh()
+            elif self.mode == 'db':
+                self.set_db_interface()
+            elif (self.mode == 'component' and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # update state['product'] if needed, and regenerate diagram
+                # this will set placeholders in place of PgxnObject and diagram
+                self.set_product_modeler_interface()
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
+        else:
+            orb.log.debug('  oid not found in local db; ignoring.')
 
-    def on_deleted_object_signal(self, oid='', cname='', remote=False):
+    def on_deleted_object_qtsignal(self, oid, cname):
         """
         Call functions to update applicable widgets when an object has been
-        deleted, either locally or remotely.
+        deleted locally.
 
         Keyword Args:
             oid (str):  oid of the deleted object
             cname (str):  class name of the deleted object
-            remote (bool):  whether the action originated remotely
         """
         # make sure db transaction has been committed
         orb.db.commit()
-        origin = 'local'
-        if remote:
-            origin = 'remote'
-        orb.log.debug(f'* received {origin} "deleted object" signal on:')
+        orb.log.debug('* received local "deleted object" signal on:')
         # cname is needed here because at this point the local object has
         # already been deleted
         orb.log.debug(f'  cname="{cname}", oid="{oid}"')
@@ -3612,6 +3597,7 @@ class Main(QMainWindow):
                 orb.log.debug('  to empty')
                 state['product'] = ''
         if not state.get('connected'):
+            # updates if operating unconnected to repo ...
             orb.recompute_parmz()
             # only attempt to update tree and dashboard if in "system" mode ...
             if ((self.mode == 'system') and
@@ -3639,31 +3625,7 @@ class Main(QMainWindow):
                 # regenerate diagram
                 if getattr(self, 'system_model_window', None):
                     self.system_model_window.on_signal_to_refresh()
-        if remote and state.get('connected'):
-            self.on_get_parmz()
-            # only attempt to update tree and dashboard if in "system" mode ...
-            if ((self.mode == 'system') and
-                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                          'Port', 'Flow']):
-                self.refresh_tree_and_dashboard()
-                # DIAGRAM MAY NEED UPDATING
-                if getattr(self, 'system_model_window', None):
-                    # rebuild diagram in case an object corresponded to a
-                    # block in the current diagram
-                    self.system_model_window.on_signal_to_refresh()
-            elif self.mode == 'db':
-                self.set_db_interface()
-            elif (self.mode == 'component' and
-                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                          'Port', 'Flow']):
-                # DIAGRAM MAY NEED UPDATING
-                # update state['product'] if needed, and regenerate diagram
-                # this will set placeholders in place of PgxnObject and diagram
-                self.set_product_modeler_interface()
-                if getattr(self, 'system_model_window', None):
-                    self.system_model_window.on_signal_to_refresh()
-        elif not remote and state.get('connected'):
-            # the "not remote" here is *extremely* important, to prevent a cycle ...
+        if state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             rpc = self.mbus.session.call('vger.delete', [oid])
             rpc.addCallback(self.on_rpc_vger_delete_result)
