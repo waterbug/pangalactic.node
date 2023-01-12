@@ -5,7 +5,7 @@ from urllib.parse    import urlparse
 
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QModelIndex, QSize
+from PyQt5.QtCore import pyqtSignal, Qt, QModelIndex, QSize
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,
                              QLayout, QMainWindow, QPushButton, QSizePolicy,
                              QVBoxLayout, QWidget)
@@ -97,6 +97,9 @@ class ModelWindow(QMainWindow):
             corresponding to the object being modeled
         history (list):  list of previous ModelerState instances
     """
+
+    deleted_object = pyqtSignal(str, str)  # args: oid, cname
+
     def __init__(self, obj=None, scene=None, logo=None, idx=None,
                  external=False, preferred_size=None, parent=None):
         """
@@ -144,7 +147,6 @@ class ModelWindow(QMainWindow):
         dispatcher.connect(self.on_signal_to_refresh, 'refresh diagram')
         dispatcher.connect(self.on_signal_to_refresh, 'new object')
         dispatcher.connect(self.on_signal_to_refresh, 'modified object')
-        dispatcher.connect(self.on_deleted_object, 'deleted object')
         dispatcher.connect(self.on_set_selected_system, 'set selected system')
         # orb.log.debug('  init calls set_subject() again to set system:')
         # orb.log.debug(f'  set_subject(obj={obj_id})')
@@ -278,6 +280,7 @@ class ModelWindow(QMainWindow):
 
     def set_new_diagram_view(self):
         new_diagram_view = DiagramView(self.obj, embedded=True, parent=self)
+        new_diagram_view.scene().deleted_object.connect(self.on_deleted_object)
         new_diagram_view.setSizePolicy(QSizePolicy.Preferred,
                                        QSizePolicy.Preferred)
         layout = QVBoxLayout()
@@ -520,6 +523,9 @@ class ModelWindow(QMainWindow):
             # orb.log.debug('  object selected: {}.'.format(obj.id))
         self.set_new_diagram_view()
         scene = self.diagram_view.scene()
+        # whenever a new scene is created (in association with the view), its
+        # "deleted_object" signal (and possibly other signals) must be
+        # connected ...
         block_ordering = diagramz.get(self.obj.oid)
         if block_ordering:
             # orb.log.debug('  - generating diagram with ordering ...')
@@ -540,7 +546,7 @@ class ModelWindow(QMainWindow):
                                        type_of_model=block_model_type,
                                        of_thing=self.obj)
 
-    def on_deleted_object(self):
+    def on_deleted_object(self, oid, cname):
         """
         Handle "deleted object" signal -- ignore if not in "system" or
         "component" mode (ModelWindow C++ object will not exist!).
@@ -551,6 +557,7 @@ class ModelWindow(QMainWindow):
         """
         if state.get('mode') in ['system', 'component']:
             self.refresh_block_diagram()
+            self.deleted_object.emit(oid, cname)
         return
 
     def on_signal_to_refresh(self):

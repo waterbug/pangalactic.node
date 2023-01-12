@@ -6,7 +6,7 @@ import random
 from PyQt5.QtGui     import QFont
 from PyQt5.QtWidgets import (QGraphicsLineItem, QGraphicsScene, QGraphicsView,
                              QMessageBox, QSizePolicy)
-from PyQt5.QtCore    import Qt, QLineF, QPoint, QPointF, QRectF
+from PyQt5.QtCore    import pyqtSignal, Qt, QLineF, QPoint, QPointF, QRectF
 
 from louie import dispatcher
 
@@ -35,6 +35,8 @@ class DiagramScene(QGraphicsScene):
     default_text_color = Qt.black
     default_line_color = Qt.black
     default_font = QFont()
+
+    deleted_object = pyqtSignal(str, str)  # args: oid, cname
 
     def __init__(self, subject, parent=None):
         """
@@ -719,7 +721,8 @@ class DiagramScene(QGraphicsScene):
             if flow:
                 assembly = flow.flow_context
                 orb.delete([flow])
-                dispatcher.send('deleted object', oid=flow_oid)
+                # dispatcher.send('deleted object', oid=flow_oid)
+                self.deleted_object.emit(oid, 'Flow')
                 assembly.mod_datetime = dtstamp()
                 assembly.modifier = orb.get(state.get('local_user_oid'))
                 orb.save([assembly])

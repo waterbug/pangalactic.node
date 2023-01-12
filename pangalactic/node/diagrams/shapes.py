@@ -293,8 +293,11 @@ class ObjectBlock(Block):
 
     @property
     def obj(self):
-        return (getattr(self.usage, 'component', None) or
-                getattr(self.usage, 'system', None))
+        try:
+            return (getattr(self.usage, 'component', None) or
+                    getattr(self.usage, 'system', None))
+        except:
+            return None
 
     @property
     def has_sub_diagram(self):
@@ -543,7 +546,8 @@ class ObjectBlock(Block):
             orb.log.debug('   no associated flows.')
         oid = self.usage.oid
         orb.delete([self.usage])
-        dispatcher.send(signal='deleted object', oid=oid, cname='Acu')
+        # dispatcher.send(signal='deleted object', oid=oid, cname='Acu')
+        self.scene().deleted_object.emit(oid, 'Acu')
 
     def del_system(self):
         """
@@ -554,8 +558,9 @@ class ObjectBlock(Block):
         # to this function
         oid = self.usage.oid
         orb.delete([self.usage])
-        dispatcher.send(signal='deleted object', oid=oid,
-                        cname='ProjectSystemUsage')
+        # dispatcher.send(signal='deleted object', oid=oid,
+                        # cname='ProjectSystemUsage')
+        self.scene().deleted_object.emit(oid, 'ProjectSystemUsage')
 
     def del_component(self):
         """
@@ -1489,10 +1494,12 @@ class PortBlock(QGraphicsItem):
                 obj = self.port.of_product
                 port_oid = self.port.oid
                 orb.delete([self.port])
-                dispatcher.send('deleted object', oid=port_oid,
-                                cname='Port', remote=remote)
+                # dispatcher.send('deleted object', oid=port_oid,
+                                # cname='Port', remote=remote)
                 # if local action, dispatch 'modified object' signal
                 if not remote:
+                    self.parent_block.scene().deleted_object.emit(port_oid,
+                                                                  'Port')
                     # set modifier / mod_datetime on port's object
                     user = orb.get(state.get('local_user_oid'))
                     obj.modifier = user
@@ -1526,8 +1533,11 @@ class PortBlock(QGraphicsItem):
                     (shape.start_item is self or shape.end_item is self)):
                     flow_oid = shape.flow.oid
                     orb.delete([shape.flow])
-                    dispatcher.send('deleted object', oid=flow_oid,
-                                    cname='Flow', remote=remote)
+                    # dispatcher.send('deleted object', oid=flow_oid,
+                                    # cname='Flow', remote=remote)
+                    if not remote:
+                        self.parent_block.scene().deleted_object.emit(flow_oid,
+                                                                      'Flow')
                     shape.prepareGeometryChange()
                     self.scene().removeItem(shape)
             # regenerate the diagram
@@ -1880,8 +1890,11 @@ class RoutedConnector(QGraphicsItem):
                 flow_oid = self.flow.oid
                 orb.delete([self.flow])
                 if not remote:
-                    dispatcher.send('deleted object', oid=flow_oid,
-                                    cname='Flow')
+                    # dispatcher.send('deleted object', oid=flow_oid,
+                                    # cname='Flow')
+                    self.start_item.parent_block.scene().deleted_object.emit(
+                                                                    flow_oid,
+                                                                    'Flow')
             self.start_item.remove_connector(self)
             self.end_item.remove_connector(self)
             self.prepareGeometryChange()

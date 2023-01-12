@@ -782,7 +782,6 @@ class Main(QMainWindow):
         else:
             self.role_label.setText('online [no project selected]')
         self.channels.append('vger.channel.public')
-        dispatcher.send('sync progress', txt='user roles synced ...')
         rpc = self.subscribe_to_mbus_channels(self.channels)
         rpc.addErrback(self.on_failure)
         rpc.addCallback(self.sync_user_created_objs_to_repo)
@@ -994,7 +993,7 @@ class Main(QMainWindow):
             self.sync_progress = ProgressDialog(title=title_text,
                                                 label=label_text,
                                                 parent=self)
-            self.sync_progress.setAttribute(Qt.WA_DeleteOnClose)
+            # self.sync_progress.setAttribute(Qt.WA_DeleteOnClose)
             self.sync_progress.setMinimum(0)
             self.sync_progress.setMaximum(0)
             self.sync_progress.setMinimumDuration(500)
@@ -1055,15 +1054,16 @@ class Main(QMainWindow):
         if getattr(self, 'sync_progress', None):
             try:
                 self.sync_progress.done(0)
+                self.sync_progress.close()
                 QApplication.processEvents()
             except:
                 # orb.log.debug('  - progress dialog C++ obj already deleted.')
                 pass
-        sync_type = ''
-        if project_sync:
-            sync_type = 'project'
-        elif user_objs_sync:
-            sync_type = 'user objs'
+        # sync_type = ''
+        # if project_sync:
+            # sync_type = 'project'
+        # elif user_objs_sync:
+            # sync_type = 'user objs'
         # orb.log.debug('       data: {}'.format(str(data)))
         try:
             (sobjs, same_dts, to_update, local_only, server_deleted_oids,
@@ -1089,8 +1089,6 @@ class Main(QMainWindow):
         if n:
             self.statusbar.showMessage(
                 'deserializing {} objects ...'.format(n))
-            txt = 'objects syncing ...'
-            dispatcher.send('sync progress', txt=txt)
             # deserialize(orb, sobjs)
             self.load_serialized_objects(sobjs)
         created_sos = []
@@ -1146,17 +1144,14 @@ class Main(QMainWindow):
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
         if sobjs_to_save:
-            self.statusbar.showMessage('saving local objs to repo ...')
-            txt = '{} sync: saving {} objects ...'.format(sync_type,
-                                                         len(sobjs_to_save))
-            dispatcher.send('sync progress', txt=txt)
+            # self.statusbar.showMessage('saving local objs to repo ...')
             rpc = self.mbus.session.call('vger.save', sobjs_to_save)
         else:
-            if user_objs_sync:
-                self.statusbar.showMessage('user objects synced.')
-            else:
-                self.statusbar.showMessage('project synced.')
-                state['synced_projects'].append(state.get('project'))
+            # if user_objs_sync:
+                # self.statusbar.showMessage('user objects synced.')
+            # else:
+                # self.statusbar.showMessage('project synced.')
+                # state['synced_projects'].append(state.get('project'))
             rpc = self.mbus.session.call('vger.save', [])
         rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
@@ -1955,15 +1950,6 @@ class Main(QMainWindow):
             if hasattr(self, 'library_widget'):
                 # orb.log.debug('  - refreshing library_widget')
                 self.library_widget.refresh(cname=cname)
-        # *******************************************************************
-        # NOTE: this resync was causing severe problems in the GUI, mainly
-        # caused by the progress dialog getting "stuck" ... possibly revisit
-        # in the future ... something is needed to prevent the out-of-sync
-        # condition that sometimes happens after an update ... instead, use
-        # on_get_parmz() to sync project parameters.
-        # *******************************************************************
-        # self.resync_current_project(msg='resync for deleted object')
-        # *******************************************************************
         self.on_get_parmz()
         return True
 
@@ -3253,10 +3239,12 @@ class Main(QMainWindow):
             else:
                 msg = 'synced.'
                 orb.log.debug(f'* {msg}')
+            QApplication.processEvents()
             self.statusbar.showMessage('synced.')
             orb.log.debug('vger save: {}'.format(msg))
         except:
             orb.log.debug('  result format incorrect.')
+            QApplication.processEvents()
             self.statusbar.showMessage('synced.')
 
     def on_result(self, stuff):
@@ -3574,12 +3562,11 @@ class Main(QMainWindow):
             oid (str):  oid of the deleted object
             cname (str):  class name of the deleted object
         """
-        # make sure db transaction has been committed
-        orb.db.commit()
-        orb.log.debug('* received local "deleted object" signal on:')
         # cname is needed here because at this point the local object has
         # already been deleted
-        orb.log.debug(f'  cname="{cname}", oid="{oid}"')
+        orb.log.debug(f'* local deleted object: cname="{cname}", oid="{oid}"')
+        # make sure db transaction has been committed
+        orb.db.commit()
         # always fix state['product'] and state['system'] if either matches the
         # deleted oid
         if (state.get('system') or {}).get(state.get('project')) == oid:
@@ -3597,34 +3584,34 @@ class Main(QMainWindow):
                 orb.log.debug('  to empty')
                 state['product'] = ''
         if not state.get('connected'):
-            # updates if operating unconnected to repo ...
+            # recompute parameters if operating unconnected to repo ...
             orb.recompute_parmz()
-            # only attempt to update tree and dashboard if in "system" mode ...
-            if ((self.mode == 'system') and
-                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
-                self.refresh_tree_and_dashboard()
-                if getattr(self, 'system_model_window', None):
-                    # rebuild diagram in case an object corresponded to a
-                    # block in the current diagram
-                    self.system_model_window.on_signal_to_refresh()
-            elif self.mode == 'db':
-                self.set_db_interface()
-            elif (self.mode == 'component' and
-                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                          'Port', 'Flow']):
-                # DIAGRAM MAY NEED UPDATING
-                # update state['product'] if needed, and regenerate diagram
-                # this will set placeholders in place of PgxnObject and diagram
-                self.set_product_modeler_interface()
-                if getattr(self, 'system_model_window', None):
-                    self.system_model_window.on_signal_to_refresh()
-            elif (self.mode == 'system' and
-                  cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                            'Port', 'Flow']):
-                # DIAGRAM MAY NEED UPDATING
-                # regenerate diagram
-                if getattr(self, 'system_model_window', None):
-                    self.system_model_window.on_signal_to_refresh()
+        # only attempt to update tree and dashboard if in "system" mode ...
+        if ((self.mode == 'system') and
+            cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
+            self.refresh_tree_and_dashboard()
+            if getattr(self, 'system_model_window', None):
+                # rebuild diagram in case an object corresponded to a
+                # block in the current diagram
+                self.system_model_window.on_signal_to_refresh()
+        elif self.mode == 'db':
+            self.set_db_interface()
+        elif (self.mode == 'component' and
+            cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                      'Port', 'Flow']):
+            # DIAGRAM MAY NEED UPDATING
+            # update state['product'] if needed, and regenerate diagram
+            # this will set placeholders in place of PgxnObject and diagram
+            self.set_product_modeler_interface()
+            if getattr(self, 'system_model_window', None):
+                self.system_model_window.on_signal_to_refresh()
+        elif (self.mode == 'system' and
+              cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                        'Port', 'Flow']):
+            # DIAGRAM MAY NEED UPDATING
+            # regenerate diagram
+            if getattr(self, 'system_model_window', None):
+                self.system_model_window.on_signal_to_refresh()
         if state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             rpc = self.mbus.session.call('vger.delete', [oid])
@@ -4370,6 +4357,8 @@ class Main(QMainWindow):
                 state['product'] = system.oid
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
+            self.system_model_window.deleted_object.connect(
+                                        self.on_deleted_object_qtsignal)
             self.setCentralWidget(self.system_model_window)
         elif (state.get('mode') == 'system' and
               orb.get((state.get('system') or {}).get(
@@ -4377,6 +4366,8 @@ class Main(QMainWindow):
             system = orb.get(state['system'][state.get('project')])
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
+            self.system_model_window.deleted_object.connect(
+                                        self.on_deleted_object_qtsignal)
             self.setCentralWidget(self.system_model_window)
         elif self.project:
             psize = (600, 400)
@@ -4387,6 +4378,8 @@ class Main(QMainWindow):
             self.system_model_window = ModelWindow(obj=self.project,
                                                    logo=self.logo,
                                                    preferred_size=psize)
+            self.system_model_window.deleted_object.connect(
+                                        self.on_deleted_object_qtsignal)
             self.setCentralWidget(self.system_model_window)
         else:
             self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
@@ -4710,7 +4703,6 @@ class Main(QMainWindow):
                 obj = orb.get(oid)
                 cname = obj.__class__.__name__
                 orb.delete([obj])
-                # dispatcher.send(signal='deleted object', oid=oid, cname=cname)
                 self.deleted_object.emit(oid, cname)
 
     def new_functional_requirement(self):
