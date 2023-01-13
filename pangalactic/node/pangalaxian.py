@@ -1253,9 +1253,9 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_get_library_objects_result)
             rpc.addErrback(self.on_failure)
         else:
-            # if no newer objects but objects have been deleted, update views
-            self._update_modal_views()
-            return 'success'  # return value will be ignored
+            # if no newer objects but objects have been deleted, resync the
+            # current project ... which will also update views ...
+            self.resync_current_project()
 
     def on_get_library_objects_result(self, data):
         """
@@ -1280,6 +1280,8 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_get_library_objects_result)
             rpc.addErrback(self.on_failure)
         else:
+            orb.log.debug('  - done getting library objects ...')
+            orb.log.debug('    now resyncing current project ...')
             self.resync_current_project()
 
     def on_force_sync_managed_result(self, data, project_sync=False):
