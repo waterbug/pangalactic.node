@@ -3810,9 +3810,9 @@ class Main(QMainWindow):
         Keyword Args:
             obj (Identifiable):  object whose change triggered the update
         """
-        orb.log.debug('* _update_modal_views()')
-        orb.log.debug('  triggered by object: {}'.format(
-                                        getattr(obj, 'id', '[no object]')))
+        # orb.log.debug('* _update_modal_views()')
+        # orb.log.debug('  triggered by object: {}'.format(
+                                        # getattr(obj, 'id', '[no object]')))
         if getattr(self, 'system_model_window', None):
             self.system_model_window.cache_block_model()
         # [gui refactor] creation of top dock moved to _init_ui()
