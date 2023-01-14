@@ -1445,6 +1445,9 @@ class Main(QMainWindow):
         Args:
             msg (tuple): the message, a tuple of (subject, content)
         """
+        # NOTE (SCW 2023-01-14): removed all self.statusbar.showMessage(msg)
+        # calls -- they were causing "paint" issues (probably because of
+        # subsequent gui actions triggered by the message handlers)
         for item in msg.items():
             subject, content = item
             orb.log.info("* pubsub msg received ...")
@@ -1452,14 +1455,13 @@ class Main(QMainWindow):
             # orb.log.debug("  content: {}".format(content))
             obj_id = '[unknown]'
             # base msg
-            msg = "remote {}: ".format(subject)
+            log_msg = "  "
             if subject == 'decloaked':
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
                 # obj_oid, obj_id = content
                 n = len(content)
-                msg += f'received {n} decloaked objects'
-                self.statusbar.showMessage(msg)
+                log_msg += f'received {n} decloaked objects'
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
                 dispatcher.send(signal="remote: decloaked", content=content)
@@ -1468,8 +1470,7 @@ class Main(QMainWindow):
                 # -- it is now a list of serialized objects
                 # obj_oid, obj_id = content
                 n = len(content)
-                msg += f'received {n} new objects'
-                self.statusbar.showMessage(msg)
+                log_msg += f'received {n} new objects'
                 # NOTE: content of 'new' msg changed in version 2.2.dev8 -- it
                 # is now a list of serialized objects
                 dispatcher.send(signal="remote: new", content=content)
@@ -1580,8 +1581,7 @@ class Main(QMainWindow):
                 # -- it is now a list of serialized objects
                 # obj_oid, obj_id, obj_mod_datetime = content
                 n = len(content)
-                msg += f"received {n} modified objects"
-                # don't show msg in statusbar -- may not be relevant
+                log_msg += f"received {n} modified objects"
                 # NOTE: content of 'modified' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
                 dispatcher.send(signal="remote: modified", content=content)
@@ -1591,8 +1591,7 @@ class Main(QMainWindow):
                 if obj:
                     obj_id = obj.id
                     cname = obj.__class__.__name__
-                    msg += obj_id
-                    self.statusbar.showMessage(msg)
+                    log_msg += obj_id
                     self.remote_deleted_object.emit(obj_oid, cname)
             elif subject == 'frozen':
                 # content is a list of tuples:
@@ -1620,11 +1619,9 @@ class Main(QMainWindow):
                         # html += '</ul></p>'
                         # dlg = FrozenDialog(html, parent=self)
                         # dlg.show()
-                        msg = 'vger: object(s) have been frozen ... '
-                        msg += f'{len(oids)} found locally '
-                        msg += '-- getting frozen versions ...'
-                        if hasattr(self, 'statusbar'):
-                            self.statusbar.showMessage(msg)
+                        log_msg = 'vger: object(s) have been frozen ... '
+                        log_msg += f'{len(oids)} found locally '
+                        log_msg += '-- getting frozen versions ...'
                         self.on_remote_freeze_or_thaw(frozen_attrs, 'freeze')
             elif subject == 'thawed':
                 # content is a list of tuples of the form:
@@ -1658,24 +1655,20 @@ class Main(QMainWindow):
                         # notice = QMessageBox(QMessageBox.Information, 'Thawed',
                                      # html, QMessageBox.Ok, self)
                         # notice.show()
-                        msg = 'vger: objects have been thawed ...'
-                        msg += f'{len(oids)} found locally '
-                        msg += '-- getting thawed versions ...'
-                        if hasattr(self, 'statusbar'):
-                            self.statusbar.showMessage(msg)
+                        log_msg = 'vger: objects have been thawed ...'
+                        log_msg += f'{len(oids)} found locally '
+                        log_msg += '-- getting thawed versions ...'
                         self.on_remote_freeze_or_thaw(thawed_attrs, 'thaw')
                 else:
                     orb.log.info('  but it was empty!')
             elif subject == 'de del':
-                self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: de del", content=content)
             elif subject == 'parm del':
-                self.statusbar.showMessage(msg)
                 dispatcher.send(signal="remote: parm del", content=content)
             elif subject == 'organization':
                 obj_oid = content['oid']
                 obj_id = content['id']
-                msg += obj_id
+                log_msg += obj_id
             elif subject == 'person added':
                 ser_objs = content
                 try:
@@ -1694,7 +1687,7 @@ class Main(QMainWindow):
                                                                 obj.org.name)
                                 txt = f'person "{display_name}" saved.'
                                 orb.log.debug(f'  - {txt}')
-                                msg += ' ... ' + txt
+                                log_msg += ' ... ' + txt
                                 # NOTE: this dispatcher signal is only sent as
                                 # a result of the vger.add_person() rpc being
                                 # successful (see below)
@@ -1706,53 +1699,8 @@ class Main(QMainWindow):
                                                                     obj.name))
                 except:
                     d = str(content)
-                    orb.log.debug(f'- could process received data: {d}')
-                self.statusbar.showMessage(msg)
-
-    # DEPRECATED (now using on_received_objects())
-    # def on_remote_new_or_decloaked_signal(self, content=None):
-        # """
-        # Call functions to update applicable widgets when a pub/sub message is
-        # received from the repository service indicating that a new object has
-        # been decloaked or an existing decloaked object has been modified.
-
-        # Keyword Args:
-            # content (tuple):  content of the pub/sub message, which has the
-                # form of a 4-tuple:  (obj_oid, obj_id, actor_oid, actor_id)
-        # """
-        # # TODO:  other actions will be needed ...
-        # orb.log.info('* "remote: [new|decloaked]" signal received ...')
-        # if not content:
-            # orb.log.debug(' - content was empty.')
-            # return
-        # try:
-            # obj_oid, obj_id = content
-        # except:
-            # # handle the error (pop up a notification dialog)
-            # orb.log.debug('  - content could not be parsed:')
-            # orb.log.debug('    {}'.format(str(content)))
-            # return
-        # obj = orb.get(obj_oid)
-        # if obj:
-            # orb.log.debug('  - decloaked object is already in local db.')
-        # elif state['connected']:
-            # # get object from repository ...
-            # orb.log.debug('  - object unknown -- get from repo...')
-            # rpc = self.mbus.session.call('vger.get_object', obj_oid,
-                                         # include_components=True)
-            # rpc.addCallback(self.on_received_objects)
-            # rpc.addErrback(self.on_failure)
-
-    # DEPRECATED -- now using person search dlg directly ...
-    # def on_ldap_search(self, query=None):
-        # """
-        # Send 'vger.search_ldap' rpc when 'ldap search' signal is received.
-        # """
-        # if state['connected']:
-            # q = query or {}
-            # rpc = self.mbus.session.call('vger.search_ldap', **q)
-            # rpc.addCallback(self.on_rpc_ldap_result)
-            # rpc.addErrback(self.on_failure)
+                    orb.log.debug(f'- could not process received data: {d}')
+            orb.log.debug(log_msg)
 
     def on_add_person(self, data=None):
         """
@@ -1938,11 +1886,11 @@ class Main(QMainWindow):
                 # refresh the admin tool
                 # dispatcher.send('refresh admin tool')
                 self.refresh_admin_tool.emit()
+                self.update_project_role_labels()
             if self.mode == 'db':
                 orb.log.debug('  updating db views with: "{}"'.format(obj.id))
                 self.refresh_cname_list()
                 self.set_object_table_for(cname)
-            self.update_project_role_labels()
         if to_delete:
             # delete any SANDBOX PSUs that were received
             orb.delete(to_delete)
@@ -3089,7 +3037,10 @@ class Main(QMainWindow):
                                      orb.classes['Acu'],
                                      orb.classes['ProjectSystemUsage']))):
                 # update system tree and dashboard as necessary
-                self.update_object_in_trees(obj, new=new)
+                # NOTE (SCW 2023-01-14) delay gui ops until callback to
+                # "on_get_parmz" executes, to avoid "paint" exceptions --
+                # in this case, set state "upd_obj_in_trees_needed"
+                state["upd_obj_in_trees_needed"] = (obj.oid, new)
                 # NOTE: the diagram will listen for "new | modified object"
                 # signals -- i.e., DiagramScene (in view.py)
             # NOTE: no need to do anything in 'db' mode -- the object table now
@@ -3222,12 +3173,17 @@ class Main(QMainWindow):
         if data:
             # orb.log.info('* got parmz data, updating ...')
             parameterz.update(data)
-            # refresh dashboard and hw library if appropriate ...
-            if getattr(self, 'dashboard_panel', None):
-                # NOTE: self.refresh_dashboard() is not enough.
-                self.rebuild_dashboard(force=True)
-            if hasattr(self, 'library_widget'):
-                self.library_widget.refresh(cname='HardwareProduct')
+            oid, new = state.get("upd_obj_in_trees_needed", ("", ""))
+            if oid:
+                obj = orb.get(oid)
+                self.update_object_in_trees(obj, new=new)
+            else:
+                # refresh dashboard and hw library if appropriate ...
+                if getattr(self, 'dashboard_panel', None):
+                    # NOTE: self.refresh_dashboard() is not enough.
+                    self.rebuild_dashboard(force=True)
+                if hasattr(self, 'library_widget'):
+                    self.library_widget.refresh(cname='HardwareProduct')
 
     def on_vger_save_result(self, stuff):
         orb.log.debug('- vger.save rpc result: {}'.format(str(stuff)))
@@ -4254,6 +4210,7 @@ class Main(QMainWindow):
         # orb.log.debug('* update_object_in_trees() ...')
         if not obj:
             # orb.log.debug('  no object provided; ignoring.')
+            state["upd_obj_in_trees_needed"] = ("", "")
             return
         try:
             cname = obj.__class__.__name__
@@ -4311,11 +4268,12 @@ class Main(QMainWindow):
                     # log_msg = 'no indexes for this product found in tree.'
                     # orb.log.debug('    {}'.format(log_msg))
                     # pass
+            state["upd_obj_in_trees_needed"] = ("", "")
         except:
             # sys_tree's C++ object had been deleted
             # orb.log.debug('* update_object_in_tree(): sys_tree C++ object '
                           # 'might have got deleted, cannot update.')
-            pass
+            state["upd_obj_in_trees_needed"] = ("", "")
 
     ### SET UP 'component' mode (product modeler interface)
 
