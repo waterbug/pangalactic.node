@@ -1116,10 +1116,22 @@ class Main(QMainWindow):
             orb.log.debug('       to be saved in repo: {}'.format(str(
                           [sobj['oid'] for sobj in sobjs_to_save])))
         if project_sync:
-            # if on_sync_result() was called from a project sync, update views
-            # (which will update the 'role_label' with the project etc.)
-            state['project_sync'] = True
-            self._update_modal_views()
+            # if on_sync_result() was called from a project sync, set
+            # state['modal views need update'] so that
+            # self._update_modal_views() will be run after vger.save() is
+            # called, which will update the 'role_label' with the project etc.
+            # ----------------------------------------------------------------
+            # NOTE: self._update_modal_views() was previously run here but may
+            # have been the cause of serious GUI problems involving the error
+            # message "QBackingStore::endPaint() called with active painter;
+            # did you forget to destroy it or call QPainter::end() on it?" and
+            # random seg faults, possibly due to rpc / async actions
+            # interrupting the GUI operations of self._update_modal_views() --
+            # therefore state['modal views need update'] is used to trigger the
+            # call to self._update_modal_views() *AFTER* rpc call to
+            # vger.save() has completed and its callback has been called.
+            # ----------------------------------------------------------------
+            state['modal views need update'] = True
         if server_deleted_oids:
             n = len(server_deleted_oids)
             orb.log.debug(f'* sync: {n} deleted oids received from server.')
@@ -3241,11 +3253,15 @@ class Main(QMainWindow):
             else:
                 msg = 'synced.'
                 orb.log.debug(f'* {msg}')
+            if state.get('modal views need update'):
+                self._update_modal_views()
             QApplication.processEvents()
             self.statusbar.showMessage('synced.')
             orb.log.debug('vger save: {}'.format(msg))
         except:
             orb.log.debug('  result format incorrect.')
+            if state.get('modal views need update'):
+                self._update_modal_views()
             QApplication.processEvents()
             self.statusbar.showMessage('synced.')
 
@@ -3643,15 +3659,14 @@ class Main(QMainWindow):
     def on_set_current_project_signal(self, resync=False, msg=''):
         """
         Update views as a result of a project being set, syncing project data
-        if [1] online, [2] project is not "SANDBOX", and [3] project has not
-        already been synced in this session (i.e., project oid is not in
-        state['synced_projects'] list).
+        if [1] in "connected" state and [2] project is not "SANDBOX".
         """
+        # NOTE: (SCW 2023-01-13) project resync is now done even if the project
+        # has already been synced previously in the current session -- which
+        # also means the "resync" kw arg is ignored.
         orb.log.debug('* on_set_current_project_signal()')
         project_oid = state.get('project')
-        if (((project_oid and project_oid != 'pgefobjects:SANDBOX'
-             and project_oid not in state.get('synced_projects', []))
-             or resync)
+        if ((project_oid and project_oid != 'pgefobjects:SANDBOX')
              and state.get('connected')):
             # NOTE: ProgressDialog stuff caused mbus to lose its transport --
             # BAD! -- so is disabled unless some way to do it async is found
@@ -3818,6 +3833,7 @@ class Main(QMainWindow):
         elif self.mode == 'system':
             orb.log.debug('* mode: system')
             self.set_system_modeler_interface()
+        state['modal views need update'] = False
 
     def _setup_top_dock_widgets(self):
         # orb.log.debug('  - no top dock widget -- building one now...')
