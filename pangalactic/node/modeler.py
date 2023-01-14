@@ -551,9 +551,8 @@ class ModelWindow(QMainWindow):
         Handle "deleted object" signal -- ignore if not in "system" or
         "component" mode (ModelWindow C++ object will not exist!).
 
-        NOTE: 'deleted object' signal will be triggered by "remote: deleted"
-        signal handling in pangalaxian after object is deleted, so if it is a
-        port or flow, diagram should be regenerated properly
+        NOTE: 'deleted_object' signal handled in pangalaxian so diagram should
+        be regenerated properly
         """
         if state.get('mode') in ['system', 'component']:
             self.refresh_block_diagram()

@@ -35,8 +35,7 @@ from pangalactic.core                 import __version__
 from pangalactic.core                 import state
 from pangalactic.core.parametrics     import add_parameter, set_dval
 from pangalactic.core.refdata         import core
-from pangalactic.core.serializers     import (deserialize, serialize,
-                                              uncook_datetime)
+from pangalactic.core.serializers     import deserialize, serialize
 from pangalactic.core.test.utils      import (create_test_project,
                                               create_test_users,
                                               gen_test_pvals, test_parms)
@@ -136,12 +135,6 @@ class MainWindow(QMainWindow):
         self.create_timer()
         dispatcher.connect(self.on_joined, 'onjoined')
         dispatcher.connect(self.on_leave, 'onleave')
-        dispatcher.connect(self.on_remote_decloaked_signal,
-                                                    'remote: decloaked')
-        dispatcher.connect(self.on_remote_modified_signal,
-                                                    'remote: modified')
-        dispatcher.connect(self.on_remote_deleted_signal,
-                                                    'remote: deleted')
         self.new_index = 0
         self.test_oid = ''
         self.cold_units_val = 0
@@ -150,19 +143,6 @@ class MainWindow(QMainWindow):
         self.last_saved_obj = None
         self.system_level_obj = None
         self.latest_acu = None
-
-    # NOTE: this method is not connected to anything
-    # def on_signal(self, msg):
-        # print("event received on: {}".format(msg))
-        # subject, content = list(msg.items())[0]
-        # self.log("Event received:")
-        # self.log("      subject: {}".format(str(subject)))
-        # self.log("      content: {}".format(str(content)))
-        # if str(subject) in ['new', 'decloaked', 'modified', 'deleted']:
-            # self.log('* calling rpc vger.get_object() on {}'.format(content[0]))
-            # rpc = message_bus.session.call('vger.get_object', content[0])
-            # rpc.addCallback(self.on_get_object_result)
-            # rpc.addErrback(self.on_failure)
 
     def on_pubsub_msg(self, msg):
         """
@@ -181,23 +161,26 @@ class MainWindow(QMainWindow):
             # base text
             text = "remote {}: ".format(subject)
             if subject in ['new', 'decloaked']:
-                # actor_oid is the oid of the Actor to which the object has
-                # been decloaked (usually an Organization or Project)
-                obj_oid, obj_id, actor_oid, actor_id = content
-                text += obj_id
+                # NOTE: content of msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
+                n = len(content)
+                text += f'received {n} new or decloaked objects'
             elif subject == 'modified':
-                obj_oid, obj_id, obj_mod_datetime = content
-                obj = orb.get(obj_oid)
-                if obj and obj.name:
-                    if isinstance(obj, orb.classes['Product']):
-                        pt = getattr(obj.product_type, 'name', 'unknown type')
-                        text += "{} ({}) [{}]".format(obj_id, obj.name, pt)
-                    elif isinstance(obj, orb.classes['Acu']):
-                        pth = getattr(obj.product_type_hint, 'name',
-                                      'unknown type')
-                        text += "{} [{}]".format(obj_id, pth)
-                else:
-                    text += obj_id
+                # NOTE: content of 'modified' msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
+                n = len(content)
+                text += f"received {n} modified objects"
+                if n:
+                    objs = deserialize(orb, content)
+                    for obj in objs:
+                        if isinstance(obj, orb.classes['Product']):
+                            pt = getattr(obj.product_type, 'name',
+                                         'unknown type')
+                            text += "{} ({}) [{}]".format(obj_id, obj.name, pt)
+                        elif isinstance(obj, orb.classes['Acu']):
+                            pth = getattr(obj.product_type_hint, 'name',
+                                          'unknown type')
+                            text += "{} [{}]".format(obj_id, pth)
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
@@ -540,39 +523,6 @@ class MainWindow(QMainWindow):
         except:
             self.log('  result format incorrect.')
 
-    def on_remote_decloaked_signal(self, content=None):
-        """
-        Call functions to update applicable widgets when a pub/sub message is
-        received from the repository service indicating that a new object has
-        been decloaked or an existing decloaked object has been modified.
-
-        Keyword Args:
-            content (tuple):  content of the pub/sub message, which has the
-                form of a 4-tuple:  (obj_oid, obj_id, actor_oid, actor_id)
-        """
-        self.log('* "remote: decloaked" signal received ...')
-        if not content:
-            self.log(' - content was empty.')
-            return
-        try:
-            obj_oid, obj_id, actor_oid, actor_id = content
-        except:
-            # handle the error
-            # TODO: pop up a notification dialog
-            self.log('  - content could not be parsed:')
-            self.log('    {}'.format(str(content)))
-            return
-        obj = orb.get(obj_oid)
-        if obj:
-            self.log('  - object is already in local db.')
-        else:
-            # get object from repository ...
-            self.log('  - object unknown -- getting from repo...')
-            rpc = message_bus.session.call('vger.get_object', obj_oid,
-                                           include_components=True)
-            rpc.addCallback(self.on_rpc_get_object)
-            rpc.addErrback(self.on_failure)
-
     def on_rpc_get_object(self, serialized_objects):
         """
         Handle the result of the rpc 'vger.get_object', which returns a list of
@@ -605,46 +555,6 @@ class MainWindow(QMainWindow):
             self.log('  deserialize() returned no objects --')
             self.log('  those received were already in the local db.')
 
-    def on_remote_modified_signal(self, content=None):
-        """
-        Handle louie signal "remote: modified".
-        """
-        self.log('* "remote: modified" signal received ...')
-        # content is a tuple:  (obj.oid, str(obj.mod_datetime))
-        obj_oid, obj_id, dts_str = content
-        self.log('  oid: {}'.format(obj_oid))
-        self.log('  id: {}'.format(obj_id))
-        # first check if we have the object
-        obj = orb.get(obj_oid)
-        if obj:
-            self.log('  ')
-            # if the mod_datetime of the repo object is later, get it
-            dts = None
-            if dts_str:
-                dts = uncook_datetime(dts_str)
-            self.log('  remote object mod_datetime: {}'.format(dts_str))
-            self.log('  local  object mod_datetime: {}'.format(
-                                            str(obj.mod_datetime)))
-            if dts == obj.mod_datetime:
-                self.log('  local and remote objects have')
-                self.log('  same mod_datetime, ignoring.')
-            elif dts > obj.mod_datetime:
-                # get the remote object
-                self.log('  remote object is newer, getting...')
-                rpc = message_bus.session.call('vger.get_object', obj.oid,
-                                               include_components=True)
-                rpc.addCallback(self.on_remote_get_mod_object)
-                rpc.addErrback(self.on_failure)
-            else:
-                self.log('  local object is newer, ignoring remote.')
-        else:
-            self.log('  ')
-            self.log('  object not found in local db, getting ...')
-            rpc = message_bus.session.call('vger.get_object', obj.oid,
-                                           include_components=True)
-            rpc.addCallback(self.on_remote_get_mod_object)
-            rpc.addErrback(self.on_failure)
-
     def on_remote_get_mod_object(self, serialized_objects):
         self.log('* on_remote_get_mod_object()')
         objs =  deserialize(orb, serialized_objects)
@@ -666,62 +576,6 @@ class MainWindow(QMainWindow):
                     html += '</b></p>'
                     self.w = NotificationDialog(html, parent=self)
                     self.w.show()
-
-    def on_remote_deleted_signal(self, content=None):
-        """
-        Handle louie signal "remote: deleted".
-        """
-        self.log('* "remote: deleted" signal received ...')
-        # content is an oid
-        obj_oid = content
-        self.log('  oid: {}'.format(obj_oid))
-        # first check if we have the object
-        obj = orb.get(obj_oid)
-        if obj:
-            cname = obj.__class__.__name__
-            if (cname in ['Acu', 'ProjectSystemUsage']
-                and hasattr(self, 'sys_tree')):
-                # find all expanded tree nodes that reference obj
-                idxs = self.sys_tree.link_indexes_in_tree(obj)
-                # if any are found, signal them to update
-                for idx in idxs:
-                    node = self.sys_tree.source_model.get_node(idx)
-                    if cname == 'Acu':
-                        node_des = (getattr(node.link, 'reference_designator',
-                                    None) or '(No reference designator)')
-                    else:
-                        node_des = (getattr(node.link, 'system_role',
-                                    None) or '(No system role)')
-                    self.log('  deleting position "{}"'.format(node_des))
-                    pos = idx.row()
-                    row_parent = idx.parent()
-                    parent_id = self.sys_tree.source_model.get_node(
-                                                            row_parent).obj.id
-                    self.log('  at row {} of parent {}'.format(pos,
-                                                                   parent_id))
-                    # removeRow calls orb.delete on the object ...
-                    self.sys_tree.source_model.removeRow(pos, row_parent)
-                # resize dashboard columns if necessary
-                self.refresh_dashboard()
-            elif cname == 'RoleAssignment':
-                if obj.assigned_to.oid == self.user.oid:
-                    # TODO: if removed role assignment was the last one for
-                    # this user on the project, switch to SANDBOX project
-                    html = '<h3>Your role:</h3>'
-                    html += '<p><b><font color="green">{}</font></b>'.format(
-                                                        obj.assigned_role.id)
-                    html += ' in <b><font color="green">{}</font>'.format(
-                                    getattr(obj.role_assignment_context, 'id',
-                                            'global context'))
-                    html += '<br> has been removed.</b></p>'
-                    self.w = NotificationDialog(html, parent=self)
-                    self.w.show()
-                orb.delete([obj])
-            else:
-                orb.delete([obj])
-            self.log('  - object deleted.')
-        else:
-            self.log('  oid not found in local db; ignoring.')
 
     def on_upload_file(self, chunk_size=None):
         """

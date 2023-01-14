@@ -569,7 +569,6 @@ class AdminDialog(QDialog):
         self.updateGeometry()
         dispatcher.connect(self.adjust_size, 'admin contents resized')
         # dispatcher.connect(self.refresh_roles, 'deleted object')
-        # dispatcher.connect(self.refresh_roles, 'remote: deleted')
         # DEPRECATED: on_person_added_success() now called directly in
         # pangalaxian
         # dispatcher.connect(self.on_person_added_success, 'person added')

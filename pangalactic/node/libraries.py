@@ -183,8 +183,6 @@ class LibraryListView(QListView):
         dispatcher.connect(self.refresh, 'deleted object')
         dispatcher.connect(self.refresh, 'new object')
         dispatcher.connect(self.refresh, 'modified object')
-        dispatcher.connect(self.refresh, 'remote: modified')
-        dispatcher.connect(self.refresh, 'remote: deleted')
 
     def sizeHint(self):
         return QSize(400, 450)
@@ -593,9 +591,6 @@ class LibraryDialog(QDialog):
             dispatcher.connect(self.refresh, 'deleted object')
             dispatcher.connect(self.refresh, 'new object')
             dispatcher.connect(self.refresh, 'modified object')
-            dispatcher.connect(self.refresh, 'remote: decloaked')
-            dispatcher.connect(self.refresh, 'remote: modified')
-            dispatcher.connect(self.refresh, 'remote: deleted')
         else:
             lib_view = LibraryListView(cname, parent=parent)
         lib_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

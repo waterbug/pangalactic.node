@@ -300,8 +300,6 @@ class Main(QMainWindow):
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
         dispatcher.connect(self.on_received_objects, 'remote: decloaked')
         dispatcher.connect(self.on_received_objects, 'remote: new')
-        # dispatcher.connect(self.on_remote_modified_signal,
-        dispatcher.connect(self.on_received_objects, 'remote: modified')
         dispatcher.connect(self.on_remote_parm_del, 'remote: parm del')
         dispatcher.connect(self.on_remote_de_del, 'remote: de del')
         dispatcher.connect(self.on_set_current_project_signal,
@@ -1459,21 +1457,21 @@ class Main(QMainWindow):
             if subject == 'decloaked':
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
-                # obj_oid, obj_id = content
                 n = len(content)
                 log_msg += f'received {n} decloaked objects'
-                # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
-                # -- it is now a list of serialized objects
-                dispatcher.send(signal="remote: decloaked", content=content)
+                self.on_received_objects(content)
             elif subject == 'new':
                 # NOTE: content of 'new' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
-                # obj_oid, obj_id = content
                 n = len(content)
                 log_msg += f'received {n} new objects'
-                # NOTE: content of 'new' msg changed in version 2.2.dev8 -- it
-                # is now a list of serialized objects
-                dispatcher.send(signal="remote: new", content=content)
+                self.on_received_objects(content)
+            elif subject == 'modified':
+                # NOTE: content of 'modified' msg changed in version 2.2.dev8
+                # -- it is now a list of serialized objects
+                n = len(content)
+                log_msg += f"received {n} modified objects"
+                self.on_received_objects(content)
             elif subject == 'new mode defs':
                 orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
                 md_dts, ser_md, userid = content
@@ -1576,15 +1574,6 @@ class Main(QMainWindow):
                 # TODO:  needs to be re-implemented with Entity paradigm --
                 # should be 'entity update'
                 pass
-            elif subject == 'modified':
-                # NOTE: content of 'modified' msg changed in version 2.2.dev8
-                # -- it is now a list of serialized objects
-                # obj_oid, obj_id, obj_mod_datetime = content
-                n = len(content)
-                log_msg += f"received {n} modified objects"
-                # NOTE: content of 'modified' msg changed in version 2.2.dev8
-                # -- it is now a list of serialized objects
-                dispatcher.send(signal="remote: modified", content=content)
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
@@ -2805,54 +2794,6 @@ class Main(QMainWindow):
     # def on_null_result(self):
         # orb.log.debug('  rpc success.')
         # self.statusbar.showMessage('synced.')
-
-    # DEPRECATED (now using on_received_objects())
-    def on_remote_modified_signal(self, content=None):
-        """
-        Handle louie signal "remote: modified".
-        """
-        orb.log.debug('* received "remote: modified" signal on:')
-        # content is a tuple:  (obj.oid, str(obj.mod_datetime))
-        # NOTE: content of 'modified' msg changed in version 2.2.dev8
-        # -- content is now a dict {oid: serialized object}
-        obj_oid, obj_id, dts_str = content
-        orb.log.debug('  oid: {}'.format(obj_oid))
-        orb.log.debug('  id: {}'.format(obj_id))
-        # first check if we have the object
-        obj = orb.get(obj_oid or '')
-        if obj:
-            # if the mod_datetime of the repo object is later, get it
-            dts = None
-            if dts_str:
-                dts = uncook_datetime(dts_str)
-            # orb.log.debug('  remote object mod_datetime: {}'.format(dts_str))
-            # orb.log.debug('  local  object mod_datetime: {}'.format(
-                                            # str(obj.mod_datetime)))
-            if dts == obj.mod_datetime:
-                orb.log.debug('  local and remote objects have')
-                orb.log.debug('  same mod_datetime, ignoring.')
-                self.statusbar.showMessage('modified objects synced.')
-            elif dts > obj.mod_datetime:
-                # get the remote object
-                orb.log.debug('  remote object is newer, getting...')
-                # NOTE: use "include_components=False" to avoid side-effects,
-                # such as if the modified object had a new Acu which will be
-                # retrieved separately and processed by on_received_objects,
-                # which will update the system tree properly if necessary ...
-                rpc = self.mbus.session.call('vger.get_object', obj.oid,
-                                             include_components=False)
-                rpc.addCallback(self.on_remote_get_mod_object)
-                rpc.addErrback(self.on_failure)
-            else:
-                orb.log.debug('  local object is newer, ignoring remote.')
-                self.statusbar.showMessage('objects synced.')
-        else:
-            orb.log.debug('  ')
-            orb.log.debug('  object not found in local db, getting ...')
-            rpc = self.mbus.session.call('vger.get_object', obj.oid,
-                                           include_components=True)
-            rpc.addCallback(self.on_received_objects)
-            rpc.addErrback(self.on_failure)
 
     def on_remote_get_mod_object(self, ser_objs):
         """
