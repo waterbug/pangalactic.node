@@ -3242,29 +3242,13 @@ class Main(QMainWindow):
         """
         Handle callback to the vger.delete rpc.
         """
+        orb.log.debug('* on_rpc_vger_delete_result')
         oids_not_found, oids_deleted = res
+        orb.log.debug(f'  oids_not_found: {oids_not_found}')
+        orb.log.debug(f'  oids_deleted: {oids_deleted}')
         for oid in (oids_not_found + oids_deleted):
             if oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(oid)
-        self.on_get_parmz()
-        # only attempt to update tree and dashboard if in "system" mode ...
-        if self.mode == 'system':
-            self.refresh_tree_and_dashboard()
-            # DIAGRAM MAY NEED UPDATING
-            # regenerate diagram
-            if getattr(self, 'system_model_window', None):
-                # rebuild diagram in case an object corresponded to a
-                # block in the current diagram
-                self.system_model_window.on_signal_to_refresh()
-        elif self.mode == 'db':
-            self.set_db_interface()
-        elif self.mode == 'component':
-            # DIAGRAM MAY NEED UPDATING
-            # update state['product'] if needed, and regenerate diagram
-            # this will set placeholders in place of PgxnObject and diagram
-            self.set_product_modeler_interface()
-            if getattr(self, 'system_model_window', None):
-                self.system_model_window.on_signal_to_refresh()
 
     def on_freeze_result(self, stuff):
         """
