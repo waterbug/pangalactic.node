@@ -277,7 +277,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_des_set, 'des set')
-        dispatcher.connect(self.on_get_parmz, 'get parmz')
+        dispatcher.connect(self.get_parmz, 'get parmz')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
         # NOTE: Entity apparatus is not currently being used
@@ -1823,7 +1823,7 @@ class Main(QMainWindow):
         need_to_refresh_libraries = set()
         need_to_refresh_tree = False
         # NOTE:  need_to_refresh_dashboard has become unnecessary because
-        # dashboard will be refreshed as a result of on_get_parmz(), called
+        # dashboard will be refreshed as a result of get_parmz(), called
         # below ...
         # need_to_refresh_dashboard = False
         need_to_refresh_diagram = False
@@ -1886,7 +1886,7 @@ class Main(QMainWindow):
         if (need_to_refresh_tree and state.get('mode') == 'system'):
             self.refresh_tree_views()
         # NOTE: this dashboard refresh is now unnecessary because it will be
-        # called by the result of the call to on_get_parmz(), below ...
+        # called by the result of the call to get_parmz(), below ...
         # if (need_to_refresh_dashboard and
             # getattr(self, 'dashboard', None)):
             # self.refresh_dashboard()
@@ -1901,7 +1901,7 @@ class Main(QMainWindow):
             if hasattr(self, 'library_widget'):
                 # orb.log.debug('  - refreshing library_widget')
                 self.library_widget.refresh(cname=cname)
-        self.on_get_parmz()
+        self.get_parmz()
         return True
 
     def _create_actions(self):
@@ -2928,7 +2928,7 @@ class Main(QMainWindow):
                 orb.log.debug(f'  - saved obj ids: {ids}')
                 rpc = self.mbus.session.call('vger.save', serialized_objs)
                 rpc.addCallback(self.on_vger_save_result)
-                rpc.addCallback(self.on_get_parmz)
+                rpc.addCallback(self.get_parmz)
                 rpc.addErrback(self.on_failure)
             else:
                 hw = [obj for obj in objs
@@ -2979,7 +2979,7 @@ class Main(QMainWindow):
                                      orb.classes['ProjectSystemUsage']))):
                 # update system tree and dashboard as necessary
                 # NOTE (SCW 2023-01-14) delay gui ops until callback to
-                # "on_get_parmz" executes, to avoid "paint" exceptions --
+                # "get_parmz" executes, to avoid "paint" exceptions --
                 # in this case, set state "upd_obj_in_trees_needed"
                 state["upd_obj_in_trees_needed"] = (obj.oid, new)
                 # NOTE: the diagram will listen for "new | modified object"
@@ -3003,7 +3003,7 @@ class Main(QMainWindow):
                                                           obj.id, obj.oid))
                     rpc = self.mbus.session.call('vger.save', serialized_objs)
                     rpc.addCallback(self.on_vger_save_result)
-                    rpc.addCallback(self.on_get_parmz)
+                    rpc.addCallback(self.get_parmz)
                 rpc.addErrback(self.on_failure)
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
@@ -3099,7 +3099,7 @@ class Main(QMainWindow):
     # instead of recomputing parameters locally
     # ------------------------------------------------------------------------
 
-    def on_get_parmz(self, oids=None):
+    def get_parmz(self, oids=None):
         """
         Handle local dispatcher signal "get parmz".
         """
@@ -3118,6 +3118,40 @@ class Main(QMainWindow):
             if oid:
                 obj = orb.get(oid)
                 self.update_object_in_trees(obj, new=new)
+            elif state.get('updates_needed_for_remote_obj_deletion'):
+                # if get_parmz was triggered by remote deleted object ...
+                cname = state['updates_needed_for_remote_obj_deletion']
+                state['updates_needed_for_remote_obj_deletion'] = ""
+                if cname == 'RoleAssignment':
+                    self.update_project_role_labels()
+                    # whether ra applies to this user or not, send signal to
+                    # refresh the admin tool
+                    self.refresh_admin_tool.emit()
+                elif cname == 'Activity':
+                    # TODO:
+                    # may need to remove activity block in conops diagram ...
+                    pass
+                elif ((self.mode == 'system') and
+                    cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                              'Port', 'Flow']):
+                    # update tree and dashboard only if in "system" mode
+                    self.refresh_tree_and_dashboard()
+                    # DIAGRAM MAY NEED UPDATING
+                    if getattr(self, 'system_model_window', None):
+                        # rebuild diagram in case an object corresponded to a
+                        # block in the current diagram
+                        self.system_model_window.on_signal_to_refresh()
+                elif self.mode == 'db':
+                    self.set_db_interface()
+                elif (self.mode == 'component' and
+                    cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                              'Port', 'Flow']):
+                    # DIAGRAM MAY NEED UPDATING
+                    # update state['product'] if needed, and regenerate diagram
+                    # this will set placeholders in place of PgxnObject and diagram
+                    self.set_product_modeler_interface()
+                    if getattr(self, 'system_model_window', None):
+                        self.system_model_window.on_signal_to_refresh()
             else:
                 # refresh dashboard and hw library if appropriate ...
                 if getattr(self, 'dashboard_panel', None):
@@ -3368,12 +3402,11 @@ class Main(QMainWindow):
         # first check if we have the object
         obj = orb.get(obj_oid or '')
         if obj:
+            # NOTE (SCW 2023-01-14) new state key, used by get_parmz()
+            state['updates_needed_for_remote_obj_deletion'] = cname
             # if deleted object was the selected system, set selected system
             # and diagram subject to the project and refresh the diagram
             selected_sys_oid = state['system'].get(state.get('project'))
-            # cname is now part of the signature (has already been obtained
-            # locally by db lookup)
-            # cname = obj.__class__.__name__
             orb.log.debug(f'  deleted {cname} exists in local db ...')
             if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
                 if cname == 'HardwareProduct':
@@ -3390,16 +3423,18 @@ class Main(QMainWindow):
                         state['component_modeler_history'].remove(obj_oid)
                     orb.log.info('  deleted object was selected system')
                     state['system'][state['project']] = state['project']
-                    if hasattr(self, 'system_model_window'):
-                        try:
-                            orb.log.info('  setting diagram subject to project')
-                            self.system_model_window.history.pop()
-                            self.system_model_window.on_set_selected_system(
-                                                                self.project.oid)
-                        except:
-                            orb.log.info('  setting diagram subject failed')
-                            # diagram model window C++ object got deleted
-                            pass
+                    # NOTE: not currently using system_model_window.history
+                    # (broken)
+                    # if hasattr(self, 'system_model_window'):
+                        # try:
+                            # orb.log.info('  setting diagram subject to project')
+                            # self.system_model_window.history.pop()
+                            # self.system_model_window.on_set_selected_system(
+                                                                # self.project.oid)
+                        # except:
+                            # orb.log.info('  setting diagram subject failed')
+                            # # diagram model window C++ object got deleted
+                            # pass
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
@@ -3415,40 +3450,14 @@ class Main(QMainWindow):
                     self.w.show()
                 orb.delete([obj])
                 orb.log.debug('  deleted.')
-                self.update_project_role_labels()
-                # whether ra applies to this user or not, send signal to
-                # refresh the admin tool
-                self.refresh_admin_tool.emit()
             elif cname == 'Activity':
                 # TODO:  special case for "Mission"
-                dispatcher.send('remove activity', act=obj)
                 orb.delete([obj])
                 orb.log.debug('  deleted.')
             else:
                 orb.delete([obj])
                 orb.log.debug('  deleted.')
-            self.on_get_parmz()
-            # only attempt to update tree and dashboard if in "system" mode ...
-            if ((self.mode == 'system') and
-                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                          'Port', 'Flow']):
-                self.refresh_tree_and_dashboard()
-                # DIAGRAM MAY NEED UPDATING
-                if getattr(self, 'system_model_window', None):
-                    # rebuild diagram in case an object corresponded to a
-                    # block in the current diagram
-                    self.system_model_window.on_signal_to_refresh()
-            elif self.mode == 'db':
-                self.set_db_interface()
-            elif (self.mode == 'component' and
-                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                          'Port', 'Flow']):
-                # DIAGRAM MAY NEED UPDATING
-                # update state['product'] if needed, and regenerate diagram
-                # this will set placeholders in place of PgxnObject and diagram
-                self.set_product_modeler_interface()
-                if getattr(self, 'system_model_window', None):
-                    self.system_model_window.on_signal_to_refresh()
+            self.get_parmz()
         else:
             orb.log.debug('  oid not found in local db; ignoring.')
 
@@ -3515,7 +3524,7 @@ class Main(QMainWindow):
             orb.log.info('  - calling "vger.delete"')
             rpc = self.mbus.session.call('vger.delete', [oid])
             rpc.addCallback(self.on_rpc_vger_delete_result)
-            rpc.addCallback(self.on_get_parmz)
+            rpc.addCallback(self.get_parmz)
             rpc.addErrback(self.on_failure)
 
     def resync_current_project(self, msg=''):
@@ -4573,7 +4582,7 @@ class Main(QMainWindow):
             sobjs = serialize(orb, [product] + objs)
             rpc = self.mbus.session.call('vger.save', sobjs)
             rpc.addCallback(self.on_vger_save_result)
-            rpc.addCallback(self.on_get_parmz)
+            rpc.addCallback(self.get_parmz)
             rpc.addErrback(self.on_failure)
 
     def new_product_wizard(self):

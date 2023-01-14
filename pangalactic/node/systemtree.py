@@ -808,28 +808,13 @@ class SystemTreeModel(QAbstractItemModel):
         success = parent_node.remove_children(position, count)
         self.endRemoveRows()
         self.dataChanged.emit(parent, parent)
-        if acus_by_oid:
-            for acu_oid in acus_by_oid:
-                self.signal_deleted_if_local(oid=acu_oid, cname='Acu')
         # Acu deleted -> assembly is modified
         if assembly:
             assembly.mod_datetime = dtstamp()
             assembly.modifier = orb.get(state.get('local_user_oid'))
             orb.save([assembly])
             dispatcher.send('modified object', obj=assembly)
-        if psu_oids:
-            for psu_oid in psu_oids:
-                self.signal_deleted_if_local(oid=psu_oid,
-                                             cname='ProjectSystemUsage')
         return success
-
-    def signal_deleted_if_local(self, oid=None, cname=None):
-        if self.remote_deletion:
-            # if remote, DO NOT send "deleted object" signal, but set
-            # "remote_deletion" to False until next time ...
-            self.remote_deletion = False
-        else:
-            dispatcher.send(signal="deleted object", oid=oid, cname=cname)
 
     def insert_column(self, element_id):
         """

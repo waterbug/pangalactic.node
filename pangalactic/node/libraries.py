@@ -457,7 +457,7 @@ class LibraryListWidget(QWidget):
         dispatcher.send('toggle library size', expand=expand)
 
     def refresh_del(self, cname=None, **kw):
-        orb.log.debug('* library: received "object deleted" signal')
+        orb.log.debug('* library: received "deleted object" signal')
         self.refresh(cname=cname, **kw)
 
     def refresh_new(self, cname=None, **kw):
