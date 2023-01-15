@@ -302,8 +302,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_received_objects, 'remote: new')
         dispatcher.connect(self.on_remote_parm_del, 'remote: parm del')
         dispatcher.connect(self.on_remote_de_del, 'remote: de del')
-        dispatcher.connect(self.on_set_current_project_signal,
-                                                   'set current project')
         dispatcher.connect(self.on_drop_product, 'drop on product info')
         dispatcher.connect(self.on_drill_down, 'diagram object drill down')
         dispatcher.connect(self.on_comp_back, 'comp modeler back')
@@ -991,12 +989,16 @@ class Main(QMainWindow):
             self.sync_progress = ProgressDialog(title=title_text,
                                                 label=label_text,
                                                 parent=self)
-            # self.sync_progress.setAttribute(Qt.WA_DeleteOnClose)
             self.sync_progress.setMinimum(0)
             self.sync_progress.setMaximum(0)
             self.sync_progress.setMinimumDuration(500)
             self.sync_progress.resize(400, 100)
-            QApplication.processEvents()
+            # ---------------------------------------------------------------
+            # NOTE (SCW 2-23-01-14): this QApplication.processEvents() is
+            # commented because it caused the notorious and dreaded
+            # "QBackingStore::endPaint() called..." exception
+            # ---------------------------------------------------------------
+            # QApplication.processEvents()
             if local_objs:
                 for obj in local_objs:
                     # exclude reference data (ref_oids)
@@ -1006,7 +1008,7 @@ class Main(QMainWindow):
         else:
             self.statusbar.showMessage('project synced.')
         # NOTE: callback to on_project_sync_result() to handle result is added
-        # by on_set_current_project_signal()
+        # by on_set_current_project()
         return self.mbus.session.call('vger.sync_project', proj_oid, oid_dts)
 
     def on_user_objs_sync_result(self, data):
@@ -1048,7 +1050,10 @@ class Main(QMainWindow):
         Return:
             deferred:  result of `vger.save` rpc
         """
-        orb.log.info('* on_sync_result()')
+        if project_sync:
+            orb.log.info('* on_sync_result() for sync_current_project()')
+        else:
+            orb.log.info('* on_sync_result() for sync_user_created_objs_to_repo()')
         if getattr(self, 'sync_progress', None):
             try:
                 self.sync_progress.done(0)
@@ -1154,16 +1159,13 @@ class Main(QMainWindow):
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
         if sobjs_to_save:
-            # self.statusbar.showMessage('saving local objs to repo ...')
             rpc = self.mbus.session.call('vger.save', sobjs_to_save)
+            rpc.addCallback(self.on_vger_save_result)
+            rpc.addCallback(self.get_parmz)
         else:
-            # if user_objs_sync:
-                # self.statusbar.showMessage('user objects synced.')
-            # else:
-                # self.statusbar.showMessage('project synced.')
-                # state['synced_projects'].append(state.get('project'))
+            # don't need the final "get_parmz" here because we're done
             rpc = self.mbus.session.call('vger.save', [])
-        rpc.addCallback(self.on_vger_save_result)
+            rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
         return rpc
 
@@ -1274,7 +1276,7 @@ class Main(QMainWindow):
         used as handler for 'on_sync_library_result()' (at login) because when
         finished (no more chunks to get) it calls
         'self.resync_current_project()', which calls
-        'self.on_set_current_project_signal()'
+        'self.on_set_current_project()'
 
         Args:
             data (list):  a list of serialized objects
@@ -2342,10 +2344,8 @@ class Main(QMainWindow):
         Args:
             p (Project):  Project instance to be set
         """
-        # NOTE:  set_project() now just sets the 'project' state (project oid)
-        # and dispatches the 'set current project' signal
         if p:
-            # orb.log.debug('* set_project({})'.format(p.id))
+            orb.log.debug(f'* set_project({p.id})')
             state['project'] = p.oid
             if state['connected']:
                 self.role_label.setText('online: syncing project data ...')
@@ -2365,8 +2365,7 @@ class Main(QMainWindow):
         if not state['sys_tree_expansion'].get(self.project.oid):
             # orb.log.debug('* setting sys tree expansion level to default (2)')
             state['sys_tree_expansion'][self.project.oid] = 0
-        # orb.log.debug('  dispatching "set current project" signal ...')
-        dispatcher.send(signal="set current project")
+        self.on_set_current_project()
 
     def del_project(self):
         pass
@@ -3159,9 +3158,12 @@ class Main(QMainWindow):
                     self.rebuild_dashboard(force=True)
                 if hasattr(self, 'library_widget'):
                     self.library_widget.refresh(cname='HardwareProduct')
+            if state.get('modal views need update'):
+                self._update_modal_views()
+            self.statusbar.showMessage('synced.')
 
     def on_vger_save_result(self, stuff):
-        orb.log.debug('- vger.save rpc result: {}'.format(str(stuff)))
+        orb.log.debug('* vger.save rpc result: {}'.format(str(stuff)))
         try:
             msg = ''
             if stuff.get('new_obj_dts'):
@@ -3180,21 +3182,18 @@ class Main(QMainWindow):
                 orb.log.debug(f'  {msg}')
             if not msg:
                 msg = 'nothing to save; synced.'
-                orb.log.debug(f'* {msg}')
+                # NOTE: CAUTION! ONLY call showMessage if no other rpcs are to
+                # follow (e.g., no "get_parmz" callback, etc.) -- otherwise get
+                # the dreaded "QBackingStore::endPaint() called..." exception
+                self.statusbar.showMessage('synced.')
+                # NOTE: VERY IMPORTANT: updates the project, gui, etc.
+                if state.get('modal views need update'):
+                    self._update_modal_views()
             else:
                 msg = 'synced.'
-                orb.log.debug(f'* {msg}')
-            if state.get('modal views need update'):
-                self._update_modal_views()
-            QApplication.processEvents()
-            self.statusbar.showMessage('synced.')
-            orb.log.debug('vger save: {}'.format(msg))
+            orb.log.debug(f'  {msg}')
         except:
             orb.log.debug('  result format incorrect.')
-            if state.get('modal views need update'):
-                self._update_modal_views()
-            QApplication.processEvents()
-            self.statusbar.showMessage('synced.')
 
     def on_result(self, stuff):
         """
@@ -3532,7 +3531,7 @@ class Main(QMainWindow):
         Resync current project with repository.
         """
         orb.log.debug('* resync_current_project()')
-        self.on_set_current_project_signal(resync=True, msg=msg)
+        self.on_set_current_project(msg=msg)
 
     def full_resync(self):
         """
@@ -3546,15 +3545,15 @@ class Main(QMainWindow):
         else:
             return
 
-    def on_set_current_project_signal(self, resync=False, msg=''):
+    def on_set_current_project(self, msg=''):
         """
         Update views as a result of a project being set, syncing project data
         if [1] in "connected" state and [2] project is not "SANDBOX".
         """
         # NOTE: (SCW 2023-01-13) project resync is now done even if the project
         # has already been synced previously in the current session -- which
-        # also means the "resync" kw arg is ignored.
-        orb.log.debug('* on_set_current_project_signal()')
+        # also means the previously used "resync" kw arg is ignored.
+        orb.log.debug('* on_set_current_project()')
         project_oid = state.get('project')
         if ((project_oid and project_oid != 'pgefobjects:SANDBOX')
              and state.get('connected')):
@@ -3592,8 +3591,8 @@ class Main(QMainWindow):
         global_admin = is_global_admin(self.local_user)
         if p:
             self.project_selection.setText(p.id)
-            orb.log.debug('* set_project({})'.format(p.id))
-            state['project'] = str(p.oid)
+            # orb.log.debug('* set_project({})'.format(p.id))
+            # state['project'] = str(p.oid)
             # if hasattr(self, 'delete_project_action'):
             if p is self.sandbox:
                 # SANDBOX cannot be deleted, made collaborative, nor have
@@ -3679,9 +3678,9 @@ class Main(QMainWindow):
                         self.delete_project_action.setVisible(False)
         else:
             self.project_selection.setText('None')
-            orb.log.debug('* set_project(None)')
-            orb.log.debug('  setting project to SANDBOX (default)')
-            state['project'] = 'pgefobjects:SANDBOX'
+            # orb.log.debug('* set_project(None)')
+            orb.log.debug('  setting project label to SANDBOX (default)')
+            # state['project'] = 'pgefobjects:SANDBOX'
             role_label_txt = 'SANDBOX'
             if hasattr(self, 'delete_project_action'):
                 self.delete_project_action.setEnabled(False)
