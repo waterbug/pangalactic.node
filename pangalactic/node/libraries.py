@@ -180,9 +180,6 @@ class LibraryListView(QListView):
         self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
         self.create_actions()
         self.setup_context_menu()
-        dispatcher.connect(self.refresh, 'deleted object')
-        dispatcher.connect(self.refresh, 'new object')
-        dispatcher.connect(self.refresh, 'modified object')
 
     def sizeHint(self):
         return QSize(400, 450)
@@ -353,9 +350,6 @@ class LibraryListWidget(QWidget):
         if min_width:
             self.setMinimumWidth(min_width)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        dispatcher.connect(self.refresh_del, 'deleted object')
-        dispatcher.connect(self.refresh_new, 'new object')
-        dispatcher.connect(self.refresh_mod, 'modified object')
 
     def create_lib_widget(self, cname, include_subtypes=True, icon_size=None,
                           min_width=None):
@@ -588,9 +582,6 @@ class LibraryDialog(QDialog):
             # only listen for these signals if using FilterPanel, which does
             # not itself listen for them; if using LibraryListView, it already
             # listens for them
-            dispatcher.connect(self.refresh, 'deleted object')
-            dispatcher.connect(self.refresh, 'new object')
-            dispatcher.connect(self.refresh, 'modified object')
         else:
             lib_view = LibraryListView(cname, parent=parent)
         lib_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

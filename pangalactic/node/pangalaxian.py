@@ -1861,7 +1861,6 @@ class Main(QMainWindow):
                 need_to_refresh_diagram = True
                 if hasattr(self, 'sys_tree'):
                     need_to_refresh_tree = True
-                    # need_to_refresh_dashboard = True
             elif isinstance(obj, orb.classes['RoleAssignment']):
                 if getattr(obj, 'assigned_to', None) is self.local_user:
                     html = '<h3>You have been assigned the role:</h3>'
@@ -1875,7 +1874,7 @@ class Main(QMainWindow):
                     self.w.show()
                 # whether ra applies to this user or not, send signal to
                 # refresh the admin tool
-                # dispatcher.send('refresh admin tool')
+                # TODO: move this signal to after get_parmz() ...
                 self.refresh_admin_tool.emit()
                 self.update_project_role_labels()
             if self.mode == 'db':
@@ -1886,23 +1885,18 @@ class Main(QMainWindow):
             # delete any SANDBOX PSUs that were received
             orb.delete(to_delete)
         if (need_to_refresh_tree and state.get('mode') == 'system'):
-            self.refresh_tree_views()
-        # NOTE: this dashboard refresh is now unnecessary because it will be
-        # called by the result of the call to get_parmz(), below ...
-        # if (need_to_refresh_dashboard and
-            # getattr(self, 'dashboard', None)):
-            # self.refresh_dashboard()
+            state['tree needs refresh'] = True
         if (need_to_refresh_diagram and
             getattr(self, 'system_model_window', None)):
-            # rebuild diagram in case an object corresponded to a
-            # block in the current diagram
-            self.system_model_window.on_signal_to_refresh()
-        for cname in need_to_refresh_libraries:
-            # refresh library widgets ...
-            orb.log.debug('  updating libraries with: "{}"'.format(obj.id))
-            if hasattr(self, 'library_widget'):
-                # orb.log.debug('  - refreshing library_widget')
-                self.library_widget.refresh(cname=cname)
+            # set state to rebuild diagram in case an object corresponded to a
+            # block in the current diagram -- will be rebuilt in handling of
+            # get_parmz()
+            state['diagram needs refresh'] = True
+        if need_to_refresh_libraries and hasattr(self, 'library_widget'):
+            # set state for library classes whose widgets need a refresh ...
+            cnames = list(need_to_refresh_libraries)
+            orb.log.debug(f'  setting state "libs to refresh" to: "{cnames}"')
+            state["libs to refresh"] = cnames
         self.get_parmz()
         return True
 
@@ -3094,7 +3088,7 @@ class Main(QMainWindow):
             orb.log.info(f'  content: {str(content)}')
 
     # ------------------------------------------------------------------------
-    # NEW [2022-10-11]: when in "connected" state, call vger.get_parmz()
+    # NOTE [SCW 2022-10-11]: when in "connected" state, call vger.get_parmz()
     # instead of recomputing parameters locally
     # ------------------------------------------------------------------------
 
@@ -3110,6 +3104,13 @@ class Main(QMainWindow):
             rpc.addErrback(self.on_failure)
 
     def on_vger_get_parmz_result(self, data):
+        """
+        Handle result of rpc vger.get_parmz().  Since this rpc is typically the
+        last in a chain of rpc callbacks, it is tasked with doing all needed
+        gui updates (which would cause various problems and possibly crashes if
+        attempted while rpc operations are still being processed).
+        """
+        libs_refreshed = []
         if data:
             # orb.log.info('* got parmz data, updating ...')
             parameterz.update(data)
@@ -3117,6 +3118,7 @@ class Main(QMainWindow):
             if oid:
                 obj = orb.get(oid)
                 self.update_object_in_trees(obj, new=new)
+                state['tree needs refresh'] = False
             elif state.get('updates_needed_for_remote_obj_deletion'):
                 # if get_parmz was triggered by remote deleted object ...
                 cname = state['updates_needed_for_remote_obj_deletion']
@@ -3135,11 +3137,13 @@ class Main(QMainWindow):
                               'Port', 'Flow']):
                     # update tree and dashboard only if in "system" mode
                     self.refresh_tree_and_dashboard()
+                    state['tree needs refresh'] = False
                     # DIAGRAM MAY NEED UPDATING
                     if getattr(self, 'system_model_window', None):
                         # rebuild diagram in case an object corresponded to a
                         # block in the current diagram
                         self.system_model_window.on_signal_to_refresh()
+                        state['diagram needs refresh'] = False
                 elif self.mode == 'db':
                     self.set_db_interface()
                 elif (self.mode == 'component' and
@@ -3151,6 +3155,7 @@ class Main(QMainWindow):
                     self.set_product_modeler_interface()
                     if getattr(self, 'system_model_window', None):
                         self.system_model_window.on_signal_to_refresh()
+                        state['diagram needs refresh'] = False
             else:
                 # refresh dashboard and hw library if appropriate ...
                 if getattr(self, 'dashboard_panel', None):
@@ -3158,9 +3163,26 @@ class Main(QMainWindow):
                     self.rebuild_dashboard(force=True)
                 if hasattr(self, 'library_widget'):
                     self.library_widget.refresh(cname='HardwareProduct')
-            if state.get('modal views need update'):
-                self._update_modal_views()
-            self.statusbar.showMessage('synced.')
+                    libs_refreshed.append('HardwareProduct')
+        if state.get('libs to refresh'):
+            # refresh any library widgets that haven't been refreshed ...
+            if hasattr(self, 'library_widget'):
+                for cname in state.get('libs to refresh'):
+                    if cname not in libs_refreshed:
+                        # orb.log.debug('  - refreshing library_widget')
+                        self.library_widget.refresh(cname=cname)
+            state['libs to refresh'] = []
+        if ((self.mode == 'system') and
+            state.get('tree needs refresh')):
+            self.refresh_tree_views()
+            state['tree needs refresh'] = False
+        if (getattr(self, 'system_model_window', None)
+            and state.get('diagram needs refresh')):
+            self.system_model_window.on_signal_to_refresh()
+            state['diagram needs refresh'] = False
+        if state.get('modal views need update'):
+            self._update_modal_views()
+        self.statusbar.showMessage('synced.')
 
     def on_vger_save_result(self, stuff):
         orb.log.debug('* vger.save rpc result: {}'.format(str(stuff)))

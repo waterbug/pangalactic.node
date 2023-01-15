@@ -282,12 +282,12 @@ class SystemDashboard(QTreeView):
     def show_grid(self):
         self.grid_lines = True
         prefs['dash_grid_lines'] = True
-        self.repaint()
+        self.update()
 
     def hide_grid(self):
         self.grid_lines = False
         prefs['dash_grid_lines'] = False
-        self.repaint()
+        self.update()
 
     def set_alt_colors(self):
         self.setAlternatingRowColors(True)
