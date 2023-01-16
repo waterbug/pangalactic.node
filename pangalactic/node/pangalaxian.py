@@ -2785,96 +2785,6 @@ class Main(QMainWindow):
         # orb.log.debug('  rpc success.')
         # self.statusbar.showMessage('synced.')
 
-    def on_remote_get_mod_object(self, ser_objs):
-        """
-        Get a list of remote objects that have been modified.
-
-        Args:
-            ser_objs (list of dict):  a list of serialized objects
-        """
-        orb.log.info('* on_remote_get_mod_object()')
-        orb.log.debug(f'  received {len(ser_objs)} serialized objects')
-        old_acus = [orb.get(so.get('oid')) for so in ser_objs
-                    if so.get('_cname') == 'Acu']
-        old_acu_comp_oids = [acu.component.oid for acu in old_acus]
-        old_psus = [orb.get(so.get('oid')) for so in ser_objs
-                    if so.get('_cname') == 'ProjectSystemUsage']
-        old_psu_system_oids = [psu.system.oid for psu in old_psus]
-        objs =  deserialize(orb, ser_objs)
-        refresh_diagram = False
-        if not objs:
-            orb.log.debug('  (all objs received were already in the local db')
-            orb.log.debug('   so deserialize() returned nothing)')
-        mod_oids = []
-        for n, obj in enumerate(objs):
-            # same as for local 'modified object' but without the remote
-            # calls ...
-            mod_oids.append(obj.oid)
-            cname = obj.__class__.__name__
-            orb.log.debug('  received:')
-            orb.log.debug('  ({}) [{}] "{}"'.format(n, cname, obj.id or 'no id'))
-            if cname == 'RoleAssignment':
-                if obj.assigned_to is self.local_user:
-                    html = '<h3>You have been assigned the role:</h3>'
-                    html += '<p><b><font color="green">{}</font></b>'.format(
-                                                        obj.assigned_role.name)
-                    html += ' in <b><font color="green">{}</font>'.format(
-                                    getattr(obj.role_assignment_context, 'id',
-                                            'global context'))
-                    html += '</b></p>'
-                    self.w = NotificationDialog(html, parent=self)
-                    self.w.show()
-            elif cname == 'Activity':
-                # TODO: first check whether ConOps modeler is open
-                dispatcher.send("activity remote mod", activity=obj)
-            elif hasattr(self, 'library_widget'):
-                self.library_widget.refresh(cname=cname)
-            if self.mode == 'system':
-                orb.log.debug('  updating system tree ...')
-                if isinstance(obj, (orb.classes['HardwareProduct'],
-                                    orb.classes['Acu'],
-                                    orb.classes['ProjectSystemUsage'])):
-                    self.update_object_in_trees(obj)
-            if getattr(self, 'system_model_window', None):
-                orb.log.debug('  have diagram, check if update is needed ...')
-                if (isinstance(obj, orb.classes['HardwareProduct'])
-                    and obj.oid in self.system_model_window.diagram_oids):
-                    # DEPRECATED: "block mod" signal just refreshes the
-                    # diagram, so just do that instead ...
-                    # orb.log.debug('  sending "block mod" signal...')
-                    # dispatcher.send(signal='block mod', oid=obj.oid)
-                    self.system_model_window.on_signal_to_refresh()
-                elif isinstance(obj, orb.classes['Acu']):
-                    if obj.assembly is self.system_model_window.obj:
-                        msg = 'assembly is subject of diagram, refresh ...'
-                        orb.log.debug(f'  {msg}')
-                        refresh_diagram = True
-                    if state.get('system', '') in old_acu_comp_oids:
-                        msg = 'old component was subject; resetting ...'
-                        orb.log.debug(f'  {msg}')
-                        self.set_system_model_window(system=obj.component)
-                elif isinstance(obj, orb.classes['ProjectSystemUsage']):
-                    if obj.project is self.system_model_window.obj:
-                        msg = 'project is diagram subject, refresh ...'
-                        orb.log.debug(f'  {msg}')
-                        refresh_diagram = True
-                    if state.get('system', '') in old_psu_system_oids:
-                        msg = 'old system was subject; resetting ...'
-                        orb.log.debug(f'  {msg}')
-                        self.set_system_model_window(system=obj.system)
-            # NOTE: no need to do anything in 'db' mode -- the object table now
-            # listens for the 'mod object' signal and handles it ...
-            elif self.mode == 'db' and cname == state.get('current_cname'):
-                self.refresh_cname_list()
-                self.set_object_table_for(cname)
-        if (refresh_diagram and getattr(self, 'system_model_window', None)):
-            self.system_model_window.on_signal_to_refresh()
-        if mod_oids:
-            orb.log.info('  - dispatching signal "update pgxno"')
-            orb.log.info(f'    with oids: {str(mod_oids)}')
-            dispatcher.send('update pgxno', mod_oids=mod_oids)
-        self.update_project_role_labels()
-
     def on_freeze_signal(self, oids=None):
         """
         Handle local "freeze" signal.
@@ -4990,8 +4900,6 @@ class Main(QMainWindow):
                             "Project Data Import", message,
                             QMessageBox.Ok, self)
                 popup.show()
-                if hasattr(self, 'library_widget'):
-                    self.library_widget.refresh()
                 if hasattr(self, 'sys_tree'):
                     self.refresh_tree_and_dashboard()
                 return
