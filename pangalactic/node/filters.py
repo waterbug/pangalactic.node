@@ -728,9 +728,10 @@ class FilterPanel(QWidget):
         self.set_source_model(self.create_model(objs=self.objs))
         self.create_actions()
         self.setup_context_menu()
-        dispatcher.connect(self.on_new_object_signal, 'new object')
-        dispatcher.connect(self.on_mod_object_signal, 'modified object')
-        dispatcher.connect(self.on_del_object_signal, 'deleted object')
+        # TODO: replace these with pyqtSignal
+        # dispatcher.connect(self.on_new_object_signal, 'new object')
+        # dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        # dispatcher.connect(self.on_del_object_signal, 'deleted object')
         dispatcher.connect(self.refresh, 'units set')
         self.dirty = False
 
@@ -797,8 +798,10 @@ class FilterPanel(QWidget):
         self.view = view
         self.proxy_model.view = view
 
+    # NOTE: AVOID this method -- it is causing Qt-level repaint exceptions!
+    # TODO: rewrite to use correct methods to update a source model
     def refresh(self):
-        # orb.log.debug('  - FilterPanel.refresh()')
+        orb.log.debug('  - FilterPanel.refresh()')
         if not self.objs:
             if self.as_library and self.cname:
                 objs = orb.get_by_type(self.cname)
@@ -936,6 +939,7 @@ class FilterPanel(QWidget):
                              parent=self)
             dlg.show()
 
+    # TODO: rewrite to use correct methods to update a source model
     def add_object(self, obj):
         """
         Convenience method for adding a new library object to the model, which
@@ -946,6 +950,7 @@ class FilterPanel(QWidget):
         self.objs.append(obj)
         self.set_source_model(self.create_model())
 
+    # TODO: rewrite to use correct methods to update a source model
     def delete_object(self, oid):
         """
         Convenience method for deleting a library object from the model.
@@ -967,6 +972,7 @@ class FilterPanel(QWidget):
             orb.log.debug('               ... on obj: {}'.format(obj.id))
             self.add_object(obj)
 
+    # TODO: rewrite to use correct methods to update a source model
     def on_mod_object_signal(self, obj=None, cname=''):
         # orb.log.info('* [filters] received "modified object" signal')
         # orb.log.debug('               on obj: {}'.format(obj.id))

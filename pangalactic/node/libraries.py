@@ -450,43 +450,33 @@ class LibraryListWidget(QWidget):
             expand = True
         dispatcher.send('toggle library size', expand=expand)
 
-    def refresh_del(self, cname=None, **kw):
-        orb.log.debug('* library: received "deleted object" signal')
-        self.refresh(cname=cname, **kw)
-
-    def refresh_new(self, cname=None, **kw):
-        orb.log.debug('* library: received "new object" signal')
-        self.refresh(cname=cname, **kw)
-
-    def refresh_mod(self, cname=None, **kw):
-        orb.log.debug('* library: received "modified object" signal')
-        self.refresh(cname=cname, **kw)
-
+    # NOTE: AVOID this method -- it is causing Qt-level repaint exceptions!
+    # See FilterPanel for notes on refactoring / rewriting ...
     def refresh(self, cname=None, **kw):
-        # orb.log.debug("* LibraryListWidget.refresh(cname={})".format(cname))
+        orb.log.debug("* LibraryListWidget.refresh(cname={})".format(cname))
         if cname:
             # if cname, just refresh that lib widget
             lib_widget = self.libraries.get(cname)
             if hasattr(lib_widget, 'refresh'):
-                # orb.log.debug("  lib_widget.refresh() for {}".format(cname))
+                orb.log.debug("  lib_widget.refresh() for {}".format(cname))
                 lib_widget.refresh()
             elif (hasattr(lib_widget, 'model') and
                   hasattr(lib_widget.model(), 'refresh')):
-                # orb.log.debug("  lib_widget.model().refresh()")
-                # orb.log.debug("  for {}".format(cname))
+                orb.log.debug("  lib_widget.model().refresh()")
+                orb.log.debug("  for {}".format(cname))
                 lib_widget.model().refresh()
         else:
             # otherwise, refresh all lib widgets
             for cname in self.libraries:
                 lib_widget = self.libraries[cname]
                 if hasattr(lib_widget, 'refresh'):
-                    # orb.log.debug("  lib_widget.refresh() for {}".format(
-                                                                    # cname))
+                    orb.log.debug("  lib_widget.refresh() for {}".format(
+                                                                    cname))
                     lib_widget.refresh()
                 elif (hasattr(lib_widget, 'model') and
                       hasattr(lib_widget.model(), 'refresh')):
-                    # orb.log.debug("  lib_widget.model().refresh()")
-                    # orb.log.debug("  for {}".format(cname))
+                    orb.log.debug("  lib_widget.model().refresh()")
+                    orb.log.debug("  for {}".format(cname))
                     lib_widget.model().refresh()
         # call on_only_mine_toggled() to ensure filtering is consistent with
         # state after a refresh

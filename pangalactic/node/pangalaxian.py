@@ -404,7 +404,6 @@ class Main(QMainWindow):
                 orb.log.info('* mbus "onjoined" event received ...')
                 dispatcher.send(signal='onjoined')
 
-            self.statusbar.showMessage('connecting to the message bus ...')
             if self.auth_method == 'cryptosign':
                 orb.log.info('* using "cryptosign" (public key) auth ...')
                 if not os.path.exists(self.key_path):
@@ -710,7 +709,7 @@ class Main(QMainWindow):
                         obj.creator = self.local_user
                         obj.modifier = self.local_user
                         orb.save([obj])
-                        dispatcher.send('modified object', obj=obj)
+                        # dispatcher.send('modified object', obj=obj)
             else:
                 orb.log.debug('    + login user matches current local user.')
             uid = '{} [{}]'.format(self.local_user.name,
@@ -1460,19 +1459,19 @@ class Main(QMainWindow):
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
                 n = len(content)
-                log_msg += f'received {n} decloaked objects'
+                orb.log.debug(f'received {n} "decloaked" object(s)')
                 self.on_received_objects(content)
             elif subject == 'new':
                 # NOTE: content of 'new' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
                 n = len(content)
-                log_msg += f'received {n} new objects'
+                orb.log.debug(f'received {n} "new" object(s)')
                 self.on_received_objects(content)
             elif subject == 'modified':
                 # NOTE: content of 'modified' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
                 n = len(content)
-                log_msg += f"received {n} modified objects"
+                orb.log.debug(f'received {n} modified object(s)')
                 self.on_received_objects(content)
             elif subject == 'new mode defs':
                 orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
@@ -1719,7 +1718,6 @@ class Main(QMainWindow):
             for so in ser_objs:
                 if so.get('_cname') == 'Person':
                     userid = so.get('id') or ''
-            # dispatcher.send('person added', userid=userid, pk_added=pk_added)
             self.admin_dlg.on_person_added_success(userid=userid,
                                                    pk_added=pk_added)
             if (getattr(self, 'person_dlg', None) and
@@ -1782,7 +1780,6 @@ class Main(QMainWindow):
             finally:
                 orb.log.debug('  - active users: {}'.format(
                               state['active_users']))
-                # dispatcher.send('got people')
                 self.admin_dlg.on_got_people()
         else:
             orb.log.debug('- rpc failed: no data received!')
@@ -3106,17 +3103,19 @@ class Main(QMainWindow):
     def on_vger_get_parmz_result(self, data):
         """
         Handle result of rpc vger.get_parmz().  Since this rpc is typically the
-        last in a chain of rpc callbacks, it is tasked with doing all needed
-        gui updates (which would cause various problems and possibly crashes if
-        attempted while rpc operations are still being processed).
+        last in a chain of rpc callbacks, it has responsibility for doing all
+        needed GUI updates (which would cause various problems and possibly
+        crashes if attempted while rpc operations are being processed).
         """
-        libs_refreshed = []
+        # orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
+        # libs_refreshed = []
         if data:
-            # orb.log.info('* got parmz data, updating ...')
+            # orb.log.info('  [ovgpr] got parmz data, updating ...')
             parameterz.update(data)
             oid, new = state.get("upd_obj_in_trees_needed", ("", ""))
             if oid:
                 obj = orb.get(oid)
+                # orb.log.info('  [ovgpr] calling update_object_in_trees() ...')
                 self.update_object_in_trees(obj, new=new)
                 state['tree needs refresh'] = False
             elif state.get('updates_needed_for_remote_obj_deletion'):
@@ -3136,12 +3135,16 @@ class Main(QMainWindow):
                     cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                               'Port', 'Flow']):
                     # update tree and dashboard only if in "system" mode
+                    # txt = 'calling refresh_tree_and_dashboard() ...'
+                    # orb.log.info(f'  [ovgpr] {txt}')
                     self.refresh_tree_and_dashboard()
                     state['tree needs refresh'] = False
                     # DIAGRAM MAY NEED UPDATING
                     if getattr(self, 'system_model_window', None):
                         # rebuild diagram in case an object corresponded to a
                         # block in the current diagram
+                        # txt = 'system_model_window.on_signal_to_refresh() ...'
+                        # orb.log.info(f'  [ovgpr] calling {txt}')
                         self.system_model_window.on_signal_to_refresh()
                         state['diagram needs refresh'] = False
                 elif self.mode == 'db':
@@ -3154,33 +3157,55 @@ class Main(QMainWindow):
                     # this will set placeholders in place of PgxnObject and diagram
                     self.set_product_modeler_interface()
                     if getattr(self, 'system_model_window', None):
+                        # txt = 'system_model_window.on_signal_to_refresh() ...'
+                        # orb.log.info(f'  [ovgpr] calling {txt}')
                         self.system_model_window.on_signal_to_refresh()
                         state['diagram needs refresh'] = False
             else:
                 # refresh dashboard and hw library if appropriate ...
                 if getattr(self, 'dashboard_panel', None):
                     # NOTE: self.refresh_dashboard() is not enough.
+                    # txt = 'rebuild_dashboard(force=True) ...'
+                    # orb.log.info(f'  [ovgpr] calling {txt}')
                     self.rebuild_dashboard(force=True)
-                if hasattr(self, 'library_widget'):
-                    self.library_widget.refresh(cname='HardwareProduct')
-                    libs_refreshed.append('HardwareProduct')
-        if state.get('libs to refresh'):
-            # refresh any library widgets that haven't been refreshed ...
-            if hasattr(self, 'library_widget'):
-                for cname in state.get('libs to refresh'):
-                    if cname not in libs_refreshed:
-                        # orb.log.debug('  - refreshing library_widget')
-                        self.library_widget.refresh(cname=cname)
-            state['libs to refresh'] = []
+                # TODO: DO NOT call "refresh()" on libraries -- that function
+                # is causing "paint" exceptions -- modify to update libraries
+                # directly using pyqtSignal (replacing the FilterPanel's
+                # current dispatcher connections to "new|modified|deleted
+                # object" signals)
+                # if hasattr(self, 'library_widget'):
+                    # txt = 'library_widget.refresh(cname="HardwareProduct") ...'
+                    # orb.log.info(f'  [ovgpr] calling {txt}')
+                    # self.library_widget.refresh(cname='HardwareProduct')
+                    # libs_refreshed.append('HardwareProduct')
+        else:
+            orb.log.info('  [ovgpr] no parmz data, checking for other updates ...')
+        # TODO: DO NOT call "refresh()" on libraries -- that function is
+        # causing "paint" exceptions -- modify to update libraries directly
+        # using pyqtSignal (replacing the FilterPanel's current dispatcher
+        # connections to "new|modified|deleted object" signals)
+        # if state.get('libs to refresh'):
+            # # refresh any library widgets that haven't been refreshed ...
+            # cnames = state['libs to refresh']
+            # orb.log.info(f'  [ovgpr] libs to refresh: {cnames}')
+            # if hasattr(self, 'library_widget'):
+                # for cname in cnames:
+                    # if cname not in libs_refreshed:
+                        # # orb.log.debug('  - refreshing library_widget')
+                        # self.library_widget.refresh(cname=cname)
+            # state['libs to refresh'] = []
         if ((self.mode == 'system') and
             state.get('tree needs refresh')):
+            # orb.log.info('  [ovgpr] tree needs refresh ...')
             self.refresh_tree_views()
             state['tree needs refresh'] = False
         if (getattr(self, 'system_model_window', None)
             and state.get('diagram needs refresh')):
+            # orb.log.info('  [ovgpr] diagram needs refresh ...')
             self.system_model_window.on_signal_to_refresh()
             state['diagram needs refresh'] = False
         if state.get('modal views need update'):
+            # orb.log.info('  [ovgpr] modal views need update ...')
             self._update_modal_views()
         self.statusbar.showMessage('synced.')
 
@@ -4538,8 +4563,8 @@ class Main(QMainWindow):
             for thing in things:
                 thing.owner = pgana
             orb.db.commit()
-            for thing in things:
-                dispatcher.send('modified object', obj=thing)
+            # for thing in things:
+                # dispatcher.send('modified object', obj=thing)
         orb.delete([self.project])
         if len(self.projects) > 1:
             self.project = self.projects[-1]
