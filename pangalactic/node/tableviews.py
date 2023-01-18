@@ -553,25 +553,34 @@ class CompareWidget(QDialog):
 
 if __name__ == "__main__":
     import sys
-    orb.start(home='junk_home_dev', debug=True, test=True, console=True)
+    orb.start(home='/home/waterbug/cattens_home_dev', debug=True, test=True,
+              console=True)
     app = QApplication(sys.argv)
-    cview = [
-        'System Name',
-        'System Description'
-        ]
-    uview = [
-        'X_vertex',
-        'Y_vertex',
-        'Z_vertex',
-        'RotX_vertex',
-        'RotY_vertex',
-        'RotZ_vertex',
-        'dRMSWFE_dx',
-        'dRMSWFE_rx',
-        'dLOSx_dx',
-        'dLOSx_rx'
-        ]
-    w = SystemInfoTable(component_view=cview, usage_view=uview)
+    # cview = [
+        # 'System Name',
+        # 'System Description'
+        # ]
+    # uview = [
+        # 'X_vertex',
+        # 'Y_vertex',
+        # 'Z_vertex',
+        # 'RotX_vertex',
+        # 'RotY_vertex',
+        # 'RotZ_vertex',
+        # 'dRMSWFE_dx',
+        # 'dRMSWFE_rx',
+        # 'dLOSx_dx',
+        # 'dLOSx_rx'
+        # ]
+    # w = SystemInfoTable(component_view=cview, usage_view=uview)
+    pt = orb.get('pgefobjects:ProductType.battery')
+    products = orb.search_exact(cname='HardwareProduct', product_type=pt)
+    w = ObjectTableView(products)
+    twanger = orb.get('test:twanger')
+    iidrive = orb.get('test:iidrive')
+    mr_fusion = orb.get('test:mr_fusion')
+    # w.main_table_model.add_object(twanger)
+    w.main_table_model.add_objects([twanger, iidrive, mr_fusion])
     w.show()
     sys.exit(app.exec_())
 

@@ -3,7 +3,6 @@ A set of custom TableModels for use with QTableView.
 """
 # stdlib
 import os, re
-from textwrap import wrap
 
 # louie
 # from louie import dispatcher
@@ -67,6 +66,13 @@ class ListTableModel(QAbstractTableModel):
 class MappingTableModel(QAbstractTableModel):
     """
     A table model based on a list of dict instances.
+
+    Attributes:
+        ds (list):  list of dict instances
+        aligns (list of str):  list of alignments ("left", "right", or
+            "center") for each column
+        as_library (bool): (default: False) if True, provide icons, etc.
+        default_icon (QIcon): default icon associated with a row
     """
     def __init__(self, ds, as_library=False, icons=None, aligns=None,
                  parent=None, **kwargs):
@@ -126,17 +132,21 @@ class MappingTableModel(QAbstractTableModel):
             return True
         return False
 
+    def insertRows(self, row, count, parent=QModelIndex()):
+        if row <= len(self.ds):
+            self.beginInsertRows(QModelIndex(), row, row+count-1)
+            for n in range(count):
+                self.ds.insert(row, {})
+            self.endInsertRows()
+            return True
+        else:
+            return False
+
     def removeRows(self, row, count, parent=QModelIndex()):
-        if row < len(self.ds):
-            # self.beginRemoveRows()
-            self.beginResetModel()
-            del self.ds[row]
-            # self.endRemoveRows()
-            self.endResetModel()
-            # NOTE the 3rd arg is an empty list -- reqd for pyqt5
-            # (or the actual role(s) that changed, e.g. [Qt.EditRole])
-            idx = self.createIndex(row, 0)
-            self.dataChanged.emit(idx, idx, [])
+        if row + count - 1 <= len(self.ds):
+            self.beginRemoveRows(QModelIndex(), row, row + count - 1)
+            del self.ds[row : row + count - 1]
+            self.endRemoveRows()
             return True
         else:
             return False
@@ -183,6 +193,8 @@ def obj_view_to_dict(obj, view):
         if a in schema['field_names']:
             if a == 'id':
                 d[a] = obj.id
+                # a possible option (for Product instances): id + version
+                # d[a] = display_id(obj)
             elif a in TEXT_PROPERTIES:
                 d[a] = (getattr(obj, a) or ' ').replace('\n', ' ')
             elif schema['fields'][a]['range'] == 'datetime':
@@ -324,7 +336,7 @@ class ObjectTableModel(MappingTableModel):
         """
         try:
             # apply MappingTableModel.setData, which takes a dict as value
-            super().setData(index, self.get_mapping_for_obj(obj, self.view))
+            super().setData(index, obj_view_to_dict(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
             super().dataChanged.emit(index, index)
@@ -333,19 +345,34 @@ class ObjectTableModel(MappingTableModel):
             return False
 
     def add_object(self, obj):
-        self.objs.append(obj)
-        # NOTE: begin/endResetModel works better than begin/endInsertRows
-        new_row = len(self.objs) - 1
-        idx = self.createIndex(new_row, 0)
+        n = self.rowCount()
         self.beginResetModel()
+        self.insertRows(n, 1)
+        idx = self.createIndex(n, 0)
         self.setData(idx, obj)
         self.endResetModel()
         return True
 
+    def add_objects(self, objs):
+        n = self.rowCount()
+        self.beginResetModel()
+        m = len(objs)
+        self.insertRows(n, m)
+        for i, obj in enumerate(objs):
+            idx = self.createIndex(n + i, 0)
+            self.setData(idx, obj)
+        self.endResetModel()
+        return True
+
     def mod_object(self, obj):
+        """
+        Replace an object (identified by oid) with a more recently modified
+        instance of itself.
+        """
         orb.log.debug("  ObjectTableModel.mod_object() ...")
         try:
-            row = self.objs.index(obj)  # raises ValueError if problem
+            oids = [o.oid for o in self.objs]
+            row = oids.index(obj.oid)  # raises ValueError if problem
             orb.log.debug("    object found at row {}".format(row))
             idx = self.index(row, 0, parent=QModelIndex())
             self.beginResetModel()
@@ -354,198 +381,15 @@ class ObjectTableModel(MappingTableModel):
             return idx
         except:
             # possibly because my C++ object has been deleted ...
-            txt = 'object "{}" (oid {}) not in list.'.format(obj.id, obj.oid)
-            orb.log.debug("    {}".format(txt))
+            txt = f'object "{obj.id}" (oid {obj.oid}) not found.'
+            orb.log.debug(f"    {txt}")
         return QModelIndex()
 
-    def removeRow(self, row, index=QModelIndex()):
+    # TODO: make this into "del_object" (find obj by oid, del that row)
+    def removeRow(self, row):
         if row < len(self.objs):
             self.objs = self.objs[:row] + self.objs[row+1:]
-            self.removeRows(row, 1, index)
-            return True
-        else:
-            return False
-
-    def mimeTypes(self):
-        return [to_media_name(self.cname)]
-
-    def mimeData(self):
-        mime_data = QMimeData()
-        mime_data.setData(to_media_name(self.cname), 'mimeData')
-        return mime_data
-
-    def supportedDropActions(self):
-        return Qt.CopyAction
-
-
-class XObjectTableModel(MappingTableModel):
-    """
-    A table model for parametrized objects.  Like the ObjectTableModel, it is a
-    MappingTableModel subclass based on a list of objects, but with the added
-    capability of including columns for "parameters" and "data elements" (as
-    defined in the p.core.parametrics module) of the objects in addition to
-    their attributes, which are assigned in their class definition.
-
-    Attributes:
-        cname (str): class name of the objects
-        column_labels (list):  list of column header labels (strings)
-    """
-
-    def __init__(self, objs, view=None, with_none=False, as_library=False,
-                 parent=None, **kwargs):
-        """
-        Args:
-            objs (list):  list of objects
-
-        Keyword Args:
-            view (list):  list of field names (columns)
-            with_none (bool):  (default: False) if True, include a "NullObject"
-                (used for ObjectSelectionDialog when a "None" choice is needed)
-            as_library (bool): (default: False) if True, provide icons, etc.
-            parent (QWidget):  parent widget
-        """
-        # orb.log.debug("* XObjectTableModel initializing ...")
-        self.objs = objs or []
-        icons = []
-        if as_library:
-            # orb.log.debug("  ... as library ...")
-            icons = [QIcon(get_pixmap(obj)) for obj in objs]
-        # orb.log.debug("  ... with {} objects.".format(len(objs)))
-        self.column_labels = ['No Data']
-        self.view = view or ['']
-        self.cname = ''
-        if self.objs:
-            self.cname = objs[0].__class__.__name__
-            self.schema = orb.schemas.get(self.cname) or {}
-            if not self.view:
-                self.view = MAIN_VIEWS.get(self.cname,
-                                           ['id', 'name', 'description'])
-            if with_none:
-                null_obj = NullObject()
-                for name in self.view:
-                    val = ''
-                    if name == 'id':
-                        val = 'None'
-                    setattr(null_obj, name, val)
-                self.objs.insert(0, null_obj)
-            # NOTE:  this works but may need performance optimization when
-            # the table holds a large number of objects
-            ds = [self.get_mapping_for_obj(o, self.view) for o in self.objs]
-            self.column_labels = [self.get_header(x) for x in self.view]
-        else:
-            ds = [{0:'no data'}]
-            self.view = ['id']
-            if with_none:
-                null_obj = NullObject()
-                for name in self.view:
-                    val = ''
-                    if name == 'id':
-                        val = 'None'
-                    setattr(null_obj, name, val)
-                self.objs = [null_obj]
-                d = dict()
-                d['id'] = 'None'
-                ds = [d]
-        super().__init__(ds, as_library=as_library, icons=icons,
-                         parent=parent, **kwargs)
-
-    def get_header(self, col_id):
-        if col_id in self.schema['fields']:
-            return pname_to_header_label(col_id)
-        pd = parm_defz.get(col_id)
-        if pd:
-            units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
-                                                    pd['dimensions'], '')
-            if units:
-                units = '(' + units + ')'
-            return '   \n   '.join(wrap(pd['name'], width=7,
-                                   break_long_words=False) + [units])
-        elif col_id in de_defz:
-            de_def = de_defz.get(col_id, '')
-            if de_def:
-                return '   \n   '.join(wrap(de_def['name'], width=7,
-                                       break_long_words=False))
-        else:
-            txt = ' '.join([s.capitalize() for s in col_id.split('_')])
-            return txt
-
-    def get_mapping_for_obj(self, obj, view):
-        """
-        Return the dict representation of an extended object.
-        """
-        d = dict()
-        for name in view:
-            if name not in self.schema['fields']:
-                if name in parm_defz:
-                    val = get_pval_as_str(obj.oid, name)
-                elif name in de_defz:
-                    val = get_dval_as_str(obj.oid, name)
-                else:
-                    val = '-'
-            elif name == 'id':
-                val = display_id(obj)
-            elif name in TEXT_PROPERTIES:
-                val = (getattr(obj, name) or ' ').replace('\n', ' ')
-            elif self.schema['fields'][name]['range'] == 'datetime':
-                val = dt2local_tz_str(getattr(obj, name))
-            elif self.schema['fields'][name]['field_type'] == 'object':
-                val = (getattr(getattr(obj, name), 'name', None)
-                       or getattr(getattr(obj, name), 'id', '[None]'))
-            else:
-                val = str(getattr(obj, name))
-            d[name] = val
-        return d
-
-    def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
-            return self.column_labels[section]
-        return QAbstractTableModel.headerData(self, section, orientation, role)
-
-    def setData(self, index, obj, role=Qt.UserRole):
-        """
-        Reimplementation using an object as the 'value' (based on underlying
-        MappingTableModel setData, which takes a dict as the 'value').
-        """
-        try:
-            # apply MappingTableModel.setData, which takes a dict as value
-            super().setData(index, self.get_mapping_for_obj(obj, self.view))
-            # this 'dataChanged' should not be necessary, since 'dataChanged is
-            # emitted by the 'setData' we just called
-            super().dataChanged.emit(index, index)
-            return True
-        except:
-            return False
-
-    def add_object(self, obj):
-        self.objs.append(obj)
-        # NOTE: begin/endResetModel works better than begin/endInsertRows
-        new_row = len(self.objs) - 1
-        idx = self.createIndex(new_row, 0)
-        self.beginResetModel()
-        self.setData(idx, obj)
-        self.endResetModel()
-        return True
-
-    def mod_object(self, obj):
-        orb.log.debug("  XObjectTableModel.mod_object() ...")
-        try:
-            row = self.objs.index(obj)  # raises ValueError if problem
-            orb.log.debug("    object found at row {}".format(row))
-            idx = self.index(row, 0, parent=QModelIndex())
-            self.beginResetModel()
-            self.setData(idx, obj)
-            self.endResetModel()
-            return idx
-        except:
-            # possibly because my C++ object has been deleted ...
-            txt = 'object "{}" (oid {}) not in list.'.format(obj.id, obj.oid)
-            orb.log.debug("    {}".format(txt))
-        return QModelIndex()
-
-    def removeRow(self, row, index=QModelIndex()):
-        if row < len(self.objs):
-            self.objs = self.objs[:row] + self.objs[row+1:]
-            self.removeRows(row, 1, index)
+            self.removeRows(row, 1, QModelIndex())
             return True
         else:
             return False
