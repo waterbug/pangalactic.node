@@ -369,11 +369,11 @@ class ObjectTableModel(MappingTableModel):
         Replace an object (identified by oid) with a more recently modified
         instance of itself.
         """
-        orb.log.debug("  ObjectTableModel.mod_object() ...")
+        orb.log.debug("* ObjectTableModel.mod_object() ...")
         try:
             oids = [o.oid for o in self.objs]
             row = oids.index(obj.oid)  # raises ValueError if problem
-            orb.log.debug("    object found at row {}".format(row))
+            orb.log.debug(f"    object found at row {row}")
             idx = self.index(row, 0, parent=QModelIndex())
             self.beginResetModel()
             self.setData(idx, obj)
@@ -381,17 +381,18 @@ class ObjectTableModel(MappingTableModel):
             return idx
         except:
             # possibly because my C++ object has been deleted ...
-            txt = f'object "{obj.id}" (oid {obj.oid}) not found.'
+            txt = f'object "{obj.id}" (oid {obj.oid}) not found in table.'
             orb.log.debug(f"    {txt}")
         return QModelIndex()
 
-    # TODO: make this into "del_object" (find obj by oid, del that row)
-    def removeRow(self, row):
-        if row < len(self.objs):
+    def del_object(self, obj):
+        try:
+            oids = [o.oid for o in self.objs]
+            row = oids.index(obj.oid)  # raises ValueError if problem
             self.objs = self.objs[:row] + self.objs[row+1:]
             self.removeRows(row, 1, QModelIndex())
             return True
-        else:
+        except:
             return False
 
     def mimeTypes(self):

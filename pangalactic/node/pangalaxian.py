@@ -1830,6 +1830,10 @@ class Main(QMainWindow):
         for obj in objs:
             # TODO: check whether object is actually being displayed in system
             # tree and/or diagram before rebuilding them ...
+            # ================================================================
+            # TODO: set up state as a dict {cname : [list of oids]} so updates
+            # can be done as orb.get() then add|mod_object()
+            # ================================================================
             cname = obj.__class__.__name__
             if isinstance(obj, orb.classes['ParameterDefinition']):
                 need_to_refresh_libraries.add('ParameterDefinition')
@@ -1874,13 +1878,20 @@ class Main(QMainWindow):
                 # TODO: move this signal to after get_parmz() ...
                 self.refresh_admin_tool.emit()
                 self.update_project_role_labels()
-            if self.mode == 'db':
-                orb.log.debug('  updating db views with: "{}"'.format(obj.id))
-                self.refresh_cname_list()
-                self.set_object_table_for(cname)
+            # ================================================================
+            # TODO: figure out best way to postpone until get_parmz() result
+            # (commented for now because unwise to do GUI updates here)
+            # ================================================================
+            # if self.mode == 'db':
+                # orb.log.debug('  updating db views with: "{}"'.format(obj.id))
+                # self.refresh_cname_list()
+                # self.set_object_table_for(cname)
         if to_delete:
             # delete any SANDBOX PSUs that were received
             orb.delete(to_delete)
+        # ================================================================
+        # TODO: use update_object_in_tree() (use oid to get obj ...)
+        # ================================================================
         if (need_to_refresh_tree and state.get('mode') == 'system'):
             state['tree needs refresh'] = True
         if (need_to_refresh_diagram and
@@ -2870,9 +2881,6 @@ class Main(QMainWindow):
             orb.log.debug('  object oid: "{}"'.format(
                                         str(getattr(obj, 'oid', '[no oid]'))))
             orb.log.debug('  cname: "{}"'.format(str(cname)))
-            # NOTE: the library widget refreshes itself (it listens for "new object",
-            # "modified object", etc.), so no need to worry about
-            # self.library_widget
             if (self.mode == 'system'
                 and isinstance(obj, (orb.classes['HardwareProduct'],
                                      orb.classes['Acu'],
@@ -2882,10 +2890,15 @@ class Main(QMainWindow):
                 # "get_parmz" executes, to avoid "paint" exceptions --
                 # in this case, set state "upd_obj_in_trees_needed"
                 state["upd_obj_in_trees_needed"] = (obj.oid, new)
-                # NOTE: the diagram will listen for "new | modified object"
-                # signals -- i.e., DiagramScene (in view.py)
-            # NOTE: no need to do anything in 'db' mode -- the object table now
-            # listens for the 'mod object' signal and handles it ...
+            elif (self.mode in ['component', 'system']
+                  and isinstance(obj, (orb.classes['HardwareProduct'],
+                                       orb.classes['Acu'],
+                                       orb.classes['ProjectSystemUsage']))):
+                # if object is in the diagram ..
+                state['diagram needs refresh'] = True
+            if self.mode == 'db' and cname == state.get('current_cname'):
+                # if object is in the current db table ...
+                state['update db table'] = True
             if (state.get('connected')
                 and not getattr(obj, 'project', None) is self.sandbox):
                 # SANDBOX PSUs are not saved to the server
@@ -3028,7 +3041,7 @@ class Main(QMainWindow):
                 # orb.log.info('  [ovgpr] calling update_object_in_trees() ...')
                 self.update_object_in_trees(obj, new=new)
                 state['tree needs refresh'] = False
-            elif state.get('updates_needed_for_remote_obj_deletion'):
+            if state.get('updates_needed_for_remote_obj_deletion'):
                 # if get_parmz was triggered by remote deleted object ...
                 cname = state['updates_needed_for_remote_obj_deletion']
                 state['updates_needed_for_remote_obj_deletion'] = ""
@@ -3057,7 +3070,9 @@ class Main(QMainWindow):
                         # orb.log.info(f'  [ovgpr] calling {txt}')
                         self.system_model_window.on_signal_to_refresh()
                         state['diagram needs refresh'] = False
-                elif self.mode == 'db':
+                elif self.mode == 'db' and state.get('update db table'):
+                    # new or modified object is in current db table
+                    # NOTE: set_db_interface() sets 'update db table' to False
                     self.set_db_interface()
                 elif (self.mode == 'component' and
                     cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
@@ -3094,16 +3109,16 @@ class Main(QMainWindow):
         # causing "paint" exceptions -- modify to update libraries directly
         # using pyqtSignal (replacing the FilterPanel's current dispatcher
         # connections to "new|modified|deleted object" signals)
-        # if state.get('libs to refresh'):
-            # # refresh any library widgets that haven't been refreshed ...
-            # cnames = state['libs to refresh']
-            # orb.log.info(f'  [ovgpr] libs to refresh: {cnames}')
-            # if hasattr(self, 'library_widget'):
-                # for cname in cnames:
-                    # if cname not in libs_refreshed:
-                        # # orb.log.debug('  - refreshing library_widget')
-                        # self.library_widget.refresh(cname=cname)
-            # state['libs to refresh'] = []
+        if state.get('libs to refresh'):
+            # refresh any library widgets that haven't been refreshed ...
+            cnames = state['libs to refresh']
+            orb.log.info(f'  [ovgpr] libs to refresh: {cnames}')
+            if hasattr(self, 'library_widget'):
+                for cname in cnames:
+                    if cname not in libs_refreshed:
+                        # orb.log.debug('  - refreshing library_widget')
+                        self.library_widget.refresh(cname=cname)
+            state['libs to refresh'] = []
         if ((self.mode == 'system') and
             state.get('tree needs refresh')):
             # orb.log.info('  [ovgpr] tree needs refresh ...')
@@ -3459,7 +3474,7 @@ class Main(QMainWindow):
                 # block in the current diagram
                 self.system_model_window.on_signal_to_refresh()
         elif self.mode == 'db':
-            self.set_db_interface()
+            state['update db table'] = True
         elif (self.mode == 'component' and
             cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                       'Port', 'Flow']):
@@ -3468,7 +3483,7 @@ class Main(QMainWindow):
             # this will set placeholders in place of PgxnObject and diagram
             self.set_product_modeler_interface()
             if getattr(self, 'system_model_window', None):
-                self.system_model_window.on_signal_to_refresh()
+                state['diagram needs refresh'] = False
         elif (self.mode == 'system' and
               cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                         'Port', 'Flow']):
@@ -4340,6 +4355,7 @@ class Main(QMainWindow):
         self.left_dock.setWidget(self.cname_list)
         self.left_dock.setVisible(True)
         self.cname_list.show()
+        state['update db table'] = False
 
     def refresh_cname_list(self):
         self.cname_list.clear()

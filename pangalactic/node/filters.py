@@ -939,7 +939,6 @@ class FilterPanel(QWidget):
                              parent=self)
             dlg.show()
 
-    # TODO: rewrite to use correct methods to update a source model
     def add_object(self, obj):
         """
         Convenience method for adding a new library object to the model, which
@@ -947,24 +946,24 @@ class FilterPanel(QWidget):
         """
         # orb.log.debug('  [FilterPanel] add_object({})'.format(
                                             # getattr(obj, 'id', 'unknown')))
-        self.objs.append(obj)
-        self.set_source_model(self.create_model())
+        source_model = self.proxy_model.sourceModel()
+        source_model.add_object(obj)
 
-    # TODO: rewrite to use correct methods to update a source model
     def delete_object(self, oid):
         """
         Convenience method for deleting a library object from the model.
         """
         # orb.log.debug('  [FilterPanel] delete_object({})'.format(oid))
         try:
-            oids = [o.oid for o in self.objs]
-            row = oids.index(oid)   # raises ValueError if not found
-            self.objs = self.objs[:row] + self.objs[row+1:]
+            obj = orb.get(oid)
+            if not obj:
+                orb.log.debug('  ... object not found in local db.')
+                return False
             source_model = self.proxy_model.sourceModel()
-            source_model.removeRow(row)
+            source_model.del_object(obj)
         except:
             # orb.log.debug('                ... object not found')
-            pass
+            return False
 
     def on_new_object_signal(self, obj=None, cname=''):
         # orb.log.debug('* [filters] received "new object" signal')
@@ -972,19 +971,14 @@ class FilterPanel(QWidget):
             orb.log.debug('               ... on obj: {}'.format(obj.id))
             self.add_object(obj)
 
-    # TODO: rewrite to use correct methods to update a source model
     def on_mod_object_signal(self, obj=None, cname=''):
         # orb.log.info('* [filters] received "modified object" signal')
         # orb.log.debug('               on obj: {}'.format(obj.id))
         if obj and isinstance(obj, orb.classes.get(self.cname)):
-            oids = [o.oid for o in self.objs]
-            if obj.oid in oids:
-                row = oids.index(obj.oid)   # raises ValueError if not found
-                # mod_obj = orb.get(obj.oid)
-                new_objs = self.objs[:row] + [obj] + self.objs[row+1:]
-                self.set_source_model(self.create_model(new_objs))
-            else:
-                orb.log.debug('               ... not in filtered objs.')
+            source_model = self.proxy_model.sourceModel()
+            source_model.mod_object(obj)
+        else:
+            orb.log.debug('               ... not in filtered objs.')
 
     def on_del_object_signal(self, oid='', cname=''):
         # orb.log.info('* [filters] received "deleted object" signal')
