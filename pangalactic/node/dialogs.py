@@ -39,7 +39,8 @@ from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.utils.reports import get_mel_data, write_mel_to_tsv
+from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,
+                                            write_mel_to_xlsx)
 from pangalactic.node.buttons     import SizedButton, UrlButton, FkButton
 from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
@@ -564,11 +565,14 @@ class MiniMelDialog(QDialog):
         self.summary_label = QLabel('summary')
         self.export_tsv_button = SizedButton("Export as tsv")
         self.export_tsv_button.clicked.connect(self.export_tsv)
+        self.export_excel_button = SizedButton("Export as Excel")
+        self.export_excel_button.clicked.connect(self.export_excel)
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.dash_select)
         top_layout.addWidget(self.summary_select)
         top_layout.addWidget(self.summary_label)
         top_layout.addWidget(self.export_tsv_button)
+        top_layout.addWidget(self.export_excel_button)
         top_layout.addStretch(1)
         layout.addLayout(top_layout)
         # set up mel table
@@ -589,7 +593,7 @@ class MiniMelDialog(QDialog):
 
     def export_tsv(self):
         """
-        [Handler for 'export as tsv' button]  Write the dashboard content to a
+        [Handler for 'Export as tsv' button]  Write the dashboard content to a
         tab-separated-values file.  Parameter values will be expressed in the
         user's preferred units, and headers will be explicitly annotated with
         units.
@@ -621,6 +625,41 @@ class MiniMelDialog(QDialog):
             self.w.show()
         else:
             orb.log.debug('  ... export to tsv cancelled.')
+            return
+
+    def export_excel(self):
+        """
+        [Handler for 'Export as Excel' button]  Write the dashboard content to
+        a .xlsx file.  Parameter values will be expressed in the user's
+        preferred units, and headers will be explicitly annotated with units.
+        """
+        orb.log.debug('* export_excel()')
+        dtstr = date2str(dtstamp())
+        name = '-' + self.dash_name + '-'
+        if self.summary:
+            name = '-Summary' + name
+        fname = self.obj.id + name + dtstr + '.xlsx'
+        state_path = state.get('mini_mel_last_path') or ''
+        suggested_fpath = os.path.join(state_path, fname)
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to .xlsx File',
+                                    suggested_fpath, '(*.xlsx)')
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            fpath = str(fpath)   # extra-cautious :)
+            state['mini_mel_last_path'] = os.path.dirname(fpath)
+            data_cols = prefs['dashboards'].get(self.dash_name)
+            orb.log.debug(f'  - data cols: "{str(data_cols)}"')
+            write_mel_to_xlsx(self.obj, schema=data_cols, pref_units=True,
+                              summary=self.summary, file_path=fpath)
+            html = '<h3>Success!</h3>'
+            msg = 'Mini MEL exported to Excel file:'
+            html += f'<p><b><font color="green">{msg}</font></b><br>'
+            html += f'<b><font color="blue">{fpath}</font></b></p>'
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+        else:
+            orb.log.debug('  ... export to Excel cancelled.')
             return
 
     def set_mini_mel_table(self):
