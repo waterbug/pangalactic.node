@@ -658,6 +658,9 @@ class MiniMelDialog(QDialog):
             html += f'<b><font color="blue">{fpath}</font></b></p>'
             self.w = NotificationDialog(html, news=False, parent=self)
             self.w.show()
+            if sys.platform == 'win32':
+                # start excel with file ...
+                os.system(f'start excel.exe {fpath}')
         else:
             orb.log.debug('  ... export to Excel cancelled.')
             return
