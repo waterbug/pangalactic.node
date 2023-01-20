@@ -1819,7 +1819,7 @@ class Main(QMainWindow):
                            for obj in objs])
         orb.log.debug('  deserializes as:')
         orb.log.debug('  {}'.format(str(rep)))
-        need_to_refresh_libraries = set()
+        need_to_update_libs = set()
         need_to_refresh_tree = False
         # NOTE:  need_to_refresh_dashboard has become unnecessary because
         # dashboard will be refreshed as a result of get_parmz(), called
@@ -1831,24 +1831,24 @@ class Main(QMainWindow):
             # TODO: check whether object is actually being displayed in system
             # tree and/or diagram before rebuilding them ...
             # ================================================================
-            # TODO: set up state as a dict {cname : [list of oids]} so updates
-            # can be done as orb.get() then add|mod_object()
+            # TODO: set up state as a dict {cname : [list of oids]} so adds /
+            # mods can be done using orb.get() then add|mod|del_object()
             # ================================================================
-            cname = obj.__class__.__name__
+            # cname = obj.__class__.__name__
             if isinstance(obj, orb.classes['ParameterDefinition']):
-                need_to_refresh_libraries.add('ParameterDefinition')
+                need_to_update_libs.add('ParameterDefinition')
             elif isinstance(obj, orb.classes['DataElementDefinition']):
-                need_to_refresh_libraries.add('DataElementDefinition')
+                need_to_update_libs.add('DataElementDefinition')
             elif isinstance(obj, orb.classes['HardwareProduct']):
-                need_to_refresh_libraries.add('HardwareProduct')
+                need_to_update_libs.add('HardwareProduct')
                 need_to_refresh_diagram = True
                 # need_to_refresh_dashboard = True
             elif isinstance(obj, orb.classes['Template']):
-                need_to_refresh_libraries.add('Template')
+                need_to_update_libs.add('Template')
             elif isinstance(obj, orb.classes['PortTemplate']):
-                need_to_refresh_libraries.add('PortTemplate')
+                need_to_update_libs.add('PortTemplate')
             elif isinstance(obj, orb.classes['PortType']):
-                need_to_refresh_libraries.add('PortType')
+                need_to_update_libs.add('PortType')
             elif isinstance(obj, (orb.classes['Port'], orb.classes['Flow'])):
                 need_to_refresh_diagram = True
             elif isinstance(obj, (orb.classes['Acu'],
@@ -1900,11 +1900,11 @@ class Main(QMainWindow):
             # block in the current diagram -- will be rebuilt in handling of
             # get_parmz()
             state['diagram needs refresh'] = True
-        if need_to_refresh_libraries and hasattr(self, 'library_widget'):
+        if need_to_update_libs and hasattr(self, 'library_widget'):
             # set state for library classes whose widgets need a refresh ...
-            cnames = list(need_to_refresh_libraries)
-            orb.log.debug(f'  setting state "libs to refresh" to: "{cnames}"')
-            state["libs to refresh"] = cnames
+            cnames = list(need_to_update_libs)
+            orb.log.debug(f'  setting state "libs to update" to: "{cnames}"')
+            state["libs to update"] = cnames
         self.get_parmz()
         return True
 
@@ -3093,11 +3093,11 @@ class Main(QMainWindow):
                     # txt = 'rebuild_dashboard(force=True) ...'
                     # orb.log.info(f'  [ovgpr] calling {txt}')
                     self.rebuild_dashboard(force=True)
-                # TODO: DO NOT call "refresh()" on libraries -- that function
-                # is causing "paint" exceptions -- modify to update libraries
-                # directly using pyqtSignal (replacing the FilterPanel's
-                # current dispatcher connections to "new|modified|deleted
-                # object" signals)
+                # =============================================================
+                # TODO: update libraries directly using pyqtSignal (replace the
+                # FilterPanel's current dispatcher connections to
+                # "new|modified|deleted object" signals)
+                # =============================================================
                 # if hasattr(self, 'library_widget'):
                     # txt = 'library_widget.refresh(cname="HardwareProduct") ...'
                     # orb.log.info(f'  [ovgpr] calling {txt}')
@@ -3109,16 +3109,21 @@ class Main(QMainWindow):
         # causing "paint" exceptions -- modify to update libraries directly
         # using pyqtSignal (replacing the FilterPanel's current dispatcher
         # connections to "new|modified|deleted object" signals)
-        if state.get('libs to refresh'):
-            # refresh any library widgets that haven't been refreshed ...
-            cnames = state['libs to refresh']
-            orb.log.info(f'  [ovgpr] libs to refresh: {cnames}')
-            if hasattr(self, 'library_widget'):
-                for cname in cnames:
-                    if cname not in libs_refreshed:
+        if state.get('libs to update'):
+            # update any library widgets that haven't been updated ...
+            cnames = state['libs to update']
+            orb.log.info(f'  [ovgpr] libs to update: {cnames}')
+            # =============================================================
+            # TODO: update libraries directly using pyqtSignal (replace the
+            # FilterPanel's current dispatcher connections to
+            # "new|modified|deleted object" signals)
+            # =============================================================
+            # if hasattr(self, 'library_widget'):
+                # for cname in cnames:
+                    # if cname not in libs_refreshed:
                         # orb.log.debug('  - refreshing library_widget')
-                        self.library_widget.refresh(cname=cname)
-            state['libs to refresh'] = []
+                        # self.library_widget.refresh(cname=cname)
+            state['libs to update'] = []
         if ((self.mode == 'system') and
             state.get('tree needs refresh')):
             # orb.log.info('  [ovgpr] tree needs refresh ...')
@@ -5261,6 +5266,13 @@ class Main(QMainWindow):
                                 "Excel Files (*.xlsx)")
                 if fpath:
                     write_mel_xlsx_from_model(self.project, file_path=fpath)
+                    orb.log.debug('  file saved.')
+                if sys.platform == 'win32':
+                    # if on Windows, try to open Excel with file ...
+                    try:
+                        os.system(f'start excel.exe {fpath}')
+                    except:
+                        orb.log.debug('  could not start Excel')
             else:
                 message = "This project has no systems defined."
                 popup = QMessageBox(QMessageBox.Warning,

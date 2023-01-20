@@ -659,8 +659,11 @@ class MiniMelDialog(QDialog):
             self.w = NotificationDialog(html, news=False, parent=self)
             self.w.show()
             if sys.platform == 'win32':
-                # start excel with file ...
-                os.system(f'start excel.exe {fpath}')
+                try:
+                    # try to start excel with file ...
+                    os.system(f'start excel.exe {fpath}')
+                except:
+                    orb.log.debug('  unable to start Excel')
         else:
             orb.log.debug('  ... export to Excel cancelled.')
             return
