@@ -949,6 +949,16 @@ class FilterPanel(QWidget):
         source_model = self.proxy_model.sourceModel()
         source_model.add_object(obj)
 
+    def mod_object(self, obj):
+        """
+        Convenience method for adding a new library object to the model, which
+        calls the PyQt methods that signal the views to update.
+        """
+        # orb.log.debug('  [FilterPanel] add_object({})'.format(
+                                            # getattr(obj, 'id', 'unknown')))
+        source_model = self.proxy_model.sourceModel()
+        source_model.mod_object(obj)
+
     def delete_object(self, oid):
         """
         Convenience method for deleting a library object from the model.

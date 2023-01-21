@@ -423,6 +423,9 @@ class ReqParmDialog(QDialog):
     """
     A dialog to edit the value of performance requirement parameters.
     """
+
+    req_parm_mod = pyqtSignal(str)  # arg: oid
+
     def __init__(self, req, parm, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Requirement Parameters")
@@ -462,8 +465,9 @@ class ReqParmDialog(QDialog):
         self.req.mod_datetime = NOW
         self.req.modifier = user
         orb.save([self.req])
-        dispatcher.send(signal='modified object', obj=self.req,
-                        cname='Requirement')
+        # dispatcher.send(signal='modified object', obj=self.req,
+                        # cname='Requirement')
+        self.req_parm_mod.emit(self.req.oid)
         self.accept()
 
 

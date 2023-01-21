@@ -132,6 +132,7 @@ class RequirementManager(QDialog):
                     parm = 'req_target_value'
                 if parm:
                     dlg = ReqParmDialog(req, parm, parent=self)
+                    dlg.req_parm_mod.connect(self.on_req_parm_mod)
                     if dlg.exec_() == QDialog.Accepted:
                         orb.log.info('* req parm edited.')
                         dlg.close()
@@ -148,6 +149,10 @@ class RequirementManager(QDialog):
                 popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
                                     message, QMessageBox.Ok, self)
                 popup.show()
+
+    def on_req_parm_mod(self, oid):
+        req = orb.get(oid)
+        self.fpanel.mod_object(req)
 
     def edit_req_fields(self):
         orb.log.debug('* edit_req_fields()')
