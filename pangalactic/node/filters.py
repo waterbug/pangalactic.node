@@ -904,12 +904,18 @@ class FilterPanel(QWidget):
                 hw = orb.get(oid)
         if hw:
             dlg = HWFieldsDialog(hw, parent=self)
+            dlg.hw_fields_edited.connect(self.on_hw_fields_edited)
             if dlg.exec_() == QDialog.Accepted:
                 orb.log.info('* hw item fields edited.')
                 dlg.close()
             else:
                 orb.log.info('* hw item fields editing cancelled.')
                 dlg.close()
+
+    def on_hw_fields_edited(self, oid):
+        orb.log.debug('* on_hw_fields_edited()')
+        hw_obj = orb.get(oid)
+        self.mod_object(hw_obj)
 
     def display_object(self):
         orb.log.debug('* display object ...')

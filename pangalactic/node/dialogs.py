@@ -240,6 +240,9 @@ class HWFieldsDialog(QDialog):
     """
     A dialog to edit selected fields of a HardwareProduct.
     """
+
+    hw_fields_edited = pyqtSignal(str)  # arg: oid
+
     def __init__(self, hw_item, parent=None):
         super().__init__(parent)
         self.hw_item = hw_item
@@ -321,8 +324,9 @@ class HWFieldsDialog(QDialog):
         self.hw_item.mod_datetime = NOW
         self.hw_item.modifier = user
         orb.save([self.hw_item])
-        dispatcher.send(signal='modified object', obj=self.hw_item,
-                        cname='HardwareProduct')
+        self.hw_fields_edited.emit(self.hw_item.oid)
+        # dispatcher.send(signal='modified object', obj=self.hw_item,
+                        # cname='HardwareProduct')
         self.accept()
 
 
@@ -465,8 +469,6 @@ class ReqParmDialog(QDialog):
         self.req.mod_datetime = NOW
         self.req.modifier = user
         orb.save([self.req])
-        # dispatcher.send(signal='modified object', obj=self.req,
-                        # cname='Requirement')
         self.req_parm_mod.emit(self.req.oid)
         self.accept()
 

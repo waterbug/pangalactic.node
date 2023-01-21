@@ -692,7 +692,8 @@ class Main(QMainWindow):
         if szd_user:
             # deserialize local user's Person object (include refdata in case
             # we are the "admin" user)
-            deserialize(orb, szd_user, include_refdata=True)
+            deserialize(orb, szd_user, include_refdata=True,
+                        force_no_recompute=True)
             self.local_user = orb.select('Person', id=state['userid'])
             # orb.log.debug(' - local user returned: {}'.format(
                                                   # self.local_user.oid))
@@ -925,8 +926,7 @@ class Main(QMainWindow):
         # Here we just include the most important subtypes of ManagedObject ...
         # we will get back ALL subtypes anyway.
         data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template',
-                                       'DataElementDefinition', 'Activity',
-                                       'Mission', 'Requirement', 'Model'])
+                                       'DataElementDefinition', 'Model'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
         return self.mbus.session.call('vger.sync_library_objects',
@@ -943,8 +943,7 @@ class Main(QMainWindow):
         orb.log.debug('* force_sync_managed_objs()')
         self.statusbar.showMessage('forcing sync of ALL library objects ...')
         data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template',
-                                       'DataElementDefinition', 'Activity',
-                                       'Mission', 'Requirement', 'Model'])
+                                       'DataElementDefinition', 'Model'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
         return self.mbus.session.call('vger.force_sync_managed_objects',
@@ -952,10 +951,10 @@ class Main(QMainWindow):
 
     def sync_current_project(self, data, msg=''):
         """
-        Sync all objects for the current project into the local db.  If there
-        are any local project objects, this function internally assembles a
-        list containing their [oid, mod_datetime] pairs and sends it to the
-        server.  The server response is a list of lists:
+        Sync all objects owned or used by the current project into the local
+        db.  If there are any local project objects, this function internally
+        assembles a list containing their [oid, mod_datetime] pairs and sends
+        it to the server.  The server response is a list of lists:
 
             [0]:  server objects with later mod_datetime(s)
             [1]:  oids of server objects with the same mod_datetime(s)
@@ -1805,7 +1804,7 @@ class Main(QMainWindow):
         # objs = self.load_serialized_objects(serialized_objects)
         # NOTE:  ignore None or "empty" objects
         ser_objs = [so for so in serialized_objects if so]
-        objs = deserialize(orb, ser_objs)
+        objs = deserialize(orb, ser_objs, force_no_recompute=True)
         if objs:
             orb.log.debug(f'  deserialize() returned {len(objs)} object(s):')
             txt = str([o.id for o in objs if o is not None])
