@@ -5269,7 +5269,7 @@ class Main(QMainWindow):
                     # try to start Excel with file if on Win or Mac ...
                     if sys.platform == 'win32':
                         try:
-                            os.system(f'start excel.exe {fpath}')
+                            os.system(f'start excel.exe "{fpath}"')
                         except:
                             orb.log.debug('  could not start Excel')
                     elif sys.platform == 'darwin':
