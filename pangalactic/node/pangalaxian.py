@@ -5266,12 +5266,18 @@ class Main(QMainWindow):
                 if fpath:
                     write_mel_xlsx_from_model(self.project, file_path=fpath)
                     orb.log.debug('  file saved.')
-                if sys.platform == 'win32':
-                    # if on Windows, try to open Excel with file ...
-                    try:
-                        os.system(f'start excel.exe {fpath}')
-                    except:
-                        orb.log.debug('  could not start Excel')
+                    # try to start Excel with file if on Win or Mac ...
+                    if sys.platform == 'win32':
+                        try:
+                            os.system(f'start excel.exe {fpath}')
+                        except:
+                            orb.log.debug('  could not start Excel')
+                    elif sys.platform == 'darwin':
+                        try:
+                            cmd = f'open -a "Microsoft Excel.app" "{fpath}"'
+                            os.system(cmd)
+                        except:
+                            orb.log.debug('  unable to start Excel')
             else:
                 message = "This project has no systems defined."
                 popup = QMessageBox(QMessageBox.Warning,

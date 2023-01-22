@@ -664,10 +664,15 @@ class MiniMelDialog(QDialog):
             html += f'<b><font color="blue">{fpath}</font></b></p>'
             self.w = NotificationDialog(html, news=False, parent=self)
             self.w.show()
+            # try to start Excel with file if on Win or Mac ...
             if sys.platform == 'win32':
                 try:
-                    # try to start excel with file ...
                     os.system(f'start excel.exe {fpath}')
+                except:
+                    orb.log.debug('  unable to start Excel')
+            elif sys.platform == 'darwin':
+                try:
+                    os.system(f'open -a "Microsoft Excel.app" "{fpath}"')
                 except:
                     orb.log.debug('  unable to start Excel')
         else:
