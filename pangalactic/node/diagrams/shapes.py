@@ -1,6 +1,7 @@
 """
 Shapes and connectors for diagrams
 """
+import sys
 from collections import OrderedDict
 from copy import deepcopy
 # import functools
@@ -37,9 +38,13 @@ from pangalactic.node.filters     import FilterDialog
 from pangalactic.node.utils       import clone, extract_mime_data
 
 # constants
-POINT_SIZE = 10
-SEPARATION = 20     # spacing factor between flows (connector lines)
-PORT_SIZE = 3.0 * POINT_SIZE
+if sys.platform in ['darwin', 'linux']:
+    POINT_SIZE = 13
+else:
+    # windows
+    POINT_SIZE = 10
+SEPARATION = 10     # spacing factor between flows (connector lines)
+PORT_SIZE = 2.0 * POINT_SIZE
 QTCOLORS = ['white', 'black', 'red', 'darkRed', 'green', 'darkGreen', 'blue',
             'darkBlue', 'cyan', 'darkCyan', 'magenta', 'darkMagenta', 'yellow',
             'darkYellow', 'gray', 'darkGray', 'lightGray', 'transparent']
@@ -123,7 +128,7 @@ class Block(QGraphicsItem):
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
-        self.rect = QRectF(0, -POINT_SIZE, 24 * POINT_SIZE, 24 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         # TODO:  notify the user if 'obj' is not a Product instance ... that
         # will cause errors
@@ -273,7 +278,7 @@ class ObjectBlock(Block):
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
-        self.rect = QRectF(0, -POINT_SIZE, 24 * POINT_SIZE, 24 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.color = color or Qt.black
         self.right_ports = right_ports
@@ -1633,7 +1638,7 @@ class EntityBlock(Block):
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
-        self.rect = QRectF(0, -POINT_SIZE, 24 * POINT_SIZE, 24 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.obj = obj
         self.has_sub_diagram = False
@@ -1649,7 +1654,7 @@ class EntityBlock(Block):
         self.name_label = BlockLabel(name, self)
         self.title_separator = QGraphicsLineItem(
                                         0.0, 2.0 * POINT_SIZE,
-                                        24.0 * POINT_SIZE, 2.0 * POINT_SIZE,
+                                        20.0 * POINT_SIZE, 2.0 * POINT_SIZE,
                                         parent=self)
         self.description_label = TextLabel(description, self)
         self.description_label.setPos(0.0 * POINT_SIZE, 3.0 * POINT_SIZE)
