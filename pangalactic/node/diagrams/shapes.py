@@ -41,7 +41,7 @@ from pangalactic.node.utils       import clone, extract_mime_data
 if sys.platform == 'win32':
     POINT_SIZE = 10
 elif sys.platform == 'darwin':
-    POINT_SIZE = 14
+    POINT_SIZE = 15
 else:
     # linux
     POINT_SIZE = 13
