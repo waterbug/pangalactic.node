@@ -38,11 +38,13 @@ from pangalactic.node.filters     import FilterDialog
 from pangalactic.node.utils       import clone, extract_mime_data
 
 # constants
-if sys.platform in ['darwin', 'linux']:
-    POINT_SIZE = 13
-else:
-    # windows
+if sys.platform == 'win32':
     POINT_SIZE = 10
+elif sys.platform == 'darwin':
+    POINT_SIZE = 14
+else:
+    # linux
+    POINT_SIZE = 13
 SEPARATION = 10     # spacing factor between flows (connector lines)
 PORT_SIZE = 2.0 * POINT_SIZE
 QTCOLORS = ['white', 'black', 'red', 'darkRed', 'green', 'darkGreen', 'blue',
