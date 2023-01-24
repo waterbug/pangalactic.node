@@ -3,13 +3,13 @@ Optical System tool for computing the error budget of an optical system.
 """
 #!/usr/bin/env python
 
-import os
+import os, sys
 
 from louie import dispatcher
 
 from PyQt5.QtCore import pyqtSignal, Qt, QObject, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
-                             QMainWindow, QWidget, QGraphicsItem,
+                             QFileDialog, QMainWindow, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
                              QGraphicsView, QHBoxLayout, QMenu, QMessageBox,
                              QGraphicsPathItem, QSizePolicy, QToolBar,
@@ -27,8 +27,9 @@ from pangalactic.core.names       import (get_acu_id, get_acu_name,
                                           get_next_ref_des)
 from pangalactic.core.parametrics import get_dval, set_dval
 # from pangalactic.core.parametrics import get_pval
+from pangalactic.core.utils.reports import gen_error_budget
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.utils.datetimes import date2str, dtstamp
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
@@ -416,7 +417,6 @@ class OpticalSysInfoPanel(QWidget):
             system (HardwareProduct): an optical system
             parent (QWidget): the parent widget
         """
-        # TODO: add a "Create Error Budget" button
         # TODO: make fields editable if "Create a New System" is clicked
         # - product_type is auto-set to "optical system"
         # - add "owner" field (selection list of orgs)
@@ -480,6 +480,7 @@ class OpticalSysInfoPanel(QWidget):
         self.new_system_button.clicked.connect(self.define_new_system)
         self.error_budget_button = SizedButton("Create Error Budget")
         info_panel_layout.addWidget(self.error_budget_button)
+        self.error_budget_button.clicked.connect(self.output_error_budget)
         frame_vbox.addLayout(info_panel_layout)
         self.setLayout(frame_vbox)
         self.setMinimumWidth(600)
@@ -503,7 +504,7 @@ class OpticalSysInfoPanel(QWidget):
             if product_type is optical_system:
                 # orb.log.debug('  - populating panel widgets ...')
                 self.title.setText(obj.name)
-                self.title.repaint()
+                self.title.update()
                 self.system_id_value_label.setEnabled(True)
                 self.system_name_value_label.setEnabled(True)
                 self.system_id_value_label.setText(obj.id)
@@ -526,6 +527,32 @@ class OpticalSysInfoPanel(QWidget):
 
     def define_new_system(self):
         pass
+
+    def output_error_budget(self):
+        dtstr = date2str(dtstamp())
+        if not state.get('last_eb_path'):
+            state['last_eb_path'] = orb.home
+        suggest_fname = os.path.join(
+                          state['last_eb_path'],
+                          'Error_Budget_' + dtstr + '.xlsx')
+        fpath, _ = QFileDialog.getSaveFileName(
+                        self, 'Save to File', suggest_fname,
+                        "Excel Files (*.xlsx)")
+        if fpath:
+            gen_error_budget(self.system, file_path=fpath)
+            orb.log.debug('  file saved.')
+            # try to start Excel with file if on Win or Mac ...
+            if sys.platform == 'win32':
+                try:
+                    os.system(f'start excel.exe "{fpath}"')
+                except:
+                    orb.log.debug('  could not start Excel')
+            elif sys.platform == 'darwin':
+                try:
+                    cmd = f'open -a "Microsoft Excel.app" "{fpath}"'
+                    os.system(cmd)
+                except:
+                    orb.log.debug('  unable to start Excel')
 
     def supportedDropActions(self):
         return Qt.CopyAction
@@ -895,7 +922,6 @@ class OpticalSystemModeler(QMainWindow):
 
 
 if __name__ == '__main__':
-    import sys
     # orb.start(home='junk_home', debug=True)
     orb.start(home='/home/waterbug/cattens_home_dev', debug=True, console=True)
     app = QApplication(sys.argv)
