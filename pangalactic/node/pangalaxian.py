@@ -87,6 +87,7 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog,
                                                ProgressDialog, VersionDialog)
+from pangalactic.node.filters          import FilterPanel
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
@@ -142,6 +143,7 @@ class Main(QMainWindow):
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
     modes_published = pyqtSignal()
     new_object = pyqtSignal(str)                  # args: oid
+    mod_object = pyqtSignal(str)                  # args: oid
     remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
     refresh_admin_tool = pyqtSignal()
 
@@ -259,6 +261,7 @@ class Main(QMainWindow):
         # connect pyqtSignals ...
         self.deleted_object.connect(self.on_deleted_object_qtsignal)
         self.new_object.connect(self.on_new_object_qtsignal)
+        self.mod_object.connect(self.on_mod_object_qtsignal)
         self.remote_deleted_object.connect(
                              self.on_remote_deleted_object_qtsignal)
         # connect dispatcher signals ...
@@ -1818,7 +1821,7 @@ class Main(QMainWindow):
                            for obj in objs])
         orb.log.debug('  deserializes as:')
         orb.log.debug('  {}'.format(str(rep)))
-        need_to_update_libs = set()
+        need_to_update_libs = dict()
         need_to_refresh_tree = False
         # NOTE:  need_to_refresh_dashboard has become unnecessary because
         # dashboard will be refreshed as a result of get_parmz(), called
@@ -1834,21 +1837,21 @@ class Main(QMainWindow):
             # mods can be done using orb.get() then add|mod|del_object()
             # ================================================================
             # cname = obj.__class__.__name__
-            if isinstance(obj, orb.classes['ParameterDefinition']):
-                need_to_update_libs.add('ParameterDefinition')
-            elif isinstance(obj, orb.classes['DataElementDefinition']):
-                need_to_update_libs.add('DataElementDefinition')
-            elif isinstance(obj, orb.classes['HardwareProduct']):
-                need_to_update_libs.add('HardwareProduct')
-                need_to_refresh_diagram = True
-                # need_to_refresh_dashboard = True
-            elif isinstance(obj, orb.classes['Template']):
-                need_to_update_libs.add('Template')
-            elif isinstance(obj, orb.classes['PortTemplate']):
-                need_to_update_libs.add('PortTemplate')
-            elif isinstance(obj, orb.classes['PortType']):
-                need_to_update_libs.add('PortType')
-            elif isinstance(obj, (orb.classes['Port'], orb.classes['Flow'])):
+            oid = obj.oid
+            for cname in ['ParameterDefinition',
+                          'DataElementDefinition',
+                          'HardwareProduct',
+                          'Template',
+                          'PortTemplate',
+                          'PortType']:
+                if isinstance(obj, orb.classes[cname]):
+                    if need_to_update_libs.get(cname):
+                        need_to_update_libs[cname].append(oid)
+                    else:
+                        need_to_update_libs[cname] = [oid]
+            if isinstance(obj, (orb.classes['Port'],
+                                orb.classes['Flow'],
+                                orb.classes['HardwareProduct'])):
                 need_to_refresh_diagram = True
             elif isinstance(obj, (orb.classes['Acu'],
                                   orb.classes['ProjectSystemUsage'])):
@@ -1878,7 +1881,7 @@ class Main(QMainWindow):
                 self.refresh_admin_tool.emit()
                 self.update_project_role_labels()
             # ================================================================
-            # TODO: figure out best way to postpone until get_parmz() result
+            # TODO: use add|mod|del_object in db table for cname
             # (commented for now because unwise to do GUI updates here)
             # ================================================================
             # if self.mode == 'db':
@@ -1901,9 +1904,9 @@ class Main(QMainWindow):
             state['diagram needs refresh'] = True
         if need_to_update_libs and hasattr(self, 'library_widget'):
             # set state for library classes whose widgets need a refresh ...
-            cnames = list(need_to_update_libs)
-            orb.log.debug(f'  setting state "libs to update" to: "{cnames}"')
-            state["libs to update"] = cnames
+            orb.log.debug(f'  state["libs to update"] = {need_to_update_libs}')
+            state["libs to update"] = {}
+            state["libs to update"].update(need_to_update_libs)
         self.get_parmz()
         return True
 
@@ -2859,6 +2862,12 @@ class Main(QMainWindow):
             cname = obj.__class__.__name__
             self.on_mod_object_signal(obj=obj, cname=cname, new=True)
 
+    def on_mod_object_qtsignal(self, oid):
+        obj = orb.get(oid)
+        if obj:
+            cname = obj.__class__.__name__
+            self.on_mod_object_signal(obj=obj, cname=cname)
+
     def on_new_object_signal(self, obj=None, cname=''):
         """
         Handle local dispatcher signal for "new object".
@@ -2889,12 +2898,28 @@ class Main(QMainWindow):
                 # "get_parmz" executes, to avoid "paint" exceptions --
                 # in this case, set state "upd_obj_in_trees_needed"
                 state["upd_obj_in_trees_needed"] = (obj.oid, new)
-            elif (self.mode in ['component', 'system']
+            if (self.mode in ['component', 'system']
                   and isinstance(obj, (orb.classes['HardwareProduct'],
                                        orb.classes['Acu'],
                                        orb.classes['ProjectSystemUsage']))):
                 # if object is in the diagram ..
                 state['diagram needs refresh'] = True
+            if self.mode in ['component', 'system']:
+                need_to_update_libs = dict()
+                for cname in ['ParameterDefinition',
+                              'DataElementDefinition',
+                              'HardwareProduct',
+                              'Template',
+                              'PortTemplate',
+                              'PortType']:
+                    if isinstance(obj, orb.classes[cname]):
+                        if need_to_update_libs.get(cname):
+                            need_to_update_libs[cname].append(obj.oid)
+                        else:
+                            need_to_update_libs[cname] = [obj.oid]
+                if need_to_update_libs:
+                    state["libs to update"] = {}
+                    state["libs to update"].update(need_to_update_libs)
             if self.mode == 'db' and cname == state.get('current_cname'):
                 # if object is in the current db table ...
                 state['update db table'] = True
@@ -3110,19 +3135,26 @@ class Main(QMainWindow):
         # connections to "new|modified|deleted object" signals)
         if state.get('libs to update'):
             # update any library widgets that haven't been updated ...
-            cnames = state['libs to update']
-            orb.log.info(f'  [ovgpr] libs to update: {cnames}')
+            orb.log.info(f'  [ovgpr] libs to update: {state["libs to update"]}')
             # =============================================================
             # TODO: update libraries directly using pyqtSignal (replace the
             # FilterPanel's current dispatcher connections to
             # "new|modified|deleted object" signals)
             # =============================================================
-            # if hasattr(self, 'library_widget'):
-                # for cname in cnames:
-                    # if cname not in libs_refreshed:
-                        # orb.log.debug('  - refreshing library_widget')
-                        # self.library_widget.refresh(cname=cname)
-            state['libs to update'] = []
+            if hasattr(self, 'library_widget'):
+                for cname, oids in state["libs to update"].items():
+                    lib = self.library_widget.libraries.get(cname)
+                    if isinstance(lib, FilterPanel):
+                        lib_oids = lib.get_oids()
+                        for oid in oids:
+                            obj = orb.get(oid)
+                            if oid in lib_oids:
+                                orb.log.debug(f'  - modding {obj.id} in lib')
+                                lib.mod_object(obj)
+                            else:
+                                orb.log.debug(f'  - adding {obj.id} to lib')
+                                lib.add_object(obj)
+            state['libs to update'] = {}
         if ((self.mode == 'system') and
             state.get('tree needs refresh')):
             # orb.log.info('  [ovgpr] tree needs refresh ...')
@@ -3819,6 +3851,7 @@ class Main(QMainWindow):
             if self.product:
                 self.pgxn_obj = PgxnObject(self.product, component=True,
                                            embedded=True)
+                self.pgxn_obj.obj_modified.connect(self.on_mod_object_qtsignal)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
                 pgxn_panel_layout.setAlignment(self.pgxn_obj,
                                              Qt.AlignLeft|Qt.AlignTop)
@@ -4473,6 +4506,7 @@ class Main(QMainWindow):
         proj = clone('Project', public=True, parent_organization=org_parent)
         pxo = PgxnObject(proj, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self)
+        pxo.obj_modified.connect(self.on_mod_object_qtsignal)
         pxo.show()
 
     def delete_project(self):
@@ -4518,6 +4552,7 @@ class Main(QMainWindow):
     def on_display_object_signal(self, obj=None):
         if obj:
             pxo = PgxnObject(obj, parent=self)
+            pxo.obj_modified.connect(self.on_mod_object_qtsignal)
             pxo.show()
 
     def new_parameter(self):
@@ -4525,6 +4560,7 @@ class Main(QMainWindow):
         param = clone('ParameterDefinition', public=True)
         pxo = PgxnObject(param, edit_mode=True, modal_mode=True, new=True,
                          parent=self)
+        pxo.obj_modified.connect(self.on_mod_object_qtsignal)
         pxo.show()
 
     def new_product(self):
@@ -4543,6 +4579,7 @@ class Main(QMainWindow):
         # modal_mode -> 'cancel' closes dialog
         pxo = PgxnObject(model, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self)
+        pxo.obj_modified.connect(self.on_mod_object_qtsignal)
         pxo.show()
 
     def on_new_hardware_clone(self, product=None, objs=None):
@@ -4649,6 +4686,7 @@ class Main(QMainWindow):
         panels = ['main', 'info', 'admin']
         pxo = PgxnObject(test, edit_mode=True, new=True, modal_mode=True,
                          panels=panels, parent=self)
+        pxo.obj_modified.connect(self.on_mod_object_qtsignal)
         pxo.show()
 
     # def new_product_type(self):

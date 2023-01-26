@@ -945,6 +945,13 @@ class FilterPanel(QWidget):
                              parent=self)
             dlg.show()
 
+    def get_oids(self):
+        """
+        Get the oids of all objects in the table.
+        """
+        source_model = self.proxy_model.sourceModel()
+        return [obj.oid for obj in source_model.objs]
+
     def add_object(self, obj):
         """
         Convenience method for adding a new library object to the model, which
