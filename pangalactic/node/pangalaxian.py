@@ -1821,7 +1821,7 @@ class Main(QMainWindow):
                            for obj in objs])
         orb.log.debug('  deserializes as:')
         orb.log.debug('  {}'.format(str(rep)))
-        need_to_update_libs = dict()
+        lib_updates_needed = []
         need_to_refresh_tree = False
         # NOTE:  need_to_refresh_dashboard has become unnecessary because
         # dashboard will be refreshed as a result of get_parmz(), called
@@ -1838,17 +1838,17 @@ class Main(QMainWindow):
             # ================================================================
             # cname = obj.__class__.__name__
             oid = obj.oid
-            for cname in ['ParameterDefinition',
-                          'DataElementDefinition',
-                          'HardwareProduct',
-                          'Template',
-                          'PortTemplate',
-                          'PortType']:
-                if isinstance(obj, orb.classes[cname]):
-                    if need_to_update_libs.get(cname):
-                        need_to_update_libs[cname].append(oid)
-                    else:
-                        need_to_update_libs[cname] = [oid]
+            cname = obj.__class__.__name__
+            if cname in ['ParameterDefinition',
+                         'DataElementDefinition',
+                         'HardwareProduct',
+                         'Template',
+                         'PortTemplate',
+                         'PortType']:
+                if lib_updates_needed:
+                    lib_updates_needed.append(oid)
+                else:
+                    lib_updates_needed = [oid]
             if isinstance(obj, (orb.classes['Port'],
                                 orb.classes['Flow'],
                                 orb.classes['HardwareProduct'])):
@@ -1902,11 +1902,11 @@ class Main(QMainWindow):
             # block in the current diagram -- will be rebuilt in handling of
             # get_parmz()
             state['diagram needs refresh'] = True
-        if need_to_update_libs and hasattr(self, 'library_widget'):
+        if lib_updates_needed and hasattr(self, 'library_widget'):
             # set state for library classes whose widgets need a refresh ...
-            orb.log.debug(f'  state["libs to update"] = {need_to_update_libs}')
-            state["libs to update"] = {}
-            state["libs to update"].update(need_to_update_libs)
+            lmsg = f'  state["lib updates needed"] = {lib_updates_needed}'
+            orb.log.debug(lmsg)
+            state["lib updates needed"] = lib_updates_needed
         self.get_parmz()
         return True
 
@@ -2905,21 +2905,13 @@ class Main(QMainWindow):
                 # if object is in the diagram ..
                 state['diagram needs refresh'] = True
             if self.mode in ['component', 'system']:
-                need_to_update_libs = dict()
-                for cname in ['ParameterDefinition',
-                              'DataElementDefinition',
-                              'HardwareProduct',
-                              'Template',
-                              'PortTemplate',
-                              'PortType']:
-                    if isinstance(obj, orb.classes[cname]):
-                        if need_to_update_libs.get(cname):
-                            need_to_update_libs[cname].append(obj.oid)
-                        else:
-                            need_to_update_libs[cname] = [obj.oid]
-                if need_to_update_libs:
-                    state["libs to update"] = {}
-                    state["libs to update"].update(need_to_update_libs)
+                if cname in ['ParameterDefinition',
+                             'DataElementDefinition',
+                             'HardwareProduct',
+                             'Template',
+                             'PortTemplate',
+                             'PortType']:
+                    state["lib updates needed"] = [obj.oid]
             if self.mode == 'db' and cname == state.get('current_cname'):
                 # if object is in the current db table ...
                 state['update db table'] = True
@@ -3117,44 +3109,30 @@ class Main(QMainWindow):
                     # txt = 'rebuild_dashboard(force=True) ...'
                     # orb.log.info(f'  [ovgpr] calling {txt}')
                     self.rebuild_dashboard(force=True)
-                # =============================================================
-                # TODO: update libraries directly using pyqtSignal (replace the
-                # FilterPanel's current dispatcher connections to
-                # "new|modified|deleted object" signals)
-                # =============================================================
-                # if hasattr(self, 'library_widget'):
-                    # txt = 'library_widget.refresh(cname="HardwareProduct") ...'
-                    # orb.log.info(f'  [ovgpr] calling {txt}')
-                    # self.library_widget.refresh(cname='HardwareProduct')
-                    # libs_refreshed.append('HardwareProduct')
         else:
-            orb.log.info('  [ovgpr] no parmz data, checking for other updates ...')
+            orb.log.info('  [ovgpr] no parmz data, checkother updates ...')
         # TODO: DO NOT call "refresh()" on libraries -- that function is
         # causing "paint" exceptions -- modify to update libraries directly
         # using pyqtSignal (replacing the FilterPanel's current dispatcher
         # connections to "new|modified|deleted object" signals)
-        if state.get('libs to update'):
-            # update any library widgets that haven't been updated ...
-            orb.log.info(f'  [ovgpr] libs to update: {state["libs to update"]}')
-            # =============================================================
-            # TODO: update libraries directly using pyqtSignal (replace the
-            # FilterPanel's current dispatcher connections to
-            # "new|modified|deleted object" signals)
-            # =============================================================
-            if hasattr(self, 'library_widget'):
-                for cname, oids in state["libs to update"].items():
-                    lib = self.library_widget.libraries.get(cname)
+        oids = state.get('lib updates needed', []) or []
+        if oids and hasattr(self, 'library_widget'):
+            lmsg = f'[ovgpr] lib updates needed: {state["lib updates needed"]}'
+            orb.log.info(f'  {lmsg}')
+            for oid in oids:
+                obj = orb.get(oid)
+                if obj:
+                    lib = self.library_widget.libraries.get(
+                                        obj.__class__.__name__)
                     if isinstance(lib, FilterPanel):
                         lib_oids = lib.get_oids()
-                        for oid in oids:
-                            obj = orb.get(oid)
-                            if oid in lib_oids:
-                                orb.log.debug(f'  - modding {obj.id} in lib')
-                                lib.mod_object(obj)
-                            else:
-                                orb.log.debug(f'  - adding {obj.id} to lib')
-                                lib.add_object(obj)
-            state['libs to update'] = {}
+                        if oid in lib_oids:
+                            orb.log.debug(f'  - modding {obj.id} in lib')
+                            lib.mod_object(obj)
+                        else:
+                            orb.log.debug(f'  - adding {obj.id} to lib')
+                            lib.add_object(obj)
+            state['lib updates needed'] = []
         if ((self.mode == 'system') and
             state.get('tree needs refresh')):
             # orb.log.info('  [ovgpr] tree needs refresh ...')
