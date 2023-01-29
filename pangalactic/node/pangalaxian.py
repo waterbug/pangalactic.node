@@ -42,12 +42,12 @@ if sys.platform == 'darwin':
     os.environ['QT_MAC_WANTS_LAYER'] = '1'
 
 # PyQt5
-from PyQt5.QtCore import pyqtSignal, Qt, QModelIndex, QPoint, QVariant
+from PyQt5.QtCore import pyqtSignal, Qt, QModelIndex, QPoint, QTimer, QVariant
 from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QComboBox,
-                             QDockWidget, QFileDialog, QFrame, QHBoxLayout,
-                             QLabel, QMainWindow, QMessageBox, QDialog,
-                             QProgressBar, QSizePolicy, QStyleFactory,
+from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QCheckBox,
+                             QComboBox, QDockWidget, QFileDialog, QFrame,
+                             QHBoxLayout, QLabel, QMainWindow, QMessageBox,
+                             QDialog, QProgressBar, QSizePolicy, QStyleFactory,
                              QVBoxLayout, QWidget)
 
 # pangalactic
@@ -118,6 +118,12 @@ class Main(QMainWindow):
     Main window of the 'pangalaxian' client gui.
 
     Attributes:
+        app_version (str):  version of wrapper app (if any)
+        auth_method (str): authentication method ("cryptosign" or "ticket")
+        auto (bool): whether to automatically connect to the repository at
+            startup (default: True)
+        library_widget (LibraryListWidget):  a panel widget containing library
+            views for specified classes and a selector (combo box)
         mode (str):  name of current mode
             (persistent in the `state` module)
         project (Project):  currently selected project
@@ -127,19 +133,16 @@ class Main(QMainWindow):
         project_oids (list of str):  oids of the current project objects, used
             in calling vger.get_parmz() to update parameters of the current
             project objects [added 2022-11-09]
-        library_widget (LibraryListWidget):  a panel widget containing library
-            views for specified classes and a selector (combo box)
         sys_tree (SystemTreeView):  the system tree widget (in left dock)
-        use_tls (bool): use tls to connect to message bus
-        auth_method (str): authentication method ("cryptosign" or "ticket")
         reactor (qt5reactor):  twisted event loop
-        app_version (str):  version of wrapper app (if any)
         roles (list of dicts):  actually, role assignments -- a list of dicts
             of the form {org oid : role name}
+        use_tls (bool): use tls to connect to message bus
     """
     # enumeration of modes
     modes = ['system', 'component', 'db', 'data']
 
+    # signals
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
     modes_published = pyqtSignal()
     new_object = pyqtSignal(str)                  # args: oid
@@ -148,27 +151,30 @@ class Main(QMainWindow):
     refresh_admin_tool = pyqtSignal()
 
     def __init__(self, home='', test_data=None, width=None, height=None,
-                 use_tls=True, auth_method='cryptosign', reactor=None,
-                 app_version=None, pool=None, console=False, debug=False):
+                 use_tls=True, auth_method='cryptosign', auto=True,
+                 reactor=None, app_version=None, pool=None, console=False,
+                 debug=False):
         """
         Initialize main window.
 
         Keyword Args:
-            home (str):        path to home directory
-            test_data (list):  list of serialized test objects (dicts)
-            width (int):       width of main window
-                               (default: max of (screen w - 300) or 1000)
-            height (int):      height of main window
-                               (default: max of (screen h - 200) or 600)
-            use_tls (bool):    use tls to connect to message bus
-            auth_method (str): authentication method ("cryptosign" or "ticket")
-            reactor (Reactor): twisted Reactor instance
             app_version (str): version string of the wrapper app (if any)
-            pool (Pool):       python multiprocessing Pool instance
+            auth_method (str): authentication method ("cryptosign" or "ticket")
+            auto (bool):       whether to automatically connect to the
+                               repository at startup (default: True)
             console (bool):    if True: send log messages to stdout
                                         (*and* log file)
                                else:    send stdout and stderr to the logger
             debug (bool):      set log level to DEBUG
+            height (int):      height of main window
+                               (default: max of (screen h - 200) or 600)
+            home (str):        path to home directory
+            pool (Pool):       python multiprocessing Pool instance
+            reactor (Reactor): twisted Reactor instance
+            test_data (list):  list of serialized test objects (dicts)
+            use_tls (bool):    use tls to connect to message bus
+            width (int):       width of main window
+                               (default: max of (screen w - 300) or 1000)
         """
         super().__init__(parent=None)
         ###################################################
@@ -238,6 +244,14 @@ class Main(QMainWindow):
             orb.log.debug('    server cert found.')
         else:
             orb.log.debug('    server cert NOT found.')
+        # set "auto" for auto-connect ...
+        if 'auto' in prefs:
+            self.auto = prefs['auto']
+            orb.log.debug(f'* using "auto-connect" pref: {self.auto}')
+        else:
+            self.auto = auto
+            orb.log.debug(f'* no "auto-connect" pref, setting to {self.auto}')
+            prefs['auto'] = auto
         # initialize 'sys_tree_expansion' in case it has not been set yet ...
         if not state.get('sys_tree_expansion'):
             state['sys_tree_expansion'] = {}
@@ -344,6 +358,38 @@ class Main(QMainWindow):
                 html += 'login and repository sync process.</b></p>'
                 dlg = NotificationDialog(html, news=False, parent=self)
                 dlg.show()
+
+    def set_auto_pref(self):
+        """
+        Set the preference for auto-connect.
+        """
+        if self.auto_cb.isChecked():
+            orb.log.debug('* setting auto-connect pref to True.')
+            prefs['auto'] = True
+        else:
+            orb.log.debug('* setting auto-connect pref to False.')
+            prefs['auto'] = False
+
+    def auto_connect(self):
+        """
+        Called by this module's run() method after main.show()
+        """
+        if self.auto:
+            if (self.auth_method == 'cryptosign'
+                and os.path.exists(self.key_path)):
+                self.connect_to_bus_action.setChecked(True)
+                QTimer.singleShot(0, self.set_bus_state)
+            # message = f'<b>Auto-connect is enabled -- connect to the'
+            # message += 'Repository now?</b>'
+            # conf_dlg = QMessageBox(QMessageBox.Warning,
+                         # "Connect?", message,
+                         # QMessageBox.Yes | QMessageBox.No)
+            # response = conf_dlg.exec_()
+            # if response == QMessageBox.No:
+                # conf_dlg.close()
+                # return
+            # elif response == QMessageBox.Yes:
+                # conf_dlg.close()
 
     def on_log_info_msg(self, msg=''):
         orb.log.info(msg)
@@ -2670,6 +2716,14 @@ class Main(QMainWindow):
         self.login_label.setStyleSheet('font-weight: bold')
         self.toolbar.addWidget(self.login_label)
         self.toolbar.addAction(self.connect_to_bus_action)
+        if os.path.exists(self.key_path):
+            auto_cb_label = QLabel('Auto-connect at startup', margin=5)
+            auto_cb_label.setStyleSheet('font-weight: bold')
+            self.toolbar.addWidget(auto_cb_label)
+            self.auto_cb = QCheckBox('')
+            self.auto_cb.setChecked(self.auto)
+            self.auto_cb.clicked.connect(self.set_auto_pref)
+            self.toolbar.addWidget(self.auto_cb)
         spacer = QWidget(parent=self)
         spacer.setSizePolicy(QSizePolicy.Expanding,
                              QSizePolicy.Expanding)
@@ -5638,6 +5692,7 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
                     console=console, debug=debug)
     main.setContextMenuPolicy(Qt.PreventContextMenu)
     main.show()
+    main.auto_connect()
     atexit.register(cleanup_and_save)
     # run the reactor after creating the main window but before starting the
     # app -- using "runReturn" instead of reactor.run() here to enable the use
