@@ -1010,10 +1010,10 @@ class FilterPanel(QWidget):
 
 
 class FilterDialog(QDialog):
-    def __init__(self, objs, schema=None, view=None, sized_cols=None, label='',
-                 title='', width=None, min_width=None, height=None,
-                 as_library=False, cname=None, external_filters=False,
-                 excluded_oids=None, word_wrap=False, parent=None):
+    def __init__(self, objs, view=None, sized_cols=None, label='', title='',
+                 width=None, min_width=None, height=None, as_library=False,
+                 cname=None, external_filters=False, excluded_oids=None,
+                 word_wrap=False, parent=None):
         """
         Initialize.
 
@@ -1023,11 +1023,6 @@ class FilterDialog(QDialog):
         Keyword Args:
             view (iterable):  attributes of object to be shown
             sized_cols (iterable):  ids of columns to be sized to fit contents
-            schema (dict):  metadata for non-domain object (such as
-                PartsListItem instances); schema must contain the keys
-                'field_names' (a list of strings) and 'fields', a dict that
-                maps each field name to a dict that contains 'definition' and
-                'range' (str of the field type).
             label (str):  string to incorporate into title
             title (str):  string to use for title
             width (int):  width dialog widget will be initially resized to
@@ -1047,10 +1042,9 @@ class FilterDialog(QDialog):
         """
         super().__init__(parent=parent)
         self.setWindowTitle('Filter Products by Type or Discipline')
-        panel = FilterPanel(objs, schema=schema, view=view,
-                    sized_cols=sized_cols, label=label, title=title,
-                    width=width, min_width=min_width, height=height,
-                    as_library=as_library, cname=cname,
+        panel = FilterPanel(objs, view=view, sized_cols=sized_cols,
+                    label=label, title=title, width=width, min_width=min_width,
+                    height=height, as_library=as_library, cname=cname,
                     external_filters=external_filters,
                     excluded_oids=excluded_oids, word_wrap=word_wrap,
                     parent=self)
