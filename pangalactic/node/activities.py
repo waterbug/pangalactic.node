@@ -24,7 +24,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
-from pangalactic.node.tablemodels import MappingTableModel
+from pangalactic.node.tablemodels import MappingTableModel, ObjectTableModel
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 
@@ -39,8 +39,7 @@ class ActivityTable(QWidget):
     def __init__(self, subject, preferred_size=None, act_of=None,
                  position=None, parent=None):
         """
-        Initialize table for displaying the sub-activities of an Activity and
-        related data.
+        Initialize.
 
         Args:
             subject (Activity):  Activity whose sub-activities are to be
@@ -70,7 +69,8 @@ class ActivityTable(QWidget):
         self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
         self.main_layout.addWidget(self.title_widget)
         self.set_title_text()
-        self.reset_table()
+        # self.reset_table()
+        self.set_table()
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         dispatcher.connect(self.on_activity_remote_mod, 'activity remote mod')
@@ -160,6 +160,20 @@ class ActivityTable(QWidget):
         self.main_layout.addWidget(new_table, stretch=1)
         self.table = new_table
         self.table.setAttribute(Qt.WA_DeleteOnClose)
+
+    def set_table(self):
+        view = ['name', 't_start', 't_end', 'duration', 'description']
+        model = ObjectTableModel(self.activities, view=view)
+        table = QTableView()
+        table.setModel(model)
+        headers = table.horizontalHeader()
+        headers.setStyleSheet('font-weight: bold')
+        table.setSizePolicy(QSizePolicy.Preferred,
+                                QSizePolicy.Preferred)
+        table.setAlternatingRowColors(True)
+        table.resizeColumnsToContents()
+        self.main_layout.addWidget(table, stretch=1)
+        self.table = table
 
     def sizeHint(self):
         if self.preferred_size:

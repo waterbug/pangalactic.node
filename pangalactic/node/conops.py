@@ -269,11 +269,6 @@ class TimelineScene(QGraphicsScene):
         self.grabbed_item == None
 
     def dropEvent(self, event):
-        ### NOTE: do not limit "Cycle" activities to top system
-        # if ((event.mimeData().text() == "Cycle") and
-            # (self.act_of.product_type.id != 'spacecraft')):
-            # pass
-        # else:
         seq = len(self.current_activity.sub_activities) + 1
         # activity type is one of "Cycle", "Operation", "Event"
         activity_type_name = event.mimeData().text()
@@ -432,8 +427,6 @@ class TimelineWidget(QWidget):
             title = red_text.format(txt)
         elif isinstance(self.activity, orb.classes['Activity']):
             txt = self.activity.name
-            if self.activity.activity_type:
-                txt += ' ' + self.activity.activity_type.name
             txt += ': '
             title = red_text.format(txt)
         if isinstance(self.system, orb.classes['Product']):

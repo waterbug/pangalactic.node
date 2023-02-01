@@ -118,7 +118,7 @@ class LabelHeaderView(QHeaderView):
             label.setGeometry(geom)
 
 
-def get_str_value(obj, pname):
+def str_get_prop(obj, pname):
     """
     Return the string-cast value of the specified property for the specified
     object.
@@ -143,7 +143,7 @@ def get_str_value(obj, pname):
     return '[undefined]'
 
 
-def get_pname_value(obj, pname):
+def get_prop(obj, pname):
     """
     Return the value of the specified property for the specified object.
 
@@ -235,19 +235,20 @@ class SystemInfoTable(QTableWidget):
             self.setRowCount(1)
         header_labels = []
         widths = []
+        style = 'font-size: large;'
+        tag = 'p'
         for pname, colname, otype in self.view:
             if colname:
-                header_label = f'<h3>{colname}</h3>'
+                header_label = f'<{tag} style="{style}">{colname}</{tag}>'
                 header_labels.append(header_label)
             else:
                 # create col names based on pnames
                 if pname in parm_defz:
-                    header_label = make_parm_html(pname, tag='h3')
+                    header_label = make_parm_html(pname, style=style)
                 elif pname in de_defz:
-                    header_label = make_de_html(pname, tag='h3')
+                    header_label = make_de_html(pname, style=style)
                 else:
-                    html = pname
-                    header_label = f'<h3>{html}</h3>'
+                    header_label = f'<{tag} style="{style}">{pname}</{tag}>'
                 header_labels.append(header_label)
             # set col widths based on length of header text
             if colname:
@@ -267,21 +268,129 @@ class SystemInfoTable(QTableWidget):
         if usages:
             if self.sort_by_field:
                 if self.sort_on == 'component':
-                    usages.sort(key=lambda x:get_pname_value(x.component,
-                                                          self.sort_by_field))
+                    usages.sort(key=lambda x:
+                                get_prop(x.component, self.sort_by_field))
                 elif self.sort_on == 'usage':
                     usages.sort(key=lambda x:
-                                get_pname_value(x, self.sort_by_field))
+                                get_prop(x, self.sort_by_field))
             for i, usage in enumerate(usages):
                 for j, ptuple in enumerate(self.view):
                     pname, colname, otype = ptuple
                     if otype == 'component':
                         component = getattr(usage, 'component')
                         self.setItem(i, j,
-                         InfoTableItem(get_str_value(component, pname) or ''))
+                         InfoTableItem(str_get_prop(component, pname) or ''))
                     elif otype == 'usage':
                         self.setItem(i, j,
-                         InfoTableItem(get_str_value(usage, pname) or ''))
+                         InfoTableItem(str_get_prop(usage, pname) or ''))
+        width_fit = sum(w for w in widths) + 100
+        self.resize(width_fit, 240)
+
+
+class ActivityInfoTable(QTableWidget):
+    """
+    Table to provide an editable view of Activity instances in the timeline of
+    a system usage (instance of a system in the context of a project or
+    assembly). The rows of the table contain properties and parameters of
+    Activity instances.
+
+    The target use case is the Concept of Operations (ConOps) for a mission.
+    """
+    def __init__(self, usage=None, project=None, view=None, min_col_width=100,
+                 max_col_width=300, parent=None):
+        """
+        Initialize
+
+        Keyword Args:
+            usage (Acu or ProjectSystemUsage): the system usage whose
+                activities are displayed in the table
+            project (Project): the project whose systems' activities are
+                displayed in the table
+            view (list):  list in which each element is a 2-tuple
+                (pname, colname), where pname is the property id and
+                colname is the column name (if empty string, pname is the
+                column name)
+            min_col_width (int): minimum column width (default: 100)
+            max_col_width (int): maximum column width (default: 300)
+        """
+        super().__init__(parent=parent)
+        # orb.log.info('* [SystemInfoTable] initializing ...')
+        self.usage = None
+        if usage:
+            self.usage = usage
+        elif project:
+            psus = project.systems
+            if psus:
+                # TODO: provide pick-list with systems
+                # ... for now, look for a spacecraft
+                for psu in psus:
+                    t = getattr(psu.system.product_type , 'name', None) or None
+                    if t == 'Spacecraft':
+                        self.usage = psu.system
+                        break
+                if not self.usage:
+                    self.usage = psus[0]
+        self.min_col_width = min_col_width
+        self.max_col_width = max_col_width
+        # TODO: get default view from prefs / config
+        default_view = [
+            ('name', ''),
+            ('t_start', ''),
+            ('t_end', ''),
+            ('duration', ''),
+            ('description', '')
+            ]
+        self.view = view or default_view[:]
+        self.setup_table()
+
+    def setup_table(self):
+        self.setColumnCount(len(self.view))
+        acts = []
+        if isinstance(self.usage, orb.classes['Acu']):
+            acts = self.usage.function_activities or []
+        elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+            acts = self.usage.system_activities or []
+        if acts:
+            self.setRowCount(len(acts))
+        header_labels = []
+        widths = []
+        style = 'font-size: large;'
+        tag = 'p'
+        for pname, colname in self.view:
+            if colname:
+                header_label = f'<{tag} style="{style}">{colname}</{tag}>'
+                header_labels.append(header_label)
+            else:
+                # create col names based on pnames
+                if pname in parm_defz:
+                    header_label = make_parm_html(pname, style=style)
+                elif pname in de_defz:
+                    header_label = make_de_html(pname, style=style)
+                else:
+                    header_label = f'<{tag} style="{style}">{pname}</{tag}>'
+                header_labels.append(header_label)
+            # set col widths based on length of header text
+            if colname:
+                width = len(colname)*20
+            else:
+                if '_' in pname:
+                    base, sub = pname.split('_')
+                    width = len(base)*20 + len(sub)*8
+                else:
+                    width = len(pname)*20
+            width = min(max(width, self.min_col_width), self.max_col_width)
+            widths.append(width)
+        header = LabelHeaderView(self, widths=widths)
+        self.setHorizontalHeader(header)
+        self.setHorizontalHeaderLabels(header_labels)
+        # populate relevant data
+        if acts:
+            acts.sort(key=lambda x: get_prop(x, 't_start'))
+            for i, act in enumerate(acts):
+                for j, ptuple in enumerate(self.view):
+                    pname, colname = ptuple
+                    self.setItem(i, j,
+                                 InfoTableItem(str_get_prop(act, pname) or ''))
         width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
 
@@ -573,14 +682,16 @@ if __name__ == "__main__":
         # 'dLOSx_rx'
         # ]
     # w = SystemInfoTable(component_view=cview, usage_view=uview)
-    pt = orb.get('pgefobjects:ProductType.battery')
-    products = orb.search_exact(cname='HardwareProduct', product_type=pt)
-    w = ObjectTableView(products)
-    twanger = orb.get('test:twanger')
-    iidrive = orb.get('test:iidrive')
-    mr_fusion = orb.get('test:mr_fusion')
+    # pt = orb.get('pgefobjects:ProductType.battery')
+    # products = orb.search_exact(cname='HardwareProduct', product_type=pt)
+    # w = ObjectTableView(products)
+    # twanger = orb.get('test:twanger')
+    # iidrive = orb.get('test:iidrive')
+    # mr_fusion = orb.get('test:mr_fusion')
     # w.main_table_model.add_object(twanger)
-    w.main_table_model.add_objects([twanger, iidrive, mr_fusion])
+    # w.main_table_model.add_objects([twanger, iidrive, mr_fusion])
+    project = orb.get('H2G2')
+    w = ActivityInfoTable(project=project)
     w.show()
     sys.exit(app.exec_())
 
