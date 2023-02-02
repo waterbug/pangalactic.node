@@ -326,8 +326,6 @@ class PgxnForm(QWidget):
                         widget.setSizePolicy(QSizePolicy.Minimum,
                                              QSizePolicy.Minimum)
                         if pid not in editables:
-                            text = label.text() + ' *'
-                            label.setText(text)
                             label.setStyleSheet(
                                 'QLabel {font-size: 15px; font-weight: bold; '
                                 'color: purple} QToolTip {'

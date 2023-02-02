@@ -359,7 +359,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
         label = QLabel()
         if parm_field:
             label.setTextFormat(Qt.RichText)
-            html_name = make_parm_html(field_name)
+            html_name = make_parm_html(field_name, flag=True)
             label.setText(html_name)
             label.setStyleSheet('QLabel {font-size: 15px; font-weight: bold} '
                                 'QToolTip { font-weight: normal; '
