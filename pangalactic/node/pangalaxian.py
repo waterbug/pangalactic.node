@@ -560,7 +560,7 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     orb.log.info('  connected.')
                     return
-                elif n < 500000:
+                elif n < 50000000:
                     n += 1
                     QApplication.processEvents()
                     continue

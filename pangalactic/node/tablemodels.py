@@ -18,8 +18,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 # pangalactic
 from pangalactic.core                 import prefs, state
 from pangalactic.core.meta            import MAIN_VIEWS, TEXT_PROPERTIES
-from pangalactic.core.names           import (display_id,
-                                              pname_to_header_label,
+from pangalactic.core.names           import (pname_to_header_label,
                                               to_media_name)
 from pangalactic.core.parametrics     import (de_defz, get_dval_as_str,
                                               get_pval_as_str, parm_defz)
@@ -193,8 +192,6 @@ def obj_view_to_dict(obj, view):
         if a in schema['field_names']:
             if a == 'id':
                 d[a] = obj.id
-                # a possible option (for Product instances): id + version
-                # d[a] = display_id(obj)
             elif a in TEXT_PROPERTIES:
                 d[a] = (getattr(obj, a) or ' ').replace('\n', ' ')
             elif schema['fields'][a]['range'] == 'datetime':
@@ -319,22 +316,18 @@ class ObjectTableModel(MappingTableModel):
 
     def add_object(self, obj):
         n = self.rowCount()
-        self.beginResetModel()
         self.insertRows(n, 1)
         idx = self.createIndex(n, 0)
         self.setData(idx, obj)
-        self.endResetModel()
         return True
 
     def add_objects(self, objs):
         n = self.rowCount()
-        self.beginResetModel()
         m = len(objs)
         self.insertRows(n, m)
         for i, obj in enumerate(objs):
             idx = self.createIndex(n + i, 0)
             self.setData(idx, obj)
-        self.endResetModel()
         return True
 
     def mod_object(self, obj):
@@ -348,9 +341,7 @@ class ObjectTableModel(MappingTableModel):
             row = oids.index(obj.oid)  # raises ValueError if problem
             orb.log.debug(f"    object found at row {row}")
             idx = self.index(row, 0, parent=QModelIndex())
-            self.beginResetModel()
             self.setData(idx, obj)
-            self.endResetModel()
             return idx
         except:
             # possibly because my C++ object has been deleted ...

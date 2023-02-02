@@ -314,22 +314,28 @@ class ActivityInfoTable(QTableWidget):
             max_col_width (int): maximum column width (default: 300)
         """
         super().__init__(parent=parent)
-        # orb.log.info('* [SystemInfoTable] initializing ...')
+        orb.log.info('* ActivityInfoTable initializing ...')
         self.usage = None
         if usage:
+            orb.log.info(f'  - usage: {usage.id}')
             self.usage = usage
         elif project:
+            orb.log.info(f'  - project: {project.id}')
             psus = project.systems
             if psus:
+                orb.log.info('    project systems:')
                 # TODO: provide pick-list with systems
                 # ... for now, look for a spacecraft
                 for psu in psus:
+                    orb.log.info(f'    + {psu.system.id}')
                     t = getattr(psu.system.product_type , 'name', None) or None
                     if t == 'Spacecraft':
+                        orb.log.info('      (spacecraft, selected.)')
                         self.usage = psu.system
                         break
                 if not self.usage:
                     self.usage = psus[0]
+                    orb.log.info('      (no SC, selected first system.)')
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         # TODO: get default view from prefs / config

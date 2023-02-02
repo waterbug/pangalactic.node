@@ -241,11 +241,14 @@ class TimelineScene(QGraphicsScene):
         super().__init__(parent)
         self.position = position
         self.current_activity = current_activity
+        if current_activity:
+            offnc = current_activity.of_function
+            ofsys = current_activity.of_system
+            self.act_of = offnc or ofsys
         self.timeline = Timeline(self)
         self.addItem(self.timeline)
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
-        self.act_of = act_of
         self.grabbed_item = None
 
     def focus_changed_handler(self, new_item, old_item):
@@ -797,10 +800,10 @@ class ConOpsModeler(QMainWindow):
         project = orb.get(state.get('project'))
         mission_name = ' '.join([project.id, 'Mission'])
         mission = None
-        self.system_list = []
+        self.usage_list = []
         if project.systems:
             for psu in project.systems:
-                self.system_list.append(psu.system)
+                self.usage_list.append(psu)
         mission = orb.select('Mission', name=mission_name)
         if not mission:
             message = "This project had no Mission object; creating one."
@@ -860,11 +863,11 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(' - init_toolbar() ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
-        # self.sc_combo_box = QComboBox()
-        # self.system_list_ids = [sc.id for sc in self.system_list]
-        # self.sc_combo_box.addItems(self.system_list_ids)
-        # self.sc_combo_box.currentIndexChanged.connect(self.change_system)
-        # self.toolbar.addWidget(self.sc_combo_box)
+        self.sc_combo_box = QComboBox()
+        self.sys_names = [usage.system.name for usage in self.usage_list]
+        self.sc_combo_box.addItems(self.sys_names)
+        self.sc_combo_box.currentIndexChanged.connect(self.change_system)
+        self.toolbar.addWidget(self.sc_combo_box)
         self.modes_tool_button = SizedButton("Modes Tool")
         self.modes_tool_button.clicked.connect(self.display_modes_tool)
         self.toolbar.addWidget(self.modes_tool_button)
@@ -970,9 +973,9 @@ class ConOpsModeler(QMainWindow):
         win = ModesTool(self.project, parent=self)
         win.show()
 
-    # def change_system(self, index):
-        # self.system = self.system_list[index]
-        # self.set_widgets(current_activity=self.activity)
+    def change_system(self, index):
+        self.system = self.usage_list[index]
+        self.set_widgets(current_activity=self.activity)
 
     def resizeEvent(self, event):
         state['model_window_size'] = (self.width(), self.height())
