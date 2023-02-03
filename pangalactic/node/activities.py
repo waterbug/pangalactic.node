@@ -24,7 +24,9 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
-from pangalactic.node.tablemodels import MappingTableModel, ObjectTableModel
+# from pangalactic.node.tablemodels import MappingTableModel, ObjectTableModel
+from pangalactic.node.tablemodels import MappingTableModel
+from pangalactic.node.tableviews  import ActivityInfoTable
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 
@@ -162,16 +164,12 @@ class ActivityTable(QWidget):
         self.table.setAttribute(Qt.WA_DeleteOnClose)
 
     def set_table(self):
-        view = ['name', 't_start', 't_end', 'duration', 'description']
-        model = ObjectTableModel(self.activities, view=view)
-        table = QTableView()
-        table.setModel(model)
-        headers = table.horizontalHeader()
-        headers.setStyleSheet('font-weight: bold')
+        # view = ['name', 't_start', 't_end', 'duration', 'description']
+        project = orb.get(state.get('project'))
+        table = ActivityInfoTable(project=project)
         table.setSizePolicy(QSizePolicy.Preferred,
-                                QSizePolicy.Preferred)
+                            QSizePolicy.Preferred)
         table.setAlternatingRowColors(True)
-        table.resizeColumnsToContents()
         self.main_layout.addWidget(table, stretch=1)
         self.table = table
 

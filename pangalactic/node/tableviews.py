@@ -65,7 +65,7 @@ class LabelHeaderView(QHeaderView):
         for i in range(self.count()):
             label = QLabel(self, alignment=Qt.AlignCenter)
             label.setTextFormat(Qt.RichText)
-            label.setStyleSheet('font-size: 14px')
+            # label.setStyleSheet('font-size: 14px')
             self.m_labels.append(label)
             self.update_data()
             if len(self.widths) > i:
@@ -296,7 +296,7 @@ class ActivityInfoTable(QTableWidget):
 
     The target use case is the Concept of Operations (ConOps) for a mission.
     """
-    def __init__(self, usage=None, project=None, view=None, min_col_width=100,
+    def __init__(self, usage=None, project=None, view=None, min_col_width=20,
                  max_col_width=300, parent=None):
         """
         Initialize
@@ -306,10 +306,10 @@ class ActivityInfoTable(QTableWidget):
                 activities are displayed in the table
             project (Project): the project whose systems' activities are
                 displayed in the table
-            view (list):  list in which each element is a 2-tuple
-                (pname, colname), where pname is the property id and
+            view (list):  list in which each element is a 3-tuple
+                (pname, colname, width), where pname is the property id,
                 colname is the column name (if empty string, pname is the
-                column name)
+                column name), and width is the column width
             min_col_width (int): minimum column width (default: 100)
             max_col_width (int): maximum column width (default: 300)
         """
@@ -340,11 +340,11 @@ class ActivityInfoTable(QTableWidget):
         self.max_col_width = max_col_width
         # TODO: get default view from prefs / config
         default_view = [
-            ('name', ''),
-            ('t_start', ''),
-            ('t_end', ''),
-            ('duration', ''),
-            ('description', '')
+            ('name', '', 100),
+            ('t_start', '', 80),
+            ('t_end', '', 80),
+            ('duration', '', 80),
+            ('description', '', 150)
             ]
         self.view = view or default_view[:]
         self.setup_table()
@@ -360,9 +360,9 @@ class ActivityInfoTable(QTableWidget):
             self.setRowCount(len(acts))
         header_labels = []
         widths = []
-        style = 'font-size: large;'
+        style = 'font-weight: bold;'
         tag = 'p'
-        for pname, colname in self.view:
+        for pname, colname, width in self.view:
             if colname:
                 header_label = f'<{tag} style="{style}">{colname}</{tag}>'
                 header_labels.append(header_label)
@@ -375,16 +375,17 @@ class ActivityInfoTable(QTableWidget):
                 else:
                     header_label = f'<{tag} style="{style}">{pname}</{tag}>'
                 header_labels.append(header_label)
-            # set col widths based on length of header text
-            if colname:
-                width = len(colname)*20
-            else:
-                if '_' in pname:
-                    base, sub = pname.split('_')
-                    width = len(base)*20 + len(sub)*8
+            # if width is unspecified, set based on length of header text
+            if not width:
+                if colname:
+                    width = len(colname)*20
                 else:
-                    width = len(pname)*20
-            width = min(max(width, self.min_col_width), self.max_col_width)
+                    if '_' in pname:
+                        base, sub = pname.split('_')
+                        width = len(base)*20 + len(sub)*8
+                    else:
+                        width = len(pname)*20
+                width = min(max(width, self.min_col_width), self.max_col_width)
             widths.append(width)
         header = LabelHeaderView(self, widths=widths)
         self.setHorizontalHeader(header)
@@ -394,7 +395,7 @@ class ActivityInfoTable(QTableWidget):
             acts.sort(key=lambda x: get_prop(x, 't_start'))
             for i, act in enumerate(acts):
                 for j, ptuple in enumerate(self.view):
-                    pname, colname = ptuple
+                    pname, colname, width = ptuple
                     self.setItem(i, j,
                                  InfoTableItem(str_get_prop(act, pname) or ''))
         width_fit = sum(w for w in widths) + 100
