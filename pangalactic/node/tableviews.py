@@ -7,7 +7,7 @@ import os
 import ruamel_yaml as yaml
 
 # PyQt
-from PyQt5.QtCore    import pyqtSlot, Qt, QRect, QTimer
+from PyQt5.QtCore    import pyqtSlot, pyqtSignal, Qt, QRect, QTimer
 from PyQt5.QtGui     import QPalette
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFileDialog, QHeaderView, QLabel, QProxyStyle,
@@ -24,7 +24,8 @@ from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names       import get_external_name_plural
 from pangalactic.core.parametrics import (make_de_html, make_parm_html,
                                           de_defz, get_dval_as_str, get_dval,
-                                          get_pval_as_str, get_pval, parm_defz)
+                                          get_pval_as_str, get_pval, parm_defz,
+                                          set_pval_from_str, set_dval_from_str)
 from pangalactic.core.serializers import serialize
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import in_si
@@ -143,6 +144,44 @@ def str_get_prop(obj, pname):
     return '[undefined]'
 
 
+primitive_types = {"str": str, "int": int, "float": float, "bool": bool}
+
+
+def str_set_prop(obj, pname, strval):
+    """
+    Set the value of the specified property for the specified object from the
+    specified string (val).
+
+    Args:
+        obj (Identifiable): the object
+        pname (str): name of the property (attr, parameter, or data element)
+        val (str): str of value to be set
+    """
+    # orb.log.debug('* str_set_prop()')
+    schema = orb.schemas.get(obj.__class__.__name__)
+    field_names = []
+    if schema:
+        field_names = schema.get('field_names', [])
+    if field_names and pname in field_names:
+        # orb.log.debug(f'  - "{pname}" in field_names ...')
+        dtype = primitive_types.get(schema['fields'][pname]['range'])
+        if dtype:
+            val = dtype(strval)
+            # orb.log.debug(f'  - calling: setattr(obj, "{pname}", {val}')
+            setattr(obj, pname, val)
+    elif pname in parm_defz:
+        pd = parm_defz.get(pname)
+        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                pd['dimensions'], '')
+        # msg = f'  - calling: set_pval_from_str(obj, "{pname}", "{strval}"'
+        # orb.log.debug(msg)
+        set_pval_from_str(obj.oid, pname, strval, units=units)
+    elif pname in de_defz:
+        # msg = f'  - calling: set_dval_from_str(obj, "{pname}", "{strval}"'
+        # orb.log.debug(msg)
+        set_dval_from_str(obj.oid, pname, strval)
+
+
 def get_prop(obj, pname):
     """
     Return the value of the specified property for the specified object.
@@ -169,11 +208,9 @@ def get_prop(obj, pname):
 
 class InfoTableItem(QTableWidgetItem):
 
-    def __init__(self, text=None):
-        if text is not None:
-            super().__init__(text)
-        else:
-            super().__init__()
+    def __init__(self, text):
+        super().__init__()
+        self.setText(text or '')
         self.isResolving = False
 
     def setData(self, role, value):
@@ -211,7 +248,7 @@ class SystemInfoTable(QTableWidget):
             max_col_width (int): maximum column width (default: 300)
         """
         super().__init__(parent=parent)
-        # orb.log.info('* [SystemInfoTable] initializing ...')
+        # orb.log.debug('* [SystemInfoTable] initializing ...')
         self.system = system
         self.sort_on = sort_on
         self.sort_by_field = sort_by_field
@@ -296,8 +333,11 @@ class ActivityInfoTable(QTableWidget):
 
     The target use case is the Concept of Operations (ConOps) for a mission.
     """
-    def __init__(self, usage=None, project=None, view=None, min_col_width=20,
-                 max_col_width=300, parent=None):
+
+    act_mod = pyqtSignal(str)  # args: oid
+
+    def __init__(self, usage=None, project=None, activity=None, view=None,
+                 min_col_width=20, max_col_width=300, parent=None):
         """
         Initialize
 
@@ -306,6 +346,7 @@ class ActivityInfoTable(QTableWidget):
                 activities are displayed in the table
             project (Project): the project whose systems' activities are
                 displayed in the table
+            activity (Activity): the parent activity of the activities
             view (list):  list in which each element is a 3-tuple
                 (pname, colname, width), where pname is the property id,
                 colname is the column name (if empty string, pname is the
@@ -314,50 +355,76 @@ class ActivityInfoTable(QTableWidget):
             max_col_width (int): maximum column width (default: 300)
         """
         super().__init__(parent=parent)
-        orb.log.info('* ActivityInfoTable initializing ...')
+        orb.log.debug('* ActivityInfoTable initializing ...')
         self.usage = None
+        self.activity = activity
+        if not activity and project:
+            self.activity = orb.select('Mission', owner=project)
         if usage:
-            orb.log.info(f'  - usage: {usage.id}')
+            orb.log.debug(f'  - usage: {usage.id}')
             self.usage = usage
         elif project:
-            orb.log.info(f'  - project: {project.id}')
+            orb.log.debug(f'  - project: {project.id}')
             psus = project.systems
             if psus:
-                orb.log.info('    project systems:')
+                orb.log.debug('    project systems:')
                 # TODO: provide pick-list with systems
                 # ... for now, look for a spacecraft
                 for psu in psus:
-                    orb.log.info(f'    + {psu.system.id}')
+                    orb.log.debug(f'    + {psu.system.id}')
                     t = getattr(psu.system.product_type , 'name', None) or None
                     if t == 'Spacecraft':
-                        orb.log.info('      (spacecraft, selected.)')
+                        orb.log.debug('      (spacecraft, selected.)')
                         self.usage = psu.system
                         break
                 if not self.usage:
                     self.usage = psus[0]
-                    orb.log.info('      (no SC, selected first system.)')
+                    orb.log.debug('      (no SC, selected first system.)')
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         # TODO: get default view from prefs / config
         default_view = [
-            ('name', '', 100),
-            ('t_start', '', 80),
-            ('t_end', '', 80),
-            ('duration', '', 80),
+            ('name', '', 150),
+            ('t_start', '', 60),
+            ('t_end', '', 60),
+            ('duration', '', 60),
             ('description', '', 150)
             ]
         self.view = view or default_view[:]
         self.setup_table()
+        self.cellChanged.connect(self.on_cell_changed)
+
+    @property
+    def acts(self):
+        """
+        List of the relevant activities.
+        """
+        if not self.activity:
+            return []
+        activities = self.activity.sub_activities
+        if isinstance(self.activity, orb.classes['Mission']):
+            # if a Mission, include all sub_activities
+            return activities
+        # if not a Mission, restrict self.acts to the context of a usage
+        if isinstance(self.usage, orb.classes['Acu']):
+            return list(set(activities) &
+                        set(self.usage.function_activities or []))
+        elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+            return list(set(activities) &
+                        set(self.usage.system_activities or []))
+        # or if no usage, include all sub_activities
+        return activities
 
     def setup_table(self):
+        orb.log.debug('  setup_table()')
+        orb.log.debug('  getting activities ...')
         self.setColumnCount(len(self.view))
-        acts = []
-        if isinstance(self.usage, orb.classes['Acu']):
-            acts = self.usage.function_activities or []
-        elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
-            acts = self.usage.system_activities or []
-        if acts:
-            self.setRowCount(len(acts))
+        if self.acts:
+            names = [a.name for a in self.acts]
+            orb.log.debug(f'  {names}')
+            self.setRowCount(len(self.acts))
+        else:
+            orb.log.debug('  none found.')
         header_labels = []
         widths = []
         style = 'font-weight: bold;'
@@ -391,15 +458,48 @@ class ActivityInfoTable(QTableWidget):
         self.setHorizontalHeader(header)
         self.setHorizontalHeaderLabels(header_labels)
         # populate relevant data
-        if acts:
-            acts.sort(key=lambda x: get_prop(x, 't_start'))
-            for i, act in enumerate(acts):
+        if self.acts:
+            self.acts.sort(key=lambda x: get_prop(x, 't_start'))
+            for i, act in enumerate(self.acts):
                 for j, ptuple in enumerate(self.view):
                     pname, colname, width = ptuple
                     self.setItem(i, j,
                                  InfoTableItem(str_get_prop(act, pname) or ''))
         width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
+
+    def add_activity(self, oid):
+        """
+        Add an activity.
+
+        Args:
+            oid (str): oid of the activity to add
+        """
+        orb.log.debug('* [ActivityInfoTable] add_activity')
+        act = orb.get(oid)
+        row = len(self.acts)
+        self.insertRow(row)
+        for j, ptuple in enumerate(self.view):
+            pname, colname, width = ptuple
+            self.setItem(row, j,
+                         InfoTableItem(str_get_prop(act, pname) or ''))
+
+    def on_cell_changed(self, row, col):
+        orb.log.debug(f'* [ActivityInfoTable] cellChanged({row}, {col})')
+        if row < len(self.acts):
+            act = self.acts[row]
+            orb.log.debug(f'  that row is {act.name}')
+            strval = self.item(row, col).text()
+            # orb.log.debug(f'  str value is {strval}')
+            pname = self.view[col][0]
+            # orb.log.debug(f'  pname is {pname}')
+            str_set_prop(act, pname, strval)
+            orb.db.commit()
+            # newval = str_get_prop(act, pname)
+            # orb.log.debug(f'  {pname} is now "{newval}"')
+            self.act_mod.emit(act.oid)
+        else:
+            orb.log.debug('  no such row (out of range)')
 
 
 class ObjectTableView(QTableView):
@@ -415,7 +515,7 @@ class ObjectTableView(QTableView):
         view (list of str):  specified attributes (columns)
         """
         super().__init__(parent=parent)
-        # orb.log.info('* [ObjectTableView] initializing ...')
+        # orb.log.debug('* [ObjectTableView] initializing ...')
         self.objs = objs
         self.view = view
         self.setup_table()
@@ -426,13 +526,13 @@ class ObjectTableView(QTableView):
         # if a main_table_proxy exists, remove it so gui doesn't get confused
         if self.objs:
             self.cname = self.objs[0].__class__.__name__
-            # orb.log.info('  - for class: "{}"'.format(self.cname))
+            # orb.log.debug('  - for class: "{}"'.format(self.cname))
             if not self.view:
                 # if no view is specified, use the preferred view, if any
                 if (prefs.get('db_views') or {}).get(self.cname):
                     self.view = prefs['db_views'][self.cname][:]
         # else:
-            # orb.log.info('  - no objects provided.')
+            # orb.log.debug('  - no objects provided.')
         # if there is neither a specified view nor a preferred view, use the
         # default view
         view = self.view or MAIN_VIEWS.get(self.cname, IDENTITY)
@@ -444,8 +544,8 @@ class ObjectTableView(QTableView):
         self.setStyleSheet('font-size: 12px')
         # disable sorting while loading data
         self.setSortingEnabled(False)
-        self.setSelectionBehavior(QTableView.SelectRows)
         self.setModel(self.main_table_proxy)
+        self.setSelectionBehavior(QTableView.SelectRows)
         column_header = self.horizontalHeader()
         column_header.setStyleSheet('font-weight: bold')
         # TODO:  try setting header colors using Qt functions ...

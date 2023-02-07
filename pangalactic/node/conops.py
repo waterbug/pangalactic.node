@@ -44,7 +44,8 @@ from pangalactic.core             import state
 from pangalactic.core.meta        import DEFAULT_CLASS_PARAMETERS
 from pangalactic.core.serializers import deserialize
 from pangalactic.core.uberorb     import orb
-from pangalactic.node.activities  import ActivityTable, ModesTool
+# from pangalactic.node.activities  import ActivityWidget, ModesTool
+from pangalactic.node.activities  import ModesTool
 from pangalactic.node.buttons     import SizedButton, ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.pgxnobject  import PgxnObject
@@ -98,8 +99,8 @@ class EventBlock(QGraphicsPolygonItem):
         self.block_label.set_text(getattr(self.activity, 'name', 'No Name')
                                           or 'No Name')
 
-    def mouseDoubleClickEvent(self, event):
-        super().mouseDoubleClickEvent(event)
+    # def mouseDoubleClickEvent(self, event):
+        # super().mouseDoubleClickEvent(event)
         # TODO: replace with a pyqtSignal ...
         # dispatcher.send("double clicked", act=self.activity)
 
@@ -136,6 +137,7 @@ class EventBlock(QGraphicsPolygonItem):
 
 class TimelineView(QGraphicsView):
     def __init__(self, parent=None):
+        orb.log.debug('* TimelineView()')
         super().__init__(parent)
         self.setRenderHint(QPainter.Antialiasing)
 
@@ -161,8 +163,9 @@ class Timeline(QGraphicsPathItem):
 
     def __init__(self, scene, parent=None):
         super().__init__(parent)
+        orb.log.debug('* Timeline()')
         self.signals = TimelineSignals()
-        self.item_list = []
+        self.evt_blocks = []
         self.path_length = 1000
         self.make_path()
         self.current_positions = []
@@ -174,9 +177,9 @@ class Timeline(QGraphicsPathItem):
         self.path.arcTo(QRectF(self.path_length, 200, 100, 100), 180, 360)
         self.setPath(self.path)
         self.length = round(self.path.length() - 2 * self.circle_length)
-        factor = self.length // (len(self.item_list) + 1)
+        factor = self.length // (len(self.evt_blocks) + 1)
         self.list_of_pos = [(n+1) * factor + 100
-                            for n in range(0, len(self.item_list))]
+                            for n in range(0, len(self.evt_blocks))]
 
     def update_timeline(self):
         self.calc_length()
@@ -184,11 +187,11 @@ class Timeline(QGraphicsPathItem):
         self.arrange()
 
     def calc_length(self):
-        if len(self.item_list) <= 5:
+        if len(self.evt_blocks) <= 5:
             self.path_length = 1000
         else:
             # adjust timeline length and rescale scene
-            delta = len(self.item_list) - 5
+            delta = len(self.evt_blocks) - 5
             self.path_length = 1000 + (delta // 2) * 300
             scale = 70 - (delta // 2) * 10
             percentscale = str(scale) + "%"
@@ -196,29 +199,30 @@ class Timeline(QGraphicsPathItem):
             # dispatcher.send("rescale timeline", percentscale=pscale)
             self.scene.rescale_optical_path.emit(percentscale)
 
-    def add_item(self, item):
-        self.item_list.append(item)
+    def add_evt_block(self, evt_block):
+        self.evt_blocks.append(evt_block)
         self.update_timeline()
 
-    def populate(self, item_list):
-        self.item_list = item_list
+    def populate(self, evt_blocks):
+        self.evt_blocks = evt_blocks
         self.update_timeline()
 
     def arrange(self):
         # FIXME:  revise to use "of_function"/"of_system" (Acu/PSU)
         parent_act = self.scene().current_activity
-        # item_list_copy = self.item_list[:]
-        self.item_list.sort(key=lambda x: x.scenePos().x())
+        # evt_blocks_list_copy = self.evt_blocks[:]
+        self.evt_blocks.sort(key=lambda x: x.scenePos().x())
         # NOTE: don't care if order is same -- call "order changed" anyway
         # same = True
-        # for item in self.item_list:
-            # if self.item_list.index(item) != item_list_copy.index(item):
+        # for evt_block in self.evt_blocks:
+            # if self.evt_blocks.index(evt_block) != evt_blocks_copy.index(
+                                                                # evt_block):
                 # same = False
-        for i, item in enumerate(self.item_list):
-            item.setPos(QPoint(self.list_of_pos[i], 250))
+        for i, evt_block in enumerate(self.evt_blocks):
+            evt_block.setPos(QPoint(self.list_of_pos[i], 250))
             # FIXME: this will not select a unique activity if an activity is
             # used more than once in the timeline ...
-            act = item.activity
+            act = evt_block.activity
             act.sub_activity_of = parent_act
             act.sub_activity_sequence = i
             orb.save([act])
@@ -236,15 +240,19 @@ class TimelineScene(QGraphicsScene):
     scene_activity_edited = pyqtSignal(str)  # args: oid
     delete_scene_activity = pyqtSignal(str)  # args: oid
 
-    def __init__(self, parent, current_activity=None, act_of=None,
-                 position=None):
+    def __init__(self, parent, current_activity=None, position=None):
         super().__init__(parent)
+        orb.log.debug('* TimelineScene()')
         self.position = position
         self.current_activity = current_activity
+        name = getattr(current_activity, 'name', '[None obj]') or 'None'
+        orb.log.debug(f'  current activity: {name}')
         if current_activity:
             offnc = current_activity.of_function
             ofsys = current_activity.of_system
             self.act_of = offnc or ofsys
+            name = getattr(self.act_of, 'name', None) or 'None'
+            orb.log.debug(f'  act_of: {name}')
         self.timeline = Timeline(self)
         self.addItem(self.timeline)
         self.focusItemChanged.connect(self.focus_changed_handler)
@@ -272,6 +280,7 @@ class TimelineScene(QGraphicsScene):
         self.grabbed_item == None
 
     def dropEvent(self, event):
+        orb.log.debug('  - TimelineScene.dropEvent()')
         seq = len(self.current_activity.sub_activities) + 1
         # activity type is one of "Cycle", "Operation", "Event"
         activity_type_name = event.mimeData().text()
@@ -301,13 +310,12 @@ class TimelineScene(QGraphicsScene):
                              sub_activity_of=self.current_activity,
                              sub_activity_sequence=seq)
         orb.db.commit()
-        item = EventBlock(activity=activity,
-                          parent_activity=self.current_activity,
-                          scene=self)
-        item.setPos(event.scenePos())
-        self.addItem(item)
-        self.timeline.add_item(item)
-        # self.timeline.arrange()
+        evt_block = EventBlock(activity=activity,
+                               parent_activity=self.current_activity,
+                               scene=self)
+        evt_block.setPos(event.scenePos())
+        self.addItem(evt_block)
+        self.timeline.add_evt_block(evt_block)
         orb.log.debug('* scene: sending "new_activity" signal')
         self.new_activity.emit(activity.oid)
         self.update()
@@ -323,11 +331,22 @@ class TimelineScene(QGraphicsScene):
         pxo.activity_edited.connect(self.on_activity_edited)
         pxo.show()
 
+    def on_act_mod(self, oid):
+        """
+        Handle 'act_mod' signal from ActivityInfoTable, meaning an activity was
+        modified.
+        """
+        orb.log.debug('* scene: received "act_mod" signal')
+        for item in self.timeline.evt_blocks:
+            orb.log.debug(f'  checking {item.activity.name}')
+            if item.activity.oid == oid:
+                item.update_block_label()
+
     def on_activity_edited(self, oid):
-        # emitted signal causes ActivityTable updates
+        # emitted signal causes activity info widget updates
         self.scene_activity_edited.emit(oid)
         # update activity block labels if necessary
-        for item in self.timeline.item_list:
+        for item in self.timeline.evt_blocks:
             if item.activity.oid == oid:
                 item.update_block_label()
 
@@ -345,6 +364,7 @@ class TimelineScene(QGraphicsScene):
 class TimelineWidget(QWidget):
 
     object_deleted = pyqtSignal(str, str)  # args: oid, cname
+    new_activity = pyqtSignal(str)         # args: oid
 
     def __init__(self, activity, position=None, parent=None):
         super().__init__(parent=parent)
@@ -382,11 +402,10 @@ class TimelineWidget(QWidget):
         subject activity.
         """
         orb.log.debug(' - set_new_scene ...')
-        scene = TimelineScene(self, self.activity,
-                              act_of=self.system, position=self.position)
+        scene = TimelineScene(self, self.activity, position=self.position)
         if (self.activity != None and
             len(self.activity.sub_activities) > 0):
-            item_list=[]
+            evt_blocks=[]
             for activity in sorted(self.activity.sub_activities,
                                    key=lambda x: getattr(x,
                                    'sub_activity_sequence', 0) or 0):
@@ -396,10 +415,10 @@ class TimelineWidget(QWidget):
                     item = EventBlock(activity=activity,
                                       parent_activity=self.activity,
                                       scene=scene)
-                    item_list.append(item)
+                    evt_blocks.append(item)
                     scene.addItem(item)
                 scene.update()
-            scene.timeline.populate(item_list)
+            scene.timeline.populate(evt_blocks)
         scene.delete_scene_activity.connect(self.delete_activity)
         self.set_title()
         self.scene = scene
@@ -454,7 +473,7 @@ class TimelineWidget(QWidget):
         self.set_new_scene()
         previous = act.where_occurs[0].composite_activity
         self.history.append(previous)
-        self.go_back_action.setDisabled(False)
+        # self.go_back_action.setDisabled(False)
 
     def show_empty_scene(self):
         """
@@ -467,13 +486,13 @@ class TimelineWidget(QWidget):
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
         self.toolbar.setObjectName('ActionsToolBar')
-        self.go_back_action = self.create_action(
-                                    "Go Back",
-                                    slot=self.go_back,
-                                    icon="back",
-                                    tip="Back to Previous Page")
-        self.toolbar.addAction(self.go_back_action)
-        self.go_back_action.setDisabled(True)
+        # self.go_back_action = self.create_action(
+                                    # "Go Back",
+                                    # slot=self.go_back,
+                                    # icon="back",
+                                    # tip="Back to Previous Page")
+        # self.toolbar.addAction(self.go_back_action)
+        # self.go_back_action.setDisabled(True)
         self.clear_activities_action = self.create_action(
                                     "clear activities",
                                     slot=self.clear_activities,
@@ -596,17 +615,17 @@ class TimelineWidget(QWidget):
         if self.system in [activity.of_function, activity.of_system]:
             self.set_new_scene()
 
-    def go_back(self):
-        try:
-            self.activity = self.history.pop()
-            if len(self.history) == 0:
-                self.go_back_action.setDisabled(True)
-            self.set_new_scene()
-            # TODO: replace with pyqtSignal ...
-            # dispatcher.send("go back", obj=self.activity,
-                            # position=self.position)
-        except:
-            pass
+    # def go_back(self):
+        # try:
+            # self.activity = self.history.pop()
+            # if len(self.history) == 0:
+                # # self.go_back_action.setDisabled(True)
+            # self.set_new_scene()
+            # # TODO: replace with pyqtSignal ...
+            # # dispatcher.send("go back", obj=self.activity,
+                            # # position=self.position)
+        # except:
+            # pass
 
     def undo(self):
         try:
@@ -773,17 +792,14 @@ class ConOpsModeler(QMainWindow):
         - main_timeline (TimelineWidget(QWidget))
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
-        - activity_table (ActivityTable)
         - sub_timeline (TimelineWidget(QWidget))
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
-        - sub_activity_table (ActivityTable)
 
     Attrs:
         history (list):  list of previous subject Activity instances
     """
 
-    activity_focused = pyqtSignal(str)     # args: oid
     deleted_object = pyqtSignal(str, str)  # args: oid, cname
     new_activity = pyqtSignal(str)         # args: oid
     new_object = pyqtSignal(str)           # args: oid
@@ -818,6 +834,7 @@ class ConOpsModeler(QMainWindow):
             orb.save([mission])
             # dispatcher.send("new object", obj=mission)
             self.new_object.emit(mission.oid)
+        orb.log.info(f'  activity: {mission.name}')
         self.activity = mission
         self.project = project
         self.create_block_library()
@@ -852,10 +869,10 @@ class ConOpsModeler(QMainWindow):
         layout.addWidget(op_button)
         layout.addWidget(ev_button)
         layout.addWidget(cyc_button)
-        itemWidget = QWidget()
-        itemWidget.setLayout(layout)
+        library_widget = QWidget()
+        library_widget.setLayout(layout)
         self.library = QToolBox()
-        self.library.addItem(itemWidget, "Activities")
+        self.library.addItem(library_widget, "Activities")
         self.library.setSizePolicy(QSizePolicy.Fixed,
                                    QSizePolicy.Fixed)
 
@@ -903,24 +920,24 @@ class ConOpsModeler(QMainWindow):
         self.sub_timeline.object_deleted.connect(
                                         self.on_sub_timeline_activity_deleted)
         self.outer_layout = QGridLayout()
-        self.create_activity_table()
-        self.main_timeline.scene.new_activity.connect(
-                                        self.activity_table.on_activity_added)
-        self.main_timeline.scene.timeline.signals.order_changed.connect(
-                                        self.rebuild_activity_table)
-        self.main_timeline.scene.scene_activity_edited.connect(
-                                            self.rebuild_activity_table)
-        self.outer_layout.addWidget(self.main_timeline, 0, 1)
-        self.outer_layout.addWidget(self.activity_table, 0, 0)
-        self.create_sub_activity_table()
-        self.sub_timeline.scene.new_activity.connect(
-                                    self.sub_activity_table.on_activity_added)
-        self.sub_timeline.scene.timeline.signals.order_changed.connect(
-                                        self.rebuild_sub_activity_table)
-        self.sub_timeline.scene.scene_activity_edited.connect(
-                                        self.rebuild_sub_activity_table)
-        self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
-        self.outer_layout.addWidget(self.sub_timeline, 1, 1)
+        # self.create_activity_widget()
+        # self.main_timeline.scene.new_activity.connect(
+                                        # self.activity_widget.on_activity_added)
+        # self.main_timeline.scene.timeline.signals.order_changed.connect(
+                                        # self.rebuild_activity_table)
+        # self.main_timeline.scene.scene_activity_edited.connect(
+                                            # self.rebuild_activity_table)
+        self.outer_layout.addWidget(self.main_timeline, 0, 0)
+        # self.outer_layout.addWidget(self.activity_widget, 0, 0)
+        # self.create_sub_activity_widget()
+        # self.sub_timeline.scene.new_activity.connect(
+                                    # self.sub_activity_widget.on_activity_added)
+        # self.sub_timeline.scene.timeline.signals.order_changed.connect(
+                                        # self.rebuild_sub_activity_table)
+        # self.sub_timeline.scene.scene_activity_edited.connect(
+                                        # self.rebuild_sub_activity_table)
+        # self.outer_layout.addWidget(self.sub_activity_widget, 1, 0)
+        self.outer_layout.addWidget(self.sub_timeline, 1, 0)
         self.widget = QWidget()
         self.widget.setMinimumSize(1450, 600)
         self.widget.setLayout(self.outer_layout)
@@ -933,41 +950,45 @@ class ConOpsModeler(QMainWindow):
             self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
             self.right_dock.setWidget(self.library)
 
-    def create_activity_table(self):
-        act_of = self.activity.of_function or self.activity.of_system
-        self.activity_table = ActivityTable(self.activity, parent=self,
-                                            act_of=act_of, position='top')
-        self.activity_table.setMinimumSize(500, 300)
-        self.activity_table.setSizePolicy(
-                                    QSizePolicy.Fixed, QSizePolicy.Expanding)
-        self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
+    # def create_activity_widget(self):
+        # act_of = self.activity.of_function or self.activity.of_system
+        # self.activity_widget = ActivityWidget(self.activity, parent=self,
+                                              # act_of=act_of, position='top')
+        # self.activity_widget.table.act_mod.connect(
+                                        # self.main_timeline.scene.on_act_mod)
+        # self.activity_widget.setMinimumSize(500, 300)
+        # self.activity_widget.setSizePolicy(
+                                    # QSizePolicy.Fixed, QSizePolicy.Expanding)
+        # self.activity_widget.setAttribute(Qt.WA_DeleteOnClose)
 
-    def rebuild_activity_table(self):
-        if getattr(self, 'activity_table', None):
-            self.outer_layout.removeWidget(self.activity_table)
-            self.activity_table.parent = None
-            self.activity_table.close()
-            self.activity_table = None
-        self.create_activity_table()
-        self.outer_layout.addWidget(self.activity_table, 0, 0)
+    # def rebuild_activity_table(self):
+        # if getattr(self, 'activity_table', None):
+            # self.outer_layout.removeWidget(self.activity_widget)
+            # self.activity_widget.parent = None
+            # self.activity_widget.close()
+            # # self.activity_widget = None
+        # self.create_activity_widget()
+        # self.outer_layout.addWidget(self.activity_widget, 0, 0)
 
-    def create_sub_activity_table(self):
-        self.sub_activity_table = ActivityTable(self.activity, parent=self,
-                                                position='middle')
-        self.sub_activity_table.setEnabled(False)
-        self.sub_activity_table.setMinimumSize(500, 300)
-        self.sub_activity_table.setSizePolicy(QSizePolicy.Fixed,
-                                              QSizePolicy.Expanding)
-        self.sub_activity_table.setAttribute(Qt.WA_DeleteOnClose)
+    # def create_sub_activity_widget(self):
+        # self.sub_activity_widget = ActivityWidget(self.activity, parent=self,
+                                                # position='middle')
+        # self.sub_activity_widget.table.act_mod.connect(
+                                        # self.sub_timeline.scene.on_act_mod)
+        # self.sub_activity_widget.setEnabled(False)
+        # self.sub_activity_widget.setMinimumSize(500, 300)
+        # self.sub_activity_widget.setSizePolicy(QSizePolicy.Fixed,
+                                              # QSizePolicy.Expanding)
+        # self.sub_activity_widget.setAttribute(Qt.WA_DeleteOnClose)
 
-    def rebuild_sub_activity_table(self):
-        if getattr(self, 'sub_activity_table', None):
-            self.outer_layout.removeWidget(self.sub_activity_table)
-            self.sub_activity_table.parent = None
-            self.sub_activity_table.close()
-            self.sub_activity_table = None
-        self.create_sub_activity_table()
-        self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
+    # def rebuild_sub_activity_table(self):
+        # if getattr(self, 'sub_activity_table', None):
+            # self.outer_layout.removeWidget(self.sub_activity_widget)
+            # self.sub_activity_widget.parent = None
+            # self.sub_activity_widget.close()
+            # self.sub_activity_widget = None
+        # self.create_sub_activity_widget()
+        # self.outer_layout.addWidget(self.sub_activity_widget, 1, 0)
 
     def display_modes_tool(self):
         win = ModesTool(self.project, parent=self)
@@ -980,15 +1001,15 @@ class ConOpsModeler(QMainWindow):
     def resizeEvent(self, event):
         state['model_window_size'] = (self.width(), self.height())
 
-    def on_double_click(self, act):
-        orb.log.debug("  - on_double_click()...")
-        try:
-            orb.log.debug(f'     + activity: {act.id}')
-            if act.activity_type.id == 'cycle':
-                self.main_timeline.widget_drill_down(act)
-        except Exception as e:
-            orb.log.debug("    exception occurred:")
-            orb.log.debug(e)
+    # def on_double_click(self, act):
+        # orb.log.debug("  - on_double_click()...")
+        # try:
+            # orb.log.debug(f'     + activity: {act.id}')
+            # if act.activity_type.id == 'cycle':
+                # self.main_timeline.widget_drill_down(act)
+        # except Exception as e:
+            # orb.log.debug("    exception occurred:")
+            # orb.log.debug(e)
 
     def on_activity_got_focus(self, act_oid):
         """
@@ -998,27 +1019,32 @@ class ConOpsModeler(QMainWindow):
         self.sub_timeline.activity = act
         self.sub_timeline.set_new_scene()
         self.sub_timeline.setEnabled(True)
-        self.sub_activity_table.on_activity_focused(act)
+        # self.sub_activity_widget.on_activity_focused(act)
 
     def on_main_timeline_new_activity(self, oid):
-        self.rebuild_activity_table()
+        orb.log.debug("  - on_main_timeline_new_activity()")
+        # self.rebuild_activity_table()
         # self.new_or_modified_objects.emit(oid)
+        # self.activity_widget.on_activity_added(oid)
 
     def on_sub_timeline_new_activity(self, oid):
-        self.rebuild_activity_table()
+        orb.log.debug("  - on_sub_timeline_new_activity()")
+        # self.rebuild_activity_table()
         # self.new_or_modified_objects.emit(oid)
 
     def on_main_timeline_activity_deleted(self, oid, cname):
         """
         Handle a main timeline activity deletion.
         """
-        self.rebuild_activity_table()
+        orb.log.debug("  - on_main_timeline_activity_deleted()")
+        # self.rebuild_activity_table()
 
     def on_sub_timeline_activity_deleted(self, oid, cname):
         """
         Handle a sub timeline activity deletion.
         """
-        self.rebuild_sub_activity_table()
+        orb.log.debug("  - on_sub_timeline_activity_deleted()")
+        # self.rebuild_sub_activity_table()
 
     # def on_delete_activity(self, oid, cname):
         # self.deleted_object.emit(oid, cname)
