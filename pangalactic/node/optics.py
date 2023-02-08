@@ -5,8 +5,6 @@ Optical System tool for computing the error budget of an optical system.
 
 import os, sys
 
-from louie import dispatcher
-
 from PyQt5.QtCore import pyqtSignal, Qt, QObject, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QFileDialog, QMainWindow, QWidget, QGraphicsItem,
@@ -27,7 +25,7 @@ from pangalactic.core.names       import (get_acu_id, get_acu_name,
                                           get_next_ref_des)
 from pangalactic.core.parametrics import get_dval, set_dval
 # from pangalactic.core.parametrics import get_pval
-from pangalactic.core.utils.reports import gen_error_budget
+from pangalactic.core.utils.error_budget_writer import gen_error_budget
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import date2str, dtstamp
 from pangalactic.core.validation  import get_bom_oids
@@ -36,9 +34,9 @@ from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
 from pangalactic.node.libraries   import LibraryDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
-from pangalactic.node.utils       import (clone, extract_mime_data,
-                                          create_product_from_template)
-from pangalactic.node.widgets     import NameLabel, StringFieldWidget, ValueLabel
+from pangalactic.node.utils       import clone, extract_mime_data
+from pangalactic.node.widgets     import (NameLabel, StringFieldWidget,
+                                          ValueLabel)
 
 
 class OpticalComponentBlock(QGraphicsPolygonItem):
@@ -274,16 +272,14 @@ class OpticalSystemScene(QGraphicsScene):
             # parameters must be recomputed, etc.)
             self.system.mod_datetime = dtstamp()
             self.system.modifier = user
-            # add block before orb.save(), which takes time ...
+            orb.db.commit()
             item = OpticalComponentBlock(usage=new_acu, scene=self)
-            item.setPos(event.scenePos())
-            self.addItem(item)
-            self.optical_path.add_item(item)
-            orb.save([new_acu, self.system])
-            # orb.log.debug('      Acu created: {}'.format(
-                          # new_acu.name))
-            self.new_or_modified_objects.emit([new_acu.oid, self.system.oid])
-            self.update()
+            # item.setPos(event.scenePos())
+            # self.optical_path.add_item(item)
+
+            orb.log.debug('      Acu created: {}'.format(new_acu.name))
+            # self.update()
+            # self.new_or_modified_objects.emit([new_acu.oid, self.system.oid])
 
     def edit_parameters(self, component):
         view = ['id', 'name', 'description']
@@ -587,19 +583,6 @@ class OpticalSysInfoPanel(QWidget):
                 event.ignore()
                 orb.log.debug("* drop event: ignoring -- "
                               "not found in db or not an optical system.")
-        elif event.mimeData().hasFormat("application/x-pgef-template"):
-            # drop item is Template -> create a new system from it
-            data = extract_mime_data(event, "application/x-pgef-template")
-            icon, t_oid, t_id, t_name, t_cname = data
-            template = orb.get(t_oid)
-            system = create_product_from_template(template)
-            # NOTE: the below stuff is unnecessary, I think
-            # if system.components:
-                # orb.save(system.components)
-                # for acu in system.components:
-                    # dispatcher.send('new object', obj=acu)
-            dispatcher.send("drop on system info", obj=system)
-            dispatcher.send('new object', obj=system)
         else:
             event.ignore()
 
@@ -639,9 +622,6 @@ class OpticalSystemWidget(QWidget):
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
         self.scene_scale_changed("70%")
-        # dispatcher.connect(self.on_component_edited, 'component edited')
-        # dispatcher.connect(self.on_rescale_optical_path,
-                           # "rescale optical path")
         self.scene.rescale_optical_path.connect(self.on_rescale_optical_path)
         self.setUpdatesEnabled(True)
 
@@ -784,8 +764,6 @@ class OpticalSystemModeler(QMainWindow):
                     sys_widget_h + sys_table_h + 200)
         self.system_widget.library_button.clicked.connect(
                                                 self.display_optics_library)
-        # TODO: replace dispatcher with pyqtSignal
-        # dispatcher.connect(self.on_double_click, "double clicked")
 
     @property
     def system(self):
