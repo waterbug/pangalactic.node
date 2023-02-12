@@ -161,7 +161,7 @@ class TimelineSignals(QObject):
 
 class Timeline(QGraphicsPathItem):
 
-    def __init__(self, scene, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         orb.log.debug('* Timeline()')
         self.signals = TimelineSignals()
@@ -197,7 +197,7 @@ class Timeline(QGraphicsPathItem):
             percentscale = str(scale) + "%"
             # TODO: replace with a pyqtSignal ...
             # dispatcher.send("rescale timeline", percentscale=pscale)
-            self.scene.rescale_optical_path.emit(percentscale)
+            self.scene().rescale_timeline.emit(percentscale)
 
     def add_evt_block(self, evt_block):
         self.evt_blocks.append(evt_block)
@@ -208,6 +208,9 @@ class Timeline(QGraphicsPathItem):
         self.update_timeline()
 
     def arrange(self):
+        """
+        Arrange the activity blocks to be evenly spaced on the Timeline.
+        """
         # FIXME:  revise to use "of_function"/"of_system" (Acu/PSU)
         parent_act = self.scene().current_activity
         # evt_blocks_list_copy = self.evt_blocks[:]
@@ -239,6 +242,7 @@ class TimelineScene(QGraphicsScene):
     new_activity = pyqtSignal(str)           # args: oid
     scene_activity_edited = pyqtSignal(str)  # args: oid
     delete_scene_activity = pyqtSignal(str)  # args: oid
+    rescale_timeline = pyqtSignal(str)       # args: percentscale
 
     def __init__(self, parent, current_activity=None, position=None):
         super().__init__(parent)
@@ -253,7 +257,7 @@ class TimelineScene(QGraphicsScene):
             self.act_of = offnc or ofsys
             name = getattr(self.act_of, 'name', None) or 'None'
             orb.log.debug(f'  act_of: {name}')
-        self.timeline = Timeline(self)
+        self.timeline = Timeline()
         self.addItem(self.timeline)
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
@@ -386,7 +390,10 @@ class TimelineWidget(QWidget):
         self.deleted_acts = []
         # TODO: replace with pyqtSignals ...
         # dispatcher.connect(self.delete_activity, "remove activity")
-        # dispatcher.connect(self.enable_clear, "new activity")
+        # --------------------------------------------------------------
+        # replaced "rescale timeline" with pyqtSignal rescale_timeline,
+        # connected when scene is created in set_new_scene()
+        # --------------------------------------------------------------
         # dispatcher.connect(self.on_rescale_timeline, "rescale timeline")
         self.setUpdatesEnabled(True)
 
@@ -411,7 +418,6 @@ class TimelineWidget(QWidget):
                                    'sub_activity_sequence', 0) or 0):
                 if (activity.of_function == self.system or
                     activity.of_system == self.system):
-                    self.clear_activities_action.setDisabled(False)
                     item = EventBlock(activity=activity,
                                       parent_activity=self.activity,
                                       scene=scene)
@@ -420,16 +426,13 @@ class TimelineWidget(QWidget):
                 scene.update()
             scene.timeline.populate(evt_blocks)
         scene.delete_scene_activity.connect(self.delete_activity)
+        scene.rescale_timeline.connect(self.on_rescale_timeline)
         self.set_title()
         self.scene = scene
         if not getattr(self, 'view', None):
             self.view = TimelineView(self)
         self.view.setScene(self.scene)
         self.view.show()
-
-    def enable_clear(self, act_of=None):
-        if self.system == act_of:
-            self.clear_activities_action.setDisabled(False)
 
     def set_title(self):
         # try:
@@ -493,13 +496,6 @@ class TimelineWidget(QWidget):
                                     # tip="Back to Previous Page")
         # self.toolbar.addAction(self.go_back_action)
         # self.go_back_action.setDisabled(True)
-        self.clear_activities_action = self.create_action(
-                                    "clear activities",
-                                    slot=self.clear_activities,
-                                    icon="brush",
-                                    tip="delete activities on this page")
-        self.toolbar.addAction(self.clear_activities_action)
-        self.clear_activities_action.setDisabled(True)
         self.undo_action = self.create_action(
                                     "undo",
                                     slot=self.undo,
@@ -574,26 +570,6 @@ class TimelineWidget(QWidget):
             orb.delete([act])
             # TODO: replace with pyqtSignal ...
             # dispatcher.send("deleted object", oid=act_oid, cname='Activity')
-
-    def clear_activities(self):
-        """
-        Delete all the activities and their children on this widget.
-        """
-        txt = "This will permanently delete all activities -- are you sure?"
-        confirm_dlg = QMessageBox(QMessageBox.Question, "Delete All?", txt,
-                                  QMessageBox.Yes | QMessageBox.No)
-        response = confirm_dlg.exec_()
-        if response == QMessageBox.Yes:
-            children = self.activity.sub_activities
-            for child in children:
-                self.delete_children(act=child)
-            self.undo_action.setEnabled(True)
-            self.set_new_scene()
-            self.clear_activities_action.setDisabled(True)
-            # TODO: replace with pyqtSignal ...
-            # dispatcher.send("cleared activities",
-                            # composite_activity=self.activity,
-                            # act_of=self.system, position=self.position)
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
