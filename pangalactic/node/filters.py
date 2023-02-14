@@ -833,7 +833,6 @@ class FilterPanel(QWidget):
 
     def clear_text(self):
         self.filter_pattern_line_edit.setText("")
-        self.textFilterChanged()
 
     def textFilterChanged(self):
         if self.filter_case_checkbox.isChecked():
