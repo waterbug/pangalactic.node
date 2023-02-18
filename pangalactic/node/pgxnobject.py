@@ -840,6 +840,7 @@ class PgxnObject(QDialog):
     """
 
     activity_edited = pyqtSignal(str)  # arg: oid
+    delete_obj = pyqtSignal(str, str)  # args: oid, cname
     obj_modified = pyqtSignal(str)     # arg: oid
 
     def __init__(self, obj, component=False, embedded=False,
@@ -1937,8 +1938,16 @@ class PgxnObject(QDialog):
         if response == QMessageBox.Yes:
             obj_oid = self.obj.oid
             cname = self.obj.__class__.__name__
+            self.delete_obj.emit(obj_oid, cname)
+            # =================================================================
+            # NOTE: orb.delete() had been called here but should only be called
+            # after the object has been removed from GUI elements (tables etc.)
+            # Now orb.delete() is called by pangalaxian in response to the
+            # 'delete_obj' signal ...
+            # -----------------------------------------------------------------
             # orb.delete will add serialized object to trash
-            orb.delete([self.obj])
+            # orb.delete([self.obj])
+            # =================================================================
             # if embedded in the component modeler and there are product oids
             # in the "component_modeler_history", set the 'product' state
             # (oid) to the next oid in the history ...
@@ -1953,7 +1962,7 @@ class PgxnObject(QDialog):
                     # state['product'] = ''
             # the 'deleted object' signal will notify pangalaxian which will
             # reset the 'component modeler' mode if we are in it
-            dispatcher.send(signal='deleted object', oid=obj_oid, cname=cname)
+            # dispatcher.send(signal='deleted object', oid=obj_oid, cname=cname)
             # if not in component mode, we should close ...
             if not self.component:
                 try:

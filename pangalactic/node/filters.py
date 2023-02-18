@@ -2,7 +2,7 @@
 """
 Filtering widgets: dialogs, tables, etc.
 """
-from PyQt5.QtCore import (Qt, QModelIndex, QPoint, QRegExp,
+from PyQt5.QtCore import (pyqtSignal, Qt, QModelIndex, QPoint, QRegExp,
                           QSortFilterProxyModel, QTimer, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
@@ -551,6 +551,10 @@ class FilterPanel(QWidget):
     """
     A widget containing a filterable table of objects.
     """
+
+    obj_modified = pyqtSignal(str)      # arg: oid
+    delete_obj = pyqtSignal(str, str)   # args: oid, cname
+
     def __init__(self, objs, cname=None, view=None, sized_cols=None, label='',
                  title='', headers_are_ids=False, width=None, min_width=None,
                  height=None, as_library=False, external_filters=False,
@@ -731,7 +735,6 @@ class FilterPanel(QWidget):
         # TODO: replace these with pyqtSignal
         # dispatcher.connect(self.on_new_object_signal, 'new object')
         # dispatcher.connect(self.on_mod_object_signal, 'modified object')
-        # dispatcher.connect(self.on_del_object_signal, 'deleted object')
         dispatcher.connect(self.refresh, 'units set')
         self.dirty = False
 
@@ -926,6 +929,8 @@ class FilterPanel(QWidget):
             if oid:
                 obj = orb.get(oid)
                 dlg = PgxnObject(obj, parent=self)
+                dlg.obj_modified.connect(self.on_mod_object_signal)
+                dlg.delete_obj.connect(self.on_delete_obj_signal)
                 dlg.show()
 
     def create_template(self):
@@ -971,18 +976,22 @@ class FilterPanel(QWidget):
         source_model = self.proxy_model.sourceModel()
         source_model.mod_object(obj)
 
-    def delete_object(self, oid):
+    def remove_object(self, oid):
         """
         Convenience method for deleting a library object from the model.
         """
-        # orb.log.debug('  [FilterPanel] delete_object({})'.format(oid))
+        orb.log.debug('  [FilterPanel] remove_object({})'.format(oid))
         try:
             obj = orb.get(oid)
             if not obj:
                 orb.log.debug('  ... object not found in local db.')
                 return False
+            if obj in self.objs:
+                self.objs.remove(obj)
+            else:
+                orb.log.debug('  ... object not found in FilterPanel.objs.')
             source_model = self.proxy_model.sourceModel()
-            source_model.del_object(obj)
+            source_model.del_object(oid)
         except:
             # orb.log.debug('                ... object not found')
             return False
@@ -1002,10 +1011,9 @@ class FilterPanel(QWidget):
         else:
             orb.log.debug('               ... not in filtered objs.')
 
-    def on_del_object_signal(self, oid='', cname=''):
-        # orb.log.info('* [filters] received "deleted object" signal')
-        # orb.log.debug('            ... on oid: {}'.format(oid))
-        self.delete_object(oid)
+    def on_delete_obj_signal(self, oid, cname):
+        orb.log.debug('  [FilterPanel] received "delete_obj" signal.')
+        self.delete_obj.emit(oid, cname)
 
 
 class FilterDialog(QDialog):

@@ -3,8 +3,8 @@ from textwrap import wrap
 
 from louie import dispatcher
 
-from PyQt5.QtCore import (Qt, QAbstractListModel, QMimeData, QModelIndex,
-                          QPoint, QSize, QVariant)
+from PyQt5.QtCore import (pyqtSignal, Qt, QAbstractListModel, QMimeData,
+                          QModelIndex, QPoint, QSize, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QComboBox, QDialog, QDialogButtonBox, QHBoxLayout,
@@ -203,6 +203,7 @@ class LibraryListView(QListView):
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
             dlg = PgxnObject(obj, modal_mode=True, parent=self)
+            # TODO:  connect pgxo's "mod_object" signal to ...?
             dlg.show()
 
     def refresh(self, **kw):
@@ -302,6 +303,10 @@ class LibraryListWidget(QWidget):
             displayed in a library view (LibraryListView instance) to the index
             of the library view in the QStackedLayout
     """
+
+    obj_modified = pyqtSignal(str)      # arg: oid
+    delete_obj = pyqtSignal(str, str)   # args: oid, cname
+
     def __init__(self, cnames=None, include_subtypes=True, icon_size=None,
                  title=None, min_width=None, parent=None):
         """
@@ -378,6 +383,8 @@ class LibraryListWidget(QWidget):
                                     external_filters=True,
                                     min_width=min_width,
                                     parent=self)
+            lib_table.obj_modified.connect(self.on_obj_modified)
+            lib_table.delete_obj.connect(self.on_delete_obj)
             if hasattr(lib_table, 'ext_filters'):
                 lib_table.ext_filters.clicked.connect(self.show_ext_filters)
                 lib_table.clear_filters_btn.clicked.connect(
@@ -409,6 +416,7 @@ class LibraryListWidget(QWidget):
                                     min_width=min_width,
                                     excluded_oids=excluded_oids,
                                     parent=self)
+            lib_table.obj_modified.connect(self.on_obj_modified)
         elif cname == 'Person':
             select_label = 'People'
             view = ['id', 'last_name', 'first_name', 'org']
@@ -425,6 +433,7 @@ class LibraryListWidget(QWidget):
                                     label=select_label,
                                     excluded_oids=excluded_oids,
                                     parent=self)
+            lib_table.obj_modified.connect(self.on_obj_modified)
         else:
             lib_table = LibraryListView(cname,
                                         include_subtypes=include_subtypes,
@@ -434,6 +443,12 @@ class LibraryListWidget(QWidget):
         self.libraries[cname] = lib_table
         self.stack.addWidget(lib_table)
         self.library_select.addItem(select_label, QVariant())
+
+    def on_obj_modified(self, oid):
+        self.obj_modified.emit(oid)
+
+    def on_delete_obj(self, oid, cname):
+        self.delete_obj.emit(oid, cname)
 
     def set_library(self, index):
         """
@@ -520,6 +535,9 @@ class LibraryDialog(QDialog):
     """
     Dialog containing a table or list of library items.
     """
+
+    obj_modified = pyqtSignal(str)  # arg: oid
+
     def __init__(self, cname, objs=None, include_subtypes=False,
                  icon_size=None, tabular=True, prefilter=None, view=None,
                  word_wrap=False, width=None, height=None, parent=None):
@@ -562,6 +580,7 @@ class LibraryDialog(QDialog):
                                    'product types selected')
                 lib_view.only_mine_checkbox.clicked.connect(
                                                 self.on_only_mine_toggled)
+                lib_view.obj_modified.connect(self.on_obj_modified)
             else:
                 if self.cname == 'Template':
                     label = 'System and Component Templates'
@@ -588,6 +607,9 @@ class LibraryDialog(QDialog):
         # call on_only_mine_toggled() to ensure initial filtering is consistent
         # with state
         self.on_only_mine_toggled()
+
+    def on_obj_modified(self, oid):
+        self.obj_modified.emit(oid)
 
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)

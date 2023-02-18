@@ -273,11 +273,10 @@ class Main(QMainWindow):
         state['height'] = height
         # self.create_timer()
         # connect pyqtSignals ...
-        self.deleted_object.connect(self.on_deleted_object_qtsignal)
+        self.deleted_object.connect(self.delete_object)
         self.new_object.connect(self.on_new_object_qtsignal)
         self.mod_object.connect(self.on_mod_object_qtsignal)
-        self.remote_deleted_object.connect(
-                             self.on_remote_deleted_object_qtsignal)
+        self.remote_deleted_object.connect(self.on_remote_deleted_object)
         # connect dispatcher signals ...
         dispatcher.connect(self.on_log_info_msg, 'log info msg')
         dispatcher.connect(self.on_log_debug_msg, 'log debug msg')
@@ -2593,6 +2592,8 @@ class Main(QMainWindow):
         widget = LibraryListWidget(cnames=cnames,
                                    include_subtypes=include_subtypes,
                                    parent=self)
+        widget.obj_modified.connect(self.on_mod_object_qtsignal)
+        widget.delete_obj.connect(self.delete_object)
         widget.setContextMenuPolicy(Qt.PreventContextMenu)
         return widget
 
@@ -3430,9 +3431,10 @@ class Main(QMainWindow):
     def rpc_save_entity_result(self, result):
         orb.log.debug(f'* "vger.save_entity" result: "{result}"')
 
-    def on_remote_deleted_object_qtsignal(self, oid, cname):
+    def on_remote_deleted_object(self, oid, cname):
         """
-        Handle pyqtSignal "remote_deleted_object".
+        Handle remote object deletions (and handle pyqtSignal
+        "remote_deleted_object").
         """
         orb.log.info('* received "remote_deleted" signal on:')
         # content is an oid
@@ -3500,22 +3502,32 @@ class Main(QMainWindow):
         else:
             orb.log.debug('  oid not found in local db; ignoring.')
 
-    def on_deleted_object_qtsignal(self, oid, cname):
+    def delete_object(self, oid, cname):
         """
-        Call functions to update applicable widgets when an object has been
-        deleted locally.
+        Delete a local object, call functions to update applicable widgets, and
+        call the 'vger.delete' rpc if we are in a "connected" state.
 
         Keyword Args:
             oid (str):  oid of the deleted object
             cname (str):  class name of the deleted object
         """
-        # cname is needed here because at this point the local object has
-        # already been deleted
-        orb.log.debug(f'* local deleted object: cname="{cname}", oid="{oid}"')
-        # make sure db transaction has been committed
-        orb.db.commit()
+        orb.log.debug('* local object to be deleted:')
+        orb.log.debug(f'  cname="{cname}", oid="{oid}"')
+        # first check if a hw object, and if so remove it from hw lib ...
+        if cname == 'HardwareProduct':
+            lib_widget = getattr(self, 'library_widget', None)
+            hw_lib = None
+            if lib_widget:
+                hw_lib = lib_widget.libraries.get('HardwareProduct')
+            if hw_lib:
+                hw_lib.remove_object(oid)
+        obj = orb.get(oid)
+        if obj:
+            orb.delete([obj])
+        else:
+            orb.log.debug('  obj already deleted, proceeding with updates ...')
         # always fix state['product'] and state['system'] if either matches the
-        # deleted oid
+        # oid
         if (state.get('system') or {}).get(state.get('project')) == oid:
             orb.log.debug('  state "system" oid matched, set to project ...')
             state['system'][state.get('project')] = state.get('project')
@@ -3884,6 +3896,8 @@ class Main(QMainWindow):
                 self.pgxn_obj = PgxnObject(self.product, component=True,
                                            embedded=True)
                 self.pgxn_obj.obj_modified.connect(self.on_mod_object_qtsignal)
+                self.pgxn_obj.obj_deleted.connect(
+                                            self.delete_object)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
                 pgxn_panel_layout.setAlignment(self.pgxn_obj,
                                              Qt.AlignLeft|Qt.AlignTop)
@@ -4308,7 +4322,7 @@ class Main(QMainWindow):
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.system_model_window.deleted_object.connect(
-                                        self.on_deleted_object_qtsignal)
+                                        self.delete_object)
             self.setCentralWidget(self.system_model_window)
         elif (state.get('mode') == 'system' and
               orb.get((state.get('system') or {}).get(
@@ -4317,7 +4331,7 @@ class Main(QMainWindow):
             self.system_model_window = ModelWindow(obj=system,
                                                    logo=self.logo)
             self.system_model_window.deleted_object.connect(
-                                        self.on_deleted_object_qtsignal)
+                                        self.delete_object)
             self.setCentralWidget(self.system_model_window)
         elif self.project:
             psize = (600, 400)
@@ -4329,7 +4343,7 @@ class Main(QMainWindow):
                                                    logo=self.logo,
                                                    preferred_size=psize)
             self.system_model_window.deleted_object.connect(
-                                        self.on_deleted_object_qtsignal)
+                                        self.delete_object)
             self.setCentralWidget(self.system_model_window)
         else:
             self.setCentralWidget(PlaceHolder(image=self.logo, min_size=300,
@@ -4585,6 +4599,7 @@ class Main(QMainWindow):
         if obj:
             pxo = PgxnObject(obj, parent=self)
             pxo.obj_modified.connect(self.on_mod_object_qtsignal)
+            pxo.obj_deleted.connect(self.delete_object)
             pxo.show()
 
     def new_parameter(self):
@@ -4612,6 +4627,7 @@ class Main(QMainWindow):
         pxo = PgxnObject(model, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self)
         pxo.obj_modified.connect(self.on_mod_object_qtsignal)
+        pxo.obj_deleted.connect(self.delete_object)
         pxo.show()
 
     def on_new_hardware_clone(self, product=None, objs=None):
@@ -4719,6 +4735,7 @@ class Main(QMainWindow):
         pxo = PgxnObject(test, edit_mode=True, new=True, modal_mode=True,
                          panels=panels, parent=self)
         pxo.obj_modified.connect(self.on_mod_object_qtsignal)
+        pxo.obj_deleted.connect(self.delete_object)
         pxo.show()
 
     # def new_product_type(self):
@@ -4742,6 +4759,7 @@ class Main(QMainWindow):
                             height=self.geometry().height(),
                             width=(2 * self.geometry().width() // 3),
                             parent=self)
+        dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
     def product_library(self):
@@ -4752,6 +4770,7 @@ class Main(QMainWindow):
                             height=self.geometry().height(),
                             width=self.geometry().width(),
                             parent=self)
+        dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
     def template_library(self):
@@ -4759,6 +4778,7 @@ class Main(QMainWindow):
         dlg = LibraryDialog('Template', view=view,
                             width=(2 * self.geometry().width() // 3),
                             height=self.geometry().height(), parent=self)
+        dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
     def port_type_library(self):
@@ -4773,6 +4793,7 @@ class Main(QMainWindow):
         dlg = LibraryDialog('PortTemplate', view=view,
                            width=self.geometry().width()//2,
                            height=self.geometry().height(), parent=self)
+        dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
     def display_requirements_manager(self):
@@ -4784,7 +4805,7 @@ class Main(QMainWindow):
 
     def conops_modeler(self):
         win = ConOpsModeler(parent=self)
-        win.deleted_object.connect(self.on_deleted_object_qtsignal)
+        win.deleted_object.connect(self.delete_object)
         win.new_object.connect(self.on_new_object_qtsignal)
         win.show()
 
@@ -4805,7 +4826,7 @@ class Main(QMainWindow):
         window.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects_qtsignal)
         window.local_object_deleted.connect(
-                                    self.on_deleted_object_qtsignal)
+                                    self.delete_object)
         window.system_widget.scene.des_set.connect(self.on_des_set_qtsignal)
         window.show()
 
@@ -5464,7 +5485,7 @@ class Main(QMainWindow):
         self.admin_dlg.ldap_search_button.clicked.connect(
                                                 self.open_person_dlg)
         self.admin_dlg.new_object.connect(self.on_new_object_qtsignal)
-        self.admin_dlg.deleted_object.connect(self.on_deleted_object_qtsignal)
+        self.admin_dlg.deleted_object.connect(self.delete_object)
         self.deleted_object.connect(self.admin_dlg.refresh_roles)
         self.remote_deleted_object.connect(self.admin_dlg.refresh_roles)
         self.refresh_admin_tool.connect(self.admin_dlg.refresh_roles)

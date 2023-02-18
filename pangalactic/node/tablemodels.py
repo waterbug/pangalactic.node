@@ -242,6 +242,7 @@ class ObjectTableModel(MappingTableModel):
         """
         # orb.log.debug("* ObjectTableModel initializing ...")
         self.objs = objs or []
+        self.oids = [o.oid for o in objs]
         icons = []
         if as_library:
             # orb.log.debug("  ... as library ...")
@@ -349,10 +350,19 @@ class ObjectTableModel(MappingTableModel):
             orb.log.debug(f"    {txt}")
         return QModelIndex()
 
-    def del_object(self, obj):
+    def del_object(self, oid):
+        # now takes oid instead of obj so can remove row that corresponded to
+        # the object even if the object has already been deleted from the db
+        obj = orb.get(oid)
+        if not obj:
+            orb.log.debug('* ObjectTableModel.del_object(): oid not found.')
         try:
-            oids = [o.oid for o in self.objs]
-            row = oids.index(obj.oid)  # raises ValueError if problem
+            if obj in self.objs:
+                row = self.objs.index(obj)  # raises ValueError if problem
+            elif oid in self.oids:
+                row = self.oids.index(oid)  # raises ValueError if problem
+            else:
+                return False
             self.objs = self.objs[:row] + self.objs[row+1:]
             self.removeRows(row, 1, QModelIndex())
             return True
