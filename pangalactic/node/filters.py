@@ -1002,14 +1002,11 @@ class FilterPanel(QWidget):
             orb.log.debug('               ... on obj: {}'.format(obj.id))
             self.add_object(obj)
 
-    def on_mod_object_signal(self, obj=None, cname=''):
-        # orb.log.info('* [filters] received "modified object" signal')
-        # orb.log.debug('               on obj: {}'.format(obj.id))
-        if obj and isinstance(obj, orb.classes.get(self.cname)):
-            source_model = self.proxy_model.sourceModel()
-            source_model.mod_object(obj)
-        else:
-            orb.log.debug('               ... not in filtered objs.')
+    def on_mod_object_signal(self, oid):
+        orb.log.info('* [filters] received "modified object" signal')
+        orb.log.debug(f'            on oid: {oid}')
+        source_model = self.proxy_model.sourceModel()
+        source_model.mod_object(oid)
 
     def on_delete_obj_signal(self, oid, cname):
         orb.log.debug('  [FilterPanel] received "delete_obj" signal.')

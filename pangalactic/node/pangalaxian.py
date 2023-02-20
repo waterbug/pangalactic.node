@@ -3165,7 +3165,7 @@ class Main(QMainWindow):
                     # orb.log.info(f'  [ovgpr] calling {txt}')
                     self.rebuild_dashboard(force=True)
         else:
-            orb.log.info('  [ovgpr] no parmz data, checkother updates ...')
+            orb.log.info('  [ovgpr] no parmz data, check other updates ...')
         # TODO: DO NOT call "refresh()" on libraries -- that function is
         # causing "paint" exceptions -- modify to update libraries directly
         # using pyqtSignal (replacing the FilterPanel's current dispatcher
@@ -3183,7 +3183,7 @@ class Main(QMainWindow):
                         lib_oids = lib.get_oids()
                         if oid in lib_oids:
                             orb.log.debug(f'  - modding {obj.id} in lib')
-                            lib.mod_object(obj)
+                            lib.mod_object(oid)
                         else:
                             orb.log.debug(f'  - adding {obj.id} to lib')
                             lib.add_object(obj)
@@ -3896,8 +3896,7 @@ class Main(QMainWindow):
                 self.pgxn_obj = PgxnObject(self.product, component=True,
                                            embedded=True)
                 self.pgxn_obj.obj_modified.connect(self.on_mod_object_qtsignal)
-                self.pgxn_obj.obj_deleted.connect(
-                                            self.delete_object)
+                self.pgxn_obj.delete_obj.connect(self.delete_object)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
                 pgxn_panel_layout.setAlignment(self.pgxn_obj,
                                              Qt.AlignLeft|Qt.AlignTop)
@@ -4599,7 +4598,7 @@ class Main(QMainWindow):
         if obj:
             pxo = PgxnObject(obj, parent=self)
             pxo.obj_modified.connect(self.on_mod_object_qtsignal)
-            pxo.obj_deleted.connect(self.delete_object)
+            pxo.delete_obj.connect(self.delete_object)
             pxo.show()
 
     def new_parameter(self):
@@ -4627,7 +4626,7 @@ class Main(QMainWindow):
         pxo = PgxnObject(model, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self)
         pxo.obj_modified.connect(self.on_mod_object_qtsignal)
-        pxo.obj_deleted.connect(self.delete_object)
+        pxo.delete_obj.connect(self.delete_object)
         pxo.show()
 
     def on_new_hardware_clone(self, product=None, objs=None):
@@ -4735,7 +4734,7 @@ class Main(QMainWindow):
         pxo = PgxnObject(test, edit_mode=True, new=True, modal_mode=True,
                          panels=panels, parent=self)
         pxo.obj_modified.connect(self.on_mod_object_qtsignal)
-        pxo.obj_deleted.connect(self.delete_object)
+        pxo.delete_obj.connect(self.delete_object)
         pxo.show()
 
     # def new_product_type(self):

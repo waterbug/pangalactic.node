@@ -151,8 +151,7 @@ class RequirementManager(QDialog):
                 popup.show()
 
     def on_req_parm_mod(self, oid):
-        req = orb.get(oid)
-        self.fpanel.mod_object(req)
+        self.fpanel.mod_object(oid)
 
     def edit_req_fields(self):
         orb.log.debug('* edit_req_fields()')

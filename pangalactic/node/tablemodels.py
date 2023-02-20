@@ -331,22 +331,22 @@ class ObjectTableModel(MappingTableModel):
             self.setData(idx, obj)
         return True
 
-    def mod_object(self, obj):
+    def mod_object(self, oid):
         """
         Replace an object (identified by oid) with a more recently modified
         instance of itself.
         """
         orb.log.debug("* ObjectTableModel.mod_object() ...")
         try:
-            oids = [o.oid for o in self.objs]
-            row = oids.index(obj.oid)  # raises ValueError if problem
-            orb.log.debug(f"    object found at row {row}")
+            row = self.oids.index(oid)  # raises ValueError if problem
+            orb.log.debug(f"    oid found at row {row}")
             idx = self.index(row, 0, parent=QModelIndex())
+            obj = orb.get(oid)
             self.setData(idx, obj)
             return idx
         except:
             # possibly because my C++ object has been deleted ...
-            txt = f'object "{obj.id}" (oid {obj.oid}) not found in table.'
+            txt = f'oid "{oid}" not found in table.'
             orb.log.debug(f"    {txt}")
         return QModelIndex()
 
