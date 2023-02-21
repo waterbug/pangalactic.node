@@ -3978,6 +3978,8 @@ class Main(QMainWindow):
             ld_widget.parent = None
             ld_widget.close()
         self.sys_tree = SystemTreeView(self.project)
+        self.sys_tree.obj_modified.connect(self.on_mod_object_qtsignal)
+        self.sys_tree.delete_obj.connect(self.delete_object)
         # orb.log.debug('  + new self.sys_tree created ...')
         # sys_id = getattr(sys, 'id', '[none]') or '[none]'
         # orb.log.debug(f'    with selected system: {sys_id}')
