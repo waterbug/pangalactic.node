@@ -959,10 +959,9 @@ class Main(QMainWindow):
 
     def sync_library_objs(self, data):
         """
-        Sync with the repository's "public" objects. This update all "public"
-        `ManagedObject` instances that were created or modified since the last
-        login.  (Non-public objects are synced via the vger.sync_project()
-        rpc.)
+        Sync with the repository's non-project objects. This updates all
+        objects that are not owned by a project.  (Project-owned objects are
+        synced via the vger.sync_project() rpc.)
 
         Args:
             data:  parameter required for callback (ignored)
