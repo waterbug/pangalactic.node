@@ -450,6 +450,11 @@ class CompoundLibraryWidget(QWidget):
     def on_delete_obj(self, oid, cname):
         self.delete_obj.emit(oid, cname)
 
+    def on_remote_obj_mod(self, oid, cname):
+        # orb.log.debug(f"* CompLibWidget.on_remote_obj_mod(oid, {cname})")
+        if cname in self.libraries:
+            self.libraries[cname].mod_object(oid)
+
     def set_library(self, index):
         """
         Set the selected library widget.

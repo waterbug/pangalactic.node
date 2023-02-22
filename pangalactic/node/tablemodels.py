@@ -150,13 +150,16 @@ class MappingTableModel(QAbstractTableModel):
         else:
             return False
 
+    def get_icon(self, row):
+        return self.icons[row]
+
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
             return QVariant()
         elif (self.as_library and role == Qt.DecorationRole
               and index.column() == 0):
             try:
-                return self.icons[index.row()]
+                return self.get_icon(index.row())
             except IndexError:
                 return self.default_icon
         elif role == Qt.TextAlignmentRole:
@@ -300,6 +303,13 @@ class ObjectTableModel(MappingTableModel):
             return self.col_labels[section]
         return QAbstractTableModel.headerData(self, section, orientation, role)
 
+    def get_icon(self, row):
+        """
+        Overrides get_icon() method of MappingTable, so icon for the object can
+        be returned dynamically.
+        """
+        return QIcon(get_pixmap(self.objs[row]))
+
     def setData(self, index, obj, role=Qt.UserRole):
         """
         Reimplementation using an object as the 'value' (based on underlying
@@ -320,6 +330,7 @@ class ObjectTableModel(MappingTableModel):
         self.insertRows(n, 1)
         idx = self.createIndex(n, 0)
         self.setData(idx, obj)
+        self.objs.append(obj)
         return True
 
     def add_objects(self, objs):
@@ -329,6 +340,7 @@ class ObjectTableModel(MappingTableModel):
         for i, obj in enumerate(objs):
             idx = self.createIndex(n + i, 0)
             self.setData(idx, obj)
+        self.objs += objs
         return True
 
     def mod_object(self, oid):

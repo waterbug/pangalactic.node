@@ -1447,6 +1447,7 @@ class Main(QMainWindow):
             return
         frozen_oids = []
         thawed_oids = []
+        lib_widget = getattr(self, 'library_widget', None)
         for attrs in obj_attrs:
             # try:
             obj_oid, obj_mod_dts, obj_modifier_oid = attrs
@@ -1462,7 +1463,10 @@ class Main(QMainWindow):
                 modifier = orb.get(obj_modifier_oid)
                 if modifier:
                     obj.modifier = modifier
-            orb.db.commit()
+                orb.db.commit()
+                if lib_widget:
+                    lib_widget.on_remote_obj_mod(obj_oid,
+                                                 obj.__class__.__name__)
             if action == 'freeze':
                 # dispatcher.send('remote: frozen', frozen_oids=frozen_oids)
                 self.remote_frozen.emit(frozen_oids)
@@ -1473,8 +1477,6 @@ class Main(QMainWindow):
                 # orb.log.debug(f'  failed: could not parse content "{attrs}".')
         if self.mode == "system" and (frozen_oids or thawed_oids):
             self.refresh_tree_and_dashboard()
-        if hasattr(self, 'library_widget'):
-            self.library_widget.refresh()
 
     def on_toggle_library_size(self, expand=False):
         if getattr(self, 'library_widget', None):

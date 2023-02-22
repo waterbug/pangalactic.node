@@ -969,8 +969,7 @@ class FilterPanel(QWidget):
         Method for modifying an existing library object, which calls the PyQt
         methods that signal the views to update.
         """
-        # orb.log.debug('  [FilterPanel] mod_object({})'.format(
-                                            # getattr(obj, 'id', 'unknown')))
+        # orb.log.debug(f'* FilterPanel.mod_object({oid})')
         source_model = self.proxy_model.sourceModel()
         source_model.mod_object(oid)
 
