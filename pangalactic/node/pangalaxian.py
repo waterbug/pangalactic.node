@@ -89,7 +89,8 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                ProgressDialog, VersionDialog)
 from pangalactic.node.filters          import FilterPanel
 from pangalactic.node.interface42      import SC42Window
-from pangalactic.node.libraries        import LibraryDialog, LibraryListWidget
+from pangalactic.node.libraries        import (LibraryDialog,
+                                               CompoundLibraryWidget)
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
 from pangalactic.node.optics           import OpticalSystemModeler
@@ -122,8 +123,8 @@ class Main(QMainWindow):
         auth_method (str): authentication method ("cryptosign" or "ticket")
         auto (bool): whether to automatically connect to the repository at
             startup (default: True)
-        library_widget (LibraryListWidget):  a panel widget containing library
-            views for specified classes and a selector (combo box)
+        library_widget (CompoundLibraryWidget):  a panel widget containing
+            library views for specified classes and a selector (combo box)
         mode (str):  name of current mode
             (persistent in the `state` module)
         project (Project):  currently selected project
@@ -2578,9 +2579,9 @@ class Main(QMainWindow):
             state['system'][state.get('project')] = obj.oid
             # orb.log.debug('* state["system"]: "{}"'.format(state['system']))
 
-    def create_lib_list_widget(self, cnames=None, include_subtypes=True):
+    def create_lib_widget(self, cnames=None, include_subtypes=True):
         """
-        Creates an instance of 'LibraryListWidget' to be assigned to
+        Creates an instance of 'CompoundLibraryWidget' to be assigned to
         self.library_widget.
 
         Keyword Args:
@@ -2592,9 +2593,9 @@ class Main(QMainWindow):
             cnames = ['HardwareProduct', 'Template', 'PortType',
                       'PortTemplate', 'ParameterDefinition',
                       'DataElementDefinition']
-        widget = LibraryListWidget(cnames=cnames,
-                                   include_subtypes=include_subtypes,
-                                   parent=self)
+        widget = CompoundLibraryWidget(cnames=cnames,
+                                       include_subtypes=include_subtypes,
+                                       parent=self)
         widget.obj_modified.connect(self.on_mod_object_qtsignal)
         widget.delete_obj.connect(self.delete_object)
         widget.setContextMenuPolicy(Qt.PreventContextMenu)
@@ -3821,7 +3822,7 @@ class Main(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
 
     def _setup_right_dock(self):
-        # NOTE:  refactored to use LibraryListWidget instead of
+        # NOTE:  refactored to use CompoundLibraryWidget instead of
         # multiple instances of LibraryListView
         # orb.log.debug('  - no right dock widget -- building one now...')
         # if we don't have a right dock widget yet, create ALL the stuff
@@ -3830,7 +3831,7 @@ class Main(QMainWindow):
         self.right_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
         self.right_dock.topLevelChanged.connect(self.on_library_floated)
-        self.library_widget = self.create_lib_list_widget()
+        self.library_widget = self.create_lib_widget()
         self.library_widget.setMinimumWidth(600)
         self.library_widget.setMaximumWidth(600)
         self.right_dock.setWidget(self.library_widget)

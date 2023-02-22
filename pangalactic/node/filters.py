@@ -966,10 +966,10 @@ class FilterPanel(QWidget):
 
     def mod_object(self, oid):
         """
-        Convenience method for adding a new library object to the model, which
-        calls the PyQt methods that signal the views to update.
+        Method for modifying an existing library object, which calls the PyQt
+        methods that signal the views to update.
         """
-        # orb.log.debug('  [FilterPanel] add_object({})'.format(
+        # orb.log.debug('  [FilterPanel] mod_object({})'.format(
                                             # getattr(obj, 'id', 'unknown')))
         source_model = self.proxy_model.sourceModel()
         source_model.mod_object(oid)

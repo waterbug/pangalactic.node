@@ -19,7 +19,7 @@ from pangalactic.core.uberorb         import orb
 from pangalactic.core.names           import get_ra_id, get_ra_name
 from pangalactic.node.buttons         import ButtonLabel, SizedButton
 from pangalactic.node.dialogs         import ObjectSelectionDialog
-from pangalactic.node.libraries       import LibraryListWidget
+from pangalactic.node.libraries       import CompoundLibraryWidget
 from pangalactic.node.tablemodels     import MappingTableModel
 from pangalactic.node.utils           import clone, extract_mime_data
 from pangalactic.node.widgets         import (ColorLabel, NameLabel,
@@ -560,10 +560,10 @@ class AdminDialog(QDialog):
             self.right_vbox.addWidget(self.ldap_search_button)
         # populate Role and Person library widgets
         cnames = ['Role', 'Person']
-        self.lib_widget = LibraryListWidget(cnames=cnames,
-                                            title='Roles and People',
-                                            min_width=600,
-                                            parent=self)
+        self.lib_widget = CompoundLibraryWidget(cnames=cnames,
+                                                title='Roles and People',
+                                                min_width=600,
+                                                parent=self)
         # self.lib_widget.resize(700, 600)
         self.right_vbox.addWidget(self.lib_widget, stretch=1)
         self.updateGeometry()

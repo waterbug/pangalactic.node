@@ -291,9 +291,9 @@ def select_product_types(lib_view, msg='', only_mine=False,
     lib_view.set_source_model(lib_view.create_model(objs=hw))
 
 
-class LibraryListWidget(QWidget):
+class CompoundLibraryWidget(QWidget):
     """
-    Widget containing one or more library widgets.
+    Widget containing a collection of library widgets.
 
     Attributes:
         libraries (dict):  a dictionary that maps the name of the class
@@ -324,7 +324,7 @@ class LibraryListWidget(QWidget):
             parent (QWidget):  the library view's parent widget
         """
         super().__init__(parent)
-        orb.log.debug(f'* LibraryListWidget(cnames={cnames})')
+        orb.log.debug(f'* CompoundLibraryWidget(cnames={cnames})')
         layout = QVBoxLayout(self)
         hbox = QHBoxLayout()
         # layout.setSizeConstraint(layout.SetMinimumSize)
@@ -468,7 +468,7 @@ class LibraryListWidget(QWidget):
     # NOTE: AVOID this method -- it is causing Qt-level repaint exceptions!
     # See FilterPanel for notes on refactoring / rewriting ...
     def refresh(self, cname=None, **kw):
-        orb.log.debug("* LibraryListWidget.refresh(cname={})".format(cname))
+        orb.log.debug("* CompoundLibraryWidget.refresh(cname={})".format(cname))
         if cname:
             # if cname, just refresh that lib widget
             lib_widget = self.libraries.get(cname)
@@ -665,9 +665,9 @@ if __name__ == '__main__':
     if len(sys.argv) == 3:
         cname = sys.argv[2]
     # window = LibraryDialog(cname)
-    window = LibraryListWidget(cnames=['HardwareProduct',
-                                       'ParameterDefinition',
-                                       'Template'])
+    window = CompoundLibraryWidget(cnames=['HardwareProduct',
+                                           'ParameterDefinition',
+                                           'Template'])
     window.show()
     sys.exit(app.exec_())
 
