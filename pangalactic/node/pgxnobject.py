@@ -949,8 +949,6 @@ class PgxnObject(QDialog):
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
         dispatcher.connect(self.on_update_pgxno, 'update pgxno')
-        dispatcher.connect(self.on_remote_frozen, 'remote: frozen')
-        dispatcher.connect(self.on_remote_thawed, 'remote: thawed')
 
     def build_from_object(self):
         """

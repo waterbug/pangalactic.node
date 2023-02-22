@@ -642,10 +642,10 @@ class FilterPanel(QWidget):
                 self.view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
         self.proxy_model = ObjectSortFilterProxyModel(
-                                                view=self.view,
-                                                cname=self.cname,
-                                                headers_are_ids=self.headers_are_ids,
-                                                parent=self)
+                                        view=self.view,
+                                        cname=self.cname,
+                                        headers_are_ids=self.headers_are_ids,
+                                        parent=self)
         self.proxy_model.setDynamicSortFilter(True)
         if external_filters:
             self.ext_filters = SizedButton("Filters")
@@ -734,7 +734,6 @@ class FilterPanel(QWidget):
         self.setup_context_menu()
         # TODO: replace these with pyqtSignal
         # dispatcher.connect(self.on_new_object_signal, 'new object')
-        # dispatcher.connect(self.on_mod_object_signal, 'modified object')
         dispatcher.connect(self.refresh, 'units set')
         self.dirty = False
 
@@ -916,8 +915,7 @@ class FilterPanel(QWidget):
 
     def on_hw_fields_edited(self, oid):
         orb.log.debug('* on_hw_fields_edited()')
-        hw_obj = orb.get(oid)
-        self.mod_object(hw_obj)
+        self.mod_object(oid)
 
     def display_object(self):
         orb.log.debug('* display object ...')
@@ -929,7 +927,7 @@ class FilterPanel(QWidget):
             if oid:
                 obj = orb.get(oid)
                 dlg = PgxnObject(obj, parent=self)
-                dlg.obj_modified.connect(self.on_mod_object_signal)
+                dlg.obj_modified.connect(self.on_pgxo_mod_object_signal)
                 dlg.delete_obj.connect(self.on_delete_obj_signal)
                 dlg.show()
 
@@ -966,7 +964,7 @@ class FilterPanel(QWidget):
         source_model = self.proxy_model.sourceModel()
         source_model.add_object(obj)
 
-    def mod_object(self, obj):
+    def mod_object(self, oid):
         """
         Convenience method for adding a new library object to the model, which
         calls the PyQt methods that signal the views to update.
@@ -974,7 +972,7 @@ class FilterPanel(QWidget):
         # orb.log.debug('  [FilterPanel] add_object({})'.format(
                                             # getattr(obj, 'id', 'unknown')))
         source_model = self.proxy_model.sourceModel()
-        source_model.mod_object(obj)
+        source_model.mod_object(oid)
 
     def remove_object(self, oid):
         """
@@ -1002,11 +1000,12 @@ class FilterPanel(QWidget):
             orb.log.debug('               ... on obj: {}'.format(obj.id))
             self.add_object(obj)
 
-    def on_mod_object_signal(self, oid):
-        orb.log.info('* [filters] received "modified object" signal')
+    def on_pgxo_mod_object_signal(self, oid):
+        orb.log.info('* [filters] received obj_modified signal from pgxo')
         orb.log.debug(f'            on oid: {oid}')
         source_model = self.proxy_model.sourceModel()
         source_model.mod_object(oid)
+        self.obj_modified.emit(oid)
 
     def on_delete_obj_signal(self, oid, cname):
         orb.log.debug('  [FilterPanel] received "delete_obj" signal.')

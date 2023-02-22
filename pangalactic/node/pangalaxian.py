@@ -148,6 +148,8 @@ class Main(QMainWindow):
     new_object = pyqtSignal(str)                  # args: oid
     mod_object = pyqtSignal(str)                  # args: oid
     remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
+    remote_frozen = pyqtSignal(list)              # args: list of oids
+    remote_thawed = pyqtSignal(list)              # args: list of oids
     refresh_admin_tool = pyqtSignal()
 
     def __init__(self, home='', test_data=None, width=None, height=None,
@@ -1461,9 +1463,11 @@ class Main(QMainWindow):
                     obj.modifier = modifier
             orb.db.commit()
             if action == 'freeze':
-                dispatcher.send('remote: frozen', frozen_oids=frozen_oids)
+                # dispatcher.send('remote: frozen', frozen_oids=frozen_oids)
+                self.remote_frozen.emit(frozen_oids)
             else:
-                dispatcher.send('remote: thawed', oids=thawed_oids)
+                # dispatcher.send('remote: thawed', oids=thawed_oids)
+                self.remote_thawed.emit(thawed_oids)
             # except:
                 # orb.log.debug(f'  failed: could not parse content "{attrs}".')
         if self.mode == "system" and (frozen_oids or thawed_oids):
@@ -3896,6 +3900,8 @@ class Main(QMainWindow):
                                            embedded=True)
                 self.pgxn_obj.obj_modified.connect(self.on_mod_object_qtsignal)
                 self.pgxn_obj.delete_obj.connect(self.delete_object)
+                self.remote_frozen.connect(self.pgxn_obj.on_remote_frozen)
+                self.remote_thawed.connect(self.pgxn_obj.on_remote_thawed)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
                 pgxn_panel_layout.setAlignment(self.pgxn_obj,
                                              Qt.AlignLeft|Qt.AlignTop)
@@ -4600,6 +4606,8 @@ class Main(QMainWindow):
             pxo = PgxnObject(obj, parent=self)
             pxo.obj_modified.connect(self.on_mod_object_qtsignal)
             pxo.delete_obj.connect(self.delete_object)
+            self.remote_frozen.connect(pxo.on_remote_frozen)
+            self.remote_thawed.connect(pxo.on_remote_thawed)
             pxo.show()
 
     def new_parameter(self):
@@ -4628,6 +4636,8 @@ class Main(QMainWindow):
                          panels=panels, modal_mode=True, parent=self)
         pxo.obj_modified.connect(self.on_mod_object_qtsignal)
         pxo.delete_obj.connect(self.delete_object)
+        self.remote_frozen.connect(pxo.on_remote_frozen)
+        self.remote_thawed.connect(pxo.on_remote_thawed)
         pxo.show()
 
     def on_new_hardware_clone(self, product=None, objs=None):
