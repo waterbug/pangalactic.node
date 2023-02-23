@@ -470,34 +470,18 @@ class CompoundLibraryWidget(QWidget):
             expand = True
         dispatcher.send('toggle library size', expand=expand)
 
-    # NOTE: AVOID this method -- it is causing Qt-level repaint exceptions!
-    # See FilterPanel for notes on refactoring / rewriting ...
     def refresh(self, cname=None, **kw):
         orb.log.debug("* CompoundLibraryWidget.refresh(cname={})".format(cname))
-        if cname:
-            # if cname, just refresh that lib widget
-            lib_widget = self.libraries.get(cname)
-            if hasattr(lib_widget, 'refresh'):
-                orb.log.debug("  lib_widget.refresh() for {}".format(cname))
-                lib_widget.refresh()
-            elif (hasattr(lib_widget, 'model') and
-                  hasattr(lib_widget.model(), 'refresh')):
-                orb.log.debug("  lib_widget.model().refresh()")
-                orb.log.debug("  for {}".format(cname))
-                lib_widget.model().refresh()
-        else:
-            # otherwise, refresh all lib widgets
-            for cname in self.libraries:
-                lib_widget = self.libraries[cname]
-                if hasattr(lib_widget, 'refresh'):
-                    orb.log.debug("  lib_widget.refresh() for {}".format(
-                                                                    cname))
-                    lib_widget.refresh()
-                elif (hasattr(lib_widget, 'model') and
-                      hasattr(lib_widget.model(), 'refresh')):
-                    orb.log.debug("  lib_widget.model().refresh()")
-                    orb.log.debug("  for {}".format(cname))
-                    lib_widget.model().refresh()
+        cname = cname or 'HardwareProduct'
+        lib_widget = self.libraries.get(cname)
+        if hasattr(lib_widget, 'refresh') and lib_widget.isVisible():
+            orb.log.debug("  lib_widget.refresh() for {}".format(cname))
+            lib_widget.refresh()
+        elif (lib_widget.isVisible() and hasattr(lib_widget, 'model') and
+              hasattr(lib_widget.model(), 'refresh')):
+            orb.log.debug("  lib_widget.model().refresh()")
+            orb.log.debug("  for {}".format(cname))
+            lib_widget.model().refresh()
         # call on_only_mine_toggled() to ensure filtering is consistent with
         # state after a refresh
         self.on_only_mine_toggled()

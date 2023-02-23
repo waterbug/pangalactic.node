@@ -707,7 +707,6 @@ class FilterPanel(QWidget):
         self.resize(width, height)
         if min_width:
             self.setMinimumWidth(min_width)
-        self.set_source_model(objs=self.objs)
         self.create_actions()
         self.setup_context_menu()
         # TODO: replace these with pyqtSignal
@@ -848,6 +847,7 @@ class FilterPanel(QWidget):
     # TODO: rewrite to use correct methods to update a source model
     def refresh(self):
         orb.log.debug('  - FilterPanel.refresh()')
+        # self.set_source_model(objs=self.objs)
         self.build_proxy_view(objs=self.objs)
 
     def on_column_moved(self, logical_index, old_index, new_index):
