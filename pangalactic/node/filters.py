@@ -729,7 +729,7 @@ class FilterPanel(QWidget):
         self.resize(width, height)
         if min_width:
             self.setMinimumWidth(min_width)
-        self.set_source_model(self.create_model(objs=self.objs))
+        self.set_source_model(objs=self.objs)
         self.create_actions()
         self.setup_context_menu()
         # TODO: replace these with pyqtSignal
@@ -737,9 +737,28 @@ class FilterPanel(QWidget):
         dispatcher.connect(self.refresh, 'units set')
         self.dirty = False
 
-    def set_source_model(self, model):
+    def set_source_model(self, objs=None):
+        """
+        Set the source model.
+
+        Keyword Args:
+            objs (iterable):  iterable of objects to use for the model
+            cls (class):  class of the model to be instantiated
+        """
         # orb.log.debug('  - FilterPanel.set_source_model()')
-        self.proxy_model.setSourceModel(model)
+        # very verbose:
+        # orb.log.debug('    with objects: {}'.format(str(objs)))
+        self.proxy_model.beginResetModel()
+        if not objs:
+            if self.as_library and self.cname:
+                objs = orb.get_by_type(self.cname)
+                self.objs = [o for o in objs
+                             if o.oid not in self.excluded_oids]
+        self.objs = self.objs or [orb.get('pgefobjects:TBD')]
+        self.model = ObjectTableModel(self.objs, view=self.view,
+                                      as_library=self.as_library)
+        self.proxy_model.setSourceModel(self.model)
+        self.proxy_model.endResetModel()
         for i, colname in enumerate(self.view):
             self.proxy_view.setColumnWidth(i,
                                            PGEF_COL_WIDTHS.get(colname, 100))
@@ -749,13 +768,6 @@ class FilterPanel(QWidget):
             self.proxy_view.setShowGrid(True)
 
     def create_model(self, objs=None):
-        """
-        Create the source model.
-
-        Keyword Args:
-            objs (iterable):  iterable of objects to use for the model
-            cls (class):  class of the model to be instantiated
-        """
         # orb.log.debug('  - FilterPanel.create_model()')
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
@@ -804,12 +816,7 @@ class FilterPanel(QWidget):
     # TODO: rewrite to use correct methods to update a source model
     def refresh(self):
         orb.log.debug('  - FilterPanel.refresh()')
-        if not self.objs:
-            if self.as_library and self.cname:
-                objs = orb.get_by_type(self.cname)
-                self.objs = [o for o in objs
-                             if o.oid not in self.excluded_oids]
-        self.set_source_model(self.create_model(objs=self.objs))
+        self.set_source_model(objs=self.objs)
 
     def on_column_moved(self, logical_index, old_index, new_index):
         orb.log.debug('* FilterPanel.on_column_moved():')
@@ -959,7 +966,7 @@ class FilterPanel(QWidget):
         Convenience method for adding a new library object to the model, which
         calls the PyQt methods that signal the views to update.
         """
-        # orb.log.debug('  [FilterPanel] add_object({})'.format(
+        # orb.log.debug('* FilterPanel.add_object({})'.format(
                                             # getattr(obj, 'id', 'unknown')))
         source_model = self.proxy_model.sourceModel()
         source_model.add_object(obj)
