@@ -592,6 +592,8 @@ class FilterPanel(QWidget):
         super().__init__(parent=parent)
         orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
         self.as_library = as_library
+        self.sized_cols = sized_cols
+        self.word_wrap = word_wrap
         self.headers_are_ids = headers_are_ids
         self.excluded_oids = excluded_oids or []
         self.edit_req_calls = 0
@@ -641,12 +643,6 @@ class FilterPanel(QWidget):
                 orb.log.debug('    using default class view')
                 self.view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
-        self.proxy_model = ObjectSortFilterProxyModel(
-                                        view=self.view,
-                                        cname=self.cname,
-                                        headers_are_ids=self.headers_are_ids,
-                                        parent=self)
-        self.proxy_model.setDynamicSortFilter(True)
         if external_filters:
             self.ext_filters = SizedButton("Filters")
             self.clear_filters_btn = SizedButton("Clear Product Filters",
@@ -670,50 +666,32 @@ class FilterPanel(QWidget):
         filter_pattern_label.setStyleSheet('font-weight: bold; color: purple;')
         self.filter_pattern_line_edit = QLineEdit()
         self.filter_pattern_line_edit.setText("")
-        self.filter_pattern_line_edit.textChanged.connect(
-                                                        self.textFilterChanged)
         filter_pattern_label.setBuddy(self.filter_pattern_line_edit)
         self.clear_btn = SizedButton("Clear", color="green")
         self.clear_btn.clicked.connect(self.clear_text)
-        self.filter_case_checkbox.toggled.connect(self.textFilterChanged)
-        self.proxy_view = ProxyView(self.proxy_model, sized_cols=sized_cols,
-                                    as_library=as_library, word_wrap=word_wrap,
-                                    headers_are_ids=self.headers_are_ids,
-                                    parent=self)
-        self.proxy_view.horizontalHeader().sectionMoved.connect(
-                                                        self.on_column_moved)
-        # IMPORTANT:  after a sort, rows retain the heights they had before
-        # the sort (i.e. wrong) unless this is done:
-        # [2020-10-22 SCW] NO, not necessary because not word-wrapping -> rows
-        # are all the same height!
-        # [2021-01-16 SCW] now necessary again because word-wrapping ...
-        self.proxy_model.layoutChanged.connect(
-                                    self.proxy_view.resizeRowsToContents)
-        self.proxy_model.layoutChanged.connect(
-                                        self.proxy_view.resize_sized_cols)
-        self.textFilterChanged()
-        proxy_layout = QVBoxLayout()
+
+        self.proxy_layout = QVBoxLayout()
         if external_filters:
             only_mine_hbox = QHBoxLayout()
             only_mine_hbox.addWidget(self.only_mine_checkbox)
             only_mine_hbox.addWidget(self.only_mine_label)
             only_mine_hbox.addStretch(1)
             only_mine_hbox.addWidget(self.set_view_button)
-            proxy_layout.addLayout(only_mine_hbox)
+            self.proxy_layout.addLayout(only_mine_hbox)
             filters_hbox = QHBoxLayout()
             filters_hbox.addWidget(self.ext_filters)
             filters_hbox.addWidget(self.clear_filters_btn)
             filters_hbox.addWidget(self.cur_filter_label)
-            proxy_layout.addLayout(filters_hbox)
+            self.proxy_layout.addLayout(filters_hbox)
         text_filter_hbox = QHBoxLayout()
         text_filter_hbox.addWidget(filter_pattern_label)
         text_filter_hbox.addWidget(self.filter_pattern_line_edit)
         text_filter_hbox.addWidget(self.clear_btn)
         text_filter_hbox.addWidget(self.filter_case_checkbox)
-        proxy_layout.addLayout(text_filter_hbox)
-        proxy_layout.addWidget(self.proxy_view, stretch=1)
+        self.proxy_layout.addLayout(text_filter_hbox)
+        self.build_proxy_view()
         proxy_group_box = QGroupBox()
-        proxy_group_box.setLayout(proxy_layout)
+        proxy_group_box.setLayout(self.proxy_layout)
         if not title and as_library:
             title = label + ' Library'
         title_widget = NameLabel(title)
@@ -737,6 +715,60 @@ class FilterPanel(QWidget):
         dispatcher.connect(self.refresh, 'units set')
         self.dirty = False
 
+    def build_proxy_view(self, objs=None):
+        if getattr(self, 'proxy_view', None):
+            self.proxy_layout.removeWidget(self.proxy_view)
+            self.proxy_view.setAttribute(Qt.WA_DeleteOnClose)
+            self.proxy_view.parent = None
+            self.proxy_view.close()
+            self.proxy_view = None
+        if getattr(self, 'proxy_model', None):
+            self.proxy_model = None
+        self.proxy_model = ObjectSortFilterProxyModel(
+                                        view=self.view,
+                                        cname=self.cname,
+                                        headers_are_ids=self.headers_are_ids,
+                                        parent=self)
+        self.proxy_model.setDynamicSortFilter(True)
+        self.proxy_view = ProxyView(self.proxy_model,
+                                    sized_cols=self.sized_cols,
+                                    as_library=self.as_library,
+                                    word_wrap=self.word_wrap,
+                                    headers_are_ids=self.headers_are_ids,
+                                    parent=self)
+        self.proxy_view.horizontalHeader().sectionMoved.connect(
+                                                        self.on_column_moved)
+        # IMPORTANT:  after a sort, rows retain the heights they had before
+        # the sort (i.e. wrong) unless this is done:
+        # [2020-10-22 SCW] NO, not necessary because not word-wrapping -> rows
+        # are all the same height!
+        # [2021-01-16 SCW] now necessary again because word-wrapping ...
+        self.proxy_model.layoutChanged.connect(
+                                    self.proxy_view.resizeRowsToContents)
+        self.proxy_model.layoutChanged.connect(
+                                        self.proxy_view.resize_sized_cols)
+        if not objs:
+            if self.as_library and self.cname:
+                objs = orb.get_by_type(self.cname)
+                self.objs = [o for o in objs
+                             if o.oid not in self.excluded_oids]
+        self.objs = self.objs or [orb.get('pgefobjects:TBD')]
+        model = ObjectTableModel(self.objs, view=self.view,
+                                 as_library=self.as_library)
+        self.proxy_model.setSourceModel(model)
+        for i, colname in enumerate(self.view):
+            self.proxy_view.setColumnWidth(i,
+                                           PGEF_COL_WIDTHS.get(colname, 100))
+        self.proxy_view.resizeRowsToContents()
+        if self.cname == 'Requirement':
+            # for Reqt Manager, show grid
+            self.proxy_view.setShowGrid(True)
+        self.filter_pattern_line_edit.textChanged.connect(
+                                                        self.textFilterChanged)
+        self.filter_case_checkbox.toggled.connect(self.textFilterChanged)
+        self.textFilterChanged()
+        self.proxy_layout.addWidget(self.proxy_view, stretch=1)
+
     def set_source_model(self, objs=None):
         """
         Set the source model.
@@ -755,9 +787,9 @@ class FilterPanel(QWidget):
                 self.objs = [o for o in objs
                              if o.oid not in self.excluded_oids]
         self.objs = self.objs or [orb.get('pgefobjects:TBD')]
-        self.model = ObjectTableModel(self.objs, view=self.view,
-                                      as_library=self.as_library)
-        self.proxy_model.setSourceModel(self.model)
+        model = ObjectTableModel(self.objs, view=self.view,
+                                 as_library=self.as_library)
+        self.proxy_model.setSourceModel(model)
         self.proxy_model.endResetModel()
         for i, colname in enumerate(self.view):
             self.proxy_view.setColumnWidth(i,
@@ -816,7 +848,7 @@ class FilterPanel(QWidget):
     # TODO: rewrite to use correct methods to update a source model
     def refresh(self):
         orb.log.debug('  - FilterPanel.refresh()')
-        self.set_source_model(objs=self.objs)
+        self.build_proxy_view(objs=self.objs)
 
     def on_column_moved(self, logical_index, old_index, new_index):
         orb.log.debug('* FilterPanel.on_column_moved():')
