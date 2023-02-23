@@ -3179,20 +3179,21 @@ class Main(QMainWindow):
         oids = state.get('lib updates needed', []) or []
         if oids and hasattr(self, 'library_widget'):
             lmsg = f'[ovgpr] lib updates needed: {state["lib updates needed"]}'
-            orb.log.info(f'  {lmsg}')
-            for oid in oids:
-                obj = orb.get(oid)
-                if obj:
-                    lib = self.library_widget.libraries.get(
-                                        obj.__class__.__name__)
-                    if isinstance(lib, FilterPanel):
-                        lib_oids = lib.get_oids()
-                        if oid in lib_oids:
-                            orb.log.debug(f'  - modding {obj.id} in lib')
-                            lib.mod_object(oid)
-                        else:
-                            orb.log.debug(f'  - adding {obj.id} to lib')
-                            lib.add_object(obj)
+            # orb.log.info(f'  {lmsg}')
+            # for oid in oids:
+                # obj = orb.get(oid)
+                # if obj:
+                    # lib = self.library_widget.libraries.get(
+                                        # obj.__class__.__name__)
+                    # if isinstance(lib, FilterPanel):
+                        # lib_oids = lib.get_oids()
+                        # if oid in lib_oids:
+                            # orb.log.debug(f'  - modding {obj.id} in lib')
+                            # lib.mod_object(oid)
+                        # else:
+                            # orb.log.debug(f'  - adding {obj.id} to lib')
+                            # lib.add_object(obj)
+            self.library_widget.refresh()
             state['lib updates needed'] = []
         if ((self.mode == 'system') and
             state.get('tree needs refresh')):
@@ -3764,8 +3765,8 @@ class Main(QMainWindow):
             self.system_model_window.cache_block_model()
         # [gui refactor] creation of top dock moved to _init_ui()
         self.update_project_role_labels()
-        if hasattr(self, 'library_widget'):
-            self.library_widget.refresh()
+        # if hasattr(self, 'library_widget'):
+            # self.library_widget.refresh()
         # connect mode-dependent signals to selection model
         # TODO:  check if it's ok to connect the same signal twice (hope so!)
         if self.mode == 'data':
@@ -5195,8 +5196,8 @@ class Main(QMainWindow):
                         # might need to refresh dashboard, e.g. if acu quantities
                         # have changed ...
                         self.refresh_dashboard()
-                    if hasattr(self, 'library_widget'):
-                        self.library_widget.refresh()
+                    # if hasattr(self, 'library_widget'):
+                        # self.library_widget.refresh()
             if importing:
                 popup = QMessageBox(QMessageBox.Information,
                             "Project Data Import", msg,
@@ -5314,8 +5315,8 @@ class Main(QMainWindow):
                 else:
                     # if not connected, work in synchronous mode ...
                     orb.recompute_parmz()
-                    if hasattr(self, 'library_widget'):
-                        self.library_widget.refresh()
+                    # if hasattr(self, 'library_widget'):
+                        # self.library_widget.refresh()
                     if self.mode == 'system':
                         for obj in new_products_psus_or_acus:
                             self.update_object_in_trees(obj)
