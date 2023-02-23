@@ -429,8 +429,8 @@ class ProxyView(QTableView):
             self.setWordWrap(False)
         if proxy_model:
             self.setModel(proxy_model)
-        self.model().layoutAboutToBeChanged.connect(self.on_latbc)
-        self.model().layoutChanged.connect(self.on_lc)
+        # self.model().layoutAboutToBeChanged.connect(self.on_latbc)
+        # self.model().layoutChanged.connect(self.on_lc)
         self.setSortingEnabled(True)
         header = self.horizontalHeader()
         header.setSectionsMovable(True)
