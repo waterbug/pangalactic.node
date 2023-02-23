@@ -3107,7 +3107,7 @@ class Main(QMainWindow):
         needed GUI updates (which would cause various problems and possibly
         crashes if attempted while rpc operations are being processed).
         """
-        # orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
+        orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
         # libs_refreshed = []
         if data:
             # orb.log.info('  [ovgpr] got parmz data, updating ...')
@@ -3177,9 +3177,10 @@ class Main(QMainWindow):
         # using pyqtSignal (replacing the FilterPanel's current dispatcher
         # connections to "new|modified|deleted object" signals)
         oids = state.get('lib updates needed', []) or []
-        if oids and hasattr(self, 'library_widget'):
+        # if oids and hasattr(self, 'library_widget'):
+        if hasattr(self, 'library_widget'):
             lmsg = f'[ovgpr] lib updates needed: {state["lib updates needed"]}'
-            # orb.log.info(f'  {lmsg}')
+            orb.log.info(f'  {lmsg}')
             # for oid in oids:
                 # obj = orb.get(oid)
                 # if obj:
