@@ -87,7 +87,7 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog,
                                                ProgressDialog, VersionDialog)
-from pangalactic.node.filters          import FilterPanel
+# from pangalactic.node.filters          import FilterPanel
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import (LibraryDialog,
                                                CompoundLibraryWidget)
@@ -3177,10 +3177,13 @@ class Main(QMainWindow):
         # using pyqtSignal (replacing the FilterPanel's current dispatcher
         # connections to "new|modified|deleted object" signals)
         oids = state.get('lib updates needed', []) or []
-        # if oids and hasattr(self, 'library_widget'):
-        if hasattr(self, 'library_widget'):
-            lmsg = f'[ovgpr] lib updates needed: {state["lib updates needed"]}'
-            orb.log.info(f'  {lmsg}')
+        lun = "yes"
+        if not oids:
+            lun = "no"
+        lmsg = f'[ovgpr] lib updates needed: {lun}'
+        orb.log.info(f'  {lmsg}')
+        if oids and hasattr(self, 'library_widget'):
+        # if hasattr(self, 'library_widget'):
             # for oid in oids:
                 # obj = orb.get(oid)
                 # if obj:
@@ -5183,6 +5186,7 @@ class Main(QMainWindow):
                                           orb.classes['ProjectSystemUsage']))]
             if new_products_psus_or_acus:
                 if state.get('connected'):
+                    state['lib updates needed'] = True
                     # if connected, call get_parmz() ...
                     rpc = self.mbus.session.call('vger.get_parmz',
                                                  oids=self.project_oids)
@@ -5197,8 +5201,8 @@ class Main(QMainWindow):
                         # might need to refresh dashboard, e.g. if acu quantities
                         # have changed ...
                         self.refresh_dashboard()
-                    # if hasattr(self, 'library_widget'):
-                        # self.library_widget.refresh()
+                    if hasattr(self, 'library_widget'):
+                        self.library_widget.refresh()
             if importing:
                 popup = QMessageBox(QMessageBox.Information,
                             "Project Data Import", msg,
@@ -5309,6 +5313,7 @@ class Main(QMainWindow):
             if new_products_psus_or_acus:
                 if state.get('connected'):
                     # if connected, call get_parmz() ...
+                    state['lib updates needed'] = True
                     rpc = self.mbus.session.call('vger.get_parmz',
                                                  oids=self.project_oids)
                     rpc.addCallback(self.on_vger_get_parmz_result)
@@ -5316,8 +5321,8 @@ class Main(QMainWindow):
                 else:
                     # if not connected, work in synchronous mode ...
                     orb.recompute_parmz()
-                    # if hasattr(self, 'library_widget'):
-                        # self.library_widget.refresh()
+                    if hasattr(self, 'library_widget'):
+                        self.library_widget.refresh()
                     if self.mode == 'system':
                         for obj in new_products_psus_or_acus:
                             self.update_object_in_trees(obj)
