@@ -4,12 +4,6 @@ A set of custom TableModels for use with QTableView.
 # stdlib
 import os, re
 
-# louie
-# from louie import dispatcher
-
-# pandas
-# import pandas
-
 # PyQt
 from PyQt5.QtCore import (Qt, QAbstractTableModel, QMimeData, QModelIndex,
                           QSortFilterProxyModel, QVariant)

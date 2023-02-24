@@ -3172,33 +3172,6 @@ class Main(QMainWindow):
                     self.rebuild_dashboard(force=True)
         else:
             orb.log.info('  [ovgpr] no parmz data, check other updates ...')
-        # TODO: DO NOT call "refresh()" on libraries -- that function is
-        # causing "paint" exceptions -- modify to update libraries directly
-        # using pyqtSignal (replacing the FilterPanel's current dispatcher
-        # connections to "new|modified|deleted object" signals)
-        oids = state.get('lib updates needed', []) or []
-        lun = "yes"
-        if not oids:
-            lun = "no"
-        lmsg = f'[ovgpr] lib updates needed: {lun}'
-        orb.log.info(f'  {lmsg}')
-        if oids and hasattr(self, 'library_widget'):
-        # if hasattr(self, 'library_widget'):
-            # for oid in oids:
-                # obj = orb.get(oid)
-                # if obj:
-                    # lib = self.library_widget.libraries.get(
-                                        # obj.__class__.__name__)
-                    # if isinstance(lib, FilterPanel):
-                        # lib_oids = lib.get_oids()
-                        # if oid in lib_oids:
-                            # orb.log.debug(f'  - modding {obj.id} in lib')
-                            # lib.mod_object(oid)
-                        # else:
-                            # orb.log.debug(f'  - adding {obj.id} to lib')
-                            # lib.add_object(obj)
-            self.library_widget.refresh()
-            state['lib updates needed'] = []
         if ((self.mode == 'system') and
             state.get('tree needs refresh')):
             # orb.log.info('  [ovgpr] tree needs refresh ...')
@@ -3212,6 +3185,19 @@ class Main(QMainWindow):
         if state.get('modal views need update'):
             # orb.log.info('  [ovgpr] modal views need update ...')
             self._update_modal_views()
+        # ---------------------------------------------------------------
+        # NOTE: lib updates are done LAST -- very touchy operation ...
+        # sometimes gives random "paint" exceptions / crashes ...
+        # ---------------------------------------------------------------
+        oids = state.get('lib updates needed', []) or []
+        lun = "yes"
+        if not oids:
+            lun = "no"
+        lmsg = f'[ovgpr] lib updates needed: {lun}'
+        orb.log.info(f'  {lmsg}')
+        if oids and hasattr(self, 'library_widget'):
+            self.library_widget.refresh()
+            state['lib updates needed'] = []
         self.statusbar.showMessage('synced.')
 
     def on_vger_save_result(self, stuff):
@@ -3769,8 +3755,6 @@ class Main(QMainWindow):
             self.system_model_window.cache_block_model()
         # [gui refactor] creation of top dock moved to _init_ui()
         self.update_project_role_labels()
-        # if hasattr(self, 'library_widget'):
-            # self.library_widget.refresh()
         # connect mode-dependent signals to selection model
         # TODO:  check if it's ok to connect the same signal twice (hope so!)
         if self.mode == 'data':
