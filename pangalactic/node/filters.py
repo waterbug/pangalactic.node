@@ -35,6 +35,9 @@ from pangalactic.node.widgets     import NameLabel
 
 
 class ProductFilterDialog(QDialog):
+
+    product_types_selected = pyqtSignal(str, list)  # args: msg, oids
+
     """
     Dialog with selectable product types and related disciplines for filtering
     the 'Hardware Product' library.
@@ -161,8 +164,7 @@ class ProductFilterDialog(QDialog):
                         for product_type in pts:
                             product_types.add(product_type)
             self.pt_list = list(product_types)
-        self.product_type_panel.set_source_model(
-            self.product_type_panel.create_model(objs=self.pt_list))
+        self.product_type_panel.set_source_model(objs=self.pt_list)
         self.engineering_discipline_selected = discipline
 
     def product_type_selected(self, clicked_index):
@@ -177,7 +179,8 @@ class ProductFilterDialog(QDialog):
         # orb.log.debug('  ... which is "{}"'.format(pt_name))
         if pt:
             msg = pt.name
-            dispatcher.send('product types selected', msg=msg, objs=[pt])
+            # dispatcher.send('product types selected', msg=msg, objs=[pt])
+            self.product_types_selected.emit(msg, [pt.oid])
 
     def select_product_types(self):
         """
@@ -212,7 +215,9 @@ class ProductFilterDialog(QDialog):
             msg = 'All Product Types'
             # 'All Product Types' msg overrides pts, so don't need any pts
             pts = []
-        dispatcher.send('product types selected', msg=msg, objs=pts)
+        # dispatcher.send('product types selected', msg=msg, objs=pts)
+        oids = [pt.oid for pt in pts]
+        self.product_types_selected.emit(msg, oids)
 
 
 class ObjectSortFilterProxyModel(QSortFilterProxyModel):
@@ -746,6 +751,7 @@ class FilterPanel(QWidget):
                                     self.proxy_view.resizeRowsToContents)
         self.proxy_model.layoutChanged.connect(
                                         self.proxy_view.resize_sized_cols)
+        self.proxy_model.beginResetModel()
         if not objs:
             if self.as_library and self.cname:
                 objs = orb.get_by_type(self.cname)
@@ -755,6 +761,7 @@ class FilterPanel(QWidget):
         model = ObjectTableModel(self.objs, view=self.view,
                                  as_library=self.as_library)
         self.proxy_model.setSourceModel(model)
+        self.proxy_model.endResetModel()
         for i, colname in enumerate(self.view):
             self.proxy_view.setColumnWidth(i,
                                            PGEF_COL_WIDTHS.get(colname, 100))
@@ -780,12 +787,15 @@ class FilterPanel(QWidget):
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
         self.proxy_model.beginResetModel()
-        if not objs:
+        ## NOTE: this is attempt to "disconnect" from old model
+        # self.proxy_model.setSourceModel(None)
+        if objs:
+            self.objs = objs
+        else:
             if self.as_library and self.cname:
                 objs = orb.get_by_type(self.cname)
                 self.objs = [o for o in objs
                              if o.oid not in self.excluded_oids]
-        self.objs = self.objs or [orb.get('pgefobjects:TBD')]
         model = ObjectTableModel(self.objs, view=self.view,
                                  as_library=self.as_library)
         self.proxy_model.setSourceModel(model)
@@ -803,9 +813,9 @@ class FilterPanel(QWidget):
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
         self.objs = objs or [orb.get('pgefobjects:TBD')]
-        self.model = ObjectTableModel(self.objs, view=self.view,
-                                      as_library=self.as_library)
-        return self.model
+        model = ObjectTableModel(self.objs, view=self.view,
+                                 as_library=self.as_library)
+        return model
 
     def set_custom_hw_lib_view(self):
         """
@@ -843,12 +853,23 @@ class FilterPanel(QWidget):
         self.view = view
         self.proxy_model.view = view
 
-    # NOTE: AVOID this method -- it is causing Qt-level repaint exceptions!
+    # FIXME: this method is causing Qt-level repaint exceptions!
     # TODO: rewrite to use correct methods to update a source model
-    def refresh(self):
+    def old_refresh(self):
         orb.log.debug('  - FilterPanel.refresh()')
         # self.set_source_model(objs=self.objs)
         self.build_proxy_view(objs=self.objs)
+
+    def refresh(self):
+        orb.log.debug('  - FilterPanel.new_refresh()')
+        self.proxy_view.setSortingEnabled(False)
+        source_model = self.proxy_model.sourceModel()
+        model_objs = {o.oid: o for o in source_model.objs}
+        objs = {o.oid: o for o in orb.get_by_type(self.cname)}
+        new_oids = set(objs) - set(model_objs)
+        new_objs = [o for o in objs.values() if o.oid in new_oids]
+        source_model.add_objects(new_objs)
+        self.proxy_view.setSortingEnabled(True)
 
     def on_column_moved(self, logical_index, old_index, new_index):
         orb.log.debug('* FilterPanel.on_column_moved():')

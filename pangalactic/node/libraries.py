@@ -288,7 +288,7 @@ def select_product_types(lib_view, msg='', only_mine=False,
             hw = [h for h in hw if h.creator == local_user]
     if hasattr(lib_view, 'cur_filter_label') and label_text:
         lib_view.cur_filter_label.setText(label_text)
-    lib_view.set_source_model(lib_view.create_model(objs=hw))
+    lib_view.set_source_model(objs=hw)
 
 
 class CompoundLibraryWidget(QWidget):
@@ -389,8 +389,8 @@ class CompoundLibraryWidget(QWidget):
                 lib_table.ext_filters.clicked.connect(self.show_ext_filters)
                 lib_table.clear_filters_btn.clicked.connect(
                                                     self.clear_product_filters)
-                dispatcher.connect(self.on_product_types_selected,
-                                   'product types selected')
+                # dispatcher.connect(self.on_product_types_selected,
+                                   # 'product types selected')
                 lib_table.only_mine_checkbox.clicked.connect(
                                                 self.on_only_mine_toggled)
         elif cname == 'ParameterDefinition':
@@ -488,6 +488,8 @@ class CompoundLibraryWidget(QWidget):
 
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
+        self.filter_dlg.product_types_selected.connect(
+                                self.on_product_types_selected_signal)
         self.filter_dlg.show()
 
     def clear_product_filters(self):
@@ -509,6 +511,18 @@ class CompoundLibraryWidget(QWidget):
             select_product_types(hw_lib, msg=msg,
                                  only_mine=state.get('only_mine'),
                                  product_types=objs)
+
+    def on_product_types_selected_signal(self, msg='', oids=None):
+        # orb.log.debug('* on_product_types_selected:')
+        # orb.log.debug('  objs: {}'.format(', '.join([o.id for o in objs])))
+        # orb.log.debug('  msg: {}'.format(msg))
+        hw_lib = self.libraries.get('HardwareProduct')
+        if hw_lib:
+            self.msg = msg
+            self.product_types = orb.get(oids=oids)
+            select_product_types(hw_lib, msg=msg,
+                                 only_mine=state.get('only_mine'),
+                                 product_types=self.product_types)
 
     def on_only_mine_toggled(self):
         hw_lib = self.libraries.get('HardwareProduct')
@@ -565,8 +579,8 @@ class LibraryDialog(QDialog):
                 lib_view.ext_filters.clicked.connect(self.show_ext_filters)
                 lib_view.clear_filters_btn.clicked.connect(
                                                 self.clear_product_filters)
-                dispatcher.connect(self.on_product_types_selected,
-                                   'product types selected')
+                # dispatcher.connect(self.on_product_types_selected,
+                                   # 'product types selected')
                 lib_view.only_mine_checkbox.clicked.connect(
                                                 self.on_only_mine_toggled)
                 lib_view.obj_modified.connect(self.on_obj_modified)
@@ -619,6 +633,16 @@ class LibraryDialog(QDialog):
         select_product_types(self.lib_view, msg=msg,
                              only_mine=state.get('only_mine'),
                              product_types=objs)
+
+    def on_product_types_selected_signal(self, msg='', oids=None):
+        # orb.log.debug('* on_product_types_selected:')
+        # orb.log.debug('  objs: {}'.format(', '.join([o.id for o in objs])))
+        # orb.log.debug('  msg: {}'.format(msg))
+        self.msg = msg
+        self.product_types = orb.get(oids=oids)
+        select_product_types(self.lib_view, msg=msg,
+                             only_mine=state.get('only_mine'),
+                             product_types=self.product_types)
 
     def on_only_mine_toggled(self):
         # keep only_mine_checkbox in sync with state ...
