@@ -864,11 +864,13 @@ class FilterPanel(QWidget):
         orb.log.debug('  - FilterPanel.new_refresh()')
         self.proxy_view.setSortingEnabled(False)
         source_model = self.proxy_model.sourceModel()
+        source_model.layoutAboutToBeChanged()
         model_objs = {o.oid: o for o in source_model.objs}
         objs = {o.oid: o for o in orb.get_by_type(self.cname)}
         new_oids = set(objs) - set(model_objs)
         new_objs = [o for o in objs.values() if o.oid in new_oids]
         source_model.add_objects(new_objs)
+        source_model.layoutChanged()
         self.proxy_view.setSortingEnabled(True)
 
     def on_column_moved(self, logical_index, old_index, new_index):
