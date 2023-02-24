@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 from textwrap import wrap
 
-from louie import dispatcher
-
 from PyQt5.QtCore import (pyqtSignal, Qt, QAbstractListModel, QMimeData,
                           QModelIndex, QPoint, QSize, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
@@ -304,8 +302,9 @@ class CompoundLibraryWidget(QWidget):
             of the library view in the QStackedLayout
     """
 
-    obj_modified = pyqtSignal(str)      # arg: oid
-    delete_obj = pyqtSignal(str, str)   # args: oid, cname
+    obj_modified = pyqtSignal(str)          # arg: oid
+    delete_obj = pyqtSignal(str, str)       # args: oid, cname
+    toggle_library_size = pyqtSignal(bool)  # args: expand
 
     def __init__(self, cnames=None, include_subtypes=True, icon_size=None,
                  title=None, min_width=None, parent=None):
@@ -389,8 +388,6 @@ class CompoundLibraryWidget(QWidget):
                 lib_table.ext_filters.clicked.connect(self.show_ext_filters)
                 lib_table.clear_filters_btn.clicked.connect(
                                                     self.clear_product_filters)
-                # dispatcher.connect(self.on_product_types_selected,
-                                   # 'product types selected')
                 lib_table.only_mine_checkbox.clicked.connect(
                                                 self.on_only_mine_toggled)
         elif cname == 'ParameterDefinition':
@@ -468,7 +465,7 @@ class CompoundLibraryWidget(QWidget):
         else:
             self.expand_button.setText('Collapse')
             expand = True
-        dispatcher.send('toggle library size', expand=expand)
+        self.toggle_library_size.emit(expand)
 
     def refresh(self, cname=None, **kw):
         orb.log.debug("* CompoundLibraryWidget.refresh(cname={})".format(cname))
@@ -579,8 +576,6 @@ class LibraryDialog(QDialog):
                 lib_view.ext_filters.clicked.connect(self.show_ext_filters)
                 lib_view.clear_filters_btn.clicked.connect(
                                                 self.clear_product_filters)
-                # dispatcher.connect(self.on_product_types_selected,
-                                   # 'product types selected')
                 lib_view.only_mine_checkbox.clicked.connect(
                                                 self.on_only_mine_toggled)
                 lib_view.obj_modified.connect(self.on_obj_modified)

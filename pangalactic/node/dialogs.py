@@ -816,6 +816,9 @@ class UnitPrefsDialog(QDialog):
 
         {dimensions (str) : preferred units (str)}
     """
+
+    units_set = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Preferred Units")
@@ -850,10 +853,14 @@ class UnitPrefsDialog(QDialog):
             val = widget.get_value()
             prefs['units'][dims] = val
             orb.log.debug(f'  - {dims}: {val}')
-        dispatcher.send('units set')
+        # dispatcher.send('units set')
+        self.units_set.emit()
 
 
 class PrefsDialog(QDialog):
+
+    units_set = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Preferences")
@@ -936,7 +943,11 @@ class PrefsDialog(QDialog):
 
     def set_preferred_units(self):
         dlg = UnitPrefsDialog(self)
+        dlg.units_set.connect(self.on_units_set)
         dlg.show()
+
+    def on_units_set(self):
+        self.units_set.emit()
 
     def set_disconnect_resync_interval(self, index):
         """

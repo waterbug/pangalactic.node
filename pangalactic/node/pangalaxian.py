@@ -152,6 +152,7 @@ class Main(QMainWindow):
     remote_frozen = pyqtSignal(list)              # args: list of oids
     remote_thawed = pyqtSignal(list)              # args: list of oids
     refresh_admin_tool = pyqtSignal()
+    units_set = pyqtSignal()
 
     def __init__(self, home='', test_data=None, width=None, height=None,
                  use_tls=True, auth_method='cryptosign', auto=True,
@@ -283,7 +284,6 @@ class Main(QMainWindow):
         # connect dispatcher signals ...
         dispatcher.connect(self.on_log_info_msg, 'log info msg')
         dispatcher.connect(self.on_log_debug_msg, 'log debug msg')
-        dispatcher.connect(self.on_toggle_library_size, 'toggle library size')
         dispatcher.connect(self.on_system_selected_signal, 'system selected')
         dispatcher.connect(self.on_sys_node_selected_signal,
                                                          'sys node selected')
@@ -2600,6 +2600,7 @@ class Main(QMainWindow):
                                        parent=self)
         widget.obj_modified.connect(self.on_mod_object_qtsignal)
         widget.delete_obj.connect(self.delete_object)
+        widget.toggle_library_size.connect(self.on_toggle_library_size)
         widget.setContextMenuPolicy(Qt.PreventContextMenu)
         return widget
 
@@ -2811,7 +2812,6 @@ class Main(QMainWindow):
         self.statusbar.addPermanentWidget(self.role_label)
         self.statusbar.addPermanentWidget(self.net_status)
         self.statusbar.showMessage("To infinity, and beyond! :)")
-        # dispatcher.connect(self.increment_progress, 'tree node fetched')
         # x and y coordinates and the screen, width, height
         self.setGeometry(100, 100, width, height)
         self.setWindowTitle(config['app_name'])
@@ -4164,6 +4164,7 @@ class Main(QMainWindow):
             self.dashboard.setStyleSheet('font-weight: bold; font-size: 16px')
         self.dashboard.setFrameStyle(QFrame.Panel |
                                      QFrame.Raised)
+        self.dashboard.units_set.connect(self.on_units_set)
         dashboard_layout.addWidget(self.dashboard)
         title = 'Systems Dashboard: <font color="purple">{}</font>'.format(
                                                                self.project.id)
@@ -5496,8 +5497,14 @@ class Main(QMainWindow):
     def edit_prefs(self):
         orb.log.debug('* edit_prefs()')
         dlg = PrefsDialog(parent=self)
+        dlg.units_set.connect(self.on_units_set)
         if dlg.exec_():
             orb.log.debug('  - prefs dialog completed.')
+
+    def on_units_set(self):
+        lib_widget = getattr(self, 'library_widget', None)
+        if lib_widget:
+            lib_widget.refresh()
 
     def do_admin_stuff(self):
         orb.log.debug('* admin dialog')

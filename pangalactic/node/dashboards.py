@@ -7,7 +7,7 @@ and realtime updates of specified parameters of a system that is being modeled.
 import os
 from louie import dispatcher
 
-from PyQt5.QtCore    import Qt, QModelIndex, QItemSelectionModel
+from PyQt5.QtCore    import pyqtSignal, Qt, QModelIndex, QItemSelectionModel
 from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QMessageBox,
                              QTreeView)
 
@@ -29,6 +29,8 @@ from pangalactic.node.dialogs         import (CustomizeColsDialog,
 
 
 class SystemDashboard(QTreeView):
+
+    units_set = pyqtSignal()
 
     def __init__(self, model, row_colors=True, grid_lines=False, parent=None):
         super().__init__(parent)
@@ -277,7 +279,11 @@ class SystemDashboard(QTreeView):
 
     def set_units(self):
         dlg = UnitPrefsDialog(self)
+        dlg.units_set.connect(self.on_units_set)
         dlg.show()
+
+    def on_units_set(self):
+        self.units_set.emit()
 
     def show_grid(self):
         self.grid_lines = True

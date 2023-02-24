@@ -14,8 +14,6 @@ import re
 from functools import reduce
 from textwrap import wrap
 
-from louie import dispatcher
-
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
@@ -179,7 +177,6 @@ class ProductFilterDialog(QDialog):
         # orb.log.debug('  ... which is "{}"'.format(pt_name))
         if pt:
             msg = pt.name
-            # dispatcher.send('product types selected', msg=msg, objs=[pt])
             self.product_types_selected.emit(msg, [pt.oid])
 
     def select_product_types(self):
@@ -215,7 +212,6 @@ class ProductFilterDialog(QDialog):
             msg = 'All Product Types'
             # 'All Product Types' msg overrides pts, so don't need any pts
             pts = []
-        # dispatcher.send('product types selected', msg=msg, objs=pts)
         oids = [pt.oid for pt in pts]
         self.product_types_selected.emit(msg, oids)
 
@@ -714,9 +710,6 @@ class FilterPanel(QWidget):
             self.setMinimumWidth(min_width)
         self.create_actions()
         self.setup_context_menu()
-        # TODO: replace these with pyqtSignal
-        # dispatcher.connect(self.on_new_object_signal, 'new object')
-        dispatcher.connect(self.refresh, 'units set')
         self.dirty = False
 
     def build_proxy_view(self, objs=None):
@@ -727,8 +720,6 @@ class FilterPanel(QWidget):
             self.proxy_view.close()
             self.proxy_view = None
         if getattr(self, 'proxy_model', None):
-            source_model = self.proxy_model.sourceModel()
-            source_model = None
             self.proxy_model = None
         self.proxy_model = ObjectSortFilterProxyModel(
                                         view=self.view,
