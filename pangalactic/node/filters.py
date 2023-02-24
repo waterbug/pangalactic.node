@@ -727,6 +727,8 @@ class FilterPanel(QWidget):
             self.proxy_view.close()
             self.proxy_view = None
         if getattr(self, 'proxy_model', None):
+            source_model = self.proxy_model.sourceModel()
+            source_model = None
             self.proxy_model = None
         self.proxy_model = ObjectSortFilterProxyModel(
                                         view=self.view,
@@ -855,23 +857,12 @@ class FilterPanel(QWidget):
 
     # FIXME: this method is causing Qt-level repaint exceptions!
     # TODO: rewrite to use correct methods to update a source model
-    def old_refresh(self):
+    def refresh(self):
         orb.log.debug('  - FilterPanel.refresh()')
         # self.set_source_model(objs=self.objs)
-        self.build_proxy_view(objs=self.objs)
-
-    def refresh(self):
-        orb.log.debug('  - FilterPanel.new_refresh()')
-        self.proxy_view.setSortingEnabled(False)
-        source_model = self.proxy_model.sourceModel()
-        source_model.layoutAboutToBeChanged()
-        model_objs = {o.oid: o for o in source_model.objs}
-        objs = {o.oid: o for o in orb.get_by_type(self.cname)}
-        new_oids = set(objs) - set(model_objs)
-        new_objs = [o for o in objs.values() if o.oid in new_oids]
-        source_model.add_objects(new_objs)
-        source_model.layoutChanged()
-        self.proxy_view.setSortingEnabled(True)
+        # self.build_proxy_view(objs=self.objs)
+        objs = orb.get_by_type(self.cname)
+        self.build_proxy_view(objs=objs)
 
     def on_column_moved(self, logical_index, old_index, new_index):
         orb.log.debug('* FilterPanel.on_column_moved():')
