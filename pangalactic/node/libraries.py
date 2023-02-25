@@ -656,8 +656,7 @@ class LibraryDialog(QDialog):
                                  product_types=self.product_types)
         else:
             objs = orb.get_by_type(cname or self.cname)
-            self.lib_view.set_source_model(
-                                self.lib_view.create_model(objs=objs))
+            self.lib_view.set_source_model(objs=objs)
 
 
 if __name__ == '__main__':

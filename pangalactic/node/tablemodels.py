@@ -314,7 +314,7 @@ class ObjectTableModel(MappingTableModel):
             super().setData(index, obj_view_to_dict(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
-            super().dataChanged.emit(index, index)
+            # super().dataChanged.emit(index, index)
             return True
         except:
             return False
