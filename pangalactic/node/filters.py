@@ -22,7 +22,7 @@ from pangalactic.core.names       import (get_external_name_plural,
 from pangalactic.core.parametrics import de_defz, parameterz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import (ProgressDialog, HWFieldsDialog,
+from pangalactic.node.dialogs     import (HWFieldsDialog,
                                           SelectHWLibraryColsDialog)
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ObjectTableModel
@@ -313,7 +313,6 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             return False
 
     def lessThan(self, left, right):
-        QApplication.processEvents()
         try:
             dtype = self.col_dtypes[left.column()]
         except:
@@ -420,8 +419,11 @@ class ProxyView(QTableView):
     def __init__(self, proxy_model, sized_cols=None, as_library=False,
                  headers_are_ids=False, word_wrap=False, parent=None):
         super().__init__(parent=parent)
-        self.initializing = True
         self.sized_cols = sized_cols or {'name': 150}
+        header = self.horizontalHeader()
+        header.setSectionsMovable(True)
+        # header.setSortIndicatorShown(False)
+        header.setStyleSheet('font-weight: bold')
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -430,13 +432,7 @@ class ProxyView(QTableView):
             self.setWordWrap(False)
         if proxy_model:
             self.setModel(proxy_model)
-        # self.model().layoutAboutToBeChanged.connect(self.on_latbc)
-        # self.model().layoutChanged.connect(self.on_lc)
         self.setSortingEnabled(True)
-        header = self.horizontalHeader()
-        header.setSectionsMovable(True)
-        header.setSortIndicatorShown(False)
-        header.setStyleSheet('font-weight: bold')
         if as_library:
             # orb.log.debug('  ... as library.')
             self.setWordWrap(False)
@@ -461,41 +457,6 @@ class ProxyView(QTableView):
         # else:
             # QTimer.singleShot(0, self.resizeColumnsToContents)
         QTimer.singleShot(0, self.resize_sized_cols)
-        self.initializing = False
-
-    def on_latbc(self, idx_list, hint=None):
-        """
-        Respond to layoutAboutToBeChanged signal: if hint indicates a vertical
-        sort, start the sort progress dialog.
-        """
-        # orb.log.debug('* layout about to be changed ...')
-        # QAbstractItemModel.VerticalSortHint is 1
-        if not self.initializing and hint == 1:
-            # orb.log.debug('  ... sorting ...')
-            self.sort_progress = ProgressDialog(title='Sorting',
-                                                label='<b>sorting ...</b>',
-                                                parent=self)
-            self.sort_progress.setAttribute(Qt.WA_DeleteOnClose)
-            self.sort_progress.setMinimum(0)
-            self.sort_progress.setMaximum(0)
-            self.sort_progress.setMinimumDuration(500)
-            self.sort_progress.resize(400, 100)
-            QApplication.processEvents()
-        QApplication.processEvents()
-
-    def on_lc(self):
-        """
-        Respond to layoutChanged signal (end the sort progress dialog).
-        """
-        sort_prog = getattr(self, 'sort_progress', None)
-        if sort_prog:
-            # orb.log.debug('  ... finished sorting.')
-            try:
-                self.sort_progress.done(0)
-                QApplication.processEvents()
-            except:
-                # C++ obj gc'ed
-                pass
 
     def resize_sized_cols(self):
         labels = [self.model().headerData(i, Qt.Horizontal, Qt.DisplayRole)
