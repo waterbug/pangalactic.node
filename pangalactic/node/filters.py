@@ -744,16 +744,7 @@ class FilterPanel(QWidget):
         # orb.log.debug('  - FilterPanel.set_source_model()')
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
-        self.proxy_model.beginResetModel()
-        ## NOTE: this is attempt to "disconnect" from old model
-        # self.proxy_model.setSourceModel(None)
-        if objs:
-            self.objs = objs
-        else:
-            if self.as_library and self.cname:
-                objs = orb.get_by_type(self.cname)
-                self.objs = [o for o in objs
-                             if o.oid not in self.excluded_oids]
+        self.objs = objs or [orb.get('pgefobjects:TBD')]
         model = ObjectTableModel(self.objs, view=self.view,
                                  as_library=self.as_library)
         self.proxy_model.setSourceModel(model)

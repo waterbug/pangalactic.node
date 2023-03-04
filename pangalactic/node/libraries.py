@@ -511,12 +511,12 @@ class CompoundLibraryWidget(QWidget):
 
     def on_product_types_selected_signal(self, msg='', oids=None):
         # orb.log.debug('* on_product_types_selected:')
-        # orb.log.debug('  objs: {}'.format(', '.join([o.id for o in objs])))
         # orb.log.debug('  msg: {}'.format(msg))
         hw_lib = self.libraries.get('HardwareProduct')
         if hw_lib:
             self.msg = msg
             self.product_types = orb.get(oids=oids)
+            # orb.log.debug(f'  product types: {self.product_types}')
             select_product_types(hw_lib, msg=msg,
                                  only_mine=state.get('only_mine'),
                                  product_types=self.product_types)
@@ -611,6 +611,8 @@ class LibraryDialog(QDialog):
 
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
+        self.filter_dlg.product_types_selected.connect(
+                                self.on_product_types_selected_signal)
         self.filter_dlg.show()
 
     def clear_product_filters(self):
