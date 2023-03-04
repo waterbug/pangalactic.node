@@ -419,7 +419,11 @@ class ProxyView(QTableView):
     def __init__(self, proxy_model, sized_cols=None, as_library=False,
                  headers_are_ids=False, word_wrap=False, parent=None):
         super().__init__(parent=parent)
-        self.sized_cols = sized_cols or {'name': 150}
+        self.sized_cols = sized_cols or {}
+        # always resize "id" and "name" cols to fit contents -- see
+        # resize_sized_cols(), below ...
+        fitted_cols = {'id': 0, 'name': 0}
+        self.sized_cols.update(fitted_cols)
         header = self.horizontalHeader()
         header.setSectionsMovable(True)
         # header.setSortIndicatorShown(False)
