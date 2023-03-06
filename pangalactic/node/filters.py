@@ -387,9 +387,10 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     def data(self, index, role):
         model = self.sourceModel()
-        if (getattr(model, 'objs', None) and (index.row() < len(model.objs))):
+        model_idx = self.mapToSource(index)
+        if (getattr(model, 'objs', None) and
+            (model_idx.row() < len(model.objs))):
             if role == Qt.ToolTipRole:
-                model_idx = self.mapToSource(index)
                 if hasattr(model.objs[0], 'description'):
                     descr = model.objs[model_idx.row()].description or ''
                     tt = '\n'.join(wrap(descr, width=30, break_long_words=False))

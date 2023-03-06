@@ -35,7 +35,8 @@ from pangalactic.node.dialogs     import (AssemblyNodeDialog,
                                           DirectionalityDialog,
                                           OptionNotification)
 from pangalactic.node.filters     import FilterDialog
-from pangalactic.node.utils       import clone, extract_mime_data
+from pangalactic.node.utils       import (clone, extract_mime_data,
+                                          populate_sc_subsystems)
 
 # constants
 if sys.platform == 'win32':
@@ -448,6 +449,9 @@ class ObjectBlock(Block):
         else:
             # block is not TBD -- enable viewing of the object ...
             menu.addAction('View this object', self.display_object)
+            pt_id = getattr(getattr(obj, 'product_type', None), 'id', '')
+            if pt_id == 'spacecraft' and 'modify' in get_perms(obj):
+                menu.addAction('Populate Subsystems', self.populate_subsystems)
         if self.allocs:
             menu.addAction('Show allocated requirements', self.display_reqts)
         else:
@@ -488,6 +492,16 @@ class ObjectBlock(Block):
             if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
                 menu.addAction('Remove this system', self.del_system)
         menu.exec_(event.screenPos())
+
+    def populate_subsystems(self):
+        if isinstance(self.usage, orb.classes['Acu']):
+            obj = self.usage.component
+            self.allocs = self.usage.allocated_requirements
+        if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+            obj = self.usage.system
+        pt_id = getattr(getattr(obj, 'product_type', None), 'id', '')
+        if pt_id == 'spacecraft' and 'modify' in get_perms(obj):
+            populate_sc_subsystems(obj)
 
     def select_connections(self):
         """

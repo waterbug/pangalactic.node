@@ -389,8 +389,6 @@ def create_product_from_template(template):
     Args:
         template (Template):  the template to be used
     """
-    # TODO:  this needs to use the New Product Wizard ...
-    #        [1] 'id' needs to be unique
     if not isinstance(template, orb.classes['Template']):
         # FIXME: need to raise an error here and display a warning to the
         # user
@@ -453,6 +451,52 @@ def create_product_from_template(template):
     if data:
         data_elementz[product.oid] = deepcopy(data)
     return product
+
+def populate_sc_subsystems(sc):
+    """
+    Populate a spacecraft with a set of new black box subsystems, the use-case
+    being to prepare a new spacecraft concept for collaborative development by
+    a team of discipline engineers.  The presumption is that the spacecraft
+    object has been instantiated from a template containing a set of empty
+    subsystem "functions" (Acu instances) that specify the types of subsystems
+    to be populated.
+
+    Args:
+        sc (HardwareProduct):  a product of product_type "spacecraft"
+    """
+    orb.log.info('* populate_sc_subsystems()')
+    if sc.components:
+        new_objs = []
+        for acu in sc.components:
+            pth = None
+            if acu.component is None:
+                # if there is no component, ignore it
+                continue
+            elif getattr(acu.component, 'oid', '') == 'pgefobjects:TBD':
+                if acu.product_type_hint:
+                    # if component is TBD, use pth of acu
+                    pth = acu.product_type_hint
+                else:
+                    # if component is TBD but no pth, ignore it
+                    continue
+            else:
+                # if there is a real component, ignore it
+                continue
+            if pth:
+                orb.log.info(f'* creating {pth.name} ...')
+                description = f'{sc.name} {pth.name}'
+                p = clone('HardwareProduct', name=pth.name, product_type=pth,
+                          description=description, save_hw=False)
+                acu.component = p
+                new_objs.append(p)
+            else:
+                # if product_type_hint was not populated, ignore
+                orb.log.info(f'  - "{acu.id}" had no product type hint.')
+                continue
+        # orb.db.commit()
+        if new_objs:
+            # TODO: send new object signals ...
+            orb.save(new_objs)
 
 def get_object_title(obj, new=False):
     """
