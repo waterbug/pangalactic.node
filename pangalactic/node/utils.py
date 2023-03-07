@@ -467,6 +467,9 @@ def populate_sc_subsystems(sc):
     orb.log.info('* populate_sc_subsystems()')
     if sc.components:
         new_objs = []
+        mod_objs = []
+        NOW = dtstamp()
+        local_user = orb.get(state.get('local_user_oid'))
         for acu in sc.components:
             pth = None
             if acu.component is None:
@@ -487,16 +490,24 @@ def populate_sc_subsystems(sc):
                 description = f'{sc.name} {pth.name}'
                 p = clone('HardwareProduct', name=pth.name, product_type=pth,
                           description=description, save_hw=False)
+                orb.save([p])
                 acu.component = p
+                # mod_datetime is critical, for acus to be updated ...
+                acu.mod_datetime = NOW
+                acu.modifier = local_user
+                orb.save([acu])
                 new_objs.append(p)
+                mod_objs.append(acu)
             else:
                 # if product_type_hint was not populated, ignore
                 orb.log.info(f'  - "{acu.id}" had no product type hint.')
                 continue
-        # orb.db.commit()
         if new_objs:
-            # TODO: send new object signals ...
-            orb.save(new_objs)
+            for obj in new_objs:
+                dispatcher.send('new object', obj=obj)
+        if mod_objs:
+            for obj in mod_objs:
+                dispatcher.send('modified object', obj=obj)
 
 def get_object_title(obj, new=False):
     """

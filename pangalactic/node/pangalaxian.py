@@ -1501,8 +1501,8 @@ class Main(QMainWindow):
         # subsequent gui actions triggered by the message handlers)
         for item in msg.items():
             subject, content = item
-            orb.log.info("* pubsub msg received ...")
-            orb.log.info("  subject: {}".format(subject))
+            # orb.log.info("* pubsub msg received ...")
+            # orb.log.info("  subject: {}".format(subject))
             # orb.log.debug("  content: {}".format(content))
             obj_id = '[unknown]'
             # base msg
@@ -1510,26 +1510,27 @@ class Main(QMainWindow):
             if subject == 'decloaked':
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
-                n = len(content)
-                orb.log.debug(f'received {n} "decloaked" object(s)')
+                # n = len(content)
+                # orb.log.debug(f'received {n} "decloaked" object(s)')
                 self.on_received_objects(content)
             elif subject == 'new':
                 # NOTE: content of 'new' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
-                n = len(content)
-                orb.log.debug(f'received {n} "new" object(s)')
+                # n = len(content)
+                # orb.log.debug(f'received {n} "new" object(s)')
                 self.on_received_objects(content)
             elif subject == 'modified':
                 # NOTE: content of 'modified' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
-                n = len(content)
-                orb.log.debug(f'received {n} modified object(s)')
+                # n = len(content)
+                # orb.log.debug(f'received {n} modified object(s)')
                 self.on_received_objects(content)
             elif subject == 'new mode defs':
-                orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
+                # orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
                 md_dts, ser_md, userid = content
-                orb.log.debug('    content:')
+                # orb.log.debug('    content:')
                 orb.log.debug('==============================================')
+                orb.log.debug('New mode definition:')
                 orb.log.debug(f'- datetime stamp: {md_dts}')
                 orb.log.debug(f'- userid:         {userid}')
                 orb.log.debug('- <data>')
@@ -1552,13 +1553,14 @@ class Main(QMainWindow):
                     else:
                         orb.log.debug('    same datetime stamp; ignored.')
             elif subject == 'sys mode datum updated':
-                orb.log.debug('  - vger msg: "sys mode datum updated" ...')
+                # orb.log.debug('  - vger msg: "sys mode datum updated" ...')
                 project_oid, link_oid, mode, value, md_dts, userid = content
                 project = orb.get(project_oid)
                 link = orb.get(link_oid)
                 if project and link:
-                    orb.log.debug('    content:')
+                    # orb.log.debug('    content:')
                     orb.log.debug('=========================================')
+                    orb.log.debug('Sys Mode datum updated:')
                     orb.log.debug(f'- project:        {project.id}')
                     orb.log.debug(f'- link:           {link.id}')
                     orb.log.debug(f'- mode:           {mode}')
@@ -1567,12 +1569,12 @@ class Main(QMainWindow):
                     orb.log.debug(f'- datetime stamp: {md_dts}')
                     orb.log.debug('=========================================')
                 else:
-                    orb.log.debug('    unknown project or link; ignoring.')
+                    # orb.log.debug('    unknown project or link; ignoring.')
                     return
                 if userid == state.get('userid'):
                     # originated from me -- set dts to server's dts
                     state['mode_defz_dts'] = md_dts
-                    orb.log.debug('    msg was from my action; ignoring.')
+                    # orb.log.debug('    msg was from my action; ignoring.')
                 else:
                     mode_defz[project_oid]['systems'][link_oid][mode] = value
                     state['mode_defz_dts'] = md_dts
@@ -1584,15 +1586,16 @@ class Main(QMainWindow):
                                     mode=mode,
                                     value=value)
             elif subject == 'comp mode datum updated':
-                orb.log.debug('  - vger msg: "comp mode datum updated" ...')
+                # orb.log.debug('  - vger msg: "comp mode datum updated" ...')
                 (project_oid, link_oid, comp_oid, mode, value, md_dts,
                                                             userid) = content
                 project = orb.get(project_oid)
                 link = orb.get(link_oid)
                 comp = orb.get(comp_oid)
                 if project and link and comp:
-                    orb.log.debug('    content:')
+                    # orb.log.debug('    content:')
                     orb.log.debug('=========================================')
+                    orb.log.debug('Component Mode datum updated:')
                     orb.log.debug(f'- project:        {project.id}')
                     orb.log.debug(f'- link:           {link.id}')
                     orb.log.debug(f'- comp:           {comp.id}')
@@ -1602,12 +1605,12 @@ class Main(QMainWindow):
                     orb.log.debug(f'- datetime stamp: {md_dts}')
                     orb.log.debug('=========================================')
                 else:
-                    orb.log.debug('    unknown project or link; ignoring.')
+                    # orb.log.debug('    unknown project or link; ignoring.')
                     return
                 if userid == state.get('userid'):
                     # originated from me -- set dts to server's dts
                     state['mode_defz_dts'] = md_dts
-                    orb.log.debug('    msg was from my action; ignoring.')
+                    # orb.log.debug('    msg was from my action; ignoring.')
                 else:
                     mode_defz[project_oid]['components'][link_oid][comp_oid][
                                                                 mode] = value
@@ -1844,13 +1847,14 @@ class Main(QMainWindow):
         Args:
             content (list): a list of serialized objects
         """
-        orb.log.debug("* on_received_objects")
+        # orb.log.debug("* on_received_objects")
         serialized_objects = content
-        if serialized_objects:
-            n = len(serialized_objects)
-            orb.log.debug(f"  got {n} serialized objects")
-        else:
-            orb.log.debug('  content was empty!')
+        # if serialized_objects:
+            # n = len(serialized_objects)
+            # orb.log.debug(f"  got {n} serialized objects")
+        # else:
+            # orb.log.debug('  content was empty!')
+        if not serialized_objects:
             return False
         # NOTE:  using load_serialized_objects() here led to problematic
         # behavior due to unordered asynchronous operations
@@ -1858,18 +1862,20 @@ class Main(QMainWindow):
         # NOTE:  ignore None or "empty" objects
         ser_objs = [so for so in serialized_objects if so]
         objs = deserialize(orb, ser_objs, force_no_recompute=True)
-        if objs:
-            orb.log.debug(f'  deserialize() returned {len(objs)} object(s):')
-            txt = str([o.id for o in objs if o is not None])
-            orb.log.debug(f'  {txt}')
-        else:
-            orb.log.debug('  deserialize() returned no objects --')
-            orb.log.debug('  (any received were already in the local db).')
+        # if objs:
+            # orb.log.debug(f'  deserialize() returned {len(objs)} object(s):')
+            # txt = str([o.id for o in objs if o is not None])
+            # orb.log.debug(f'  {txt}')
+        # else:
+            # orb.log.debug('  deserialize() returned no objects --')
+            # orb.log.debug('  (any received were already in the local db).')
+        if not objs:
             return False
         rep = '\n  '.join([(obj.name or obj.id or 'no name or id') +
                             " (" + obj.__class__.__name__ + ")"
                            for obj in objs])
-        orb.log.debug('  deserializes as:')
+        # orb.log.debug('  deserializes as:')
+        orb.log.debug('  received:')
         orb.log.debug('  {}'.format(str(rep)))
         lib_updates_needed = []
         need_to_refresh_tree = False
@@ -1954,8 +1960,8 @@ class Main(QMainWindow):
             state['diagram needs refresh'] = True
         if lib_updates_needed and hasattr(self, 'library_widget'):
             # set state for library classes whose widgets need a refresh ...
-            lmsg = f'  state["lib updates needed"] = {lib_updates_needed}'
-            orb.log.debug(lmsg)
+            # lmsg = f'  state["lib updates needed"] = {lib_updates_needed}'
+            # orb.log.debug(lmsg)
             state["lib updates needed"] = lib_updates_needed
         self.get_parmz()
         return True
@@ -3106,7 +3112,7 @@ class Main(QMainWindow):
         needed GUI updates (which would cause various problems and possibly
         crashes if attempted while rpc operations are being processed).
         """
-        orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
+        # orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
         # libs_refreshed = []
         if data:
             # orb.log.info('  [ovgpr] got parmz data, updating ...')
@@ -3170,7 +3176,8 @@ class Main(QMainWindow):
                     # orb.log.info(f'  [ovgpr] calling {txt}')
                     self.rebuild_dashboard(force=True)
         else:
-            orb.log.info('  [ovgpr] no parmz data, check other updates ...')
+            # orb.log.info('  [ovgpr] no parmz data, check other updates ...')
+            pass
         if ((self.mode == 'system') and
             state.get('tree needs refresh')):
             # orb.log.info('  [ovgpr] tree needs refresh ...')
@@ -3190,8 +3197,8 @@ class Main(QMainWindow):
         lun = "yes"
         if not state.get('lib updates needed'):
             lun = "no"
-        lmsg = f'[ovgpr] lib updates needed: {lun}'
-        orb.log.info(f'  {lmsg}')
+        # lmsg = f'[ovgpr] lib updates needed: {lun}'
+        # orb.log.info(f'  {lmsg}')
         if lun == "yes" and hasattr(self, 'library_widget'):
             self.library_widget.refresh()
             state['lib updates needed'] = []
