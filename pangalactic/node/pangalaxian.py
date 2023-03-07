@@ -3444,34 +3444,43 @@ class Main(QMainWindow):
             selected_sys_oid = state['system'].get(state.get('project'))
             orb.log.debug(f'  deleted {cname} exists in local db ...')
             if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
+                relevant_obj_oid = None
                 if cname == 'HardwareProduct':
                     relevant_obj_oid = obj.oid
                     state['lib updates needed'] = True
                 elif cname == 'Acu':
-                    relevant_obj_oid = obj.component.oid
+                    # don't crash if acu is corrupted ...
+                    try:
+                        relevant_obj_oid = obj.component.oid
+                    except:
+                        pass
                     state['lib updates needed'] = True
                 elif cname == 'ProjectSystemUsage':
-                    relevant_obj_oid = obj.system.oid
+                    # don't crash if psu is corrupted ...
+                    try:
+                        relevant_obj_oid = obj.system.oid
+                    except:
+                        pass
                 orb.delete([obj])
                 orb.log.debug('  deleted.')
-                if selected_sys_oid == relevant_obj_oid:
+                if relevant_obj_oid and selected_sys_oid == relevant_obj_oid:
                     if (state.get('component_modeler_history') and
                     relevant_obj_oid in state['component_modeler_history']):
                         state['component_modeler_history'].remove(obj_oid)
                     orb.log.info('  deleted object was selected system')
                     state['system'][state['project']] = state['project']
                     # NOTE: not currently using system_model_window.history
-                    # (broken)
-                    # if hasattr(self, 'system_model_window'):
-                        # try:
-                            # orb.log.info('  setting diagram subject to project')
-                            # self.system_model_window.history.pop()
-                            # self.system_model_window.on_set_selected_system(
-                                                                # self.project.oid)
-                        # except:
-                            # orb.log.info('  setting diagram subject failed')
-                            # # diagram model window C++ object got deleted
-                            # pass
+                    # (was broken ... fixed now?)
+                    if hasattr(self, 'system_model_window'):
+                        try:
+                            orb.log.info('  set diagram subject to project')
+                            self.system_model_window.history.pop()
+                            self.system_model_window.on_set_selected_system(
+                                                            self.project.oid)
+                        except:
+                            orb.log.info('  setting diagram subject failed')
+                            # diagram model window C++ object got deleted
+                            pass
             elif cname == 'RoleAssignment':
                 if obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
@@ -4244,18 +4253,23 @@ class Main(QMainWindow):
                             self.refresh_dashboard()
             elif isinstance(obj, orb.classes['Product']):
                 # orb.log.debug('  - object is a product ...')
-                idxs = self.sys_tree.object_indexes_in_tree(obj)
-                if idxs:
-                    # log_msg = 'indexes found in tree, updating ...'
-                    # orb.log.debug('    {}'.format(log_msg))
-                    for idx in idxs:
-                        self.sys_tree.source_model.dataChanged.emit(idx, idx)
-                    # resize/refresh dashboard columns if necessary
-                    self.refresh_dashboard()
-                # else:
-                    # log_msg = 'no indexes for this product found in tree.'
-                    # orb.log.debug('    {}'.format(log_msg))
-                    # pass
+                # if it has components, refresh/rebuild
+                if getattr(obj, 'components', None):
+                    self.refresh_tree_and_dashboard()
+                else:
+                    idxs = self.sys_tree.object_indexes_in_tree(obj)
+                    if idxs:
+                        # log_msg = 'indexes found in tree, updating ...'
+                        # orb.log.debug('    {}'.format(log_msg))
+                        for idx in idxs:
+                            self.sys_tree.source_model.dataChanged.emit(idx,
+                                                                        idx)
+                        # resize/refresh dashboard columns if necessary
+                        self.refresh_dashboard()
+                    # else:
+                        # log_msg = 'no indexes for product found in tree.'
+                        # orb.log.debug('    {}'.format(log_msg))
+                        # pass
             state["upd_obj_in_trees_needed"] = ("", "")
         except:
             # sys_tree's C++ object had been deleted
