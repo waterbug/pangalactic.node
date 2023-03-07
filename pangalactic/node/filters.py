@@ -759,8 +759,11 @@ class FilterPanel(QWidget):
         # orb.log.debug('  - FilterPanel.create_model()')
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
-        self.objs = objs or [orb.get('pgefobjects:TBD')]
-        model = ObjectTableModel(self.objs, view=self.view,
+        if not objs:
+            objs = self.objs
+        if not self.objs:
+            objs = [orb.get('pgefobjects:TBD')]
+        model = ObjectTableModel(objs, view=self.view,
                                  as_library=self.as_library)
         return model
 
