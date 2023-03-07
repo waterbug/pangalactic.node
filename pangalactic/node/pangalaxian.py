@@ -2971,7 +2971,7 @@ class Main(QMainWindow):
                              'Template',
                              'PortTemplate',
                              'PortType']:
-                    state["lib updates needed"] = [obj.oid]
+                    state["lib updates needed"] = True
             if self.mode == 'db' and cname == state.get('current_cname'):
                 # if object is in the current db table ...
                 state['update db table'] = True
@@ -3185,16 +3185,14 @@ class Main(QMainWindow):
             # orb.log.info('  [ovgpr] modal views need update ...')
             self._update_modal_views()
         # ---------------------------------------------------------------
-        # NOTE: lib updates are done LAST -- very touchy operation ...
-        # sometimes gives random "paint" exceptions / crashes ...
+        # NOTE: lib updates are done last
         # ---------------------------------------------------------------
-        oids = state.get('lib updates needed', []) or []
         lun = "yes"
-        if not oids:
+        if not state.get('lib updates needed'):
             lun = "no"
         lmsg = f'[ovgpr] lib updates needed: {lun}'
         orb.log.info(f'  {lmsg}')
-        if oids and hasattr(self, 'library_widget'):
+        if lun == "yes" and hasattr(self, 'library_widget'):
             self.library_widget.refresh()
             state['lib updates needed'] = []
         self.statusbar.showMessage('synced.')
@@ -3529,6 +3527,8 @@ class Main(QMainWindow):
         if (state.get('system') or {}).get(state.get('project')) == oid:
             orb.log.debug('  state "system" oid matched, set to project ...')
             state['system'][state.get('project')] = state.get('project')
+        if cname in ['Acu', 'HardwareProduct', 'Port', 'Flow']:
+            state['lib updates needed'] = True
         if state.get('product') == oid:
             orb.log.debug('  state "product" oid matched, resetting ...')
             if state.get('component_modeler_history'):
