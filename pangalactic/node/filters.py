@@ -162,7 +162,8 @@ class ProductFilterDialog(QDialog):
                         for product_type in pts:
                             product_types.add(product_type)
             self.pt_list = list(product_types)
-        self.product_type_panel.set_source_model(objs=self.pt_list)
+        self.product_type_panel.set_source_model(
+                self.product_type_panel.create_model(objs=self.pt_list))
         self.engineering_discipline_selected = discipline
 
     def product_type_selected(self, clicked_index):
@@ -425,10 +426,6 @@ class ProxyView(QTableView):
         # resize_sized_cols(), below ...
         fitted_cols = {'id': 0, 'name': 0}
         self.sized_cols.update(fitted_cols)
-        header = self.horizontalHeader()
-        header.setSectionsMovable(True)
-        # header.setSortIndicatorShown(False)
-        header.setStyleSheet('font-weight: bold')
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -438,6 +435,11 @@ class ProxyView(QTableView):
         if proxy_model:
             self.setModel(proxy_model)
         self.setSortingEnabled(True)
+        header = self.horizontalHeader()
+        header.setSectionsMovable(True)
+        header.setStyleSheet('font-weight: bold')
+        # sort indicators take up too much space!
+        header.setSortIndicatorShown(False)
         if as_library:
             # orb.log.debug('  ... as library.')
             self.setWordWrap(False)
@@ -734,22 +736,17 @@ class FilterPanel(QWidget):
         self.textFilterChanged()
         self.proxy_layout.addWidget(self.proxy_view, stretch=1)
 
-    def set_source_model(self, objs=None):
+    def set_source_model(self, model):
         """
         Set the source model.
 
-        Keyword Args:
-            objs (iterable):  iterable of objects to use for the model
-            cls (class):  class of the model to be instantiated
+        Args:
+            model (ObjectTableModel):  model to be set
         """
         # orb.log.debug('  - FilterPanel.set_source_model()')
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
-        self.objs = objs or [orb.get('pgefobjects:TBD')]
-        model = ObjectTableModel(self.objs, view=self.view,
-                                 as_library=self.as_library)
         self.proxy_model.setSourceModel(model)
-        self.proxy_model.endResetModel()
         for i, colname in enumerate(self.view):
             self.proxy_view.setColumnWidth(i,
                                            PGEF_COL_WIDTHS.get(colname, 100))
@@ -803,20 +800,17 @@ class FilterPanel(QWidget):
         self.view = view
         self.proxy_model.view = view
 
-    # FIXME: this method is causing Qt-level repaint exceptions!
-    # TODO: rewrite to use correct methods to update a source model
     def refresh(self):
         orb.log.debug('  - FilterPanel.refresh()')
-        # self.set_source_model(objs=self.objs)
         # self.build_proxy_view(objs=self.objs)
-        objs = orb.get_by_type(self.cname)
-        self.build_proxy_view(objs=objs)
+        self.set_source_model(self.create_model())
 
     def on_column_moved(self, logical_index, old_index, new_index):
         orb.log.debug('* FilterPanel.on_column_moved():')
         orb.log.debug(f'  old index: {old_index}')
         orb.log.debug(f'  new index: {new_index}')
         if self.cname == 'HardwareProduct':
+            orb.log.debug('  self.cname == "HardwareProduct"')
             new_view = prefs['hw_library_view']
             orb.log.debug(f'* HW Library view: {new_view}')
         else:
@@ -876,6 +870,7 @@ class FilterPanel(QWidget):
         self.template_action.triggered.connect(self.create_template)
 
     def setup_context_menu(self):
+        self.proxy_view.setContextMenuPolicy(Qt.ActionsContextMenu)
         if self.cname == 'Requirement':
             # for Requirements, use ReqWizard to edit ...
             # TODO:  only offer this action if user is authorized to edit
@@ -885,11 +880,10 @@ class FilterPanel(QWidget):
         elif self.cname == 'HardwareProduct':
             self.proxy_view.addAction(self.pgxnobj_action)
             # NOTE: disabled because templates need more work
-            self.proxy_view.addAction(self.template_action)
+            # self.proxy_view.addAction(self.template_action)
         else:
             # for all objs other than Requirements, use PgxnObject
             self.proxy_view.addAction(self.pgxnobj_action)
-        self.proxy_view.setContextMenuPolicy(Qt.ActionsContextMenu)
 
     def edit_hw_fields(self):
         """
