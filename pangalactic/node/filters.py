@@ -52,7 +52,7 @@ class ProductFilterDialog(QDialog):
         self.show_all_disciplines = True
         proj_oid = state.get('project')
         project = orb.get(proj_oid)
-        orb.log.debug('[ProductFilterDialog] checking for project/roles ...')
+        # orb.log.debug('[ProductFilterDialog] checking for project/roles ...')
         user_disciplines = set()
         if project:
             # first, get my role assignments on this project
@@ -67,18 +67,17 @@ class ProductFilterDialog(QDialog):
                               for r in roles])
                 user_disciplines = set([dr.related_to_discipline
                                         for dr in drs])
-            else:
-                orb.log.debug('[ProductFilterDialog] - no assigned roles '
-                              'found on project "{}".'.format(project.id))
-        else:
-            orb.log.debug('[ProductFilterDialog] - either no project found '
-                          'or no assigned roles found.')
-        if user_disciplines:
+            # else:
+                # orb.log.debug('[ProductFilterDialog] - no assigned roles '
+                              # 'found on project "{}".'.format(project.id))
+        # else:
+            # orb.log.debug('[ProductFilterDialog] - either no project found '
+                          # 'or no assigned roles found.')
+        # if user_disciplines:
             # orb.log.debug('[ProductFilterDialog] - user disciplines found:')
-            for d in user_disciplines:
-                orb.log.debug('             {}'.format(d.id))
-        else:
-            pass
+            # for d in user_disciplines:
+                # orb.log.debug('             {}'.format(d.id))
+        # else:
             # orb.log.debug('[ProductFilterDialog] - no disciplines found '
                           # 'related to assigned roles.')
         hbox = QHBoxLayout()
@@ -492,7 +491,7 @@ class ProxyView(QTableView):
             self.startDrag(event)
 
     def startDrag(self, event):
-        orb.log.debug('* starting drag operation ...')
+        # orb.log.debug('* starting drag operation ...')
         index = self.indexAt(event.pos())
         if not index.isValid:
             return
@@ -559,7 +558,7 @@ class FilterPanel(QWidget):
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
-        orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
+        # orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
         self.as_library = as_library
         self.sized_cols = sized_cols
         self.word_wrap = word_wrap
@@ -576,8 +575,8 @@ class FilterPanel(QWidget):
                              if o.oid not in self.excluded_oids]
             else:
                 # not a pangalactic domain object, can't display as a library
-                orb.log.debug('  - Cannot display objs of class "{}".'.format(
-                                                                        cname))
+                # orb.log.debug('  - Cannot display objs of class "{}".'.format(
+                                                                        # cname))
                 self.objs = [orb.get('pgefobjects:TBD')]
         else:
             if objs and isinstance(objs[0], orb.classes['Identifiable']):
@@ -589,9 +588,9 @@ class FilterPanel(QWidget):
                 self.cname = 'Product'
         self.schema = orb.schemas[self.cname]
         # make sure items in a supplied view are valid ...
-        orb.log.debug('  - setting view ...')
+        # orb.log.debug('  - setting view ...')
         if view:
-            orb.log.debug('    using specified view')
+            # orb.log.debug('    using specified view')
             self.view = [a for a in view
                          if ((a in self.schema['field_names']) or
                              (a in parm_defz) or
@@ -601,7 +600,7 @@ class FilterPanel(QWidget):
         else:
             if self.cname == 'HardwareProduct':
                 if prefs.get('hw_library_view'):
-                    orb.log.debug('    using prefs["hw_library_view"]')
+                    # orb.log.debug('    using prefs["hw_library_view"]')
                     self.view = prefs['hw_library_view'][:]
                 else:
                     # default HW Product Lib view (don't need to include
@@ -609,7 +608,7 @@ class FilterPanel(QWidget):
                     self.view = ['id', 'name', 'product_type']
                     prefs['hw_library_view'] = self.view
             else:
-                orb.log.debug('    using default class view')
+                # orb.log.debug('    using default class view')
                 self.view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
         if external_filters:
@@ -790,7 +789,7 @@ class FilterPanel(QWidget):
                     new_view.append(col)
             prefs['hw_library_view'] = new_view[:]
             self.set_view(new_view[:])
-            orb.log.debug(f'* new HW Library view: {new_view}')
+            # orb.log.debug(f'* new HW Library view: {new_view}')
             self.refresh()
 
     def set_view(self, view):
@@ -804,32 +803,33 @@ class FilterPanel(QWidget):
         self.proxy_model.view = view
 
     def refresh(self):
-        orb.log.debug('  - FilterPanel.refresh()')
+        # orb.log.debug('  - FilterPanel.refresh()')
         # self.build_proxy_view(objs=self.objs)
         self.set_source_model(self.create_model())
 
     def on_column_moved(self, logical_index, old_index, new_index):
-        orb.log.debug('* FilterPanel.on_column_moved():')
-        orb.log.debug(f'  old index: {old_index}')
-        orb.log.debug(f'  new index: {new_index}')
+        # orb.log.debug('* FilterPanel.on_column_moved():')
+        # orb.log.debug(f'  old index: {old_index}')
+        # orb.log.debug(f'  new index: {new_index}')
         if self.cname == 'HardwareProduct':
-            orb.log.debug('  self.cname == "HardwareProduct"')
+            # orb.log.debug('  self.cname == "HardwareProduct"')
             new_view = prefs['hw_library_view']
-            orb.log.debug(f'* HW Library view: {new_view}')
+            # orb.log.debug(f'* HW Library view: {new_view}')
         else:
             new_view = self.view
         if 0 <= old_index < len(self.view):
             item = new_view.pop(old_index)
             new_view.insert(new_index, item)
-            orb.log.debug(f'  modified view is: {new_view}')
+            # orb.log.debug(f'  modified view is: {new_view}')
             if not prefs.get('views'):
                 prefs['views'] = {}
             prefs['views'][self.cname] = new_view[:]
             if self.as_library and self.cname == 'HardwareProduct':
-                orb.log.debug(f'* new HW Library view: {new_view}')
+                # orb.log.debug(f'* new HW Library view: {new_view}')
                 prefs['hw_library_view'] = new_view[:]
         else:
-            orb.log.debug('  - could not move: old col out of range.')
+            # orb.log.debug('  - could not move: old col out of range.')
+            pass
 
     def clear_text(self):
         self.filter_pattern_line_edit.setText("")
@@ -892,7 +892,7 @@ class FilterPanel(QWidget):
         """
         Edit some fields of the selected product in the table.
         """
-        orb.log.debug('* edit_hw_fields()')
+        # orb.log.debug('* edit_hw_fields()')
         hw = None
         if len(self.proxy_view.selectedIndexes()) >= 1:
             i = self.proxy_model.mapToSource(
@@ -905,22 +905,22 @@ class FilterPanel(QWidget):
             dlg = HWFieldsDialog(hw, parent=self)
             dlg.hw_fields_edited.connect(self.on_hw_fields_edited)
             if dlg.exec_() == QDialog.Accepted:
-                orb.log.info('* hw item fields edited.')
+                # orb.log.info('* hw item fields edited.')
                 dlg.close()
             else:
-                orb.log.info('* hw item fields editing cancelled.')
+                # orb.log.info('* hw item fields editing cancelled.')
                 dlg.close()
 
     def on_hw_fields_edited(self, oid):
-        orb.log.debug('* on_hw_fields_edited()')
+        # orb.log.debug('* on_hw_fields_edited()')
         self.mod_object(oid)
 
     def display_object(self):
-        orb.log.debug('* display object ...')
+        # orb.log.debug('* display object ...')
         if len(self.proxy_view.selectedIndexes()) >= 1:
             i = self.proxy_model.mapToSource(
                 self.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('  at selected row: {}'.format(i))
+            # orb.log.debug('  at selected row: {}'.format(i))
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             if oid:
                 obj = orb.get(oid)
@@ -975,16 +975,16 @@ class FilterPanel(QWidget):
         """
         Convenience method for deleting a library object from the model.
         """
-        orb.log.debug('  [FilterPanel] remove_object({})'.format(oid))
+        # orb.log.debug('  [FilterPanel] remove_object({})'.format(oid))
         try:
             obj = orb.get(oid)
             if not obj:
-                orb.log.debug('  ... object not found in local db.')
+                # orb.log.debug('  ... object not found in local db.')
                 return False
             if obj in self.objs:
                 self.objs.remove(obj)
-            else:
-                orb.log.debug('  ... object not found in FilterPanel.objs.')
+            # else:
+                # orb.log.debug('  ... object not found in FilterPanel.objs.')
             source_model = self.proxy_model.sourceModel()
             source_model.del_object(oid)
         except:
@@ -994,18 +994,18 @@ class FilterPanel(QWidget):
     def on_new_object_signal(self, obj=None, cname=''):
         # orb.log.debug('* [filters] received "new object" signal')
         if obj and obj.__class__.__name__ == self.cname:
-            orb.log.debug('               ... on obj: {}'.format(obj.id))
+            # orb.log.debug('               ... on obj: {}'.format(obj.id))
             self.add_object(obj)
 
     def on_pgxo_mod_object_signal(self, oid):
-        orb.log.info('* [filters] received obj_modified signal from pgxo')
-        orb.log.debug(f'            on oid: {oid}')
+        # orb.log.info('* [filters] received obj_modified signal from pgxo')
+        # orb.log.debug(f'            on oid: {oid}')
         source_model = self.proxy_model.sourceModel()
         source_model.mod_object(oid)
         self.obj_modified.emit(oid)
 
     def on_delete_obj_signal(self, oid, cname):
-        orb.log.debug('  [FilterPanel] received "delete_obj" signal.')
+        # orb.log.debug('  [FilterPanel] received "delete_obj" signal.')
         self.delete_obj.emit(oid, cname)
 
 

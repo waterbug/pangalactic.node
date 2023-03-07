@@ -322,7 +322,7 @@ class CompoundLibraryWidget(QWidget):
             parent (QWidget):  the library view's parent widget
         """
         super().__init__(parent)
-        orb.log.debug(f'* CompoundLibraryWidget(cnames={cnames})')
+        # orb.log.debug(f'* CompoundLibraryWidget(cnames={cnames})')
         layout = QVBoxLayout(self)
         hbox = QHBoxLayout()
         # layout.setSizeConstraint(layout.SetMinimumSize)
@@ -421,8 +421,8 @@ class CompoundLibraryWidget(QWidget):
                              'pgefobjects:admin']
             people = [p for p in orb.get_by_type('Person')
                       if p.oid not in excluded_oids]
-            orb.log.debug('- oids non grata: {}'.format(str(excluded_oids)))
-            orb.log.debug('- people: {}'.format([p.oid for p in people]))
+            # orb.log.debug('- oids non grata: {}'.format(str(excluded_oids)))
+            # orb.log.debug('- people: {}'.format([p.oid for p in people]))
             people.sort(key=lambda o: getattr(o, 'last_name', '') or '')
             lib_table = FilterPanel(people, view=view, as_library=True,
                                     min_width=min_width,
@@ -467,16 +467,16 @@ class CompoundLibraryWidget(QWidget):
         self.toggle_library_size.emit(expand)
 
     def refresh(self, cname=None, **kw):
-        orb.log.debug("* CompoundLibraryWidget.refresh(cname={})".format(cname))
+        # orb.log.debug("* CompoundLibraryWidget.refresh(cname={})".format(cname))
         cname = cname or 'HardwareProduct'
         lib_widget = self.libraries.get(cname)
         if hasattr(lib_widget, 'refresh') and lib_widget.isVisible():
-            orb.log.debug("  lib_widget.refresh() for {}".format(cname))
+            # orb.log.debug("  lib_widget.refresh() for {}".format(cname))
             lib_widget.refresh()
         elif (lib_widget.isVisible() and hasattr(lib_widget, 'model') and
               hasattr(lib_widget.model(), 'refresh')):
-            orb.log.debug("  lib_widget.model().refresh()")
-            orb.log.debug("  for {}".format(cname))
+            # orb.log.debug("  lib_widget.model().refresh()")
+            # orb.log.debug("  for {}".format(cname))
             lib_widget.model().refresh()
         # call on_only_mine_toggled() to ensure filtering is consistent with
         # state after a refresh
