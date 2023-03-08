@@ -918,6 +918,7 @@ class PgxnObject(QDialog):
         self.noctgcy      = noctgcy
         self.required     = required
         self.tabs         = QTabWidget()
+        self.tabs.tabBarClicked.connect(self.on_set_tab)
         self.cname        = obj.__class__.__name__
         self.schema       = orb.schemas.get(self.cname)
         self.title_text   = title_text
@@ -1727,10 +1728,11 @@ class PgxnObject(QDialog):
         return [n.lower() for n in names]
 
     def set_current_tab(self):
-        if (hasattr(self, 'tabs') and getattr(self, 'tab_names', None)
-            and self.go_to_tab < len(self.tab_names)):
-            tab_name = self.tab_names[self.go_to_tab]
-            orb.log.debug(f'* [pgxo] setting tab to "{tab_name}"')
+        if hasattr(self, 'tabs'):
+            if (getattr(self, 'tab_names', None)
+                and self.go_to_tab < len(self.tab_names)):
+                tab_name = self.tab_names[self.go_to_tab]
+                orb.log.debug(f'* [pgxo] setting tab to "{tab_name}"')
             self.tabs.setCurrentIndex(self.go_to_tab)
 
     def on_parameters_recomputed(self):
@@ -1888,9 +1890,12 @@ class PgxnObject(QDialog):
 
     def on_edit(self):
         # orb.log.info('* [pgxo] switching to edit mode ...')
-        self.go_to_tab = self.tabs.currentIndex()
         self.edit_mode = True
         self.build_from_object()
+
+    def on_set_tab(self, index):
+        # orb.log.debug(f'* [pgxno] on_set_tab({index})')
+        self.go_to_tab = index
 
     def on_delete(self):
         # orb.log.info('* [pgxo] delete action selected ...')
