@@ -286,7 +286,8 @@ def select_product_types(lib_view, msg='', only_mine=False,
             hw = [h for h in hw if h.creator == local_user]
     if hasattr(lib_view, 'cur_filter_label') and label_text:
         lib_view.cur_filter_label.setText(label_text)
-    lib_view.set_source_model(lib_view.create_model(objs=hw))
+    lib_view.set_source_model(lib_view.create_model(hw))
+
 
 class CompoundLibraryWidget(QWidget):
     """
@@ -658,7 +659,7 @@ class LibraryDialog(QDialog):
         else:
             objs = orb.get_by_type(cname or self.cname)
             self.lib_view.set_source_model(
-                            self.lib_view.create_model(objs=objs))
+                            self.lib_view.create_model(objs))
 
 
 if __name__ == '__main__':

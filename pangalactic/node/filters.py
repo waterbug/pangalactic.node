@@ -162,7 +162,7 @@ class ProductFilterDialog(QDialog):
                             product_types.add(product_type)
             self.pt_list = list(product_types)
         self.product_type_panel.set_source_model(
-                self.product_type_panel.create_model(objs=self.pt_list))
+                self.product_type_panel.create_model(self.pt_list))
         self.engineering_discipline_selected = discipline
 
     def product_type_selected(self, clicked_index):
@@ -475,8 +475,11 @@ class ProxyView(QTableView):
                     w = self.sized_cols[col]
                     if w:
                         self.setColumnWidth(pos, w)
-                    else:
-                        self.resizeColumnToContents(pos)
+                    # NOTE: don't resize to contents -- not necessary
+                    # TODO: possibly offer option to resize a specified column
+                    # to contents ...
+                    # else:
+                        # self.resizeColumnToContents(pos)
                 except:
                     continue
             elif col in PGEF_COL_WIDTHS:
@@ -754,15 +757,14 @@ class FilterPanel(QWidget):
             # for Reqt Manager, show grid
             self.proxy_view.setShowGrid(True)
 
-    def create_model(self, objs=None):
+    def create_model(self, objs):
         # orb.log.debug('  - FilterPanel.create_model()')
         # very verbose:
         # orb.log.debug('    with objects: {}'.format(str(objs)))
-        if not objs:
-            objs = self.objs
+        self.objs = objs
         if not self.objs:
-            objs = [orb.get('pgefobjects:TBD')]
-        model = ObjectTableModel(objs, view=self.view,
+            self.objs = [orb.get('pgefobjects:TBD')]
+        model = ObjectTableModel(self.objs, view=self.view,
                                  as_library=self.as_library)
         return model
 
@@ -805,7 +807,7 @@ class FilterPanel(QWidget):
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
         # self.build_proxy_view(objs=self.objs)
-        self.set_source_model(self.create_model())
+        self.set_source_model(self.create_model(self.objs))
 
     def on_column_moved(self, logical_index, old_index, new_index):
         # orb.log.debug('* FilterPanel.on_column_moved():')
