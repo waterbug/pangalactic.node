@@ -797,7 +797,7 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
     """
     Page to create objects from the specified data.
     """
-    def __init__(self, test_mode=True, parent=None):
+    def __init__(self, test_mode=False, parent=None):
         super().__init__(parent=parent)
         orb.log.debug('* Object Creation Page')
         self.test_mode = test_mode
