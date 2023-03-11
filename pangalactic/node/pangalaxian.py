@@ -3001,11 +3001,11 @@ class Main(QMainWindow):
                     rpc.addCallback(self.get_parmz)
                 rpc.addErrback(self.on_failure)
             else:
-
-                # if not connected, do all updates locally ...
-                # ----------------------------------------------------------------
+                # if not connected, recompute parameters and do all gui updates
+                # -------------------------------------------------------------
                 # BEGIN OFFLINE LOCAL UPDATES
-                # ----------------------------------------------------------------
+                # -------------------------------------------------------------
+                orb.recompute_parmz()
                 if ((self.mode == 'system') and
                     state.get('tree needs refresh')):
                     # orb.log.info('  [ovgpr] tree needs refresh ...')
@@ -3019,9 +3019,9 @@ class Main(QMainWindow):
                 if state.get('modal views need update'):
                     # orb.log.info('  [ovgpr] modal views need update ...')
                     self._update_modal_views()
-                # ---------------------------------------------------------------
+                # -------------------------------------------------------------
                 # NOTE: lib updates are done last
-                # ---------------------------------------------------------------
+                # -------------------------------------------------------------
                 lun = "yes"
                 if not state.get('lib updates needed'):
                     lun = "no"
@@ -3030,9 +3030,9 @@ class Main(QMainWindow):
                 if lun == "yes" and hasattr(self, 'library_widget'):
                     self.library_widget.refresh()
                     state['lib updates needed'] = []
-                # ----------------------------------------------------------------
+                # ------------------------------------------------------------
                 # END OF OFFLINE LOCAL UPDATES
-                # ----------------------------------------------------------------
+                # ------------------------------------------------------------
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
 
