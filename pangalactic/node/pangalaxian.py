@@ -2945,7 +2945,7 @@ class Main(QMainWindow):
         """
         Handle local "new object" and "modified object" signals.
         """
-        # orb.log.info('* on_mod_object_signal()')
+        orb.log.info('* on_mod_object_signal()')
         if new:
             orb.log.info('* received local "new object" signal')
         else:
@@ -3000,6 +3000,39 @@ class Main(QMainWindow):
                     rpc.addCallback(self.on_vger_save_result)
                     rpc.addCallback(self.get_parmz)
                 rpc.addErrback(self.on_failure)
+            else:
+
+                # if not connected, do all updates locally ...
+                # ----------------------------------------------------------------
+                # BEGIN OFFLINE LOCAL UPDATES
+                # ----------------------------------------------------------------
+                if ((self.mode == 'system') and
+                    state.get('tree needs refresh')):
+                    # orb.log.info('  [ovgpr] tree needs refresh ...')
+                    self.refresh_tree_views()
+                    state['tree needs refresh'] = False
+                if (getattr(self, 'system_model_window', None)
+                    and state.get('diagram needs refresh')):
+                    # orb.log.info('  [ovgpr] diagram needs refresh ...')
+                    self.system_model_window.on_signal_to_refresh()
+                    state['diagram needs refresh'] = False
+                if state.get('modal views need update'):
+                    # orb.log.info('  [ovgpr] modal views need update ...')
+                    self._update_modal_views()
+                # ---------------------------------------------------------------
+                # NOTE: lib updates are done last
+                # ---------------------------------------------------------------
+                lun = "yes"
+                if not state.get('lib updates needed'):
+                    lun = "no"
+                lmsg = f'lib updates needed: {lun}'
+                orb.log.info(f'  - {lmsg}')
+                if lun == "yes" and hasattr(self, 'library_widget'):
+                    self.library_widget.refresh()
+                    state['lib updates needed'] = []
+                # ----------------------------------------------------------------
+                # END OF OFFLINE LOCAL UPDATES
+                # ----------------------------------------------------------------
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
 
@@ -5692,9 +5725,9 @@ class Main(QMainWindow):
         sys.exit()
 
 def cleanup_and_save():
-    test_objs = orb.search_exact(comment='TEST TEST TEST')
-    if test_objs:
-        orb.delete(test_objs)
+    # test_objs = orb.search_exact(comment='TEST TEST TEST')
+    # if test_objs:
+        # orb.delete(test_objs)
     write_config(os.path.join(orb.home, 'config'))
     write_prefs(os.path.join(orb.home, 'prefs'))
     # clear 'synced_projects' and 'network_warning_displayed'
