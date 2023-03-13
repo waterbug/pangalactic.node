@@ -468,20 +468,23 @@ class CompoundLibraryWidget(QWidget):
         self.toggle_library_size.emit(expand)
 
     def refresh(self, cname=None, **kw):
-        # orb.log.debug("* CompoundLibraryWidget.refresh(cname={})".format(cname))
-        cname = cname or 'HardwareProduct'
-        lib_widget = self.libraries.get(cname)
-        if hasattr(lib_widget, 'refresh') and lib_widget.isVisible():
-            # orb.log.debug("  lib_widget.refresh() for {}".format(cname))
-            lib_widget.refresh()
-        elif (lib_widget.isVisible() and hasattr(lib_widget, 'model') and
-              hasattr(lib_widget.model(), 'refresh')):
-            # orb.log.debug("  lib_widget.model().refresh()")
-            # orb.log.debug("  for {}".format(cname))
-            lib_widget.model().refresh()
-        # call on_only_mine_toggled() to ensure filtering is consistent with
-        # state after a refresh
-        self.on_only_mine_toggled()
+        # orb.log.debug(f"* CompoundLibraryWidget.refresh(cname={cname})")
+        cnames = list(self.libraries)
+        if cname:
+            cnames = [cname]
+        for cname in cnames:
+            lib_widget = self.libraries.get(cname)
+            if hasattr(lib_widget, 'refresh'):
+                # orb.log.debug(f"  lib_widget.refresh() for {cname}")
+                lib_widget.refresh()
+            elif (hasattr(lib_widget, 'model') and
+                  hasattr(lib_widget.model(), 'refresh')):
+                # orb.log.debug("  lib_widget.model().refresh()")
+                # orb.log.debug(f"  for {cname}")
+                lib_widget.model().refresh()
+            # call on_only_mine_toggled() to ensure filtering is consistent
+            # with state after a refresh
+            self.on_only_mine_toggled()
 
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
