@@ -5054,6 +5054,7 @@ class Main(QMainWindow):
                             self.pb.setValue(i)
                             self.statusbar.showMessage('{}: {}'.format(cname,
                                                          so.get('id', '')))
+                            QApplication.processEvents()
                         byclass.pop(cname)
                 # deserialize any other classes ...
                 if byclass:
@@ -5062,6 +5063,7 @@ class Main(QMainWindow):
                             deserialize(orb, [so])
                             i += 1
                             self.pb.setValue(i)
+                            QApplication.processEvents()
                 self.pb.hide()
                 if not message:
                     message = "Your data has been imported."
@@ -5203,6 +5205,7 @@ class Main(QMainWindow):
                         self.pb.setValue(i)
                         self.statusbar.showMessage('{}: {}'.format(cname,
                                                        so.get('id', '')))
+                        QApplication.processEvents()
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
@@ -5216,6 +5219,7 @@ class Main(QMainWindow):
                         objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
                         self.pb.setValue(i)
+                        QApplication.processEvents()
             self.pb.hide()
             if not msg:
                 msg = "data has been {}.".format(end)
