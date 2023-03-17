@@ -1049,6 +1049,7 @@ class Main(QMainWindow):
                         oid_dts[obj.oid] = dts
         else:
             self.statusbar.showMessage('project synced.')
+            QApplication.processEvents()
         # NOTE: callback to on_project_sync_result() to handle result is added
         # by on_set_current_project()
         return self.mbus.session.call('vger.sync_project', proj_oid, oid_dts)
@@ -1491,9 +1492,6 @@ class Main(QMainWindow):
         Args:
             msg (tuple): the message, a tuple of (subject, content)
         """
-        # NOTE (SCW 2023-01-14): removed all self.statusbar.showMessage(msg)
-        # calls -- they were causing "paint" issues (probably because of
-        # subsequent gui actions triggered by the message handlers)
         for item in msg.items():
             subject, content = item
             # orb.log.info("* pubsub msg received ...")
@@ -5215,6 +5213,7 @@ class Main(QMainWindow):
             if not msg:
                 msg = "data has been {}.".format(end)
             self.statusbar.showMessage(msg)
+            QApplication.processEvents()
             new_products_psus_or_acus = [obj for obj in objs if isinstance(obj,
                                          (orb.classes['Product'],
                                           orb.classes['Acu'],
@@ -5339,6 +5338,7 @@ class Main(QMainWindow):
             if not msg:
                 msg = "data has been {}.".format(end)
             self.statusbar.showMessage(msg)
+            QApplication.processEvents()
             new_products_psus_or_acus = [obj for obj in objs if isinstance(obj,
                                          (orb.classes['Product'],
                                           orb.classes['Acu'],
