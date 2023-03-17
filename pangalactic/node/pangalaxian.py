@@ -1040,12 +1040,7 @@ class Main(QMainWindow):
             self.sync_progress.setMaximum(0)
             self.sync_progress.setMinimumDuration(500)
             self.sync_progress.resize(400, 100)
-            # ---------------------------------------------------------------
-            # NOTE (SCW 2-23-01-14): this QApplication.processEvents() is
-            # commented because it caused the notorious and dreaded
-            # "QBackingStore::endPaint() called..." exception
-            # ---------------------------------------------------------------
-            # QApplication.processEvents()
+            QApplication.processEvents()
             if local_objs:
                 for obj in local_objs:
                     # exclude reference data (ref_oids)
@@ -5046,15 +5041,19 @@ class Main(QMainWindow):
                 self.pb.setValue(0)
                 self.pb.setMaximum(len(sobjs))
                 i = 0
+                prog = 0
                 for cname in DESERIALIZATION_ORDER:
                     if cname in byclass:
                         for so in byclass[cname]:
                             deserialize(orb, [so])
                             i += 1
+                            prog += 1
                             self.pb.setValue(i)
                             self.statusbar.showMessage('{}: {}'.format(cname,
                                                          so.get('id', '')))
-                            QApplication.processEvents()
+                            if prog == 10:
+                                prog = 0
+                                QApplication.processEvents()
                         byclass.pop(cname)
                 # deserialize any other classes ...
                 if byclass:
@@ -5062,8 +5061,11 @@ class Main(QMainWindow):
                         for so in byclass[cname]:
                             deserialize(orb, [so])
                             i += 1
+                            prog += 1
                             self.pb.setValue(i)
-                            QApplication.processEvents()
+                            if prog == 10:
+                                prog = 0
+                                QApplication.processEvents()
                 self.pb.hide()
                 if not message:
                     message = "Your data has been imported."
@@ -5185,6 +5187,7 @@ class Main(QMainWindow):
             self.pb.setValue(0)
             self.pb.setMaximum(len(sobjs))
             i = 0
+            prog = 0
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
             for cname in DESERIALIZATION_ORDER:
                 if cname in byclass:
@@ -5202,10 +5205,13 @@ class Main(QMainWindow):
                             so['modifier'] = self.local_user.oid
                         objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
+                        prog += 1
                         self.pb.setValue(i)
                         self.statusbar.showMessage('{}: {}'.format(cname,
                                                        so.get('id', '')))
-                        QApplication.processEvents()
+                        if prog == 10:
+                            prog = 0
+                            QApplication.processEvents()
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
@@ -5218,8 +5224,11 @@ class Main(QMainWindow):
                             so['modifier'] = self.local_user.oid
                         objs += deserialize(orb, [so], force_no_recompute=True)
                         i += 1
+                        prog += 1
                         self.pb.setValue(i)
-                        QApplication.processEvents()
+                        if prog == 10:
+                            prog = 0
+                            QApplication.processEvents()
             self.pb.hide()
             if not msg:
                 msg = "data has been {}.".format(end)
@@ -5315,6 +5324,7 @@ class Main(QMainWindow):
             self.pb.setValue(0)
             self.pb.setMaximum(len(sobjs))
             i = 0
+            prog = 0
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
             for cname in DESERIALIZATION_ORDER:
                 if cname in byclass:
@@ -5327,10 +5337,13 @@ class Main(QMainWindow):
                         objs += deserialize(orb, [so], force_no_recompute=True,
                                             force_update=True)
                         i += 1
+                        prog += 1
                         self.pb.setValue(i)
                         self.statusbar.showMessage('{}: {}'.format(cname,
                                                        so.get('id', '')))
-                        QApplication.processEvents()
+                        if prog == 10:
+                            prog = 0
+                            QApplication.processEvents()
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
@@ -5344,8 +5357,11 @@ class Main(QMainWindow):
                         objs += deserialize(orb, [so], force_no_recompute=True,
                                             force_update=True)
                         i += 1
+                        prog += 1
                         self.pb.setValue(i)
-                        QApplication.processEvents()
+                        if prog == 10:
+                            prog = 0
+                            QApplication.processEvents()
             self.pb.hide()
             if not msg:
                 msg = "data has been {}.".format(end)
