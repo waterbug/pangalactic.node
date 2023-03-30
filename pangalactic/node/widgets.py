@@ -16,7 +16,7 @@ from pangalactic.core.meta        import TEXT_PROPERTIES, SELECTABLE_VALUES
 from pangalactic.core.parametrics import (make_de_html, make_parm_html,
                                           mode_defz)
 ### uncomment orb if debug logging is needed ...
-from pangalactic.core.uberorb     import orb
+# from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import FkButton, UrlButton
 
 
@@ -336,7 +336,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
     # print ' - widget_class = %s' % widget_class.__name__
     if widget_class:
         if field_name == 'url' and not editable:
-            orb.log.debug('  instantiating UrlButton')
+            # orb.log.debug('  instantiating UrlButton')
             widget = widget_class(value=value, maxlen=maxlen,
                                   editable=False)
         elif editable or field_type == "object":

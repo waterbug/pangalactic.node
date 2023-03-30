@@ -1030,6 +1030,9 @@ class Main(QMainWindow):
                 status_msg = f'{msg} {status_msg} ...'
             self.statusbar.showMessage(status_msg)
             local_objs = orb.get_objects_for_project(project)
+            # add in any role assignments for the project
+            local_objs += orb.search_exact(cname='RoleAssignment',
+                                           role_assignment_context=project)
             title_text = 'Syncing with Repository'
             project_text = f'<font color="blue">{project.id}</font>'
             label_text = f'<h3>Getting {project_text} data ...</h3>'
@@ -3125,9 +3128,7 @@ class Main(QMainWindow):
         Handle local dispatcher signal "get parmz".
         """
         if state.get('connected'):
-            if not oids:
-                oids = self.project_oids
-            rpc = self.mbus.session.call('vger.get_parmz', oids=oids)
+            rpc = self.mbus.session.call('vger.get_parmz')
             rpc.addCallback(self.on_vger_get_parmz_result)
             rpc.addErrback(self.on_failure)
 
@@ -3201,6 +3202,8 @@ class Main(QMainWindow):
                     # txt = 'rebuild_dashboard(force=True) ...'
                     # orb.log.info(f'  [ovgpr] calling {txt}')
                     self.rebuild_dashboard(force=True)
+            # "parameters recomputed" triggers pgxnobject instances ...
+            dispatcher.send("parameters recomputed")
         else:
             # orb.log.info('  [ovgpr] no parmz data, check other updates ...')
             pass
@@ -3542,8 +3545,10 @@ class Main(QMainWindow):
 
     def del_object(self, oid, cname):
         """
-        Delete a local object, call functions to update applicable widgets, and
-        call the 'vger.delete' rpc if we are in a "connected" state.
+        Delete a local object, then (1) if we are in a "connected" state set
+        state to update applicable widgets after vger.get_parms() is called,
+        and call the 'vger.delete' rpc, or (2) if not in a "connected" state,
+        update applicable widgets.
 
         Keyword Args:
             oid (str):  oid of the deleted object
@@ -5222,8 +5227,7 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     state['lib updates needed'] = True
                     # if connected, call get_parmz() ...
-                    rpc = self.mbus.session.call('vger.get_parmz',
-                                                 oids=self.project_oids)
+                    rpc = self.mbus.session.call('vger.get_parmz')
                     rpc.addCallback(self.on_vger_get_parmz_result)
                     rpc.addErrback(self.on_failure)
                 else:
@@ -5347,8 +5351,7 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     # if connected, call get_parmz() ...
                     state['lib updates needed'] = True
-                    rpc = self.mbus.session.call('vger.get_parmz',
-                                                 oids=self.project_oids)
+                    rpc = self.mbus.session.call('vger.get_parmz')
                     rpc.addCallback(self.on_vger_get_parmz_result)
                     rpc.addErrback(self.on_failure)
                 else:

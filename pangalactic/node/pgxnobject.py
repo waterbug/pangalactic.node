@@ -175,7 +175,7 @@ class PgxnForm(QWidget):
             # special case for parameters panel:  ignore the widget
             # population process implemented in the "for field_name" loop
             # used for the other panels
-            orb.log.info('* [pgxnf] building "parameters" form ...')
+            # orb.log.info('* [pgxnf] building "parameters" form ...')
             dim_label = QLabel('Dimension:')
             dim_label.setStyleSheet('font-size: 16px; font-weight: bold;')
             self.dim_select = QComboBox()
@@ -587,7 +587,7 @@ class PgxnForm(QWidget):
                 self.obj.modifier = orb.get(state.get('local_user_oid'))
                 self.obj.mod_datetime = dtstamp()
                 orb.save([self.obj])
-                # dispatcher.send(signal='modified object', obj=self.obj)
+                dispatcher.send(signal='modified object', obj=self.obj)
                 self.obj_modified.emit(self.obj.oid)
                 self.pgxo.build_from_object()
             else:
@@ -939,12 +939,12 @@ class PgxnObject(QDialog):
         # around, replace it with the TBD object ...
         if self.obj.oid in (state.get('deleted_oids') or []):
             self.obj = orb.get('pgefobjects:TBD')
-        orb.log.info('* [pgxo] object oid: "%s"' % self.obj.oid)
-        orb.log.info('  [pgxo] object id: "%s"' % self.obj.id)
-        orb.log.info('  [pgxo] object version: "%s"' % getattr(
-                                                        self.obj, 'version',
-                                                        '[not applicable]'))
-        orb.log.info('  [pgxo] cname: "%s"' % self.cname)
+        # orb.log.info('* [pgxo] object oid: "%s"' % self.obj.oid)
+        # orb.log.info('  [pgxo] object id: "%s"' % self.obj.id)
+        # orb.log.info('  [pgxo] object version: "%s"' % getattr(
+                                                        # self.obj, 'version',
+                                                        # '[not applicable]'))
+        # orb.log.info('  [pgxo] cname: "%s"' % self.cname)
         self.build_from_object()
         # NOTE:  commented out because not doing anything ... :P
         dispatcher.connect(self.on_parameters_recomputed,
@@ -1189,6 +1189,7 @@ class PgxnObject(QDialog):
 
     def on_object_mod(self, oid):
         self.obj_modified.emit(oid)
+        dispatcher.send(signal='modified object', obj=self.obj)
 
     def init_toolbar(self):
         self.toolbar = QToolBar('Tools')
@@ -1731,15 +1732,20 @@ class PgxnObject(QDialog):
         if hasattr(self, 'tabs'):
             if (getattr(self, 'tab_names', None)
                 and self.go_to_tab < len(self.tab_names)):
-                tab_name = self.tab_names[self.go_to_tab]
-                orb.log.debug(f'* [pgxo] setting tab to "{tab_name}"')
-            self.tabs.setCurrentIndex(self.go_to_tab)
+                # tab_name = self.tab_names[self.go_to_tab]
+                # orb.log.debug(f'* [pgxo] setting tab to "{tab_name}"')
+                self.tabs.setCurrentIndex(self.go_to_tab)
 
     def on_parameters_recomputed(self):
         """
         Handler for dispatcher signal "parameters recomputed" -- updates all
         computed parameter values.
         """
+        orb.log.debug('* [pxo] got "parameters recomputed" signal ...')
+        # for update of parameters / data elements
+        self.on_update_pgxno(mod_oids=[self.obj.oid])
+
+    def old_on_parameters_recomputed(self):
         # orb.log.debug('* [pxo] got "parameters recomputed" signal ...')
         # [1] find all computed parameters
         parmz = parameterz.get(self.obj.oid) or {}
@@ -1784,9 +1790,9 @@ class PgxnObject(QDialog):
         Handler for dispatcher signal "update pgxno" -- updates all
         parameter and data element values.
         """
-        orb.log.debug('* [pxo] got "update pgxno" signal')
-        oids_list = str(mod_oids)
-        orb.log.debug(f'        on oids {oids_list}')
+        # orb.log.debug('* [pxo] got "update pgxno" signal')
+        # oids_list = str(mod_oids)
+        # orb.log.debug(f'        on oids {oids_list}')
         if self.obj.oid in (mod_oids or []):
             oid = self.obj.oid
             self.obj = orb.get(oid)
@@ -1979,7 +1985,6 @@ class PgxnObject(QDialog):
         self.obj.modifier = orb.get(state.get('local_user_oid'))
         self.obj.mod_datetime = dtstamp()
         orb.save([self.obj])
-        # dispatcher.send(signal='modified object', obj=self.obj)
         self.obj_modified.emit(self.obj.oid)
         self.build_from_object()
 
@@ -1988,7 +1993,6 @@ class PgxnObject(QDialog):
         self.obj.modifier = orb.get(state.get('local_user_oid'))
         self.obj.mod_datetime = dtstamp()
         orb.save([self.obj])
-        # dispatcher.send(signal='modified object', obj=self.obj)
         self.obj_modified.emit(self.obj.oid)
         self.build_from_object()
 
@@ -2182,9 +2186,8 @@ class PgxnObject(QDialog):
                             relevant_product_type=self.obj)
                 orb.save([dpt])
         else:
-            # dispatcher.send(signal="modified object", obj=self.obj,
-                            # cname=cname)
-            orb.log.debug('  [pgxo] "obj_modified" pyqtSignal emitted')
+            dispatcher.send(signal="modified object", obj=self.obj,
+                            cname=cname)
             self.obj_modified.emit(self.obj.oid)
             if isinstance(self.obj, orb.classes['Activity']):
                 # NOTE: this includes 'Mission' subclass of Activity
