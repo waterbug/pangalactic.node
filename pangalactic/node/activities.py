@@ -5,7 +5,7 @@ from copy import deepcopy
 # from pprint import pprint
 from textwrap import wrap
 
-# from louie import dispatcher
+from louie import dispatcher
 
 from PyQt5.QtCore    import pyqtSignal, QSize, Qt, QModelIndex, QVariant
 from PyQt5.QtGui     import QBrush, QStandardItemModel
@@ -229,10 +229,10 @@ class ModesTool(QMainWindow):
         self.left_dock.setWidget(self.sys_tree_panel)
         self.new_window = True
         self.modes_edited.connect(self.on_modes_edited)
-        # dispatcher.connect(self.on_remote_sys_mode_datum,
-                           # 'remote sys mode datum')
-        # dispatcher.connect(self.on_remote_comp_mode_datum,
-                           # 'remote comp mode datum')
+        dispatcher.connect(self.on_remote_sys_mode_datum,
+                           'remote sys mode datum')
+        dispatcher.connect(self.on_remote_comp_mode_datum,
+                           'remote comp mode datum')
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.set_table_and_adjust()
 
@@ -646,14 +646,14 @@ class ModeDefinitionModel(QStandardItemModel):
             link = self.objs[index.row()]
             if not hasattr(link, 'oid'):
                 return False
-            # mode = self.view[index.column()]
+            mode = self.view[index.column()]
             sys_dict = mode_defz[self.project.oid]['systems']
             comp_dict = mode_defz[self.project.oid]['components']
             if link.oid in sys_dict:
                 orb.log.debug(' - sending "sys mode datum set" signal')
-                # dispatcher.send(signal='sys mode datum set',
-                                # datum=(self.project.oid, link.oid, mode,
-                                       # value))
+                dispatcher.send(signal='sys mode datum set',
+                                datum=(self.project.oid, link.oid, mode,
+                                       value))
                 return True
             else:
                 sys_oid = None
@@ -662,9 +662,9 @@ class ModeDefinitionModel(QStandardItemModel):
                         sys_oid = oid
                 if sys_oid:
                     orb.log.debug(' - sending "comp mode datum set" signal')
-                    # dispatcher.send(signal='comp mode datum set',
-                                    # datum=(self.project.oid, sys_oid,
-                                           # link.oid, mode, value))
+                    dispatcher.send(signal='comp mode datum set',
+                                    datum=(self.project.oid, sys_oid,
+                                           link.oid, mode, value))
                     return True
                 else:
                     return False

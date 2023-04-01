@@ -789,7 +789,7 @@ class ConOpsModeler(QMainWindow):
         """
         super().__init__(parent=parent)
         orb.log.info('* ConOpsModeler initializing')
-        project = orb.get(state.get('project'))
+        project = orb.get(state.get('project') or 'pgefobjects:SANDBOX')
         mission_name = ' '.join([project.id, 'Mission'])
         mission = None
         self.usage_list = []
