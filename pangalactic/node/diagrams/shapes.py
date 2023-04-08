@@ -41,11 +41,14 @@ from pangalactic.node.utils       import (clone, extract_mime_data,
 # constants
 if sys.platform == 'win32':
     POINT_SIZE = 10
+    BLOCK_FACTOR = 26
 elif sys.platform == 'darwin':
     POINT_SIZE = 15
+    BLOCK_FACTOR = 20
 else:
     # linux
     POINT_SIZE = 13
+    BLOCK_FACTOR = 20
 SEPARATION = 10     # spacing factor between flows (connector lines)
 PORT_SIZE = 2.0 * POINT_SIZE
 QTCOLORS = ['white', 'black', 'red', 'darkRed', 'green', 'darkGreen', 'blue',
@@ -131,7 +134,9 @@ class Block(QGraphicsItem):
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
-        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE,
+                           BLOCK_FACTOR * POINT_SIZE,
+                           BLOCK_FACTOR * POINT_SIZE)
         self.style = style or Qt.SolidLine
         # TODO:  notify the user if 'obj' is not a Product instance ... that
         # will cause errors
@@ -281,7 +286,9 @@ class ObjectBlock(Block):
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
         self.setAcceptDrops(True)
-        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE,
+                           BLOCK_FACTOR * POINT_SIZE,
+                           BLOCK_FACTOR * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.color = color or Qt.black
         self.right_ports = right_ports
@@ -1654,7 +1661,9 @@ class EntityBlock(Block):
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
                       QGraphicsItem.ItemIsFocusable)
-        self.rect = QRectF(0, -POINT_SIZE, 20 * POINT_SIZE, 20 * POINT_SIZE)
+        self.rect = QRectF(0, -POINT_SIZE,
+                           BLOCK_FACTOR * POINT_SIZE,
+                           BLOCK_FACTOR * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.obj = obj
         self.has_sub_diagram = False

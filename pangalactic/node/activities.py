@@ -291,6 +291,9 @@ class ModesTool(QMainWindow):
             if link_oid in comp_dict and comp_oid in comp_dict[link_oid]:
                 comp_dict[link_oid][comp_oid][mode] = value
                 self.set_table_and_adjust()
+                if state.get('mode') == "system":
+                    orb.log.debug('  - sending "power modes updated" signal')
+                    dispatcher.send("power modes updated")
 
     def on_dlg_modes_edited(self, oid):
         self.modes_edited.emit(oid)

@@ -298,6 +298,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.get_parmz, 'get parmz')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
+        dispatcher.connect(self.on_power_modes_updated, 'power modes updated')
         # NOTE: Entity apparatus is not currently being used
         # dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_new_project_signal, 'new project')
@@ -760,7 +761,7 @@ class Main(QMainWindow):
                         obj.creator = self.local_user
                         obj.modifier = self.local_user
                         orb.save([obj])
-                        # dispatcher.send('modified object', obj=obj)
+                        dispatcher.send('modified object', obj=obj)
             else:
                 orb.log.debug('    + login user matches current local user.')
             uid = '{} [{}]'.format(self.local_user.name,
@@ -1544,7 +1545,7 @@ class Main(QMainWindow):
                         state['mode_defz_dts'] = md_dts
                         orb.log.debug('    mode_defz updated.')
                         orb.log.debug('    emitting "modes_published" signal')
-                        # dispatcher.send(signal='modes published')
+                        dispatcher.send(signal='modes published')
                         self.modes_published.emit()
                     else:
                         orb.log.debug('    same datetime stamp; ignored.')
@@ -3437,7 +3438,27 @@ class Main(QMainWindow):
         else:
             state['mode_defz_dts'] = result
             msg = f'comp mode datum set successfully [dts: {result}]'
+            # update dashboard if appropriate
+            if (state.get('mode') == "system" and
+                state.get('dashboard_name') == 'System Power Modes'):
+                self.refresh_dashboard()
         orb.log.debug(f'* {msg}')
+
+    def on_power_modes_updated(self):
+        """
+        Update dashboard when power modes are updated.
+        """
+        orb.log.debug('* on_power_modes_updated()')
+        if (getattr(self, 'dashboard', None) and
+            state.get('dashboard_name') == "System Power Modes"):
+            self.rebuild_dashboard()
+            self.dashboard.repaint()
+            ## NOTE: all of the following do exactly NOTHING ...
+            # self.dashboard.expandAll()
+            # self.dashboard.activateWindow()
+            # self.dashboard.setFocus()
+            # self.dashboard.update()
+            # QTimer.singleShot(0, self.dashboard.update)
 
     # def on_entity_saved(self, e=None):
         # """
@@ -4625,8 +4646,8 @@ class Main(QMainWindow):
             for thing in things:
                 thing.owner = pgana
             orb.db.commit()
-            # for thing in things:
-                # dispatcher.send('modified object', obj=thing)
+            for thing in things:
+                dispatcher.send('modified object', obj=thing)
         orb.delete([self.project])
         if len(self.projects) > 1:
             self.project = self.projects[-1]
