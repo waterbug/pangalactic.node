@@ -287,6 +287,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_sys_node_selected_signal,
                                                          'sys node selected')
         dispatcher.connect(self.on_display_object_signal, 'display object')
+        dispatcher.connect(self.on_new_req_signal, 'new req')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
@@ -294,6 +295,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
         dispatcher.connect(self.on_de_del, 'de del')
+        dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.on_des_set, 'des set')
         dispatcher.connect(self.get_parmz, 'get parmz')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
@@ -2931,6 +2933,13 @@ class Main(QMainWindow):
             cname = obj.__class__.__name__
             self.on_mod_object_signal(obj=obj, cname=cname)
 
+    def on_new_req_signal(self, obj=None, cname=''):
+        """
+        Handle local dispatcher signal for "new req".
+        """
+        orb.log.info('* on_new_req_signal()')
+        self.on_mod_object_signal(obj=obj, cname=cname, new=True)
+
     def on_new_object_signal(self, obj=None, cname=''):
         """
         Handle local dispatcher signal for "new object".
@@ -3481,6 +3490,99 @@ class Main(QMainWindow):
 
     def rpc_save_entity_result(self, result):
         orb.log.debug(f'* "vger.save_entity" result: "{result}"')
+
+    def on_deleted_object_signal(self, oid='', cname='', remote=False):
+        """
+        Call functions to update applicable widgets when an object has been
+        deleted, either locally or remotely.
+
+        Keyword Args:
+            oid (str):  oid of the deleted object
+            cname (str):  class name of the deleted object
+            remote (bool):  whether the action originated remotely
+        """
+        # make sure db transaction has been committed
+        orb.db.commit()
+        origin = 'local'
+        if remote:
+            origin = 'remote'
+        orb.log.debug(f'* received {origin} "deleted object" signal on:')
+        # cname is needed here because at this point the local object has
+        # already been deleted
+        orb.log.debug(f'  cname="{cname}", oid="{oid}"')
+        # always fix state['product'] and state['system'] if either matches the
+        # deleted oid
+        if (state.get('system') or {}).get(state.get('project')) == oid:
+            orb.log.debug('  state "system" oid matched, set to project ...')
+            state['system'][state.get('project')] = state.get('project')
+        if state.get('product') == oid:
+            orb.log.debug('  state "product" oid matched, resetting ...')
+            if state.get('component_modeler_history'):
+                hist = state['component_modeler_history']
+                next_oid = hist.pop()
+                orb.log.debug(f'  to next comp history oid: "{next_oid}"')
+                state['product'] = next_oid
+            else:
+                # otherwise, set to empty string
+                orb.log.debug('  to empty')
+                state['product'] = ''
+        if not state.get('connected'):
+            orb.recompute_parmz()
+            # only attempt to update tree and dashboard if in "system" mode ...
+            if ((self.mode == 'system') and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
+                self.refresh_tree_and_dashboard()
+                if getattr(self, 'system_model_window', None):
+                    # rebuild diagram in case an object corresponded to a
+                    # block in the current diagram
+                    self.system_model_window.on_signal_to_refresh()
+            elif self.mode == 'db':
+                self.set_db_interface()
+            elif (self.mode == 'component' and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # update state['product'] if needed, and regenerate diagram
+                # this will set placeholders in place of PgxnObject and diagram
+                self.set_product_modeler_interface()
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
+            elif (self.mode == 'system' and
+                  cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                            'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # regenerate diagram
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
+        if remote and state.get('connected'):
+            # only attempt to update tree and dashboard if in "system" mode ...
+            if ((self.mode == 'system') and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          'Port', 'Flow']):
+                self.refresh_tree_and_dashboard()
+                # DIAGRAM MAY NEED UPDATING
+                if getattr(self, 'system_model_window', None):
+                    # rebuild diagram in case an object corresponded to a
+                    # block in the current diagram
+                    self.system_model_window.on_signal_to_refresh()
+            elif self.mode == 'db':
+                self.set_db_interface()
+            elif (self.mode == 'component' and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # update state['product'] if needed, and regenerate diagram
+                # this will set placeholders in place of PgxnObject and diagram
+                self.set_product_modeler_interface()
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
+        elif not remote and state.get('connected'):
+            # the "not remote" here is *extremely* important, to prevent a cycle ...
+            orb.log.info('  - calling "vger.delete"')
+            rpc = self.mbus.session.call('vger.delete', [oid])
+            rpc.addCallback(self.on_rpc_vger_delete_result)
+            rpc.addCallback(self.get_parmz)
+            rpc.addErrback(self.on_failure)
 
     def on_remote_deleted_object(self, oid, cname):
         """
