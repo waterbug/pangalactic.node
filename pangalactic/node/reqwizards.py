@@ -209,11 +209,12 @@ class RequirementIDPage(QWizardPage):
             # otherwise, generator will get confused
             req_id = self.project.id + '-TBD'
             self.req = clone("Requirement", id=req_id, owner=self.project,
-                             public=True)
+                             level=0, public=True)
             self.req.id = orb.gen_req_id(self.req)
             orb.save([self.req])
-            dispatcher.send(signal='new object', obj=self.req)
+            dispatcher.send(signal='new req', obj=self.req)
             new = True
+        dispatcher.connect(self.saved, 'modified object')
         req_wizard_state['req_oid'] = self.req.oid
         # Where the performance and functional differ
         main_view = []
@@ -239,15 +240,16 @@ class RequirementIDPage(QWizardPage):
         panels = ['main']
         self.pgxn_obj = PgxnObject(self.req, embedded=True, panels=panels,
                                    main_view=main_view, required=required,
-                                   mask=mask, edit_mode=True, new=new,
+                                   # mask=mask, edit_mode=True, new=new,
+                                   mask=mask, edit_mode=True,
                                    enable_delete=False, title_text=title_text)
         self.pgxn_obj.toolbar.hide()
-        self.pgxn_obj.save_button.clicked.connect(self.completeChanged)
+        self.pgxn_obj.save_button.clicked.connect(self.saved)
         self.pgxn_obj.save_button.clicked.connect(self.update_levels)
         self.pgxn_obj_cancel_button = self.pgxn_obj.bbox.button(
                                                 QDialogButtonBox.Cancel)
+        self.pgxn_obj_cancel_button.clicked.connect(self.saved)
         self.pgxn_obj_cancel_button.clicked.connect(self.update_levels)
-        self.pgxn_obj_cancel_button.clicked.connect(self.completeChanged)
         self.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
         self.wizard().button(QWizard.FinishButton).clicked.connect(
                 self.close_pgxn_obj)
@@ -304,35 +306,23 @@ class RequirementIDPage(QWizardPage):
             max_level = 0
         self.level_cb.addItem(str(max_level))
         self.level_cb.addItem(str(max_level + 1))
-        if hasattr(self.pgxn_obj, 'edit_button'):
-            self.pgxn_obj.edit_button.clicked.connect(self.completeChanged)
-        self.pgxn_obj_cancel_button.clicked.connect(self.completeChanged)
-        self.pgxn_obj.save_button.clicked.connect(self.completeChanged)
+        self.pgxn_obj_cancel_button.clicked.connect(self.saved)
+        self.pgxn_obj.save_button.clicked.connect(self.saved)
 
     def close_pgxn_obj(self):
         if getattr(self,'pgxn_obj', None):
             self.pgxn_obj.close()
             self.pgxn_obj = None
 
+    def saved(self):
+        self.completeChanged.emit()
+
     def isComplete(self):
-        if self.pgxn_obj.edit_mode:
-            self.pgxn_obj_cancel_button.clicked.connect(self.update_levels)
-            self.pgxn_obj.save_button.clicked.connect(self.update_levels)
-            self.level_cb.setDisabled(True)
-            return False
-        else:
-            if hasattr(self.pgxn_obj, 'edit_button'):
-                self.pgxn_obj.edit_button.clicked.connect(self.update_levels)
-            self.level_cb.setDisabled(False)
-            # self.update_levels
-            self.req.req_level = self.req.req_level or 0
-            req_wizard_state['req_level'] = self.req.req_level
-            if not req_wizard_state.get('performance'):
-                self.req.req_type = 'functional'
-            else:
-                self.req.req_type = 'performance'
-            orb.save([self.req])
+        orb.log.debug('* ReqID.isComplete()')
+        if self.req.name:
             return True
+        else:
+            return False
 
 
 class ReqVerificationPage(QWizardPage):
