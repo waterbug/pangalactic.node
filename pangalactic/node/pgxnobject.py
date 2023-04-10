@@ -1793,6 +1793,14 @@ class PgxnObject(QDialog):
         # orb.log.debug('* [pxo] got "update pgxno" signal')
         # oids_list = str(mod_oids)
         # orb.log.debug(f'        on oids {oids_list}')
+        # first check whether our object still exists in the db ...
+        oid = getattr(self.obj, 'oid', None)
+        if oid:
+            self.obj = orb.get(oid)
+            if not self.obj:
+                return
+        else:
+            return
         if self.obj.oid in (mod_oids or []):
             oid = self.obj.oid
             self.obj = orb.get(oid)
@@ -2028,6 +2036,7 @@ class PgxnObject(QDialog):
 
     def on_save(self):
         orb.log.info('* [pgxo] saving ...')
+        self.edit_mode = False
         # uniqueness checks are done only for id's and names of:
         # [1] DataElementDefinitions
         # [2] Ports
@@ -2202,7 +2211,6 @@ class PgxnObject(QDialog):
             self.close()
         else:
             # orb.log.debug('  [pgxo] saved -- rebuilding ...')
-            self.edit_mode = False
             self.build_from_object()
         if state.get('mode') in ['system', 'component']:
             dispatcher.send(signal='update product modeler', obj=self.obj)
