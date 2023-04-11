@@ -116,13 +116,18 @@ class RequirementManager(QDialog):
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
+            orb.log.debug('  at selected row: {}'.format(i))
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
                           'oid', '')
             if oid:
                 req = orb.get(oid)
-        if req and req.req_type == 'performance':
-            if 'modify' in get_perms(req):
+        if req:
+            if not req.req_type == 'performance':
+                message = "Not a performance requirement -- no parameters."
+                popup = QMessageBox(QMessageBox.Warning, 'No Parameter',
+                                    message, QMessageBox.Ok, self)
+                popup.show()
+            elif 'modify' in get_perms(req):
                 parm = None
                 if req.req_constraint_type == 'maximum':
                     parm = 'req_maximum_value'
@@ -149,6 +154,11 @@ class RequirementManager(QDialog):
                 popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
                                     message, QMessageBox.Ok, self)
                 popup.show()
+        else:
+            message = "No requirement found."
+            popup = QMessageBox(QMessageBox.Warning, 'No Requirement',
+                                message, QMessageBox.Ok, self)
+            popup.show()
 
     def on_req_parm_mod(self, oid):
         self.fpanel.mod_object(oid)

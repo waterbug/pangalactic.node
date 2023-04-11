@@ -864,6 +864,7 @@ class FilterPanel(QWidget):
         txt = 'Edit selected fields of this hardware item'
         self.hw_fields_action = QAction(txt, self)
         self.hw_fields_action.triggered.connect(self.edit_hw_fields)
+        # Requirement-related actions are used in reqmanager
         txt = 'Edit parameters of this requirement'
         self.req_parms_action = QAction(txt, self)
         txt = 'Edit selected fields of this requirement'
@@ -975,7 +976,7 @@ class FilterPanel(QWidget):
 
     def remove_object(self, oid):
         """
-        Convenience method for deleting a library object from the model.
+        Convenience method for removing a library object from the model.
         """
         # orb.log.debug('  [FilterPanel] remove_object({})'.format(oid))
         try:
