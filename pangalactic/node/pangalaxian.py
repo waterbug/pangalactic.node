@@ -3515,6 +3515,8 @@ class Main(QMainWindow):
         if (state.get('system') or {}).get(state.get('project')) == oid:
             orb.log.debug('  state "system" oid matched, set to project ...')
             state['system'][state.get('project')] = state.get('project')
+        elif self.mode == 'db':
+            self.set_db_interface()
         if state.get('product') == oid:
             orb.log.debug('  state "product" oid matched, resetting ...')
             if state.get('component_modeler_history'):
