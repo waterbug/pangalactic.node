@@ -1912,7 +1912,7 @@ class PgxnObject(QDialog):
         self.go_to_tab = index
 
     def on_delete(self):
-        # orb.log.info('* [pgxo] delete action selected ...')
+        orb.log.info('* [pgxo] delete action selected ...')
         if getattr(self.obj, 'where_used', None):
             txt = 'This Product cannot be deleted:\n'
             txt += 'it is a component in the following assemblies:'
@@ -1955,7 +1955,7 @@ class PgxnObject(QDialog):
         if response == QMessageBox.Yes:
             obj_oid = self.obj.oid
             cname = self.obj.__class__.__name__
-            self.delete_obj.emit(obj_oid, cname)
+            # self.delete_obj.emit(obj_oid, cname)
             # =================================================================
             # NOTE: orb.delete() had been called here but should only be called
             # after the object has been removed from GUI elements (tables etc.)
@@ -1963,7 +1963,7 @@ class PgxnObject(QDialog):
             # 'delete_obj' signal ...
             # -----------------------------------------------------------------
             # orb.delete will add serialized object to trash
-            # orb.delete([self.obj])
+            orb.delete([self.obj])
             # =================================================================
             # if embedded in the component modeler and there are product oids
             # in the "component_modeler_history", set the 'product' state
@@ -1979,7 +1979,7 @@ class PgxnObject(QDialog):
                     # state['product'] = ''
             # the 'deleted object' signal will notify pangalaxian which will
             # reset the 'component modeler' mode if we are in it
-            # dispatcher.send(signal='deleted object', oid=obj_oid, cname=cname)
+            dispatcher.send(signal='deleted object', oid=obj_oid, cname=cname)
             # if not in component mode, we should close ...
             if not self.component:
                 try:
