@@ -68,6 +68,7 @@ class RequirementManager(QDialog):
         self.fpanel.reqwizard_action.triggered.connect(self.edit_requirement)
         self.fpanel.req_parms_action.triggered.connect(self.edit_req_parms)
         self.fpanel.req_fields_action.triggered.connect(self.edit_req_fields)
+        self.fpanel.req_delete_action.triggered.connect(self.delete_req)
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
@@ -188,6 +189,50 @@ class RequirementManager(QDialog):
                 popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
                                     message, QMessageBox.Ok, self)
                 popup.show()
+
+    def delete_req(self):
+        orb.log.debug('* delete_req()')
+        req = None
+        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
+            i = self.fpanel.proxy_model.mapToSource(
+                self.fpanel.proxy_view.selectedIndexes()[0]).row()
+            orb.log.debug('  at selected row: {}'.format(i))
+            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
+                          'oid', '')
+            if oid:
+                req = orb.get(oid)
+        if req:
+            if 'delete' not in get_perms(req):
+                message = "Not Authorized"
+                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
+                                    message, QMessageBox.Ok, self)
+                popup.show()
+                return
+            req_oid = req.oid
+            # delete any related Relation and ParameterRelation objects
+            rel = req.computable_form
+            if rel:
+                # pr_oid = req_wizard_state.get('pr_oid')
+                # pr = orb.get(pr_oid)
+                prs = rel.correlates_parameters
+                if prs:
+                    pr_oid = prs[0].oid
+                    orb.delete(prs)
+                    dispatcher.send(signal='deleted object',
+                                    oid=pr_oid,
+                                    cname='ParameterRelation')
+                rel_oid = rel.oid
+                orb.delete([rel])
+                dispatcher.send(signal='deleted object',
+                                oid=rel_oid, cname='Relation')
+            # remove the req object from the filter panel
+            self.fpanel.remove_object(req_oid)
+            # delete the Requirement object
+            orb.delete([req])
+            dispatcher.send(signal='deleted object', oid=req_oid,
+                            cname='Requirement')
+            orb.delete([req])
+            orb.log.info('* requirement deleted.')
 
     def hide_allocation_panel(self, evt):
         self.content_layout.removeItem(self.tree_layout)

@@ -136,9 +136,9 @@ class MappingTableModel(QAbstractTableModel):
             return False
 
     def removeRows(self, row, count, parent=QModelIndex()):
-        if row + count - 1 <= len(self.ds):
+        if row + count - 1 < len(self.ds):
             self.beginRemoveRows(QModelIndex(), row, row + count - 1)
-            del self.ds[row : row + count - 1]
+            del self.ds[row : row + count]
             self.endRemoveRows()
             return True
         else:

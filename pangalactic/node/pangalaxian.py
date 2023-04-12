@@ -3493,8 +3493,9 @@ class Main(QMainWindow):
 
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
-        Call functions to update applicable widgets when an object has been
-        deleted, either locally or remotely.
+        Handle dispatcher "deleted object" signal by calling functions to
+        update applicable widgets when an object has been deleted, either
+        locally or remotely.
 
         Keyword Args:
             oid (str):  oid of the deleted object

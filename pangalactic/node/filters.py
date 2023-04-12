@@ -871,6 +871,8 @@ class FilterPanel(QWidget):
         self.req_fields_action = QAction(txt, self)
         txt = 'Edit this requirement in the wizard'
         self.reqwizard_action = QAction(txt, self)
+        txt = 'Delete this requirement'
+        self.req_delete_action = QAction(txt, self)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
         self.template_action = QAction('Create template from object', self)
         self.template_action.triggered.connect(self.create_template)
@@ -883,6 +885,7 @@ class FilterPanel(QWidget):
             self.proxy_view.addAction(self.req_parms_action)
             self.proxy_view.addAction(self.req_fields_action)
             self.proxy_view.addAction(self.reqwizard_action)
+            self.proxy_view.addAction(self.req_delete_action)
         elif self.cname == 'HardwareProduct':
             self.proxy_view.addAction(self.pgxnobj_action)
             # NOTE: disabled because templates need more work
@@ -984,10 +987,6 @@ class FilterPanel(QWidget):
             if not obj:
                 # orb.log.debug('  ... object not found in local db.')
                 return False
-            if obj in self.objs:
-                self.objs.remove(obj)
-            # else:
-                # orb.log.debug('  ... object not found in FilterPanel.objs.')
             source_model = self.proxy_model.sourceModel()
             source_model.del_object(oid)
         except:
