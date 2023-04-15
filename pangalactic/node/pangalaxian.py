@@ -696,13 +696,19 @@ class Main(QMainWindow):
              oids unknown to the server,
              minimum version string]
         """
-        # log_msg = '* processing results of rpc "vger.get_user_roles" ...'
-        # orb.log.debug(log_msg)
-        # orb.log.debug(' - data:  {}'.format(str(data)))
+        log_msg = '* processing results of rpc "vger.get_user_roles" ...'
+        orb.log.debug(log_msg)
+        orb.log.debug(' - data:')
         # data should be a list with 6 elements, but if no response from server
         # data may be None, so fall back to a list of 6 empty elements ...
         data = data or ['', '', '', '', '', '']
         szd_user, szd_orgs, szd_people, szd_ras, bad_oids, min_version = data
+        orb.log.debug(f'   + user:  {szd_user}')
+        orb.log.debug(f'   + orgs:  {len(szd_orgs)}')
+        orb.log.debug(f'   + people:  {len(szd_people)}')
+        orb.log.debug(f'   + role asgts:  {len(szd_ras)}')
+        orb.log.debug(f'   + bad oids:  {len(bad_oids)}')
+        orb.log.debug(f'   + min version:  {min_version}')
         this_version = self.app_version or __version__
         if (Version(this_version) < Version(min_version)
             and state.get('connected')):
@@ -748,8 +754,8 @@ class Main(QMainWindow):
             deserialize(orb, szd_user, include_refdata=True,
                         force_no_recompute=True)
             self.local_user = orb.select('Person', id=state['userid'])
-            # orb.log.debug(' - local user returned: {}'.format(
-                                                  # self.local_user.oid))
+            orb.log.debug(' - local user returned: {}'.format(
+                                                  self.local_user.oid))
             state['local_user_oid'] = str(self.local_user.oid)
             if str(state.get('local_user_oid')) == 'me':
                 # current local user is 'me' -- replace ...
@@ -781,12 +787,18 @@ class Main(QMainWindow):
             orb.delete(invalid_orgs)
         else:
             orb.log.debug('    no invalid orgs found.')
+        # *********************************************************************
+        # NOTE: deserialize() is used for all new Person, Organization, and
+        # RoleAssignment objects instead of load_serialized_objects() because
+        # load_serialized_objects() is slow and leads to a disconnect due to
+        # a lost transport exception.
+        # *********************************************************************
         # deserialize all new Project and Organization objects
-        self.statusbar.showMessage('receiving organizations ...')
-        self.load_serialized_objects(szd_orgs)
+        self.statusbar.showMessage('deserializing organizations ...')
+        deserialize(orb, szd_orgs)
         # deserialize all new Person objects
-        self.statusbar.showMessage('receiving users ...')
-        self.load_serialized_objects(szd_people)
+        self.statusbar.showMessage('deserializing users ...')
+        deserialize(orb, szd_people)
         orb.log.debug('  - deserializing role assignments ...')
         self.statusbar.showMessage('receiving role assignments ...')
         # NOTE:  ONLY the server-side role assignment data is AUTHORITATIVE, so
@@ -799,7 +811,7 @@ class Main(QMainWindow):
         # objects -- 'assigned_role' (Role), 'assigned_to' (Person), and
         # 'role_assignment_context' (Organization or Project)
         # deserialize all new RoleAssignment objects
-        self.load_serialized_objects(szd_ras)
+        deserialize(orb, szd_ras)
         ras = orb.get_by_type('RoleAssignment')
         org_ids = [getattr(ra.role_assignment_context, 'id', '')
                    for ra in ras]
