@@ -72,6 +72,7 @@ class RequirementManager(QDialog):
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
+        dispatcher.connect(self.on_modified_object, 'modified object')
         # TODO:  make project a property; in its setter, enable the checkbox
         # that opens the "allocation panel" (tree)
         self.display_allocation_panel()
@@ -86,6 +87,10 @@ class RequirementManager(QDialog):
     @req.setter
     def req(self, r):
         self._req = r
+
+    def on_modified_object(self, obj=None, cname=None):
+        if obj in self.fpanel.objs:
+            self.fpanel.refresh()
 
     def edit_requirement(self):
         orb.log.debug('* edit_requirement()')
