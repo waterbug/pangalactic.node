@@ -2,15 +2,22 @@
 """
 Requirement Manager
 """
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QHBoxLayout, QLabel,
-                             QMessageBox, QSizePolicy, QVBoxLayout)
+import os, sys
 
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
+                             QHBoxLayout, QLabel, QMessageBox, QSizePolicy,
+                             QVBoxLayout)
+
+from pangalactic.core             import state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.datetimes import dtstamp, date2str
+from pangalactic.core.utils.reports import write_objects_to_xlsx
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import ReqFieldsDialog, ReqParmDialog
+from pangalactic.node.dialogs     import (NotificationDialog, ReqFieldsDialog,
+                                          ReqParmDialog)
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.systemtree  import SystemTreeView
 from pangalactic.node.reqwizards  import ReqWizard
@@ -34,11 +41,11 @@ class RequirementManager(QDialog):
                  req=None, parent=None):
         super().__init__(parent=parent)
         default_view = MAIN_VIEWS['Requirement']
-        view = view or default_view
+        self.view = view or default_view
         sized_cols = {'id': 0, 'name': 150}
         self.req = req
         self.project = project
-        rqts = orb.search_exact(cname='Requirement', owner=project)
+        self.rqts = orb.search_exact(cname='Requirement', owner=project)
         title_txt = 'Project Requirements for {}'.format(project.id)
         self.title = QLabel(title_txt)
         self.title.setStyleSheet('font-weight: bold; font-size: 20px')
@@ -52,17 +59,27 @@ class RequirementManager(QDialog):
         self.hide_tree_button.clicked.connect(self.hide_allocation_panel)
         self.show_tree_button = SizedButton('Show Allocations', color="green")
         self.show_tree_button.clicked.connect(self.display_allocation_panel)
-        main_layout.addWidget(self.hide_tree_button)
-        main_layout.addWidget(self.show_tree_button)
+        self.export_tsv_button = SizedButton("Export as tsv")
+        self.export_tsv_button.clicked.connect(self.export_tsv)
+        self.export_excel_button = SizedButton("Export as Excel")
+        self.export_excel_button.clicked.connect(self.export_excel)
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(self.hide_tree_button)
+        top_layout.addWidget(self.show_tree_button)
+        top_layout.addWidget(self.export_tsv_button)
+        top_layout.addWidget(self.export_excel_button)
+        top_layout.addStretch(1)
         self.content_layout = QHBoxLayout()
+        main_layout.addLayout(top_layout)
         main_layout.addLayout(self.content_layout, stretch=1)
         self.bbox = QDialogButtonBox(
             QDialogButtonBox.Close, Qt.Horizontal, self)
         main_layout.addWidget(self.bbox)
         self.bbox.rejected.connect(self.reject)
         # NOTE: now using word wrap and PGEF_COL_WIDTHS
-        self.fpanel = FilterPanel(rqts, view=view, sized_cols=sized_cols,
-                                  word_wrap=True, parent=self)
+        self.fpanel = FilterPanel(self.rqts, view=self.view,
+                                  sized_cols=sized_cols, word_wrap=True,
+                                  parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.fpanel.proxy_view.clicked.connect(self.on_select_req)
         self.fpanel.reqwizard_action.triggered.connect(self.edit_requirement)
@@ -87,6 +104,82 @@ class RequirementManager(QDialog):
     @req.setter
     def req(self, r):
         self._req = r
+
+    def export_tsv(self):
+        """
+        [Handler for 'Export as tsv' button]  Write the requirements to a
+        tab-separated-values file.
+        """
+        orb.log.debug('* export_tsv()')
+        dtstr = date2str(dtstamp())
+        name = '-' + 'Requirements' + '-'
+        fname = self.project.id + name + dtstr + '.tsv'
+        state_path = state.get('req_tsv_last_path') or ''
+        suggested_fpath = os.path.join(state_path, fname)
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to tsv File',
+                                    suggested_fpath, '(*.tsv)')
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            fpath = str(fpath)   # extra-cautious :)
+            f = open(fpath, 'w')
+            state['req_tsv_last_path'] = os.path.dirname(fpath)
+            orb.log.debug(f'  - cols: "{self.view}"')
+            data = ''
+            for rqt in self.rqts:
+                data = '\n'.join('\t'.join(str(getattr(rqt, a))
+                                           for a in self.view)
+                                 for rqt in self.rqts)
+            f.write(data)
+            f.close()
+            html = '<h3>Success!</h3>'
+            msg = 'Requirements exported to file:'
+            html += f'<p><b><font color="green">{msg}</font></b><br>'
+            html += f'<b><font color="blue">{fpath}</font></b></p>'
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+        else:
+            orb.log.debug('  ... export to tsv cancelled.')
+            return
+
+    def export_excel(self):
+        """
+        [Handler for 'Export as Excel' button]  Write the requirements to
+        a .xlsx file.
+        """
+        orb.log.debug('* export_excel()')
+        dtstr = date2str(dtstamp())
+        name = '-Requirements-'
+        fname = self.project.id + name + dtstr + '.xlsx'
+        state_path = state.get('req_excel_last_path') or ''
+        suggested_fpath = os.path.join(state_path, fname)
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to .xlsx File',
+                                    suggested_fpath, '(*.xlsx)')
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            state['req_excel_last_path'] = os.path.dirname(fpath)
+            write_objects_to_xlsx(self.rqts, fpath, view=self.view)
+            html = '<h3>Success!</h3>'
+            msg = 'Requirements exported to Excel file:'
+            html += f'<p><b><font color="green">{msg}</font></b><br>'
+            html += f'<b><font color="blue">{fpath}</font></b></p>'
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+            # try to start Excel with file if on Win or Mac ...
+            if sys.platform == 'win32':
+                try:
+                    os.system(f'start excel.exe "{fpath}"')
+                except:
+                    orb.log.debug('  unable to start Excel')
+            elif sys.platform == 'darwin':
+                try:
+                    os.system(f'open -a "Microsoft Excel.app" "{fpath}"')
+                except:
+                    orb.log.debug('  unable to start Excel')
+        else:
+            orb.log.debug('  ... export to Excel cancelled.')
+            return
 
     def on_modified_object(self, obj=None, cname=None):
         if obj in self.fpanel.objs:
