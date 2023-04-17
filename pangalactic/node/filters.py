@@ -989,6 +989,8 @@ class FilterPanel(QWidget):
                 return False
             source_model = self.proxy_model.sourceModel()
             source_model.del_object(oid)
+            # must update our "objs" to be consistent with the source_model
+            self.objs = source_model.objs
         except:
             # orb.log.debug('                ... object not found')
             return False
