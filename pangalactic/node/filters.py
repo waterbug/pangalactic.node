@@ -810,13 +810,16 @@ class FilterPanel(QWidget):
         self.set_source_model(self.create_model(self.objs))
 
     def on_column_moved(self, logical_index, old_index, new_index):
-        # orb.log.debug('* FilterPanel.on_column_moved():')
+        orb.log.debug('* FilterPanel.on_column_moved():')
         # orb.log.debug(f'  old index: {old_index}')
         # orb.log.debug(f'  new index: {new_index}')
         if self.cname == 'HardwareProduct':
             # orb.log.debug('  self.cname == "HardwareProduct"')
             new_view = prefs['hw_library_view']
             # orb.log.debug(f'* HW Library view: {new_view}')
+        elif self.cname == 'Requirement':
+            # orb.log.debug('  cname == "Requirement" ...')
+            new_view = prefs['req_mgr_view']
         else:
             new_view = self.view
         if 0 <= old_index < len(self.view):
@@ -829,6 +832,9 @@ class FilterPanel(QWidget):
             if self.as_library and self.cname == 'HardwareProduct':
                 # orb.log.debug(f'* new HW Library view: {new_view}')
                 prefs['hw_library_view'] = new_view[:]
+            elif self.cname == 'Requirement':
+                orb.log.debug(f'* new req mgr view: {new_view}')
+                prefs['req_mgr_view'] = new_view[:]
         else:
             # orb.log.debug('  - could not move: old col out of range.')
             pass

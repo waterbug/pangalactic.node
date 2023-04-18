@@ -43,6 +43,7 @@ class RequirementManager(QDialog):
         default_view = prefs.get('req_mgr_view')
         default_view = default_view or MAIN_VIEWS['Requirement']
         self.view = view or default_view
+        prefs['req_mgr_view'] = self.view
         sized_cols = {'id': 0, 'name': 150}
         self.req = req
         self.project = project
