@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
                              QHBoxLayout, QLabel, QMessageBox, QSizePolicy,
                              QVBoxLayout)
 
-from pangalactic.core             import state
+from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.uberorb     import orb
@@ -17,7 +17,7 @@ from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.dialogs     import (NotificationDialog, ReqFieldsDialog,
-                                          ReqParmDialog)
+                                          ReqParmDialog, SelectColsDialog)
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.systemtree  import SystemTreeView
 from pangalactic.node.reqwizards  import ReqWizard
@@ -40,7 +40,8 @@ class RequirementManager(QDialog):
     def __init__(self, project=None, width=None, height=None, view=None,
                  req=None, parent=None):
         super().__init__(parent=parent)
-        default_view = MAIN_VIEWS['Requirement']
+        default_view = prefs.get('req_mgr_view')
+        default_view = default_view or MAIN_VIEWS['Requirement']
         self.view = view or default_view
         sized_cols = {'id': 0, 'name': 150}
         self.req = req
@@ -54,16 +55,19 @@ class RequirementManager(QDialog):
         # main_layout = self.layout()
         main_layout.addWidget(self.title)
         self.setWindowTitle('Requirements Manager')
+        self.select_cols_button = SizedButton("Customize Columns")
+        self.select_cols_button.clicked.connect(self.select_cols)
+        self.export_tsv_button = SizedButton("Export as tsv")
+        self.export_tsv_button.clicked.connect(self.export_tsv)
+        self.export_excel_button = SizedButton("Export as Excel")
+        self.export_excel_button.clicked.connect(self.export_excel)
         self.hide_tree_button = SizedButton('Hide Allocations',
                                              color="purple")
         self.hide_tree_button.clicked.connect(self.hide_allocation_panel)
         self.show_tree_button = SizedButton('Show Allocations', color="green")
         self.show_tree_button.clicked.connect(self.display_allocation_panel)
-        self.export_tsv_button = SizedButton("Export as tsv")
-        self.export_tsv_button.clicked.connect(self.export_tsv)
-        self.export_excel_button = SizedButton("Export as Excel")
-        self.export_excel_button.clicked.connect(self.export_excel)
         top_layout = QHBoxLayout()
+        top_layout.addWidget(self.select_cols_button)
         top_layout.addWidget(self.export_tsv_button)
         top_layout.addWidget(self.export_excel_button)
         top_layout.addStretch(1)
@@ -104,6 +108,35 @@ class RequirementManager(QDialog):
     @req.setter
     def req(self, r):
         self._req = r
+
+    def select_cols(self):
+        """
+        [Handler for 'Customize Columns' button]  Display the SelectColsDialog.
+        """
+        orb.log.debug('* select_cols() ...')
+        # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
+        # original schema!!!
+        all_cols = orb.schemas['Requirement']['field_names'][:]
+        dlg = SelectColsDialog(all_cols, self.view, parent=self)
+        if dlg.exec_() == QDialog.Accepted:
+            # rebuild custom view from the selected columns
+            old_view = self.view[:]
+            new_view = []
+            # add any columns from old_view first
+            for col in old_view:
+                if col in dlg.checkboxes and dlg.checkboxes[col].isChecked():
+                    new_view.append(col)
+                    all_cols.remove(col)
+            # then append any newly selected columns
+            for col in all_cols:
+                if dlg.checkboxes[col].isChecked():
+                    new_view.append(col)
+            orb.log.debug('  new view: {}'.format(new_view))
+            prefs['req_mgr_view'] = new_view[:]
+            self.view = new_view[:]
+            orb.log.debug('  self.view: {}'.format(str(self.view)))
+            self.fpanel.set_view(self.view)
+            self.fpanel.refresh()
 
     def export_tsv(self):
         """
