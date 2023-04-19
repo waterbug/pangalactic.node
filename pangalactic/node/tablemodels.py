@@ -12,8 +12,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 # pangalactic
 from pangalactic.core                 import prefs, state
 from pangalactic.core.meta            import MAIN_VIEWS, TEXT_PROPERTIES
-from pangalactic.core.names           import (pname_to_header_label,
-                                              to_media_name)
+from pangalactic.core.names           import pname_to_header, to_media_name
 from pangalactic.core.parametrics     import (de_defz, get_dval_as_str,
                                               get_pval_as_str, parm_defz)
 from pangalactic.core.uberorb         import orb
@@ -288,7 +287,7 @@ class ObjectTableModel(MappingTableModel):
     @property
     def col_labels(self):
         if self.objs:
-            return [pname_to_header_label(x) for x in self.view]
+            return [pname_to_header(x, self.cname) for x in self.view]
         else:
             return ['No Data']
 
@@ -414,8 +413,7 @@ class CompareTableModel(MappingTableModel):
                     row_dict[o.oid] = val
                 self.ds.append(row_dict)
             if self.objs:
-                self.column_labels = [pname_to_header_label(o.name)
-                                      for o in self.objs]
+                self.column_labels = [o.name for o in self.objs]
                 self.column_labels.insert(0, 'Parameter')
             else:
                 self.column_labels = list(self.ds[0].keys())

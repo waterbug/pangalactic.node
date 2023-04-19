@@ -15,8 +15,7 @@ from PyQt5.QtWidgets import QAction, QMenu, QSizePolicy, QTreeView
 
 # pangalactic
 from pangalactic.core             import prefs, state
-from pangalactic.core.names       import (get_display_name,
-                                          pname_to_header_label)
+from pangalactic.core.names       import get_display_name, pname_to_header
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
                                           get_usage_mode_val_as_str, get_pval,
                                           get_pval_as_str, parm_defz,
@@ -365,7 +364,8 @@ class SystemTreeModel(QAbstractItemModel):
         return [self.col_def(col_id) for col_id in data_cols]
 
     def get_header(self, pid):
-        return pname_to_header_label(pid, project_oid=self.project.oid)
+        return pname_to_header(pid, 'HardwareProduct',
+                               project_oid=self.project.oid)
 
     @property
     def req(self):

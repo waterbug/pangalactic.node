@@ -18,7 +18,7 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import (MAIN_VIEWS, PGEF_COL_WIDTHS,
                                           PGEF_COL_NAMES)
 from pangalactic.core.names       import (get_external_name_plural,
-                                          pname_to_header_label)
+                                          pname_to_header)
 from pangalactic.core.parametrics import de_defz, parameterz, parm_defz
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import SizedButton
@@ -246,8 +246,9 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     @property
     def col_labels(self):
-        return [PGEF_COL_NAMES.get(a, pname_to_header_label(
-                                   a, headers_are_ids=self.headers_are_ids))
+        return [PGEF_COL_NAMES.get(a, pname_to_header(
+                                   a, self.cname,
+                                   headers_are_ids=self.headers_are_ids))
                 for a in self.view]
 
     @property
