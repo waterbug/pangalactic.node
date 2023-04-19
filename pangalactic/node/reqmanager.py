@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
 
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.meta        import MAIN_VIEWS
+from pangalactic.core.meta        import MAIN_VIEWS, STANDARD_VIEWS
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
@@ -115,9 +115,8 @@ class RequirementManager(QDialog):
         [Handler for 'Customize Columns' button]  Display the SelectColsDialog.
         """
         orb.log.debug('* select_cols() ...')
-        # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
-        # original schema!!!
-        all_cols = orb.schemas['Requirement']['field_names'][:]
+        std_view = STANDARD_VIEWS['Requirement']
+        all_cols = std_view[:]
         dlg = SelectColsDialog(all_cols, self.view, parent=self)
         if dlg.exec_() == QDialog.Accepted:
             # rebuild custom view from the selected columns

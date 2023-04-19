@@ -532,7 +532,7 @@ class ReqSummaryPage(QWizardPage):
         self.fields = {}
         for a in ['id', 'name', 'description', 'justification', 'rationale',
                   'allocation', 'verification_method']:
-            self.labels[a] = NameLabel(get_attr_ext_name(a))
+            self.labels[a] = NameLabel(get_attr_ext_name('Requirement', a))
             self.fields[a] = ValueLabel('')
             form.addRow(self.labels[a], self.fields[a])
         layout.addLayout(form)

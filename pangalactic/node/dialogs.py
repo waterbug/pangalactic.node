@@ -253,7 +253,7 @@ class HWFieldsDialog(QDialog):
         self.fields = {}
         vbox.addLayout(self.form)
         for name in names:
-            ename = get_attr_ext_name(name)
+            ename = get_attr_ext_name('HardwareProduct', name)
             schema = orb.schemas['HardwareProduct']
             if name in SELECTABLE_VALUES:
                 val = getattr(hw_item, name)
@@ -347,7 +347,7 @@ class ReqFieldsDialog(QDialog):
         self.fields = {}
         vbox.addLayout(self.form)
         for name in names:
-            ename = get_attr_ext_name(name)
+            ename = get_attr_ext_name('Requirement', name)
             schema = orb.schemas['Requirement']
             if name in SELECTABLE_VALUES:
                 val = getattr(req, name)
@@ -435,7 +435,7 @@ class ReqParmDialog(QDialog):
         self.setWindowTitle("Requirement Parameters")
         self.req = req
         self.parm = parm
-        parm_name = get_attr_ext_name(parm)
+        parm_name = get_attr_ext_name('HardwareProduct', parm)
         parm_label = QLabel(parm_name, self)
         parm_val = getattr(req, parm, 0.0)
         self.parm_field = FloatFieldWidget(parent=self, value=parm_val)
@@ -1042,7 +1042,7 @@ class SelectHWLibraryColsDialog(QDialog):
         hbox.addLayout(r_form)
         self.checkboxes = {}
         for i, col in enumerate(fields):
-            label = QLabel(get_attr_ext_name(col), self)
+            label = QLabel(get_attr_ext_name('HardwareProduct', col), self)
             col_def = schema['fields'][col]['definition']
             tt = f'<p><b>Definition:</b> {col_def}</p>'
             label.setToolTip(tt)
@@ -1133,7 +1133,7 @@ class CustomizeColsDialog(QDialog):
         for subform in subforms:
             hbox.addLayout(subform)
         for i, col_id in enumerate(selectables):
-            ext_name = get_attr_ext_name(col_id)
+            ext_name = get_attr_ext_name('HardwareProduct', col_id)
             label = QLabel(ext_name, self)
             col_def = de_defz.get(col_id) or parm_defz.get(col_id)
             if col_def:
