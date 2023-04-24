@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QStackedLayout, QVBoxLayout, QWidget)
 
 # pangalactic
-from pangalactic.core            import state
+from pangalactic.core            import prefs, state
 from pangalactic.core.names      import (display_id, get_external_name_plural,
                                          to_media_name)
 from pangalactic.core.uberorb    import orb
@@ -663,6 +663,11 @@ class LibraryDialog(QDialog):
             objs = orb.get_by_type(cname or self.cname)
             self.lib_view.set_source_model(
                             self.lib_view.create_model(objs))
+
+    def closeEvent(self, evt):
+        if self.lib_view.col_moved_view:
+            # ensure that final column moves are saved ...
+            prefs['hw_library_view'] = self.lib_view.col_moved_view[:]
 
 
 if __name__ == '__main__':

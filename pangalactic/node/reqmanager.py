@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import MAIN_VIEWS, STANDARD_VIEWS
+from pangalactic.core.names       import get_attr_ext_name, get_ext_name_attr
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
@@ -37,15 +38,11 @@ class RequirementManager(QDialog):
         project (Project):  sets a project context
         sized_cols (dict):  mapping of col names to widths
     """
-    def __init__(self, project=None, width=None, height=None, view=None,
-                 req=None, parent=None):
+    def __init__(self, project=None, width=None, height=None, parent=None):
         super().__init__(parent=parent)
-        default_view = prefs.get('req_mgr_view')
-        default_view = default_view or MAIN_VIEWS['Requirement']
-        self.view = view or default_view
-        prefs['req_mgr_view'] = self.view
+        view = prefs.get('req_mgr_view') or MAIN_VIEWS['Requirement']
+        self.view = view
         sized_cols = {'id': 0, 'name': 150}
-        self.req = req
         self.project = project
         self.rqts = orb.search_exact(cname='Requirement', owner=project)
         title_txt = 'Project Requirements for {}'.format(project.id)
@@ -82,7 +79,7 @@ class RequirementManager(QDialog):
         main_layout.addWidget(self.bbox)
         self.bbox.rejected.connect(self.reject)
         # NOTE: now using word wrap and PGEF_COL_WIDTHS
-        self.fpanel = FilterPanel(self.rqts, view=self.view,
+        self.fpanel = FilterPanel(self.rqts, view=view,
                                   sized_cols=sized_cols, word_wrap=True,
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -103,12 +100,12 @@ class RequirementManager(QDialog):
         self.resize(width, height)
 
     @property
-    def req(self):
-        return self._req
+    def view(self):
+        return prefs.get('req_mgr_view') or []
 
-    @req.setter
-    def req(self, r):
-        self._req = r
+    @view.setter
+    def view(self, v):
+        prefs['req_mgr_view'] = v
 
     def select_cols(self):
         """
@@ -116,26 +113,38 @@ class RequirementManager(QDialog):
         """
         orb.log.debug('* select_cols() ...')
         std_view = STANDARD_VIEWS['Requirement']
-        all_cols = std_view[:]
-        dlg = SelectColsDialog(all_cols, self.view, parent=self)
+        if self.fpanel.col_moved_view:
+            cur_view = self.fpanel.col_moved_view[:]
+            self.fpanel.col_moved_view = []
+            orb.log.debug(f'  current view (columns moved): {cur_view}')
+        elif self.fpanel.custom_view:
+            cur_view = self.fpanel.custom_view[:]
+            self.fpanel.custom_view[:] = []
+        else:
+            cur_view = self.fpanel.proxy_model.view[:]
+            orb.log.debug(f'  current view (self.view): {cur_view}')
+        all_cols = [get_attr_ext_name('Requirement', a) for a in std_view]
+        cur_cols = [get_attr_ext_name('Requirement', a) for a in cur_view]
+        dlg = SelectColsDialog(all_cols, cur_cols, parent=self)
         if dlg.exec_() == QDialog.Accepted:
             # rebuild custom view from the selected columns
-            old_view = self.view[:]
-            new_view = []
-            # add any columns from old_view first
-            for col in old_view:
+            new_cols = []
+            # add any columns from cur_view first
+            for col in cur_cols:
                 if col in dlg.checkboxes and dlg.checkboxes[col].isChecked():
-                    new_view.append(col)
+                    new_cols.append(col)
                     all_cols.remove(col)
             # then append any newly selected columns
             for col in all_cols:
                 if dlg.checkboxes[col].isChecked():
-                    new_view.append(col)
-            orb.log.debug('  new view: {}'.format(new_view))
-            prefs['req_mgr_view'] = new_view[:]
-            self.view = new_view[:]
-            orb.log.debug('  self.view: {}'.format(str(self.view)))
-            self.fpanel.set_view(self.view)
+                    new_cols.append(col)
+            orb.log.debug(f'  new columns: {new_cols}')
+            v = [get_ext_name_attr('Requirement', c) for c in new_cols]
+            orb.log.debug(f'  new view: {v}')
+            self.view = v[:]
+            self.fpanel.custom_view = v[:]
+            self.fpanel.proxy_model.view = v[:]
+            self.fpanel.view = v[:]
             self.fpanel.refresh()
 
     def export_tsv(self):
@@ -376,7 +385,7 @@ class RequirementManager(QDialog):
         if getattr(self, 'tree_layout', None):
             self.tree_layout.removeItem(self.tree_layout)
         self.sys_tree = SystemTreeView(self.project, refdes=True,
-                                       show_allocs=True, req=self.req)
+                                       show_allocs=True)
         self.sys_tree.collapseAll()
         self.sys_tree.expandToDepth(1)
         self.sys_tree.clicked.connect(self.on_select_node)
@@ -444,4 +453,9 @@ class RequirementManager(QDialog):
                     dispatcher.send(signal='show alloc acu', acu=acu)
             else:
                 orb.log.debug('  req with oid "{}" not found.'.format(oid))
+
+    def closeEvent(self, event):
+        if self.fpanel.col_moved_view:
+            # ensure that final column moves are saved ...
+            prefs['req_mgr_view'] = self.fpanel.col_moved_view[:]
 

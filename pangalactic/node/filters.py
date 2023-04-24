@@ -230,13 +230,32 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
     reqpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)(\.[0-9][0-9]*)*'
 
-    def __init__(self, view=None, cname=None, headers_are_ids=False, parent=None):
+    def __init__(self, cname=None, headers_are_ids=False, parent=None):
         super().__init__(parent=parent)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
-        self.view = view or []
         self.cname = cname
         self.headers_are_ids = headers_are_ids
         self.schema = orb.schemas[self.cname]
+
+    @property
+    def view(self):
+        if self.cname == 'HardwareProduct':
+            return prefs.get('hw_library_view') or []
+        elif self.cname == 'Requirement':
+            return prefs.get('req_mgr_view') or []
+        else:
+            return prefs.get('views', {}).get(self.cname) or []
+
+    @view.setter
+    def view(self, v):
+        if self.cname == 'HardwareProduct':
+            prefs['hw_library_view'] = v
+        elif self.cname == 'Requirement':
+            prefs['req_mgr_view'] = v
+        else:
+            if not prefs.get('views'):
+                prefs['views'] = {}
+            prefs['views'][self.cname] = v
 
     @property
     def ncols(self):
@@ -562,9 +581,11 @@ class FilterPanel(QWidget):
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
-        # orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
+        orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
         self.as_library = as_library
         self.sized_cols = sized_cols
+        self.col_moved_view = []
+        self.custom_view = []
         self.word_wrap = word_wrap
         self.headers_are_ids = headers_are_ids
         self.excluded_oids = excluded_oids or []
@@ -599,18 +620,14 @@ class FilterPanel(QWidget):
                          if ((a in self.schema['field_names']) or
                              (a in parm_defz) or
                              (a in de_defz))]
-            if self.cname == 'HardwareProduct':
-                prefs['hw_library_view'] = self.view
         else:
             if self.cname == 'HardwareProduct':
-                if prefs.get('hw_library_view'):
-                    # orb.log.debug('    using prefs["hw_library_view"]')
-                    self.view = prefs['hw_library_view'][:]
+                if as_library:
+                    view = view or prefs.get('hw_library_view')
+                    self.view = view or ['id', 'name', 'product_type']
                 else:
-                    # default HW Product Lib view (don't need to include
-                    # description because it is in the tooltip)
-                    self.view = ['id', 'name', 'product_type']
-                    prefs['hw_library_view'] = self.view
+                    view = view or prefs.get('hw_db_view')
+                    self.view = view or MAIN_VIEWS.get('HardwareProduct')
             else:
                 # orb.log.debug('    using default class view')
                 self.view = MAIN_VIEWS.get(self.cname,
@@ -683,6 +700,27 @@ class FilterPanel(QWidget):
         self.setup_context_menu()
         self.dirty = False
 
+    @property
+    def view(self):
+        if self.cname == 'HardwareProduct':
+            return prefs.get('hw_library_view') or ['id', 'name',
+                                                    'product_type']
+        elif self.cname == 'Requirement':
+            return prefs.get('req_mgr_view') or []
+        else:
+            return prefs.get('views', {}).get(self.cname) or []
+
+    @view.setter
+    def view(self, v):
+        if self.cname == 'HardwareProduct':
+            prefs['hw_library_view'] = v
+        elif self.cname == 'Requirement':
+            prefs['req_mgr_view'] = v
+        else:
+            if not prefs.get('views'):
+                prefs['views'] = {}
+            prefs['views'][self.cname] = v
+
     def build_proxy_view(self, objs=None):
         if getattr(self, 'proxy_view', None):
             self.proxy_layout.removeWidget(self.proxy_view)
@@ -693,7 +731,6 @@ class FilterPanel(QWidget):
         if getattr(self, 'proxy_model', None):
             self.proxy_model = None
         self.proxy_model = ObjectSortFilterProxyModel(
-                                        view=self.view,
                                         cname=self.cname,
                                         headers_are_ids=self.headers_are_ids,
                                         parent=self)
@@ -780,7 +817,11 @@ class FilterPanel(QWidget):
         parms.sort(key=lambda x: x.lower())
         dlg = SelectHWLibraryColsDialog(parms, self.view, parent=self)
         if dlg.exec_() == QDialog.Accepted:
-            old_view = self.proxy_model.view[:]
+            if self.col_moved_view:
+                old_view = self.col_moved_view[:]
+                self.col_moved_view = []
+            else:
+                old_view = self.proxy_model.view[:]
             new_view = []
             # add any columns from old_view first
             for col in old_view:
@@ -791,19 +832,10 @@ class FilterPanel(QWidget):
                 if col not in new_view and dlg.checkboxes[col].isChecked():
                     new_view.append(col)
             prefs['hw_library_view'] = new_view[:]
-            self.set_view(new_view[:])
+            self.view = new_view
+            self.custom_view = new_view[:]
             # orb.log.debug(f'* new HW Library view: {new_view}')
             self.refresh()
-
-    def set_view(self, view):
-        """
-        Set a new view.
-
-        Args:
-            view (iterable):  view to be set.
-        """
-        self.view = view
-        self.proxy_model.view = view
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
@@ -812,30 +844,26 @@ class FilterPanel(QWidget):
 
     def on_column_moved(self, logical_index, old_index, new_index):
         orb.log.debug('* FilterPanel.on_column_moved():')
-        # orb.log.debug(f'  old index: {old_index}')
-        # orb.log.debug(f'  new index: {new_index}')
-        if self.cname == 'HardwareProduct':
-            # orb.log.debug('  self.cname == "HardwareProduct"')
-            new_view = prefs['hw_library_view']
-            # orb.log.debug(f'* HW Library view: {new_view}')
-        elif self.cname == 'Requirement':
-            # orb.log.debug('  cname == "Requirement" ...')
-            new_view = prefs['req_mgr_view']
+        orb.log.debug(f'  old index: {old_index}')
+        orb.log.debug(f'  new index: {new_index}')
+        if self.col_moved_view:
+            new_view = self.col_moved_view
+        elif self.custom_view:
+            new_view = self.custom_view[:]
+            self.custom_view = []
         else:
-            new_view = self.view
+            new_view = self.proxy_model.view[:]
+        orb.log.debug(f'* current view: {new_view}')
         if 0 <= old_index < len(self.view):
             item = new_view.pop(old_index)
             new_view.insert(new_index, item)
-            # orb.log.debug(f'  modified view is: {new_view}')
-            if not prefs.get('views'):
-                prefs['views'] = {}
-            prefs['views'][self.cname] = new_view[:]
+            orb.log.debug(f'  modified view is: {new_view}')
             if self.as_library and self.cname == 'HardwareProduct':
                 # orb.log.debug(f'* new HW Library view: {new_view}')
-                prefs['hw_library_view'] = new_view[:]
+                orb.log.debug(f'* new hw lib view: {new_view}')
             elif self.cname == 'Requirement':
                 orb.log.debug(f'* new req mgr view: {new_view}')
-                prefs['req_mgr_view'] = new_view[:]
+            self.col_moved_view = new_view
         else:
             # orb.log.debug('  - could not move: old col out of range.')
             pass

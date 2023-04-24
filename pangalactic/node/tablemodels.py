@@ -244,35 +244,35 @@ class ObjectTableModel(MappingTableModel):
             # orb.log.debug("  ... as library ...")
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
         # orb.log.debug("  ... with {} objects.".format(len(objs)))
-        self.view = view or ['']
+        view = view or ['']
         self.cname = ''
         if self.objs:
             self.cname = objs[0].__class__.__name__
             self.schema = orb.schemas.get(self.cname) or {}
-            if self.schema and self.view:
+            if self.schema and view:
                 # sanity-check view
-                self.view = [a for a in self.view if
+                view = [a for a in view if
                              (a in self.schema['field_names']
                               or a in parm_defz
                               or a in de_defz)]
-            if not self.view:
-                self.view = MAIN_VIEWS.get(self.cname,
+            if not view:
+                view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
             if with_none:
                 null_obj = NullObject()
-                for name in self.view:
+                for name in view:
                     val = ''
                     if name == 'id':
                         val = 'None'
                     setattr(null_obj, name, val)
                 self.objs.insert(0, null_obj)
-            ds = [obj_view_to_dict(o, self.view) for o in self.objs]
+            ds = [obj_view_to_dict(o, view) for o in self.objs]
         else:
             ds = [{0:'no data'}]
-            self.view = ['id']
+            view = ['id']
             if with_none:
                 null_obj = NullObject()
-                for name in self.view:
+                for name in view:
                     val = ''
                     if name == 'id':
                         val = 'None'
@@ -283,6 +283,28 @@ class ObjectTableModel(MappingTableModel):
                 ds = [d]
         super().__init__(ds, as_library=as_library, icons=icons,
                          parent=parent, **kwargs)
+        self.view = view
+
+    @property
+    def view(self):
+        if self.cname == 'HardwareProduct':
+            return prefs.get('hw_library_view') or ['id', 'name',
+                                                    'product_type']
+        elif self.cname == 'Requirement':
+            return prefs.get('req_mgr_view') or []
+        else:
+            return prefs.get('views', {}).get(self.cname) or []
+
+    @view.setter
+    def view(self, v):
+        if self.cname == 'HardwareProduct':
+            prefs['hw_library_view'] = v
+        elif self.cname == 'Requirement':
+            prefs['req_mgr_view'] = v
+        else:
+            if not prefs.get('views'):
+                prefs['views'] = {}
+            prefs['views'][self.cname] = v
 
     @property
     def col_labels(self):

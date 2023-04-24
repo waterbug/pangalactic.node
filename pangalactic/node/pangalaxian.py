@@ -5822,6 +5822,11 @@ class Main(QMainWindow):
         state['mode'] = str(self.mode)
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
+        if getattr(self, lib_widget, None):
+            # ensure that final col moves in hw lib are saved
+            hw_lib = lib_widget.libraries.get('HardwareProduct')
+            if hw_lib and hw_lib.col_moved_view:
+                prefs['hw_library_view'] = hw_lib.col_moved_view
         self.statusbar.showMessage('* saving data elements and parameters...')
         # NOTE: save_caches saves the cache files *and* creates backup copies
         orb.save_caches()
