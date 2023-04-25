@@ -702,9 +702,11 @@ class FilterPanel(QWidget):
 
     @property
     def view(self):
-        if self.cname == 'HardwareProduct':
+        if self.cname == 'HardwareProduct' and self.as_library:
             return prefs.get('hw_library_view') or ['id', 'name',
                                                     'product_type']
+        elif self.cname == 'HardwareProduct':
+            return prefs.get('hw_db_view') or ['id', 'name', 'product_type']
         elif self.cname == 'Requirement':
             return prefs.get('req_mgr_view') or []
         else:
@@ -712,8 +714,10 @@ class FilterPanel(QWidget):
 
     @view.setter
     def view(self, v):
-        if self.cname == 'HardwareProduct':
+        if self.cname == 'HardwareProduct' and self.as_library:
             prefs['hw_library_view'] = v
+        elif self.cname == 'HardwareProduct':
+            prefs['hw_db_view'] = v
         elif self.cname == 'Requirement':
             prefs['req_mgr_view'] = v
         else:

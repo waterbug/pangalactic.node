@@ -241,6 +241,7 @@ class ObjectTableModel(MappingTableModel):
         self.oids = [o.oid for o in objs]
         icons = []
         if as_library:
+            self.as_library = True
             # orb.log.debug("  ... as library ...")
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
         # orb.log.debug("  ... with {} objects.".format(len(objs)))
@@ -256,7 +257,18 @@ class ObjectTableModel(MappingTableModel):
                               or a in parm_defz
                               or a in de_defz)]
             if not view:
-                view = MAIN_VIEWS.get(self.cname,
+                if self.cname == 'HardwareProduct':
+                    if as_library:
+                        view = prefs.get('hw_library_view') or ['id', 'name',
+                                                                'product_type']
+                    else:
+                        view = prefs.get('hw_db_view') or MAIN_VIEWS.get(
+                                'HardwareProduct',
+                                ['id', 'name', 'product_type', 'description'])
+                elif self.cname == 'Requirement':
+                    view = prefs.get('req_mgr_view') or []
+                else:
+                    view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
             if with_none:
                 null_obj = NullObject()
@@ -283,22 +295,27 @@ class ObjectTableModel(MappingTableModel):
                 ds = [d]
         super().__init__(ds, as_library=as_library, icons=icons,
                          parent=parent, **kwargs)
-        self.view = view
+        self.view = view[:]
 
     @property
     def view(self):
-        if self.cname == 'HardwareProduct':
+        if self.cname == 'HardwareProduct' and self.as_library:
             return prefs.get('hw_library_view') or ['id', 'name',
                                                     'product_type']
+        elif self.cname == 'HardwareProduct':
+            return prefs.get('hw_db_view') or ['id', 'name', 'product_type']
         elif self.cname == 'Requirement':
-            return prefs.get('req_mgr_view') or []
+            return prefs.get('req_mgr_view') or ['id', 'name', 'description']
         else:
-            return prefs.get('views', {}).get(self.cname) or []
+            return prefs.get('views', {}).get(self.cname) or ['id', 'name',
+                                                              'description']
 
     @view.setter
     def view(self, v):
-        if self.cname == 'HardwareProduct':
+        if self.cname == 'HardwareProduct' and self.as_library:
             prefs['hw_library_view'] = v
+        elif self.cname == 'HardwareProduct':
+            prefs['hw_db_view'] = v
         elif self.cname == 'Requirement':
             prefs['req_mgr_view'] = v
         else:

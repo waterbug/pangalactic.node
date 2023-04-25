@@ -9,6 +9,8 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QLabel, QListView, QScrollArea, QSizePolicy,
                              QStackedLayout, QVBoxLayout, QWidget)
 
+from louie import dispatcher
+
 # pangalactic
 from pangalactic.core            import prefs, state
 from pangalactic.core.names      import (display_id, get_external_name_plural,
@@ -354,6 +356,8 @@ class CompoundLibraryWidget(QWidget):
         if min_width:
             self.setMinimumWidth(min_width)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        dispatcher.connect(self.on_hw_lib_dlg_closed,
+                           'hw library dialog closed')
 
     def create_lib_widget(self, cname, include_subtypes=True, icon_size=None,
                           min_width=None):
@@ -485,6 +489,9 @@ class CompoundLibraryWidget(QWidget):
             # call on_only_mine_toggled() to ensure filtering is consistent
             # with state after a refresh
             self.on_only_mine_toggled()
+
+    def on_hw_lib_dlg_closed(self):
+        self.refresh(cname='HardwareProduct')
 
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
@@ -668,6 +675,8 @@ class LibraryDialog(QDialog):
         if self.lib_view.col_moved_view:
             # ensure that final column moves are saved ...
             prefs['hw_library_view'] = self.lib_view.col_moved_view[:]
+        if self.cname == 'HardwareProduct':
+            dispatcher.send('hw library dialog closed')
 
 
 if __name__ == '__main__':

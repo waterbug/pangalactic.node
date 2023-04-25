@@ -5822,9 +5822,9 @@ class Main(QMainWindow):
         state['mode'] = str(self.mode)
         state['width'] = self.geometry().width()
         state['height'] = self.geometry().height()
-        if getattr(self, lib_widget, None):
+        if getattr(self, 'library_widget', None):
             # ensure that final col moves in hw lib are saved
-            hw_lib = lib_widget.libraries.get('HardwareProduct')
+            hw_lib = self.library_widget.libraries.get('HardwareProduct')
             if hw_lib and hw_lib.col_moved_view:
                 prefs['hw_library_view'] = hw_lib.col_moved_view
         self.statusbar.showMessage('* saving data elements and parameters...')
