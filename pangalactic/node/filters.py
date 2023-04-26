@@ -581,7 +581,7 @@ class FilterPanel(QWidget):
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
-        orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
+        # orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
         self.as_library = as_library
         self.sized_cols = sized_cols
         self.col_moved_view = []
@@ -847,26 +847,23 @@ class FilterPanel(QWidget):
         self.set_source_model(self.create_model(self.objs))
 
     def on_column_moved(self, logical_index, old_index, new_index):
-        orb.log.debug('* FilterPanel.on_column_moved():')
-        orb.log.debug(f'  old index: {old_index}')
-        orb.log.debug(f'  new index: {new_index}')
+        # orb.log.debug('* FilterPanel.on_column_moved():')
+        # orb.log.debug(f'  old index: {old_index}')
+        # orb.log.debug(f'  new index: {new_index}')
         if self.col_moved_view:
             new_view = self.col_moved_view
-        elif self.custom_view:
-            new_view = self.custom_view[:]
-            self.custom_view = []
         else:
             new_view = self.proxy_model.view[:]
-        orb.log.debug(f'* current view: {new_view}')
+        # orb.log.debug(f'* current view: {new_view}')
         if 0 <= old_index < len(self.view):
             item = new_view.pop(old_index)
             new_view.insert(new_index, item)
-            orb.log.debug(f'  modified view is: {new_view}')
-            if self.as_library and self.cname == 'HardwareProduct':
+            # orb.log.debug(f'  modified view is: {new_view}')
+            # if self.as_library and self.cname == 'HardwareProduct':
                 # orb.log.debug(f'* new HW Library view: {new_view}')
-                orb.log.debug(f'* new hw lib view: {new_view}')
-            elif self.cname == 'Requirement':
-                orb.log.debug(f'* new req mgr view: {new_view}')
+                # orb.log.debug(f'* new hw lib view: {new_view}')
+            # elif self.cname == 'Requirement':
+                # orb.log.debug(f'* new req mgr view: {new_view}')
             self.col_moved_view = new_view
         else:
             # orb.log.debug('  - could not move: old col out of range.')

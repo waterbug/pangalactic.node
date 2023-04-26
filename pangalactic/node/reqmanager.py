@@ -79,7 +79,7 @@ class RequirementManager(QDialog):
         main_layout.addWidget(self.bbox)
         self.bbox.rejected.connect(self.reject)
         # NOTE: now using word wrap and PGEF_COL_WIDTHS
-        self.fpanel = FilterPanel(self.rqts, view=view,
+        self.fpanel = FilterPanel(self.rqts, view=view, cname='Requirement',
                                   sized_cols=sized_cols, word_wrap=True,
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -116,13 +116,13 @@ class RequirementManager(QDialog):
         if self.fpanel.col_moved_view:
             cur_view = self.fpanel.col_moved_view[:]
             self.fpanel.col_moved_view = []
-            orb.log.debug(f'  current view (columns moved): {cur_view}')
+            # orb.log.debug(f'  current view (columns moved): {cur_view}')
         elif self.fpanel.custom_view:
             cur_view = self.fpanel.custom_view[:]
             self.fpanel.custom_view[:] = []
         else:
             cur_view = self.fpanel.proxy_model.view[:]
-            orb.log.debug(f'  current view (self.view): {cur_view}')
+            # orb.log.debug(f'  current view (self.view): {cur_view}')
         all_cols = [get_attr_ext_name('Requirement', a) for a in std_view]
         cur_cols = [get_attr_ext_name('Requirement', a) for a in cur_view]
         dlg = SelectColsDialog(all_cols, cur_cols, parent=self)
@@ -138,9 +138,9 @@ class RequirementManager(QDialog):
             for col in all_cols:
                 if dlg.checkboxes[col].isChecked():
                     new_cols.append(col)
-            orb.log.debug(f'  new columns: {new_cols}')
+            # orb.log.debug(f'  new columns: {new_cols}')
             v = [get_ext_name_attr('Requirement', c) for c in new_cols]
-            orb.log.debug(f'  new view: {v}')
+            # orb.log.debug(f'  new view: {v}')
             self.view = v[:]
             self.fpanel.custom_view = v[:]
             self.fpanel.proxy_model.view = v[:]
