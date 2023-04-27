@@ -264,14 +264,9 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     @property
     def col_labels(self):
-        # orb.log.debug(f'* col_labels for view {self.view}')
-        # orb.log.debug(f'  with cname "{self.cname}"')
-        # orb.log.debug(f'  and headers_are_ids "{self.headers_are_ids}"')
-        labels = [pname_to_header(a, self.cname,
-                                  headers_are_ids=self.headers_are_ids)
+        return [pname_to_header(a, self.cname,
+                                headers_are_ids=self.headers_are_ids)
                   for a in self.view]
-        orb.log.debug(f'  {labels}')
-        return labels
 
     @property
     def col_defs(self):
