@@ -10,16 +10,12 @@ from PyQt5.QtCore import (Qt, QAbstractTableModel, QMimeData, QModelIndex,
 from PyQt5.QtGui import QIcon, QPixmap
 
 # pangalactic
-from pangalactic.core                 import prefs, state
-from pangalactic.core.meta            import MAIN_VIEWS, TEXT_PROPERTIES
-from pangalactic.core.names           import pname_to_header, to_media_name
-from pangalactic.core.parametrics     import (de_defz, get_dval_as_str,
-                                              get_pval_as_str, parm_defz)
-from pangalactic.core.uberorb         import orb
-from pangalactic.core.units           import in_si
-from pangalactic.core.utils.datetimes import dt2local_tz_str
-# from pangalactic.core.test.utils import create_test_users, create_test_project
-from pangalactic.node.utils           import get_pixmap
+from pangalactic.core             import prefs, state
+from pangalactic.core.meta        import MAIN_VIEWS
+from pangalactic.core.names       import pname_to_header, to_media_name
+from pangalactic.core.parametrics import de_defz, get_pval_as_str, parm_defz
+from pangalactic.core.uberorb     import orb
+from pangalactic.node.utils       import get_pixmap
 
 
 test_mappings = [dict([('spam','00'), ('eggs','01'), ('more spam','02')]),
@@ -174,46 +170,6 @@ class NullObject(object):
         self.description = ''
 
 
-def obj_view_to_dict(obj, view):
-    d = {}
-    schema = orb.schemas.get(obj.__class__.__name__)
-    if not schema:
-        # this will only be the case for a NullObject, which is only used for
-        # ObjectSelectionDialog as a "None" choice, so the only fields needed
-        # are id, name, description
-        return {'id': 'None',
-                'name': '',
-                'description': ''}
-    for a in view:
-        if a in schema['field_names']:
-            if a == 'id':
-                d[a] = obj.id
-            elif a in TEXT_PROPERTIES:
-                d[a] = (getattr(obj, a) or ' ').replace('\n', ' ')
-            elif schema['fields'][a]['range'] == 'datetime':
-                d[a] = dt2local_tz_str(getattr(obj, a))
-            elif schema['fields'][a]['field_type'] == 'object':
-                rel_obj = getattr(obj, a)
-                if rel_obj.__class__.__name__ == 'ProductType':
-                    d[a] = rel_obj.abbreviation or ''
-                elif rel_obj.__class__.__name__ in ['HardwareProduct',
-                                                    'Organization',
-                                                    'Person', 'Project']:
-                    d[a] = rel_obj.id or rel_obj.name or '[unnamed]'
-                else:
-                    d[a] = getattr(rel_obj, 'name', None) or '[unnamed]'
-            else:
-                d[a] = str(getattr(obj, a))
-        elif a in parm_defz:
-            pd = parm_defz.get(a)
-            units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
-                                                    pd['dimensions'], '')
-            d[a] = get_pval_as_str(obj.oid, a, units=units)
-        elif a in de_defz:
-            d[a] = get_dval_as_str(obj.oid, a)
-    return d
-
-
 class ObjectTableModel(MappingTableModel):
     """
     A MappingTableModel subclass based on a list of objects.
@@ -278,7 +234,7 @@ class ObjectTableModel(MappingTableModel):
                         val = 'None'
                     setattr(null_obj, name, val)
                 self.objs.insert(0, null_obj)
-            ds = [obj_view_to_dict(o, view) for o in self.objs]
+            ds = [orb.obj_view_to_dict(o, view) for o in self.objs]
         else:
             ds = [{0:'no data'}]
             view = ['id']
@@ -349,7 +305,7 @@ class ObjectTableModel(MappingTableModel):
         """
         try:
             # apply MappingTableModel.setData, which takes a dict as value
-            super().setData(index, obj_view_to_dict(obj, self.view))
+            super().setData(index, orb.obj_view_to_dict(obj, self.view))
             # this 'dataChanged' should not be necessary, since 'dataChanged is
             # emitted by the 'setData' we just called
             # super().dataChanged.emit(index, index)
@@ -605,9 +561,3 @@ class SpecialSortModel(QSortFilterProxyModel):
             return QSortFilterProxyModel.lessThan(self, left, right)
 
 
-# if __name__ == "__main__":
-    # import sys
-    # if len(sys.argv) < 2:
-        # print "*** you must provide a home directory path ***"
-        # sys.exit()
-    # main(sys.argv[1])
