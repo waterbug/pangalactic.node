@@ -12,7 +12,8 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import MAIN_VIEWS, STANDARD_VIEWS
-from pangalactic.core.names       import get_attr_ext_name, get_ext_name_attr
+from pangalactic.core.names       import (get_attr_ext_name, get_ext_name_attr,
+                                          pname_to_header)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
@@ -167,12 +168,15 @@ class RequirementManager(QDialog):
             f = open(fpath, 'w')
             state['req_tsv_last_path'] = os.path.dirname(fpath)
             orb.log.debug(f'  - cols: "{self.view}"')
-            data = ''
+            data = []
+            headers = '\t'.join([pname_to_header(a, 'Requirement')
+                                 for a in self.view])
+            data.append(headers)
             for rqt in self.rqts:
-                data = '\n'.join('\t'.join(str(getattr(rqt, a))
-                                           for a in self.view)
-                                 for rqt in self.rqts)
-            f.write(data)
+                d = orb.obj_view_to_dict(rqt, self.view)
+                data.append('\t'.join([d.get(a) or '' for a in self.view]))
+            output = '\n'.join(data)
+            f.write(output)
             f.close()
             html = '<h3>Success!</h3>'
             msg = 'Requirements exported to file:'
