@@ -976,6 +976,7 @@ class SelectColsDialog(QDialog):
         self.setWindowTitle("Select Columns")
         if len(columns) < 25:
             form = QFormLayout(self)
+            self.setMinimumWidth(150)
         elif len(columns) >= 25:
             # create another form layout for the right side
             form = QFormLayout()
@@ -983,6 +984,7 @@ class SelectColsDialog(QDialog):
             hbox = QHBoxLayout(self)
             hbox.addLayout(form)
             hbox.addLayout(r_form)
+            self.setMinimumWidth(350)
         # else:
             # Hm, should we do more wrapping in case > 50 columns?
         self.checkboxes = {}
