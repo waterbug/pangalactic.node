@@ -401,20 +401,19 @@ class DataHeaderPage(QtWidgets.QWizardPage):
             return False
 
 
-# TODO:  add "domain" to DataElementDefinition
-def get_dedef(property_name):
+def get_prop_def(property_name):
     e = orb.registry.pes.get(property_name)
     if e:
         PGANA = orb.get('pgefobjects:PGANA')
-        dedef_oid = e['oid'] + '.DataElementDefinition'
+        dedef_oid = e['oid'] + '.PropertyDefinition'
         dedef = orb.get(dedef_oid)
         if not dedef:
-            DEDef = orb.classes['DataElementDefinition']
-            dedef = DEDef(oid=dedef_oid, id=e['id'], id_ns=e['id_ns'],
-                          name=e['name'], owner=PGANA,
-                          description=e['definition'],
-                          range_datatype=e['range'])
-        return dedef
+            PropDef = orb.classes['PropertyDefinition']
+            prop_def = PropDef(oid=dedef_oid, id=e['id'], id_ns=e['id_ns'],
+                               name=e['name'], owner=PGANA,
+                               description=e['definition'],
+                               range_datatype=e['range'])
+        return prop_def
     else:
         return None
 
@@ -452,6 +451,7 @@ class PropertyDropLabel(ColorLabel):
         self.setStyleSheet('background-color: white')
         self.setAcceptDrops(True)
         self.mime_types = ['application/x-pgef-data-element-definition',
+                           'application/x-pgef-property-definition',
                            'application/x-pgef-parameter-definition']
         self.idx = idx
         self.dedef = None
@@ -501,11 +501,13 @@ class PropertyDropLabel(ColorLabel):
         return Qt.CopyAction
 
     def dragEnterEvent(self, event):
-        # orb.log.debug(f'* a drag entered label {self.idx} ...')
+        orb.log.debug(f'* a drag entered label {self.idx} ...')
         if (event.mimeData().hasFormat(
                 'application/x-pgef-data-element-definition')
                 or event.mimeData().hasFormat(
-                'application/x-pgef-parameter-definition')):
+                'application/x-pgef-parameter-definition')
+                or event.mimeData().hasFormat(
+                'application/x-pgef-property-definition')):
             self.setStyleSheet('background-color: yellow')
             event.accept()
         else:
@@ -520,7 +522,10 @@ class PropertyDropLabel(ColorLabel):
         if (event.mimeData().hasFormat(
                 'application/x-pgef-data-element-definition')
                 or event.mimeData().hasFormat(
-                'application/x-pgef-parameter-definition')):
+                'application/x-pgef-parameter-definition')
+                or event.mimeData().hasFormat(
+                'application/x-pgef-property-definition')):
+            self.setStyleSheet('background-color: yellow')
             event.setDropAction(Qt.CopyAction)
             event.accept()
         else:
@@ -553,6 +558,17 @@ class PropertyDropLabel(ColorLabel):
                                 'application/x-pgef-parameter-definition'):
             data = extract_mime_data(event,
                                 'application/x-pgef-parameter-definition')
+            icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
+            self.dedef = orb.get(dedef_oid)
+            self.set_content(dedef_id)
+            self.setStyleSheet('background-color: yellow')
+            self.adjustSize()
+            dispatcher.send(signal='dedef drop', dedef_id=dedef_id,
+                            idx=self.idx)
+        elif event.mimeData().hasFormat(
+                                'application/x-pgef-property-definition'):
+            data = extract_mime_data(event,
+                                'application/x-pgef-property-definition')
             icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
             self.dedef = orb.get(dedef_oid)
             self.set_content(dedef_id)
@@ -702,10 +718,10 @@ class MappingPage(QtWidgets.QWizardPage):
         self.hbox.addLayout(self.attr_vbox)
         objs = []
         for fname in orb.schemas[self.object_type]['field_names']:
-            # exclude object properties
+            # exclude object-valued properties for now ...
             if (orb.schemas[self.object_type]['fields'][fname]['range']
                 not in orb.classes):
-                objs.append(get_dedef(fname))
+                objs.append(get_prop_def(fname))
         if self.object_type == 'HardwareProduct':
             # for HardwareProducts, can map columns to parameters and MEL data
             # elements
@@ -804,11 +820,19 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
         self.objs = []
         project_oid = state.get('project')
         self.project = None
+        obj_type = data_wizard_state['object_type']
         if project_oid:
             self.project = orb.get(project_oid)
-            self.title_txt = f'New Project Requirements for {self.project.id}'
+            proj_id = self.project.id
+            if obj_type == 'Requirement':
+                self.title_txt = f'New Project Requirements for {proj_id}'
+            elif obj_type == 'HardwareProduct':
+                self.title_txt = f'New Hardware owned by {proj_id}'
         else:
-            self.title_txt = 'New Requirements'
+            if obj_type == 'Requirement':
+                self.title_txt = 'New Requirements'
+            elif obj_type == 'HardwareProduct':
+                self.title_txt = 'New Hardware Products'
         self.setTitle(self.title_txt)
 
     def initializePage(self):

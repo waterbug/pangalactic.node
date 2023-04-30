@@ -227,7 +227,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     """
     versionpat = r'[0-9][0-9]*(\.[0-9][0-9]*)*'
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
-    reqpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)(\.[0-9][0-9]*)*'
+    reqpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)*(\.[0-9][0-9]*)+'
 
     def __init__(self, cname=None, headers_are_ids=False, parent=None):
         super().__init__(parent=parent)
@@ -266,7 +266,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     def col_labels(self):
         return [pname_to_header(a, self.cname,
                                 headers_are_ids=self.headers_are_ids)
-                  for a in self.view]
+                for a in self.view]
 
     @property
     def col_defs(self):

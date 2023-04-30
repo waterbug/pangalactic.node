@@ -11,9 +11,9 @@ from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
 
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
-from pangalactic.core.meta        import MAIN_VIEWS, STANDARD_VIEWS
+from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import (get_attr_ext_name, get_ext_name_attr,
-                                          pname_to_header)
+                                          pname_to_header, STANDARD_VIEWS)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
@@ -439,11 +439,11 @@ class RequirementManager(QDialog):
         self.sys_tree.req = r
 
     def on_select_req(self):
-        orb.log.debug('* RequirementManager: on_select_req() ...')
+        # orb.log.debug('* RequirementManager: on_select_req() ...')
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('  selected row: {}'.format(i))
+            # orb.log.debug('  selected row: {}'.format(i))
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
                           'oid', '')
             req = orb.get(oid)
