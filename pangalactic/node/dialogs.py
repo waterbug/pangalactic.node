@@ -45,11 +45,11 @@ from pangalactic.node.buttons     import SizedButton, UrlButton, FkButton
 from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
 from pangalactic.node.utils       import clone
-from pangalactic.node.widgets     import UnitsWidget
-from pangalactic.node.widgets     import (FloatFieldWidget, HLine,
+from pangalactic.node.widgets     import (get_widget, FloatFieldWidget, HLine,
                                           IntegerFieldWidget, LogWidget,
                                           StringFieldWidget,
-                                          StringSelectWidget, TextFieldWidget)
+                                          StringSelectWidget, TextFieldWidget,
+                                          UnitsWidget)
 
 COLORS = {True: 'green', False: 'red'}
 
@@ -333,13 +333,18 @@ class HWFieldsDialog(QDialog):
 class ReqFieldsDialog(QDialog):
     """
     A dialog to edit fields of a requirement.
+
+    Args:
+        req (Requirement): the req whose fields are to be edited
+        names (list of str): the names of the fields to be edited
+
+    Keyword Args:
+        parent (QWidget): parent widget of the dialog
     """
-    def __init__(self, req, parent=None):
+    def __init__(self, req, names, parent=None):
         super().__init__(parent)
         self.req = req
         self.setWindowTitle(f"Requirement {req.id}")
-        names = ['name', 'abbreviation', 'req_compliance', 'rationale',
-                 'justification', 'comment']
         if req.req_type == 'functional':
             names.insert(1, 'description')
         vbox = QVBoxLayout(self)
@@ -366,8 +371,10 @@ class ReqFieldsDialog(QDialog):
                 widget.field_name = name
                 widget.clicked.connect(self.on_select_related)
             else:
-                val = getattr(req, name) or ''
-                widget = StringFieldWidget(parent=self, value=val)
+                val = getattr(req, name)
+                field_type = schema['fields'][name]['field_type']
+                # ignoring returned label (autolabel) ...
+                widget, autolabel = get_widget(name, field_type, value=val)
             label = QLabel(ename, self)
             self.fields[name] = widget
             self.form.addRow(label, widget)
