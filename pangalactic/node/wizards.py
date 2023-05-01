@@ -402,14 +402,16 @@ class DataHeaderPage(QtWidgets.QWizardPage):
 
 
 def get_prop_def(property_name):
+    orb.log.debug(f'* wizard: get_prop_def("{property_name}")')
     e = orb.registry.pes.get(property_name)
     if e:
         PGANA = orb.get('pgefobjects:PGANA')
-        dedef_oid = e['oid'] + '.PropertyDefinition'
-        dedef = orb.get(dedef_oid)
-        if not dedef:
+        prop_def_oid = e['oid'] + '.PropertyDefinition'
+        prop_def = orb.get(prop_def_oid)
+        if not prop_def:
+            orb.log.debug('  prop def not found, creating ...')
             PropDef = orb.classes['PropertyDefinition']
-            prop_def = PropDef(oid=dedef_oid, id=e['id'], id_ns=e['id_ns'],
+            prop_def = PropDef(oid=prop_def_oid, id=e['id'], id_ns=e['id_ns'],
                                name=e['name'], owner=PGANA,
                                description=e['definition'],
                                range_datatype=e['range'])

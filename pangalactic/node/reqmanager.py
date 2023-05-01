@@ -85,7 +85,7 @@ class RequirementManager(QDialog):
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.fpanel.proxy_view.clicked.connect(self.on_select_req)
-        self.fpanel.reqwizard_action.triggered.connect(self.edit_requirement)
+        self.fpanel.reqwizard_action.triggered.connect(self.edit_in_req_wiz)
         self.fpanel.req_parms_action.triggered.connect(self.edit_req_parms)
         self.fpanel.req_fields_action.triggered.connect(self.edit_req_fields)
         self.fpanel.req_delete_action.triggered.connect(self.delete_req)
@@ -231,8 +231,8 @@ class RequirementManager(QDialog):
         if obj in self.fpanel.objs:
             self.fpanel.refresh()
 
-    def edit_requirement(self):
-        orb.log.debug('* edit_requirement()')
+    def edit_in_req_wiz(self):
+        orb.log.debug('* edit_in_req_wiz()')
         req = None
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
@@ -321,7 +321,7 @@ class RequirementManager(QDialog):
                 req = orb.get(oid)
         if req:
             if 'modify' in get_perms(req):
-                dlg = ReqFieldsDialog(req, parent=self)
+                dlg = ReqFieldsDialog(req, self.view, parent=self)
                 if dlg.exec_() == QDialog.Accepted:
                     orb.log.info('* req fields edited.')
                     dlg.close()
@@ -406,34 +406,6 @@ class RequirementManager(QDialog):
         # a checkbox for "enable allocation/deallocation" above the tree;
         # otherwise, filtering behavior (as above) is in effect.
         pass
-
-    # def on_edit_req_parm_signal(self, req=None, parm=None):
-        # orb.log.info('* RequirementManager: on_edit_req_parm_signal()')
-        # if req and parm and not self.editing_parm:
-            # self.editing_parm = True
-            # dlg = ReqParmDialog(req, parm, parent=self)
-            # if dlg.exec_() == QDialog.Accepted:
-                # orb.log.info('* req parm edited.')
-                # self.editing_parm = False
-                # dlg.close()
-            # else:
-                # orb.log.info('* req parm editing cancelled.')
-                # self.editing_parm = False
-                # dlg.close()
-
-    def on_edit_req_fields_signal(self, req=None):
-        orb.log.info('* RequirementManager: on_edit_req_fields_signal()')
-        if req and not self.editing_fields:
-            self.editing_fields = True
-            dlg = ReqFieldsDialog(req, parent=self)
-            if dlg.exec_() == QDialog.Accepted:
-                orb.log.info('* req fields edited.')
-                self.editing_fields = False
-                dlg.close()
-            else:
-                orb.log.info('* req fields editing cancelled.')
-                self.editing_fields = False
-                dlg.close()
 
     def set_req(self, r):
         self.sys_tree.req = r
