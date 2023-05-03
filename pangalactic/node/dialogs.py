@@ -345,8 +345,6 @@ class ReqFieldsDialog(QDialog):
         super().__init__(parent)
         self.req = req
         self.setWindowTitle(f"Requirement {req.id}")
-        if req.req_type == 'functional':
-            names.insert(1, 'description')
         vbox = QVBoxLayout(self)
         self.form = QFormLayout()
         self.fields = {}
