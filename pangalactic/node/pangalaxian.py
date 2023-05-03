@@ -5579,7 +5579,7 @@ class Main(QMainWindow):
             return
 
     def import_reqts_from_excel(self):
-        start_path = state.get('excel_file_path') or state.get('last_path')
+        start_path = state.get('rqts_file_path') or state.get('last_path')
         start_path = start_path or self.user_home
         fpath, _ = QFileDialog.getOpenFileName(
                                     self, 'Open File', start_path,
@@ -5593,7 +5593,7 @@ class Main(QMainWindow):
                             QMessageBox.Ok, self)
                 popup.show()
                 return
-            state['excel_file_path'] = os.path.dirname(fpath)
+            state['rqts_file_path'] = os.path.dirname(fpath)
             wizard = DataImportWizard(
                             object_type='Requirement',
                             file_path=fpath,
