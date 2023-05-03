@@ -2254,6 +2254,9 @@ class Main(QMainWindow):
         self.edit_prefs_action = self.create_action(
                                     "Edit Preferences",
                                     slot=self.edit_prefs)
+        self.del_test_objs_action = self.create_action(
+                                    "Delete Test Objects",
+                                    slot=self.delete_test_objects)
         self.sync_project_action = self.create_action(
                                     "Re-Sync Current Project",
                                     slot=self.resync_current_project,
@@ -2699,6 +2702,7 @@ class Main(QMainWindow):
         if not sys.platform == 'win32':
             system_tools_actions.append(self.view_multi_cad_action)
         system_tools_actions.append(self.edit_prefs_action)
+        system_tools_actions.append(self.del_test_objs_action)
         # disable sync project action until we are online
         self.sync_project_action.setEnabled(False)
         self.full_resync_action.setEnabled(False)
@@ -4780,10 +4784,25 @@ class Main(QMainWindow):
         if state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
             rpc = self.mbus.session.call('vger.delete', [project_oid])
-            rpc.addCallback(self.on_result)
+            rpc.addCallback(self.on_rpc_vger_delete_result)
             rpc.addErrback(self.on_failure)
             if project_oid in state.get('synced_oids', []):
                 state['synced_oids'].remove(project_oid)
+
+    def delete_test_objects(self):
+        orb.log.info('* delete_test_objects()')
+        test_objs = orb.search_exact(comment='TEST TEST TEST')
+        if test_objs:
+            test_obj_oids = [o.oid for o in test_objs]
+            orb.delete(test_objs)
+            orb.log.info('  test objects deleted.')
+            if state.get('connected'):
+                orb.log.info('  - calling "vger.delete"')
+                rpc = self.mbus.session.call('vger.delete', test_obj_oids)
+                rpc.addCallback(self.on_rpc_vger_delete_result)
+                rpc.addErrback(self.on_failure)
+        else:
+            orb.log.info('  no test objects found.')
 
     def on_display_object_signal(self, obj=None):
         if obj:
@@ -5864,9 +5883,6 @@ class Main(QMainWindow):
         sys.exit()
 
 def cleanup_and_save():
-    # test_objs = orb.search_exact(comment='TEST TEST TEST')
-    # if test_objs:
-        # orb.delete(test_objs)
     write_config(os.path.join(orb.home, 'config'))
     write_prefs(os.path.join(orb.home, 'prefs'))
     # clear 'synced_projects' and 'network_warning_displayed'

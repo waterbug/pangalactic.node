@@ -16,7 +16,7 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import config, state
 from pangalactic.core.meta        import MAIN_VIEWS
-from pangalactic.core.names       import get_external_name_plural
+from pangalactic.core.names       import get_external_name_plural, STD_ALIASES
 from pangalactic.core.parametrics import (add_default_parameters, de_defz,
                                           parm_defz, set_dval,
                                           set_dval_from_str,
@@ -27,6 +27,7 @@ from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.node.buttons     import CheckButtonLabel
 from pangalactic.node.dialogs     import ProgressDialog
+# from pangalactic.node.dialogs     import NotificationDialog
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
@@ -105,11 +106,55 @@ class DataImportWizard(QtWidgets.QWizard):
         txt += 'This wizard will assist in importing data ...</h2>'
         intro_label = QtWidgets.QLabel(txt)
         intro_label.setWordWrap(False)
-        self.addPage(DataIntroPage(intro_label, parent=self))
-        self.addPage(DataSheetPage(parent=self))
-        self.addPage(DataHeaderPage(parent=self))
-        self.addPage(MappingPage(parent=self))
-        self.addPage(ObjectCreationPage(parent=self))
+        # first check to see if first row matches standard headers --
+        # if so, offer short-cut to ObjectCreationPage ...
+        # *********************************************
+        # this section lifted from DataSheetPage's init
+        fpath = data_wizard_state.get('file_path')
+        datasets = {}
+        if fpath:
+            # import raw data from excel file
+            if fpath.endswith('.xls'):
+                datasets = get_raw_excel_data(fpath)
+            elif fpath.endswith('.xlsx'):
+                datasets = get_raw_xlsx_data(fpath, read_only=True)
+        # *********************************************
+        sheet_names = list(datasets.keys())
+        dataset = datasets[sheet_names[0]]
+        first_col_names = dataset.pop(0)
+        orb.log.debug(f'  - col names: {first_col_names}')
+        first_col_lowered = [n.casefold() for n in first_col_names]
+        # orb.log.debug(f'    lowered: {first_col_lowered}')
+        aliases = STD_ALIASES[object_type]
+        # orb.log.debug(f'    aliases: {aliases}')
+        if (object_type in STD_ALIASES and
+            all([(a in aliases) for a in first_col_lowered])):
+            # all match -- only add ObjectCreationPage ...
+            data_wizard_state['dataset'] = dataset
+            data_wizard_state['selected_dataset'] = dataset
+            data_wizard_state['column_names'] = first_col_names
+            data_wizard_state['column_numbers'] = range(len(first_col_names))
+            data_wizard_state['col_map'] = {a: aliases[a.casefold()]
+                                            for a in first_col_names}
+            dictified = []
+            for i, row in enumerate(dataset):
+                dictified.append({col: dataset[i][j] for j, col
+                                            in enumerate(first_col_names)})
+            data_wizard_state['dictified'] = dictified
+            object_creation_page = ObjectCreationPage(parent=self)
+            self.addPage(object_creation_page)
+        else:
+            # not all match -- start from beginning
+            data_intro_page = DataIntroPage(intro_label, parent=self)
+            data_sheet_page = DataSheetPage(parent=self)
+            data_header_page = DataHeaderPage(parent=self)
+            mapping_page = MappingPage(parent=self)
+            object_creation_page = ObjectCreationPage(parent=self)
+            self.addPage(data_intro_page)
+            self.addPage(data_sheet_page)
+            self.addPage(data_header_page)
+            self.addPage(mapping_page)
+            self.addPage(object_creation_page)
         self.setGeometry(50, 50, width, height)
         self.setSizeGripEnabled(True)
         self.setWindowTitle("Data Import Wizard")
@@ -121,10 +166,6 @@ class DataIntroPage(QtWidgets.QWizardPage):
     """
     def __init__(self, intro_label, parent=None):
         super().__init__(parent=parent)
-        # TODO:  this page will identify the file type and ask the user what
-        # type of data it is (semantic, numeric, etc.) and what the purpose of
-        # the data is -- that will determine what type of container to use for
-        # the data (db, pandas or xray dataframe, etc. ...)
         self.setTitle("Introduction")
         layout = QtWidgets.QHBoxLayout()
         logo_path = config.get('tall_logo')
@@ -138,6 +179,11 @@ class DataIntroPage(QtWidgets.QWizardPage):
 class DataSheetPage(QtWidgets.QWizardPage):
     """
     Page for selecting the sheet to import from an Excel file.
+    First, a check will be done to see if the file conforms to a standard
+    format -- i.e., data is on first sheet, column names are in first row,
+    column names are standard for the type of file (e.g. Requirements).  If
+    so, the user will be notified and the data is imported without further ado
+    ... if not, the wizard's steps will be followed.
     """
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -152,10 +198,8 @@ class DataSheetPage(QtWidgets.QWizardPage):
             self.datasets = {}
             if fpath.endswith('.xls'):
                 self.datasets = get_raw_excel_data(fpath)
-                                                   # clear_empty_rows=False)
             elif fpath.endswith('.xlsx'):
                 self.datasets = get_raw_xlsx_data(fpath,
-                                                  # clear_empty_rows=False,
                                                   read_only=True)
         else:
             return
@@ -169,9 +213,9 @@ class DataSheetPage(QtWidgets.QWizardPage):
                                     border=1, margin=10)
         # sheet list widget
         self.sl_model = QtGui.QStandardItemModel(parent=self)
-        sheet_names = list(self.datasets.keys())
-        if sheet_names:
-            for name in sheet_names:
+        self.sheet_names = list(self.datasets.keys())
+        if self.sheet_names:
+            for name in self.sheet_names:
                 self.sl_model.appendRow(QtGui.QStandardItem(name))
         else:
             self.sl_model.appendRow('None')
@@ -191,7 +235,7 @@ class DataSheetPage(QtWidgets.QWizardPage):
         self.vbox.setStretch(1, 1)
         self.hbox = QtWidgets.QHBoxLayout()
         self.hbox.addLayout(self.vbox)
-        self.set_dataset(sheet_names[0])
+        self.set_dataset(self.sheet_names[0])
         self.setLayout(self.hbox)
 
     def on_select_dataset(self, idx):
@@ -250,6 +294,7 @@ class DataHeaderPage(QtWidgets.QWizardPage):
         self.hbox.addLayout(self.vbox)
 
     def initializePage(self):
+        orb.log.debug('* DataHeaderPage')
         # TODO:  check self.vbox for a column listing from a previous
         # instantiation -- if one is found, remove it ...
         ds_name = data_wizard_state["dataset_name"]
@@ -373,7 +418,8 @@ class DataHeaderPage(QtWidgets.QWizardPage):
                 self.cb_labels[name].setStyleSheet(
                         'color: purple; background-color: yellow; '
                         'border: 1px solid black;')
-                data_wizard_state['column_names'].append(self.candidate_column_names[i])
+                data_wizard_state['column_names'].append(
+                                            self.candidate_column_names[i])
                 data_wizard_state['column_numbers'].append(i)
             else:
                 self.cb_labels[name].setChecked(False)
@@ -813,11 +859,10 @@ class MappingPage(QtWidgets.QWizardPage):
 
 class ObjectCreationPage(QtWidgets.QWizardPage):
     """
-    Page to create objects from the specified data.
+    Page to create/update objects from the specified data.
     """
     def __init__(self, test_mode=False, parent=None):
         super().__init__(parent=parent)
-        orb.log.debug('* Object Creation Page')
         self.test_mode = test_mode
         self.objs = []
         project_oid = state.get('project')
@@ -827,20 +872,22 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
             self.project = orb.get(project_oid)
             proj_id = self.project.id
             if obj_type == 'Requirement':
-                self.title_txt = f'New Project Requirements for {proj_id}'
+                self.title_txt = f'Project Requirements for {proj_id}'
             elif obj_type == 'HardwareProduct':
-                self.title_txt = f'New Hardware owned by {proj_id}'
+                self.title_txt = f'Hardware owned by {proj_id}'
         else:
             if obj_type == 'Requirement':
-                self.title_txt = 'New Requirements'
+                self.title_txt = 'Requirements'
             elif obj_type == 'HardwareProduct':
-                self.title_txt = 'New Hardware Products'
+                self.title_txt = 'Hardware Products'
         self.setTitle(self.title_txt)
 
     def initializePage(self):
+        orb.log.debug('* Object Creation Page')
         if self.objs:
             # if objs exist, it means we are re-entering; delete them
             orb.delete(self.objs)
+            self.objs = []
         self.object_type = data_wizard_state['object_type']
         col_map = data_wizard_state['col_map']
         orb.log.debug(f'* column mapping: {col_map}')
@@ -855,20 +902,32 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
         self.progress_dialog.setMinimumDuration(2000)
         dictified = data_wizard_state['dictified']
         for i, row in enumerate(dictified):
+            obj = None
             kw = {col_map.get(name) : str(val or '').strip()
                   for name, val in row.items() if name in col_map}
             # for cleanup after test run ...
             if self.test_mode:
                 kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'Requirement':
-                if 'level' not in kw:
-                    kw['level'] = 1
-                if self.project:
-                    kw['owner'] = self.project
-                    kw['id'] = f"{self.project.id}-{kw['level']}.{i}"
+                ID = kw.get('id')
+                existing_reqt = None
+                if ID:
+                    existing_reqt = orb.select('Requirement', id=ID)
+                if existing_reqt:
+                    # update the existing reqt ...
+                    orb.log.debug(f'* {ID} is existing reqt, updating it ...')
+                    for a in kw:
+                        setattr(existing_reqt, a, kw[a])
                 else:
-                    kw['id'] = f"SANDBOX-{kw['level']}.{i}"
-                obj = clone(self.object_type, **kw)
+                    if 'level' not in kw:
+                        kw['level'] = 1
+                    if 'id' not in kw:
+                        if self.project:
+                            kw['owner'] = self.project
+                            kw['id'] = f"{self.project.id}-{kw['level']}.{i}"
+                        else:
+                            kw['id'] = f"SANDBOX-{kw['level']}.{i}"
+                    obj = clone(self.object_type, **kw)
             elif self.object_type == 'HardwareProduct':
                 # first check kw for parameter and data element id's that do
                 # not collide with properties (i.e., are not in the
@@ -884,8 +943,20 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
                         des[np_name] = kw.pop(np_name)
                 # NOTE: save_hw=False prevents the saving of hw objects one at
                 # a time -- much more efficient to save after all are cloned
-                obj = clone(self.object_type, save_hw=False, **kw)
-                obj.id = orb.gen_product_id(obj)
+                # TODO: check "id" kw for existing HW -- if found, update ...
+                ID = kw.get('id')
+                obj = None
+                if ID:
+                    obj = orb.select('HardwareProduct', id=ID)
+                if obj:
+                    # TODO: check that user has modify permission!
+                    orb.log.debug('* {ID} is existing product, updating ...')
+                    for a in kw:
+                        setattr(obj, a, kw[a])
+                else:
+                    obj = clone(self.object_type, save_hw=False, **kw)
+                    if not getattr(obj, 'id', None):
+                        obj.id = orb.gen_product_id(obj)
                 if parms:
                     for pid, val in parms.items():
                         set_pval_from_str(obj.oid, pid, val)
@@ -894,10 +965,12 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
                         set_dval_from_str(obj.oid, deid, val)
             else:
                 obj = clone(self.object_type, **kw)
-            self.objs.append(obj)
+            if obj:
+                self.objs.append(obj)
             orb.db.commit()
             self.progress_dialog.setValue(i+1)
-        orb.save(self.objs)
+        if self.objs:
+            orb.save(self.objs)
         self.progress_dialog.done(0)
         self.add_widgets()
 

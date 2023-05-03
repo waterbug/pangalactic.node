@@ -198,7 +198,7 @@ class RequirementIDPage(QWizardPage):
         a name, description, rationale, parent, and level.
         """
         performance = req_wizard_state.get('performance')
-        proj_oid = state.get('project')
+        proj_oid = state.get('project') or 'pgefobjects:SANDBOX'
         self.project = orb.get(proj_oid)
         req = orb.get(req_wizard_state.get('req_oid'))
         if req:
