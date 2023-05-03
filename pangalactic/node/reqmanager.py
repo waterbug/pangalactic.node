@@ -13,7 +13,7 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import (get_attr_ext_name, get_ext_name_attr,
-                                          pname_to_header, STANDARD_VIEWS)
+                                          pname_to_header, STD_VIEWS)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
@@ -23,6 +23,7 @@ from pangalactic.node.dialogs     import (NotificationDialog, ReqFieldsDialog,
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.systemtree  import SystemTreeView
 from pangalactic.node.reqwizards  import ReqWizard
+from pangalactic.node.wizards     import DataImportWizard
 
 # Louie
 from louie import dispatcher
@@ -60,6 +61,8 @@ class RequirementManager(QDialog):
         self.export_tsv_button.clicked.connect(self.export_tsv)
         self.export_excel_button = SizedButton("Export as Excel")
         self.export_excel_button.clicked.connect(self.export_excel)
+        self.import_excel_button = SizedButton("Import from Excel")
+        self.import_excel_button.clicked.connect(self.import_excel)
         self.hide_tree_button = SizedButton('Hide Allocations',
                                              color="purple")
         self.hide_tree_button.clicked.connect(self.hide_allocation_panel)
@@ -69,6 +72,7 @@ class RequirementManager(QDialog):
         top_layout.addWidget(self.select_cols_button)
         top_layout.addWidget(self.export_tsv_button)
         top_layout.addWidget(self.export_excel_button)
+        top_layout.addWidget(self.import_excel_button)
         top_layout.addStretch(1)
         top_layout.addWidget(self.hide_tree_button)
         top_layout.addWidget(self.show_tree_button)
@@ -113,7 +117,7 @@ class RequirementManager(QDialog):
         [Handler for 'Customize Columns' button]  Display the SelectColsDialog.
         """
         orb.log.debug('* select_cols() ...')
-        std_view = STANDARD_VIEWS['Requirement']
+        std_view = STD_VIEWS['Requirement']
         if self.fpanel.col_moved_view:
             cur_view = self.fpanel.col_moved_view[:]
             self.fpanel.col_moved_view = []
@@ -225,6 +229,38 @@ class RequirementManager(QDialog):
                     orb.log.debug('  unable to start Excel')
         else:
             orb.log.debug('  ... export to Excel cancelled.')
+            return
+
+    def import_excel(self):
+        """
+        [Handler for 'Import from Excel' button]  Read requirements from
+        a .xlsx file.
+        """
+        orb.log.debug('* import_excel()')
+        start_path = state.get('rqts_file_path') or state.get('last_path')
+        start_path = start_path or orb.home
+        fpath, _ = QFileDialog.getOpenFileName(
+                                    self, 'Open File', start_path,
+                                    "Excel Files (*.xlsx | *.xls)")
+        if fpath:
+            if not (fpath.endswith('.xls') or fpath.endswith('.xlsx')):
+                message = "File '%s' is not an Excel file." % fpath
+                popup = QMessageBox(QMessageBox.Warning,
+                            "Wrong file type", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                return
+            state['rqts_file_path'] = os.path.dirname(fpath)
+            wizard = DataImportWizard(
+                            object_type='Requirement',
+                            file_path=fpath,
+                            height=self.geometry().height(),
+                            width=self.geometry().width(),
+                            parent=self)
+            wizard.exec_()
+            orb.log.debug('* import_reqts_from_excel: dialog completed.')
+            self.fpanel.refresh()
+        else:
             return
 
     def on_modified_object(self, obj=None, cname=None):
