@@ -194,7 +194,6 @@ class ObjectTableModel(MappingTableModel):
         """
         # orb.log.debug("* ObjectTableModel initializing ...")
         self.objs = objs or []
-        self.oids = [o.oid for o in objs]
         icons = []
         if as_library:
             self.as_library = True
@@ -252,6 +251,13 @@ class ObjectTableModel(MappingTableModel):
         super().__init__(ds, as_library=as_library, icons=icons,
                          parent=parent, **kwargs)
         self.view = view[:]
+
+    @property
+    def oids(self):
+        if hasattr(self, 'objs') and self.objs:
+            return [getattr(o, 'oid', '') for o in self.objs if o is not None]
+        else:
+            return []
 
     @property
     def view(self):
