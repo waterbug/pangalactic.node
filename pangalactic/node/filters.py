@@ -324,6 +324,9 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             return False
 
     def is_reqt_id(self, s):
+        if '-' not in s:
+            # reqt id must have '-'
+            return False
         try:
             m = re.match(self.reqpat, str(s))
             return m.group(0) == s
