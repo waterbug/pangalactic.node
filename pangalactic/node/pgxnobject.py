@@ -1743,7 +1743,9 @@ class PgxnObject(QDialog):
         """
         orb.log.debug('* [pxo] got "parameters recomputed" signal ...')
         # for update of parameters / data elements
-        self.on_update_pgxno(mod_oids=[self.obj.oid])
+        # (note that obj may have been deleted)
+        if self.obj:
+            self.on_update_pgxno(mod_oids=[self.obj.oid])
 
     def old_on_parameters_recomputed(self):
         # orb.log.debug('* [pxo] got "parameters recomputed" signal ...')
