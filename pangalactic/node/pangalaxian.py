@@ -316,6 +316,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_get_people, 'get people')
         dispatcher.connect(self.set_new_object_table_view,
                                                 'new object table view pref')
+        dispatcher.connect(self.on_reqts_imported, 'reqts imported from excel')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
@@ -4690,6 +4691,21 @@ class Main(QMainWindow):
             self.object_tableview = None
         self.set_object_table_for(cname)
 
+    def on_reqts_imported(self):
+        # reqts were imported from Excel -- close and reopen reqmgr
+        reqmgr = getattr(self, 'reqmgr', None)
+        if reqmgr:
+            try:
+                reqmgr.close()
+            except:
+                # C++ obj was deleted (?)
+                pass
+        w = self.geometry().width()
+        h = self.geometry().height()
+        self.reqmgr = RequirementManager(project=self.project, width=w,
+                                         height=h, parent=self)
+        self.reqmgr.show()
+
     def show_about(self):
         # if app version is provided, use it; otherwise use ours
         version = self.app_version or __version__
@@ -5012,9 +5028,9 @@ class Main(QMainWindow):
     def display_requirements_manager(self):
         w = self.geometry().width()
         h = self.geometry().height()
-        dlg = RequirementManager(project=self.project, width=w, height=h,
-                                 parent=self)
-        dlg.show()
+        self.reqmgr = RequirementManager(project=self.project, width=w,
+                                         height=h, parent=self)
+        self.reqmgr.show()
 
     def conops_modeler(self):
         win = ConOpsModeler(parent=self)

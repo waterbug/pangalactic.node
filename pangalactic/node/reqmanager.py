@@ -44,7 +44,7 @@ class RequirementManager(QDialog):
         super().__init__(parent=parent)
         view = prefs.get('req_mgr_view') or MAIN_VIEWS['Requirement']
         self.view = view
-        sized_cols = {'id': 0, 'name': 150}
+        self.sized_cols = {'id': 0, 'name': 150}
         self.project = project
         self.rqts = orb.search_exact(cname='Requirement', owner=project)
         title_txt = 'Project Requirements for {}'.format(project.id)
@@ -85,7 +85,7 @@ class RequirementManager(QDialog):
         self.bbox.rejected.connect(self.reject)
         # NOTE: now using word wrap and PGEF_COL_WIDTHS
         self.fpanel = FilterPanel(self.rqts, view=view, cname='Requirement',
-                                  sized_cols=sized_cols, word_wrap=True,
+                                  sized_cols=self.sized_cols, word_wrap=True,
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.fpanel.proxy_view.clicked.connect(self.on_select_req)
@@ -259,7 +259,7 @@ class RequirementManager(QDialog):
                             parent=self)
             wizard.exec_()
             orb.log.debug('* import_reqts_from_excel: dialog completed.')
-            self.fpanel.refresh()
+            dispatcher.send('reqts imported from excel')
         else:
             return
 
