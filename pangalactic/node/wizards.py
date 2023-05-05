@@ -910,14 +910,14 @@ class ObjectCreationPage(QtWidgets.QWizardPage):
                 kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'Requirement':
                 ID = kw.get('id')
-                existing_reqt = None
+                obj = None
                 if ID:
-                    existing_reqt = orb.select('Requirement', id=ID)
-                if existing_reqt:
+                    obj = orb.select('Requirement', id=ID)
+                if obj:
                     # update the existing reqt ...
                     orb.log.debug(f'* {ID} is existing reqt, updating it ...')
                     for a in kw:
-                        setattr(existing_reqt, a, kw[a])
+                        setattr(obj, a, kw[a])
                 else:
                     if 'level' not in kw:
                         kw['level'] = 1
