@@ -108,8 +108,8 @@ from pangalactic.node.widgets          import (AutosizingListWidget,
 from pangalactic.node.wizards          import (NewProductWizard,
                                                DataImportWizard,
                                                wizard_state)
-from pangalactic.node.reqmanager       import RequirementManager
-from pangalactic.node.reqwizards       import ReqWizard, req_wizard_state
+from pangalactic.node.rqtmanager       import RequirementManager
+from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
 from pangalactic.node.splash           import SplashScreen
 
 
@@ -287,7 +287,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_sys_node_selected_signal,
                                                          'sys node selected')
         dispatcher.connect(self.on_display_object_signal, 'display object')
-        dispatcher.connect(self.on_new_req_signal, 'new req')
+        dispatcher.connect(self.on_new_rqt_signal, 'new rqt')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
@@ -316,7 +316,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_get_people, 'get people')
         dispatcher.connect(self.set_new_object_table_view,
                                                 'new object table view pref')
-        dispatcher.connect(self.on_reqts_imported, 'reqts imported from excel')
+        dispatcher.connect(self.on_rqts_imported, 'rqts imported from excel')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
@@ -1853,8 +1853,10 @@ class Main(QMainWindow):
 
     def on_received_objects(self, content=None):
         """
-        Handle the result of the rpc 'vger.get_object' and other rpcs that
-        return lists of serialized objects.
+        Handle the result of the rpc 'vger.get_object', other rpcs that
+        return lists of serialized objects, and pubsub messages "decloaked",
+        "new", and "modified", for which the content is a list of serialized
+        objects.
 
         Args:
             content (list): a list of serialized objects
@@ -1948,6 +1950,11 @@ class Main(QMainWindow):
                 # TODO: move this signal to after get_parmz() ...
                 self.refresh_admin_tool.emit()
                 self.update_project_role_labels()
+            elif cname == 'Requirement':
+                if state.get('new_or_modified_rqts'):
+                    state['new_or_modified_rqts'].append(obj.oid)
+                else:
+                    state['new_or_modified_rqts'] = [obj.oid]
             # ================================================================
             # TODO: use add|mod|del_object in db table for cname
             # (commented for now because unwise to do GUI updates here)
@@ -2023,9 +2030,9 @@ class Main(QMainWindow):
                                     # slot=self.display_disciplines,
                                     # tip="Display List of Disciplines",
                                     # modes=['system', 'component'])
-        self.reqts_manager_action = self.create_action(
+        self.rqts_manager_action = self.create_action(
                                 "Project Requirements Manager",
-                                slot=self.display_requirements_manager,
+                                slot=self.display_rqts_manager,
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
@@ -2129,17 +2136,17 @@ class Main(QMainWindow):
                                 icon='new_part',
                                 tip="Create a New Design or Analysis Model",
                                 modes=['system', 'component'])
-        self.new_functional_requirement_action = self.create_action(
+        self.new_functional_rqt_action = self.create_action(
                                     "New Functional Requirement",
-                                    slot=self.new_functional_requirement,
+                                    slot=self.new_functional_rqt,
                                     icon="new_doc",
-                                    tip="Create a New Requirement",
+                                    tip="Create a New Functional Requirement",
                                     modes=['system'])
-        self.new_performance_requirement_action=self.create_action(
+        self.new_performance_rqt_action=self.create_action(
                                     "New Performance Requirement",
-                                    slot=self.new_perform_requirement,
+                                    slot=self.new_performance_rqt,
                                     icon="new_doc",
-                                    tip="Create a New Requirement",
+                                    tip="Create a New Performance Requirement",
                                     modes=["system"])
         # self.data_element_action = self.create_action(
                                     # "New Data Element",
@@ -2175,9 +2182,9 @@ class Main(QMainWindow):
                                 slot=self.export_project_to_file,
                                 tip="Export Project to a File...",
                                 modes=['system'])
-        self.export_reqts_to_file_action = self.create_action(
+        self.export_rqts_to_file_action = self.create_action(
                                 "Export Project Requirements to a File...",
-                                slot=self.export_reqts_to_file,
+                                slot=self.export_rqts_to_file,
                                 tip="Export Project Requirements to a File...",
                                 modes=['system'])
         self.output_mel_action = self.create_action(
@@ -2196,10 +2203,10 @@ class Main(QMainWindow):
                                 tip="Generate Key Pair...",
                                 modes=['system', 'component', 'data', 'db'])
         # actions accessible via the 'Import Data or Objects' toolbar menu:
-        # * import_reqts_excel_action
-        self.import_reqts_excel_action = self.create_action(
+        # * import_rqts_excel_action
+        self.import_rqts_excel_action = self.create_action(
                                     "Import Requirements from Excel...",
-                                    slot=self.import_reqts_from_excel)
+                                    slot=self.import_rqts_from_excel)
         # * import_products_excel_action
         self.import_products_excel_action = self.create_action(
                                     "Import Products from Excel...",
@@ -2210,9 +2217,9 @@ class Main(QMainWindow):
                         slot=self.import_objects,
                         tip="Import Serialized Objects from a File...",
                         modes=['system'])
-        self.import_reqts_from_file_action = self.create_action(
+        self.import_rqts_from_file_action = self.create_action(
                         "Import Serialized Project Requirements...",
-                        slot=self.import_reqts_from_file,
+                        slot=self.import_rqts_from_file,
                         tip="Import Serialized Requirements from a File...",
                         modes=['system'])
         # * load_test_objects
@@ -2273,9 +2280,6 @@ class Main(QMainWindow):
         # self.compare_items_action = self.create_action(
                                     # "Compare Items by Parameters",
                                     # slot=self.compare_items)
-        # self.load_requirements_action = self.create_action(
-                                    # "Load Requirements",
-                                    # slot=self.load_requirements)
         # self.exit_action = self.create_action(
                                     # "Exit",
                                     # slot=self.close)
@@ -2634,10 +2638,10 @@ class Main(QMainWindow):
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         import_icon_path = os.path.join(icon_dir, import_icon_file)
         import_actions = [
-                          self.import_reqts_excel_action,
+                          self.import_rqts_excel_action,
                           self.import_products_excel_action,
                           self.import_objects_action,
-                          self.import_reqts_from_file_action
+                          self.import_rqts_from_file_action
                           # Load Test Objects is currently flaky unless ONLY
                           # operating in standalone mode ...
                           # self.load_test_objects_action,
@@ -2645,7 +2649,7 @@ class Main(QMainWindow):
                           # manager's "close" on the window
                           # self.exit_action
                           ]
-        self.import_reqts_excel_action.setEnabled(True)
+        self.import_rqts_excel_action.setEnabled(True)
         self.import_products_excel_action.setEnabled(True)
         import_button = MenuButton(QIcon(import_icon_path),
                                    text='Input',
@@ -2655,7 +2659,7 @@ class Main(QMainWindow):
         export_icon_file = 'save' + state['icon_type']
         export_icon_path = os.path.join(icon_dir, export_icon_file)
         export_actions = [self.export_project_to_file_action,
-                          self.export_reqts_to_file_action,
+                          self.export_rqts_to_file_action,
                           self.output_mel_action,
                           self.dump_db_action,
                           self.gen_keys_action] 
@@ -2670,8 +2674,8 @@ class Main(QMainWindow):
                               # self.new_parameter_action,
                               self.new_product_action,
                               # self.new_product_type_action,
-                              self.new_functional_requirement_action,
-                              self.new_performance_requirement_action,
+                              self.new_functional_rqt_action,
+                              self.new_performance_rqt_action,
                               # self.data_element_action,
                               self.new_test_action]
         new_object_button = MenuButton(QIcon(new_object_icon_path),
@@ -2683,7 +2687,7 @@ class Main(QMainWindow):
         system_tools_icon_file = 'tools' + state['icon_type']
         system_tools_icon_path = os.path.join(icon_dir,
                                               system_tools_icon_file)
-        system_tools_actions = [self.reqts_manager_action,
+        system_tools_actions = [self.rqts_manager_action,
                                 self.modes_def_action,
                                 self.conops_modeler_action,
                                 self.modeler42_action,
@@ -2950,11 +2954,11 @@ class Main(QMainWindow):
             cname = obj.__class__.__name__
             self.on_mod_object_signal(obj=obj, cname=cname)
 
-    def on_new_req_signal(self, obj=None, cname=''):
+    def on_new_rqt_signal(self, obj=None, cname=''):
         """
-        Handle local dispatcher signal for "new req".
+        Handle local dispatcher signal for "new rqt".
         """
-        orb.log.info('* on_new_req_signal()')
+        orb.log.info('* on_new_rqt_signal()')
         self.on_mod_object_signal(obj=obj, cname=cname, new=True)
 
     def on_new_object_signal(self, obj=None, cname=''):
@@ -3229,7 +3233,8 @@ class Main(QMainWindow):
                     # txt = 'rebuild_dashboard(force=True) ...'
                     # orb.log.info(f'  [ovgpr] calling {txt}')
                     self.rebuild_dashboard(force=True)
-            # "parameters recomputed" triggers pgxnobject instances ...
+            # "parameters recomputed" triggers pgxnobject, rqtmanager, and
+            # wizard (data import) ...
             dispatcher.send("parameters recomputed")
         else:
             # orb.log.info('  [ovgpr] no parmz data, check other updates ...')
@@ -4691,20 +4696,20 @@ class Main(QMainWindow):
             self.object_tableview = None
         self.set_object_table_for(cname)
 
-    def on_reqts_imported(self):
-        # reqts were imported from Excel -- close and reopen reqmgr
-        reqmgr = getattr(self, 'reqmgr', None)
-        if reqmgr:
+    def on_rqts_imported(self):
+        # rqts were imported from Excel -- close and reopen rqtmgr
+        rqtmgr = getattr(self, 'rqtmgr', None)
+        if rqtmgr:
             try:
-                reqmgr.close()
+                rqtmgr.close()
             except:
                 # C++ obj was deleted (?)
                 pass
         w = self.geometry().width()
         h = self.geometry().height()
-        self.reqmgr = RequirementManager(project=self.project, width=w,
+        self.rqtmgr = RequirementManager(project=self.project, width=w,
                                          height=h, parent=self)
-        self.reqmgr.show()
+        self.rqtmgr.show()
 
     def show_about(self):
         # if app version is provided, use it; otherwise use ours
@@ -4905,36 +4910,36 @@ class Main(QMainWindow):
                 orb.delete([obj])
                 self.deleted_object.emit(oid, cname)
 
-    def new_functional_requirement(self):
-        wizard = ReqWizard(parent=self, performance=False)
+    def new_functional_rqt(self):
+        wizard = RqtWizard(parent=self, performance=False)
         if wizard.exec_() == QDialog.Accepted:
-            # orb.log.debug('* reqt wizard completed.')
-            req_oid = req_wizard_state.get('req_oid')
-            req = orb.get(req_oid)
-            if req and getattr(wizard, 'pgxn_obj', None):
+            # orb.log.debug('* rqt wizard completed.')
+            rqt_oid = rqt_wizard_state.get('rqt_oid')
+            rqt = orb.get(rqt_oid)
+            if rqt and getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
-            # orb.log.debug('* reqt wizard cancelled.')
+            # orb.log.debug('* rqt wizard cancelled.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
 
-    def new_perform_requirement(self):
-        wizard = ReqWizard(parent=self, performance=True)
+    def new_performance_rqt(self):
+        wizard = RqtWizard(parent=self, performance=True)
         if wizard.exec_() == QDialog.Accepted:
-            # orb.log.debug('* reqt wizard completed.')
+            # orb.log.debug('* rqt wizard completed.')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
         else:
-            # orb.log.debug('* reqt wizard cancelled...')
+            # orb.log.debug('* rqt wizard cancelled...')
             if getattr(wizard, 'pgxn_obj', None):
                 wizard.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
                 wizard.pgxn_obj.parent = None
@@ -5025,12 +5030,12 @@ class Main(QMainWindow):
         dlg.obj_modified.connect(self.on_mod_object_qtsignal)
         dlg.show()
 
-    def display_requirements_manager(self):
+    def display_rqts_manager(self):
         w = self.geometry().width()
         h = self.geometry().height()
-        self.reqmgr = RequirementManager(project=self.project, width=w,
+        self.rqtmgr = RequirementManager(project=self.project, width=w,
                                          height=h, parent=self)
-        self.reqmgr.show()
+        self.rqtmgr.show()
 
     def conops_modeler(self):
         win = ConOpsModeler(parent=self)
@@ -5110,8 +5115,8 @@ class Main(QMainWindow):
         else:
             return
 
-    def export_reqts_to_file(self):
-        orb.log.debug('* export_reqts_to_file() for project {}'.format(
+    def export_rqts_to_file(self):
+        orb.log.debug('* export_rqts_to_file() for project {}'.format(
                  getattr(self.project, 'id', None) or '[no current project]'))
         # TODO:  create a "wizard" dialog with some convenient defaults ...
         dtstr = date2str(dtstamp())
@@ -5128,16 +5133,16 @@ class Main(QMainWindow):
             fpath = str(fpath)    # QFileDialog fpath is unicode; make str
             state['last_path'] = os.path.dirname(fpath)
             # serialize all the objects relevant to the current project
-            reqts = orb.get_reqts_for_project(self.project)
-            if reqts:
-                reqts.append(self.project)
-                serialized_reqts = serialize(orb, reqts, include_refdata=True)
+            rqts = orb.get_rqts_for_project(self.project)
+            if rqts:
+                rqts.append(self.project)
+                serialized_rqts = serialize(orb, rqts, include_refdata=True)
                 f = open(fpath, 'w')
-                f.write(yaml.safe_dump(serialized_reqts,
+                f.write(yaml.safe_dump(serialized_rqts,
                                        default_flow_style=False))
                 f.close()
                 orb.log.debug('    {} project requirements written.'.format(
-                                                 len(serialized_reqts) - 1))
+                                                 len(serialized_rqts) - 1))
             else:
                 # TODO: notify user that no requirements were found ...
                 orb.log.debug('    no project requirements found.')
@@ -5145,8 +5150,8 @@ class Main(QMainWindow):
         else:
             return
 
-    def import_reqts_from_file(self):
-        orb.log.debug('* import_reqts_from_file()')
+    def import_rqts_from_file(self):
+        orb.log.debug('* import_rqts_from_file()')
         # TODO:
         # [1] create a "wizard" dialog with some convenient defaults ...
         # [2] replace Project in file with current Project
@@ -5613,7 +5618,7 @@ class Main(QMainWindow):
             popup.show()
             return
 
-    def import_reqts_from_excel(self):
+    def import_rqts_from_excel(self):
         start_path = state.get('rqts_file_path') or state.get('last_path')
         start_path = start_path or self.user_home
         fpath, _ = QFileDialog.getOpenFileName(
@@ -5636,7 +5641,7 @@ class Main(QMainWindow):
                             width=self.geometry().width(),
                             parent=self)
             wizard.exec_()
-            orb.log.debug('* import_reqts_from_excel: dialog completed.')
+            orb.log.debug('* import_rqts_from_excel: dialog completed.')
         else:
             return
 
@@ -5775,12 +5780,6 @@ class Main(QMainWindow):
             # parms = state.get('dashboard', ['m[CBE]', 'P[CBE]', 'R_D[CBE]'])
             # widget = CompareWidget(objs, parms, parent=self)
             # widget.show()
-
-    def load_requirements(self):
-        # TODO:  make this an excel import / map demo
-        orb.log.debug('* load_requirements()')
-        if not state.get('last_path'):
-            state['last_path'] = orb.test_data_dir
 
     def dump_database(self):
         self.statusbar.showMessage('Exporting DB to file ...')

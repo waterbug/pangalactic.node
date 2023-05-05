@@ -330,7 +330,7 @@ class HWFieldsDialog(QDialog):
         self.accept()
 
 
-class ReqFieldsDialog(QDialog):
+class RqtFieldsDialog(QDialog):
     """
     A dialog to edit fields of a requirement.
 
@@ -428,7 +428,7 @@ class ReqFieldsDialog(QDialog):
         self.accept()
 
 
-class ReqParmDialog(QDialog):
+class RqtParmDialog(QDialog):
     """
     A dialog to edit the value of performance requirement parameters.
     """

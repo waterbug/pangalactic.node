@@ -22,11 +22,11 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.units       import alt_units
 from pangalactic.node.libraries   import LibraryListView
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.utils       import clone, ReqAllocDelegate
+from pangalactic.node.utils       import clone, RqtAllocDelegate
 from pangalactic.node.widgets     import PlaceHolder, NameLabel, ValueLabel
 from pangalactic.node.systemtree  import SystemTreeView
 
-req_wizard_state = {}
+rqt_wizard_state = {}
 
 
 class QHLine(QFrame):
@@ -41,16 +41,16 @@ class QVLine(QFrame):
         self.setFrameShape(QFrame.VLine)
 
 
-class ReqWizard(QWizard):
+class RqtWizard(QWizard):
     """
     Wizard for project requirements (both functional and performance)
     """
-    def __init__(self, req=None, parent=None, performance=False):
+    def __init__(self, rqt=None, parent=None, performance=False):
         """
         Initialize Requirements Wizard.
 
         Args:
-            req (Requirement): a Requirement object (provided only when wizard
+            rqt (Requirement): a Requirement object (provided only when wizard
                 is being invoked in order to edit an existing requirement.
         """
         super().__init__(parent)
@@ -67,17 +67,17 @@ class ReqWizard(QWizard):
                 self.on_cancel)
         self.setOptions(QWizard.NoBackButtonOnStartPage)
         self.setSubTitleFormat(Qt.RichText)
-        # clear the req_wizard_state
-        for x in req_wizard_state:
-            req_wizard_state[x] = None
+        # clear the rqt_wizard_state
+        for x in rqt_wizard_state:
+            rqt_wizard_state[x] = None
         project_oid = state.get('project')
         proj = orb.get(project_oid)
         self.project = proj
-        req_wizard_state['req_parameter'] = ''
+        rqt_wizard_state['req_parameter'] = ''
         self.new_req = True
-        if isinstance(req, orb.classes['Requirement']):
+        if isinstance(rqt, orb.classes['Requirement']):
             self.new_req = False
-            req_wizard_state['req_oid'] = req.oid
+            rqt_wizard_state['req_oid'] = rqt.oid
             # NOTE: the following state variables take the same values as their
             # counterparts in the attributes of Requirement -- HOWEVER, the
             # state variables 'req_parameter' and 'computable_form_oid' are
@@ -104,42 +104,42 @@ class ReqWizard(QWizard):
                 'validated',
                 'verification_method'
                 ]:
-                req_wizard_state[a] = getattr(req, a)
+                rqt_wizard_state[a] = getattr(rqt, a)
             # 'performance' flag indicates req_type:
             #    - True  -> performance requirement
             #    - False -> functional requirement
-            req_wizard_state['computable_form_oid'] = getattr(
-                                                req.computable_form, 'oid', '')
-            performance = (req.req_type == 'performance')
+            rqt_wizard_state['computable_form_oid'] = getattr(
+                                                rqt.computable_form, 'oid', '')
+            performance = (rqt.req_type == 'performance')
         if not performance:
-            req_wizard_state['performance'] = False
+            rqt_wizard_state['performance'] = False
             self.addPage(RequirementIDPage(self))
-            self.addPage(ReqAllocPage(self))
-            self.addPage(ReqVerificationPage(self))
-            self.addPage(ReqSummaryPage(self))
+            self.addPage(RqtAllocPage(self))
+            self.addPage(RqtVerificationPage(self))
+            self.addPage(RqtSummaryPage(self))
             self.setWindowTitle('Functional Requirement Wizard')
             self.setGeometry(50, 50, 850, 900);
         else:
-            req_wizard_state['performance'] = True
+            rqt_wizard_state['performance'] = True
             if not self.new_req:
                 # if an existing performance requirement, it has a parameter
                 # (unless its data is corrupted -- but we sholdn't crash from
                 # corrupted data!)
-                rel = req.computable_form
+                rel = rqt.computable_form
                 if rel:
                     prs = rel.correlates_parameters
                     if prs:
                         pr = prs[0]
                         pd = pr.correlates_parameter
-                        req_wizard_state['req_parameter'] = pd.id
+                        rqt_wizard_state['req_parameter'] = pd.id
             self.addPage(RequirementIDPage(self))
-            self.addPage(ReqAllocPage(self))
+            self.addPage(RqtAllocPage(self))
             self.addPage(PerformanceDefineParmPage(self))
-            self.addPage(PerformReqShallPage(self))
+            self.addPage(PerformRqtShallPage(self))
             # TODO: make PerformanceMarginCalcPage useful ...
             # self.addPage(PerformanceMarginCalcPage(self))
-            self.addPage(ReqVerificationPage(self))
-            self.addPage(ReqSummaryPage(self))
+            self.addPage(RqtVerificationPage(self))
+            self.addPage(RqtSummaryPage(self))
             self.setWindowTitle('Performance Requirement Wizard')
             self.setGeometry(50, 50, 850, 750);
         self.setSizeGripEnabled(True)
@@ -148,13 +148,13 @@ class ReqWizard(QWizard):
         if self.new_req:
             # if a new Requirement was being created, delete it and all
             # associated objects ...
-            req_oid = req_wizard_state.get('req_oid')
-            req = orb.get(req_oid)
-            if req:
+            req_oid = rqt_wizard_state.get('req_oid')
+            rqt = orb.get(req_oid)
+            if rqt:
                 # delete any related Relation and ParameterRelation objects
-                rel = req.computable_form
+                rel = rqt.computable_form
                 if rel:
-                    # pr_oid = req_wizard_state.get('pr_oid')
+                    # pr_oid = rqt_wizard_state.get('pr_oid')
                     # pr = orb.get(pr_oid)
                     prs = rel.correlates_parameters
                     if prs:
@@ -168,7 +168,7 @@ class ReqWizard(QWizard):
                     dispatcher.send(signal='deleted object',
                                     oid=rel_oid, cname='Relation')
                 # delete the Requirement object
-                orb.delete([req])
+                orb.delete([rqt])
                 dispatcher.send(signal='deleted object', oid=req_oid,
                                 cname='Requirement')
         self.reject()
@@ -197,25 +197,25 @@ class RequirementIDPage(QWizardPage):
         Page for initial definitions of a requirement. This includes assigning
         a name, description, rationale, parent, and level.
         """
-        performance = req_wizard_state.get('performance')
+        performance = rqt_wizard_state.get('performance')
         proj_oid = state.get('project') or 'pgefobjects:SANDBOX'
         self.project = orb.get(proj_oid)
-        req = orb.get(req_wizard_state.get('req_oid'))
-        if req:
-            self.req = req
+        rqt = orb.get(rqt_wizard_state.get('req_oid'))
+        if rqt:
+            self.rqt = rqt
             new = False
         else:
             # NOTE: requirement id must be generated *after* cloning new reqt.;
             # otherwise, generator will get confused
             req_id = self.project.id + '-TBD'
-            self.req = clone("Requirement", id=req_id, owner=self.project,
+            self.rqt = clone("Requirement", id=req_id, owner=self.project,
                              level=0, public=True)
-            self.req.id = orb.gen_req_id(self.req)
-            orb.save([self.req])
-            dispatcher.send(signal='new req', obj=self.req)
+            self.rqt.id = orb.gen_req_id(self.rqt)
+            orb.save([self.rqt])
+            dispatcher.send(signal='new rqt', obj=self.rqt)
             new = True
         dispatcher.connect(self.saved, 'modified object')
-        req_wizard_state['req_oid'] = self.req.oid
+        rqt_wizard_state['req_oid'] = self.rqt.oid
         # Where the performance and functional differ
         main_view = []
         required = []
@@ -238,7 +238,7 @@ class RequirementIDPage(QWizardPage):
                 title_text += 'New Functional Requirement'
                 title_text += '</font></h3>'
         panels = ['main']
-        self.pgxn_obj = PgxnObject(self.req, embedded=True, panels=panels,
+        self.pgxn_obj = PgxnObject(self.rqt, embedded=True, panels=panels,
                                    main_view=main_view, required=required,
                                    # mask=mask, edit_mode=True, new=new,
                                    mask=mask, edit_mode=True,
@@ -284,20 +284,20 @@ class RequirementIDPage(QWizardPage):
         main_layout.addLayout(id_panel_layout)
 
     def level_select(self):
-        self.req.req_level = self.level_cb.currentText()
+        self.rqt.req_level = self.level_cb.currentText()
 
     def update_levels(self):
         # NOTE: update_levels is triggered when pgxnobject saves, so update
-        # req_wizard_state to sync with the saved req attributes ...
-        req_wizard_state['description'] = self.req.description
-        req_wizard_state['rationale'] = self.req.rationale
-        req_wizard_state['justification'] = self.req.justification
-        req_wizard_state['comment'] = self.req.comment
+        # rqt_wizard_state to sync with the saved rqt attributes ...
+        rqt_wizard_state['description'] = self.rqt.description
+        rqt_wizard_state['rationale'] = self.rqt.rationale
+        rqt_wizard_state['justification'] = self.rqt.justification
+        rqt_wizard_state['comment'] = self.rqt.comment
         self.level_cb.removeItem(1)
         self.level_cb.removeItem(0)
-        if self.req.parent_requirements:
+        if self.rqt.parent_requirements:
             parent_levels = [pr.parent_requirement.req_level or 0
-                             for pr in self.req.parent_requirements]
+                             for pr in self.rqt.parent_requirements]
             try:
                 max_level = max(parent_levels)
             except:
@@ -318,14 +318,14 @@ class RequirementIDPage(QWizardPage):
         self.completeChanged.emit()
 
     def isComplete(self):
-        orb.log.debug('* ReqID.isComplete()')
-        if self.req.name:
+        orb.log.debug('* RqtID.isComplete()')
+        if self.rqt.name:
             return True
         else:
             return False
 
 
-class ReqVerificationPage(QWizardPage):
+class RqtVerificationPage(QWizardPage):
     """
     Page for selecting the verification method for the requirement.
     """
@@ -356,7 +356,7 @@ class ReqVerificationPage(QWizardPage):
         self.verif_method_buttons.addButton(analysis_button)
         self.verif_method_buttons.addButton(inspection_button)
         self.verif_method_buttons.addButton(later_button)
-        verification_method = req_wizard_state.get('verification_method',
+        verification_method = rqt_wizard_state.get('verification_method',
                                           'Specify Verification Method Later')
         if verification_method:
             if verification_method == "Test":
@@ -377,11 +377,11 @@ class ReqVerificationPage(QWizardPage):
         self.setLayout(layout)
 
     def set_verification_method(self):
-        req_wizard_state['verification_method'
+        rqt_wizard_state['verification_method'
                         ] = self.verif_method_buttons.checkedButton().text()
 
 
-class ReqAllocPage(QWizardPage):
+class RqtAllocPage(QWizardPage):
     """
     Page to allocate the requirement to a project, a system role, or a
     function (identified by reference designator) within a system
@@ -394,10 +394,10 @@ class ReqAllocPage(QWizardPage):
         self.setLayout(main_layout)
 
     def initializePage(self):
-        self.req = orb.get(req_wizard_state.get('req_oid'))
-        if not self.req:
+        self.rqt = orb.get(rqt_wizard_state.get('req_oid'))
+        if not self.rqt:
             # TODO: if reqt cant be found, show messsage (page is useless then)
-            orb.log.info('* ReqAllocPage: requirement not found')
+            orb.log.info('* RqtAllocPage: requirement not found')
         if self.title():
             return;
         self.setTitle("Requirement Allocation")
@@ -408,8 +408,8 @@ class ReqAllocPage(QWizardPage):
         proj = orb.get(project_oid)
         self.project = proj
         self.sys_tree = SystemTreeView(self.project, refdes=True,
-                                       show_allocs=True, req=self.req)
-        self.sys_tree.setItemDelegate(ReqAllocDelegate())
+                                       show_allocs=True, rqt=self.rqt)
+        self.sys_tree.setItemDelegate(RqtAllocDelegate())
         self.sys_tree.expandToDepth(1)
         self.sys_tree.setExpandsOnDoubleClick(False)
         self.sys_tree.clicked.connect(self.on_select_node)
@@ -425,7 +425,7 @@ class ReqAllocPage(QWizardPage):
         content_layout.addLayout(tree_layout)
         content_layout.addLayout(summary_layout)
         self.update_summary()
-        alloc = getattr(self.req, 'allocated_to', None)
+        alloc = getattr(self.rqt, 'allocated_to', None)
         allocation = 'None'
         if alloc:
             if hasattr(alloc, 'component'):
@@ -434,7 +434,7 @@ class ReqAllocPage(QWizardPage):
                 allocation = alloc.system_role
             else:
                 allocation = alloc.id + ' project'
-        req_wizard_state['allocation'] = allocation
+        rqt_wizard_state['allocation'] = allocation
 
     def on_select_node(self, index):
         link = None
@@ -442,32 +442,32 @@ class ReqAllocPage(QWizardPage):
         mapped_i = self.sys_tree.proxy_model.mapToSource(index)
         link = self.sys_tree.source_model.get_node(mapped_i).link
         cname = self.sys_tree.source_model.get_node(mapped_i).cname
-        if (not link and not (cname == 'Project')) or not self.req:
-            orb.log.debug('  node is not link or project (or no self.req).')
+        if (not link and not (cname == 'Project')) or not self.rqt:
+            orb.log.debug('  node is not link or project (or no self.rqt).')
             return
             # DEPRECATED attribute 'system_requirements'
-            # if self.req in link.system_requirements:
+            # if self.rqt in link.system_requirements:
                 # # if this is an existing allocation, remove it
-                # self.req.allocated_to_system = None
+                # self.rqt.allocated_to_system = None
             # else:
-                # self.req.allocated_to_system = link
+                # self.rqt.allocated_to_system = link
                 # # if allocating to system, remove any allocation to function
-                # if self.req.allocated_to_function:
-                    # self.req.allocated_to_function = None
+                # if self.rqt.allocated_to_function:
+                    # self.rqt.allocated_to_function = None
             # allocated_item = link.system_role
         if cname == 'Project':
-            if self.req.allocated_to is self.project:
+            if self.rqt.allocated_to is self.project:
                 # if allocated, de-allocate
-                self.req.allocated_to = None
+                self.rqt.allocated_to = None
             else:
-                self.req.allocated_to = self.project
+                self.rqt.allocated_to = self.project
                 allocated_item = self.project.id + ' project'
         else:
-            if self.req.allocated_to is link:
+            if self.rqt.allocated_to is link:
                 # if allocated, de-allocate
-                self.req.allocated_to = None
+                self.rqt.allocated_to = None
             else:
-                self.req.allocated_to = link
+                self.rqt.allocated_to = link
                 if hasattr(link, 'system'):
                     allocated_item = link.system_role
                 elif hasattr(link, 'component'):
@@ -478,7 +478,7 @@ class ReqAllocPage(QWizardPage):
         self.sys_tree.scrollTo(index)
         # TODO: get the selected name/product so it can be used in the shall
         # statement.
-        req_wizard_state['allocation'] = allocated_item
+        rqt_wizard_state['allocation'] = allocated_item
         self.update_summary()
 
     def update_summary(self):
@@ -486,7 +486,7 @@ class ReqAllocPage(QWizardPage):
         Update the summary of current allocations.
         """
         msg = '<h3>Requirement Allocation:</h3><ul><li><b>'
-        alloc = self.req.allocated_to
+        alloc = self.rqt.allocated_to
         if alloc:
             if hasattr(alloc, 'system'):
                 msg += '<font color="green">'
@@ -511,16 +511,16 @@ class ReqAllocPage(QWizardPage):
         Method called when the Next button is clicked.  Here we are using it to
         do the db-intensive stuff.
         """
-        orb.log.debug('* validatePage() called for ReqAllocPage')
+        orb.log.debug('* validatePage() called for RqtAllocPage')
         # TODO:  test to ensure this fully works
-        self.req.mod_datetime = dtstamp()
-        self.req.modifier = orb.get(state.get('local_user_oid'))
-        orb.save([self.req])
+        self.rqt.mod_datetime = dtstamp()
+        self.rqt.modifier = orb.get(state.get('local_user_oid'))
+        orb.save([self.rqt])
         # Qt api requires validatePage() to return a boolean
         return True
 
 
-class ReqSummaryPage(QWizardPage):
+class RqtSummaryPage(QWizardPage):
     """
     Page to view a summary before saving the Requirement.
     """
@@ -543,66 +543,66 @@ class ReqSummaryPage(QWizardPage):
         if not self.title():
             self.setTitle('Requirement Summary')
             self.setSubTitle('Confirm all the information is correct...')
-        self.req = orb.get(req_wizard_state.get('req_oid'))
-        allocation = req_wizard_state.get('allocation', 'No Allocation')
+        self.rqt = orb.get(rqt_wizard_state.get('req_oid'))
+        allocation = rqt_wizard_state.get('allocation', 'No Allocation')
         self.fields['allocation'].setText(allocation)
         for a in ['id', 'name']:
-             self.fields[a].setText(getattr(self.req, a, '[Not Specified]'))
+             self.fields[a].setText(getattr(self.rqt, a, '[Not Specified]'))
         for a in ['description', 'justification', 'rationale',
                   'verification_method']:
-             self.fields[a].setText(req_wizard_state.get(a, '[Not Specified]'))
+             self.fields[a].setText(rqt_wizard_state.get(a, '[Not Specified]'))
         self.wizard().button(QWizard.FinishButton).clicked.connect(self.finish)
 
     def finish(self):
         # assign description, rationale, etc. ...
-        self.req.description = req_wizard_state['description']
-        self.req.rationale = req_wizard_state['rationale']
-        self.req.justification = req_wizard_state['justification']
-        self.req.req_target_value = req_wizard_state.get('req_target_value')
-        self.req.req_maximum_value = req_wizard_state.get('req_maximum_value')
-        self.req.req_minimum_value = req_wizard_state.get('req_minimum_value')
-        if self.req.req_constraint_type == 'single value':
-            if not self.req.req_target_value:
+        self.rqt.description = rqt_wizard_state['description']
+        self.rqt.rationale = rqt_wizard_state['rationale']
+        self.rqt.justification = rqt_wizard_state['justification']
+        self.rqt.req_target_value = rqt_wizard_state.get('req_target_value')
+        self.rqt.req_maximum_value = rqt_wizard_state.get('req_maximum_value')
+        self.rqt.req_minimum_value = rqt_wizard_state.get('req_minimum_value')
+        if self.rqt.req_constraint_type == 'single value':
+            if not self.rqt.req_target_value:
                 return False
-            if (self.req.req_tolerance_type == 'Symmetric Tolerance'
-                and self.req.req_tolerance is None):
+            if (self.rqt.req_tolerance_type == 'Symmetric Tolerance'
+                and self.rqt.req_tolerance is None):
                 return False
-            elif (self.req.req_tolerance_lower is None
-                  or self.req.req_tolerance_upper is None):
+            elif (self.rqt.req_tolerance_lower is None
+                  or self.rqt.req_tolerance_upper is None):
                 # Asymmetric Tolerance requires upper and lower tols
                 return False
-        elif (self.req.req_constraint_type == 'maximum'
-              and self.req.req_maximum_value is None):
+        elif (self.rqt.req_constraint_type == 'maximum'
+              and self.rqt.req_maximum_value is None):
             return False
-        elif (self.req.req_constraint_type == 'minimum'
-              and self.req.req_minimum_value is None):
+        elif (self.rqt.req_constraint_type == 'minimum'
+              and self.rqt.req_minimum_value is None):
             return False
-        self.req.computable_form = orb.get(
-                                       req_wizard_state.get('computable_form_oid'))
-        self.req.req_constraint_type = req_wizard_state.get('req_constraint_type')
-        self.req.req_tolerance_type = req_wizard_state.get('req_tolerance_type')
-        self.req.verification_method = req_wizard_state.get('verification_method')
-        self.req.req_target_value = req_wizard_state.get('req_target_value')
-        self.req.req_units = req_wizard_state.get('req_units')
-        self.req.req_maximum_value = req_wizard_state.get('req_maximum_value')
-        self.req.req_minimum_value = req_wizard_state.get('req_minimum_value')
-        self.req.req_tolerance = req_wizard_state.get('req_tolerance')
-        self.req.req_tolerance_lower = req_wizard_state.get('req_tolerance_lower')
-        self.req.req_tolerance_upper = req_wizard_state.get('req_tolerance_upper')
-        self.req.req_subject = req_wizard_state.get('req_subject')
-        self.req.req_predicate = req_wizard_state.get('req_predicate')
-        self.req.req_object = req_wizard_state.get('req_object')
-        self.req.mod_datetime = dtstamp()
-        self.req.modifier = orb.get(state.get('local_user_oid'))
-        orb.save([self.req])
-        dispatcher.send(signal='modified object', obj=self.req)
+        self.rqt.computable_form = orb.get(
+                                       rqt_wizard_state.get('computable_form_oid'))
+        self.rqt.req_constraint_type = rqt_wizard_state.get('req_constraint_type')
+        self.rqt.req_tolerance_type = rqt_wizard_state.get('req_tolerance_type')
+        self.rqt.verification_method = rqt_wizard_state.get('verification_method')
+        self.rqt.req_target_value = rqt_wizard_state.get('req_target_value')
+        self.rqt.req_units = rqt_wizard_state.get('req_units')
+        self.rqt.req_maximum_value = rqt_wizard_state.get('req_maximum_value')
+        self.rqt.req_minimum_value = rqt_wizard_state.get('req_minimum_value')
+        self.rqt.req_tolerance = rqt_wizard_state.get('req_tolerance')
+        self.rqt.req_tolerance_lower = rqt_wizard_state.get('req_tolerance_lower')
+        self.rqt.req_tolerance_upper = rqt_wizard_state.get('req_tolerance_upper')
+        self.rqt.req_subject = rqt_wizard_state.get('req_subject')
+        self.rqt.req_predicate = rqt_wizard_state.get('req_predicate')
+        self.rqt.req_object = rqt_wizard_state.get('req_object')
+        self.rqt.mod_datetime = dtstamp()
+        self.rqt.modifier = orb.get(state.get('local_user_oid'))
+        orb.save([self.rqt])
+        dispatcher.send(signal='modified object', obj=self.rqt)
 
 
 ###############################
 # Performance Requirement Pages
 ###############################
 
-# Includes PerformanceDefineParmPage, PerformReqShallPage, and in the future,
+# Includes PerformanceDefineParmPage, PerformRqtShallPage, and in the future,
 # PerformanceMarginCalcPage (margin calculation).
 
 class PerformanceDefineParmPage(QWizardPage):
@@ -619,7 +619,7 @@ class PerformanceDefineParmPage(QWizardPage):
     def initializePage(self):
         if self.title():
             return
-        self.req = orb.get(req_wizard_state.get('req_oid'))
+        self.rqt = orb.get(rqt_wizard_state.get('req_oid'))
         project_oid = state.get('project')
         proj = orb.get(project_oid)
         self.project = proj
@@ -654,7 +654,7 @@ class PerformanceDefineParmPage(QWizardPage):
         # radio buttons for the  type specification including the label and the
         # form for the single value button to specify if it will use asymmetric
         # or symmetric tolerance.
-        # TODO: handle single value, store in req_wizard_state
+        # TODO: handle single value, store in rqt_wizard_state
         self.single_form = QFormLayout()
         type_label = QLabel('Type: ')
         self.min_button = QRadioButton('minimum')
@@ -674,7 +674,7 @@ class PerformanceDefineParmPage(QWizardPage):
         self.constraint_buttons.addButton(self.max_button)
         self.constraint_buttons.addButton(self.single_button)
         self.constraint_buttons.addButton(self.range_button)
-        constraint_type = req_wizard_state.get('req_constraint_type')
+        constraint_type = rqt_wizard_state.get('req_constraint_type')
         if constraint_type:
             if constraint_type == 'minimum':
                 self.min_button.setChecked(True)
@@ -682,7 +682,7 @@ class PerformanceDefineParmPage(QWizardPage):
                 self.max_button.setChecked(True)
             elif constraint_type == 'single value':
                 self.single_button.setChecked(True)
-                tolerance_type = req_wizard_state.get('req_tolerance_type')
+                tolerance_type = rqt_wizard_state.get('req_tolerance_type')
                 if tolerance_type:
                     self.single_cb.setDisabled(False)
                     self.single_cb.setCurrentText(tolerance_type)
@@ -714,14 +714,14 @@ class PerformanceDefineParmPage(QWizardPage):
 
         # check if we received an existing requirement with a parameter ...
         # if so, select it and call on_select_parm()
-        rel = orb.get(req_wizard_state.get('computable_form_oid'))
+        rel = orb.get(rqt_wizard_state.get('computable_form_oid'))
         self.pd = None
         if rel:
             parm_rels = rel.correlates_parameters
             if parm_rels:
                 self.pd = parm_rels[0].correlates_parameter
         if self.pd and self.pd in self.parm_list.model().objs:
-            req_wizard_state['req_parameter'] = self.pd.id
+            rqt_wizard_state['req_parameter'] = self.pd.id
             row = self.parm_list.model().objs.index(self.pd)
             i = self.parm_list.model().index(row, 0)
             self.parm_list.setCurrentIndex(i)
@@ -752,7 +752,7 @@ class PerformanceDefineParmPage(QWizardPage):
 
     def tolerance_changed(self):
         tol_type = self.single_cb.currentText()
-        req_wizard_state['req_tolerance_type'] = tol_type
+        rqt_wizard_state['req_tolerance_type'] = tol_type
 
     def set_constraint_type(self):
         """
@@ -762,13 +762,13 @@ class PerformanceDefineParmPage(QWizardPage):
         b = self.constraint_buttons.checkedButton()
         const_type = b.text()
         if const_type:
-            req_wizard_state['req_constraint_type'] = const_type
+            rqt_wizard_state['req_constraint_type'] = const_type
         else:
-            req_wizard_state['req_constraint_type'] = None
+            rqt_wizard_state['req_constraint_type'] = None
         if b == self.single_button:
             self.single_cb.setDisabled(False)
             rtt = self.single_cb.currentText()
-            req_wizard_state['req_tolerance_type'] = rtt
+            rqt_wizard_state['req_tolerance_type'] = rtt
         else:
             self.single_cb.setDisabled(True)
 
@@ -781,10 +781,10 @@ class PerformanceDefineParmPage(QWizardPage):
         # a pd has been selected; create a ParameterRelation instance that
         # points to a Relation ('referenced_relation') and for which the
         # 'correlates_parameter' is the pd.  Set the Relation's oid as the
-        # req_wizard_state['computable_form_oid'] -- the Relation will be the
+        # rqt_wizard_state['computable_form_oid'] -- the Relation will be the
         # Requirement's 'computable_form' attribute value.
         # First, check for any existing Relation and ParameterRelation:
-        cf_oid = req_wizard_state.get('computable_form_oid')
+        cf_oid = rqt_wizard_state.get('computable_form_oid')
         if cf_oid:
             # if any are found, destroy them ...
             cf = orb.get(cf_oid)
@@ -793,21 +793,21 @@ class PerformanceDefineParmPage(QWizardPage):
                     for pr in cf.correlates_parameters:
                         orb.delete([pr])
                 orb.delete([cf])
-        relid = get_rel_id(self.req.id, 'computable-form')
-        relname = get_rel_name(self.req.name, 'Computable Form')
+        relid = get_rel_id(self.rqt.id, 'computable-form')
+        relname = get_rel_name(self.rqt.name, 'Computable Form')
         rel = clone("Relation", id=relid, name=relname)
         orb.log.debug(f'  - computable form created: {relid}')
         # set Relation as requirement's 'computable_form'
-        self.req.computable_form = rel
-        prid = get_parm_rel_id(self.req.id, self.pd.id)
-        prname = get_parm_rel_name(self.req.name, self.pd.name)
+        self.rqt.computable_form = rel
+        prid = get_parm_rel_id(self.rqt.id, self.pd.id)
+        prname = get_parm_rel_name(self.rqt.name, self.pd.name)
         pr = clone("ParameterRelation", id=prid, name=prname,
                    correlates_parameter=self.pd, referenced_relation=rel)
         orb.log.debug(f'  - parm rel created: {prid}')
-        # req_wizard_state['pr_oid'] = pr.oid
-        req_wizard_state['computable_form_oid'] = rel.oid
-        req_wizard_state['req_parameter'] = self.pd.id
-        orb.save([self.req])  # calls db.commit(), which commits rel & pr objs
+        # rqt_wizard_state['pr_oid'] = pr.oid
+        rqt_wizard_state['computable_form_oid'] = rel.oid
+        rqt_wizard_state['req_parameter'] = self.pd.id
+        orb.save([self.rqt])  # calls db.commit(), which commits rel & pr objs
         # Qt api requires validatePage() to return a boolean
         return True
 
@@ -815,16 +815,16 @@ class PerformanceDefineParmPage(QWizardPage):
         """
         Check if both dimension and type have been specified
         """
-        # if (not req_wizard_state.get('computable_form_oid')
-            # or not req_wizard_state.get('req_constraint_type')):
+        # if (not rqt_wizard_state.get('computable_form_oid')
+            # or not rqt_wizard_state.get('req_constraint_type')):
             # return False
         if (getattr(self, 'pd', None) and
-            req_wizard_state.get('req_constraint_type')):
+            rqt_wizard_state.get('req_constraint_type')):
             return True
         return False
 
 
-class PerformReqShallPage(QWizardPage):
+class PerformRqtShallPage(QWizardPage):
     """
     Finalize the "shall statement" (Requirement.description) and add the
     rationale and justification.  The 3 components of the shall statement are:
@@ -841,7 +841,7 @@ class PerformReqShallPage(QWizardPage):
         self.setLayout(layout)
 
     def initializePage(self):
-        self.req = orb.get(req_wizard_state.get('req_oid'))
+        self.rqt = orb.get(rqt_wizard_state.get('req_oid'))
         layout = self.layout()
         if self.title():
             # # remove from first hbox
@@ -962,28 +962,28 @@ class PerformReqShallPage(QWizardPage):
 
         # 'req_constraint_type' was set on the previous page
         # as max, min, single, or range value(s)
-        constraint_type = req_wizard_state.get('req_constraint_type')
+        constraint_type = rqt_wizard_state.get('req_constraint_type')
         # if max or min, set up min-max combo
         double_validator = QtGui.QDoubleValidator()
         max_text = 'shall not exceed'
         min_text = 'shall not be less than'
         if constraint_type == 'maximum':
-            req_wizard_state['req_predicate'] = max_text
+            rqt_wizard_state['req_predicate'] = max_text
             self.maximum_value = QLineEdit()
             self.maximum_value.setValidator(double_validator)
             self.maximum_value.setMaximumSize(75, 25)
-            maximum_value = req_wizard_state.get('req_maximum_value', '')
+            maximum_value = rqt_wizard_state.get('req_maximum_value', '')
             if maximum_value:
                 self.maximum_value.setText(str(maximum_value))
             else:
                 self.maximum_value.setPlaceholderText('maximum')
             self.maximum_value.textChanged.connect(self.num_entered)
         elif constraint_type == 'minimum':
-            req_wizard_state['req_predicate'] = min_text
+            rqt_wizard_state['req_predicate'] = min_text
             self.minimum_value = QLineEdit()
             self.minimum_value.setValidator(double_validator)
             self.minimum_value.setMaximumSize(75, 25)
-            minimum_value = req_wizard_state.get('req_minimum_value', '')
+            minimum_value = rqt_wizard_state.get('req_minimum_value', '')
             if minimum_value:
                 self.minimum_value.setText(str(minimum_value))
             else:
@@ -1001,21 +1001,21 @@ class PerformReqShallPage(QWizardPage):
                 self.minimum_value = QLineEdit()
                 self.minimum_value.setValidator(double_validator)
                 self.minimum_value.setMaximumSize(100, 25)
-                minimum_value = req_wizard_state.get('req_minimum_value', '')
+                minimum_value = rqt_wizard_state.get('req_minimum_value', '')
                 if minimum_value:
                     self.minimum_value.setText(str(minimum_value))
                 else:
                     self.minimum_value.setPlaceholderText('minimum')
                 self.minimum_value.textChanged.connect(self.num_entered)
             if constraint_type == 'range':
-                req_wizard_state['req_predicate'] = "shall be in the range"
+                rqt_wizard_state['req_predicate'] = "shall be in the range"
                 self.range_label = QLabel('to')
                 self.range_label.setMaximumSize(20, 25)
             if constraint_type in ['range', 'maximum']:
                 self.maximum_value = QLineEdit()
                 self.maximum_value.setValidator(double_validator)
                 self.maximum_value.setMaximumSize(100, 25)
-                maximum_value = req_wizard_state.get('req_maximum_value', '')
+                maximum_value = rqt_wizard_state.get('req_maximum_value', '')
                 if maximum_value:
                     self.maximum_value.setText(str(maximum_value))
                 else:
@@ -1023,10 +1023,10 @@ class PerformReqShallPage(QWizardPage):
                 self.maximum_value.textChanged.connect(self.num_entered)
         else:
             # constraint_type is "single value"
-            req_wizard_state['req_predicate'] = "shall equal"
+            rqt_wizard_state['req_predicate'] = "shall equal"
             self.target_value = QLineEdit()
             self.target_value.setValidator(double_validator)
-            target_value = req_wizard_state.get('req_target_value', '')
+            target_value = rqt_wizard_state.get('req_target_value', '')
             self.target_value.setPlaceholderText('target value')
             if target_value:
                 self.target_value.setText(str(target_value))
@@ -1038,7 +1038,7 @@ class PerformReqShallPage(QWizardPage):
         self.upper_limit = None
         self.plus_minus_label = None
         self.tol_val_field = None
-        tolerance_type = req_wizard_state.get('req_tolerance_type')
+        tolerance_type = rqt_wizard_state.get('req_tolerance_type')
         if tolerance_type:
             if tolerance_type == 'Asymmetric Tolerance':
                 self.minus_label = QLabel('-')
@@ -1050,14 +1050,14 @@ class PerformReqShallPage(QWizardPage):
                 self.lower_limit.setMaximumSize(120, 25)
                 self.lower_limit.setPlaceholderText('lower tolerance')
                 self.lower_limit.setText(
-                        str(req_wizard_state.get('req_tolerance_lower', '')))
+                        str(rqt_wizard_state.get('req_tolerance_lower', '')))
                 self.lower_limit.textChanged.connect(self.num_entered)
                 self.upper_limit = QLineEdit()
                 self.upper_limit.setValidator(double_validator)
                 self.upper_limit.setMaximumSize(120, 25)
                 self.upper_limit.setPlaceholderText('upper tolerance')
                 self.upper_limit.setText(
-                        str(req_wizard_state.get('req_tolerance_upper', '')))
+                        str(rqt_wizard_state.get('req_tolerance_upper', '')))
                 self.upper_limit.textChanged.connect(self.num_entered)
             elif tolerance_type == 'Symmetric Tolerance':
                 self.plus_minus_label = QLabel('+/-')
@@ -1067,12 +1067,12 @@ class PerformReqShallPage(QWizardPage):
                 self.tol_val_field.setMaximumSize(100, 25)
                 self.tol_val_field.setPlaceholderText('tolerance')
                 self.tol_val_field.setText(
-                            str(req_wizard_state.get('req_tolerance', '')))
+                            str(rqt_wizard_state.get('req_tolerance', '')))
                 self.tol_val_field.textChanged.connect(self.num_entered)
 
         # subject (allocated item / parameter)
         allocated_item = '[unallocated]'
-        alloc = self.req.allocated_to
+        alloc = self.rqt.allocated_to
         if alloc:
             if hasattr(alloc, 'component'):
                 allocated_item = alloc.reference_designator
@@ -1081,20 +1081,20 @@ class PerformReqShallPage(QWizardPage):
             elif hasattr(alloc, 'id'):
                 allocated_item = alloc.id
         parm_name = '[parameter not selected]'
-        pid = req_wizard_state.get('req_parameter')
+        pid = rqt_wizard_state.get('req_parameter')
         if pid:
             pd_dict = parm_defz.get(pid)
             if pd_dict:
                 parm_name = pd_dict['name']
-        req_wizard_state['req_subject'] = ' '.join([allocated_item, parm_name])
+        rqt_wizard_state['req_subject'] = ' '.join([allocated_item, parm_name])
         alloc_parm = ' '.join([allocated_item, parm_name,
-                         req_wizard_state.get('req_predicate', '[shall be]')])
+                         rqt_wizard_state.get('req_predicate', '[shall be]')])
         self.subj_pred_label = ValueLabel(alloc_parm)
 
         # units
         self.units = QComboBox()
         units_list = []
-        rel = orb.get(req_wizard_state.get('computable_form_oid'))
+        rel = orb.get(rqt_wizard_state.get('computable_form_oid'))
         if rel:
             parm_rels = rel.correlates_parameters
             if parm_rels:
@@ -1106,12 +1106,12 @@ class PerformReqShallPage(QWizardPage):
                 self.units.addItem(unit)
         else:
             self.units.addItem('No units found.')
-        current_units = req_wizard_state.get('req_units')
+        current_units = rqt_wizard_state.get('req_units')
         if current_units and current_units in units_list:
             self.units.setCurrentText(current_units)
-            req_wizard_state['req_units'] = current_units
+            rqt_wizard_state['req_units'] = current_units
         elif units_list:
-            req_wizard_state['req_units'] = self.units.currentText()
+            rqt_wizard_state['req_units'] = self.units.currentText()
         self.units.currentTextChanged.connect(self.on_set_units)
         # labels for the overall groups for organization of the page
         shall_label = QLabel('Shall Statement:')
@@ -1129,12 +1129,12 @@ class PerformReqShallPage(QWizardPage):
         # rationale plain text edit
         self.rationale_field = QPlainTextEdit()
         self.rationale_field.setPlainText(
-                                    req_wizard_state.get('rationale', ''))
+                                    rqt_wizard_state.get('rationale', ''))
 
         # justification plain text edit
         self.justification_field = QPlainTextEdit()
         self.justification_field.setPlainText(
-                                    req_wizard_state.get('justification', ''))
+                                    rqt_wizard_state.get('justification', ''))
 
         # shall statement
         self.shall_hbox = QHBoxLayout()
@@ -1209,41 +1209,41 @@ class PerformReqShallPage(QWizardPage):
         if self.target_value:
             tv_txt = self.target_value.text()
             try:
-                req_wizard_state['req_target_value'] = float(tv_txt)
+                rqt_wizard_state['req_target_value'] = float(tv_txt)
             except:
                 # field was empty or bad value
                 pass
         if self.maximum_value:
             max_txt = self.maximum_value.text()
             try:
-                req_wizard_state['req_maximum_value'] = float(max_txt)
+                rqt_wizard_state['req_maximum_value'] = float(max_txt)
             except:
                 # field was empty or bad value
                 pass
         if self.minimum_value:
             min_txt = self.minimum_value.text()
             try:
-                req_wizard_state['req_minimum_value'] = float(min_txt)
+                rqt_wizard_state['req_minimum_value'] = float(min_txt)
             except:
                 # field was empty or bad value
                 pass
         if self.lower_limit:
             lower_txt = self.lower_limit.text()
             try:
-                req_wizard_state['req_tolerance_lower'] = float(lower_txt)
+                rqt_wizard_state['req_tolerance_lower'] = float(lower_txt)
             except:
                 # field was empty or bad value
                 pass
             upper_txt = self.upper_limit.text()
             try:
-                req_wizard_state['req_tolerance_upper'] = float(upper_txt)
+                rqt_wizard_state['req_tolerance_upper'] = float(upper_txt)
             except:
                 # field was empty or bad value
                 pass
         if self.tol_val_field:
             tol_txt = self.tol_val_field.text()
             try:
-                req_wizard_state['req_tolerance'] = float(tol_txt)
+                rqt_wizard_state['req_tolerance'] = float(tol_txt)
             except:
                 # field was empty or bad value
                 pass
@@ -1252,7 +1252,7 @@ class PerformReqShallPage(QWizardPage):
         orb.log.info('* reqwizard setting units ...')
         new_units = str(self.units.currentText())
         orb.log.debug('  new units: "{}"'.format(new_units))
-        req_wizard_state['req_units'] = new_units
+        rqt_wizard_state['req_units'] = new_units
 
     def instructions(self):
         instructions = "In the shall statement (<b>description</b>) area "
@@ -1277,12 +1277,12 @@ class PerformReqShallPage(QWizardPage):
                              QMessageBox.Ok)
 
     def preview(self):
-        if (req_wizard_state.get('description')
-            and req_wizard_state.get('rationale')):
+        if (rqt_wizard_state.get('description')
+            and rqt_wizard_state.get('rationale')):
             shall_rat = "Shall Statement:\n{}".format(
-                                        req_wizard_state['description'])
+                                        rqt_wizard_state['description'])
             shall_rat +="\n\nRationale:\n{}".format(
-                                        req_wizard_state['rationale'])
+                                        rqt_wizard_state['rationale'])
         else:
             shall_rat = "Shall statement and rationale have not been saved."
         QMessageBox.question(self, 'preview', shall_rat, QMessageBox.Ok)
@@ -1317,40 +1317,40 @@ class PerformReqShallPage(QWizardPage):
         if description == '':
             return False
         description = ' '.join(description.split()) + '.'
-        req_wizard_state['description'] = description
+        rqt_wizard_state['description'] = description
         # predicate excludes the value + units, so that if description needs to
         # be regenerated, it can be assembled as
         #     req_subject + req_predicate
         #     + str(req_maximum_value or req_minimum_value or req_target_value)
         #     + units
-        constraint_type = req_wizard_state.get('req_constraint_type')
-        units = req_wizard_state.get('req_units', '[no units]') or ''
+        constraint_type = rqt_wizard_state.get('req_constraint_type')
+        units = rqt_wizard_state.get('req_units', '[no units]') or ''
         if constraint_type == 'maximum':
-            req_obj = str(req_wizard_state.get('req_maximum_value', ''))
+            req_obj = str(rqt_wizard_state.get('req_maximum_value', ''))
             req_obj += ' ' + units
         elif constraint_type == 'minimum':
-            req_obj = str(req_wizard_state.get('req_minimum_value', ''))
+            req_obj = str(rqt_wizard_state.get('req_minimum_value', ''))
             req_obj += ' ' + units
         elif constraint_type == 'single value':
-            req_obj = str(req_wizard_state.get('req_target_value', ''))
+            req_obj = str(rqt_wizard_state.get('req_target_value', ''))
             # TODO:  add tolerances
-            # tol_type = req_wizard_state.get('req_tolerance_type')
+            # tol_type = rqt_wizard_state.get('req_tolerance_type')
             req_obj += ' ' + units
         elif constraint_type == 'range':
             # TODO:  deal with "range" better
-            req_obj = str(req_wizard_state.get('req_minimum_value', ''))
+            req_obj = str(rqt_wizard_state.get('req_minimum_value', ''))
             req_obj += ' to '
-            req_obj += str(req_wizard_state.get('req_maximum_value', ''))
+            req_obj += str(rqt_wizard_state.get('req_maximum_value', ''))
         else:
             # if not constraint_type, pretend it's "maximum"
             # TODO: something better ...
-            req_obj = str(req_wizard_state.get('req_maximum_value', ''))
+            req_obj = str(rqt_wizard_state.get('req_maximum_value', ''))
             req_obj += ' ' + units
-        req_wizard_state['req_object'] = req_obj
-        req_wizard_state[
+        rqt_wizard_state['req_object'] = req_obj
+        rqt_wizard_state[
                  'justification'] = self.justification_field.toPlainText()
-        req_wizard_state['rationale'] = self.rationale_field.toPlainText()
-        if not req_wizard_state.get('rationale'):
+        rqt_wizard_state['rationale'] = self.rationale_field.toPlainText()
+        if not rqt_wizard_state.get('rationale'):
             return False
         # TODO: get the project
         return True
@@ -1369,7 +1369,7 @@ class PerformanceMarginCalcPage(QWizardPage):
     def initializePage(self):
         if self.title():
             return
-        req_wizard_state['marg_calc'] = None
+        rqt_wizard_state['marg_calc'] = None
         self.setTitle('Set Margin Calculation')
         self.setSubTitle('Use the drop downs below to set'
                          ' the margin calculation...')

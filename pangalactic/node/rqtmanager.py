@@ -18,11 +18,11 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
 from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import (NotificationDialog, ReqFieldsDialog,
-                                          ReqParmDialog, SelectColsDialog)
+from pangalactic.node.dialogs     import (NotificationDialog, RqtFieldsDialog,
+                                          RqtParmDialog, SelectColsDialog)
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.systemtree  import SystemTreeView
-from pangalactic.node.reqwizards  import ReqWizard
+from pangalactic.node.rqtwizard   import RqtWizard
 from pangalactic.node.wizards     import DataImportWizard
 
 # Louie
@@ -34,7 +34,7 @@ class RequirementManager(QDialog):
     Manager of Requirements. :)
 
     Note that the actions in the FilterPanel are handled there, sending signals
-    to invoke the ReqWizard for editing a requirement, etc.
+    to invoke the RqtWizard for editing a requirement, etc.
 
     Keyword Args:
         project (Project):  sets a project context
@@ -42,7 +42,7 @@ class RequirementManager(QDialog):
     """
     def __init__(self, project=None, width=None, height=None, parent=None):
         super().__init__(parent=parent)
-        view = prefs.get('req_mgr_view') or MAIN_VIEWS['Requirement']
+        view = prefs.get('rqt_mgr_view') or MAIN_VIEWS['Requirement']
         self.view = view
         self.sized_cols = {'id': 0, 'name': 150}
         self.project = project
@@ -88,15 +88,20 @@ class RequirementManager(QDialog):
                                   sized_cols=self.sized_cols, word_wrap=True,
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.fpanel.proxy_view.clicked.connect(self.on_select_req)
-        self.fpanel.reqwizard_action.triggered.connect(self.edit_in_req_wiz)
-        self.fpanel.req_parms_action.triggered.connect(self.edit_req_parms)
-        self.fpanel.req_fields_action.triggered.connect(self.edit_req_fields)
-        self.fpanel.req_delete_action.triggered.connect(self.delete_req)
+        self.fpanel.proxy_view.clicked.connect(self.on_select_rqt)
+        self.fpanel.rqtwizard_action.triggered.connect(self.edit_in_rqt_wiz)
+        self.fpanel.rqt_parms_action.triggered.connect(self.edit_rqt_parms)
+        self.fpanel.rqt_fields_action.triggered.connect(self.edit_rqt_fields)
+        self.fpanel.rqt_delete_action.triggered.connect(self.delete_rqt)
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
         dispatcher.connect(self.on_modified_object, 'modified object')
+        # "parameters recomputed" is the ultimate signal resulting from a
+        # "received objects" pubsub msg after a "modified object" signal
+        # triggers a "save" rpc ... so in a "connected" state, that is when a
+        # modified requirement should be updated in the fpanel
+        dispatcher.connect(self.on_parmz_recomputed, 'parameters recomputed')
         # TODO:  make project a property; in its setter, enable the checkbox
         # that opens the "allocation panel" (tree)
         self.display_allocation_panel()
@@ -106,11 +111,11 @@ class RequirementManager(QDialog):
 
     @property
     def view(self):
-        return prefs.get('req_mgr_view') or []
+        return prefs.get('rqt_mgr_view') or []
 
     @view.setter
     def view(self, v):
-        prefs['req_mgr_view'] = v
+        prefs['rqt_mgr_view'] = v
 
     def select_cols(self):
         """
@@ -161,7 +166,7 @@ class RequirementManager(QDialog):
         dtstr = date2str(dtstamp())
         name = '-' + 'Requirements' + '-'
         fname = self.project.id + name + dtstr + '.tsv'
-        state_path = state.get('req_tsv_last_path') or ''
+        state_path = state.get('rqt_tsv_last_path') or ''
         suggested_fpath = os.path.join(state_path, fname)
         fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Write to tsv File',
@@ -170,7 +175,7 @@ class RequirementManager(QDialog):
             orb.log.debug(f'  - file selected: "{fpath}"')
             fpath = str(fpath)   # extra-cautious :)
             f = open(fpath, 'w')
-            state['req_tsv_last_path'] = os.path.dirname(fpath)
+            state['rqt_tsv_last_path'] = os.path.dirname(fpath)
             orb.log.debug(f'  - cols: "{self.view}"')
             data = []
             headers = '\t'.join([pname_to_header(a, 'Requirement')
@@ -201,14 +206,14 @@ class RequirementManager(QDialog):
         dtstr = date2str(dtstamp())
         name = '-Requirements-'
         fname = self.project.id + name + dtstr + '.xlsx'
-        state_path = state.get('req_excel_last_path') or ''
+        state_path = state.get('rqt_excel_last_path') or ''
         suggested_fpath = os.path.join(state_path, fname)
         fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Write to .xlsx File',
                                     suggested_fpath, '(*.xlsx)')
         if fpath:
             orb.log.debug(f'  - file selected: "{fpath}"')
-            state['req_excel_last_path'] = os.path.dirname(fpath)
+            state['rqt_excel_last_path'] = os.path.dirname(fpath)
             write_objects_to_xlsx(self.rqts, fpath, view=self.view)
             html = '<h3>Success!</h3>'
             msg = 'Requirements exported to Excel file:'
@@ -258,8 +263,8 @@ class RequirementManager(QDialog):
                             width=self.geometry().width(),
                             parent=self)
             wizard.exec_()
-            orb.log.debug('* import_reqts_from_excel: dialog completed.')
-            dispatcher.send('reqts imported from excel')
+            orb.log.debug('* import_rqts_from_excel: dialog completed.')
+            dispatcher.send('rqts imported from excel')
         else:
             return
 
@@ -267,33 +272,45 @@ class RequirementManager(QDialog):
         if obj in self.fpanel.objs:
             self.fpanel.refresh()
 
-    def edit_in_req_wiz(self):
-        orb.log.debug('* edit_in_req_wiz()')
-        req = None
+    def on_parmz_recomputed(self):
+        if state.get('new_or_modified_rqts'):
+            need_refresh = False
+            for rqt_oid in state['new_or_modified_rqts']:
+                rqt = orb.get(rqt_oid)
+                if rqt in self.fpanel.objs:
+                    need_refresh = True
+                elif rqt.owner.id == self.project.id:
+                    need_refresh = True
+            if need_refresh:
+                self.fpanel.refresh()
+
+    def edit_in_rqt_wiz(self):
+        orb.log.debug('* edit_in_rqt_wiz()')
+        rqt = None
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
             # orb.log.debug('  at selected row: {}'.format(i))
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i], 'oid', '')
             if oid:
-                req = orb.get(oid)
-        if req:
-            if 'modify' in get_perms(req):
-                is_perf = (req.req_type == 'performance')
-                wizard = ReqWizard(parent=self, req=req, performance=is_perf)
+                rqt = orb.get(oid)
+        if rqt:
+            if 'modify' in get_perms(rqt):
+                is_perf = (rqt.req_type == 'performance')
+                wizard = RqtWizard(parent=self, rqt=rqt, performance=is_perf)
                 if wizard.exec_() == QDialog.Accepted:
-                    orb.log.info('* req wizard completed.')
+                    orb.log.info('* rqt wizard completed.')
                 else:
-                    orb.log.info('* req wizard cancelled...')
+                    orb.log.info('* rqt wizard cancelled...')
             else:
                 message = "Not Authorized"
                 popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
                                     message, QMessageBox.Ok, self)
                 popup.show()
 
-    def edit_req_parms(self):
-        orb.log.debug('* edit_req_parms()')
-        req = None
+    def edit_rqt_parms(self):
+        orb.log.debug('* edit_rqt_parms()')
+        rqt = None
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
@@ -301,29 +318,30 @@ class RequirementManager(QDialog):
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
                           'oid', '')
             if oid:
-                req = orb.get(oid)
-        if req:
-            if not req.req_type == 'performance':
+                rqt = orb.get(oid)
+        if rqt:
+            if not rqt.req_type == 'performance':
                 message = "Not a performance requirement -- no parameters."
                 popup = QMessageBox(QMessageBox.Warning, 'No Parameter',
                                     message, QMessageBox.Ok, self)
                 popup.show()
-            elif 'modify' in get_perms(req):
+            elif 'modify' in get_perms(rqt):
                 parm = None
-                if req.req_constraint_type == 'maximum':
+                if rqt.req_constraint_type == 'maximum':
                     parm = 'req_maximum_value'
-                elif req.req_constraint_type == 'minimum':
+                elif rqt.req_constraint_type == 'minimum':
                     parm = 'req_minimum_value'
-                elif req.req_constraint_type == 'single_value':
+                elif rqt.req_constraint_type == 'single_value':
                     parm = 'req_target_value'
                 if parm:
-                    dlg = ReqParmDialog(req, parm, parent=self)
-                    dlg.req_parm_mod.connect(self.on_req_parm_mod)
+                    dlg = RqtParmDialog(rqt, parm, parent=self)
+                    dlg.rqt_parm_mod.connect(self.on_rqt_parm_mod)
                     if dlg.exec_() == QDialog.Accepted:
-                        orb.log.info('* req parm edited.')
+                        orb.log.info('* rqt parm edited.')
+                        dispatcher.send('modified object', obj=rqt)
                         dlg.close()
                     else:
-                        orb.log.info('* req parm editing cancelled.')
+                        orb.log.info('* rqt parm editing cancelled.')
                         dlg.close()
                 else:
                     message = "No editable parameter found."
@@ -341,12 +359,13 @@ class RequirementManager(QDialog):
                                 message, QMessageBox.Ok, self)
             popup.show()
 
-    def on_req_parm_mod(self, oid):
-        self.fpanel.mod_object(oid)
+    def on_rqt_parm_mod(self, oid):
+        if not state.get('connected'):
+            self.fpanel.mod_object(oid)
 
-    def edit_req_fields(self):
-        orb.log.debug('* edit_req_fields()')
-        req = None
+    def edit_rqt_fields(self):
+        orb.log.debug('* edit_rqt_fields()')
+        rqt = None
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
@@ -354,15 +373,15 @@ class RequirementManager(QDialog):
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
                           'oid', '')
             if oid:
-                req = orb.get(oid)
-        if req:
-            if 'modify' in get_perms(req):
-                dlg = ReqFieldsDialog(req, self.view, parent=self)
+                rqt = orb.get(oid)
+        if rqt:
+            if 'modify' in get_perms(rqt):
+                dlg = RqtFieldsDialog(rqt, self.view, parent=self)
                 if dlg.exec_() == QDialog.Accepted:
-                    orb.log.info('* req fields edited.')
+                    orb.log.info('* rqt fields edited.')
                     dlg.close()
                 else:
-                    orb.log.info('* req fields editing cancelled.')
+                    orb.log.info('* rqt fields editing cancelled.')
                     dlg.close()
             else:
                 message = "Not Authorized"
@@ -370,9 +389,9 @@ class RequirementManager(QDialog):
                                     message, QMessageBox.Ok, self)
                 popup.show()
 
-    def delete_req(self):
-        orb.log.debug('* delete_req()')
-        req = None
+    def delete_rqt(self):
+        orb.log.debug('* delete_rqt()')
+        rqt = None
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
@@ -380,19 +399,19 @@ class RequirementManager(QDialog):
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
                           'oid', '')
             if oid:
-                req = orb.get(oid)
-        if req:
-            if 'delete' not in get_perms(req):
+                rqt = orb.get(oid)
+        if rqt:
+            if 'delete' not in get_perms(rqt):
                 message = "Not Authorized"
                 popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
                                     message, QMessageBox.Ok, self)
                 popup.show()
                 return
-            req_oid = req.oid
+            rqt_oid = rqt.oid
             # delete any related Relation and ParameterRelation objects
-            rel = req.computable_form
+            rel = rqt.computable_form
             if rel:
-                # pr_oid = req_wizard_state.get('pr_oid')
+                # pr_oid = rqt_wizard_state.get('pr_oid')
                 # pr = orb.get(pr_oid)
                 prs = rel.correlates_parameters
                 if prs:
@@ -405,13 +424,13 @@ class RequirementManager(QDialog):
                 orb.delete([rel])
                 dispatcher.send(signal='deleted object',
                                 oid=rel_oid, cname='Relation')
-            # remove the req object from the filter panel
-            self.fpanel.remove_object(req_oid)
+            # remove the rqt object from the filter panel
+            self.fpanel.remove_object(rqt_oid)
             # delete the Requirement object
-            orb.delete([req])
-            dispatcher.send(signal='deleted object', oid=req_oid,
+            orb.delete([rqt])
+            dispatcher.send(signal='deleted object', oid=rqt_oid,
                             cname='Requirement')
-            orb.delete([req])
+            orb.delete([rqt])
             orb.log.info('* requirement deleted.')
 
     def hide_allocation_panel(self, evt):
@@ -438,36 +457,36 @@ class RequirementManager(QDialog):
     def on_select_node(self, index):
         # TODO:  filter requirements by selected PSU/Acu
         # TODO:  enable allocation/deallocation as in wizard if user has
-        # edit permission for selected req. (in which case there should appear
+        # edit permission for selected rqt. (in which case there should appear
         # a checkbox for "enable allocation/deallocation" above the tree;
         # otherwise, filtering behavior (as above) is in effect.
         pass
 
-    def set_req(self, r):
-        self.sys_tree.req = r
+    def set_rqt(self, r):
+        self.sys_tree.rqt = r
 
-    def on_select_req(self):
-        # orb.log.debug('* RequirementManager: on_select_req() ...')
+    def on_select_rqt(self):
+        # orb.log.debug('* RequirementManager: on_select_rqt() ...')
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
                 self.fpanel.proxy_view.selectedIndexes()[0]).row()
             # orb.log.debug('  selected row: {}'.format(i))
             oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
                           'oid', '')
-            req = orb.get(oid)
-            if req:
-                self.set_req(req)
+            rqt = orb.get(oid)
+            if rqt:
+                self.set_rqt(rqt)
                 # if allocated to an acu, send signal to ensure that node of
                 # the tree is made visible -- not necessary if allocated to a
                 # "system", since tree will be expanded to at least 1 level
-                acu = req.allocated_to
+                acu = rqt.allocated_to
                 if acu:
                     dispatcher.send(signal='show alloc acu', acu=acu)
             else:
-                orb.log.debug('  req with oid "{}" not found.'.format(oid))
+                orb.log.debug('  rqt with oid "{}" not found.'.format(oid))
 
     def closeEvent(self, event):
         if self.fpanel.col_moved_view:
             # ensure that final column moves are saved ...
-            prefs['req_mgr_view'] = self.fpanel.col_moved_view[:]
+            prefs['rqt_mgr_view'] = self.fpanel.col_moved_view[:]
 

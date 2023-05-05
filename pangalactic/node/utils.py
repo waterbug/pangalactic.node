@@ -801,7 +801,7 @@ class HTMLDelegate(QStyledItemDelegate):
         return QSize(doc.idealWidth(), doc.size().height())
 
 
-class ReqAllocDelegate(QStyledItemDelegate):
+class RqtAllocDelegate(QStyledItemDelegate):
 
     def paint(self, painter, option, index):
         if option.state & QStyle.State_Selected:

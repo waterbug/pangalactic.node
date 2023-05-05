@@ -227,7 +227,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     """
     versionpat = r'[0-9][0-9]*(\.[0-9][0-9]*)*'
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
-    reqpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)*(\.[0-9][0-9]*)+'
+    rqtpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)*(\.[0-9][0-9]*)+'
 
     def __init__(self, cname=None, headers_are_ids=False, parent=None):
         super().__init__(parent=parent)
@@ -241,7 +241,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
         if self.cname == 'HardwareProduct':
             return prefs.get('hw_library_view') or []
         elif self.cname == 'Requirement':
-            return prefs.get('req_mgr_view') or []
+            return prefs.get('rqt_mgr_view') or []
         else:
             return prefs.get('views', {}).get(self.cname) or []
 
@@ -250,7 +250,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
         if self.cname == 'HardwareProduct':
             prefs['hw_library_view'] = v
         elif self.cname == 'Requirement':
-            prefs['req_mgr_view'] = v
+            prefs['rqt_mgr_view'] = v
         else:
             if not prefs.get('views'):
                 prefs['views'] = {}
@@ -323,12 +323,12 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
         except:
             return False
 
-    def is_reqt_id(self, s):
+    def is_rqt_id(self, s):
         if '-' not in s:
-            # reqt id must have '-'
+            # rqt id must have '-'
             return False
         try:
-            m = re.match(self.reqpat, str(s))
+            m = re.match(self.rqtpat, str(s))
             return m.group(0) == s
         except:
             return False
@@ -346,8 +346,8 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
         r_no_commas = ''.join(rdata.split(','))
         # Requirement ID Sort
         # * tests for strings of [project id]-[level].[sequence](.[sequence])*
-        if (self.is_reqt_id(ldata) and
-              self.is_reqt_id(rdata)):
+        if (self.is_rqt_id(ldata) and
+              self.is_rqt_id(rdata)):
             ldash_split = ldata.split('-')
             lnum = ldash_split[-1]
             ld_proj = '-'.join(ldash_split[:-1])
@@ -590,8 +590,8 @@ class FilterPanel(QWidget):
         self.word_wrap = word_wrap
         self.headers_are_ids = headers_are_ids
         self.excluded_oids = excluded_oids or []
-        self.edit_req_calls = 0
-        self.edit_req_fields_calls = 0
+        self.edit_rqt_calls = 0
+        self.edit_rqt_fields_calls = 0
         if as_library and cname:
             self.cname = cname
             if cname in orb.classes:
@@ -709,7 +709,7 @@ class FilterPanel(QWidget):
         elif self.cname == 'HardwareProduct':
             return prefs.get('hw_db_view') or ['id', 'name', 'product_type']
         elif self.cname == 'Requirement':
-            return prefs.get('req_mgr_view') or []
+            return prefs.get('rqt_mgr_view') or []
         else:
             return prefs.get('views', {}).get(self.cname) or []
 
@@ -720,7 +720,7 @@ class FilterPanel(QWidget):
         elif self.cname == 'HardwareProduct':
             prefs['hw_db_view'] = v
         elif self.cname == 'Requirement':
-            prefs['req_mgr_view'] = v
+            prefs['rqt_mgr_view'] = v
         else:
             if not prefs.get('views'):
                 prefs['views'] = {}
@@ -864,7 +864,7 @@ class FilterPanel(QWidget):
                 # orb.log.debug(f'* new HW Library view: {new_view}')
                 # orb.log.debug(f'* new hw lib view: {new_view}')
             # elif self.cname == 'Requirement':
-                # orb.log.debug(f'* new req mgr view: {new_view}')
+                # orb.log.debug(f'* new rqt mgr view: {new_view}')
             self.col_moved_view = new_view
         else:
             # orb.log.debug('  - could not move: old col out of range.')
@@ -901,15 +901,15 @@ class FilterPanel(QWidget):
         txt = 'Edit selected fields of this hardware item'
         self.hw_fields_action = QAction(txt, self)
         self.hw_fields_action.triggered.connect(self.edit_hw_fields)
-        # Requirement-related actions are used in reqmanager
+        # Requirement-related actions are used in rqtmanager
         txt = 'Edit parameters of this requirement'
-        self.req_parms_action = QAction(txt, self)
+        self.rqt_parms_action = QAction(txt, self)
         txt = 'Edit selected fields of this requirement'
-        self.req_fields_action = QAction(txt, self)
+        self.rqt_fields_action = QAction(txt, self)
         txt = 'Edit this requirement in the wizard'
-        self.reqwizard_action = QAction(txt, self)
+        self.rqtwizard_action = QAction(txt, self)
         txt = 'Delete this requirement'
-        self.req_delete_action = QAction(txt, self)
+        self.rqt_delete_action = QAction(txt, self)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
         self.template_action = QAction('Create template from object', self)
         self.template_action.triggered.connect(self.create_template)
@@ -917,12 +917,12 @@ class FilterPanel(QWidget):
     def setup_context_menu(self):
         self.proxy_view.setContextMenuPolicy(Qt.ActionsContextMenu)
         if self.cname == 'Requirement':
-            # for Requirements, use ReqWizard to edit ...
+            # for Requirements, use RqtWizard to edit ...
             # TODO:  only offer this action if user is authorized to edit
-            self.proxy_view.addAction(self.req_parms_action)
-            self.proxy_view.addAction(self.req_fields_action)
-            self.proxy_view.addAction(self.reqwizard_action)
-            self.proxy_view.addAction(self.req_delete_action)
+            self.proxy_view.addAction(self.rqt_parms_action)
+            self.proxy_view.addAction(self.rqt_fields_action)
+            self.proxy_view.addAction(self.rqtwizard_action)
+            self.proxy_view.addAction(self.rqt_delete_action)
         elif self.cname == 'HardwareProduct':
             self.proxy_view.addAction(self.pgxnobj_action)
             # NOTE: disabled because templates need more work
