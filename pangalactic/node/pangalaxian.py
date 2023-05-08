@@ -3554,6 +3554,12 @@ class Main(QMainWindow):
         if not state.get('connected'):
             orb.recompute_parmz()
             # only attempt to update tree and dashboard if in "system" mode ...
+            if (self.mode in ['component', 'system']
+                and cname == 'HardwareProduct'):
+                try:
+                    self.library_widget.refresh()
+                except:
+                    pass
             if ((self.mode == 'system') and
                 cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
                 self.refresh_tree_and_dashboard()
@@ -3581,6 +3587,12 @@ class Main(QMainWindow):
                     self.system_model_window.on_signal_to_refresh()
         if remote and state.get('connected'):
             # only attempt to update tree and dashboard if in "system" mode ...
+            if (self.mode in ['component', 'system']
+                and cname == 'HardwareProduct'):
+                try:
+                    self.library_widget.refresh()
+                except:
+                    pass
             if ((self.mode == 'system') and
                 cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                           'Port', 'Flow']):
@@ -3592,17 +3604,41 @@ class Main(QMainWindow):
                     self.system_model_window.on_signal_to_refresh()
             elif self.mode == 'db':
                 self.set_db_interface()
-            elif (self.mode == 'component' and
-                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                          'Port', 'Flow']):
+            elif (self.mode in ['system', 'component'] and
+                  cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                            'Port', 'Flow']):
                 # DIAGRAM MAY NEED UPDATING
                 # update state['product'] if needed, and regenerate diagram
                 # this will set placeholders in place of PgxnObject and diagram
                 self.set_product_modeler_interface()
                 if getattr(self, 'system_model_window', None):
                     self.system_model_window.on_signal_to_refresh()
-        elif not remote and state.get('connected'):
+        if not remote and state.get('connected'):
             # the "not remote" here is *extremely* important, to prevent a cycle ...
+            # only attempt to update tree and dashboard if in "system" mode ...
+            if (self.mode in ['component', 'system']
+                and cname == 'HardwareProduct'):
+                state['lib updates needed'] = True
+            if ((self.mode == 'system') and
+                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          'Port', 'Flow']):
+                self.refresh_tree_and_dashboard()
+                # DIAGRAM MAY NEED UPDATING
+                if getattr(self, 'system_model_window', None):
+                    # rebuild diagram in case an object corresponded to a
+                    # block in the current diagram
+                    self.system_model_window.on_signal_to_refresh()
+            elif self.mode == 'db':
+                self.set_db_interface()
+            elif (self.mode in ['system', 'component'] and
+                  cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                            'Port', 'Flow']):
+                # DIAGRAM MAY NEED UPDATING
+                # update state['product'] if needed, and regenerate diagram
+                # this will set placeholders in place of PgxnObject and diagram
+                self.set_product_modeler_interface()
+                if getattr(self, 'system_model_window', None):
+                    self.system_model_window.on_signal_to_refresh()
             orb.log.info('  - calling "vger.delete"')
             rpc = self.mbus.session.call('vger.delete', [oid])
             rpc.addCallback(self.on_rpc_vger_delete_result)
