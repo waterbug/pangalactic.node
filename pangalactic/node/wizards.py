@@ -1017,7 +1017,7 @@ class ObjectCreationPage(QWizardPage):
                 rqt = orb.get(oid)
         if rqt:
             if 'modify' in get_perms(rqt):
-                is_perf = (rqt.req_type == 'performance')
+                is_perf = (rqt.rqt_type == 'performance')
                 wizard = RqtWizard(parent=self, req=rqt, performance=is_perf)
                 if wizard.exec_() == QDialog.Accepted:
                     orb.log.info('* rqt wizard completed.')
@@ -1041,19 +1041,19 @@ class ObjectCreationPage(QWizardPage):
             if oid:
                 rqt = orb.get(oid)
         if rqt:
-            if not rqt.req_type == 'performance':
+            if not rqt.rqt_type == 'performance':
                 message = "Not a performance requirement -- no parameters."
                 popup = QMessageBox(QMessageBox.Warning, 'No Parameter',
                                     message, QMessageBox.Ok, self)
                 popup.show()
             elif 'modify' in get_perms(rqt):
                 parm = None
-                if rqt.req_constraint_type == 'maximum':
-                    parm = 'req_maximum_value'
-                elif rqt.req_constraint_type == 'minimum':
-                    parm = 'req_minimum_value'
-                elif rqt.req_constraint_type == 'single_value':
-                    parm = 'req_target_value'
+                if rqt.rqt_constraint_type == 'maximum':
+                    parm = 'rqt_maximum_value'
+                elif rqt.rqt_constraint_type == 'minimum':
+                    parm = 'rqt_minimum_value'
+                elif rqt.rqt_constraint_type == 'single_value':
+                    parm = 'rqt_target_value'
                 if parm:
                     dlg = RqtParmDialog(rqt, parm, parent=self)
                     dlg.rqt_parm_mod.connect(self.on_rqt_parm_mod)

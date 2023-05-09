@@ -286,7 +286,7 @@ class SystemTreeModel(QAbstractItemModel):
     TRANSPARENT_BRUSH = QBrush(Qt.transparent)
     WHITE_BRUSH = QBrush(Qt.white)
 
-    def __init__(self, obj, refdes=True, show_allocs=False, req=None,
+    def __init__(self, obj, refdes=True, show_allocs=False, rqt=None,
                  show_mode_systems=False, parent=None):
         """
         Args:
@@ -298,7 +298,7 @@ class SystemTreeModel(QAbstractItemModel):
             show_allocs (bool):  flag indicating whether to highlight nodes to
                 which a specified requirement has been allocated (default:
                 False)
-            req (Requirement):  the requirement whose allocations should be
+            rqt (Requirement):  the requirement whose allocations should be
                 highlighted if 'show_allocs' is True
             show_mode_systems (bool):  flag indicating whether to highlight
                 systems selected for the Modes Table
@@ -309,7 +309,7 @@ class SystemTreeModel(QAbstractItemModel):
         self.parent = parent
         self.refdes = refdes
         self.show_allocs = show_allocs
-        self.req = req
+        self.rqt = rqt
         self.show_mode_systems = show_mode_systems
         fake_root = FakeRoot()
         self.root = Node(fake_root)
@@ -368,12 +368,12 @@ class SystemTreeModel(QAbstractItemModel):
                                project_oid=self.project.oid)
 
     @property
-    def req(self):
-        return self._req
+    def rqt(self):
+        return self._rqt
 
-    @req.setter
-    def req(self, r):
-        self._req = r
+    @rqt.setter
+    def rqt(self, r):
+        self._rqt = r
 
     def node_for_object(self, obj, parent, link=None):
         """
@@ -691,14 +691,14 @@ class SystemTreeModel(QAbstractItemModel):
                     return self.BRUSH
             else:
                 return self.BRUSH
-        if role == Qt.BackgroundRole and self.req and self.show_allocs:
+        if role == Qt.BackgroundRole and self.rqt and self.show_allocs:
             # in case node.link is an Acu:
             allocs = getattr(node.link, 'allocated_requirements', [])
             proj_allocs = []
             # in case node is the project node:
             if node.cname == 'Project':
                 proj_allocs = getattr(node.obj, 'allocated_requirements', [])
-            if self.req in allocs or self.req in proj_allocs:
+            if self.rqt in allocs or self.rqt in proj_allocs:
                 return self.YELLOW_BRUSH
             else:
                 return self.WHITE_BRUSH
@@ -882,7 +882,7 @@ class SystemTreeView(QTreeView):
     # MODIFIED 5/12/22:  drag/drop is disabled in the system tree -- was both
     # buggy and unnecessary, now that block diagram drag/drop works
 
-    def __init__(self, obj, refdes=True, show_allocs=False, req=None,
+    def __init__(self, obj, refdes=True, show_allocs=False, rqt=None,
                  parent=None):
         """
         Args:
@@ -894,7 +894,7 @@ class SystemTreeView(QTreeView):
                 designator or the component name as the node name
             show_allocs (bool):  flag indicating whether to highlight nodes to
                 which a specified requirement has been allocated
-            req (Requirement):  the requirement whose allocations should be
+            rqt (Requirement):  the requirement whose allocations should be
                 highlighted if 'show_allocs' is True
         """
         super().__init__(parent)
@@ -904,7 +904,7 @@ class SystemTreeView(QTreeView):
         self.show_allocs = show_allocs
         tree_model = SystemTreeModel(obj, refdes=refdes,
                                      show_allocs=show_allocs,
-                                     req=req, parent=self)
+                                     rqt=rqt, parent=self)
         self.proxy_model = SystemTreeProxyModel(tree_model, parent=self)
         self.source_model = self.proxy_model.sourceModel()
         self.proxy_model.setDynamicSortFilter(True)
@@ -921,7 +921,7 @@ class SystemTreeView(QTreeView):
         self.setSelectionMode(self.SingleSelection)
         self.create_actions()
         # only use dispatcher messages for assembly tree and dashboard tree
-        # (i.e., a shared model); ignore them when instantiated in req
+        # (i.e., a shared model); ignore them when instantiated in rqt
         # allocation mode (different models -> the indexes are not valid
         # anyway!)
         if show_allocs:
@@ -975,12 +975,12 @@ class SystemTreeView(QTreeView):
                 menu.exec_(QCursor().pos())
 
     @property
-    def req(self):
-        return self.source_model._req
+    def rqt(self):
+        return self.source_model._rqt
 
-    @req.setter
-    def req(self, r):
-        self.source_model._req = r
+    @rqt.setter
+    def rqt(self, r):
+        self.source_model._rqt = r
         self.dataChanged(QModelIndex(), QModelIndex())
 
     def sizeHint(self):

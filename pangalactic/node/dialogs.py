@@ -335,16 +335,16 @@ class RqtFieldsDialog(QDialog):
     A dialog to edit fields of a requirement.
 
     Args:
-        req (Requirement): the req whose fields are to be edited
+        rqt (Requirement): the req whose fields are to be edited
         names (list of str): the names of the fields to be edited
 
     Keyword Args:
         parent (QWidget): parent widget of the dialog
     """
-    def __init__(self, req, names, parent=None):
+    def __init__(self, rqt, names, parent=None):
         super().__init__(parent)
-        self.req = req
-        self.setWindowTitle(f"Requirement {req.id}")
+        self.rqt = rqt
+        self.setWindowTitle(f"Requirement {rqt.id}")
         vbox = QVBoxLayout(self)
         self.form = QFormLayout()
         self.fields = {}
@@ -353,7 +353,7 @@ class RqtFieldsDialog(QDialog):
             ename = get_attr_ext_name('Requirement', name)
             schema = orb.schemas['Requirement']
             if name in SELECTABLE_VALUES:
-                val = getattr(req, name)
+                val = getattr(rqt, name)
                 if val:
                     widget = StringSelectWidget(parent=self, field_name=name,
                                                 value=val)
@@ -361,15 +361,15 @@ class RqtFieldsDialog(QDialog):
                     widget = StringSelectWidget(parent=self, field_name=name)
                 widget.setStyleSheet('font-weight: bold;')
             elif name in TEXT_PROPERTIES:
-                val = getattr(req, name) or ''
+                val = getattr(rqt, name) or ''
                 widget = TextFieldWidget(parent=self, value=val)
             elif schema['fields'][name]['range'] in orb.classes:
-                val = getattr(req, name) or None
+                val = getattr(rqt, name) or None
                 widget = FkButton(parent=self, value=val)
                 widget.field_name = name
                 widget.clicked.connect(self.on_select_related)
             else:
-                val = getattr(req, name)
+                val = getattr(rqt, name)
                 field_type = schema['fields'][name]['field_type']
                 # ignoring returned label (autolabel) ...
                 widget, autolabel = get_widget(name, field_type, value=val)
@@ -417,13 +417,13 @@ class RqtFieldsDialog(QDialog):
 
     def on_save(self):
         for name, widget in self.fields.items():
-            setattr(self.req, name, widget.get_value())
+            setattr(self.rqt, name, widget.get_value())
         NOW = dtstamp()
         user = orb.get(state.get('local_user_oid'))
-        self.req.mod_datetime = NOW
-        self.req.modifier = user
-        orb.save([self.req])
-        dispatcher.send(signal='modified object', obj=self.req,
+        self.rqt.mod_datetime = NOW
+        self.rqt.modifier = user
+        orb.save([self.rqt])
+        dispatcher.send(signal='modified object', obj=self.rqt,
                         cname='Requirement')
         self.accept()
 
@@ -433,18 +433,18 @@ class RqtParmDialog(QDialog):
     A dialog to edit the value of performance requirement parameters.
     """
 
-    req_parm_mod = pyqtSignal(str)  # arg: oid
+    rqt_parm_mod = pyqtSignal(str)  # arg: oid
 
-    def __init__(self, req, parm, parent=None):
+    def __init__(self, rqt, parm, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Requirement Parameters")
-        self.req = req
+        self.rqt = rqt
         self.parm = parm
         parm_name = get_attr_ext_name('HardwareProduct', parm)
         parm_label = QLabel(parm_name, self)
-        parm_val = getattr(req, parm, 0.0)
+        parm_val = getattr(rqt, parm, 0.0)
         self.parm_field = FloatFieldWidget(parent=self, value=parm_val)
-        units_label = QLabel(req.req_units, self)
+        units_label = QLabel(rqt.rqt_units, self)
         form = QFormLayout(self)
         # TODO: add units label (needs hbox)
         hbox = QHBoxLayout()
@@ -463,18 +463,18 @@ class RqtParmDialog(QDialog):
         # NOTE: float() cast is needed because (for now)
         # FloatFieldWidget.get_value() returns a string (guaranteed to be
         # castable to a float, at least ;)
-        setattr(self.req, self.parm, float(self.parm_field.get_value()))
+        setattr(self.rqt, self.parm, float(self.parm_field.get_value()))
         # re-generate requirement 'description'
-        self.req.description = ' '.join([str(self.req.req_subject),
-                                         str(self.req.req_predicate),
+        self.rqt.description = ' '.join([str(self.rqt.rqt_subject),
+                                         str(self.rqt.rqt_predicate),
                                          str(self.parm_field.get_value()),
-                                         str(self.req.req_units)])
+                                         str(self.rqt.rqt_units)])
         NOW = dtstamp()
         user = orb.get(state.get('local_user_oid'))
-        self.req.mod_datetime = NOW
-        self.req.modifier = user
-        orb.save([self.req])
-        self.req_parm_mod.emit(self.req.oid)
+        self.rqt.mod_datetime = NOW
+        self.rqt.modifier = user
+        orb.save([self.rqt])
+        self.rqt_parm_mod.emit(self.rqt.oid)
         self.accept()
 
 

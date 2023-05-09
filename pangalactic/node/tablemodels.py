@@ -221,7 +221,7 @@ class ObjectTableModel(MappingTableModel):
                                 'HardwareProduct',
                                 ['id', 'name', 'product_type', 'description'])
                 elif self.cname == 'Requirement':
-                    view = prefs.get('req_mgr_view') or []
+                    view = prefs.get('rqt_mgr_view') or []
                 else:
                     view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
@@ -267,7 +267,7 @@ class ObjectTableModel(MappingTableModel):
         elif self.cname == 'HardwareProduct':
             return prefs.get('hw_db_view') or ['id', 'name', 'product_type']
         elif self.cname == 'Requirement':
-            return prefs.get('req_mgr_view') or ['id', 'name', 'description']
+            return prefs.get('rqt_mgr_view') or ['id', 'name', 'description']
         else:
             return prefs.get('views', {}).get(self.cname) or ['id', 'name',
                                                               'description']
@@ -279,7 +279,7 @@ class ObjectTableModel(MappingTableModel):
         elif self.cname == 'HardwareProduct':
             prefs['hw_db_view'] = v
         elif self.cname == 'Requirement':
-            prefs['req_mgr_view'] = v
+            prefs['rqt_mgr_view'] = v
         else:
             if not prefs.get('views'):
                 prefs['views'] = {}
