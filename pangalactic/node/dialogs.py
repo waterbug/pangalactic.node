@@ -1740,8 +1740,13 @@ class ConnectionsDialog(QDialog):
         # Delete and Cancel buttons
         self.buttons = QDialogButtonBox(QDialogButtonBox.Cancel,
             Qt.Horizontal, self)
-        if (state.get('connected') and hasattr(usage, 'assembly')
-            and 'modify' in get_perms(usage.assembly)):
+        all_flows = list(self.flows.values())
+        perms = []
+        if all_flows:
+            # all of these flows will have the same perms so pick first one
+            user = orb.get(state.get('local_user_oid'))
+            perms = get_perms(all_flows[0], user=user)
+        if 'modify' in perms:
             self.buttons.addButton("Delete Selected Connections",
                                    QDialogButtonBox.AcceptRole)
             self.buttons.accepted.connect(self.accept)

@@ -119,18 +119,14 @@ class DiagramScene(QGraphicsScene):
 
     def mouseReleaseEvent(self, mouseEvent):
         if self.line:
-            # first check in user has perms to modify subject
-            if not 'modify' in get_perms(self.subject):
+            # first check in user has appropriate permissions
+            perms = set(get_perms(self.subject))
+            for acu in self.subject.components:
+                perms |= set(get_perms(acu))
+            if not 'modify' in perms:
                 self.removeItem(self.line)
                 self.line = None
                 txt = "User's roles do not permit this operation"
-                notice = QMessageBox()
-                notice.setText(txt)
-                notice.exec_()
-            elif not state.get('connected'):
-                self.removeItem(self.line)
-                self.line = None
-                txt = "Connections cannot be created while offline"
                 notice = QMessageBox()
                 notice.setText(txt)
                 notice.exec_()
@@ -157,6 +153,7 @@ class DiagramScene(QGraphicsScene):
                     # orb.log.debug("  - end port type: {}".format(
                                             # end_item.port.type_of_port.id))
                     if start_item == end_item:
+                        # NOTE: this might be unnecessarily restrictive
                         txt = 'Cannot connect ports of the same block.'
                         notice = QMessageBox()
                         notice.setText(txt)
@@ -238,77 +235,6 @@ class DiagramScene(QGraphicsScene):
                     orb.log.debug('   * end item:')
                     usage_id = getattr(end_port_context, 'id', "None")
                     orb.log.debug(f'     - usage: {usage_id}')
-                    orb.log.debug('     - port id: {}'.format(
-                                    end_item.port.id))
-                    orb.log.debug('   * context id:  {}'.format(
-                                    self.subject.id))
-                    side = 'right'
-                    if end_item.right_port:
-                        side = 'left'
-                    orb.log.debug('     ({} side)'.format(side))
-
-                    # DEPRECATED METHOD: connect products
-                    start_product = start_item.port.of_product
-                    orb.log.debug(f"  - start prod: {start_product.id}")
-                    start_assemblies = [acu.assembly for acu in
-                                        start_product.where_used]
-                    sa_ids = [product.id for product in start_assemblies]
-                    orb.log.debug(f"  - start asmbs: {sa_ids}")
-                    end_product = end_item.port.of_product
-                    orb.log.debug(f"  - end prod: {end_product.id}")
-                    end_assemblies = [acu.assembly for acu in
-                                      end_product.where_used]
-                    ea_ids = [product.id for product in end_assemblies]
-                    orb.log.debug(f"  - end asmbs: {ea_ids}")
-                    if (start_product in end_assemblies or
-                        end_product in start_assemblies):
-                        if ((p1_dir == 'input' and p2_dir == 'output') or
-                            (p1_dir == 'output' and p2_dir == 'input')):
-                            txt = 'Cannot connect an internal block port\n'
-                            txt += 'to an external port of opposite\n'
-                            txt += 'directionality.'
-                            notice = QMessageBox()
-                            notice.setText(txt)
-                            notice.exec_()
-                            return
-                    else:
-                        if (p1_dir in ['input', 'output'] and
-                            p1_dir == p2_dir):
-                            txt = f'Cannot connect {p1_dir} ports of two '
-                            txt += 'internal blocks.'
-                            notice = QMessageBox()
-                            notice.setText(txt)
-                            notice.exec_()
-                            return
-                    port1_V = get_pval(start_item.port.oid, 'V')
-                    port2_V = get_pval(end_item.port.oid, 'V')
-                    if (port1_V and port2_V and port1_V != port2_V):
-                        txt = 'Cannot connect ports of different Voltages.'
-                        notice = QMessageBox()
-                        notice.setText(txt)
-                        notice.exec_()
-                        return
-                    port1_RD = get_pval(start_item.port.oid, 'R_D')
-                    port2_RD = get_pval(end_item.port.oid, 'R_D')
-                    if (port1_RD and port2_RD and port1_RD != port2_RD):
-                        txt = 'Cannot connect ports with different Data Rates.'
-                        notice = QMessageBox()
-                        notice.setText(txt)
-                        notice.exec_()
-                        return
-                    orb.log.debug('   drawing RoutedConnector ...')
-                    orb.log.debug('   * start item:')
-                    orb.log.debug('     - object id: {}'.format(
-                                    start_item.obj.id))
-                    orb.log.debug('     - port id: {}'.format(
-                                    start_item.port.id))
-                    side = 'right'
-                    if start_item.right_port:
-                        side = 'left'
-                    orb.log.debug('     ({} side)'.format(side))
-                    orb.log.debug('   * end item:')
-                    orb.log.debug('     - object id: {}'.format(
-                                    end_item.obj.id))
                     orb.log.debug('     - port id: {}'.format(
                                     end_item.port.id))
                     orb.log.debug('   * context id:  {}'.format(
