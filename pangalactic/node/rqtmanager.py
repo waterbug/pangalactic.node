@@ -5,7 +5,7 @@ Requirement Manager
 import os, sys
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QDialog, QDialogButtonBox, QFileDialog,
+from PyQt5.QtWidgets import (QAction, QDialog, QDialogButtonBox, QFileDialog,
                              QHBoxLayout, QLabel, QMessageBox, QSizePolicy,
                              QVBoxLayout)
 
@@ -89,10 +89,7 @@ class RequirementManager(QDialog):
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.fpanel.proxy_view.clicked.connect(self.on_select_rqt)
-        self.fpanel.rqtwizard_action.triggered.connect(self.edit_in_rqt_wiz)
-        self.fpanel.rqt_parms_action.triggered.connect(self.edit_rqt_parms)
-        self.fpanel.rqt_fields_action.triggered.connect(self.edit_rqt_fields)
-        self.fpanel.rqt_delete_action.triggered.connect(self.delete_rqt)
+        self.setup_context_menu()
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
@@ -116,6 +113,24 @@ class RequirementManager(QDialog):
     @view.setter
     def view(self, v):
         prefs['rqt_mgr_view'] = v
+
+    def setup_context_menu(self):
+        txt = 'Edit parameters of this requirement'
+        self.rqt_parms_action = QAction(txt, self)
+        self.rqt_parms_action.triggered.connect(self.edit_rqt_parms)
+        txt = 'Edit selected fields of this requirement'
+        self.rqt_fields_action = QAction(txt, self)
+        self.rqt_fields_action.triggered.connect(self.edit_rqt_fields)
+        txt = 'Edit this requirement in the wizard'
+        self.rqtwizard_action = QAction(txt, self)
+        self.rqtwizard_action.triggered.connect(self.edit_in_rqt_wiz)
+        txt = 'Delete this requirement'
+        self.rqt_delete_action = QAction(txt, self)
+        self.rqt_delete_action.triggered.connect(self.delete_rqt)
+        self.fpanel.proxy_view.addAction(self.rqt_parms_action)
+        self.fpanel.proxy_view.addAction(self.rqt_fields_action)
+        self.fpanel.proxy_view.addAction(self.rqtwizard_action)
+        self.fpanel.proxy_view.addAction(self.rqt_delete_action)
 
     def select_cols(self):
         """

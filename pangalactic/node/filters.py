@@ -901,33 +901,17 @@ class FilterPanel(QWidget):
         txt = 'Edit selected fields of this hardware item'
         self.hw_fields_action = QAction(txt, self)
         self.hw_fields_action.triggered.connect(self.edit_hw_fields)
-        # Requirement-related actions are used in rqtmanager
-        txt = 'Edit parameters of this requirement'
-        self.rqt_parms_action = QAction(txt, self)
-        txt = 'Edit selected fields of this requirement'
-        self.rqt_fields_action = QAction(txt, self)
-        txt = 'Edit this requirement in the wizard'
-        self.rqtwizard_action = QAction(txt, self)
-        txt = 'Delete this requirement'
-        self.rqt_delete_action = QAction(txt, self)
         # TODO:  include 'Model', 'Document', etc. when they have libraries
         self.template_action = QAction('Create template from object', self)
         self.template_action.triggered.connect(self.create_template)
 
     def setup_context_menu(self):
         self.proxy_view.setContextMenuPolicy(Qt.ActionsContextMenu)
-        if self.cname == 'Requirement':
-            # for Requirements, use RqtWizard to edit ...
-            # TODO:  only offer this action if user is authorized to edit
-            self.proxy_view.addAction(self.rqt_parms_action)
-            self.proxy_view.addAction(self.rqt_fields_action)
-            self.proxy_view.addAction(self.rqtwizard_action)
-            self.proxy_view.addAction(self.rqt_delete_action)
-        elif self.cname == 'HardwareProduct':
+        if self.cname == 'HardwareProduct':
             self.proxy_view.addAction(self.pgxnobj_action)
             # NOTE: disabled because templates need more work
             # self.proxy_view.addAction(self.template_action)
-        else:
+        elif self.cname != "Requirement":
             # for all objs other than Requirements, use PgxnObject
             self.proxy_view.addAction(self.pgxnobj_action)
 
