@@ -94,6 +94,7 @@ class RequirementManager(QDialog):
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
         dispatcher.connect(self.on_modified_object, 'modified object')
+        dispatcher.connect(self.on_deleted_object, 'deleted object')
         # "parameters recomputed" is the ultimate signal resulting from a
         # "received objects" pubsub msg after a "modified object" signal
         # triggers a "save" rpc ... so in a "connected" state, that is when a
@@ -285,6 +286,10 @@ class RequirementManager(QDialog):
 
     def on_modified_object(self, obj=None, cname=None):
         if obj in self.fpanel.objs:
+            self.fpanel.refresh()
+
+    def on_deleted_object(self, oid=None, cname=None):
+        if oid in self.fpanel.oids:
             self.fpanel.refresh()
 
     def on_parmz_recomputed(self):
