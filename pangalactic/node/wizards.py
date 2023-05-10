@@ -4,6 +4,7 @@ Wizards
 """
 import os, pprint
 from collections import OrderedDict as OD
+from datetime import datetime
 from textwrap import wrap
 
 from PyQt5.QtCore import Qt, QItemSelectionModel
@@ -60,6 +61,14 @@ data_wizard_state = {}
 #   - trl
 
 wizard_state = {}
+
+dtypes = {
+    'str': str,
+    'int': int,
+    'float': float,
+    'bool': bool,
+    'datetime': datetime
+    }
 
 
 class PrintLogger:
@@ -913,6 +922,7 @@ class ObjectCreationPage(QWizardPage):
             if self.test_mode:
                 kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'Requirement':
+                rqt_schema = orb.schemas['Requirement']['fields']
                 ID = kw.get('id')
                 obj = None
                 if ID:
@@ -921,7 +931,17 @@ class ObjectCreationPage(QWizardPage):
                     # update the existing rqt ...
                     orb.log.debug(f'* {ID} is existing rqt, updating it ...')
                     for a in kw:
-                        setattr(obj, a, kw[a])
+                        if rqt_schema[a]['field_type'] == 'object':
+                            # skip object-valued fields, for now ...
+                            continue
+                        else:
+                            # cast datatype-valued fields to the correct type
+                            try:
+                                dtype = dtypes[rqt_schema[a]['range']]
+                                setattr(obj, a, dtype(kw[a]))
+                            except:
+                                # if cast fails, ignore that field
+                                orb.log.info(f'* update of "{a}" failed.')
                 else:
                     if 'level' not in kw:
                         kw['level'] = 1
@@ -996,13 +1016,13 @@ class ObjectCreationPage(QWizardPage):
                                   word_wrap=True, parent=self)
         if self.object_type == "HardwareProduct":
             self.fpanel.proxy_view.addAction(self.fpanel.hw_fields_action)
-        elif self.object_type == "Requirement":
-            self.fpanel.rqtwizard_action.triggered.connect(
-                                                        self.edit_in_rqt_wiz)
-            self.fpanel.rqt_parms_action.triggered.connect(self.edit_rqt_parms)
-            self.fpanel.rqt_fields_action.triggered.connect(
-                                                        self.edit_rqt_fields)
-            self.fpanel.rqt_delete_action.triggered.connect(self.delete_rqt)
+        # elif self.object_type == "Requirement":
+            # self.fpanel.rqtwizard_action.triggered.connect(
+                                                        # self.edit_in_rqt_wiz)
+            # self.fpanel.rqt_parms_action.triggered.connect(self.edit_rqt_parms)
+            # self.fpanel.rqt_fields_action.triggered.connect(
+                                                        # self.edit_rqt_fields)
+            # self.fpanel.rqt_delete_action.triggered.connect(self.delete_rqt)
         self.vbox.addWidget(self.fpanel, stretch=1)
 
     def edit_in_rqt_wiz(self):
