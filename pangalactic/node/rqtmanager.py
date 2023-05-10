@@ -289,8 +289,7 @@ class RequirementManager(QDialog):
             self.fpanel.refresh()
 
     def on_deleted_object(self, oid=None, cname=None):
-        if oid in self.fpanel.oids:
-            self.fpanel.refresh()
+        self.fpanel.refresh()
 
     def on_parmz_recomputed(self):
         if state.get('new_or_modified_rqts'):
