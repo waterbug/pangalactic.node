@@ -726,6 +726,19 @@ class FilterPanel(QWidget):
                 prefs['views'] = {}
             prefs['views'][self.cname] = v
 
+    @property
+    def oids(self):
+        """
+        Return oids of all objects in the table (connects to "oids" property of
+        the source model [ObjectTableModel]).
+        """
+        proxy_model = getattr(self, 'proxy_model', None)
+        if proxy_model:
+            source_model = proxy_model.sourceModel()
+            return source_model.oids
+        else:
+            return []
+
     def build_proxy_view(self, objs=None):
         if getattr(self, 'proxy_view', None):
             self.proxy_layout.removeWidget(self.proxy_view)
@@ -971,13 +984,6 @@ class FilterPanel(QWidget):
             dlg = PgxnObject(template, edit_mode=True, modal_mode=True,
                              parent=self)
             dlg.show()
-
-    def get_oids(self):
-        """
-        Get the oids of all objects in the table.
-        """
-        source_model = self.proxy_model.sourceModel()
-        return [obj.oid for obj in source_model.objs]
 
     def add_object(self, obj):
         """

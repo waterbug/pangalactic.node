@@ -291,11 +291,12 @@ class RequirementManager(QDialog):
         if state.get('new_or_modified_rqts'):
             need_refresh = False
             for rqt_oid in state['new_or_modified_rqts']:
-                rqt = orb.get(rqt_oid)
-                if rqt in self.fpanel.objs:
+                if rqt_oid in self.fpanel.oids:
                     need_refresh = True
-                elif rqt.owner.id == self.project.id:
-                    need_refresh = True
+                else:
+                    rqt = orb.get(rqt_oid)
+                    if rqt and rqt.owner.id == self.project.id:
+                        need_refresh = True
             if need_refresh:
                 self.fpanel.refresh()
 
