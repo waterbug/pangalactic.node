@@ -288,9 +288,11 @@ class Main(QMainWindow):
                                                          'sys node selected')
         dispatcher.connect(self.on_display_object_signal, 'display object')
         dispatcher.connect(self.on_new_rqt_signal, 'new rqt')
-        dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
+        dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        dispatcher.connect(self.on_new_objects_signal, 'new objects')
+        dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
         dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
@@ -3062,6 +3064,98 @@ class Main(QMainWindow):
                 # ------------------------------------------------------------
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
+
+    def on_new_objects_signal(self, objs=None):
+        """
+        Handle local dispatcher signal for "new objects".
+        """
+        self.on_mod_objects_signal(objs=objs, new=True)
+
+    def on_mod_objects_signal(self, objs=None, new=False):
+        """
+        Handle local "new objects" and "modified objects" signals.
+        """
+        orb.log.info('* on_mod_objects_signal()')
+        if new:
+            orb.log.info('* received local "new objects" signal')
+        else:
+            orb.log.info('* received local "modified objects" signal')
+        if not objs:
+            return
+        for obj in objs:
+            cname = obj.__class__.__name__
+            orb.log.debug('  object oid: "{}"'.format(
+                                        str(getattr(obj, 'oid', '[no oid]'))))
+            orb.log.debug('  cname: "{}"'.format(str(cname)))
+            if (self.mode == 'system'
+                and isinstance(obj, (orb.classes['HardwareProduct'],
+                                     orb.classes['Acu'],
+                                     orb.classes['ProjectSystemUsage']))):
+                # update system tree and dashboard as necessary
+                # NOTE (SCW 2023-01-14) delay gui ops until callback to
+                # "get_parmz" executes
+                state["upd_obj_in_trees_needed"] = (obj.oid, new)
+            if (self.mode in ['component', 'system']
+                  and isinstance(obj, (orb.classes['HardwareProduct'],
+                                       orb.classes['Acu'],
+                                       orb.classes['ProjectSystemUsage']))):
+                # if object is in the diagram ..
+                state['diagram needs refresh'] = True
+            if self.mode in ['component', 'system']:
+                if cname in ['ParameterDefinition',
+                             'DataElementDefinition',
+                             'HardwareProduct',
+                             'Template',
+                             'PortTemplate',
+                             'PortType']:
+                    state["lib updates needed"] = True
+            if self.mode == 'db' and cname == state.get('current_cname'):
+                # if object is in the current db table ...
+                state['update db table'] = True
+        if state.get('connected'):
+            serialized_objs = serialize(orb, objs,
+                                        include_components=True)
+            orb.log.debug('  calling rpc vger.save() ...')
+            orb.log.debug('  - saved objs ids:')
+            for obj in objs:
+                orb.log.debug(f'    + "{obj.id}"')
+            rpc = self.mbus.session.call('vger.save', serialized_objs)
+            rpc.addCallback(self.on_vger_save_result)
+            rpc.addCallback(self.get_parmz)
+            rpc.addErrback(self.on_failure)
+        else:
+            # if not connected, recompute parameters and do all gui updates
+            # -------------------------------------------------------------
+            # BEGIN OFFLINE LOCAL UPDATES
+            # -------------------------------------------------------------
+            orb.recompute_parmz()
+            if ((self.mode == 'system') and
+                state.get('tree needs refresh')):
+                # orb.log.info('  [ovgpr] tree needs refresh ...')
+                self.refresh_tree_views()
+                state['tree needs refresh'] = False
+            if (getattr(self, 'system_model_window', None)
+                and state.get('diagram needs refresh')):
+                # orb.log.info('  [ovgpr] diagram needs refresh ...')
+                self.system_model_window.on_signal_to_refresh()
+                state['diagram needs refresh'] = False
+            if state.get('modal views need update'):
+                # orb.log.info('  [ovgpr] modal views need update ...')
+                self._update_modal_views()
+            # -------------------------------------------------------------
+            # NOTE: lib updates are done last
+            # -------------------------------------------------------------
+            lun = "yes"
+            if not state.get('lib updates needed'):
+                lun = "no"
+            lmsg = f'lib updates needed: {lun}'
+            orb.log.info(f'  - {lmsg}')
+            if lun == "yes" and hasattr(self, 'library_widget'):
+                self.library_widget.refresh()
+                state['lib updates needed'] = []
+            # ------------------------------------------------------------
+            # END OF OFFLINE LOCAL UPDATES
+            # ------------------------------------------------------------
 
     def on_parm_del(self, oid='', pid=''):
         """
