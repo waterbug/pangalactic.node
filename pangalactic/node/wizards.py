@@ -880,28 +880,28 @@ class ObjectCreationPage(QWizardPage):
         self.objs = []
         project_oid = state.get('project')
         self.project = None
-        obj_type = data_wizard_state['object_type']
+        self.object_type = data_wizard_state['object_type']
         if project_oid:
             self.project = orb.get(project_oid)
             proj_id = self.project.id
-            if obj_type == 'Requirement':
+            if self.object_type == 'Requirement':
                 self.title_txt = f'Project Requirements for {proj_id}'
-            elif obj_type == 'HardwareProduct':
+            elif self.object_type == 'HardwareProduct':
                 self.title_txt = f'Hardware owned by {proj_id}'
         else:
-            if obj_type == 'Requirement':
+            if self.object_type == 'Requirement':
                 self.title_txt = 'Requirements'
-            elif obj_type == 'HardwareProduct':
+            elif self.object_type == 'HardwareProduct':
                 self.title_txt = 'Hardware Products'
         self.setTitle(self.title_txt)
 
     def initializePage(self):
         orb.log.debug('* Object Creation Page')
+        schema = orb.schemas[self.object_type]['fields']
         if self.objs:
             # if objs exist, it means we are re-entering; delete them
             orb.delete(self.objs)
             self.objs = []
-        self.object_type = data_wizard_state['object_type']
         col_map = data_wizard_state['col_map']
         orb.log.debug(f'* column mapping: {col_map}')
 
@@ -916,13 +916,24 @@ class ObjectCreationPage(QWizardPage):
         dictified = data_wizard_state['dictified']
         for i, row in enumerate(dictified):
             obj = None
-            kw = {col_map.get(name) : str(val or '').strip()
-                  for name, val in row.items() if name in col_map}
+            kw = {}
+            for name, val in row.items():
+                if name in col_map:
+                    a = col_map[name]
+                    if schema[a]['field_type'] == 'object':
+                        # skip object-valued fields, for now ...
+                        continue
+                    else:
+                        dtype = dtypes[schema[a]['range']]
+                        try:
+                            kw[a] = dtype(val)
+                        except:
+                            # ignore a
+                            continue
             # for cleanup after test run ...
             if self.test_mode:
                 kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'Requirement':
-                rqt_schema = orb.schemas['Requirement']['fields']
                 ID = kw.get('id')
                 obj = None
                 if ID:
@@ -931,17 +942,11 @@ class ObjectCreationPage(QWizardPage):
                     # update the existing rqt ...
                     orb.log.debug(f'* {ID} is existing rqt, updating it ...')
                     for a in kw:
-                        if rqt_schema[a]['field_type'] == 'object':
-                            # skip object-valued fields, for now ...
-                            continue
-                        else:
-                            # cast datatype-valued fields to the correct type
-                            try:
-                                dtype = dtypes[rqt_schema[a]['range']]
-                                setattr(obj, a, dtype(kw[a]))
-                            except:
-                                # if cast fails, ignore that field
-                                orb.log.info(f'* update of "{a}" failed.')
+                        try:
+                            setattr(obj, a, dtype(kw[a]))
+                        except:
+                            # if cast fails, ignore that field
+                            orb.log.info(f'* update of "{a}" failed.')
                 else:
                     if 'level' not in kw:
                         kw['level'] = 1
@@ -995,6 +1000,7 @@ class ObjectCreationPage(QWizardPage):
             self.progress_dialog.setValue(i+1)
         if self.objs:
             orb.save(self.objs)
+            dispatcher.send(signal="new objects", objs=self.objs)
         self.progress_dialog.done(0)
         self.add_widgets()
 
