@@ -93,6 +93,7 @@ class RequirementManager(QDialog):
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
+        dispatcher.connect(self.on_new_or_modified_rqts, 'new or mod rqts')
         dispatcher.connect(self.on_modified_object, 'modified object')
         dispatcher.connect(self.on_deleted_object, 'deleted object')
         # "parameters recomputed" is the ultimate signal resulting from a
@@ -284,12 +285,16 @@ class RequirementManager(QDialog):
         else:
             return
 
+    def on_new_or_modified_rqts(self):
+        self.fpanel.refresh()
+
     def on_modified_object(self, obj=None, cname=None):
         if obj in self.fpanel.objs:
             self.fpanel.refresh()
 
     def on_deleted_object(self, oid=None, cname=None):
-        self.fpanel.refresh()
+        orb.log.debug('* received "deleted object" signal.')
+        self.fpanel.remove_object(oid)
 
     def on_parmz_recomputed(self):
         if state.get('new_or_modified_rqts'):

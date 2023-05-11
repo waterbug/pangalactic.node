@@ -1984,6 +1984,8 @@ class Main(QMainWindow):
             # lmsg = f'  state["lib updates needed"] = {lib_updates_needed}'
             # orb.log.debug(lmsg)
             state["lib updates needed"] = lib_updates_needed
+        if state.get('new_or_modified_rqts'):
+            dispatcher.send(signal='new or mod rqts')
         self.get_parmz()
         return True
 
@@ -3748,7 +3750,10 @@ class Main(QMainWindow):
         # content is an oid
         obj_oid = oid
         orb.log.info('  oid: {}'.format(obj_oid))
-        # first check if we have the object
+        # notify widgets looking for "object deleted" signal ...
+        # NOTE: VERY IMPORTANT TO USE remote=True
+        dispatcher.send(signal="deleted object", oid=oid, cname=cname,
+                        remote=True)
         obj = orb.get(obj_oid or '')
         if obj:
             # NOTE (SCW 2023-01-14) new state key, used by get_parmz()
