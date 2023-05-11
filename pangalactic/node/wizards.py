@@ -9,15 +9,16 @@ from textwrap import wrap
 
 from PyQt5.QtCore import Qt, QItemSelectionModel
 from PyQt5.QtGui import QPixmap, QStandardItem, QStandardItemModel
-from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication, QCheckBox, QDialog, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QTableView, QVBoxLayout, QWidget, QWizard, QWizardPage)
-
-# import pandas as pd
+from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
+                             QCheckBox, QFormLayout, QGridLayout, QGroupBox,
+                             QHBoxLayout, QLabel, QMenu, QMessageBox,
+                             QPushButton, QScrollArea, QSizePolicy, QTableView,
+                             QVBoxLayout, QWidget, QWizard, QWizardPage)
 
 from louie import dispatcher
 
 # pangalactic
 from pangalactic.core             import config, state
-from pangalactic.core.access      import get_perms
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import get_external_name_plural, STD_ALIASES
 from pangalactic.core.parametrics import (add_default_parameters, de_defz,
@@ -29,12 +30,10 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.node.buttons     import CheckButtonLabel
-from pangalactic.node.dialogs     import (ProgressDialog, RqtFieldsDialog,
-                                          RqtParmDialog)
+from pangalactic.node.dialogs     import ProgressDialog
 # from pangalactic.node.dialogs     import NotificationDialog
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.rqtwizard   import RqtWizard
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
 from pangalactic.node.utils       import clone, extract_mime_data
 from pangalactic.node.widgets     import (AutosizingListView, ColorLabel,
@@ -1022,161 +1021,7 @@ class ObjectCreationPage(QWizardPage):
                                   word_wrap=True, parent=self)
         if self.object_type == "HardwareProduct":
             self.fpanel.proxy_view.addAction(self.fpanel.hw_fields_action)
-        # elif self.object_type == "Requirement":
-            # self.fpanel.rqtwizard_action.triggered.connect(
-                                                        # self.edit_in_rqt_wiz)
-            # self.fpanel.rqt_parms_action.triggered.connect(self.edit_rqt_parms)
-            # self.fpanel.rqt_fields_action.triggered.connect(
-                                                        # self.edit_rqt_fields)
-            # self.fpanel.rqt_delete_action.triggered.connect(self.delete_rqt)
         self.vbox.addWidget(self.fpanel, stretch=1)
-
-    def edit_in_rqt_wiz(self):
-        orb.log.debug('* edit_in_rqt_wiz()')
-        rqt = None
-        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
-            i = self.fpanel.proxy_model.mapToSource(
-                self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i], 'oid', '')
-            if oid:
-                rqt = orb.get(oid)
-        if rqt:
-            if 'modify' in get_perms(rqt):
-                is_perf = (rqt.rqt_type == 'performance')
-                wizard = RqtWizard(parent=self, req=rqt, performance=is_perf)
-                if wizard.exec_() == QDialog.Accepted:
-                    orb.log.info('* rqt wizard completed.')
-                else:
-                    orb.log.info('* rqt wizard cancelled...')
-            else:
-                message = "Not Authorized"
-                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
-                                    message, QMessageBox.Ok, self)
-                popup.show()
-
-    def edit_rqt_parms(self):
-        orb.log.debug('* edit_rqt_parms()')
-        rqt = None
-        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
-            i = self.fpanel.proxy_model.mapToSource(
-                self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
-                          'oid', '')
-            if oid:
-                rqt = orb.get(oid)
-        if rqt:
-            if not rqt.rqt_type == 'performance':
-                message = "Not a performance requirement -- no parameters."
-                popup = QMessageBox(QMessageBox.Warning, 'No Parameter',
-                                    message, QMessageBox.Ok, self)
-                popup.show()
-            elif 'modify' in get_perms(rqt):
-                parm = None
-                if rqt.rqt_constraint_type == 'maximum':
-                    parm = 'rqt_maximum_value'
-                elif rqt.rqt_constraint_type == 'minimum':
-                    parm = 'rqt_minimum_value'
-                elif rqt.rqt_constraint_type == 'single_value':
-                    parm = 'rqt_target_value'
-                if parm:
-                    dlg = RqtParmDialog(rqt, parm, parent=self)
-                    dlg.rqt_parm_mod.connect(self.on_rqt_parm_mod)
-                    if dlg.exec_() == QDialog.Accepted:
-                        orb.log.info('* rqt parm edited.')
-                        dlg.close()
-                    else:
-                        orb.log.info('* rqt parm editing cancelled.')
-                        dlg.close()
-                else:
-                    message = "No editable parameter found."
-                    popup = QMessageBox(QMessageBox.Warning, 'No Parameter',
-                                        message, QMessageBox.Ok, self)
-                    popup.show()
-            else:
-                message = "Not Authorized"
-                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
-                                    message, QMessageBox.Ok, self)
-                popup.show()
-        else:
-            message = "No requirement found."
-            popup = QMessageBox(QMessageBox.Warning, 'No Requirement',
-                                message, QMessageBox.Ok, self)
-            popup.show()
-
-    def on_rqt_parm_mod(self, oid):
-        self.fpanel.mod_object(oid)
-
-    def edit_rqt_fields(self):
-        orb.log.debug('* edit_rqt_fields()')
-        rqt = None
-        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
-            i = self.fpanel.proxy_model.mapToSource(
-                self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            # orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
-                          'oid', '')
-            if oid:
-                rqt = orb.get(oid)
-        if rqt:
-            if 'modify' in get_perms(rqt):
-                dlg = RqtFieldsDialog(rqt, self.fpanel.view, parent=self)
-                if dlg.exec_() == QDialog.Accepted:
-                    orb.log.info('* rqt fields edited.')
-                    dlg.close()
-                else:
-                    orb.log.info('* rqt fields editing cancelled.')
-                    dlg.close()
-            else:
-                message = "Not Authorized"
-                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
-                                    message, QMessageBox.Ok, self)
-                popup.show()
-
-    def delete_rqt(self):
-        orb.log.debug('* delete_rqt()')
-        rqt = None
-        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
-            i = self.fpanel.proxy_model.mapToSource(
-                self.fpanel.proxy_view.selectedIndexes()[0]).row()
-            orb.log.debug('  at selected row: {}'.format(i))
-            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
-                          'oid', '')
-            if oid:
-                rqt = orb.get(oid)
-        if rqt:
-            if 'delete' not in get_perms(rqt):
-                message = "Not Authorized"
-                popup = QMessageBox(QMessageBox.Warning, 'Not Authorized',
-                                    message, QMessageBox.Ok, self)
-                popup.show()
-                return
-            rqt_oid = rqt.oid
-            # delete any related Relation and ParameterRelation objects
-            rel = rqt.computable_form
-            if rel:
-                # pr_oid = rqt_wizard_state.get('pr_oid')
-                # pr = orb.get(pr_oid)
-                prs = rel.correlates_parameters
-                if prs:
-                    pr_oid = prs[0].oid
-                    orb.delete(prs)
-                    dispatcher.send(signal='deleted object',
-                                    oid=pr_oid,
-                                    cname='ParameterRelation')
-                rel_oid = rel.oid
-                orb.delete([rel])
-                dispatcher.send(signal='deleted object',
-                                oid=rel_oid, cname='Relation')
-            # remove the rqt object from the filter panel
-            self.fpanel.remove_object(rqt_oid)
-            # delete the Requirement object
-            orb.delete([rqt])
-            dispatcher.send(signal='deleted object', oid=rqt_oid,
-                            cname='Requirement')
-            orb.delete([rqt])
-            orb.log.info('* requirement deleted.')
 
 
 #################################
