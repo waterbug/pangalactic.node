@@ -93,7 +93,7 @@ class RequirementManager(QDialog):
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
-        dispatcher.connect(self.on_new_or_modified_rqts, 'new or mod rqts')
+        dispatcher.connect(self.on_new_or_mod_rqts, 'new or mod rqts')
         dispatcher.connect(self.on_modified_object, 'modified object')
         dispatcher.connect(self.on_deleted_object, 'deleted object')
         # "parameters recomputed" is the ultimate signal resulting from a
@@ -285,14 +285,22 @@ class RequirementManager(QDialog):
         else:
             return
 
-    def on_new_or_modified_rqts(self, oids):
+    def on_new_or_mod_rqts(self, oids):
         orb.log.debug('* got "new or mod rqts" signal ...')
         rqts = orb.get(oids=oids)
-        for rqt in rqts:
-            if oid in self.fpanel.oids:
-                self.fpanel.mod_object(oid)
+        orb.log.debug('  new or mod rqts are:')
+        for i, rqt in enumerate(rqts):
+            if rqt:
+                oid = rqt.oid
+                orb.log.debug(f'  [{i}] {rqt.id}: {rqt.name}')
+                if oid in self.fpanel.oids:
+                    orb.log.debug('      + is modified, updating ...')
+                    self.fpanel.mod_object(oid)
+                else:
+                    orb.log.debug('      + is new, adding ...')
+                    self.fpanel.add_object(rqt)
             else:
-                self.fpanel.add_object(rqt)
+                orb.log.debug(f'  rqt [{i}] not found.')
 
     def on_modified_object(self, obj=None, cname=None):
         if obj in self.fpanel.objs:
