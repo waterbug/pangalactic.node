@@ -285,8 +285,14 @@ class RequirementManager(QDialog):
         else:
             return
 
-    def on_new_or_modified_rqts(self):
-        self.fpanel.refresh()
+    def on_new_or_modified_rqts(self, oids):
+        orb.log.debug('* got "new or mod rqts" signal ...')
+        rqts = orb.get(oids=oids)
+        for rqt in rqts:
+            if oid in self.fpanel.oids:
+                self.fpanel.mod_object(oid)
+            else:
+                self.fpanel.add_object(rqt)
 
     def on_modified_object(self, obj=None, cname=None):
         if obj in self.fpanel.objs:

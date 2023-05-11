@@ -1985,7 +1985,8 @@ class Main(QMainWindow):
             # orb.log.debug(lmsg)
             state["lib updates needed"] = lib_updates_needed
         if state.get('new_or_modified_rqts'):
-            dispatcher.send(signal='new or mod rqts')
+            oids = state['new_or_modified_rqts']
+            dispatcher.send(signal='new or mod rqts', oids=oids)
         self.get_parmz()
         return True
 
