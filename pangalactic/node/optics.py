@@ -83,6 +83,7 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
         self.setPolygon(self.myPolygon)
         label_txt = getattr(self.usage, 'reference_designator', '') or ''
         self.block_label = BlockLabel(label_txt, self, y=-100, centered=False)
+        dispatcher.connect(self.on_component_edited, 'component edited')
 
     def on_component_edited(self, component=None):
         oid = getattr(component, 'oid', None)
@@ -640,7 +641,6 @@ class OpticalSystemWidget(QWidget):
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
         self.scene_scale_changed("70%")
-        dispatcher.connect(self.on_component_edited, 'component edited')
         dispatcher.connect(self.on_rescale_optical_path,
                            "rescale optical path")
         self.scene.rescale_optical_path.connect(self.on_rescale_optical_path)
