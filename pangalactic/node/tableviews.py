@@ -420,21 +420,15 @@ class SystemInfoTable(QTableWidget):
                 header_label = colname
                 header_labels.append(header_label)
             else:
-                header_label = pname_to_header(pname, '')
+                header_label = pname_to_header(pname, '', pwidth=15)
                 header_labels.append(header_label)
             # set col widths based on length of header text
             if colname:
                 width = len(colname)*20
             else:
-                if '_' in pname:
-                    base, sub = pname.split('_')
-                    width = len(base)*20 + len(sub)*8
-                else:
-                    width = len(pname)*20
+                width = max([len(l) for l in header_label.split('\n')])*20
             width = max(max(width, self.min_col_width), self.max_col_width)
             widths.append(width)
-        # header = LabelHeaderView(self, widths=widths)
-        # self.setHorizontalHeader(header)
         self.setHorizontalHeaderLabels(header_labels)
         # populate relevant data
         if usages:
