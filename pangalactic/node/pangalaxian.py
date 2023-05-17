@@ -4863,8 +4863,8 @@ class Main(QMainWindow):
         webbrowser.open_new(ref_url)
 
     def view_cad(self, file_path=None):
-        orb.log.info('* view_cad(file_path="{}")'.format(file_path))
-        viewer = Model3DViewer(step_file=file_path, parent=self)
+        orb.log.info('* view_cad()')
+        viewer = Model3DViewer(parent=self)
         viewer.show()
 
     def run_external_viewer(self, file_path):
@@ -5815,9 +5815,9 @@ class Main(QMainWindow):
         if not state.get('last_model_path'):
             state['last_model_path'] = orb.test_data_dir
         fpath, filters = QFileDialog.getOpenFileName(
-                                    self, 'Open STEP or STL File',
-                                    state['last_model_path'],
-                                    'Model Files (*.stp *.step *.p21 *.stl)')
+                            self, 'Open STEP, STL, or brep File',
+                            state['last_model_path'],
+                            'Model Files (*.stp *.step *.p21 *.stl *.brep)')
         if fpath:
             # TODO: exception handling in case data import fails ...
             # TODO: add an "index" column for sorting, or else figure out how

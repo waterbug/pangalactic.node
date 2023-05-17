@@ -5,15 +5,19 @@ Optical System tool for computing the error budget of an optical system.
 
 import os, sys
 
+from louie import dispatcher
+
 from PyQt5.QtCore import pyqtSignal, Qt, QObject, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QFileDialog, QMainWindow, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
                              QGraphicsView, QHBoxLayout, QMenu, QMessageBox,
-                             QGraphicsPathItem, QToolBar, QVBoxLayout,
-                             QWidgetAction)
+                             QGraphicsPathItem, QSizePolicy, QToolBar,
+                             QVBoxLayout, QWidgetAction)
+# from PyQt5.QtWidgets import (QMessageBox, QStatusBar, QToolBox,
 from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
                          QTransform)
+# from PyQt5.QtGui import QGraphicsProxyWidget
 
 # pangalactic
 from pangalactic.core             import state
@@ -22,7 +26,8 @@ from pangalactic.core.meta        import PGXN_PLACEHOLDERS
 from pangalactic.core.names       import (get_acu_id, get_acu_name,
                                           get_next_ref_des)
 from pangalactic.core.parametrics import get_dval, set_dval
-from pangalactic.core.utils.error_budget_writer import gen_error_budget
+# from pangalactic.core.parametrics import get_pval
+from pangalactic.core.errbudget   import gen_error_budget
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import date2str, dtstamp
 from pangalactic.core.validation  import get_bom_oids
@@ -30,9 +35,9 @@ from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
 from pangalactic.node.libraries   import LibraryDialog
 from pangalactic.node.pgxnobject  import PgxnObject
+from pangalactic.node.tableviews  import SystemInfoTable
 from pangalactic.node.utils       import clone, extract_mime_data
-from pangalactic.node.widgets     import (NameLabel, StringFieldWidget,
-                                          ValueLabel)
+from pangalactic.node.widgets     import NameLabel, StringFieldWidget, ValueLabel
 
 
 class OpticalComponentBlock(QGraphicsPolygonItem):
@@ -131,9 +136,11 @@ class OpticalSystemScene(QGraphicsScene):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.optical_path = OpticalPathDiagram()
+        self.optical_path = OpticalPathDiagram(self)
         self.optical_path.signals.des_set.connect(self.on_des_set)
         self.addItem(self.optical_path)
+        # NOTE: not clear if this is necessary
+        # self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
         self.grabbed_item = None
 
@@ -143,6 +150,11 @@ class OpticalSystemScene(QGraphicsScene):
 
     def on_des_set(self, des):
         self.des_set.emit(des)
+
+    # def focus_changed_handler(self, new_item, old_item):
+        # if (new_item is not None and
+            # new_item != self.current_focus):
+            # pass
 
     def mousePressEvent(self, mouseEvent):
         super().mousePressEvent(mouseEvent)
@@ -257,15 +269,20 @@ class OpticalSystemScene(QGraphicsScene):
                 modifier=user,
                 mod_datetime=dtstamp(),
                 reference_designator=ref_des)
-            orb.log.debug('      Acu created: {}'.format(new_acu.name))
             # new Acu -> self.system is modified (any computed
             # parameters must be recomputed, etc.)
             self.system.mod_datetime = dtstamp()
             self.system.modifier = user
-            orb.db.commit()
+            # add block before orb.save(), which takes time ...
             item = OpticalComponentBlock(usage=new_acu, scene=self)
             item.setPos(event.scenePos())
+            self.addItem(item)
             self.optical_path.add_item(item)
+            orb.save([new_acu, self.system])
+            # orb.log.debug('      Acu created: {}'.format(
+                          # new_acu.name))
+            self.new_or_modified_objects.emit([new_acu.oid, self.system.oid])
+            self.update()
 
     def edit_parameters(self, component):
         view = ['id', 'name', 'description']
@@ -281,14 +298,15 @@ class OpticalSystemScene(QGraphicsScene):
 class OpticalPathDiagramSignals(QObject):
 
     des_set = pyqtSignal(dict)
+    order_changed = pyqtSignal()
 
 
 class OpticalPathDiagram(QGraphicsPathItem):
 
-    def __init__(self, parent=None):
+    def __init__(self, scene, parent=None):
         super().__init__(parent)
-        orb.log.debug('* OpticalPathDiagram()')
         self.signals = OpticalPathDiagramSignals()
+        self.scene = scene
         self.item_list = []
         self.path_length = 1000
         self.make_path()
@@ -307,10 +325,23 @@ class OpticalPathDiagram(QGraphicsPathItem):
         self.path.lineTo(self.end_x, 250)
         self.path.addRect(self.end_x, 200, 100, 100)
         self.setPath(self.path)
+        # TextItem automatically adds itself to the specified scene
+        self.obj_text = TextItem("object", QPointF(10, 230), self.scene,
+                                 font=QFont("Arial", 18))
+        self.obj_text.setSelected(False)
+        self.add_image_label()
         self.length = round(self.path.length() - 800)
         factor = self.length // (len(self.item_list) + 1)
         self.list_of_pos = [(n + 1) * factor + 100
                             for n in range(0, len(self.item_list))]
+
+    def add_image_label(self):
+        current_image_label = getattr(self, 'img_text', None)
+        if current_image_label:
+            self.scene.removeItem(current_image_label)
+        self.img_text = TextItem("image", QPointF(self.end_x + 10, 230),
+                                 self.scene, font=QFont("Arial", 18))
+        self.img_text.setSelected(False)
 
     def remove_item(self, item):
         if item in self.item_list:
@@ -335,22 +366,11 @@ class OpticalPathDiagram(QGraphicsPathItem):
             self.path_length = 1000 + (delta // 2) * 300
             scale = 70 - (delta // 2) * 10
             percentscale = str(scale) + "%"
-            self.scene().rescale_optical_path.emit(percentscale)
+            self.scene.rescale_optical_path.emit(percentscale)
 
     def populate(self, item_list):
         self.item_list = item_list
         self.update_optical_path()
-
-    def add_end_labels(self):
-        self.obj_text = TextItem("object", QPointF(10, 230), self.scene(),
-                                 font=QFont("Arial", 18))
-        self.obj_text.setSelected(False)
-        current_image_label = getattr(self, 'img_text', None)
-        if current_image_label:
-            self.scene().removeItem(current_image_label)
-        self.img_text = TextItem("image", QPointF(self.end_x + 10, 230),
-                                 self.scene(), font=QFont("Arial", 18))
-        self.img_text.setSelected(False)
 
     def arrange(self):
         """
@@ -358,17 +378,18 @@ class OpticalPathDiagram(QGraphicsPathItem):
         and update their "position_in_optical_path" data element to reflect
         their updated position.
         """
-        self.add_end_labels()
         item_list_copy = self.item_list[:]
         self.item_list.sort(key=lambda x: x.scenePos().x())
         same = True
+        table_needs_update = False
         for item in self.item_list:
             if self.item_list.index(item) != item_list_copy.index(item):
                 same = False
         for i, item in enumerate(self.item_list):
             item.setPos(QPoint(self.list_of_pos[i], 250))
             set_dval(item.usage.oid, 'position_in_optical_path', i)
-            # self.scene().new_or_modified_objects.emit([item.usage.oid])
+            self.scene.new_or_modified_objects.emit([item.usage.oid])
+            table_needs_update = True
         if not same:
             des = {}
             for i, item in enumerate(self.item_list):
@@ -379,16 +400,20 @@ class OpticalPathDiagram(QGraphicsPathItem):
                 des[acu.oid]['position_in_optical_path'] = self.list_of_pos[i]
             # "des_set" triggers pgxn to call rpc vger.set_data_elements()
             self.signals.des_set.emit(des)
+        if not same or table_needs_update:
+            # "order_changed" triggers the system table to update
+            self.signals.order_changed.emit()
         self.update()
 
 
 class OpticalSysInfoPanel(QWidget):
 
-    def __init__(self, parent=None):
+    def __init__(self, system=None, parent=None):
         """
         Initialize OpticalSysInfoPanel.
 
         Keyword Args:
+            system (HardwareProduct): an optical system
             parent (QWidget): the parent widget
         """
         # TODO: make fields editable if "Create a New System" is clicked
@@ -415,10 +440,7 @@ class OpticalSysInfoPanel(QWidget):
         self.system_id_label = NameLabel('id:')
         self.system_id_label.setStyleSheet('font-weight: bold')
         info_panel_layout.addWidget(self.system_id_label)
-        if self.system:
-            self.system_id_value_label = ValueLabel(self.system.id, w=200)
-        else:
-            self.system_id_value_label = ValueLabel('No System Loaded', w=200)
+        self.system_id_value_label = ValueLabel('No System Loaded', w=200)
         info_panel_layout.addWidget(self.system_id_value_label)
         self.system_id_value_field = StringFieldWidget(value='', width=200,
             placeholder='generated (not editable)', parent=self)
@@ -428,10 +450,7 @@ class OpticalSysInfoPanel(QWidget):
         system_name_label = NameLabel('name:')
         system_name_label.setStyleSheet('font-weight: bold')
         info_panel_layout.addWidget(system_name_label)
-        if self.system:
-            self.system_name_value_label = ValueLabel(self.system.name, w=320)
-        else:
-            self.system_name_value_label = ValueLabel(
+        self.system_name_value_label = ValueLabel(
                             'Drag/Drop an Optical System here ...', w=320)
         info_panel_layout.addWidget(self.system_name_value_label)
         name_placeholder = PGXN_PLACEHOLDERS.get('name', '')
@@ -443,14 +462,16 @@ class OpticalSysInfoPanel(QWidget):
         system_owner_label = NameLabel('owner:')
         system_owner_label.setStyleSheet('font-weight: bold')
         info_panel_layout.addWidget(system_owner_label)
-        owner_id = 'No Owner Specified'
-        if self.system:
-            owner_id = getattr(self.system.owner, 'id', None) or owner_id
-        self.system_owner_value_label = ValueLabel(owner_id, w=200)
+        self.system_owner_value_label = ValueLabel('', w=320)
         info_panel_layout.addWidget(self.system_owner_value_label)
+        self.system_owner_value_label = ValueLabel('No Owner Specified', w=200)
+        self.system_owner_value_field = StringFieldWidget(value='', width=200,
+                                            placeholder=name_placeholder,
+                                            parent=self)
+        self.system_owner_value_field.setVisible(False)
+        info_panel_layout.addWidget(self.system_owner_value_field)
         info_panel_layout.addStretch(1)
-        self.library_button = SizedButton("Optical Components Library",
-                                          color="green")
+        self.library_button = SizedButton("Library", color="green")
         info_panel_layout.addWidget(self.library_button)
         self.new_system_button = SizedButton("Define New System", color="blue")
         info_panel_layout.addWidget(self.new_system_button)
@@ -462,11 +483,14 @@ class OpticalSysInfoPanel(QWidget):
         self.setLayout(frame_vbox)
         self.setMinimumWidth(600)
         self.setMaximumHeight(150)
+        self.system = system
+        if not self.system and state.get('optical_system'):
+            self.system = orb.get(state['optical_system'])
 
     # property: system
 
     def _get_system(self):
-        return orb.get(state.get('optical_system', ''))
+        return getattr(self, '_system', None)
 
     def _set_system(self, obj):
         orb.log.debug('* OpticalSysInfoPanel: _set_system')
@@ -475,9 +499,9 @@ class OpticalSysInfoPanel(QWidget):
         if product_type:
             # orb.log.debug(f'  - obj product type: {product_type.name}')
             optical_system = orb.get('pgefobjects:ProductType.optical_system')
-            if product_type is optical_system:
-                orb.log.debug('  - product type is "Optical System"')
-                orb.log.debug('    populating panel widgets ...')
+            instrument = orb.get('pgefobjects:ProductType.instrument')
+            if product_type in [instrument, optical_system]:
+                # orb.log.debug('  - populating panel widgets ...')
                 self.title.setText(obj.name)
                 self.title.update()
                 self.system_id_value_label.setEnabled(True)
@@ -555,16 +579,28 @@ class OpticalSysInfoPanel(QWidget):
             icon, p_oid, p_id, p_name, p_cname = data
             system = orb.get(p_oid)
             if (system and
-                getattr(system.product_type, 'id', '') == 'optical_system'):
-                orb.log.debug('  - product type is "Optical System"')
-                orb.log.debug('    setting as subject of Optical Modeler')
+                getattr(system.product_type, 'id', '') in [
+                                            'optical_system', 'instrument']):
                 # triggers "_set_system()"
                 self.system = system
-                state['optical_system'] = p_oid
             else:
                 event.ignore()
                 orb.log.debug("* drop event: ignoring -- "
-                              "not found in db or not an optical system.")
+                              "not found in db or incorrect product type.")
+        # TODO: maybe support Templates later ...
+        # elif event.mimeData().hasFormat("application/x-pgef-template"):
+            # # drop item is Template -> create a new system from it
+            # data = extract_mime_data(event, "application/x-pgef-template")
+            # icon, t_oid, t_id, t_name, t_cname = data
+            # template = orb.get(t_oid)
+            # system = create_product_from_template(template)
+            # # NOTE: the below stuff is unnecessary, I think
+            # # if system.components:
+                # # orb.save(system.components)
+                # # for acu in system.components:
+                    # # dispatcher.send('new object', obj=acu)
+            # dispatcher.send("drop on system info", obj=system)
+            # dispatcher.send('new object', obj=system)
         else:
             event.ignore()
 
@@ -594,7 +630,7 @@ class OpticalSystemWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         orb.log.debug('* initializing OpticalSystemWidget ...')
-        self.info_panel = OpticalSysInfoPanel()
+        self.info_panel = OpticalSysInfoPanel(self.system)
         self.library_button = self.info_panel.library_button
         self.init_toolbar()
         self.set_scene_and_view()
@@ -604,6 +640,9 @@ class OpticalSystemWidget(QWidget):
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
         self.scene_scale_changed("70%")
+        dispatcher.connect(self.on_component_edited, 'component edited')
+        dispatcher.connect(self.on_rescale_optical_path,
+                           "rescale optical path")
         self.scene.rescale_optical_path.connect(self.on_rescale_optical_path)
         self.setUpdatesEnabled(True)
 
@@ -741,24 +780,27 @@ class OpticalSystemModeler(QMainWindow):
         self.setWindowTitle('Optical System Modeler')
         sys_widget_w = self.system_widget.width()
         sys_widget_h = self.system_widget.height()
+        sys_table_h = self.system_table.rowCount() * 20
         self.resize(sys_widget_w + 400,
-                    sys_widget_h + 200)
-        self.system_widget.library_button.clicked.connect(
-                                                self.display_optics_library)
+                    sys_widget_h + sys_table_h + 200)
+        self.system_widget.library_button.clicked.connect(self.display_library)
+        # TODO: replace dispatcher with pyqtSignal
+        # dispatcher.connect(self.on_double_click, "double clicked")
 
     @property
     def system(self):
         return orb.get(state.get('optical_system', ''))
 
-    def display_optics_library(self):
+    def display_library(self):
         """
-        Open dialog with library of optical product types.
+        Open dialog with library of instruments and optical product types.
         """
         optical_system = orb.select('ProductType', id='optical_system')
         optical_component = orb.select('ProductType', id='optical_component')
+        instrument = orb.select('ProductType', id='instrument')
         lens = orb.select('ProductType', id='lens')
         mirror = orb.select('ProductType', id='mirror')
-        pts = [optical_system, optical_component, lens, mirror]
+        pts = [instrument, optical_system, optical_component, lens, mirror]
         dlg = LibraryDialog('HardwareProduct',
                             height=self.geometry().height(),
                             width=self.geometry().width() // 2,
@@ -782,8 +824,15 @@ class OpticalSystemModeler(QMainWindow):
         self.system_widget.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects)
         self.system_widget.object_deleted.connect(self.on_local_object_deleted)
-        self.system_panel = QWidget()
-        self.setCentralWidget(self.system_panel)
+        self.system_widget.scene.optical_path.signals.order_changed.connect(
+                                                    self.rebuild_system_table)
+        self.system_table_panel = QWidget()
+        self.system_table_panel.setMinimumSize(1200, 300)
+        self.system_table_layout = QHBoxLayout()
+        self.create_system_table()
+        self.system_table_layout.addWidget(self.system_table)
+        self.system_table_panel.setLayout(self.system_table_layout)
+        self.setCentralWidget(self.system_table_panel)
         self.top_dock = QDockWidget()
         self.top_dock.setObjectName('TopDock')
         self.top_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
@@ -791,30 +840,45 @@ class OpticalSystemModeler(QMainWindow):
         self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock)
         self.top_dock.setWidget(self.system_widget)
 
-    # NOTE: system_table is DEPRECATED because it had segfault problems, but
-    # this function is retained for the parametric data structures ...
-    # def create_system_table(self):
-        # view = [('reference_designator', 'Optical Surface Label', 'usage'),
-                # ('name', 'Optical Surface Name', 'component'),
-                # ('description', 'Optical Surface Description', 'component'),
-                # ('dRMSWFE_dx', '', 'usage'),
-                # ('dRMSWFE_dy', '', 'usage'),
-                # ('dRMSWFE_dz', '', 'usage'),
-                # ('dRMSWFE_rx', '', 'usage'),
-                # ('dRMSWFE_ry', '', 'usage'),
-                # ('dRMSWFE_rz', '', 'usage'),
-                # ('dLOSx_dx', '', 'usage'),
-                # ('dLOSx_dy', '', 'usage'),
-                # ('dLOSx_dz', '', 'usage'),
-                # ('dLOSx_rx', '', 'usage'),
-                # ('dLOSx_ry', '', 'usage'),
-                # ('dLOSx_rz', '', 'usage'),
-                # ('dLOSy_dx', '', 'usage'),
-                # ('dLOSy_dy', '', 'usage'),
-                # ('dLOSy_dz', '', 'usage')]
-                # # 'RoC', 'K',
-                # # 'X_vertex', 'Y_vertex', 'Z_vertex',
-                # # 'RotX_vertex', 'RotY_vertex', 'RotZ_vertex',
+    def rebuild_system_table(self):
+        if getattr(self, 'system_table', None):
+            self.system_table_layout.removeWidget(self.system_table)
+            self.system_table.parent = None
+            self.system_table.close()
+            self.system_table = None
+        self.create_system_table()
+        self.system_table_layout.addWidget(self.system_table)
+
+    def create_system_table(self):
+        view = [('reference_designator', 'Optical\nSurface\nLabel', 'usage'),
+                ('name', 'Optical\nSurface\nName', 'component'),
+                ('description', 'Optical\nSurface\nDescription', 'component'),
+                ('dRMSWFE_dx', '', 'usage'),
+                ('dRMSWFE_dy', '', 'usage'),
+                ('dRMSWFE_dz', '', 'usage'),
+                ('dRMSWFE_rx', '', 'usage'),
+                ('dRMSWFE_ry', '', 'usage'),
+                ('dRMSWFE_rz', '', 'usage'),
+                ('dLOSx_dx', '', 'usage'),
+                ('dLOSx_dy', '', 'usage'),
+                ('dLOSx_dz', '', 'usage'),
+                ('dLOSx_rx', '', 'usage'),
+                ('dLOSx_ry', '', 'usage'),
+                ('dLOSx_rz', '', 'usage'),
+                ('dLOSy_dx', '', 'usage'),
+                ('dLOSy_dy', '', 'usage'),
+                ('dLOSy_dz', '', 'usage')]
+                # 'RoC', 'K',
+                # 'X_vertex', 'Y_vertex', 'Z_vertex',
+                # 'RotX_vertex', 'RotY_vertex', 'RotZ_vertex',
+        self.system_table = SystemInfoTable(
+                                    system=self.system, view=view,
+                                    sort_by_field='position_in_optical_path',
+                                    sort_on='usage',
+                                    parent=self)
+        self.system_table.setSizePolicy(QSizePolicy.Expanding,
+                                        QSizePolicy.Expanding)
+        self.system_table.setAttribute(Qt.WA_DeleteOnClose)
 
     def remote_objects_deleted(self, oids):
         """
@@ -828,10 +892,26 @@ class OpticalSystemModeler(QMainWindow):
         Pass along the signal when an item is removed from the scene and its
         usage is deleted.
         """
+        self.rebuild_system_table()
         self.local_object_deleted.emit(oid, cname)
 
     def on_new_or_modified_objects(self, oids):
+        self.rebuild_system_table()
         self.new_or_modified_objects.emit(oids)
+
+    def on_double_click(self, acu):
+        # """
+        # Handle a double-click event on a OpticalComponentBlock, creating and
+        # displaying a new view.
+        # Args:
+            # obj (OpticalComponentBlock):  the block that received the
+            #   double-click
+        # """
+        # self.component = acu
+        # self.set_scene_and_view()
+        # previous = acu.where_occurs[0].assembly
+        # self.go_back_action.setDisabled(False)
+        pass
 
     def init_toolbar(self):
         orb.log.debug(' - init_toolbar() ...')
@@ -843,6 +923,7 @@ class OpticalSystemModeler(QMainWindow):
 
 
 if __name__ == '__main__':
+    # orb.start(home='junk_home', debug=True)
     orb.start(home='/home/waterbug/cattens_home_dev', debug=True, console=True)
     app = QApplication(sys.argv)
     mw = OpticalSystemModeler()

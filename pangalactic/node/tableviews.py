@@ -7,9 +7,10 @@ import os
 import ruamel_yaml as yaml
 
 # PyQt
-from PyQt5.QtCore    import pyqtSignal, Qt, QTimer
+from PyQt5.QtCore    import Qt, QTimer
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
-                             QFileDialog, QSizePolicy, QTableView, QVBoxLayout)
+                             QFileDialog, QSizePolicy, QTableView,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 # Louie
 from louie import dispatcher
@@ -17,9 +18,13 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
-from pangalactic.core.names       import get_external_name_plural
+from pangalactic.core.names       import (get_external_name_plural,
+                                          pname_to_header)
+from pangalactic.core.parametrics import (de_defz, get_dval_as_str, get_dval,
+                                          get_pval_as_str, get_pval, parm_defz)
 from pangalactic.core.serializers import serialize
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.units       import in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.node.tablemodels import (ObjectTableModel,
                                           CompareTableModel,
@@ -291,6 +296,167 @@ class CompareWidget(QDialog):
             self.layout.addWidget(self.bbox)
             self.resize(self.tableview.width()-200,
                         self.tableview.height()-100)
+
+
+def get_str_value(obj, pname):
+    """
+    Return the string-cast value of the specified property for the specified
+    object.
+
+    Args:
+        obj (Identifiable): the object
+        pname (str): name of the property (attr, parameter, or data element)
+    """
+    schema = orb.schemas.get(obj.__class__.__name__)
+    field_names = []
+    if schema:
+        field_names = schema.get('field_names', [])
+    if field_names and pname in field_names:
+        return getattr(obj, pname, '') or ''
+    elif pname in parm_defz:
+        pd = parm_defz.get(pname)
+        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                pd['dimensions'], '')
+        return get_pval_as_str(obj.oid, pname, units=units)
+    elif pname in de_defz:
+        return get_dval_as_str(obj.oid, pname)
+    return '[undefined]'
+
+
+def get_pname_value(obj, pname):
+    """
+    Return the value of the specified property for the specified object.
+
+    Args:
+        obj (Identifiable): the object
+        pname (str): name of the property (attr, parameter, or data element)
+    """
+    schema = orb.schemas.get(obj.__class__.__name__)
+    field_names = []
+    if schema:
+        field_names = schema.get('field_names', [])
+    if field_names and pname in field_names:
+        return getattr(obj, pname, '') or ''
+    elif pname in parm_defz:
+        pd = parm_defz.get(pname)
+        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
+                                                pd['dimensions'], '')
+        return get_pval(obj.oid, pname, units=units)
+    elif pname in de_defz:
+        return get_dval(obj.oid, pname)
+    return ''
+
+
+class InfoTableItem(QTableWidgetItem):
+
+    def __init__(self, text=None):
+        if text is not None:
+            super().__init__(text)
+        else:
+            super().__init__()
+        self.isResolving = False
+
+    def setData(self, role, value):
+        super().setData(role, value)
+        if self.tableWidget():
+            self.tableWidget().viewport().update()
+
+
+class SystemInfoTable(QTableWidget):
+    """
+    Table whose main purpose is to provide an editable view of one level of a
+    composite system and possibly additional related items. The rows of the
+    table contain properties and parameters of components, their usages in the
+    assembled system, and possibly related items.
+
+    The target use case is the Error Budget for an optical system, which will
+    also include sources of errors.
+    """
+    def __init__(self, system=None, view=None, sort_on='component',
+                 sort_by_field=None, min_col_width=100, max_col_width=300,
+                 parent=None):
+        """
+        Initialize
+
+        Keyword Args:
+            system (HardwareProduct):  the system whose assembly is shown
+            view (list):  list in which each element is a 3-tuple
+                (pname, colname, otype), where pname is the property id,
+                colname is the column name (if empty string, pname is the
+                column name, and otype is either "component" or "usage" (Acu),
+                indicating the owner of the property
+            sort_on (str): 'usage' or 'component' (default: 'component')
+            sort_by_field (str): id of attr, parm, or data element to sort by
+            min_col_width (int): minimum column width (default: 100)
+            max_col_width (int): maximum column width (default: 300)
+        """
+        super().__init__(parent=parent)
+        # orb.log.info('* [SystemInfoTable] initializing ...')
+        self.system = system
+        self.sort_on = sort_on
+        self.sort_by_field = sort_by_field
+        self.min_col_width = min_col_width
+        self.max_col_width = max_col_width
+        # TODO: get default view from prefs / config
+        default_view = [
+            ('m[CBE]', '', 'component'),
+            ('P[CBE]', '', 'component'),
+            ('R_D[CBE]', '', 'component')
+            ]
+        self.view = view or default_view[:]
+        self.setup_table()
+
+    def setup_table(self):
+        self.setColumnCount(len(self.view))
+        usages = getattr(self.system, 'components', []) or []
+        if usages:
+            self.setRowCount(len(usages))
+        else:
+            self.setRowCount(1)
+        header_labels = []
+        widths = []
+        for pname, colname, otype in self.view:
+            if colname:
+                header_label = colname
+                header_labels.append(header_label)
+            else:
+                header_label = pname_to_header(pname, '')
+                header_labels.append(header_label)
+            # set col widths based on length of header text
+            if colname:
+                width = len(colname)*20
+            else:
+                if '_' in pname:
+                    base, sub = pname.split('_')
+                    width = len(base)*20 + len(sub)*8
+                else:
+                    width = len(pname)*20
+            width = max(max(width, self.min_col_width), self.max_col_width)
+            widths.append(width)
+        # header = LabelHeaderView(self, widths=widths)
+        # self.setHorizontalHeader(header)
+        self.setHorizontalHeaderLabels(header_labels)
+        # populate relevant data
+        if usages:
+            if self.sort_by_field:
+                if self.sort_on == 'component':
+                    usages.sort(key=lambda x:get_pname_value(x.component,
+                                                          self.sort_by_field))
+                elif self.sort_on == 'usage':
+                    usages.sort(key=lambda x:
+                                get_pname_value(x, self.sort_by_field))
+            for i, usage in enumerate(usages):
+                for j, ptuple in enumerate(self.view):
+                    pname, colname, otype = ptuple
+                    if otype == 'component':
+                        component = getattr(usage, 'component')
+                        self.setItem(i, j,
+                         InfoTableItem(get_str_value(component, pname) or ''))
+                    elif otype == 'usage':
+                        self.setItem(i, j,
+                         InfoTableItem(get_str_value(usage, pname) or ''))
+        width_fit = sum(w for w in widths) + 100
+        self.resize(width_fit, 240)
 
 
 if __name__ == "__main__":

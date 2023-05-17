@@ -37,7 +37,10 @@ from OCC.Core.TCollection import (TCollection_ExtendedString,
                                   TCollection_AsciiString)
 from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
 from OCC.Core.TopLoc import TopLoc_Location
+from OCC.Core.BRep import BRep_Builder
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+from OCC.Core.BRepTools import breptools_Read
+from OCC.Core.TopoDS import TopoDS_Shape
 from OCC.Display.SimpleGui import init_display
 from OCC.Extend.DataExchange import (read_step_file_with_names_colors,
                                      read_stl_file)
@@ -84,6 +87,12 @@ def run_ext_3dviewer(fpath):
     elif suffix == 'stl':
         stl_shape = read_stl_file(fpath)
         display.DisplayShape(stl_shape, update=True)
+
+    elif suffix == 'brep':
+        brep_shape = TopoDS_Shape()
+        builder = BRep_Builder()
+        breptools_Read(brep_shape, fpath, builder)
+        display.DisplayShape(brep_shape, update=True)
     display.FitAll()
     start_display()
 
@@ -143,13 +152,13 @@ class QtViewer3DColor(QtBaseViewer):
 
     def init_shape_from_model(self, fpath, model_type='step'):
         """
-        Load a STEP file into the viewer.
+        Load a model file (STEP, STL, or brep) into the viewer.
 
         Args:
-            fpath (str):  path to a STEP file
+            fpath (str):  path to file
 
         Keyword Args:
-            model_type (str):  "step" or "stl"
+            model_type (str):  "step", "stl", or "brep"
         """
         self._display = OCCViewer.Viewer3d(self.GetHandle())
         self._display.Create()
@@ -169,7 +178,7 @@ class QtViewer3DColor(QtBaseViewer):
         # TODO:  figure out what "layer tool" and "material tool" do ...
         # h_layer_tool = XCAFDoc_DocumentTool_LayerTool(doc.Main())
         # h_mat_tool = XCAFDoc_DocumentTool_MaterialTool(doc.Main())
-        if model_type in ['step', 'stl']:
+        if model_type in ['step', 'stl', 'brep']:
             if model_type == 'step':
                 step_reader = STEPCAFControl_Reader()
                 step_reader.SetColorMode(True)
@@ -208,6 +217,11 @@ class QtViewer3DColor(QtBaseViewer):
             elif model_type == 'stl':
                 stl_shape = read_stl_file(fpath)
                 self._display.DisplayShape(stl_shape, update=True)
+            elif model_type == 'brep':
+                brep_shape = TopoDS_Shape()
+                builder = BRep_Builder()
+                breptools_Read(brep_shape, fpath, builder)
+                self._display.DisplayShape(brep_shape, update=True)
             self._display.SetModeShaded()
             # NOTE: "EnableAntiAliasing" raises a warning ...
             # self._display.EnableAntiAliasing()
@@ -545,7 +559,8 @@ class QtViewer3DColor(QtBaseViewer):
 
 
 class Model3DViewer(QtWidgets.QMainWindow):
-    def __init__(self, step_file=None, stl_file=None, parent=None):
+    def __init__(self, step_file=None, stl_file=None, brep_file=None,
+                 parent=None):
         super().__init__(parent=parent)
         self.setWindowTitle(self.tr("3D CAD Model Viewer"))
         self.init_viewer_3d()
@@ -557,6 +572,9 @@ class Model3DViewer(QtWidgets.QMainWindow):
         self.open_stl_file_action = self.create_action("Open an STL file...",
                                    slot=self.open_stl_file,
                                    tip="View a model from an STL file")
+        self.open_brep_file_action = self.create_action("Open a brep file...",
+                                   slot=self.open_brep_file,
+                                   tip="View a model from an .brep file")
         self.export_to_image_action = self.create_action("Export to image...",
                                    slot=self.export_to_image,
                                    tip="Export current view to image...")
@@ -568,7 +586,8 @@ class Model3DViewer(QtWidgets.QMainWindow):
                              os.path.join(getattr(orb, 'home', ''), 'icons'))
         import_icon_path = os.path.join(self.icon_dir, import_icon_file)
         import_actions = [self.open_step_file_action,
-                          self.open_stl_file_action]
+                          self.open_stl_file_action,
+                          self.open_brep_file_action]
         import_button = MenuButton(QtGui.QIcon(import_icon_path),
                                    tooltip='Import Data or Objects',
                                    actions=import_actions, parent=self)
@@ -580,11 +599,6 @@ class Model3DViewer(QtWidgets.QMainWindow):
                                    tooltip='Export Data or Objects',
                                    actions=export_actions, parent=self)
         self.toolbar.addWidget(self.export_button)
-        self.loaded_file = step_file or stl_file
-        if step_file:
-            self.load_step_file(step_file)
-        elif stl_file:
-            self.load_stl_file(stl_file)
 
     def create_action(self, text, icon=None, slot=None, tip=None):
         action = QtWidgets.QAction(text, self)
@@ -613,22 +627,6 @@ class Model3DViewer(QtWidgets.QMainWindow):
         self.qt_viewer_3d.setLayout(viewer_layout)
         self.qt_viewer_3d.resize(800, 600)
         self.setCentralWidget(self.qt_viewer_3d)
-
-    def load_step_file(self, fpath):
-        if self.viewer_in_use:
-            self.init_viewer_3d()
-        self.qt_viewer_3d.init_shape_from_model(fpath, model_type='step')
-        self.loaded_file = fpath
-        if hasattr(self, 'export_to_image_action'):
-            self.export_to_image_action.setEnabled(True)
-
-    def load_stl_file(self, fpath):
-        if self.viewer_in_use:
-            self.init_viewer_3d()
-        self.qt_viewer_3d.init_shape_from_model(fpath, model_type='stl')
-        self.loaded_file = fpath
-        if hasattr(self, 'export_to_image_action'):
-            self.export_to_image_action.setEnabled(True)
 
     def export_to_image(self):
         fname = 'cad_view.png'
@@ -696,6 +694,35 @@ class Model3DViewer(QtWidgets.QMainWindow):
             if self.viewer_in_use:
                 self.init_viewer_3d()
             self.qt_viewer_3d.init_shape_from_model(fpath, model_type='stl')
+            if hasattr(self, 'export_to_image_action'):
+                self.export_to_image_action.setEnabled(True)
+        else:
+            return
+
+    def open_brep_file(self):
+        if platform.platform().startswith('Darwin'):
+            # on Mac, can only open one step file (next attempt will crash)
+            self.removeToolBar(self.toolbar)
+            self.open_step_file_action.setEnabled(False)
+            self.open_stl_file_action.setEnabled(False)
+        if orb.started:
+            orb.log.debug('* opening a brep file')
+            if not state.get('last_brep_path'):
+                state['last_brep_path'] = orb.test_data_dir
+        fpath, filters = QtWidgets.QFileDialog.getOpenFileName(
+                                    self, 'Open brep File',
+                                    state.get('last_brep_path', ''),
+                                    'brep files (*.brep)')
+        if fpath:
+            # TODO: exception handling in case data import fails ...
+            # TODO: add an "index" column for sorting, or else figure out how
+            # to sort on the left header column ...
+            state['last_brep_path'] = os.path.dirname(fpath)
+            if orb.started:
+                orb.log.debug('  - opening brep file "{}" ...'.format(fpath))
+            if self.viewer_in_use:
+                self.init_viewer_3d()
+            self.qt_viewer_3d.init_shape_from_model(fpath, model_type='brep')
             if hasattr(self, 'export_to_image_action'):
                 self.export_to_image_action.setEnabled(True)
         else:
