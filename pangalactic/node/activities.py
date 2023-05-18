@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 from copy import deepcopy
 # from pprint import pprint
-from textwrap import wrap
+from textwrap import wrap, fill
 
 from louie import dispatcher
 
@@ -11,17 +12,226 @@ from PyQt5.QtCore    import pyqtSignal, QSize, Qt, QModelIndex, QVariant
 from PyQt5.QtGui     import QBrush, QStandardItemModel
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QDockWidget, QItemDelegate, QMainWindow,
-                             QSizePolicy, QTableView, QTreeView, QVBoxLayout,
-                             QWidget)
+                             QSizePolicy, QStatusBar, QTableView, QTreeView,
+                             QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
 from pangalactic.core.names       import get_link_name
-from pangalactic.core.parametrics import (get_variable_and_context,
+from pangalactic.core.parametrics import (get_pval_as_str,
+                                          get_variable_and_context,
                                           mode_defz, parameterz)
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
+# from pangalactic.node.tablemodels import MappingTableModel, ObjectTableModel
+from pangalactic.node.tablemodels import MappingTableModel
+from pangalactic.node.tableviews  import ActivityInfoTable
+from pangalactic.node.utils       import clone
+from pangalactic.node.widgets     import NameLabel
+
+
+class ActivityTable(QWidget):
+    """
+    Table for displaying the sub-activities of an Activity and related data.
+
+    Attrs:
+        subject (Activity):  the Activity whose sub-activities are shown
+    """
+    def __init__(self, subject, preferred_size=None, act_of=None,
+                 position=None, parent=None):
+        """
+        Initialize.
+
+        Args:
+            subject (Activity):  Activity whose sub-activities are to be
+                shown in the table
+
+        Keyword Args:
+            preferred_size (tuple):  default size -- (width, height)
+            parent (QWidget):  parent widget
+            act_of (Acu or PSU):  Acu or PSU of which the subject is an
+                Activity
+            position (str): the table "role" of the table in the ConOps tool,
+                as the "top" or "middle" table, which will determine its
+                response to signals
+        """
+        super().__init__(parent=parent)
+        orb.log.info('* ActivityTable initializing for "{}" ...'.format(
+                                                            subject.name))
+        self.subject = subject
+        self.project = orb.get(state.get('project'))
+        self.preferred_size = preferred_size
+        self.position = position
+        self.act_of = act_of
+        self.statusbar = QStatusBar()
+        self.main_layout = QVBoxLayout()
+        self.setLayout(self.main_layout)
+        self.title_widget = NameLabel('')
+        self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
+        self.main_layout.addWidget(self.title_widget)
+        self.set_title_text()
+        # self.reset_table()
+        self.set_table()
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
+        dispatcher.connect(self.on_activity_remote_mod, 'activity remote mod')
+        dispatcher.connect(self.on_order_changed, 'order changed')
+        dispatcher.connect(self.on_drill_down, 'drill down')
+        dispatcher.connect(self.on_drill_up, 'go back')
+        dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
+        # dispatcher.connect(self.on_activity_focused, 'activity focused')
+        dispatcher.connect(self.on_activities_cleared, 'cleared activities')
+
+    def set_title_text(self):
+        if not hasattr(self, 'title_widget'):
+            return
+        red_text = '<font color="red">{}</font>'
+        blue_text = '<font color="blue">{}</font>'
+        title_txt = ''
+        if self.position == "top":
+            txt = self.subject.name
+            if self.subject.activity_type:
+                txt += ' ' + self.subject_activity.activity_type.name
+            txt += ': '
+            title_txt = red_text.format(txt)
+        sys_name = (getattr(self.act_of, 'reference_designator', '') or
+                    getattr(self.act_of, 'system_role', ''))
+        title_txt += blue_text.format(sys_name) + ' '
+        if self.position == "top":
+            title_txt += 'Activity Details'
+        elif self.position == "middle":
+            title_txt += red_text.format(self.subject.name)
+            title_txt += ' Details'
+        self.title_widget.setText(title_txt)
+
+    @property
+    def activities(self):
+        """
+        The relevant sub-activities that the table will display, namely the
+        sub-activities of the "subject" activity which are activities of the
+        table's "act_of".
+        """
+        subj = getattr(self, 'subject', None)
+        if not subj:
+            return []
+        system_activities = []
+        for activity in subj.sub_activities:
+            if self.act_of in [activity.of_function,
+                               activity.of_system]:
+                system_activities.append(activity)
+        all_activities = [(act.sub_activity_sequence, act)
+                          for act in system_activities]
+        all_activities.sort()
+        return [act_tuple[1] for act_tuple in all_activities]
+
+    def reset_table(self):
+        table_cols = ['id', 'name', 't_start', 'duration', 'description']
+        table_headers = dict(id='ID', name='Name',
+                           t_start='Start\nTime',
+                           duration='Duration',
+                           description='Description')
+        d_list = []
+        for act in self.activities:
+            obj_dict = {}
+            for col in table_cols:
+                if col in orb.schemas['Activity']['field_names']:
+                    str_val = getattr(act, col, '')
+                    if str_val and len(str_val) > 28:
+                        wrap(str_val, width=28)
+                        str_val = fill(str_val, width=28)
+                    obj_dict[table_headers[col]] = str_val
+                else:
+                    val = get_pval_as_str(act.oid, col)
+                    obj_dict[table_headers[col]] = val
+            d_list.append(obj_dict)
+        new_model = MappingTableModel(d_list)
+        new_table = QTableView()
+        new_table.setModel(new_model)
+        headers = new_table.horizontalHeader()
+        headers.setStyleSheet('font-weight: bold')
+        new_table.setSizePolicy(QSizePolicy.Preferred,
+                                QSizePolicy.Preferred)
+        new_table.setAlternatingRowColors(True)
+        new_table.resizeColumnsToContents()
+        if getattr(self, 'table', None):
+            self.main_layout.removeWidget(self.table)
+            self.table.parent = None
+            self.table.close()
+            self.table = None
+        self.main_layout.addWidget(new_table, stretch=1)
+        self.table = new_table
+        self.table.setAttribute(Qt.WA_DeleteOnClose)
+
+    def set_table(self):
+        # view = ['name', 't_start', 't_end', 'duration', 'description']
+        project = orb.get(state.get('project'))
+        table = ActivityInfoTable(project=project)
+        table.setSizePolicy(QSizePolicy.Preferred,
+                            QSizePolicy.Preferred)
+        table.setAlternatingRowColors(True)
+        self.main_layout.addWidget(table, stretch=1)
+        self.table = table
+
+    def sizeHint(self):
+        if self.preferred_size:
+            return QSize(*self.preferred_size)
+        return QSize(600, 500)
+
+    def on_activity_remote_mod(self, activity=None):
+        # txt = '* {} table: on_activity_remote_mod()'
+        # orb.log.debug(txt.format(self.position))
+        if activity and activity.sub_activity_of:
+            composite_activity = getattr(activity.where_occurs[0],
+                                         'composite_activity', None)
+            if composite_activity:
+                self.on_activity_added(activity.oid)
+
+    def on_activity_added(self, oid):
+        orb.log.debug('  - ActivityTable.on_activity_added()')
+        if oid in [act.oid for act in self.activities]:
+            self.reset_table()
+
+    def on_activity_removed(self, oid):
+        orb.log.debug('  - ActivityTable.on_activity_removed()')
+        self.reset_table()
+
+    def on_order_changed(self, composite_activity=None, act_of=None, position=None):
+        if self.position == position or self.position == 'bottom':
+            self.statusbar.showMessage('Order Updated!')
+            self.reset_table()
+
+    def on_drill_down(self, obj=None, position=None):
+        if self.position == 'middle':
+            self.statusbar.showMessage("Drilled Down!")
+            self.reset_table()
+
+    def on_drill_up(self, obj=None, position=None):
+        if self.position != 'middle':
+            self.statusbar.showMessage("Drilled Up!")
+            self.reset_table()
+
+    def on_activities_cleared(self, composite_activity=None, position=None):
+        # if self.position == position or self.position == 'bottom':
+        self.statusbar.showMessage("Activities Cleared!")
+        self.reset_table()
+
+    def on_subsystem_changed(self, act=None, act_of=None, position=None):
+        if self.position == 'top':
+            self.reset_table()
+        if position == 'middle':
+            self.statusbar.showMessage("Subsystem Changed!")
+        if self.position == 'middle':
+            self.setDisabled(False)
+            self.act_of = act_of
+            self.reset_table()
+
+    def on_activity_focused(self, act):
+        orb.log.debug('  - ActivityTable.on_activity_focused()')
+        self.subject = act
+        self.set_title_text()
+        self.reset_table()
+        self.setEnabled(True)
 
 
 class SystemSelectionView(QTreeView):
@@ -123,8 +333,7 @@ class SystemSelectionView(QTreeView):
                     if psu.oid == link.oid]
         # then check whether link occurs in any system boms:
         systems = [psu.system for psu in model.project.systems]
-        in_system = [system for system in systems
-                     if link in get_assembly(system)]
+        in_system = [sys for sys in systems if link in get_assembly(sys)]
         if is_a_psu or in_system:
             # systems exist -> project_index has children, so ...
             sys_idxs = [model.index(row, 0, project_index)
@@ -474,9 +683,6 @@ class ModesTool(QMainWindow):
         vheader_labels = [get_link_name(item) for item in items]
         orb.log.debug(f' - vheader labels: {vheader_labels}')
         for j, name in enumerate(vheader_labels):
-            # model.setHeaderData(j, Qt.Vertical, name, role=Qt.ForegroundRole)
-            # model.setHeaderData(j, Qt.Vertical, name, role=Qt.DisplayRole)
-            # model.setHeaderData(j, Qt.Vertical, name, role=Qt.EditRole)
             model.setHeaderData(j, Qt.Vertical, name)
             val = model.headerData(j, Qt.Vertical)
             orb.log.debug(f' - vheader[{j}]: {val}')
@@ -825,248 +1031,29 @@ class StateSelectorDelegate(QItemDelegate):
         editor.setGeometry(option.rect)
 
 
-# if __name__ == '__main__':
-    # # for testing purposes only ...
-    # import sys
-    # from pangalactic.core.serializers import deserialize
-    # from pangalactic.core.test.utils import (create_test_project,
-                                             # create_test_users)
-    # from pangalactic.node.utils       import clone
-
-    # orb.start(home='junk_home', debug=True)
-    # mission = orb.get('test:Mission.H2G2')
-    # H2G2 = orb.get('H2G2')
-    # if not mission:
-        # if not state.get('test_users_loaded'):
-            # # print('* loading test users ...')
-            # deserialize(orb, create_test_users())
-            # state['test_users_loaded'] = True
-        # # print('* loading test project H2G2 ...')
-        # deserialize(orb, create_test_project())
-        # mission = orb.get('test:Mission.H2G2')
-    # if not mission.sub_activities:
-        # launch = clone('Activity', id='launch', name='Launch',
-                       # owner=H2G2, sub_activity_of=mission)
-        # sub_act_role = '1'
-        # orb.save([launch])
-    # app = QApplication(sys.argv)
-    # w = ActivityWidget(subject=mission)
-    # w.show()
-    # sys.exit(app.exec_())
-
-
-# from textwrap import wrap, fill
-# from PyQt5.QtWidgets import QStatusBar
-# from pangalactic.core.parametrics import get_pval_as_str
-# from pangalactic.node.tablemodels import MappingTableModel
-# from pangalactic.node.tableviews  import ActivityInfoTable
-# from pangalactic.node.widgets     import NameLabel
-
-# class ActivityWidget(QWidget):
-    # """
-    # Table for displaying the sub-activities of an Activity and related data.
-
-    # Attrs:
-        # subject (Activity):  the Activity whose sub-activities are shown
-    # """
-    # def __init__(self, subject, preferred_size=None, act_of=None,
-                 # position=None, parent=None):
-        # """
-        # Initialize.
-
-        # Args:
-            # subject (Activity):  Activity whose sub-activities are to be
-                # shown in the table
-
-        # Keyword Args:
-            # preferred_size (tuple):  default size -- (width, height)
-            # parent (QWidget):  parent widget
-            # act_of (Acu or PSU):  Acu or PSU of which the subject is an
-                # Activity
-            # position (str): the table "role" of the table in the ConOps tool,
-                # as the "top" or "middle" table, which will determine its
-                # response to signals
-        # """
-        # super().__init__(parent=parent)
-        # orb.log.info('* ActivityWidget initializing for "{}" ...'.format(
-                                                            # subject.name))
-        # self.subject = subject
-        # self.project = orb.get(state.get('project'))
-        # self.preferred_size = preferred_size
-        # self.position = position
-        # self.act_of = act_of
-        # self.statusbar = QStatusBar()
-        # self.main_layout = QVBoxLayout()
-        # self.setLayout(self.main_layout)
-        # self.title_widget = NameLabel('')
-        # self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
-        # self.main_layout.addWidget(self.title_widget)
-        # self.set_title_text()
-        # # self.reset_table()
-        # self.set_table()
-        # self.setSizePolicy(QSizePolicy.Expanding,
-                           # QSizePolicy.Expanding)
-        # # dispatcher.connect(self.on_activity_remote_mod, 'activity remote mod')
-        # # dispatcher.connect(self.on_order_changed, 'order changed')
-        # # dispatcher.connect(self.on_drill_down, 'drill down')
-        # # dispatcher.connect(self.on_drill_up, 'go back')
-        # # dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
-        # # dispatcher.connect(self.on_activity_focused, 'activity focused')
-        # # dispatcher.connect(self.on_activities_cleared, 'cleared activities')
-
-    # def set_title_text(self):
-        # if not hasattr(self, 'title_widget'):
-            # return
-        # red_text = '<font color="red">{}</font>'
-        # blue_text = '<font color="blue">{}</font>'
-        # title_txt = ''
-        # if self.position == "top":
-            # txt = self.subject.name
-            # if self.subject.activity_type:
-                # txt += ' ' + self.subject_activity.activity_type.name
-            # txt += ': '
-            # title_txt = red_text.format(txt)
-        # sys_name = (getattr(self.act_of, 'reference_designator', '') or
-                    # getattr(self.act_of, 'system_role', ''))
-        # title_txt += blue_text.format(sys_name) + ' '
-        # if self.position == "top":
-            # title_txt += 'Activity Details'
-        # elif self.position == "middle":
-            # title_txt += red_text.format(self.subject.name)
-            # title_txt += ' Details'
-        # self.title_widget.setText(title_txt)
-
-    # @property
-    # def activities(self):
-        # """
-        # The relevant sub-activities that the table will display, namely the
-        # sub-activities of the "subject" activity which are activities of the
-        # table's "act_of".
-        # """
-        # subj = getattr(self, 'subject', None)
-        # if not subj:
-            # return []
-        # system_activities = []
-        # for activity in subj.sub_activities:
-            # if self.act_of in [activity.of_function,
-                               # activity.of_system]:
-                # system_activities.append(activity)
-        # all_activities = [(act.sub_activity_sequence, act)
-                          # for act in system_activities]
-        # all_activities.sort()
-        # return [act_tuple[1] for act_tuple in all_activities]
-
-    # def reset_table(self):
-        # table_cols = ['id', 'name', 't_start', 'duration', 'description']
-        # table_headers = dict(id='ID', name='Name',
-                           # t_start='Start\nTime',
-                           # duration='Duration',
-                           # description='Description')
-        # d_list = []
-        # for act in self.activities:
-            # obj_dict = {}
-            # for col in table_cols:
-                # if col in orb.schemas['Activity']['field_names']:
-                    # str_val = getattr(act, col, '')
-                    # if str_val and len(str_val) > 28:
-                        # wrap(str_val, width=28)
-                        # str_val = fill(str_val, width=28)
-                    # obj_dict[table_headers[col]] = str_val
-                # else:
-                    # val = get_pval_as_str(act.oid, col)
-                    # obj_dict[table_headers[col]] = val
-            # d_list.append(obj_dict)
-        # new_model = MappingTableModel(d_list)
-        # new_table = QTableView()
-        # new_table.setModel(new_model)
-        # headers = new_table.horizontalHeader()
-        # headers.setStyleSheet('font-weight: bold')
-        # new_table.setSizePolicy(QSizePolicy.Preferred,
-                                # QSizePolicy.Preferred)
-        # new_table.setAlternatingRowColors(True)
-        # new_table.resizeColumnsToContents()
-        # if getattr(self, 'table', None):
-            # self.main_layout.removeWidget(self.table)
-            # self.table.parent = None
-            # self.table.close()
-            # self.table = None
-        # self.main_layout.addWidget(new_table, stretch=1)
-        # self.table = new_table
-        # self.table.setAttribute(Qt.WA_DeleteOnClose)
-
-    # def set_table(self):
-        # # view = ['name', 't_start', 't_end', 'duration', 'description']
-        # project = orb.get(state.get('project'))
-        # table = ActivityInfoTable(project=project)
-        # table.setSizePolicy(QSizePolicy.Preferred,
-                            # QSizePolicy.Preferred)
-        # table.setAlternatingRowColors(True)
-        # if getattr(self, 'table', None):
-            # self.main_layout.removeWidget(self.table)
-            # self.table.parent = None
-            # self.table.close()
-            # self.table = None
-        # self.main_layout.addWidget(table, stretch=1)
-        # self.table = table
-
-    # def sizeHint(self):
-        # if self.preferred_size:
-            # return QSize(*self.preferred_size)
-        # return QSize(600, 500)
-
-    # def on_activity_remote_mod(self, activity=None):
-        # # txt = '* {} table: on_activity_remote_mod()'
-        # # orb.log.debug(txt.format(self.position))
-        # if activity and activity.sub_activity_of:
-            # composite_activity = getattr(activity.where_occurs[0],
-                                         # 'composite_activity', None)
-            # if composite_activity:
-                # self.on_activity_added(activity.oid)
-
-    # def on_activity_added(self, oid):
-        # orb.log.debug('  - ActivityWidget.on_activity_added()')
-        # if oid in [act.oid for act in self.activities]:
-            # self.table.add_activity(oid)
-
-    # def on_activity_removed(self, oid):
-        # orb.log.debug('  - ActivityWidget.on_activity_removed()')
-        # self.set_table()
-
-    # def on_order_changed(self, composite_activity=None, act_of=None,
-                         # position=None):
-        # if self.position == position or self.position == 'bottom':
-            # self.statusbar.showMessage('Order Updated!')
-            # self.set_table()
-
-    # def on_drill_down(self, obj=None, position=None):
-        # if self.position == 'middle':
-            # self.statusbar.showMessage("Drilled Down!")
-            # self.set_table()
-
-    # def on_drill_up(self, obj=None, position=None):
-        # if self.position != 'middle':
-            # self.statusbar.showMessage("Drilled Up!")
-            # self.set_table()
-
-    # def on_activities_cleared(self, composite_activity=None, position=None):
-        # # if self.position == position or self.position == 'bottom':
-        # self.statusbar.showMessage("Activities Cleared!")
-        # self.set_table()
-
-    # def on_subsystem_changed(self, act=None, act_of=None, position=None):
-        # if self.position == 'top':
-            # self.set_table()
-        # if position == 'middle':
-            # self.statusbar.showMessage("Subsystem Changed!")
-        # if self.position == 'middle':
-            # self.setDisabled(False)
-            # self.act_of = act_of
-            # self.set_table()
-
-    # def on_activity_focused(self, act):
-        # orb.log.debug('  - ActivityWidget.on_activity_focused()')
-        # self.subject = act
-        # self.set_title_text()
-        # self.set_table()
-        # self.setEnabled(True)
+if __name__ == '__main__':
+    # for testing purposes only ...
+    from pangalactic.core.serializers import deserialize
+    from pangalactic.core.test.utils import (create_test_project,
+                                             create_test_users)
+    orb.start(home='junk_home', debug=True)
+    mission = orb.get('test:Mission.H2G2')
+    H2G2 = orb.get('H2G2')
+    if not mission:
+        if not state.get('test_users_loaded'):
+            # print('* loading test users ...')
+            deserialize(orb, create_test_users())
+            state['test_users_loaded'] = True
+        # print('* loading test project H2G2 ...')
+        deserialize(orb, create_test_project())
+        mission = orb.get('test:Mission.H2G2')
+    if not mission.sub_activities:
+        launch = clone('Activity', id='launch', name='Launch',
+                       owner=H2G2, sub_activity_of=mission)
+        sub_act_role = '1'
+        orb.save([launch])
+    app = QApplication(sys.argv)
+    w = ActivityTable(subject=mission)
+    w.show()
+    sys.exit(app.exec_())
 

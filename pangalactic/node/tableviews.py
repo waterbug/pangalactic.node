@@ -362,6 +362,112 @@ class InfoTableItem(QTableWidgetItem):
             self.tableWidget().viewport().update()
 
 
+class ActivityInfoTable(QTableWidget):
+    """
+    Table to provide an editable view of Activity instances in the timeline of
+    a system usage (instance of a system in the context of a project or
+    assembly). The rows of the table contain properties and parameters of
+    Activity instances.
+
+    The target use case is the Concept of Operations (ConOps) for a mission.
+    """
+    def __init__(self, usage=None, project=None, view=None, min_col_width=20,
+                 max_col_width=300, parent=None):
+        """
+        Initialize
+
+        Keyword Args:
+            usage (Acu or ProjectSystemUsage): the system usage whose
+                activities are displayed in the table
+            project (Project): the project whose systems' activities are
+                displayed in the table
+            view (list):  list in which each element is a 3-tuple
+                (pname, colname, width), where pname is the property id,
+                colname is the column name (if empty string, pname is the
+                column name), and width is the column width
+            min_col_width (int): minimum column width (default: 100)
+            max_col_width (int): maximum column width (default: 300)
+        """
+        super().__init__(parent=parent)
+        orb.log.info('* ActivityInfoTable initializing ...')
+        self.usage = None
+        if usage:
+            orb.log.info(f'  - usage: {usage.id}')
+            self.usage = usage
+        elif project:
+            orb.log.info(f'  - project: {project.id}')
+            psus = project.systems
+            if psus:
+                orb.log.info('    project systems:')
+                # TODO: provide pick-list with systems
+                # ... for now, look for a spacecraft
+                for psu in psus:
+                    orb.log.info(f'    + {psu.system.id}')
+                    t = getattr(psu.system.product_type , 'name', None) or None
+                    if t == 'Spacecraft':
+                        orb.log.info('      (spacecraft, selected.)')
+                        self.usage = psu.system
+                        break
+                if not self.usage:
+                    self.usage = psus[0]
+                    orb.log.info('      (no SC, selected first system.)')
+        self.min_col_width = min_col_width
+        self.max_col_width = max_col_width
+        # TODO: get default view from prefs / config
+        default_view = [
+            ('name', '', 100),
+            ('t_start', '', 80),
+            ('t_end', '', 80),
+            ('duration', '', 80),
+            ('description', '', 150)
+            ]
+        self.view = view or default_view[:]
+        self.setup_table()
+
+    def setup_table(self):
+        self.setColumnCount(len(self.view))
+        acts = []
+        if isinstance(self.usage, orb.classes['Acu']):
+            acts = self.usage.function_activities or []
+        elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+            acts = self.usage.system_activities or []
+        if acts:
+            self.setRowCount(len(acts))
+        header_labels = []
+        widths = []
+        for pname, colname, width in self.view:
+            if colname:
+                header_label = colname
+                header_labels.append(header_label)
+            else:
+                # create col names based on pnames
+                header_label = pname_to_header(pname, '', width=width)
+                header_labels.append(header_label)
+            # if width is unspecified, set based on length of header text
+            if not width:
+                if colname:
+                    width = len(colname)*20
+                else:
+                    if '_' in pname:
+                        base, sub = pname.split('_')
+                        width = len(base)*20 + len(sub)*8
+                    else:
+                        width = len(pname)*20
+                width = min(max(width, self.min_col_width), self.max_col_width)
+            widths.append(width)
+        self.setHorizontalHeaderLabels(header_labels)
+        # populate relevant data
+        if acts:
+            acts.sort(key=lambda x: get_pname_value(x, 't_start'))
+            for i, act in enumerate(acts):
+                for j, ptuple in enumerate(self.view):
+                    pname, colname, width = ptuple
+                    self.setItem(i, j,
+                                 InfoTableItem(get_str_value(act, pname) or ''))
+        width_fit = sum(w for w in widths) + 100
+        self.resize(width_fit, 240)
+
+
 class SystemInfoTable(QTableWidget):
     """
     Table whose main purpose is to provide an editable view of one level of a
