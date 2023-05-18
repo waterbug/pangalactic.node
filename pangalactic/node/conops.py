@@ -304,7 +304,6 @@ class TimelineScene(QGraphicsScene):
                              sub_activity_sequence=seq)
         orb.db.commit()
         evt_block = EventBlock(activity=activity,
-                               parent_activity=self.current_activity,
                                scene=self)
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
@@ -405,9 +404,8 @@ class TimelineWidget(QWidget):
                                    'sub_activity_sequence', 0) or 0):
                 if (activity.of_function == self.system or
                     activity.of_system == self.system):
-                    self.clear_activities_action.setDisabled(False)
+                    # self.clear_activities_action.setDisabled(False)
                     item = EventBlock(activity=activity,
-                                      parent_activity=self.activity,
                                       scene=scene)
                     evt_blocks.append(item)
                     scene.addItem(item)
@@ -421,9 +419,9 @@ class TimelineWidget(QWidget):
         self.view.setScene(self.scene)
         self.view.show()
 
-    def enable_clear(self, act_of=None):
-        if self.system == act_of:
-            self.clear_activities_action.setDisabled(False)
+    # def enable_clear(self, act_of=None):
+        # if self.system == act_of:
+            # self.clear_activities_action.setDisabled(False)
 
     def set_title(self):
         # try:
