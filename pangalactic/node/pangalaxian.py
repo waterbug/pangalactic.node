@@ -4852,7 +4852,7 @@ class Main(QMainWindow):
         version = self.app_version or __version__
         app_name = config.get('app_name', 'Pangalaxian')
         QMessageBox.about(self, "Some call me...",
-            '<html><p><b>{} {}</b></p></html>'.format(app_name, version))
+            f'<html><h2>{app_name} {version}</h2></html>')
 
     def show_user_guide(self):
         ug_url = 'https://pangalactic.us/cattens_doc/user_guide.html'
