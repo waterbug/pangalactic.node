@@ -3747,8 +3747,7 @@ class Main(QMainWindow):
         Handle remote object deletions (and handle pyqtSignal
         "remote_deleted_object").
         """
-        orb.log.info('* received "remote_deleted" signal on:')
-        # content is an oid
+        orb.log.info('* received pubsub "deleted" message ...')
         obj_oid = oid
         orb.log.info('  oid: {}'.format(obj_oid))
         # notify widgets looking for "object deleted" signal ...
@@ -5175,8 +5174,6 @@ class Main(QMainWindow):
 
     def conops_modeler(self):
         win = ConOpsModeler(parent=self)
-        win.deleted_object.connect(self.del_object)
-        win.new_object.connect(self.on_new_object_qtsignal)
         win.show()
 
     def define_op_modes(self):

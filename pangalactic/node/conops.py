@@ -45,7 +45,6 @@ from PyQt5.QtGui import (QIcon, QPixmap, QCursor, QPainter, QPainterPath,
 from pangalactic.core             import state
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.meta        import DEFAULT_CLASS_PARAMETERS
-from pangalactic.core.serializers import deserialize
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.activities  import ActivityTable, ModesTool
 from pangalactic.node.buttons     import SizedButton, ToolButton
@@ -121,7 +120,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def delete_block_activity(self):
         orb.log.debug(' - calling scene to emit ()')
-        self.scene.delete_scene_activity.emit(self.activity.oid)
+        dispatcher.send(signal='delete activity', oid=self.activity.oid)
 
     def itemChange(self, change, value):
         return value
@@ -190,10 +189,9 @@ class Timeline(QGraphicsPathItem):
             delta = len(self.evt_blocks) - 5
             self.path_length = 1000 + (delta // 2) * 300
             scale = 70 - (delta // 2) * 10
-            percentscale = str(scale) + "%"
+            pscale = str(scale) + "%"
             # TODO: replace with a pyqtSignal ...
-            # dispatcher.send("rescale timeline", percentscale=pscale)
-            self.scene().rescale_timeline.emit(percentscale)
+            dispatcher.send("rescale timeline", percentscale=pscale)
 
     def add_evt_block(self, evt_block):
         self.evt_blocks.append(evt_block)
@@ -230,11 +228,8 @@ class Timeline(QGraphicsPathItem):
 
 class TimelineScene(QGraphicsScene):
 
-    activity_got_focus = pyqtSignal(str)     # arg: oid
-    deleted_object = pyqtSignal(str, str)    # args: oid, cname
     new_activity = pyqtSignal(str)           # args: oid
     scene_activity_edited = pyqtSignal(str)  # args: oid
-    delete_scene_activity = pyqtSignal(str)  # args: oid
 
     def __init__(self, parent, current_activity=None, act_of=None,
                  position=None):
@@ -257,7 +252,7 @@ class TimelineScene(QGraphicsScene):
         if (self.position == "top" and
             new_item is not None and
             new_item != self.current_focus):
-            self.activity_got_focus.emit(self.focusItem().activity.oid)
+            dispatcher.send("activity focused", act=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
         super().mousePressEvent(mouseEvent)
@@ -356,8 +351,6 @@ class TimelineScene(QGraphicsScene):
 
 class TimelineWidget(QWidget):
 
-    object_deleted = pyqtSignal(str, str)  # args: oid, cname
-
     def __init__(self, activity, position=None, parent=None):
         super().__init__(parent=parent)
         orb.log.debug(' - initializing TimelineWidget ...')
@@ -372,14 +365,12 @@ class TimelineWidget(QWidget):
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
         self.history = []
-        # self.show_history()
         self.sceneScaleChanged("70%")
         self.current_subsystem_index = 0
         self.deleted_acts = []
-        # TODO: replace with pyqtSignals ...
-        # dispatcher.connect(self.delete_activity, "remove activity")
-        # dispatcher.connect(self.enable_clear, "new activity")
-        # TODO: need to connect this when scene is created in set_new_scene()
+        dispatcher.connect(self.delete_activity, "remove activity")
+        dispatcher.connect(self.delete_activity, "deleted object")
+        dispatcher.connect(self.delete_activity, "delete activity")
         dispatcher.connect(self.on_rescale_timeline, "rescale timeline")
         self.setUpdatesEnabled(True)
 
@@ -411,17 +402,12 @@ class TimelineWidget(QWidget):
                     scene.addItem(item)
                 scene.update()
             scene.timeline.populate(evt_blocks)
-        scene.delete_scene_activity.connect(self.delete_activity)
         self.set_title()
         self.scene = scene
         if not getattr(self, 'view', None):
             self.view = TimelineView(self)
         self.view.setScene(self.scene)
         self.view.show()
-
-    # def enable_clear(self, act_of=None):
-        # if self.system == act_of:
-            # self.clear_activities_action.setDisabled(False)
 
     def set_title(self):
         # try:
@@ -458,14 +444,12 @@ class TimelineWidget(QWidget):
         Args:
             obj (EventBlock):  the block that received the double-click
         """
-        # TODO: replace with a pyqtSignal ...
-        # dispatcher.send("drill down", obj=act, act_of=self.system,
-                        # position=self.position)
+        dispatcher.send("drill down", obj=act, act_of=self.system,
+                        position=self.position)
         self.activity = act
         self.set_new_scene()
         previous = act.where_occurs[0].composite_activity
         self.history.append(previous)
-        # self.go_back_action.setDisabled(False)
 
     def show_empty_scene(self):
         """
@@ -478,27 +462,6 @@ class TimelineWidget(QWidget):
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
         self.toolbar.setObjectName('ActionsToolBar')
-        # self.go_back_action = self.create_action(
-                                    # "Go Back",
-                                    # slot=self.go_back,
-                                    # icon="back",
-                                    # tip="Back to Previous Page")
-        # self.toolbar.addAction(self.go_back_action)
-        # self.go_back_action.setDisabled(True)
-        # self.clear_activities_action = self.create_action(
-                                    # "clear activities",
-                                    # slot=self.clear_activities,
-                                    # icon="brush",
-                                    # tip="delete activities on this page")
-        # self.toolbar.addAction(self.clear_activities_action)
-        # self.clear_activities_action.setDisabled(True)
-        self.undo_action = self.create_action(
-                                    "undo",
-                                    slot=self.undo,
-                                    icon="undo",
-                                    tip="undo")
-        self.toolbar.addAction(self.undo_action)
-        self.undo_action.setDisabled(True)
         self.plot_action = self.create_action(
                                     "graph",
                                     slot=self.plot,
@@ -514,78 +477,35 @@ class TimelineWidget(QWidget):
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
 
-    def delete_activity(self, oid, remote=False):
+    def delete_activity(self, oid=None, cname=None, remote=False):
         """
-        Delete an activity, after serializing it (to enable "undo").
+        Handle "deleted object" and "deleted activity" dispatcher signals.
 
         Keyword Args:
-            act (Activity): the activity to be deleted
+            oid (str): oid of the object to be deleted
         """
         if oid is None:
             return
-        act = orb.get(oid)
-        if not act:
+        obj = orb.get(oid)
+        if not obj:
             return
         current_subacts = self.activity.sub_activities
         subj_oid = self.activity.oid
-        if act in current_subacts:
-            self.undo_action.setEnabled(True)
-            objs_to_delete = [act] + act.sub_activities
+        if obj in current_subacts:
+            objs_to_delete = [obj] + obj.sub_activities
             oids = [o.oid for o in objs_to_delete]
             orb.delete(objs_to_delete)
-            # for oid, cname in del_data:
-                # dispatcher.send("deleted object", oid=oid, cname=cname)
+            if not remote:
+                for oid in oids:
+                    dispatcher.send("deleted object", oid=oid,
+                                    cname='Activity')
             if oid == subj_oid:
                 self.activity = None
                 self.setEnabled(False)
-            if not remote:
-                # TODO: make it "deleted_objects" to be more efficient!!
-                #       AND be careful about REMOTE deletion looping!!!
-                for act_oid in oids:
-                    self.object_deleted.emit(act_oid, 'Activity')
             self.set_new_scene()
         else:
             # if activity is not in the current diagram, ignore
             return
-
-    def delete_children(self, act=None):
-        """
-        Delete the children of the target activity.
-
-        Keyword Args:
-            act (Activity): parent activity of the children to be deleted
-        """
-        # act_oid = act.oid
-        if len(act.sub_activities) == 0:
-            orb.delete([act])
-            # TODO: replace with pyqtSignal ...
-            # dispatcher.send("deleted object", oid=act_oid, cname='Activity')
-        elif len(act.sub_activities) > 0:
-            for sub_activity in act.sub_activities:
-                self.delete_children(act=sub_activity)
-            orb.delete([act])
-            # TODO: replace with pyqtSignal ...
-            # dispatcher.send("deleted object", oid=act_oid, cname='Activity')
-
-    # def clear_activities(self):
-        # """
-        # Delete all the activities and their children on this widget.
-        # """
-        # txt = "This will permanently delete all activities -- are you sure?"
-        # confirm_dlg = QMessageBox(QMessageBox.Question, "Delete All?", txt,
-                                  # QMessageBox.Yes | QMessageBox.No)
-        # response = confirm_dlg.exec_()
-        # if response == QMessageBox.Yes:
-            # children = self.activity.sub_activities
-            # for child in children:
-                # self.delete_children(act=child)
-            # self.undo_action.setEnabled(True)
-            # self.set_new_scene()
-            # self.clear_activities_action.setDisabled(True)
-            # # TODO: replace with pyqtSignal ...
-            # # dispatcher.send("cleared activities",
-                            # # composite_activity=self.activity,
-                            # # act_of=self.system, position=self.position)
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -606,33 +526,6 @@ class TimelineWidget(QWidget):
             self.set_title()
         if self.system in [activity.of_function, activity.of_system]:
             self.set_new_scene()
-
-    # def go_back(self):
-        # try:
-            # self.activity = self.history.pop()
-            # if len(self.history) == 0:
-                # self.go_back_action.setDisabled(True)
-            # self.set_new_scene()
-            # # TODO: replace with pyqtSignal ...
-            # # dispatcher.send("go back", obj=self.activity,
-                            # # position=self.position)
-        # except:
-            # pass
-
-    def undo(self):
-        try:
-            del_acts = self.deleted_acts.pop()
-            if len(self.deleted_acts) == 0:
-                self.undo_action.setDisabled(True)
-            deserialize(orb, del_acts)
-            self.set_new_scene()
-            orb.log.debug('* sending "new activity" signal')
-            # TODO: replace with pyqtSignal ...
-            # dispatcher.send("new activity",
-                            # composite_activity=self.activity,
-                            # position=self.position)
-        except:
-            pass
 
     def plot(self):
         pass
@@ -794,10 +687,7 @@ class ConOpsModeler(QMainWindow):
         history (list):  list of previous subject Activity instances
     """
 
-    activity_focused = pyqtSignal(str)     # args: oid
-    deleted_object = pyqtSignal(str, str)  # args: oid, cname
     new_activity = pyqtSignal(str)         # args: oid
-    new_object = pyqtSignal(str)           # args: oid
 
     def __init__(self, parent=None):
         """
@@ -827,8 +717,7 @@ class ConOpsModeler(QMainWindow):
             mission = clone('Mission', id=mission_id, name=mission_name,
                             owner=project)
             orb.save([mission])
-            # dispatcher.send("new object", obj=mission)
-            self.new_object.emit(mission.oid)
+            dispatcher.send("new object", obj=mission)
         self.activity = mission
         self.project = project
         self.create_block_library()
@@ -842,8 +731,8 @@ class ConOpsModeler(QMainWindow):
         # self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
         # self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
         # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
-        # TODO: replace with pyqtSignal ...
-        # dispatcher.connect(self.on_double_click, "double clicked")
+        dispatcher.connect(self.on_double_click, "double clicked")
+        dispatcher.connect(self.on_activity_got_focus, "activity focused")
 
     def create_block_library(self):
         """
@@ -903,19 +792,11 @@ class ConOpsModeler(QMainWindow):
         self.main_timeline.setMinimumSize(900, 150)
         self.main_timeline.scene.new_activity.connect(
                                             self.on_main_timeline_new_activity)
-        self.main_timeline.object_deleted.connect(
-                                        self.on_main_timeline_activity_deleted)
-        self.main_timeline.scene.activity_got_focus.connect(
-                                                    self.on_activity_got_focus)
-        # self.main_timeline.scene.delete_scene_activity.connect(
-                                                # self.on_delete_activity)
         self.sub_timeline = TimelineWidget(current_activity, position='middle')
         self.sub_timeline.setEnabled(False)
         self.sub_timeline.setMinimumSize(900, 150)
         self.sub_timeline.scene.new_activity.connect(
                                             self.on_sub_timeline_new_activity)
-        self.sub_timeline.object_deleted.connect(
-                                        self.on_sub_timeline_activity_deleted)
         self.outer_layout = QGridLayout()
         self.create_activity_table()
         self.main_timeline.scene.new_activity.connect(
@@ -1004,38 +885,23 @@ class ConOpsModeler(QMainWindow):
             orb.log.debug("    exception occurred:")
             orb.log.debug(e)
 
-    def on_activity_got_focus(self, act_oid):
+    def on_activity_got_focus(self, act):
         """
         Display a timeline showing all subactivities of the focused activity.
         """
-        act = orb.get(act_oid)
         self.sub_timeline.activity = act
         self.sub_timeline.set_new_scene()
         self.sub_timeline.setEnabled(True)
-        self.sub_activity_table.on_activity_focused(act)
 
     def on_main_timeline_new_activity(self, oid):
         self.rebuild_activity_table()
-        # self.new_or_modified_objects.emit(oid)
+        activity = orb.get(oid)
+        dispatcher.send("new object", obj=activity)
 
     def on_sub_timeline_new_activity(self, oid):
         self.rebuild_activity_table()
-        # self.new_or_modified_objects.emit(oid)
-
-    def on_main_timeline_activity_deleted(self, oid, cname):
-        """
-        Handle a main timeline activity deletion.
-        """
-        self.rebuild_activity_table()
-
-    def on_sub_timeline_activity_deleted(self, oid, cname):
-        """
-        Handle a sub timeline activity deletion.
-        """
-        self.rebuild_sub_activity_table()
-
-    # def on_delete_activity(self, oid, cname):
-        # self.deleted_object.emit(oid, cname)
+        activity = orb.get(oid)
+        dispatcher.send("new object", obj=activity)
 
 
 if __name__ == '__main__':
