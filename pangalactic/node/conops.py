@@ -805,6 +805,7 @@ class ConOpsModeler(QMainWindow):
         self.outer_layout.addWidget(self.main_timeline, 0, 1)
         self.outer_layout.addWidget(self.activity_table, 0, 0)
         self.create_sub_activity_table()
+        self.sub_activity_table.setEnabled(False)
         self.sub_timeline.scene.new_activity.connect(
                                     self.sub_activity_table.on_activity_added)
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
@@ -836,7 +837,6 @@ class ConOpsModeler(QMainWindow):
         act = getattr(self.main_timeline.scene.current_focus, 'activity', None)
         self.sub_activity_table = ActivityTable(act, parent=self,
                                                 position='sub')
-        self.sub_activity_table.setEnabled(False)
         self.sub_activity_table.setMinimumSize(500, 300)
         self.sub_activity_table.setSizePolicy(QSizePolicy.Fixed,
                                               QSizePolicy.Expanding)
@@ -900,6 +900,7 @@ class ConOpsModeler(QMainWindow):
         self.sub_timeline.set_new_scene()
         self.sub_timeline.setEnabled(True)
         self.rebuild_sub_activity_table()
+        self.sub_activity_table.setEnabled(True)
         self.sub_timeline.setEnabled(True)
 
     def on_main_timeline_new_activity(self, oid):
