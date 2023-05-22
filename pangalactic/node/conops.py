@@ -29,7 +29,7 @@ import os
 # Louie
 from louie import dispatcher
 
-from PyQt5.QtCore import pyqtSignal, Qt, QRectF, QObject, QPointF, QPoint
+from PyQt5.QtCore import pyqtSignal, Qt, QRectF, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
@@ -44,12 +44,12 @@ from PyQt5.QtGui import (QIcon, QPixmap, QCursor, QPainter, QPainterPath,
 # pangalactic
 from pangalactic.core             import state
 # from pangalactic.core.parametrics import get_pval
-from pangalactic.core.meta        import DEFAULT_CLASS_PARAMETERS
+# from pangalactic.core.meta        import DEFAULT_CLASS_PARAMETERS
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.activities  import ActivityTable, ModesTool
 from pangalactic.node.buttons     import SizedButton, ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
-from pangalactic.node.pgxnobject  import PgxnObject
+# from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 
@@ -99,21 +99,21 @@ class EventBlock(QGraphicsPolygonItem):
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
-        # dispatcher.send("double clicked", act=self.activity)
+        dispatcher.send("double clicked", act=self.activity)
 
     def contextMenuEvent(self, event):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
-        self.menu.addAction(self.edit_action)
+        # self.menu.addAction(self.edit_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
                                      triggered=self.delete_block_activity)
-        self.edit_action = QAction("Edit", self.scene,
-                                   statusTip="Edit activity",
-                                   triggered=self.edit_activity)
+        # self.edit_action = QAction("Edit", self.scene,
+                                   # statusTip="Edit activity",
+                                   # triggered=self.edit_activity)
 
     def edit_activity(self):
         self.scene.edit_scene_activity(self.activity)
@@ -150,16 +150,10 @@ class TimelineView(QGraphicsView):
         event.accept()
 
 
-class TimelineSignals(QObject):
-
-    order_changed = pyqtSignal()
-
-
 class Timeline(QGraphicsPathItem):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.signals = TimelineSignals()
         self.evt_blocks = []
         self.path_length = 1000
         self.make_path()
@@ -202,27 +196,17 @@ class Timeline(QGraphicsPathItem):
         self.update_timeline()
 
     def arrange(self):
-        # FIXME:  revise to use "of_function"/"of_system" (Acu/PSU)
-        parent_act = self.scene().current_activity
-        # evt_blocks_list_copy = self.evt_blocks[:]
         self.evt_blocks.sort(key=lambda x: x.scenePos().x())
-        # NOTE: don't care if order is same -- call "order changed" anyway
-        # same = True
-        # for evt_block in self.evt_blocks:
-            # if self.evt_blocks.index(evt_block) != evt_blocks_copy.index(
-                                                                # evt_block):
-                # same = False
         for i, evt_block in enumerate(self.evt_blocks):
             evt_block.setPos(QPoint(self.list_of_pos[i], 250))
-            # FIXME: this will not select a unique activity if an activity is
-            # used more than once in the timeline ...
             act = evt_block.activity
-            act.sub_activity_of = parent_act
-            act.sub_activity_sequence = i
-            orb.save([act])
-            # TODO: replace with a pyqtSignal ...
-            # dispatcher.send("modified object", obj=act)
-        self.signals.order_changed.emit()
+            # FIXME:  sequence is determined by start/end times -- they must be
+            # kept consistent ...
+            if act.sub_activity_sequence != i:
+                act.sub_activity_sequence = i
+                orb.save([act])
+                dispatcher.send("modified object", obj=act)
+        dispatcher.send("order changed", act=act)
         self.update()
 
 
@@ -247,11 +231,13 @@ class TimelineScene(QGraphicsScene):
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
         self.grabbed_item = None
+        dispatcher.connect(self.on_act_mod, "act mod")
 
     def focus_changed_handler(self, new_item, old_item):
-        if (self.position == "top" and
+        if (self.position == "main" and
             new_item is not None and
             new_item != self.current_focus):
+            self.current_focus = new_item
             dispatcher.send("activity focused", act=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
@@ -308,38 +294,41 @@ class TimelineScene(QGraphicsScene):
         self.new_activity.emit(activity.oid)
         self.update()
 
-    def edit_scene_activity(self, activity):
-        view = ['id', 'name', 'description']
-        panels = ['main', 'parameters']
-        # don't use contingencies for Activity default parameters
-        # (t_start, t_end, duration)
-        noctgcy = DEFAULT_CLASS_PARAMETERS.get('Activity')
-        pxo = PgxnObject(activity, edit_mode=True, view=view, noctgcy=noctgcy,
-                         panels=panels, modal_mode=True, parent=self.parent())
-        pxo.activity_edited.connect(self.on_activity_edited)
-        pxo.show()
-
     def on_act_mod(self, oid):
         """
-        Handle 'act_mod' signal from ActivityInfoTable, meaning an activity was
+        Handle 'act mod' signal from ActivityInfoTable, meaning an activity was
         modified.
         """
         orb.log.debug('* scene: received "act_mod" signal')
         for item in self.timeline.evt_blocks:
-            orb.log.debug(f'  checking {item.activity.name}')
+            orb.log.debug(f'  checking for {item.activity.name} by oid')
             if item.activity.oid == oid:
                 item.update_block_label()
-
-    def on_activity_edited(self, oid):
-        # emitted signal causes ActivityTable updates
-        self.scene_activity_edited.emit(oid)
-        # update activity block labels if necessary
-        for item in self.timeline.evt_blocks:
-            if item.activity.oid == oid:
-                item.update_block_label()
+                dispatcher.send("modified object", obj=item.activity)
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
+
+    # DEPRECATED (FOR NOW) -- activities can be edited in the tables
+    # def edit_scene_activity(self, activity):
+        # view = ['id', 'name', 'description']
+        # panels = ['main', 'parameters']
+        # # don't use contingencies for Activity default parameters
+        # # (t_start, t_end, duration)
+        # noctgcy = DEFAULT_CLASS_PARAMETERS.get('Activity')
+        # pxo = PgxnObject(activity, edit_mode=True, view=view, noctgcy=noctgcy,
+                         # panels=panels, modal_mode=True, parent=self.parent())
+        # pxo.activity_edited.connect(self.on_activity_edited)
+        # pxo.show()
+
+    # DEPRECATED (FOR NOW) -- activities can be edited in the tables
+    # def on_activity_edited(self, oid):
+        # # emitted signal causes ActivityTable updates
+        # self.scene_activity_edited.emit(oid)
+        # # update activity block labels if necessary
+        # for item in self.timeline.evt_blocks:
+            # if item.activity.oid == oid:
+                # item.update_block_label()
 
 
 # TODO:  we need a subclass of TimelineWidget (maybe SubTimelineWidget) that
@@ -349,9 +338,25 @@ class TimelineScene(QGraphicsScene):
 # activity is a non-Mission activity instance, all subsystems of the current
 # activity's "of_function" component or "of_system" system.
 
+# TODO: implement "back" based on history
+
 class TimelineWidget(QWidget):
+    """
+    Widget to contain the timeline scene with activity blocks.
+
+    Attrs:
+        history (list):  list of previous parent Activity instances
+    """
 
     def __init__(self, activity, position=None, parent=None):
+        """
+        Initialize TimelineWidget.
+
+        Keyword Args:
+            activity (Activity):  the activity the timeline represents
+            position (str):  "main" or "sub"
+            parent (QGraphicsItem): parent of this item
+        """
         super().__init__(parent=parent)
         orb.log.debug(' - initializing TimelineWidget ...')
         self.activity = activity
@@ -395,7 +400,6 @@ class TimelineWidget(QWidget):
                                    'sub_activity_sequence', 0) or 0):
                 if (activity.of_function == self.system or
                     activity.of_system == self.system):
-                    # self.clear_activities_action.setDisabled(False)
                     item = EventBlock(activity=activity,
                                       scene=scene)
                     evt_blocks.append(item)
@@ -446,9 +450,9 @@ class TimelineWidget(QWidget):
         """
         dispatcher.send("drill down", obj=act, act_of=self.system,
                         position=self.position)
+        previous = self.activity
         self.activity = act
         self.set_new_scene()
-        previous = act.where_occurs[0].composite_activity
         self.history.append(previous)
 
     def show_empty_scene(self):
@@ -682,9 +686,6 @@ class ConOpsModeler(QMainWindow):
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
         - sub_activity_table (ActivityTable)
-
-    Attrs:
-        history (list):  list of previous subject Activity instances
     """
 
     new_activity = pyqtSignal(str)         # args: oid
@@ -717,6 +718,7 @@ class ConOpsModeler(QMainWindow):
             mission = clone('Mission', id=mission_id, name=mission_name,
                             owner=project)
             orb.save([mission])
+            orb.log.debug('* ConOpsModeler: sending "new_activity" signal')
             dispatcher.send("new object", obj=mission)
         self.activity = mission
         self.project = project
@@ -738,7 +740,7 @@ class ConOpsModeler(QMainWindow):
         """
         Create the library of operation/event block types.
         """
-        orb.log.debug(' - create_block_library() ...')
+        orb.log.debug(' - ConOpsModeler.create_block_library() ...')
         layout = QGridLayout()
         circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
         triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
@@ -763,7 +765,7 @@ class ConOpsModeler(QMainWindow):
                                    QSizePolicy.Fixed)
 
     def init_toolbar(self):
-        orb.log.debug(' - init_toolbar() ...')
+        orb.log.debug(' - ConOpsModeler.init_toolbar() ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         self.sc_combo_box = QComboBox()
@@ -787,12 +789,12 @@ class ConOpsModeler(QMainWindow):
             current_activity (Activity): the main timeline activity that
                 currently has focus
         """
-        orb.log.debug(' - set_widgets() ...')
-        self.main_timeline = TimelineWidget(self.activity, position='top')
+        orb.log.debug(' - ConOpsModeler.set_widgets() ...')
+        self.main_timeline = TimelineWidget(self.activity, position='main')
         self.main_timeline.setMinimumSize(900, 150)
         self.main_timeline.scene.new_activity.connect(
                                             self.on_main_timeline_new_activity)
-        self.sub_timeline = TimelineWidget(current_activity, position='middle')
+        self.sub_timeline = TimelineWidget(current_activity, position='sub')
         self.sub_timeline.setEnabled(False)
         self.sub_timeline.setMinimumSize(900, 150)
         self.sub_timeline.scene.new_activity.connect(
@@ -801,8 +803,6 @@ class ConOpsModeler(QMainWindow):
         self.create_activity_table()
         self.main_timeline.scene.new_activity.connect(
                                         self.activity_table.on_activity_added)
-        self.main_timeline.scene.timeline.signals.order_changed.connect(
-                                        self.rebuild_activity_table)
         self.main_timeline.scene.scene_activity_edited.connect(
                                             self.rebuild_activity_table)
         self.outer_layout.addWidget(self.main_timeline, 0, 1)
@@ -810,8 +810,6 @@ class ConOpsModeler(QMainWindow):
         self.create_sub_activity_table()
         self.sub_timeline.scene.new_activity.connect(
                                     self.sub_activity_table.on_activity_added)
-        self.sub_timeline.scene.timeline.signals.order_changed.connect(
-                                        self.rebuild_sub_activity_table)
         self.sub_timeline.scene.scene_activity_edited.connect(
                                         self.rebuild_sub_activity_table)
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
@@ -827,17 +825,37 @@ class ConOpsModeler(QMainWindow):
             self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
             self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
             self.right_dock.setWidget(self.library)
+        dispatcher.connect(self.rebuild_tables, "order changed")
 
     def create_activity_table(self):
-        act_of = self.activity.of_function or self.activity.of_system
+        orb.log.debug("* ConOpsModeler.create_activity_table()")
         self.activity_table = ActivityTable(self.activity, parent=self,
-                                            act_of=act_of, position='top')
+                                            position='main')
         self.activity_table.setMinimumSize(500, 300)
         self.activity_table.setSizePolicy(
                                     QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
 
+    def create_sub_activity_table(self):
+        orb.log.debug("* ConOpsModeler.create_sub_activity_table()")
+        self.sub_activity_table = ActivityTable(self.activity, parent=self,
+                                                position='sub')
+        self.sub_activity_table.setEnabled(False)
+        self.sub_activity_table.setMinimumSize(500, 300)
+        self.sub_activity_table.setSizePolicy(QSizePolicy.Fixed,
+                                              QSizePolicy.Expanding)
+        self.sub_activity_table.setAttribute(Qt.WA_DeleteOnClose)
+
+    def rebuild_tables(self, act):
+        if (getattr(self, 'activity_table', None) and
+            act in self.activity_table.activities):
+            self.rebuild_activity_table()
+        if (getattr(self, 'sub_activity_table', None) and
+            act in self.sub_activity_table.activities):
+            self.rebuild_sub_activity_table()
+
     def rebuild_activity_table(self):
+        orb.log.debug("* ConOpsModeler.rebuild_activity_table()")
         if getattr(self, 'activity_table', None):
             self.outer_layout.removeWidget(self.activity_table)
             self.activity_table.parent = None
@@ -846,16 +864,8 @@ class ConOpsModeler(QMainWindow):
         self.create_activity_table()
         self.outer_layout.addWidget(self.activity_table, 0, 0)
 
-    def create_sub_activity_table(self):
-        self.sub_activity_table = ActivityTable(self.activity, parent=self,
-                                                position='middle')
-        self.sub_activity_table.setEnabled(False)
-        self.sub_activity_table.setMinimumSize(500, 300)
-        self.sub_activity_table.setSizePolicy(QSizePolicy.Fixed,
-                                              QSizePolicy.Expanding)
-        self.sub_activity_table.setAttribute(Qt.WA_DeleteOnClose)
-
     def rebuild_sub_activity_table(self):
+        orb.log.debug("* ConOpsModeler.rebuild_sub_activity_table()")
         if getattr(self, 'sub_activity_table', None):
             self.outer_layout.removeWidget(self.sub_activity_table)
             self.sub_activity_table.parent = None
@@ -869,6 +879,7 @@ class ConOpsModeler(QMainWindow):
         win.show()
 
     def change_system(self, index):
+        orb.log.debug("* ConOpsModeler.change_system()")
         self.system = self.usage_list[index]
         self.set_widgets(current_activity=self.activity)
 
@@ -876,7 +887,7 @@ class ConOpsModeler(QMainWindow):
         state['model_window_size'] = (self.width(), self.height())
 
     def on_double_click(self, act):
-        orb.log.debug("  - on_double_click()...")
+        orb.log.debug("  - ConOpsModeler.on_double_click()...")
         try:
             orb.log.debug(f'     + activity: {act.id}')
             if act.activity_type.id == 'cycle':
@@ -887,21 +898,26 @@ class ConOpsModeler(QMainWindow):
 
     def on_activity_got_focus(self, act):
         """
-        Display a timeline showing all subactivities of the focused activity.
+        Set sub_timeline to show all sub_activities of the focused activity.
         """
         self.sub_timeline.activity = act
         self.sub_timeline.set_new_scene()
         self.sub_timeline.setEnabled(True)
+        self.create_sub_activity_table()
 
     def on_main_timeline_new_activity(self, oid):
+        orb.log.debug("* ConOpsModeler.on_main_timeline_new_activity()")
         self.rebuild_activity_table()
-        activity = orb.get(oid)
-        dispatcher.send("new object", obj=activity)
+        act = orb.get(oid)
+        orb.log.debug(f'  sending "new object" signal on {act.id}')
+        dispatcher.send("new object", obj=act)
 
     def on_sub_timeline_new_activity(self, oid):
+        orb.log.debug("* ConOpsModeler.on_sub_timeline_new_activity()")
         self.rebuild_activity_table()
-        activity = orb.get(oid)
-        dispatcher.send("new object", obj=activity)
+        act = orb.get(oid)
+        orb.log.debug(f'  sending "new object" signal on {act.id}')
+        dispatcher.send("new object", obj=act)
 
 
 if __name__ == '__main__':

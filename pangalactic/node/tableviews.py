@@ -20,11 +20,8 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names       import (get_external_name_plural,
                                           pname_to_header)
-from pangalactic.core.parametrics import (de_defz, get_dval_as_str, get_dval,
-                                          get_pval_as_str, get_pval, parm_defz)
 from pangalactic.core.serializers import serialize
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.units       import in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.node.tablemodels import (ObjectTableModel,
                                           CompareTableModel,
@@ -298,54 +295,6 @@ class CompareWidget(QDialog):
                         self.tableview.height()-100)
 
 
-def get_str_value(obj, pname):
-    """
-    Return the string-cast value of the specified property for the specified
-    object.
-
-    Args:
-        obj (Identifiable): the object
-        pname (str): name of the property (attr, parameter, or data element)
-    """
-    schema = orb.schemas.get(obj.__class__.__name__)
-    field_names = []
-    if schema:
-        field_names = schema.get('field_names', [])
-    if field_names and pname in field_names:
-        return getattr(obj, pname, '') or ''
-    elif pname in parm_defz:
-        pd = parm_defz.get(pname)
-        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
-                                                pd['dimensions'], '')
-        return get_pval_as_str(obj.oid, pname, units=units)
-    elif pname in de_defz:
-        return get_dval_as_str(obj.oid, pname)
-    return '[undefined]'
-
-
-def get_pname_value(obj, pname):
-    """
-    Return the value of the specified property for the specified object.
-
-    Args:
-        obj (Identifiable): the object
-        pname (str): name of the property (attr, parameter, or data element)
-    """
-    schema = orb.schemas.get(obj.__class__.__name__)
-    field_names = []
-    if schema:
-        field_names = schema.get('field_names', [])
-    if field_names and pname in field_names:
-        return getattr(obj, pname, '') or ''
-    elif pname in parm_defz:
-        pd = parm_defz.get(pname)
-        units = prefs['units'].get(pd['dimensions'], '') or in_si.get(
-                                                pd['dimensions'], '')
-        return get_pval(obj.oid, pname, units=units)
-    elif pname in de_defz:
-        return get_dval(obj.oid, pname)
-    return ''
-
 
 class InfoTableItem(QTableWidgetItem):
 
@@ -365,77 +314,100 @@ class InfoTableItem(QTableWidgetItem):
 class ActivityInfoTable(QTableWidget):
     """
     Table to provide an editable view of Activity instances in the timeline of
-    a system usage (instance of a system in the context of a project or
-    assembly). The rows of the table contain properties and parameters of
-    Activity instances.
+    a parent activity and a system usage (instance of a system in the context
+    of a project or an assembly). The rows of the table contain properties and
+    parameters of Activity instances.
 
     The target use case is the Concept of Operations (ConOps) for a mission.
     """
-    def __init__(self, usage=None, project=None, view=None, min_col_width=20,
-                 max_col_width=300, parent=None):
+    def __init__(self, subject, project=None, usage=None, view_conf=None,
+                 min_col_width=20, max_col_width=300, parent=None):
         """
         Initialize
 
+        Args:
+            subject (Activity):  Activity whose sub-activities are to be
+                shown in the table
+
         Keyword Args:
-            usage (Acu or ProjectSystemUsage): the system usage whose
-                activities are displayed in the table
-            project (Project): the project whose systems' activities are
-                displayed in the table
-            view (list):  list in which each element is a 3-tuple
+            project (Project): [required] the project whose systems' activities
+                are displayed in the table
+            usage (Acu or ProjectSystemUsage): [optional] if specified,
+                activities displayed in the table are restricted to those
+                applicable to the usage
+            view_conf (list):  list in which each element is a 3-tuple
                 (pname, colname, width), where pname is the property id,
                 colname is the column name (if empty string, pname is the
                 column name), and width is the column width
             min_col_width (int): minimum column width (default: 100)
             max_col_width (int): maximum column width (default: 300)
+            parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
         orb.log.info('* ActivityInfoTable initializing ...')
-        self.usage = None
+        self.project = project
+        self.subject = subject
+        self.usage = usage
         if usage:
-            orb.log.info(f'  - usage: {usage.id}')
+            orb.log.info(f'  - specified usage: {usage.id}')
             self.usage = usage
-        elif project:
-            orb.log.info(f'  - project: {project.id}')
-            psus = project.systems
-            if psus:
-                orb.log.info('    project systems:')
-                # TODO: provide pick-list with systems
-                # ... for now, look for a spacecraft
-                for psu in psus:
-                    orb.log.info(f'    + {psu.system.id}')
-                    t = getattr(psu.system.product_type , 'name', None) or None
-                    if t == 'Spacecraft':
-                        orb.log.info('      (spacecraft, selected.)')
-                        self.usage = psu.system
-                        break
-                if not self.usage:
-                    self.usage = psus[0]
-                    orb.log.info('      (no SC, selected first system.)')
+        else:
+            orb.log.info('  [no usage specified]')
+            # orb.log.info(f'  - project: {project.id}')
+            # psus = project.systems
+            # if psus:
+                # orb.log.info('    project systems:')
+                # # TODO: provide pick-list with systems
+                # # ... for now, look for a spacecraft
+                # for psu in psus:
+                    # orb.log.info(f'    + {psu.system.id}')
+                    # t = getattr(psu.system.product_type , 'name', None) or None
+                    # if t == 'Spacecraft':
+                        # orb.log.info('      (spacecraft, selected.)')
+                        # self.usage = psu.system
+                        # break
+                # if not self.usage:
+                    # self.usage = psus[0]
+                    # orb.log.info('      (no SC, selected first system.)')
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
-        # TODO: get default view from prefs / config
-        default_view = [
+        # TODO: get default view_conf from prefs / config
+        default_view_conf = [
             ('name', '', 100),
             ('t_start', '', 80),
             ('t_end', '', 80),
             ('duration', '', 80),
             ('description', '', 150)
             ]
-        self.view = view or default_view[:]
+        self.view_conf = view_conf or default_view_conf[:]
         self.setup_table()
+        self.cellChanged.connect(self.on_item_mod)
+
+    @property
+    def view(self):
+        """
+        The "view" is simply the list of property names associated with the
+        columns (in keeping with its definition elsewhere).
+        """
+        return [x[0] for x in self.view_conf]
 
     def setup_table(self):
         self.setColumnCount(len(self.view))
         acts = []
-        if isinstance(self.usage, orb.classes['Acu']):
-            acts = self.usage.function_activities or []
-        elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
-            acts = self.usage.system_activities or []
+        if self.usage:
+            if isinstance(self.usage, orb.classes['Acu']):
+                acts = self.usage.function_activities or []
+            elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+                acts = self.usage.system_activities or []
+        else:
+            acts = orb.search_exact(cname='Activity', owner=self.project,
+                              sub_activity_of=self.subject,
+                              of_system=None, of_function=None)
         if acts:
             self.setRowCount(len(acts))
         header_labels = []
         widths = []
-        for pname, colname, width in self.view:
+        for pname, colname, width in self.view_conf:
             if colname:
                 header_label = colname
                 header_labels.append(header_label)
@@ -443,29 +415,52 @@ class ActivityInfoTable(QTableWidget):
                 # create col names based on pnames
                 header_label = pname_to_header(pname, '', width=width)
                 header_labels.append(header_label)
-            # if width is unspecified, set based on length of header text
+            # if width is unspecified, set based on length of header_label
             if not width:
                 if colname:
-                    width = len(colname)*20
-                else:
-                    if '_' in pname:
-                        base, sub = pname.split('_')
-                        width = len(base)*20 + len(sub)*8
-                    else:
-                        width = len(pname)*20
+                    width = len(header_label)*20
                 width = min(max(width, self.min_col_width), self.max_col_width)
             widths.append(width)
         self.setHorizontalHeaderLabels(header_labels)
         # populate relevant data
+        modified = set()
         if acts:
-            acts.sort(key=lambda x: get_pname_value(x, 't_start'))
+            acts.sort(key=lambda x: orb.get_prop_value(x, 't_start'))
             for i, act in enumerate(acts):
-                for j, ptuple in enumerate(self.view):
+                if act.sub_activity_sequence != i:
+                    act.sub_activity_sequence = i
+                    modified.add(act)
+                for j, ptuple in enumerate(self.view_conf):
                     pname, colname, width = ptuple
                     self.setItem(i, j,
-                                 InfoTableItem(get_str_value(act, pname) or ''))
+                       InfoTableItem(orb.get_prop_str_value(act, pname) or ''))
+        self.acts = acts
+        self.resizeColumnsToContents()
         width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
+
+    def on_item_mod(self, row=None, col=None):
+        orb.log.debug('  - ActivityInfoTable.on_item_mod()')
+        act = None
+        pname = None
+        if row < len(self.acts):
+            act = self.acts[row]
+        else:
+            orb.log.debug('    row is beyond table!')
+            return
+        if col < len(self.view):
+            pname = self.view[col]
+        else:
+            orb.log.debug('    col is not part of view!')
+            return
+        if act and pname:
+            item = self.item(row, col)
+            val = item.data(Qt.EditRole)
+            orb.log.debug(f'    setting "{act.name}" "{pname}" to <{val}>')
+            orb.set_prop_value(act, pname, val)
+            act.mod_datetime = dtstamp()
+            orb.save([act])
+            dispatcher.send(signal="act mod", oid=act.oid)
 
 
 class SystemInfoTable(QTableWidget):
@@ -540,21 +535,21 @@ class SystemInfoTable(QTableWidget):
         if usages:
             if self.sort_by_field:
                 if self.sort_on == 'component':
-                    usages.sort(key=lambda x:get_pname_value(x.component,
+                    usages.sort(key=lambda x:orb.get_prop_value(x.component,
                                                           self.sort_by_field))
                 elif self.sort_on == 'usage':
                     usages.sort(key=lambda x:
-                                get_pname_value(x, self.sort_by_field))
+                                orb.get_prop_value(x, self.sort_by_field))
             for i, usage in enumerate(usages):
                 for j, ptuple in enumerate(self.view):
                     pname, colname, otype = ptuple
                     if otype == 'component':
                         component = getattr(usage, 'component')
-                        self.setItem(i, j,
-                         InfoTableItem(get_str_value(component, pname) or ''))
+                        self.setItem(i, j, InfoTableItem(
+                            orb.get_prop_str_value(component, pname) or ''))
                     elif otype == 'usage':
-                        self.setItem(i, j,
-                         InfoTableItem(get_str_value(usage, pname) or ''))
+                        self.setItem(i, j, InfoTableItem(
+                            orb.get_prop_str_value(usage, pname) or ''))
         width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
 
