@@ -399,7 +399,7 @@ class ActivityInfoTable(QTableWidget):
                 acts = self.usage.function_activities or []
             elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
                 acts = self.usage.system_activities or []
-        else:
+        elif self.subject:
             acts = orb.search_exact(cname='Activity', owner=self.project,
                               sub_activity_of=self.subject,
                               of_system=None, of_function=None)

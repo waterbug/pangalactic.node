@@ -55,8 +55,8 @@ class ActivityTable(QWidget):
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
-        orb.log.info('* ActivityTable initializing for "{}" ...'.format(
-                                                            subject.name))
+        name = getattr(subject, 'name', 'None')
+        orb.log.info(f'* ActivityTable initializing for "{name}" ...')
         self.subject = subject
         self.project = orb.get(state.get('project'))
         self.preferred_size = preferred_size
@@ -106,23 +106,26 @@ class ActivityTable(QWidget):
     def set_title_text(self):
         if not hasattr(self, 'title_widget'):
             return
+        subj = getattr(self, 'subject', None)
         red_text = '<font color="red">{}</font>'
         blue_text = '<font color="blue">{}</font>'
         title_txt = ''
-        if self.position == "main":
-            txt = self.subject.name
-            if self.subject.activity_type:
-                txt += ' ' + self.subject_activity.activity_type.name
-            txt += ': '
-            title_txt = red_text.format(txt)
-        sys_name = (getattr(self.act_of, 'reference_designator', '') or
-                    getattr(self.act_of, 'system_role', ''))
-        title_txt += blue_text.format(sys_name) + ' '
-        if self.position == "main":
-            title_txt += 'Activity Details'
-        elif self.position == "sub":
-            title_txt += red_text.format(self.subject.name)
-            title_txt += ' Details'
+        if subj:
+            if self.position == "main":
+                txt = self.subject.name
+                if self.subject.activity_type:
+                    txt += ' ' + self.subject_activity.activity_type.name
+                title_txt = red_text.format(txt)
+            sys_name = (getattr(self.act_of, 'reference_designator', '') or
+                        getattr(self.act_of, 'system_role', ''))
+            title_txt += blue_text.format(sys_name) + ' '
+            if self.position == "main":
+                title_txt += 'Activity Details'
+            elif self.position == "sub":
+                title_txt += red_text.format(self.subject.name)
+                title_txt += ' Details'
+        else:
+            title_txt += red_text.format('No Activity')
         self.title_widget.setText(title_txt)
 
     # def reset_table(self):

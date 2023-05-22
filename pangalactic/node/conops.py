@@ -431,11 +431,10 @@ class TimelineWidget(QWidget):
             title = red_text.format(txt)
         elif isinstance(self.activity, orb.classes['Activity']):
             txt = self.activity.name
-            txt += ': '
             title = red_text.format(txt)
         if isinstance(self.system, orb.classes['Product']):
             title += blue_text.format(self.system.name + ' System ')
-        title += 'Timeline'
+        title += ' Timeline'
         self.title_widget.setText(title)
         # except:
             # pass
@@ -803,15 +802,11 @@ class ConOpsModeler(QMainWindow):
         self.create_activity_table()
         self.main_timeline.scene.new_activity.connect(
                                         self.activity_table.on_activity_added)
-        self.main_timeline.scene.scene_activity_edited.connect(
-                                            self.rebuild_activity_table)
         self.outer_layout.addWidget(self.main_timeline, 0, 1)
         self.outer_layout.addWidget(self.activity_table, 0, 0)
         self.create_sub_activity_table()
         self.sub_timeline.scene.new_activity.connect(
                                     self.sub_activity_table.on_activity_added)
-        self.sub_timeline.scene.scene_activity_edited.connect(
-                                        self.rebuild_sub_activity_table)
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
         self.outer_layout.addWidget(self.sub_timeline, 1, 1)
         self.widget = QWidget()
@@ -838,7 +833,8 @@ class ConOpsModeler(QMainWindow):
 
     def create_sub_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_sub_activity_table()")
-        self.sub_activity_table = ActivityTable(self.activity, parent=self,
+        act = getattr(self.main_timeline.scene.current_focus, 'activity', None)
+        self.sub_activity_table = ActivityTable(act, parent=self,
                                                 position='sub')
         self.sub_activity_table.setEnabled(False)
         self.sub_activity_table.setMinimumSize(500, 300)
@@ -903,7 +899,8 @@ class ConOpsModeler(QMainWindow):
         self.sub_timeline.activity = act
         self.sub_timeline.set_new_scene()
         self.sub_timeline.setEnabled(True)
-        self.create_sub_activity_table()
+        self.rebuild_sub_activity_table()
+        self.sub_timeline.setEnabled(True)
 
     def on_main_timeline_new_activity(self, oid):
         orb.log.debug("* ConOpsModeler.on_main_timeline_new_activity()")
