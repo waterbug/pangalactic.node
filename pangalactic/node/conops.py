@@ -29,7 +29,7 @@ import os
 # Louie
 from louie import dispatcher
 
-from PyQt5.QtCore import pyqtSignal, Qt, QRectF, QPointF, QPoint
+from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
@@ -184,7 +184,6 @@ class Timeline(QGraphicsPathItem):
             self.path_length = 1000 + (delta // 2) * 300
             scale = 70 - (delta // 2) * 10
             pscale = str(scale) + "%"
-            # TODO: replace with a pyqtSignal ...
             dispatcher.send("rescale timeline", percentscale=pscale)
 
     def add_evt_block(self, evt_block):
@@ -211,9 +210,6 @@ class Timeline(QGraphicsPathItem):
 
 
 class TimelineScene(QGraphicsScene):
-
-    new_activity = pyqtSignal(str)           # args: oid
-    scene_activity_edited = pyqtSignal(str)  # args: oid
 
     def __init__(self, parent, activity, position=None):
         super().__init__(parent)
@@ -289,19 +285,19 @@ class TimelineScene(QGraphicsScene):
         self.addItem(evt_block)
         self.timeline.add_evt_block(evt_block)
         # self.timeline.arrange()
-        orb.log.debug('* scene: sending "new_activity" signal')
-        self.new_activity.emit(activity.oid)
+        orb.log.debug('* scene: sending "new activity" signal')
+        dispatcher.send(signal="new activity", act=activity)
         self.update()
 
-    def on_act_mod(self, oid):
+    def on_act_mod(self, act=None):
         """
         Handle 'act mod' signal from ActivityInfoTable, meaning an activity was
         modified.
         """
         orb.log.debug('* scene: received "act_mod" signal')
         for item in self.timeline.evt_blocks:
-            orb.log.debug(f'  checking for {item.activity.name} by oid')
-            if item.activity.oid == oid:
+            # orb.log.debug(f'  checking for {item.activity.name} by oid')
+            if item.activity.oid == act.oid:
                 item.update_block_label()
                 dispatcher.send("modified object", obj=item.activity)
 
@@ -690,8 +686,6 @@ class ConOpsModeler(QMainWindow):
         - sub_activity_table (ActivityTable)
     """
 
-    new_activity = pyqtSignal(str)         # args: oid
-
     def __init__(self, main_activity=None, parent=None):
         """
         Initialize the tool.
@@ -724,7 +718,7 @@ class ConOpsModeler(QMainWindow):
                 mission = clone('Mission', id=mission_id, name=mission_name,
                                 owner=project)
                 orb.save([mission])
-                orb.log.debug('* ConOpsModeler: sending "new_activity" signal')
+                orb.log.debug('* ConOpsModeler: sending "new object" signal')
                 dispatcher.send("new object", obj=mission)
             self.activity = mission
         self.project = project
@@ -797,25 +791,17 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.activity, position='main')
         self.main_timeline.setMinimumSize(900, 150)
-        self.main_timeline.scene.new_activity.connect(
-                                            self.on_main_timeline_new_activity)
         self.sub_timeline = TimelineWidget(
                                         self.main_timeline.scene.current_focus,
                                         position='sub')
         self.sub_timeline.setEnabled(False)
         self.sub_timeline.setMinimumSize(900, 150)
-        self.sub_timeline.scene.new_activity.connect(
-                                            self.on_sub_timeline_new_activity)
         self.outer_layout = QGridLayout()
         self.create_activity_table()
-        self.main_timeline.scene.new_activity.connect(
-                                        self.activity_table.on_activity_added)
         self.outer_layout.addWidget(self.main_timeline, 0, 1)
         self.outer_layout.addWidget(self.activity_table, 0, 0)
         self.create_sub_activity_table()
         self.sub_activity_table.setEnabled(False)
-        self.sub_timeline.scene.new_activity.connect(
-                                    self.sub_activity_table.on_activity_added)
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
         self.outer_layout.addWidget(self.sub_timeline, 1, 1)
         self.widget = QWidget()
@@ -830,6 +816,7 @@ class ConOpsModeler(QMainWindow):
             self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
             self.right_dock.setWidget(self.library)
         dispatcher.connect(self.rebuild_tables, "order changed")
+        dispatcher.connect(self.on_new_activity, "new activity")
 
     def create_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
@@ -911,17 +898,9 @@ class ConOpsModeler(QMainWindow):
         self.sub_activity_table.setEnabled(True)
         self.sub_timeline.setEnabled(True)
 
-    def on_main_timeline_new_activity(self, oid):
-        orb.log.debug("* ConOpsModeler.on_main_timeline_new_activity()")
-        self.rebuild_activity_table()
-        act = orb.get(oid)
-        orb.log.debug(f'  sending "new object" signal on {act.id}')
-        dispatcher.send("new object", obj=act)
-
-    def on_sub_timeline_new_activity(self, oid):
-        orb.log.debug("* ConOpsModeler.on_sub_timeline_new_activity()")
-        self.rebuild_activity_table()
-        act = orb.get(oid)
+    def on_new_activity(self, act):
+        orb.log.debug("* ConOpsModeler.on_new_activity()")
+        self.rebuild_tables(act)
         orb.log.debug(f'  sending "new object" signal on {act.id}')
         dispatcher.send("new object", obj=act)
 

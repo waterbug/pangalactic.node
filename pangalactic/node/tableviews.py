@@ -460,7 +460,7 @@ class ActivityInfoTable(QTableWidget):
             orb.set_prop_value(act, pname, val)
             act.mod_datetime = dtstamp()
             orb.save([act])
-            dispatcher.send(signal="act mod", oid=act.oid)
+            dispatcher.send(signal="act mod", act=act)
 
 
 class SystemInfoTable(QTableWidget):
