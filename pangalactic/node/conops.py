@@ -215,14 +215,13 @@ class TimelineScene(QGraphicsScene):
     new_activity = pyqtSignal(str)           # args: oid
     scene_activity_edited = pyqtSignal(str)  # args: oid
 
-    def __init__(self, parent, current_activity=None, act_of=None,
-                 position=None):
+    def __init__(self, parent, activity, position=None):
         super().__init__(parent)
         self.position = position
-        self.current_activity = current_activity
-        if current_activity:
-            offnc = current_activity.of_function
-            ofsys = current_activity.of_system
+        self.activity = activity
+        if activity:
+            offnc = activity.of_function
+            ofsys = activity.of_system
             self.act_of = offnc or ofsys
             name = getattr(self.act_of, 'name', None) or 'None'
             orb.log.debug(f'  act_of: {name}')
@@ -255,7 +254,7 @@ class TimelineScene(QGraphicsScene):
         self.grabbed_item == None
 
     def dropEvent(self, event):
-        seq = len(self.current_activity.sub_activities) + 1
+        seq = len(self.activity.sub_activities) + 1
         # activity type is one of "Cycle", "Operation", "Event"
         activity_type_name = event.mimeData().text()
         activity_type = orb.select("ActivityType", name=activity_type_name)
@@ -270,18 +269,18 @@ class TimelineScene(QGraphicsScene):
             activity = clone("Activity", id=act_id, name=act_name,
                              activity_type=activity_type, owner=project,
                              of_function=self.act_of,
-                             sub_activity_of=self.current_activity,
+                             sub_activity_of=self.activity,
                              sub_activity_sequence=seq)
         elif isinstance(self.act_of, orb.classes['ProjectSystemUsage']):
             activity = clone("Activity", id=act_id, name=act_name,
                              activity_type=activity_type, owner=project,
                              of_system=self.act_of,
-                             sub_activity_of=self.current_activity,
+                             sub_activity_of=self.activity,
                              sub_activity_sequence=seq)
         else:
             activity = clone("Activity", id=act_id, name=act_name,
                              activity_type=activity_type, owner=project,
-                             sub_activity_of=self.current_activity,
+                             sub_activity_of=self.activity,
                              sub_activity_sequence=seq)
         orb.db.commit()
         evt_block = EventBlock(activity=activity,
@@ -422,19 +421,23 @@ class TimelineWidget(QWidget):
         red_text = '<font color="red">{}</font>'
         blue_text = '<font color="blue">{}</font>'
         title = ''
-        if isinstance(self.activity, orb.classes['Mission']):
-            txt = ''
-            project = orb.get(state.get('project'))
-            if project:
-                txt = project.id + ' '
-            txt += 'Mission '
+        if self.activity:
+            if isinstance(self.activity, orb.classes['Mission']):
+                txt = ''
+                project = orb.get(state.get('project'))
+                if project:
+                    txt = project.id + ' '
+                txt += 'Mission '
+                title = red_text.format(txt)
+            elif isinstance(self.activity, orb.classes['Activity']):
+                txt = self.activity.name
+                title = red_text.format(txt)
+            if isinstance(self.system, orb.classes['Product']):
+                title += blue_text.format(self.system.name + ' System ')
+            title += ' Timeline'
+        else:
+            txt = 'No Activity Selected'
             title = red_text.format(txt)
-        elif isinstance(self.activity, orb.classes['Activity']):
-            txt = self.activity.name
-            title = red_text.format(txt)
-        if isinstance(self.system, orb.classes['Product']):
-            title += blue_text.format(self.system.name + ' System ')
-        title += ' Timeline'
         self.title_widget.setText(title)
         # except:
             # pass
@@ -689,11 +692,12 @@ class ConOpsModeler(QMainWindow):
 
     new_activity = pyqtSignal(str)         # args: oid
 
-    def __init__(self, parent=None):
+    def __init__(self, main_activity=None, parent=None):
         """
         Initialize the tool.
 
         Keyword Args:
+            main_activity (Activity): (optional) a specified main activity
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
@@ -705,25 +709,28 @@ class ConOpsModeler(QMainWindow):
         if project.systems:
             for psu in project.systems:
                 self.usage_list.append(psu)
-        mission = orb.select('Mission', name=mission_name)
-        if not mission:
-            message = "This project had no Mission object; creating one."
-            popup = QMessageBox(
-                        QMessageBox.Information,
-                        "Creating Mission Object", message,
-                        QMessageBox.Ok, self)
-            popup.show()
-            mission_id = '_'.join([project.id, 'mission'])
-            mission = clone('Mission', id=mission_id, name=mission_name,
-                            owner=project)
-            orb.save([mission])
-            orb.log.debug('* ConOpsModeler: sending "new_activity" signal')
-            dispatcher.send("new object", obj=mission)
-        self.activity = mission
+        if main_activity:
+            self.activity = main_activity
+        else:
+            mission = orb.select('Mission', name=mission_name)
+            if not mission:
+                message = "This project had no Mission object; creating one."
+                popup = QMessageBox(
+                            QMessageBox.Information,
+                            "Creating Mission Object", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                mission_id = '_'.join([project.id, 'mission'])
+                mission = clone('Mission', id=mission_id, name=mission_name,
+                                owner=project)
+                orb.save([mission])
+                orb.log.debug('* ConOpsModeler: sending "new_activity" signal')
+                dispatcher.send("new object", obj=mission)
+            self.activity = mission
         self.project = project
         self.create_block_library()
         self.init_toolbar()
-        self.set_widgets(current_activity=self.activity, init=True)
+        self.set_widgets(init=True)
         self.setWindowTitle('Concept of Operations (Con Ops) Modeler')
         # NOTE:  bottom dock area is not currently being used but may be used
         # for graphs in the future ...
@@ -776,7 +783,7 @@ class ConOpsModeler(QMainWindow):
         self.modes_tool_button.clicked.connect(self.display_modes_tool)
         self.toolbar.addWidget(self.modes_tool_button)
 
-    def set_widgets(self, current_activity=None, init=False):
+    def set_widgets(self, init=False):
         """
         Add a TimelineWidget containing all activities of the current system.
 
@@ -785,15 +792,16 @@ class ConOpsModeler(QMainWindow):
         display to that activity's power graph.
 
         Keyword Args:
-            current_activity (Activity): the main timeline activity that
-                currently has focus
+            init (bool): initial instantiation
         """
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.activity, position='main')
         self.main_timeline.setMinimumSize(900, 150)
         self.main_timeline.scene.new_activity.connect(
                                             self.on_main_timeline_new_activity)
-        self.sub_timeline = TimelineWidget(current_activity, position='sub')
+        self.sub_timeline = TimelineWidget(
+                                        self.main_timeline.scene.current_focus,
+                                        position='sub')
         self.sub_timeline.setEnabled(False)
         self.sub_timeline.setMinimumSize(900, 150)
         self.sub_timeline.scene.new_activity.connect(
@@ -877,7 +885,7 @@ class ConOpsModeler(QMainWindow):
     def change_system(self, index):
         orb.log.debug("* ConOpsModeler.change_system()")
         self.system = self.usage_list[index]
-        self.set_widgets(current_activity=self.activity)
+        self.set_widgets()
 
     def resizeEvent(self, event):
         state['model_window_size'] = (self.width(), self.height())
