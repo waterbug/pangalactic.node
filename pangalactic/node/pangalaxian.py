@@ -5174,6 +5174,7 @@ class Main(QMainWindow):
 
     def conops_modeler(self):
         win = ConOpsModeler(parent=self)
+        win.move(50, 50)
         win.show()
 
     def define_op_modes(self):
