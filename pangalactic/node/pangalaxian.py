@@ -1957,6 +1957,11 @@ class Main(QMainWindow):
                     state['new_or_modified_rqts'].append(obj.oid)
                 else:
                     state['new_or_modified_rqts'] = [obj.oid]
+            elif cname == 'Activity':
+                if state.get('new_or_modified_acts'):
+                    state['new_or_modified_acts'].append(obj.oid)
+                else:
+                    state['new_or_modified_acts'] = [obj.oid]
             # ================================================================
             # TODO: use add|mod|del_object in db table for cname
             # (commented for now because unwise to do GUI updates here)
@@ -1986,7 +1991,12 @@ class Main(QMainWindow):
             state["lib updates needed"] = lib_updates_needed
         if state.get('new_or_modified_rqts'):
             oids = state['new_or_modified_rqts']
-            dispatcher.send(signal='new or mod rqts', oids=oids)
+            state['new_or_modified_rqts'] = []
+            dispatcher.send(signal='remote new or mod rqts', oids=oids)
+        if state.get('new_or_modified_acts'):
+            oids = state['new_or_modified_acts']
+            state['new_or_modified_acts'] = []
+            dispatcher.send(signal='remote new or mod acts', oids=oids)
         self.get_parmz()
         return True
 

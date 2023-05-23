@@ -93,7 +93,7 @@ class RequirementManager(QDialog):
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
         self.content_layout.addLayout(self.fpanel_layout)
-        dispatcher.connect(self.on_new_or_mod_rqts, 'new or mod rqts')
+        dispatcher.connect(self.on_new_or_mod_rqts, 'remote new or mod rqts')
         dispatcher.connect(self.on_modified_object, 'modified object')
         dispatcher.connect(self.on_deleted_object, 'deleted object')
         # "parameters recomputed" is the ultimate signal resulting from a
@@ -286,9 +286,9 @@ class RequirementManager(QDialog):
             return
 
     def on_new_or_mod_rqts(self, oids):
-        orb.log.debug('* got "new or mod rqts" signal ...')
+        orb.log.debug('* got "remote new or mod rqts" signal ...')
         rqts = orb.get(oids=oids)
-        orb.log.debug('  new or mod rqts are:')
+        orb.log.debug('  remote new or mod rqts are:')
         for i, rqt in enumerate(rqts):
             if rqt:
                 oid = rqt.oid

@@ -735,7 +735,7 @@ class ConOpsModeler(QMainWindow):
         # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
         dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
-        dispatcher.connect(self.on_mod_obj, "modified object")
+        dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
 
     def create_block_library(self):
         """
@@ -905,18 +905,12 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(f'  sending "new object" signal on {act.id}')
         dispatcher.send("new object", obj=act)
 
-    def on_mod_obj(self, obj=None, cname=''):
+    def on_remote_mod_acts(self, oids=None):
         """
-        Handle dispatcher "modified object" signal.
+        Handle dispatcher "remote new or mod acts" signal.
         """
-        if not isinstance(obj, orb.classes['Activity']):
-            return
-        all_acts = [self.activity] + self.activity.sub_activities
-        if obj in all_acts:
-            self.main_timeline.set_new_scene()
-            self.rebuild_tables()
-        else:
-            return
+        self.main_timeline.set_new_scene()
+        self.rebuild_tables()
 
 
 if __name__ == '__main__':
