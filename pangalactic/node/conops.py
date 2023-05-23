@@ -791,22 +791,22 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.activity, position='main')
-        self.main_timeline.setMinimumSize(900, 150)
+        self.main_timeline.setMinimumSize(1000, 150)
         self.sub_timeline = TimelineWidget(
                                         self.main_timeline.scene.current_focus,
                                         position='sub')
         self.sub_timeline.setEnabled(False)
-        self.sub_timeline.setMinimumSize(900, 150)
+        self.sub_timeline.setMinimumSize(1000, 150)
         self.outer_layout = QGridLayout()
         self.create_activity_table()
-        self.outer_layout.addWidget(self.main_timeline, 0, 1)
         self.outer_layout.addWidget(self.activity_table, 0, 0)
+        self.outer_layout.addWidget(self.main_timeline, 0, 1)
         self.create_sub_activity_table()
         self.sub_activity_table.setEnabled(False)
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
         self.outer_layout.addWidget(self.sub_timeline, 1, 1)
         self.widget = QWidget()
-        self.widget.setMinimumSize(1450, 600)
+        self.widget.setMinimumSize(1500, 600)
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         if init:
@@ -823,9 +823,8 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
         self.activity_table = ActivityTable(self.activity, parent=self,
                                             position='main')
-        self.activity_table.setMinimumSize(500, 300)
-        self.activity_table.setSizePolicy(
-                                    QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.activity_table.setSizePolicy(QSizePolicy.Minimum,
+                                          QSizePolicy.Expanding)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
 
     def create_sub_activity_table(self):
@@ -833,8 +832,7 @@ class ConOpsModeler(QMainWindow):
         act = getattr(self.main_timeline.scene.current_focus, 'activity', None)
         self.sub_activity_table = ActivityTable(act, parent=self,
                                                 position='sub')
-        self.sub_activity_table.setMinimumSize(500, 300)
-        self.sub_activity_table.setSizePolicy(QSizePolicy.Fixed,
+        self.sub_activity_table.setSizePolicy(QSizePolicy.Minimum,
                                               QSizePolicy.Expanding)
         self.sub_activity_table.setAttribute(Qt.WA_DeleteOnClose)
 

@@ -7,7 +7,7 @@ import os
 import ruamel_yaml as yaml
 
 # PyQt
-from PyQt5.QtCore    import Qt, QTimer
+from PyQt5.QtCore    import Qt, QSize, QTimer
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFileDialog, QSizePolicy, QTableView,
                              QTableWidget, QTableWidgetItem, QVBoxLayout)
@@ -436,8 +436,15 @@ class ActivityInfoTable(QTableWidget):
                        InfoTableItem(orb.get_prop_str_value(act, pname) or ''))
         self.acts = acts
         self.resizeColumnsToContents()
-        width_fit = sum(w for w in widths) + 100
-        self.resize(width_fit, 240)
+        # width_fit = sum(w for w in widths) + 100
+        # self.resize(width_fit, 240)
+
+    def sizeHint(self):
+        horizontal = self.horizontalHeader()
+        vertical = self.verticalHeader()
+        frame = self.frameWidth() * 2
+        return QSize(horizontal.length() + vertical.width() + frame,
+                     vertical.length() + horizontal.height() + frame)
 
     def on_item_mod(self, row=None, col=None):
         orb.log.debug('  - ActivityInfoTable.on_item_mod()')

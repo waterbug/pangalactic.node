@@ -38,8 +38,7 @@ class ActivityTable(QWidget):
     Attrs:
         subject (Activity):  the Activity whose sub-activities are shown
     """
-    def __init__(self, subject, preferred_size=None, position=None,
-                 parent=None):
+    def __init__(self, subject, position=None, parent=None):
         """
         Initialize.
 
@@ -48,7 +47,6 @@ class ActivityTable(QWidget):
                 shown in the table
 
         Keyword Args:
-            preferred_size (tuple):  default size -- (width, height)
             position (str): the table "role" of the table in the ConOps tool,
                 as the "main" or "sub" table, which will determine its
                 response to signals
@@ -59,7 +57,6 @@ class ActivityTable(QWidget):
         orb.log.info(f'* ActivityTable initializing for "{name}" ...')
         self.subject = subject
         self.project = orb.get(state.get('project'))
-        self.preferred_size = preferred_size
         self.position = position
         self.statusbar = QStatusBar()
         self.main_layout = QVBoxLayout()
@@ -68,15 +65,12 @@ class ActivityTable(QWidget):
         self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
         self.main_layout.addWidget(self.title_widget)
         self.set_title_text()
-        # self.reset_table()
         self.set_table()
-        self.setSizePolicy(QSizePolicy.Expanding,
-                           QSizePolicy.Expanding)
-        # dispatcher.connect(self.on_activity_remote_mod, 'activity remote mod')
+        # self.setSizePolicy(QSizePolicy.Minimum,
+                           # QSizePolicy.Minimum)
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
-        # dispatcher.connect(self.on_activity_focused, 'activity focused')
 
     @property
     def act_of(self):
@@ -175,11 +169,13 @@ class ActivityTable(QWidget):
         table.setAlternatingRowColors(True)
         self.main_layout.addWidget(table, stretch=1)
         self.table = table
+        self.setFixedSize(self.main_layout.sizeHint())
 
     def sizeHint(self):
-        if self.preferred_size:
-            return QSize(*self.preferred_size)
-        return QSize(600, 500)
+        w = self.table.sizeHint().width()
+        h = (self.table.sizeHint().height() +
+             self.title_widget.sizeHint().height())
+        return QSize(w, h)
 
     def on_activity_remote_mod(self, activity=None):
         # txt = '* {} table: on_activity_remote_mod()'
@@ -219,13 +215,6 @@ class ActivityTable(QWidget):
             self.act_of = act_of
             self.reset_table()
 
-    def on_activity_focused(self, act):
-        orb.log.debug('  - ActivityTable.on_activity_focused()')
-        self.subject = act
-        self.set_title_text()
-        self.reset_table()
-        self.setEnabled(True)
-
 
 class SystemSelectionView(QTreeView):
     def __init__(self, obj, refdes=True, parent=None):
@@ -261,7 +250,8 @@ class SystemSelectionView(QTreeView):
         # anyway!)
         self.setStyleSheet('font-weight: normal; font-size: 12px')
         self.proxy_model.sort(0)
-        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+        self.setSizePolicy(QSizePolicy.Preferred,
+                           QSizePolicy.MinimumExpanding)
         self.setMaximumWidth(500)
         self.resizeColumnToContents(0)
         self.project = self.source_model.project
