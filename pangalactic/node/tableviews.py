@@ -462,6 +462,13 @@ class ActivityInfoTable(QTableWidget):
             orb.save([act])
             dispatcher.send(signal="act mod", act=act)
 
+    def update_activity(self, act=None):
+        if act in self.acts:
+            row = self.acts.index(act)
+            for j, pname in self.view:
+                val = orb.get_prop_str_value(act, pname)
+                self.setItem(row, j, val)
+
 
 class SystemInfoTable(QTableWidget):
     """

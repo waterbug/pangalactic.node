@@ -160,7 +160,7 @@ class Timeline(QGraphicsPathItem):
         self.current_positions = []
 
     def make_path(self):
-        self.path =  QPainterPath(QPointF(100, 250))
+        self.path = QPainterPath(QPointF(100, 250))
         self.path.arcTo(QRectF(0, 200, 100, 100), 0, 360)
         self.circle_length = self.path.length()
         self.path.arcTo(QRectF(self.path_length, 200, 100, 100), 180, 360)
@@ -735,6 +735,7 @@ class ConOpsModeler(QMainWindow):
         # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
         dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
+        dispatcher.connect(self.on_mod_obj, "modified object")
 
     def create_block_library(self):
         """
@@ -903,6 +904,19 @@ class ConOpsModeler(QMainWindow):
         self.rebuild_tables(act)
         orb.log.debug(f'  sending "new object" signal on {act.id}')
         dispatcher.send("new object", obj=act)
+
+    def on_mod_obj(self, obj=None, cname=''):
+        """
+        Handle dispatcher "modified object" signal.
+        """
+        if not isinstance(obj, orb.classes['Activity']):
+            return
+        all_acts = [self.activity] + self.activity.sub_activities
+        if obj in all_acts:
+            self.main_timeline.set_new_scene()
+            self.rebuild_tables()
+        else:
+            return
 
 
 if __name__ == '__main__':
