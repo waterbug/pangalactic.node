@@ -2197,11 +2197,13 @@ class Main(QMainWindow):
                                 slot=self.export_project_to_file,
                                 tip="Export Project to a File...",
                                 modes=['system'])
-        self.export_rqts_to_file_action = self.create_action(
-                                "Export Project Requirements to a File...",
-                                slot=self.export_rqts_to_file,
-                                tip="Export Project Requirements to a File...",
-                                modes=['system'])
+        # NOTE: this exports serialized requirements, which will basically
+        # never be something the user wants, now that Excel can be used ...
+        # self.export_rqts_to_file_action = self.create_action(
+                                # "Export Project Requirements to a File...",
+                                # slot=self.export_rqts_to_file,
+                                # tip="Export Project Requirements to a File...",
+                                # modes=['system'])
         self.output_mel_action = self.create_action(
                                 "Write MEL...",
                                 slot=self.output_mel,
@@ -2674,7 +2676,7 @@ class Main(QMainWindow):
         export_icon_file = 'save' + state['icon_type']
         export_icon_path = os.path.join(icon_dir, export_icon_file)
         export_actions = [self.export_project_to_file_action,
-                          self.export_rqts_to_file_action,
+                          # self.export_rqts_to_file_action,
                           self.output_mel_action,
                           self.dump_db_action,
                           self.gen_keys_action] 
@@ -5259,40 +5261,40 @@ class Main(QMainWindow):
         else:
             return
 
-    def export_rqts_to_file(self):
-        orb.log.debug('* export_rqts_to_file() for project {}'.format(
-                 getattr(self.project, 'id', None) or '[no current project]'))
-        # TODO:  create a "wizard" dialog with some convenient defaults ...
-        dtstr = date2str(dtstamp())
-        if not state.get('last_path'):
-            state['last_path'] = self.user_home
-        suggested_path = os.path.join(
-                          state['last_path'],
-                          self.project.id + '-requirements-'+ dtstr + '.yaml')
-        fpath, filters = QFileDialog.getSaveFileName(
-                                self, 'Export Project Requirements to File',
-                                suggested_path)
-        if fpath:
-            orb.log.debug(f'  - file selected: "{fpath}"')
-            fpath = str(fpath)    # QFileDialog fpath is unicode; make str
-            state['last_path'] = os.path.dirname(fpath)
-            # serialize all the objects relevant to the current project
-            rqts = orb.get_rqts_for_project(self.project)
-            if rqts:
-                rqts.append(self.project)
-                serialized_rqts = serialize(orb, rqts, include_refdata=True)
-                f = open(fpath, 'w')
-                f.write(yaml.safe_dump(serialized_rqts,
-                                       default_flow_style=False))
-                f.close()
-                orb.log.debug('    {} project requirements written.'.format(
-                                                 len(serialized_rqts) - 1))
-            else:
-                # TODO: notify user that no requirements were found ...
-                orb.log.debug('    no project requirements found.')
-                return
-        else:
-            return
+    # def export_rqts_to_file(self):
+        # orb.log.debug('* export_rqts_to_file() for project {}'.format(
+                 # getattr(self.project, 'id', None) or '[no current project]'))
+        # # TODO:  create a "wizard" dialog with some convenient defaults ...
+        # dtstr = date2str(dtstamp())
+        # if not state.get('last_path'):
+            # state['last_path'] = self.user_home
+        # suggested_path = os.path.join(
+                          # state['last_path'],
+                          # self.project.id + '-requirements-'+ dtstr + '.yaml')
+        # fpath, filters = QFileDialog.getSaveFileName(
+                                # self, 'Export Project Requirements to File',
+                                # suggested_path)
+        # if fpath:
+            # orb.log.debug(f'  - file selected: "{fpath}"')
+            # fpath = str(fpath)    # QFileDialog fpath is unicode; make str
+            # state['last_path'] = os.path.dirname(fpath)
+            # # serialize all the objects relevant to the current project
+            # rqts = orb.get_rqts_for_project(self.project)
+            # if rqts:
+                # rqts.append(self.project)
+                # serialized_rqts = serialize(orb, rqts, include_refdata=True)
+                # f = open(fpath, 'w')
+                # f.write(yaml.safe_dump(serialized_rqts,
+                                       # default_flow_style=False))
+                # f.close()
+                # orb.log.debug('    {} project requirements written.'.format(
+                                                 # len(serialized_rqts) - 1))
+            # else:
+                # # TODO: notify user that no requirements were found ...
+                # orb.log.debug('    no project requirements found.')
+                # return
+        # else:
+            # return
 
     def import_rqts_from_file(self):
         orb.log.debug('* import_rqts_from_file()')
