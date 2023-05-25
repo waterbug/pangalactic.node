@@ -409,18 +409,22 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     def data(self, index, role):
         model = self.sourceModel()
         model_idx = self.mapToSource(index)
-        if (getattr(model, 'objs', None) and
-            (model_idx.row() < len(model.objs))):
-            if role == Qt.ToolTipRole:
-                if hasattr(model.objs[0], 'description'):
-                    descr = model.objs[model_idx.row()].description or ''
-                    tt = '\n'.join(wrap(descr, width=30, break_long_words=False))
-                    return tt
+        try:
+            if (getattr(model, 'objs', None) and
+                (model_idx.row() < len(model.objs))):
+                if role == Qt.ToolTipRole:
+                    if hasattr(model.objs[0], 'description'):
+                        descr = model.objs[model_idx.row()].description or ''
+                        tt = '\n'.join(wrap(descr, width=30,
+                                            break_long_words=False))
+                        return tt
+                    else:
+                        return ''
                 else:
-                    return ''
+                    return super().data(index, role)
             else:
-                return super().data(index, role)
-        else:
+                return ''
+        except:
             return ''
 
     def headerData(self, section, orientation, role):
@@ -520,7 +524,9 @@ class ProxyView(QTableView):
         if not index.isValid:
             return
         i = self.model().mapToSource(index).row()
-        obj = self.model().sourceModel().objs[i]
+        obj = None
+        if self.model().sourceModel().objs:
+            obj = self.model().sourceModel().objs[i]
         # orb.log.debug('  ... at object "{}"'.format(obj.id))
         if isinstance(obj, orb.classes['Identifiable']):
             pixmap = get_pixmap(obj)
@@ -555,7 +561,7 @@ class FilterPanel(QWidget):
         Initialize.
 
         Args:
-            objs (Identifiable):  objects to be displayed
+            objs (Identifiable):  objects to be displayed (may be None)
 
         Keyword Args:
             cname (str): name of a PGEF class (orb.classes) -- NOTE: if cname
@@ -596,21 +602,27 @@ class FilterPanel(QWidget):
             self.cname = cname
             if cname in orb.classes:
                 # orb.log.debug(f'* FilterPanel is {cname} library ...')
-                objs = orb.get_by_type(cname) or [orb.get('pgefobjects:TBD')]
+                objs = orb.get_by_type(cname) or []
                 self.objs = [o for o in objs
                              if o.oid not in self.excluded_oids]
             else:
                 # not a pangalactic domain object, can't display as a library
                 # orb.log.debug('  - Cannot display objs of class "{}".'.format(
                                                                         # cname))
-                self.objs = [orb.get('pgefobjects:TBD')]
+                self.objs = []
         else:
             if objs and isinstance(objs[0], orb.classes['Identifiable']):
                 self.objs = objs
                 self.cname = self.objs[0].__class__.__name__
+            elif cname:
+                # orb.log.debug(f'* FilterPanel: cname = "{cname}"')
+                # orb.log.debug('  NOT a library ...')
+                self.cname = cname
+                self.objs = []
             else:
-                # empty table
-                self.objs = [orb.get('pgefobjects:TBD')]
+                # empty table used for Products ...
+                # self.objs = [orb.get('pgefobjects:TBD')]
+                self.objs = []
                 self.cname = 'Product'
         self.schema = orb.schemas[self.cname]
         # make sure items in a supplied view are valid ...
@@ -621,18 +633,8 @@ class FilterPanel(QWidget):
                          if ((a in self.schema['field_names']) or
                              (a in parm_defz) or
                              (a in de_defz))]
-        else:
-            if self.cname == 'HardwareProduct':
-                if as_library:
-                    view = view or prefs.get('hw_library_view')
-                    self.view = view or ['id', 'name', 'product_type']
-                else:
-                    view = view or prefs.get('hw_db_view')
-                    self.view = view or MAIN_VIEWS.get('HardwareProduct')
-            else:
-                # orb.log.debug('    using default class view')
-                self.view = MAIN_VIEWS.get(self.cname,
-                                           ['id', 'name', 'description'])
+        # NOTE: if no view is provided, the "view" property has logic to select
+        # an appropriate view ...
         if external_filters:
             self.ext_filters = SizedButton("Filters")
             self.clear_filters_btn = SizedButton("Clear Product Filters",
@@ -703,15 +705,30 @@ class FilterPanel(QWidget):
 
     @property
     def view(self):
+        # orb.log.debug('* view [property]')
         if self.cname == 'HardwareProduct' and self.as_library:
-            return prefs.get('hw_library_view') or ['id', 'name',
+            # orb.log.debug('  cname: "HardwareProduct", as_library')
+            v = prefs.get('hw_library_view') or ['id', 'name',
                                                     'product_type']
+            # orb.log.debug(f'  view: {v}')
+            return v
         elif self.cname == 'HardwareProduct':
-            return prefs.get('hw_db_view') or ['id', 'name', 'product_type']
+            # orb.log.debug('  cname: "HardwareProduct", NOT as_library')
+            v = prefs.get('hw_db_view') or ['id', 'name', 'product_type']
+            # orb.log.debug(f'  view: {v}')
+            return v
         elif self.cname == 'Requirement':
-            return prefs.get('rqt_mgr_view') or []
+            # orb.log.debug('  cname: "Requirement"')
+            v = prefs.get('rqt_mgr_view') or []
+            # orb.log.debug(f'  view: {v}')
+            return v
         else:
-            return prefs.get('views', {}).get(self.cname) or []
+            cname = getattr(self, 'cname', 'None')
+            # orb.log.debug(f'  cname: "{cname}"')
+            v = prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
+                                cname, ['id', 'name', 'description'])
+            # orb.log.debug(f'  view: {v}')
+            return v
 
     @view.setter
     def view(self, v):
@@ -771,12 +788,14 @@ class FilterPanel(QWidget):
         self.proxy_model.layoutChanged.connect(
                                         self.proxy_view.resize_sized_cols)
         self.proxy_model.beginResetModel()
+        objs = objs or []
         if not objs:
             if self.as_library and self.cname:
                 objs = orb.get_by_type(self.cname)
                 self.objs = [o for o in objs
                              if o.oid not in self.excluded_oids]
-        self.objs = self.objs or [orb.get('pgefobjects:TBD')]
+        # self.objs = self.objs or [orb.get('pgefobjects:TBD')]
+        self.objs = self.objs or []
         model = ObjectTableModel(self.objs, view=self.view,
                                  as_library=self.as_library)
         self.proxy_model.setSourceModel(model)
@@ -819,7 +838,8 @@ class FilterPanel(QWidget):
         # orb.log.debug('    with objects: {}'.format(str(objs)))
         self.objs = objs
         if not self.objs:
-            self.objs = [orb.get('pgefobjects:TBD')]
+            # self.objs = [orb.get('pgefobjects:TBD')]
+            self.objs = []
         model = ObjectTableModel(self.objs, view=self.view,
                                  as_library=self.as_library)
         return model
@@ -1096,9 +1116,12 @@ if __name__ == "__main__":
     import sys
 
     app = QApplication(sys.argv)
+    orb.start(home='/home/waterbug/cattens_home_dev', debug=True, console=True)
 
-    # window = FilterPanel('ProductType', label='Product Type', parent=None)
-    window = FilterPanel('ProductType', label='Product Type', parent=None)
+    # window = FilterPanel(None, cname='ProductType', label='Product Type',
+    #                      parent=None)
+    window = FilterPanel(None, cname='Requirement', label='Requirements',
+                         parent=None)
     window.show()
 
     sys.exit(app.exec_())

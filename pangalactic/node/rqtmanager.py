@@ -139,6 +139,7 @@ class RequirementManager(QDialog):
         [Handler for 'Customize Columns' button]  Display the SelectColsDialog.
         """
         orb.log.debug('* select_cols() ...')
+        # NOTE: STD_VIEWS[cname] returns a dict, which is ok for this purpose
         std_view = STD_VIEWS['Requirement']
         if self.fpanel.col_moved_view:
             cur_view = self.fpanel.col_moved_view[:]

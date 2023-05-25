@@ -62,14 +62,15 @@ class MappingTableModel(QAbstractTableModel):
         as_library (bool): (default: False) if True, provide icons, etc.
         default_icon (QIcon): default icon associated with a row
     """
-    def __init__(self, ds, as_library=False, icons=None, aligns=None,
-                 parent=None, **kwargs):
+    def __init__(self, ds, as_library=False, view=None, icons=None,
+                 aligns=None, parent=None, **kwargs):
         """
         Args:
             ds (list):  list of dict instances
 
         Keyword Args:
             as_library (bool): (default: False) if True, provide icons, etc.
+            view (list of str):  list of column names
             icons (list of icons):  list of icons by row
             aligns (list of str):  list of alignments ("left", "right", or
                 "center") for each column
@@ -77,19 +78,25 @@ class MappingTableModel(QAbstractTableModel):
         """
         super().__init__(parent=parent, **kwargs)
         # TODO: some validity checking on the data ...
+        self.view = view or []
         self.icons = icons or []
         _aligns = dict(left=Qt.AlignLeft, right=Qt.AlignRight,
                        center=Qt.AlignHCenter)
         aligns = aligns or []
         self.aligns = [_aligns.get(a, Qt.AlignLeft) for a in aligns]
         self.as_library = as_library
-        self.ds = ds or [{0:'no data'}]
+        # self.ds = ds or [{0:'no data'}]
+        self.ds = ds or []
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         self.default_icon = QIcon(QPixmap(os.path.join(icon_dir,
                                   'box'+state.get('icon_type', '.png'))))
 
     def columns(self):
-        return list(self.ds[0].keys())
+        if self.view:
+            return self.view
+        if self.ds:
+            return list(self.ds[0].keys())
+        return ['id']
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -101,7 +108,12 @@ class MappingTableModel(QAbstractTableModel):
 
     def columnCount(self, parent):
         try:
-            return len(self.ds[0])
+            if self.view:
+                return len(self.view)
+            elif self.ds:
+                return len(self.ds[0])
+            else:
+                return 1
         except:
             return 1
 
@@ -200,7 +212,7 @@ class ObjectTableModel(MappingTableModel):
             # orb.log.debug("  ... as library ...")
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
         # orb.log.debug("  ... with {} objects.".format(len(objs)))
-        view = view or ['']
+        view = view or ['id']
         self.cname = ''
         if self.objs:
             self.cname = objs[0].__class__.__name__
@@ -235,8 +247,9 @@ class ObjectTableModel(MappingTableModel):
                 self.objs.insert(0, null_obj)
             ds = [orb.obj_view_to_dict(o, view) for o in self.objs]
         else:
-            ds = [{0:'no data'}]
-            view = ['id']
+            # ds = [{0:'no data'}]
+            ds = []
+            view = view or ['id']
             if with_none:
                 null_obj = NullObject()
                 for name in view:
@@ -248,9 +261,10 @@ class ObjectTableModel(MappingTableModel):
                 d = dict()
                 d['id'] = 'None'
                 ds = [d]
-        super().__init__(ds, as_library=as_library, icons=icons,
-                         parent=parent, **kwargs)
         self.view = view[:]
+        super().__init__(ds, as_library=as_library, icons=icons,
+                         view=self.view, parent=parent, **kwargs)
+        # self.view = view[:]
 
     @property
     def oids(self):
