@@ -2197,13 +2197,6 @@ class Main(QMainWindow):
                                 slot=self.export_project_to_file,
                                 tip="Export Project to a File...",
                                 modes=['system'])
-        # NOTE: this exports serialized requirements, which will basically
-        # never be something the user wants, now that Excel can be used ...
-        # self.export_rqts_to_file_action = self.create_action(
-                                # "Export Project Requirements to a File...",
-                                # slot=self.export_rqts_to_file,
-                                # tip="Export Project Requirements to a File...",
-                                # modes=['system'])
         self.output_mel_action = self.create_action(
                                 "Write MEL...",
                                 slot=self.output_mel,
@@ -2233,11 +2226,6 @@ class Main(QMainWindow):
                         "Import Serialized Objects...",
                         slot=self.import_objects,
                         tip="Import Serialized Objects from a File...",
-                        modes=['system'])
-        self.import_rqts_from_file_action = self.create_action(
-                        "Import Serialized Project Requirements...",
-                        slot=self.import_rqts_from_file,
-                        tip="Import Serialized Requirements from a File...",
                         modes=['system'])
         # * load_test_objects
         # Load Test Objects needs more work -- make it local, or at least
@@ -2658,7 +2646,6 @@ class Main(QMainWindow):
                           self.import_rqts_excel_action,
                           self.import_products_excel_action,
                           self.import_objects_action,
-                          self.import_rqts_from_file_action
                           # Load Test Objects is currently flaky unless ONLY
                           # operating in standalone mode ...
                           # self.load_test_objects_action,
@@ -2676,7 +2663,6 @@ class Main(QMainWindow):
         export_icon_file = 'save' + state['icon_type']
         export_icon_path = os.path.join(icon_dir, export_icon_file)
         export_actions = [self.export_project_to_file_action,
-                          # self.export_rqts_to_file_action,
                           self.output_mel_action,
                           self.dump_db_action,
                           self.gen_keys_action] 
@@ -5260,147 +5246,6 @@ class Main(QMainWindow):
                                                         serialized_objs))
         else:
             return
-
-    # def export_rqts_to_file(self):
-        # orb.log.debug('* export_rqts_to_file() for project {}'.format(
-                 # getattr(self.project, 'id', None) or '[no current project]'))
-        # # TODO:  create a "wizard" dialog with some convenient defaults ...
-        # dtstr = date2str(dtstamp())
-        # if not state.get('last_path'):
-            # state['last_path'] = self.user_home
-        # suggested_path = os.path.join(
-                          # state['last_path'],
-                          # self.project.id + '-requirements-'+ dtstr + '.yaml')
-        # fpath, filters = QFileDialog.getSaveFileName(
-                                # self, 'Export Project Requirements to File',
-                                # suggested_path)
-        # if fpath:
-            # orb.log.debug(f'  - file selected: "{fpath}"')
-            # fpath = str(fpath)    # QFileDialog fpath is unicode; make str
-            # state['last_path'] = os.path.dirname(fpath)
-            # # serialize all the objects relevant to the current project
-            # rqts = orb.get_rqts_for_project(self.project)
-            # if rqts:
-                # rqts.append(self.project)
-                # serialized_rqts = serialize(orb, rqts, include_refdata=True)
-                # f = open(fpath, 'w')
-                # f.write(yaml.safe_dump(serialized_rqts,
-                                       # default_flow_style=False))
-                # f.close()
-                # orb.log.debug('    {} project requirements written.'.format(
-                                                 # len(serialized_rqts) - 1))
-            # else:
-                # # TODO: notify user that no requirements were found ...
-                # orb.log.debug('    no project requirements found.')
-                # return
-        # else:
-            # return
-
-    def import_rqts_from_file(self):
-        orb.log.debug('* import_rqts_from_file()')
-        # TODO:
-        # [1] create a "wizard" dialog with some convenient defaults ...
-        # [2] replace Project in file with current Project
-        data = None
-        message = ''
-        # TODO:  create a "wizard" dialog with some convenient defaults ...
-        if not state.get('last_path'):
-            state['last_path'] = self.user_home
-        # NOTE: can add filter if needed, e.g.: filter="(*.yaml)"
-        dialog = QFileDialog(self, 'Open File',
-                                       state['last_path'],
-                                       "(*.yaml)")
-        fpath = ''
-        if dialog.exec_():
-            fpaths = dialog.selectedFiles()
-            if fpaths:
-                fpath = fpaths[0]
-            dialog.close()
-        if fpath:
-            orb.log.debug('  file path: {}'.format(fpath))
-            if is_binary(fpath):
-                message = "File '%s' is not importable." % fpath
-                popup = QMessageBox(QMessageBox.Warning,
-                                    "Wrong file type", message,
-                                    QMessageBox.Ok, self)
-                popup.show()
-                return
-            try:
-                f = open(fpath)
-                data = f.read()
-                f.close()
-                self.project_file_path = ''
-            except:
-                message = "File '%s' could not be opened." % fpath
-                popup = QMessageBox(QMessageBox.Warning,
-                            "Error in file path", message,
-                            QMessageBox.Ok, self)
-                popup.show()
-                return
-        else:
-            # no file was selected
-            return
-        if data:
-            try:
-                sobjs = yaml.safe_load(data)
-                # deserialize(orb, sobjs)
-                byclass = {}
-                for so in sobjs:
-                    if byclass.get(so['_cname']):
-                        byclass[so['_cname']].append(so)
-                    else:
-                        byclass[so['_cname']] = [so]
-                if 'Project' in byclass:
-                    projid = byclass['Project'][0].get('id', '')
-                    if projid:
-                        start_msg = 'Loading requirements for project'
-                        start_msg += '{} ...'.format(projid)
-                        message = "Success: project {} imported.".format(
-                                                                    projid)
-                    else:
-                        start_msg = 'Loading project requirements ...'
-                        message = "Your data has been imported."
-                else:
-                    start_msg = 'Loading project requirements ...'
-                    message = "Your requirements have been imported."
-                self.statusbar.showMessage(start_msg)
-                self.pb.show()
-                self.pb.setValue(0)
-                self.pb.setMaximum(len(sobjs))
-                i = 0
-                for cname in DESERIALIZATION_ORDER:
-                    if cname in byclass:
-                        for so in byclass[cname]:
-                            deserialize(orb, [so])
-                            i += 1
-                            self.pb.setValue(i)
-                            self.statusbar.showMessage('{}: {}'.format(cname,
-                                                         so.get('id', '')))
-                        byclass.pop(cname)
-                # deserialize any other classes ...
-                if byclass:
-                    for cname in byclass:
-                        for so in byclass[cname]:
-                            deserialize(orb, [so])
-                            i += 1
-                            self.pb.setValue(i)
-                self.pb.hide()
-                if not message:
-                    message = "Your data has been imported."
-                popup = QMessageBox(QMessageBox.Information,
-                            "Project Data Import", message,
-                            QMessageBox.Ok, self)
-                popup.show()
-                if hasattr(self, 'sys_tree'):
-                    self.refresh_tree_and_dashboard()
-                return
-            except:
-                message = "An error was encountered."
-                popup = QMessageBox(QMessageBox.Warning,
-                            "Error in Data Import", message,
-                            QMessageBox.Ok, self)
-                popup.show()
-                return
 
     def import_objects(self):
         """
