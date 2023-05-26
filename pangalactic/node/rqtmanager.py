@@ -61,6 +61,8 @@ class RequirementManager(QDialog):
         self.export_tsv_button.clicked.connect(self.export_tsv)
         self.export_excel_button = SizedButton("Export as Excel")
         self.export_excel_button.clicked.connect(self.export_excel)
+        self.export_excel_templ_button = SizedButton("Export Excel Template")
+        self.export_excel_templ_button.clicked.connect(self.export_excel_templ)
         self.import_excel_button = SizedButton("Import from Excel")
         self.import_excel_button.clicked.connect(self.import_excel)
         self.hide_tree_button = SizedButton('Hide Allocations',
@@ -72,6 +74,7 @@ class RequirementManager(QDialog):
         top_layout.addWidget(self.select_cols_button)
         top_layout.addWidget(self.export_tsv_button)
         top_layout.addWidget(self.export_excel_button)
+        top_layout.addWidget(self.export_excel_templ_button)
         top_layout.addWidget(self.import_excel_button)
         top_layout.addStretch(1)
         top_layout.addWidget(self.hide_tree_button)
@@ -252,6 +255,45 @@ class RequirementManager(QDialog):
                     orb.log.debug('  unable to start Excel')
         else:
             orb.log.debug('  ... export to Excel cancelled.')
+            return
+
+    def export_excel_templ(self):
+        """
+        [Handler for 'Export Excel Template' button]  Write the requirements to
+        a .xlsx file.
+        """
+        orb.log.debug('* export_excel_template()')
+        name = 'Requirements-Template'
+        fname = name + '.xlsx'
+        state_path = state.get('rqt_excel_last_path') or ''
+        suggested_fpath = os.path.join(state_path, fname)
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to .xlsx File',
+                                    suggested_fpath, '(*.xlsx)')
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            state['rqt_excel_last_path'] = os.path.dirname(fpath)
+            write_objects_to_xlsx(None, fpath, view=self.view,
+                                  cname='Requirement')
+            html = '<h3>Success!</h3>'
+            msg = 'Requirements Template written to Excel file:'
+            html += f'<p><b><font color="green">{msg}</font></b><br>'
+            html += f'<b><font color="blue">{fpath}</font></b></p>'
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+            # try to start Excel with file if on Win or Mac ...
+            if sys.platform == 'win32':
+                try:
+                    os.system(f'start excel.exe "{fpath}"')
+                except:
+                    orb.log.debug('  unable to start Excel')
+            elif sys.platform == 'darwin':
+                try:
+                    os.system(f'open -a "Microsoft Excel.app" "{fpath}"')
+                except:
+                    orb.log.debug('  unable to start Excel')
+        else:
+            orb.log.debug('  ... Excel Template cancelled.')
             return
 
     def import_excel(self):
