@@ -87,15 +87,7 @@ class ActivityTable(QWidget):
         subj = getattr(self, 'subject', None)
         if not subj:
             return []
-        system_activities = []
-        for activity in subj.sub_activities:
-            if self.act_of in [activity.of_function,
-                               activity.of_system]:
-                system_activities.append(activity)
-        all_activities = [(act.sub_activity_sequence, act)
-                          for act in system_activities]
-        all_activities.sort()
-        return [act_tuple[1] for act_tuple in all_activities]
+        return subj.sub_activities
 
     def set_title_text(self):
         if not hasattr(self, 'title_widget'):

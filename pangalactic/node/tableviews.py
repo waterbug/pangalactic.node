@@ -384,6 +384,18 @@ class ActivityInfoTable(QTableWidget):
         self.cellChanged.connect(self.on_item_mod)
 
     @property
+    def acts(self):
+        """
+        The "acts" are the sub_activities of the subject activity.
+        """
+        a = []
+        if self.subject:
+            a = getattr(self.subject, 'sub_activities', []) or []
+        if a:
+            a.sort(key=lambda x: x.sub_activity_sequence or 0)
+        return a
+
+    @property
     def view(self):
         """
         The "view" is simply the list of property names associated with the
@@ -393,18 +405,7 @@ class ActivityInfoTable(QTableWidget):
 
     def setup_table(self):
         self.setColumnCount(len(self.view))
-        acts = []
-        if self.usage:
-            if isinstance(self.usage, orb.classes['Acu']):
-                acts = self.usage.function_activities or []
-            elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
-                acts = self.usage.system_activities or []
-        elif self.subject:
-            acts = orb.search_exact(cname='Activity', owner=self.project,
-                              sub_activity_of=self.subject,
-                              of_system=None, of_function=None)
-        if acts:
-            self.setRowCount(len(acts))
+        self.setRowCount(len(self.acts))
         header_labels = []
         widths = []
         for pname, colname, width in self.view_conf:
@@ -423,18 +424,11 @@ class ActivityInfoTable(QTableWidget):
             widths.append(width)
         self.setHorizontalHeaderLabels(header_labels)
         # populate relevant data
-        modified = set()
-        if acts:
-            acts.sort(key=lambda x: orb.get_prop_value(x, 't_start'))
-            for i, act in enumerate(acts):
-                if act.sub_activity_sequence != i:
-                    act.sub_activity_sequence = i
-                    modified.add(act)
-                for j, ptuple in enumerate(self.view_conf):
-                    pname, colname, width = ptuple
-                    self.setItem(i, j,
-                       InfoTableItem(orb.get_prop_str_value(act, pname) or ''))
-        self.acts = acts
+        for i, act in enumerate(self.acts):
+            for j, ptuple in enumerate(self.view_conf):
+                pname, colname, width = ptuple
+                self.setItem(i, j,
+                   InfoTableItem(orb.get_prop_str_value(act, pname) or ''))
         self.resizeColumnsToContents()
         # width_fit = sum(w for w in widths) + 100
         # self.resize(width_fit, 240)
