@@ -25,7 +25,6 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
-# from pangalactic.node.tablemodels import MappingTableModel, ObjectTableModel
 from pangalactic.node.tableviews  import ActivityInfoTable
 from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
@@ -113,44 +112,6 @@ class ActivityTable(QWidget):
         else:
             title_txt += red_text.format('No Activity')
         self.title_widget.setText(title_txt)
-
-    # def reset_table(self):
-        # table_cols = ['id', 'name', 't_start', 'duration', 'description']
-        # table_headers = dict(id='ID', name='Name',
-                           # t_start='Start\nTime',
-                           # duration='Duration',
-                           # description='Description')
-        # d_list = []
-        # for act in self.activities:
-            # obj_dict = {}
-            # for col in table_cols:
-                # if col in orb.schemas['Activity']['field_names']:
-                    # str_val = getattr(act, col, '')
-                    # if str_val and len(str_val) > 28:
-                        # wrap(str_val, width=28)
-                        # str_val = fill(str_val, width=28)
-                    # obj_dict[table_headers[col]] = str_val
-                # else:
-                    # val = get_pval_as_str(act.oid, col)
-                    # obj_dict[table_headers[col]] = val
-            # d_list.append(obj_dict)
-        # new_model = MappingTableModel(d_list)
-        # new_table = QTableView()
-        # new_table.setModel(new_model)
-        # headers = new_table.horizontalHeader()
-        # headers.setStyleSheet('font-weight: bold')
-        # new_table.setSizePolicy(QSizePolicy.Preferred,
-                                # QSizePolicy.Preferred)
-        # new_table.setAlternatingRowColors(True)
-        # new_table.resizeColumnsToContents()
-        # if getattr(self, 'table', None):
-            # self.main_layout.removeWidget(self.table)
-            # self.table.parent = None
-            # self.table.close()
-            # self.table = None
-        # self.main_layout.addWidget(new_table, stretch=1)
-        # self.table = new_table
-        # self.table.setAttribute(Qt.WA_DeleteOnClose)
 
     def set_table(self):
         # view = ['name', 't_start', 't_end', 'duration', 'description']

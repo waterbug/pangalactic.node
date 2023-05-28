@@ -314,14 +314,13 @@ class InfoTableItem(QTableWidgetItem):
 class ActivityInfoTable(QTableWidget):
     """
     Table to provide an editable view of Activity instances in the timeline of
-    a parent activity and a system usage (instance of a system in the context
-    of a project or an assembly). The rows of the table contain properties and
-    parameters of Activity instances.
+    a parent activity. The rows of the table contain properties and parameters
+    of Activity instances.
 
     The target use case is the Concept of Operations (ConOps) for a mission.
     """
-    def __init__(self, subject, project=None, usage=None, view_conf=None,
-                 min_col_width=20, max_col_width=300, parent=None):
+    def __init__(self, subject, project=None, view_conf=None, min_col_width=20,
+                 max_col_width=300, parent=None):
         """
         Initialize
 
@@ -332,9 +331,6 @@ class ActivityInfoTable(QTableWidget):
         Keyword Args:
             project (Project): [required] the project whose systems' activities
                 are displayed in the table
-            usage (Acu or ProjectSystemUsage): [optional] if specified,
-                activities displayed in the table are restricted to those
-                applicable to the usage
             view_conf (list):  list in which each element is a 3-tuple
                 (pname, colname, width), where pname is the property id,
                 colname is the column name (if empty string, pname is the
@@ -347,28 +343,6 @@ class ActivityInfoTable(QTableWidget):
         orb.log.info('* ActivityInfoTable initializing ...')
         self.project = project
         self.subject = subject
-        self.usage = usage
-        if usage:
-            orb.log.info(f'  - specified usage: {usage.id}')
-            self.usage = usage
-        else:
-            orb.log.info('  [no usage specified]')
-            # orb.log.info(f'  - project: {project.id}')
-            # psus = project.systems
-            # if psus:
-                # orb.log.info('    project systems:')
-                # # TODO: provide pick-list with systems
-                # # ... for now, look for a spacecraft
-                # for psu in psus:
-                    # orb.log.info(f'    + {psu.system.id}')
-                    # t = getattr(psu.system.product_type , 'name', None) or None
-                    # if t == 'Spacecraft':
-                        # orb.log.info('      (spacecraft, selected.)')
-                        # self.usage = psu.system
-                        # break
-                # if not self.usage:
-                    # self.usage = psus[0]
-                    # orb.log.info('      (no SC, selected first system.)')
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         # TODO: get default view_conf from prefs / config
