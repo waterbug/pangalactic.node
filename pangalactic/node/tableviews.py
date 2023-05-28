@@ -8,6 +8,7 @@ import ruamel_yaml as yaml
 
 # PyQt
 from PyQt5.QtCore    import Qt, QSize, QTimer
+from PyQt5.QtGui     import QBrush, QFont
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFileDialog, QSizePolicy, QTableView,
                              QTableWidget, QTableWidgetItem, QVBoxLayout)
@@ -311,6 +312,20 @@ class InfoTableItem(QTableWidgetItem):
             self.tableWidget().viewport().update()
 
 
+class InfoTableHeaderItem(QTableWidgetItem):
+
+    def __init__(self, text=None):
+        if text is not None:
+            super().__init__(text)
+        else:
+            super().__init__()
+        self.setBackground(QBrush(Qt.lightGray))
+        font = QFont()
+        font.setWeight(QFont.Bold)
+        self.setFont(font)
+        self.isResolving = False
+
+
 class ActivityInfoTable(QTableWidget):
     """
     Table to provide an editable view of Activity instances in the timeline of
@@ -351,6 +366,7 @@ class ActivityInfoTable(QTableWidget):
             ('t_start', '', 80),
             ('t_end', '', 80),
             ('duration', '', 80),
+            ('P[average]', '', 100),
             ('description', '', 150)
             ]
         self.view_conf = view_conf or default_view_conf[:]
@@ -380,23 +396,21 @@ class ActivityInfoTable(QTableWidget):
     def setup_table(self):
         self.setColumnCount(len(self.view))
         self.setRowCount(len(self.acts))
-        header_labels = []
         widths = []
-        for pname, colname, width in self.view_conf:
+        for i, (pname, colname, width) in enumerate(self.view_conf):
             if colname:
-                header_label = colname
-                header_labels.append(header_label)
+                header_label = InfoTableHeaderItem(text=colname)
             else:
                 # create col names based on pnames
-                header_label = pname_to_header(pname, '', width=width)
-                header_labels.append(header_label)
+                header_label = InfoTableHeaderItem(
+                                text=pname_to_header(pname, '', width=width))
             # if width is unspecified, set based on length of header_label
             if not width:
                 if colname:
-                    width = len(header_label)*20
+                    width = len(header_label.text())*20
                 width = min(max(width, self.min_col_width), self.max_col_width)
             widths.append(width)
-        self.setHorizontalHeaderLabels(header_labels)
+            self.setHorizontalHeaderItem(i, header_label)
         # populate relevant data
         for i, act in enumerate(self.acts):
             for j, ptuple in enumerate(self.view_conf):
