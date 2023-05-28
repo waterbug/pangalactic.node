@@ -280,6 +280,7 @@ class TimelineScene(QGraphicsScene):
                              sub_activity_of=self.subject,
                              sub_activity_sequence=seq)
         else:
+            # subject is a Mission
             activity = clone("Activity", id=act_id, name=act_name,
                              activity_type=activity_type, owner=project,
                              sub_activity_of=self.subject,

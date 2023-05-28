@@ -362,10 +362,9 @@ class ActivityInfoTable(QTableWidget):
         self.max_col_width = max_col_width
         default_view_conf = [
             ('name', '', 100),
-            ('t_start', '', 80),
-            ('t_end', '', 80),
             ('duration', '', 80),
             ('P[average]', '', 100),
+            ('R_D[average]', '', 100),
             ('description', '', 150)
             ]
         self.view_conf = view_conf or default_view_conf[:]
