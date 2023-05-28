@@ -319,7 +319,7 @@ class InfoTableHeaderItem(QTableWidgetItem):
             super().__init__(text)
         else:
             super().__init__()
-        self.setBackground(QBrush(Qt.lightGray))
+        self.setBackground(QBrush(Qt.yellow))
         font = QFont()
         font.setWeight(QFont.Bold)
         self.setFont(font)
@@ -360,7 +360,6 @@ class ActivityInfoTable(QTableWidget):
         self.subject = subject
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
-        # TODO: get default view_conf from prefs / config
         default_view_conf = [
             ('name', '', 100),
             ('t_start', '', 80),
