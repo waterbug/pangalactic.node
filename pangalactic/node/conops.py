@@ -30,6 +30,9 @@ import os
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QRectF, QPointF, QPoint
+from PyQt5.QtGui import (QColor, QIcon, QPixmap, QCursor, QPainter,
+                         QPainterPath, QPolygonF, QTransform)
+# from PyQt5.QtGui import QGraphicsProxyWidget
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
@@ -37,9 +40,6 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QGraphicsPathItem, QVBoxLayout, QToolBar,
                              QWidgetAction, QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
-from PyQt5.QtGui import (QIcon, QPixmap, QCursor, QPainter, QPainterPath,
-                         QPolygonF, QTransform)
-# from PyQt5.QtGui import QGraphicsProxyWidget
 
 # pangalactic
 from pangalactic.core             import state
@@ -131,6 +131,59 @@ class EventBlock(QGraphicsPolygonItem):
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
+
+BAR_COLORS = ['red', 'darkRed', 'green', 'darkGreen', 'blue',
+            'darkBlue', 'cyan', 'darkCyan', 'magenta', 'darkMagenta', 'yellow',
+            'darkYellow', 'gray', 'darkGray', 'lightGray']
+bar_colors = [getattr(Qt, color) for color in BAR_COLORS]
+# -----------------------------------------------------
+#  pinkity (#ffccf9)
+#  purplish (#ecd4ff)
+#  pinkish (#fbe4ff)
+#  shade purple (#dcd3ff)
+#  greenish  (#aff8db)
+#  blue-green (#c4faf8)
+#  yellow green (#dbffd6)
+#  pale yelleen (#f3ffe3)
+#  light yellow (#ffffd1)
+#  med. yellow (#fff5ba)
+#  light gray (#c0c0c0)
+# -----------------------------------------------------
+
+
+class TimelineBar(QGraphicsPolygonItem):
+    """
+    TimelineBar is a segmented rectangle representing the durations of all the
+    subactivities of the subject activity.
+    """
+
+    def __init__(self, subject=None, scene=None, style=None, x_start=100, 
+                 x_end=1000, color=Qt.cyan, parent=None):
+        """
+        Initialize TimelineBar.
+
+        Keyword Args:
+            subject (Activity):  the activity the block represents
+            scene (QGraphicsScene):  scene containing this item
+            style (Qt.PenStyle):  style of block border
+            parent (QGraphicsItem): parent of this item
+        """
+        super().__init__(parent)
+        self.setFlags(QGraphicsItem.ItemIsSelectable |
+                      QGraphicsItem.ItemIsFocusable|
+                      QGraphicsItem.ItemSendsGeometryChanges)
+        self.style = style or Qt.SolidLine
+        self.subject = subject
+        self.scene = scene
+        color = QColor('#ffccf9')
+        # color.setNamedColor('#d5aaff')
+        self.setBrush(color)
+        self.polygon = QPolygonF([
+                QPointF(x_start, 480), QPointF(x_end, 480),
+                QPointF(x_end, 460), QPointF(x_start, 460)])
+        self.setPolygon(self.polygon)
+        self.block_label = BlockLabel(getattr(self.subject, 'name', '') or '',
+                                      self, point_size=8)
 
 
 class TimelineView(QGraphicsView):
@@ -228,6 +281,8 @@ class TimelineScene(QGraphicsScene):
             orb.log.debug(f'  act_of: {name}')
         self.timeline = Timeline()
         self.addItem(self.timeline)
+        self.timelinebar = TimelineBar()
+        self.addItem(self.timelinebar)
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
         self.grabbed_item = None
@@ -310,27 +365,6 @@ class TimelineScene(QGraphicsScene):
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
-
-    # DEPRECATED (FOR NOW) -- activities can be edited in the tables
-    # def edit_scene_activity(self, activity):
-        # view = ['id', 'name', 'description']
-        # panels = ['main', 'parameters']
-        # # don't use contingencies for Activity default parameters
-        # # (t_start, t_end, duration)
-        # noctgcy = DEFAULT_CLASS_PARAMETERS.get('Activity')
-        # pxo = PgxnObject(activity, edit_mode=True, view=view, noctgcy=noctgcy,
-                         # panels=panels, modal_mode=True, parent=self.parent())
-        # pxo.activity_edited.connect(self.on_activity_edited)
-        # pxo.show()
-
-    # DEPRECATED (FOR NOW) -- activities can be edited in the tables
-    # def on_activity_edited(self, oid):
-        # # emitted signal causes ActivityTable updates
-        # self.scene_activity_edited.emit(oid)
-        # # update activity block labels if necessary
-        # for item in self.timeline.evt_blocks:
-            # if item.activity.oid == oid:
-                # item.update_block_label()
 
 
 # TODO:  we need a subclass of TimelineWidget (maybe SubTimelineWidget) that
@@ -536,6 +570,23 @@ class TimelineWidget(QWidget):
         if self.system in [activity.of_function, activity.of_system]:
             self.set_new_scene()
 
+    def create_action(self, text, slot=None, icon=None, tip=None,
+                      checkable=False):
+        action = QWidgetAction(self)
+        if icon is not None:
+            icon_file = icon + state.get('icon_type', '.png')
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
+            action.setIcon(QIcon(icon_path))
+        if tip is not None:
+            action.setToolTip(tip)
+            # action.setStatusTip(tip)
+        if slot is not None:
+            action.triggered.connect(slot)
+        if checkable:
+            action.setCheckable(True)
+        return action
+
     def plot(self):
         pass
         # orb.log.debug('* plot()')
@@ -657,23 +708,6 @@ class TimelineWidget(QWidget):
         # w6.plot(generated_x, generated_dr, brush=(0,0,255,150))
         # win.show()
 
-    def create_action(self, text, slot=None, icon=None, tip=None,
-                      checkable=False):
-        action = QWidgetAction(self)
-        if icon is not None:
-            icon_file = icon + state.get('icon_type', '.png')
-            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-            icon_path = os.path.join(icon_dir, icon_file)
-            action.setIcon(QIcon(icon_path))
-        if tip is not None:
-            action.setToolTip(tip)
-            # action.setStatusTip(tip)
-        if slot is not None:
-            action.triggered.connect(slot)
-        if checkable:
-            action.setCheckable(True)
-        return action
-
 
 class ConOpsModeler(QMainWindow):
     """
@@ -686,10 +720,18 @@ class ConOpsModeler(QMainWindow):
         - main_timeline (TimelineWidget(QWidget))
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
+            * activity blocks (EventBlock(QGraphicsPolygonItem)
+            * timelinebars (TimelineBar(QGraphicsPolygonItem))
+              for each subsystem in the system that is the "of_system" or
+              "of_function" in the main_timeline:
+
+    Then if a subsystem TimelineBar gets focus, the following are added for
+    that subsystem:
         - activity_table (ActivityTable)
         - sub_timeline (TimelineWidget(QWidget))
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
+            * activity blocks (EventBlock(QGraphicsPolygonItem)
         - sub_activity_table (ActivityTable)
     """
 
@@ -801,12 +843,12 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.subject, position='main')
-        self.main_timeline.setMinimumSize(1000, 150)
+        self.main_timeline.setMinimumSize(1000, 300)
         self.sub_timeline = TimelineWidget(
                                         self.main_timeline.scene.current_focus,
                                         position='sub')
         self.sub_timeline.setEnabled(False)
-        self.sub_timeline.setMinimumSize(1000, 150)
+        self.sub_timeline.setMinimumSize(1000, 300)
         self.outer_layout = QGridLayout()
         self.create_activity_table()
         self.outer_layout.addWidget(self.activity_table, 0, 0)
@@ -816,7 +858,7 @@ class ConOpsModeler(QMainWindow):
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
         self.outer_layout.addWidget(self.sub_timeline, 1, 1)
         self.widget = QWidget()
-        self.widget.setMinimumSize(1500, 600)
+        self.widget.setMinimumSize(1500, 700)
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         if init:

@@ -8,7 +8,7 @@ import ruamel_yaml as yaml
 
 # PyQt
 from PyQt5.QtCore    import Qt, QSize, QTimer
-from PyQt5.QtGui     import QBrush, QFont
+from PyQt5.QtGui     import QBrush, QColor, QFont
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFileDialog, QSizePolicy, QTableView,
                              QTableWidget, QTableWidgetItem, QVBoxLayout)
@@ -319,7 +319,8 @@ class InfoTableHeaderItem(QTableWidgetItem):
             super().__init__(text)
         else:
             super().__init__()
-        self.setBackground(QBrush(Qt.yellow))
+        color = QColor('#ffffd1')
+        self.setBackground(QBrush(color))
         font = QFont()
         font.setWeight(QFont.Bold)
         self.setFont(font)
@@ -394,7 +395,6 @@ class ActivityInfoTable(QTableWidget):
     def setup_table(self):
         self.setColumnCount(len(self.view))
         self.setRowCount(len(self.acts))
-        widths = []
         for i, (pname, colname, width) in enumerate(self.view_conf):
             if colname:
                 header_label = InfoTableHeaderItem(text=colname)
@@ -407,7 +407,6 @@ class ActivityInfoTable(QTableWidget):
                 if colname:
                     width = len(header_label.text())*20
                 width = min(max(width, self.min_col_width), self.max_col_width)
-            widths.append(width)
             self.setHorizontalHeaderItem(i, header_label)
         # populate relevant data
         for i, act in enumerate(self.acts):
@@ -416,15 +415,12 @@ class ActivityInfoTable(QTableWidget):
                 self.setItem(i, j,
                    InfoTableItem(orb.get_prop_str_value(act, pname) or ''))
         self.resizeColumnsToContents()
-        # width_fit = sum(w for w in widths) + 100
-        # self.resize(width_fit, 240)
 
     def sizeHint(self):
         horizontal = self.horizontalHeader()
         vertical = self.verticalHeader()
-        frame = self.frameWidth() * 2
-        return QSize(horizontal.length() + vertical.width() + frame,
-                     vertical.length() + horizontal.height() + frame)
+        return QSize(horizontal.width() * .7,
+                     vertical.height() * .6)
 
     def on_item_mod(self, row=None, col=None):
         orb.log.debug('  - ActivityInfoTable.on_item_mod()')
