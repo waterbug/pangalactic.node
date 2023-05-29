@@ -342,6 +342,7 @@ class RequirementManager(QDialog):
                 else:
                     orb.log.debug('      + is new, adding ...')
                     self.fpanel.add_object(rqt)
+                self.fpanel.refresh()
             else:
                 orb.log.debug(f'  rqt [{i}] not found.')
 
