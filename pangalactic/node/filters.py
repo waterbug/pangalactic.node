@@ -879,6 +879,7 @@ class FilterPanel(QWidget):
         # orb.log.debug('  - FilterPanel.refresh()')
         # self.build_proxy_view(objs=self.objs)
         self.set_source_model(self.create_model(self.objs))
+        self.repaint()
 
     def on_column_moved(self, logical_index, old_index, new_index):
         # orb.log.debug('* FilterPanel.on_column_moved():')
