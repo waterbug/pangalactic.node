@@ -2,7 +2,8 @@
 """
 Wizards
 """
-import os, pprint
+import os
+# import pprint
 from collections import OrderedDict as OD
 from datetime import datetime
 from textwrap import wrap
@@ -315,7 +316,7 @@ class DataHeaderPage(QWizardPage):
         self.hbox.addLayout(self.vbox)
 
     def initializePage(self):
-        orb.log.debug('* DataHeaderPage')
+        # orb.log.debug('* DataHeaderPage')
         # TODO:  check self.vbox for a column listing from a previous
         # instantiation -- if one is found, remove it ...
         ds_name = data_wizard_state["dataset_name"]
@@ -469,14 +470,14 @@ class DataHeaderPage(QWizardPage):
 
 
 def get_prop_def(cname, property_name):
-    orb.log.debug(f'* wizard: get_prop_def("{property_name}")')
+    # orb.log.debug(f'* wizard: get_prop_def("{property_name}")')
     e = orb.registry.pes.get(property_name)
     if e:
         PGANA = orb.get('pgefobjects:PGANA')
         prop_def_oid = e['oid'] + '.PropertyDefinition'
         prop_def = orb.get(prop_def_oid)
         if not prop_def:
-            orb.log.debug('  prop def not found, creating ...')
+            # orb.log.debug('  prop def not found, creating ...')
             PropDef = orb.classes['PropertyDefinition']
             label = None
             if cname in PREFERRED_ALIASES:
@@ -573,7 +574,7 @@ class PropertyDropLabel(ColorLabel):
         return Qt.CopyAction
 
     def dragEnterEvent(self, event):
-        orb.log.debug(f'* a drag entered label {self.idx} ...')
+        # orb.log.debug(f'* a drag entered label {self.idx} ...')
         if (event.mimeData().hasFormat(
                 'application/x-pgef-data-element-definition')
                 or event.mimeData().hasFormat(
@@ -614,14 +615,15 @@ class PropertyDropLabel(ColorLabel):
         DataElementDefinition object currently associated with the label from
         the mapping and add the dropped one to the mapping.
         """
-        orb.log.debug(f'* label {self.idx} got a drop ...')
+        # orb.log.debug(f'* label {self.idx} got a drop ...')
         if event.mimeData().hasFormat(
                                 'application/x-pgef-data-element-definition'):
             data = extract_mime_data(event,
                                 'application/x-pgef-data-element-definition')
             icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
             self.dedef = orb.get(dedef_oid)
-            self.set_content(dedef_id)
+            name = self.dedef.label or dedef_id
+            self.set_content(name)
             self.setStyleSheet('background-color: yellow')
             self.adjustSize()
             dispatcher.send(signal='dedef drop', dedef_id=dedef_id,
@@ -632,7 +634,8 @@ class PropertyDropLabel(ColorLabel):
                                 'application/x-pgef-parameter-definition')
             icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
             self.dedef = orb.get(dedef_oid)
-            self.set_content(dedef_id)
+            name = self.dedef.label or dedef_id
+            self.set_content(name)
             self.setStyleSheet('background-color: yellow')
             self.adjustSize()
             dispatcher.send(signal='dedef drop', dedef_id=dedef_id,
@@ -643,7 +646,8 @@ class PropertyDropLabel(ColorLabel):
                                 'application/x-pgef-property-definition')
             icon, dedef_oid, dedef_id, dedef_name, dedef_cname = data
             self.dedef = orb.get(dedef_oid)
-            self.set_content(dedef_id)
+            name = self.dedef.label or dedef_id
+            self.set_content(name)
             self.setStyleSheet('background-color: yellow')
             self.adjustSize()
             dispatcher.send(signal='dedef drop', dedef_id=dedef_id,
@@ -666,7 +670,7 @@ class MappingPage(QWizardPage):
         dispatcher.connect(self.on_dedef_drop, 'dedef drop')
 
     def initializePage(self):
-        orb.log.debug('* MappingPage.initializePage()')
+        # orb.log.debug('* MappingPage.initializePage()')
         if not self.widgets_added:
             self.add_widgets()
         # after adding all widgets, redo the mapping area for proper sizing
@@ -715,8 +719,8 @@ class MappingPage(QWizardPage):
             self.mapping_layout.addWidget(arrow_label, i, 1)
             self.mapping_layout.addWidget(target_label, i, 2)
         msa_height = min([self.parent().height() - 70, col_labels_height])
-        orb.log.debug(f'  - col_labels_height: {col_labels_height}')
-        orb.log.debug(f'  - mapping_scrollarea height set to: {msa_height}')
+        # orb.log.debug(f'  - col_labels_height: {col_labels_height}')
+        # orb.log.debug(f'  - mapping_scrollarea height set to: {msa_height}')
         self.mapping_scrollarea.setMinimumHeight(msa_height)
         self.vbox.addWidget(self.mapping_scrollarea,
                             alignment=Qt.AlignLeft|Qt.AlignTop)
@@ -724,7 +728,7 @@ class MappingPage(QWizardPage):
         self.updateGeometry()
 
     def add_widgets(self):
-        orb.log.debug('* MappingPage.add_widgets()')
+        # orb.log.debug('* MappingPage.add_widgets()')
         # button to pop up instructions
         instructions_button = QPushButton('View Instructions')
         instructions_button.clicked.connect(self.instructions)
@@ -778,8 +782,8 @@ class MappingPage(QWizardPage):
                             alignment=Qt.AlignLeft|Qt.AlignTop)
         # scroll area does not properly size itself so this is required:
         msa_height = min([self.parent().height() - 70, col_labels_height])
-        orb.log.debug(f'  - col_labels_height: {col_labels_height}')
-        orb.log.debug(f'  - mapping_scrollarea height set to: {msa_height}')
+        # orb.log.debug(f'  - col_labels_height: {col_labels_height}')
+        # orb.log.debug(f'  - mapping_scrollarea height set to: {msa_height}')
         self.mapping_scrollarea.setMinimumHeight(msa_height)
         self.vbox.addStretch()
 
@@ -837,8 +841,8 @@ class MappingPage(QWizardPage):
         for i, row in enumerate(new_dataset):
             dictified.append({col_name : new_dataset[i][j] for j, col_name
                               in enumerate(data_wizard_state['column_names'])})
-        orb.log.debug('  dictified:')
-        orb.log.debug(pprint.pformat(dictified))
+        # orb.log.debug('  dictified:')
+        # orb.log.debug(pprint.pformat(dictified))
         # tablemodel = ListTableModel(new_dataset, parent=self)
         tablemodel = MappingTableModel(dictified, parent=self)
         if hasattr(self, 'tableview'):
@@ -872,9 +876,10 @@ class MappingPage(QWizardPage):
     def on_dedef_drop(self, dedef_id=None, idx=None):
         col_names = data_wizard_state['column_names']
         col_map = data_wizard_state['col_map']
+        # map to dedef "internal name" (id)
         col_map[col_names[idx]] = dedef_id
         self.completeChanged.emit()
-        orb.log.debug(f'column mapping is now: {col_map}')
+        # orb.log.debug(f'column mapping is now: {col_map}')
 
     def isComplete(self):
         """
@@ -882,7 +887,9 @@ class MappingPage(QWizardPage):
         button to be activated.
         """
         # TODO:  return True as soon as any column is mapped
-        if data_wizard_state.get('col_map'):
+        col_map = data_wizard_state.get('col_map')
+        if col_map:
+            orb.log.debug(f'* final column mapping is: {col_map}')
             # TODO:  validate that mapped columns are type-compatible with the
             # properties they are mapped to -- which basically means check that
             # any values mapped to int, float, or bool can be cast
@@ -918,14 +925,14 @@ class ObjectCreationPage(QWizardPage):
         self.setTitle(self.title_txt)
 
     def initializePage(self):
-        orb.log.debug('* Object Creation Page')
+        # orb.log.debug('* Object Creation Page')
         schema = orb.schemas[self.object_type]['fields']
         if self.objs:
             # if objs exist, it means we are re-entering; delete them
             orb.delete(self.objs)
             self.objs = []
         col_map = data_wizard_state['col_map']
-        orb.log.debug(f'* column mapping: {col_map}')
+        # orb.log.debug(f'* column mapping: {col_map}')
 
         self.dataset = data_wizard_state['selected_dataset']
         text = f'Creating {self.object_type} objects from Excel data ...'
@@ -936,6 +943,10 @@ class ObjectCreationPage(QWizardPage):
         self.progress_dialog.setValue(0)
         self.progress_dialog.setMinimumDuration(2000)
         dictified = data_wizard_state['dictified']
+        if self.object_type == 'Requirement':
+            proj_rqts = orb.search_exact(cname='Requirement',
+                                         owner=self.project)
+            cur_ids = [r.id for r in proj_rqts]
         for i, row in enumerate(dictified):
             obj = None
             kw = {}
@@ -957,28 +968,31 @@ class ObjectCreationPage(QWizardPage):
                 kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'Requirement':
                 ID = kw.get('id')
-                obj = None
-                if ID:
-                    obj = orb.select('Requirement', id=ID)
-                if obj:
+                if ID in cur_ids:
                     # update the existing rqt ...
                     orb.log.debug(f'* {ID} is existing rqt, updating it ...')
+                    obj = orb.select('Requirement', id=ID)
                     for a in kw:
                         try:
                             setattr(obj, a, dtype(kw[a]))
                         except:
                             # if cast fails, ignore that field
-                            orb.log.info(f'* update of "{a}" failed.')
+                            orb.log.info(f'  - update of field "{a}" failed.')
                 else:
                     if 'level' not in kw:
                         kw['level'] = 1
                     if 'id' not in kw:
-                        if self.project:
-                            kw['owner'] = self.project
-                            kw['id'] = f"{self.project.id}-{kw['level']}.{i}"
-                        else:
-                            kw['id'] = f"SANDBOX-{kw['level']}.{i}"
-                    obj = clone(self.object_type, **kw)
+                        kw['owner'] = self.project
+                        k = i
+                        while 1:
+                            next_id = f"{self.project.id}-{kw['level']}.{k}"
+                            if next_id in cur_ids:
+                                k += 1
+                            else:
+                                kw['id'] = next_id
+                                cur_ids.append(next_id)
+                                break
+                    obj = clone('Requirement', **kw)
             elif self.object_type == 'HardwareProduct':
                 # first check kw for parameter and data element id's that do
                 # not collide with properties (i.e., are not in the
@@ -1033,7 +1047,7 @@ class ObjectCreationPage(QWizardPage):
         col_map = data_wizard_state['col_map']
         add_cols = set(col_map.values()) - set(MAIN_VIEWS[self.object_type])
         view = MAIN_VIEWS[self.object_type] + sorted(list(add_cols))
-        orb.log.debug(f'  - fpanel view: {view}')
+        # orb.log.debug(f'  - fpanel view: {view}')
         if getattr(self, 'fpanel', None):
             self.vbox.removeWidget(self.fpanel)
             self.fpanel.setAttribute(Qt.WA_DeleteOnClose)
