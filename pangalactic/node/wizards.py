@@ -20,7 +20,9 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import config, state
 from pangalactic.core.meta        import MAIN_VIEWS
-from pangalactic.core.names       import get_external_name_plural, STD_ALIASES
+from pangalactic.core.names       import (get_external_name_plural,
+                                          PREFERRED_ALIASES, STD_ALIASES,
+                                          STD_VIEWS)
 from pangalactic.core.parametrics import (add_default_parameters, de_defz,
                                           parm_defz, set_dval,
                                           set_dval_from_str,
@@ -33,6 +35,7 @@ from pangalactic.node.buttons     import CheckButtonLabel
 from pangalactic.node.dialogs     import ProgressDialog
 # from pangalactic.node.dialogs     import NotificationDialog
 from pangalactic.node.filters     import FilterPanel
+from pangalactic.node.libraries   import LibraryListView
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
 from pangalactic.node.utils       import clone, extract_mime_data
@@ -135,11 +138,17 @@ class DataImportWizard(QWizard):
         dataset = datasets[sheet_names[0]]
         first_col_names = dataset.pop(0)
         orb.log.debug(f'  - col names: {first_col_names}')
-        first_col_lowered = [n.casefold() for n in first_col_names]
+        first_col_lowered = []
+        blank_col = False
+        for n in first_col_names:
+            if n and isinstance(n, str):
+                first_col_lowered.append(n.casefold())
+            else:
+                blank_col = True
         # orb.log.debug(f'    lowered: {first_col_lowered}')
         aliases = STD_ALIASES[object_type]
         # orb.log.debug(f'    aliases: {aliases}')
-        if (object_type in STD_ALIASES and
+        if (not blank_col and object_type in STD_ALIASES and
             all([(a in aliases) for a in first_col_lowered])):
             # all match -- only add ObjectCreationPage ...
             data_wizard_state['dataset'] = dataset
@@ -459,7 +468,7 @@ class DataHeaderPage(QWizardPage):
             return False
 
 
-def get_prop_def(property_name):
+def get_prop_def(cname, property_name):
     orb.log.debug(f'* wizard: get_prop_def("{property_name}")')
     e = orb.registry.pes.get(property_name)
     if e:
@@ -469,8 +478,11 @@ def get_prop_def(property_name):
         if not prop_def:
             orb.log.debug('  prop def not found, creating ...')
             PropDef = orb.classes['PropertyDefinition']
+            label = None
+            if cname in PREFERRED_ALIASES:
+                label = PREFERRED_ALIASES[cname].get(e['id'])
             prop_def = PropDef(oid=prop_def_oid, id=e['id'], id_ns=e['id_ns'],
-                               name=e['name'], owner=PGANA,
+                               name=e['name'], owner=PGANA, label=label,
                                description=e['definition'],
                                range_datatype=e['range'])
         return prop_def
@@ -777,25 +789,36 @@ class MappingPage(QWizardPage):
         self.attr_vbox = QVBoxLayout()
         self.hbox.addLayout(self.attr_vbox)
         objs = []
-        for fname in orb.schemas[self.object_type]['field_names']:
-            # exclude object-valued properties for now ...
-            if (orb.schemas[self.object_type]['fields'][fname]['range']
-                not in orb.classes):
-                objs.append(get_prop_def(fname))
+        std_view = None
+        if self.object_type in STD_VIEWS:
+            std_view = STD_VIEWS[self.object_type]
+            for fname in std_view:
+                objs.append(get_prop_def(self.object_type, fname))
+        else:
+            for fname in orb.schemas[self.object_type]['field_names']:
+                # exclude object-valued properties for now ...
+                if (orb.schemas[self.object_type]['fields'][fname]['range']
+                    not in orb.classes):
+                    objs.append(get_prop_def(self.object_type, fname))
         if self.object_type == 'HardwareProduct':
-            # for HardwareProducts, can map columns to parameters and MEL data
-            # elements
+            # for HardwareProducts, can additionally map columns to parameters
+            # and MEL data elements
             gsfc_dedefs = orb.search_exact(cname='DataElementDefinition',
                                            id_ns='gsfc.mel')
             if gsfc_dedefs:
                 objs += gsfc_dedefs
             objs += orb.get_by_type('ParameterDefinition')
-        self.attr_panel = FilterPanel(objs=objs, as_library=True,
-                                   title=f'{self.object_type} Properties',
-                                   sized_cols={'id': 0, 'range_datatype': 0},
-                                   view=['id', 'range_datatype'],
-                                   height=self.geometry().height(),
-                                   width=450, parent=self)
+        if std_view:
+            self.attr_panel = LibraryListView('PropertyDefinition', objs=objs,
+                                              parent=self)
+        else:
+            self.attr_panel = FilterPanel(objs=objs, as_library=True,
+                                       title=f'{self.object_type} Properties',
+                                       sized_cols={'id': 0,
+                                                   'range_datatype': 0},
+                                       view=['id', 'range_datatype'],
+                                       height=self.geometry().height(),
+                                       width=450, parent=self)
         self.attr_vbox.addWidget(self.attr_panel)
 
         # *******************************************************************

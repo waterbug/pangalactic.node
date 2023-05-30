@@ -307,7 +307,8 @@ class ObjectTableModel(MappingTableModel):
             return ['No Data']
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+        if (role == Qt.DisplayRole and orientation == Qt.Horizontal
+            and section < len(self.col_labels)):
             return self.col_labels[section]
         return QAbstractTableModel.headerData(self, section, orientation, role)
 

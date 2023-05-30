@@ -28,8 +28,8 @@ class LibraryListModel(QAbstractListModel):
     """
     Underlying model for a list view of library objects.
     """
-    def __init__(self, cname, include_subtypes=True, icon_size=None,
-                 parent=None):
+    def __init__(self, cname, objs=None, include_subtypes=True,
+                 icon_size=None, parent=None):
         """
         Initialize the library list model.
 
@@ -37,33 +37,46 @@ class LibraryListModel(QAbstractListModel):
             cname (str):  class name of the library objects
 
         Keyword Args:
+            objs (list of Identifiable): optional list of library objects,
+                which if provided will override the "cname" arg
             include_subtypes (bool): flag, if True include subtypes
             icon_size (Qsize):  size of the icons to be used for library items
             parent (QWidget):  the library model's parent widget
         """
         self.subtypes = include_subtypes
-        if cname == 'DataElementDefinition':
+        self.specified_objects = False
+        if objs:
+            self.specified_objects = True
+            self.cname = objs[0].__class__.__name__
+            self.subtypes = False
+        else:
+            self.cname = cname
+        if self.cname == 'DataElementDefinition':
             # only for DataElementDefinition (do not want ParameterDefinitions)
             self.subtypes = False
-        # orb.log.debug("* LibraryListModel for class %s initializing" % cname)
         super().__init__(parent=parent)
-        self.cname = cname
-        self.refresh()
+        if objs:
+            self.objs = []
+            for obj in objs:
+                self.add_object(obj)
+        else:
+            self.refresh()
 
     def refresh(self):
         # orb.log.debug("* LibraryListModel: %s library refresh ..." % self.cname)
-        if self.subtypes:
-            objs = orb.get_all_subtypes(self.cname)
-        else:
-            objs = orb.get_by_type(self.cname)
-        self.objs = []
-        # sort by name
-        objs.sort(
-            key=lambda o: getattr(o, 'name', '') or  getattr(o, 'id', ''))
-        for obj in objs:
-            self.add_object(obj)
-        # orb.log.debug("  - objs: {}".format(', '.join(
-            # [getattr(obj, 'id', 'none') or 'none' for obj in self.objs])))
+        if not self.specified_objects:
+            if self.subtypes:
+                objs = orb.get_all_subtypes(self.cname)
+            else:
+                objs = orb.get_by_type(self.cname)
+            # sort by name
+            objs.sort(
+                key=lambda o: getattr(o, 'name', '') or  getattr(o, 'id', ''))
+            self.objs = []
+            for obj in objs:
+                self.add_object(obj)
+            # orb.log.debug("  - objs: {}".format(', '.join(
+                # [getattr(obj, 'id', 'none') or 'none' for obj in self.objs])))
 
     def add_object(self, obj):
         """
@@ -95,7 +108,7 @@ class LibraryListModel(QAbstractListModel):
         obj = self.objs[index.row()]
         if role == Qt.DisplayRole:
             # how objects are displayed in the library widget
-            return QVariant(obj.name)
+            return QVariant(getattr(obj, 'label', None) or obj.name)
         elif role == Qt.ToolTipRole:
             if isinstance(obj, orb.classes['Product']):
                 id_v = display_id(obj)
@@ -146,8 +159,8 @@ class LibraryListView(QListView):
     Generic QListView-style View -- initially designed particularly to support
     the Parameter library, for which a table view is now used.
     """
-    def __init__(self, cname, include_subtypes=True, draggable=True,
-                 icon_size=None, parent=None):
+    def __init__(self, cname, objs=None, include_subtypes=True,
+                 draggable=True, icon_size=None, parent=None):
         """
         Initialize the library view.
 
@@ -163,9 +176,13 @@ class LibraryListView(QListView):
             parent (QWidget):  the library view's parent widget
         """
         super().__init__(parent=parent)
-        model = LibraryListModel(cname, include_subtypes=include_subtypes,
+        model = LibraryListModel(cname, objs=objs,
+                                 include_subtypes=include_subtypes,
                                  parent=self)
-        self.cname = cname
+        if objs:
+            self.cname = objs[0].__class__.__name__
+        else:
+            self.cname = cname
         self.setModel(model)
         if draggable:
             self.setDragEnabled(True)

@@ -4697,10 +4697,6 @@ class Main(QMainWindow):
         # data view:  dataset_list (for selecting datasets)
         # ********************************************************
         self.dataset_list = AutosizingListWidget(parent=self)
-        # size policy is set in the class AutosizingListWidget, so this is
-        # unnecessary:
-        # self.dataset_list.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
-                                        # QtWidgets.QSizePolicy.Expanding)
         self.dataset_list.currentRowChanged.connect(self.on_dataset_selected)
         # if there is a current left dock widget, destroy it
         ld_widget = self.left_dock.widget()
