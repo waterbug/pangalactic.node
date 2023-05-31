@@ -973,6 +973,9 @@ class ObjectCreationPage(QWizardPage):
                     orb.log.debug(f'* {ID} is existing rqt, updating it ...')
                     obj = orb.select('Requirement', id=ID)
                     for a in kw:
+                        # only update from non-empty values
+                        if not kw[a] or kw[a] == "None":
+                            continue
                         try:
                             setattr(obj, a, dtype(kw[a]))
                         except:
