@@ -1,5 +1,14 @@
 """
-Optical System tool for computing the error budget of an optical system.
+A tool for computing the error budget of an optical system.
+
+This tool obtains data from the Linear Optical Model (LOM), which is a Matlab
+application that defines the optical surfaces and sensitivities of an optical
+system.
+
+The LOM data structure can be saved to a ".mat" file which can be read using
+the scipy.io.loadmat() function.  For now, this is done on the server side
+(pangalactic.vger) because of possible difficulties in packaging scipy for
+desktop releases.
 """
 #!/usr/bin/env python
 
