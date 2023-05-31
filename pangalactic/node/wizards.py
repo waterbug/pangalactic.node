@@ -975,6 +975,8 @@ class ObjectCreationPage(QWizardPage):
                     for a in kw:
                         # do not update from empty or "None" str values,
                         # but allow 0 (zero) or False values to overwrite
+                        # TODO: fix casting of str "False" values, which will
+                        # be incorrect for bool() ...
                         if kw[a] == "" or kw[a] == "None":
                             continue
                         try:

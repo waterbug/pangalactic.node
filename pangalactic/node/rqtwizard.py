@@ -8,11 +8,12 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDialogButtonBox,
                              QFormLayout, QHBoxLayout, QLabel, QLineEdit,
                              QFrame, QMessageBox, QPlainTextEdit, QPushButton,
-                             QRadioButton, QVBoxLayout, QWizard, QWizardPage)
+                             QRadioButton, QScrollArea, QVBoxLayout, QWidget,
+                             QWizard, QWizardPage)
 
 from louie import dispatcher
 
-from pangalactic.core             import config, state
+from pangalactic.core             import state
 from pangalactic.core.names       import (get_attr_ext_name, get_parm_rel_id,
                                           get_parm_rel_name, get_rel_id,
                                           get_rel_name)
@@ -23,8 +24,7 @@ from pangalactic.core.units       import alt_units
 from pangalactic.node.libraries   import LibraryListView
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import clone, RqtAllocDelegate
-from pangalactic.node.widgets     import (ColorLabel, NameLabel, PlaceHolder,
-                                          ValueLabel)
+from pangalactic.node.widgets     import ColorLabel, NameLabel, ValueLabel
 from pangalactic.node.systemtree  import SystemTreeView
 
 rqt_wizard_state = {}
@@ -58,6 +58,10 @@ class RqtWizard(QWizard):
         self.setWizardStyle(QWizard.ClassicStyle)
         self.setTitleFormat(Qt.RichText)
         self.setSubTitleFormat(Qt.RichText)
+        logo_path = 'pangalacticon.png'
+        if logo_path:
+            image_path = os.path.join(orb.icon_dir, logo_path)
+            self.setPixmap(self.LogoPixmap, QtGui.QPixmap(image_path))
         included_buttons = [QWizard.Stretch,
                             QWizard.BackButton,
                             QWizard.NextButton,
@@ -178,7 +182,8 @@ class RqtWizard(QWizard):
 # General Requirement Pages
 ###########################
 
-# Includes ID page which includes identifier, name, and summary.
+# Includes ID page which includes identifier, name, description, and
+# "parent_requirements" (RequirementAncestry instances) of the new rqt.
 
 class RequirementIDPage(QWizardPage):
 
@@ -186,11 +191,8 @@ class RequirementIDPage(QWizardPage):
         super().__init__(parent)
         self.setTitle("Requirement Identification")
         self.setSubTitle("Identify the requirement you are creating...")
-        layout = QHBoxLayout()
-        logo_path=config.get('tall_logo')
-        if logo_path:
-            image_path=os.path.join(orb.image_dir, logo_path)
-            layout.addWidget(PlaceHolder(image=image_path,parent=self))
+        # layout = QHBoxLayout()
+        layout = QVBoxLayout()
         self.setLayout(layout)
 
     def initializePage(self):
@@ -276,13 +278,22 @@ class RequirementIDPage(QWizardPage):
         self.level_label = QLabel('level: ')
         self.level_layout.addRow(self.level_label, self.level_cb)
         self.level_cb.currentIndexChanged.connect(self.level_select)
-        id_panel_layout = QVBoxLayout()
+
+        id_panel_scrollarea = QScrollArea()
+        id_panel_scrollarea.setWidgetResizable(True)
+        id_panel_container = QWidget()
+        id_panel_scrollarea.setWidget(id_panel_container)
+        id_panel_layout = QVBoxLayout(id_panel_container)
+
         id_panel_layout.addWidget(inst_label)
         id_panel_layout.addWidget(self.pgxn_obj)
         id_panel_layout.addStretch(1)
         id_panel_layout.addLayout(self.level_layout)
         main_layout = self.layout()
-        main_layout.addLayout(id_panel_layout)
+        # main_layout.addLayout(id_panel_layout)
+        main_layout.addWidget(id_panel_scrollarea)
+        main_layout.setStretch(1, 1)
+        self.updateGeometry()
 
     def level_select(self):
         self.rqt.rqt_level = self.level_cb.currentText()
