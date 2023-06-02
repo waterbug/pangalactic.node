@@ -2,7 +2,7 @@
 """
 Wizards
 """
-import os
+import os, re
 # import pprint
 from collections import OrderedDict as OD
 from datetime import datetime
@@ -925,7 +925,7 @@ class ObjectCreationPage(QWizardPage):
         self.setTitle(self.title_txt)
 
     def initializePage(self):
-        # orb.log.debug('* Object Creation Page')
+        orb.log.debug('* Object Creation Page')
         schema = orb.schemas[self.object_type]['fields']
         if self.objs:
             # if objs exist, it means we are re-entering; delete them
@@ -967,7 +967,24 @@ class ObjectCreationPage(QWizardPage):
             if self.test_mode:
                 kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'Requirement':
+                ignore = False
+                data = []
+                for a in kw:
+                    if kw.get(a) in [None, "None", "", "TEST TEST TEST"]:
+                        continue
+                    else:
+                        data.append(kw.get(a))
+                if not data:
+                    # do not create/update objects from empty rows
+                    orb.log.debug(f'  - row {i} has no data, skipping ...')
+                    self.progress_dialog.setValue(i+1)
+                    continue
                 ID = kw.get('id')
+                if re.match('\s', ID):
+                    # if "id" field only contains whitespace, ignore
+                    orb.log.debug(f'  - row {i} has id "{ID}", skipping ...')
+                    self.progress_dialog.setValue(i+1)
+                    continue
                 if ID in cur_ids:
                     # update the existing rqt ...
                     orb.log.debug(f'* {ID} is existing rqt, updating it ...')
@@ -984,7 +1001,8 @@ class ObjectCreationPage(QWizardPage):
                         except:
                             # if cast fails, ignore that field
                             orb.log.info(f'  - update of field "{a}" failed.')
-                else:
+                elif ID:
+                    orb.log.debug(f'  - creating rqt for row {i} ...')
                     if 'level' not in kw:
                         kw['level'] = 1
                     if 'id' not in kw:
