@@ -87,7 +87,7 @@ class RequirementManager(QDialog):
         main_layout.addWidget(self.bbox)
         self.bbox.rejected.connect(self.reject)
         # NOTE: now using word wrap and PGEF_COL_WIDTHS
-        self.fpanel = FilterPanel(self.rqts, view=view, cname='Requirement',
+        self.fpanel = FilterPanel(self.rqts, view=view, as_library=True,
                                   sized_cols=self.sized_cols, word_wrap=True,
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

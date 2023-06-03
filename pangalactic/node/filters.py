@@ -788,7 +788,7 @@ class FilterPanel(QWidget):
         self.proxy_model.layoutChanged.connect(
                                         self.proxy_view.resize_sized_cols)
         self.proxy_model.beginResetModel()
-        objs = objs or []
+        objs = self.objs or []
         if not objs:
             if self.as_library and self.cname:
                 objs = orb.get_by_type(self.cname)
