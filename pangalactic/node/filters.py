@@ -475,7 +475,8 @@ class ProxyView(QTableView):
         self.setShowGrid(False)
         # NOTE: default is Qt.ElideRight
         # self.setTextElideMode(Qt.ElideNone)
-        self.setSelectionMode(QAbstractItemView.SingleSelection)
+        # self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setSelectionBehavior(1)   # row selection
         self.verticalHeader().hide()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

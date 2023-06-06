@@ -70,6 +70,12 @@ class RequirementManager(QDialog):
         self.hide_tree_button.clicked.connect(self.hide_allocation_panel)
         self.show_tree_button = SizedButton('Show Allocations', color="green")
         self.show_tree_button.clicked.connect(self.display_allocation_panel)
+        self.enable_allocs_button = SizedButton('Enable New Allocations',
+                                                color="green")
+        self.enable_allocs_button.clicked.connect(self.enable_allocations)
+        self.disable_allocs_button = SizedButton('Disable New Allocations',
+                                                 color="purple")
+        self.disable_allocs_button.clicked.connect(self.disable_allocations)
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.select_cols_button)
         top_layout.addWidget(self.export_tsv_button)
@@ -77,6 +83,8 @@ class RequirementManager(QDialog):
         top_layout.addWidget(self.export_excel_templ_button)
         top_layout.addWidget(self.import_excel_button)
         top_layout.addStretch(1)
+        top_layout.addWidget(self.enable_allocs_button)
+        top_layout.addWidget(self.disable_allocs_button)
         top_layout.addWidget(self.hide_tree_button)
         top_layout.addWidget(self.show_tree_button)
         self.content_layout = QHBoxLayout()
@@ -107,6 +115,8 @@ class RequirementManager(QDialog):
         # TODO:  make project a property; in its setter, enable the checkbox
         # that opens the "allocation panel" (tree)
         self.display_allocation_panel()
+        self.disable_allocations()
+        self.allocations_enabled = False
         width = width or 600
         height = height or 500
         self.resize(width, height)
@@ -519,6 +529,7 @@ class RequirementManager(QDialog):
         self.sys_tree.setVisible(False)
         self.content_layout.setStretchFactor(self.fpanel_layout, 1)
         self.hide_tree_button.setVisible(False)
+        self.enable_allocs_button.setVisible(False)
         self.show_tree_button.setVisible(True)
 
     def display_allocation_panel(self):
@@ -528,12 +539,13 @@ class RequirementManager(QDialog):
                                        show_allocs=True)
         self.sys_tree.collapseAll()
         self.sys_tree.expandToDepth(1)
-        self.sys_tree.clicked.connect(self.on_select_node)
+        self.sys_tree.clicked.connect(self.on_select_tree_node)
         self.tree_layout = QVBoxLayout()
         self.tree_layout.addWidget(self.sys_tree)
         self.content_layout.addLayout(self.tree_layout, stretch=1)
         self.show_tree_button.setVisible(False)
         self.hide_tree_button.setVisible(True)
+        self.enable_allocs_button.setVisible(True)
 
     def enable_allocations(self, evt):
         """
@@ -541,59 +553,87 @@ class RequirementManager(QDialog):
         requirements to be allocated to an item in the system tree. This can
         only be done by an admin, lead engineer, or systems engineer.
         """
+        # TODO: only allow allocations to be enabled if user has correct role
+        # -- has to be an admin, LE, or SE
+        self.enable_allocs_button.setVisible(False)
+        self.disable_allocs_button.setVisible(True)
+        self.hide_tree_button.setVisible(False)
+        self.allocations_enabled = True
 
-    def on_select_node(self, index):
-        pass
-        # TODO:  filter requirements by selected PSU/Acu
+    def disable_allocations(self):
+        """
+        Disable the capability to create new allocations, leaving the
+        configuration to display allocations of selected rqts and/or rqts
+        allocated to selected nodes.
+        """
+        self.enable_allocs_button.setVisible(True)
+        self.disable_allocs_button.setVisible(False)
+        self.hide_tree_button.setVisible(True)
+        self.allocations_enabled = False
+
+    def on_select_tree_node(self, index):
         # TODO:  enable allocation/deallocation as in wizard if user has
-        # edit permission for selected rqt. (in which case there should appear
-        # a checkbox for "enable allocation/deallocation" above the tree;
-        # otherwise, filtering behavior (as above) is in effect.
+        # edit permission for selected rqt.
+        NOW = dtstamp()
+        link = None
+        allocation = 'None'
+        allocated_rqts = []
+        mapped_i = self.sys_tree.proxy_model.mapToSource(index)
+        link = self.sys_tree.source_model.get_node(mapped_i).link
+        cname = self.sys_tree.source_model.get_node(mapped_i).cname
+        if self.allocations_enabled:
+            # if in allocation mode, allocate the selected rqts to the selected
+            # tree node (or toggle: if allocated, de-allocate)
+            rqts = []
+            if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
+                rows = set()
+                for idx in self.fpanel.proxy_view.selectedIndexes():
+                    rows.add(self.fpanel.proxy_model.mapToSource(idx).row())
+                orb.log.debug(f'  selected rows: {rows}')
+                for row in rows:
+                    oid = getattr(
+                            self.fpanel.proxy_model.sourceModel().objs[row],
+                            'oid', '')
+                    rqt = orb.get(oid)
+                    if rqt:
+                        rqts.append(rqt)
+            else:
+                # TODO: notify user ...
+                orb.log.debug('  no rows selected.')
 
-        # WORKING HERE ...
-        # TODO: edit the below stuff from rqtwizard, adapting it to do multiple
-        # allocations at once ...
-        # link = None
-        # allocated_item = 'None'
-        # mapped_i = self.sys_tree.proxy_model.mapToSource(index)
-        # link = self.sys_tree.source_model.get_node(mapped_i).link
-        # cname = self.sys_tree.source_model.get_node(mapped_i).cname
-        # if (not link and not (cname == 'Project')) or not self.rqt:
-            # orb.log.debug('  node is not link or project (or no self.rqt).')
-            # return
-            # # DEPRECATED attribute 'system_requirements'
-            # # if self.rqt in link.system_requirements:
-                # # # if this is an existing allocation, remove it
-                # # self.rqt.allocated_to_system = None
-            # # else:
-                # # self.rqt.allocated_to_system = link
-                # # # if allocating to system, remove any allocation to function
-                # # if self.rqt.allocated_to_function:
-                    # # self.rqt.allocated_to_function = None
-            # # allocated_item = link.system_role
-        # if cname == 'Project':
-            # if self.rqt.allocated_to is self.project:
-                # # if allocated, de-allocate
-                # self.rqt.allocated_to = None
-            # else:
-                # self.rqt.allocated_to = self.project
-                # allocated_item = self.project.id + ' project'
-        # else:
-            # if self.rqt.allocated_to is link:
-                # # if allocated, de-allocate
-                # self.rqt.allocated_to = None
-            # else:
-                # self.rqt.allocated_to = link
-                # if hasattr(link, 'system'):
-                    # allocated_item = link.system_role
-                # elif hasattr(link, 'component'):
-                    # allocated_item = link.reference_designator
-        # # the expandToDepth is needed to make it repaint to show the allocation
-        # # node as yellow-highlighted
-        # self.sys_tree.expandToDepth(1)
-        # self.sys_tree.scrollTo(index)
-        # # TODO: get the selected name/product so it can be used in the shall
-        # # statement.
+            if (not link and not (cname == 'Project')) or not rqts:
+                orb.log.debug('  no link or project, or no rqts selected.')
+                return
+            if cname == 'Project':
+                for rqt in rqts:
+                    if not rqt.allocated_to is self.project:
+                        rqt.allocated_to = self.project
+                        rqt.mod_datetime = NOW
+                        allocated_rqts.append(f'{rqt.id}: {rqt.name}')
+                allocation = self.project.id + ' project'
+            else:
+                for rqt in rqts:
+                    if not rqt.allocated_to is link:
+                        rqt.allocated_to = link
+                        rqt.mod_datetime = NOW
+                        allocated_rqts.append(f'{rqt.id}: {rqt.name}')
+                if hasattr(link, 'system'):
+                    allocation = link.system_role
+                elif hasattr(link, 'component'):
+                    allocation = link.reference_designator
+            # the expandToDepth is needed to make it repaint to show the allocation
+            # node as yellow-highlighted
+            self.sys_tree.expandToDepth(1)
+            self.sys_tree.scrollTo(index)
+            if allocated_rqts:
+                orb.log.debug('* requirements:')
+                for rqt_info in allocated_rqts:
+                    orb.log.debug(f'  - {rqt_info}')
+                orb.log.debug(f'  have been allocated to: {allocation}')
+        else:
+            # if not in allocation mode, filter rqts to show those allocated to
+            # the selected tree node
+            pass
 
     def set_rqt(self, r):
         self.sys_tree.rqt = r
