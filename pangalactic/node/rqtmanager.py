@@ -494,8 +494,6 @@ class RequirementManager(QDialog):
             # delete any related Relation and ParameterRelation objects
             rel = rqt.computable_form
             if rel:
-                # pr_oid = rqt_wizard_state.get('pr_oid')
-                # pr = orb.get(pr_oid)
                 prs = rel.correlates_parameters
                 if prs:
                     pr_oid = prs[0].oid
@@ -537,13 +535,65 @@ class RequirementManager(QDialog):
         self.show_tree_button.setVisible(False)
         self.hide_tree_button.setVisible(True)
 
+    def enable_allocations(self, evt):
+        """
+        Set up the fpanel and tree to enable a requirement or a group of
+        requirements to be allocated to an item in the system tree. This can
+        only be done by an admin, lead engineer, or systems engineer.
+        """
+
     def on_select_node(self, index):
+        pass
         # TODO:  filter requirements by selected PSU/Acu
         # TODO:  enable allocation/deallocation as in wizard if user has
         # edit permission for selected rqt. (in which case there should appear
         # a checkbox for "enable allocation/deallocation" above the tree;
         # otherwise, filtering behavior (as above) is in effect.
-        pass
+
+        # WORKING HERE ...
+        # TODO: edit the below stuff from rqtwizard, adapting it to do multiple
+        # allocations at once ...
+        # link = None
+        # allocated_item = 'None'
+        # mapped_i = self.sys_tree.proxy_model.mapToSource(index)
+        # link = self.sys_tree.source_model.get_node(mapped_i).link
+        # cname = self.sys_tree.source_model.get_node(mapped_i).cname
+        # if (not link and not (cname == 'Project')) or not self.rqt:
+            # orb.log.debug('  node is not link or project (or no self.rqt).')
+            # return
+            # # DEPRECATED attribute 'system_requirements'
+            # # if self.rqt in link.system_requirements:
+                # # # if this is an existing allocation, remove it
+                # # self.rqt.allocated_to_system = None
+            # # else:
+                # # self.rqt.allocated_to_system = link
+                # # # if allocating to system, remove any allocation to function
+                # # if self.rqt.allocated_to_function:
+                    # # self.rqt.allocated_to_function = None
+            # # allocated_item = link.system_role
+        # if cname == 'Project':
+            # if self.rqt.allocated_to is self.project:
+                # # if allocated, de-allocate
+                # self.rqt.allocated_to = None
+            # else:
+                # self.rqt.allocated_to = self.project
+                # allocated_item = self.project.id + ' project'
+        # else:
+            # if self.rqt.allocated_to is link:
+                # # if allocated, de-allocate
+                # self.rqt.allocated_to = None
+            # else:
+                # self.rqt.allocated_to = link
+                # if hasattr(link, 'system'):
+                    # allocated_item = link.system_role
+                # elif hasattr(link, 'component'):
+                    # allocated_item = link.reference_designator
+        # # the expandToDepth is needed to make it repaint to show the allocation
+        # # node as yellow-highlighted
+        # self.sys_tree.expandToDepth(1)
+        # self.sys_tree.scrollTo(index)
+        # # TODO: get the selected name/product so it can be used in the shall
+        # # statement.
 
     def set_rqt(self, r):
         self.sys_tree.rqt = r

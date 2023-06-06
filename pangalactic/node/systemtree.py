@@ -894,7 +894,7 @@ class SystemTreeView(QTreeView):
                 designator or the component name as the node name
             show_allocs (bool):  flag indicating whether to highlight nodes to
                 which a specified requirement has been allocated
-            rqt (Requirement):  the requirement whose allocations should be
+            rqt (Requirement):  the requirement whose allocation should be
                 highlighted if 'show_allocs' is True
         """
         super().__init__(parent)

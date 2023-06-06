@@ -457,16 +457,6 @@ class RqtAllocPage(QWizardPage):
         if (not link and not (cname == 'Project')) or not self.rqt:
             orb.log.debug('  node is not link or project (or no self.rqt).')
             return
-            # DEPRECATED attribute 'system_requirements'
-            # if self.rqt in link.system_requirements:
-                # # if this is an existing allocation, remove it
-                # self.rqt.allocated_to_system = None
-            # else:
-                # self.rqt.allocated_to_system = link
-                # # if allocating to system, remove any allocation to function
-                # if self.rqt.allocated_to_function:
-                    # self.rqt.allocated_to_function = None
-            # allocated_item = link.system_role
         if cname == 'Project':
             if self.rqt.allocated_to is self.project:
                 # if allocated, de-allocate

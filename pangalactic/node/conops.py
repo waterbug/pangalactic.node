@@ -274,9 +274,7 @@ class TimelineScene(QGraphicsScene):
         self.position = position
         self.subject = activity
         if activity:
-            offnc = activity.of_function
-            ofsys = activity.of_system
-            self.act_of = offnc or ofsys
+            self.act_of = activity.of_system
             name = getattr(self.act_of, 'name', None) or 'None'
             orb.log.debug(f'  act_of: {name}')
         self.timeline = Timeline()
@@ -317,29 +315,17 @@ class TimelineScene(QGraphicsScene):
         activity_type = orb.select("ActivityType", name=activity_type_name)
         prefix = (getattr(self.act_of, 'reference_designator', '') or
                   getattr(self.act_of, 'system_role', '') or
+                  # for Mission ...
                   getattr(getattr(self.act_of, 'owner', None), 'id', '') or
                   'Timeline')
         act_id = '-'.join([prefix, activity_type_name, str(seq)])
         act_name = ' '.join([prefix, activity_type_name, str(seq)])
         project = orb.get(state.get('project'))
-        if isinstance(self.act_of, orb.classes['Acu']):
-            activity = clone("Activity", id=act_id, name=act_name,
-                             activity_type=activity_type, owner=project,
-                             of_function=self.act_of,
-                             sub_activity_of=self.subject,
-                             sub_activity_sequence=seq)
-        elif isinstance(self.act_of, orb.classes['ProjectSystemUsage']):
-            activity = clone("Activity", id=act_id, name=act_name,
-                             activity_type=activity_type, owner=project,
-                             of_system=self.act_of,
-                             sub_activity_of=self.subject,
-                             sub_activity_sequence=seq)
-        else:
-            # subject is a Mission
-            activity = clone("Activity", id=act_id, name=act_name,
-                             activity_type=activity_type, owner=project,
-                             sub_activity_of=self.subject,
-                             sub_activity_sequence=seq)
+        activity = clone("Activity", id=act_id, name=act_name,
+                         activity_type=activity_type, owner=project,
+                         of_system=self.act_of,
+                         sub_activity_of=self.subject,
+                         sub_activity_sequence=seq)
         orb.db.commit()
         evt_block = EventBlock(activity=activity,
                                scene=self)
@@ -372,7 +358,7 @@ class TimelineScene(QGraphicsScene):
 # Mission, a selected project system or group of systems (e.g. a selected SC,
 # all SC's, ground system, all of the above, etc.), or (2) if TimelineWidget
 # activity is a non-Mission activity instance, all subsystems of the current
-# activity's "of_function" component or "of_system" system.
+# activity's "of_system" system.
 
 # TODO: implement "back" based on history
 
@@ -417,9 +403,7 @@ class TimelineWidget(QWidget):
 
     @property
     def system(self):
-        return (getattr(self.subject, 'of_function', None)
-                or getattr(self.subject, 'of_system', None)
-                or None)
+        return getattr(self.subject, 'of_system', None) or None
 
     def set_new_scene(self):
         """
@@ -434,8 +418,7 @@ class TimelineWidget(QWidget):
             for activity in sorted(self.subject.sub_activities,
                                    key=lambda x: getattr(x,
                                    'sub_activity_sequence', 0) or 0):
-                if (activity.of_function == self.system or
-                    activity.of_system == self.system):
+                if (activity.of_system == self.system):
                     item = EventBlock(activity=activity,
                                       scene=scene)
                     evt_blocks.append(item)
@@ -567,7 +550,7 @@ class TimelineWidget(QWidget):
             return
         if activity is self.subject:
             self.set_title()
-        if self.system in [activity.of_function, activity.of_system]:
+        if self.system is activity.of_system:
             self.set_new_scene()
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -722,8 +705,8 @@ class ConOpsModeler(QMainWindow):
             * timeline (Timeline(QGraphicsPathItem))
             * activity blocks (EventBlock(QGraphicsPolygonItem)
             * timelinebars (TimelineBar(QGraphicsPolygonItem))
-              for each subsystem in the system that is the "of_system" or
-              "of_function" in the main_timeline:
+              for each subsystem in the system that is the "of_system"
+              in the main_timeline:
 
     Then if a subsystem TimelineBar gets focus, the following are added for
     that subsystem:
@@ -749,8 +732,8 @@ class ConOpsModeler(QMainWindow):
         mission_name = ' '.join([project.id, 'Mission'])
         mission = None
         # NOTE: usage_list is only relevant if the subject is a Mission;
-        # otherwise, only the usage value of the 'of_system' or 'of_function'
-        # attribute of the subject is relevant
+        # otherwise, only the usage value of the 'of_system' attribute of the
+        # subject is relevant
         self.usage_list = []
         if project.systems:
             for psu in project.systems:

@@ -73,8 +73,7 @@ class ActivityTable(QWidget):
 
     @property
     def act_of(self):
-        return (getattr(self.subject, 'of_system', None) or
-                getattr(self.subject, 'of_function', None))
+        return getattr(self.subject, 'of_system', None)
 
     @property
     def activities(self):

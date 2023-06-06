@@ -967,7 +967,6 @@ class ObjectCreationPage(QWizardPage):
             if self.test_mode:
                 kw['comment'] = "TEST TEST TEST"
             if self.object_type == 'Requirement':
-                ignore = False
                 data = []
                 for a in kw:
                     if kw.get(a) in [None, "None", "", "TEST TEST TEST"]:
