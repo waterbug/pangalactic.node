@@ -30,6 +30,7 @@ from pangalactic.core.parametrics import (add_default_parameters, de_defz,
                                           set_pval_from_str)
 from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.datatimes import dtstamp
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.node.buttons     import CheckButtonLabel
@@ -947,6 +948,8 @@ class ObjectCreationPage(QWizardPage):
             proj_rqts = orb.search_exact(cname='Requirement',
                                          owner=self.project)
             cur_ids = [r.id for r in proj_rqts]
+        NOW = dtstamp()
+        user = orb.get(state.get('local_user_oid'))
         for i, row in enumerate(dictified):
             obj = None
             kw = {}
@@ -969,6 +972,7 @@ class ObjectCreationPage(QWizardPage):
             if self.object_type == 'Requirement':
                 data = []
                 for a in kw:
+                    # ignore these values ...
                     if kw.get(a) in [None, "None", "", "TEST TEST TEST"]:
                         continue
                     else:
@@ -1000,6 +1004,8 @@ class ObjectCreationPage(QWizardPage):
                         except:
                             # if cast fails, ignore that field
                             orb.log.info(f'  - update of field "{a}" failed.')
+                    obj.modifier = user
+                    obj.mod_datetime = NOW
                 elif ID:
                     orb.log.debug(f'  - creating rqt for row {i} ...')
                     if 'level' not in kw:
@@ -1016,6 +1022,10 @@ class ObjectCreationPage(QWizardPage):
                                 cur_ids.append(next_id)
                                 break
                     obj = clone('Requirement', **kw)
+                    obj.creator = user
+                    obj.modifier = user
+                    obj.create_datetime = NOW
+                    obj.mod_datetime = NOW
             elif self.object_type == 'HardwareProduct':
                 # first check kw for parameter and data element id's that do
                 # not collide with properties (i.e., are not in the
@@ -1041,10 +1051,16 @@ class ObjectCreationPage(QWizardPage):
                     orb.log.debug('* {ID} is existing product, updating ...')
                     for a in kw:
                         setattr(obj, a, kw[a])
+                    obj.modifier = user
+                    obj.mod_datetime = NOW
                 else:
                     obj = clone(self.object_type, save_hw=False, **kw)
                     if not getattr(obj, 'id', None):
                         obj.id = orb.gen_product_id(obj)
+                    obj.creator = user
+                    obj.modifier = user
+                    obj.create_datetime = NOW
+                    obj.mod_datetime = NOW
                 if parms:
                     for pid, val in parms.items():
                         set_pval_from_str(obj.oid, pid, val)
@@ -1053,6 +1069,10 @@ class ObjectCreationPage(QWizardPage):
                         set_dval_from_str(obj.oid, deid, val)
             else:
                 obj = clone(self.object_type, **kw)
+                obj.creator = user
+                obj.modifier = user
+                obj.create_datetime = NOW
+                obj.mod_datetime = NOW
             if obj:
                 self.objs.append(obj)
             orb.db.commit()
