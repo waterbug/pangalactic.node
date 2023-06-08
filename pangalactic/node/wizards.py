@@ -30,7 +30,7 @@ from pangalactic.core.parametrics import (add_default_parameters, de_defz,
                                           set_pval_from_str)
 from pangalactic.core.refdata     import trls
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.datatimes import dtstamp
+from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data
 from pangalactic.node.buttons     import CheckButtonLabel
