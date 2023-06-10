@@ -13,6 +13,7 @@ from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
 from pangalactic.core             import diagramz, state
+from pangalactic.core.clone       import clone
 from pangalactic.core.names       import (get_block_model_id,
                                           get_block_model_name,
                                           get_block_model_file_name)
@@ -20,7 +21,7 @@ from pangalactic.core.uberorb     import orb
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.utils       import (clone, extract_mime_data,
+from pangalactic.node.utils       import (extract_mime_data,
                                           create_product_from_template)
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 

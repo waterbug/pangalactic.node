@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QVBoxLayout, QWidget)
 
 from pangalactic.core             import state
+from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 # from pangalactic.core.parametrics import get_pval_as_str,
 from pangalactic.core.parametrics import (get_variable_and_context,
@@ -26,7 +27,6 @@ from pangalactic.core.validation  import get_assembly
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.tableviews  import ActivityInfoTable
-from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import NameLabel
 
 

@@ -20,6 +20,7 @@ from louie import dispatcher
 
 # pangalactic
 from pangalactic.core             import config, state
+from pangalactic.core.clone       import clone
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import (get_external_name_plural,
                                           PREFERRED_ALIASES, STD_ALIASES,
@@ -40,7 +41,7 @@ from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.libraries   import LibraryListView
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tablemodels import ListTableModel, MappingTableModel
-from pangalactic.node.utils       import clone, extract_mime_data
+from pangalactic.node.utils       import extract_mime_data
 from pangalactic.node.widgets     import (AutosizingListView, ColorLabel,
                                           NameLabel, PlaceHolder, ValueLabel)
 from functools import reduce

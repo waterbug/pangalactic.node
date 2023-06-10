@@ -33,6 +33,7 @@ from OpenSSL import crypto
 
 from pangalactic.core                 import __version__
 from pangalactic.core                 import state
+from pangalactic.core.clone           import clone
 from pangalactic.core.parametrics     import add_parameter, set_dval
 from pangalactic.core.refdata         import core
 from pangalactic.core.serializers     import deserialize, serialize
@@ -43,7 +44,6 @@ from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.uberorb         import orb
 # from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dialogs         import LoginDialog, ProgressDialog
-from pangalactic.node.utils           import clone
 from pangalactic.node.widgets         import LogWidget, ModeLabel
 from pangalactic.node.widgets         import AutosizingListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus

@@ -31,6 +31,7 @@ from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
 # pangalactic
 from pangalactic.core             import state
 from pangalactic.core.access      import get_perms
+from pangalactic.core.clone       import clone
 from pangalactic.core.meta        import PGXN_PLACEHOLDERS
 from pangalactic.core.names       import (get_acu_id, get_acu_name,
                                           get_next_ref_des)
@@ -45,8 +46,59 @@ from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
 from pangalactic.node.libraries   import LibraryDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
-from pangalactic.node.utils       import clone, extract_mime_data
+from pangalactic.node.utils       import extract_mime_data
 from pangalactic.node.widgets     import NameLabel, StringFieldWidget, ValueLabel
+
+
+# -----------------------------------------------------------------------------
+# LOM API
+#
+# These functions are being implemented on the server side -- this will change
+# to an rpc-based API
+# -----------------------------------------------------------------------------
+
+# from scipy.io import loadmat
+
+# def get_lom_data(fpath):
+    # """
+    # Read a LOM data set from a .mat file.
+
+    # Args:
+        # fpath (str): path to the .mat file
+    # """
+    # return loadmat(fpath, simplify_cells=True)
+
+# def get_optical_surface_names(data):
+    # """
+    # Get the names of all surfaces in a LOM data set.
+
+    # Args:
+        # data (dict): LOM data set read from .mat file
+    # """
+    # return list(data["lomdata"]["SURFACES"])
+
+# def get_LOM(data):
+    # """
+    # Get the LOM data as a list of dicts, one for each surface, with the
+    # following keys:
+
+        # ['surfacelabel', 'rdy', 'rdx', 'thi', 'map', 'mav', 'ape', 'k',
+        # 'surfacetype', 'coefs_note', 'coefs_vals', 'glass', 'rindex',
+        # 'refractmode', 'decenter_type', 'decenter_vals', 'return_surf',
+        # 'refrays', 'globalcoord_ref', 'globalcoord_xyz', 'globalcoord_abc',
+        # 'globalcoord_abc_note', 'globalcoord_ROT', 'dRR_dRBM', 'dFIR_dRBM',
+        # 'dWFE_dRBM', 'MASK_dRBM', 'dRR_dRK', 'dFIR_dRK', 'dWFE_dRK',
+        # 'MASK_dRK', 'dRR_dZFE', 'dFIR_dZFE', 'dWFE_dZFE', 'MASK_dZFE', 'Sag_m',
+        # 'Sag_mask', 'Sag_xy', 'dSag_dZFE_m']
+
+    # Args:
+        # data (dict): LOM data set read from .mat file
+    # """
+    # return list(data["lomdata"]["LOM"])
+
+# --------------------------------------------------------------------------
+# END OF LOM API
+# --------------------------------------------------------------------------
 
 
 class OpticalComponentBlock(QGraphicsPolygonItem):
@@ -423,10 +475,10 @@ class OpticalSysInfoPanel(QWidget):
         Initialize OpticalSysInfoPanel.
 
         Keyword Args:
-            system (HardwareProduct): an optical system
+            system (Model): an optical system
             parent (QWidget): the parent widget
         """
-        # TODO: make fields editable if "Create a New System" is clicked
+        # TODO: make fields editable if "Define New System" is clicked
         # - product_type is auto-set to "optical system"
         # - add "owner" field (selection list of orgs)
         # - add "TRL" field (selection list)
@@ -483,9 +535,10 @@ class OpticalSysInfoPanel(QWidget):
         info_panel_layout.addStretch(1)
         self.library_button = SizedButton("Library", color="green")
         info_panel_layout.addWidget(self.library_button)
-        self.new_system_button = SizedButton("Define New System", color="blue")
-        info_panel_layout.addWidget(self.new_system_button)
-        self.new_system_button.clicked.connect(self.define_new_system)
+        self.import_system_button = SizedButton("Import System from LOM",
+                                                color="blue")
+        info_panel_layout.addWidget(self.import_system_button)
+        self.import_system_button.clicked.connect(self.import_lom_system)
         self.error_budget_button = SizedButton("Create Error Budget")
         info_panel_layout.addWidget(self.error_budget_button)
         self.error_budget_button.clicked.connect(self.output_error_budget)
@@ -534,8 +587,131 @@ class OpticalSysInfoPanel(QWidget):
 
     system = property(fget=_get_system, fset=_set_system)
 
-    def define_new_system(self):
-        pass
+    # ------------------------------------------------------------------------
+    # NOTE: implementing this on the server (vger) side, but saving this code
+    # for now, just in case ...
+    # ------------------------------------------------------------------------
+    # def import_lom_system(self):
+        # """
+        # Import an optical system from a LOM (.mat) file.
+        # """
+        # orb.log.debug('* import_lom_system()')
+        # data = None
+        # sys_name = ''
+        # message = ''
+        # if not state.get('last_lom_path'):
+            # state['last_lom_path'] = self.user_home
+        # # NOTE: can add filter if needed, e.g.: filter="(*.yaml)"
+        # dialog = QFileDialog(self, 'Open File', state['last_lom_path'],
+                             # "(*.mat)")
+        # fpath = ''
+        # if dialog.exec_():
+            # fpaths = dialog.selectedFiles()
+            # if fpaths:
+                # fpath = fpaths[0]
+            # dialog.close()
+        # if fpath:
+            # orb.log.debug('  file path: {}'.format(fpath))
+            # try:
+                # data = get_lom_data(fpath)
+                # fname = os.path.basename(fpath)
+                # sys_name = fname.split('.')[0]
+            # except:
+                # message = "File '%s' could not be opened." % fpath
+                # popup = QMessageBox(QMessageBox.Warning,
+                            # "Error in file path", message,
+                            # QMessageBox.Ok, self)
+                # popup.show()
+                # return
+        # else:
+            # # no file was selected
+            # return
+        # if data:
+            # new_objs = []
+            # surface_names = get_optical_surface_names(data)
+            # comp_names = []
+            # optics = orb.search_exact(cname='Discipline', name='Optics')
+            # LOM = orb.get('pgefobjects:ModelType.Optics.LOM')
+            # optical_component = orb.get(
+                                  # 'pgefobjects:ProductType.optical_component')
+            # if surface_names:
+                # NOW = dtstamp()
+                # user = orb.get(state.get('local_user_oid'))
+                # if sys_name:
+                    # # TODO: have a discussion about versioning etc. ... if
+                    # # versioning is used, the search for existing items should
+                    # # reference version(s), and versions should be added to any
+                    # # new objects created from the data.
+                    # opt_sys = orb.search_exact(cname='HardwareProduct',
+                                               # name=sys_name)
+                    # opt_sys_model = orb.search_exact(
+                                        # cname='Model', name=sys_name,
+                                        # of_thing=opt_sys,
+                                        # model_definition_context=optics,
+                                        # type_of_model=LOM)
+                    # if opt_sys_model:
+                        # self.system = opt_sys_model
+                        # comp_names = [acu.component.name
+                                      # for acu in opt_sys_model.components]
+                    # else:
+                        # # create a HardwareProduct and a Model representing the
+                        # # system
+                        # opt_sys = clone('HardwareProduct', id=sys_name,
+                                        # name=sys_name, create_datetime=NOW,
+                                        # mod_datetime=NOW, creator=user,
+                                        # modifier=user)
+                        # self.system = clone('Model', id=sys_name,
+                                            # name=sys_name,
+                                            # of_thing=opt_sys,
+                                            # model_definition_context=optics,
+                                            # type_of_model=LOM,
+                                            # create_datetime=NOW,
+                                            # mod_datetime=NOW, creator=user,
+                                            # modifier=user)
+                        # new_objs += [opt_sys, self.system]
+                # for name in surface_names:
+                    # if name not in comp_names:
+                        # # create a HW product and Acu for each surface that is
+                        # # not found among the system components ...
+                        # opt_comp = clone('HardwareProduct', id=name, name=name,
+                                         # product_type=optical_component,
+                                         # create_datetime=NOW, mod_datetime=NOW,
+                                         # creator=user, modifier=user)
+                        # surface = clone('Model', id=name, name=name,
+                                        # of_thing=opt_comp,
+                                        # model_definition_context=optics,
+                                        # type_of_model=LOM,
+                                        # create_datetime=NOW, mod_datetime=NOW,
+                                        # creator=user, modifier=user)
+                        # new_objs.append(surface)
+                        # # TODO: add id and name to each Acu
+                        # hw_ref_des = get_next_ref_des(opt_sys, opt_comp)
+                        # hw_acu_id = get_acu_id(opt_sys.id, hw_ref_des)
+                        # hw_acu_name = get_acu_name(opt_sys.name, hw_ref_des)
+                        # hw_usage = clone('Acu', assembly=opt_sys,
+                                    # id=hw_acu_id, name=hw_acu_name,
+                                    # reference_designator=hw_ref_des,
+                                    # component=opt_comp, create_datetime=NOW,
+                                    # mod_datetime=NOW, creator=user,
+                                    # modifier=user)
+                        # model_ref_des = get_next_ref_des(self.system, surface)
+                        # model_acu_id = get_acu_id(self.system.id, hw_ref_des)
+                        # model_acu_name = get_acu_name(self.system.name,
+                                                      # hw_ref_des)
+                        # model_usage = clone('Acu', assembly=self.system,
+                                        # id=model_acu_id, name=model_acu_name,
+                                        # reference_designator=model_ref_des,
+                                        # component=surface, create_datetime=NOW,
+                                        # mod_datetime=NOW, creator=user,
+                                        # modifier=user)
+                        # new_objs += [hw_usage, model_usage]
+                # if new_objs:
+                    # orb.save(new_objs)
+                    # dispatcher.send(signal="new objects", objs=new_objs)
+            # else:
+                # orb.log.debug('  no surface names were found.')
+        # else:
+            # orb.log.debug('  no data was found.')
 
     def output_error_budget(self):
         dtstr = date2str(dtstamp())
@@ -810,7 +986,7 @@ class OpticalSystemModeler(QMainWindow):
         lens = orb.select('ProductType', id='lens')
         mirror = orb.select('ProductType', id='mirror')
         pts = [instrument, optical_system, optical_component, lens, mirror]
-        dlg = LibraryDialog('HardwareProduct',
+        dlg = LibraryDialog('Model',
                             height=self.geometry().height(),
                             width=self.geometry().width() // 2,
                             parent=self)

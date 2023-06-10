@@ -28,6 +28,7 @@ from louie import dispatcher
 
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
+from pangalactic.core.clone       import clone
 from pangalactic.core.meta        import (M2M, NUMERIC_FORMATS, ONE2M,
                                           NUMERIC_PRECISION, SELECTABLE_VALUES,
                                           SELECTION_FILTERS, SELECTION_VIEWS,
@@ -44,7 +45,6 @@ from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,
 from pangalactic.node.buttons     import SizedButton, UrlButton, FkButton
 from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
-from pangalactic.node.utils       import clone
 from pangalactic.node.widgets     import (get_widget, FloatFieldWidget, HLine,
                                           IntegerFieldWidget, LogWidget,
                                           StringFieldWidget,

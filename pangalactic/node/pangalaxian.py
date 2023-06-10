@@ -58,6 +58,7 @@ from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms, is_global_admin
+from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
@@ -101,7 +102,6 @@ from pangalactic.node.systemtree       import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews  import CompareWidget
 from pangalactic.node.tableviews       import ObjectTableView
-from pangalactic.node.utils            import clone
 from pangalactic.node.widgets          import (AutosizingListWidget,
                                                DashSelectCombo,
                                                ModeLabel, PlaceHolder)

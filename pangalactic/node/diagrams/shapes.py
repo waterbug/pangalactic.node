@@ -18,6 +18,7 @@ from louie import dispatcher
 # pangalactic
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms
+from pangalactic.core.clone       import clone
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import (get_acu_id, get_acu_name,
                                           get_flow_id, get_flow_name,
@@ -35,7 +36,7 @@ from pangalactic.node.dialogs     import (AssemblyNodeDialog,
                                           DirectionalityDialog,
                                           OptionNotification)
 from pangalactic.node.filters     import FilterDialog
-from pangalactic.node.utils       import (clone, extract_mime_data,
+from pangalactic.node.utils       import (extract_mime_data,
                                           populate_sc_subsystems)
 
 # constants

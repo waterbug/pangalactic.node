@@ -20,6 +20,7 @@ from sqlalchemy.orm.collections import InstrumentedList
 # pangalactic
 from pangalactic.core import prefs, state
 from pangalactic.core.access import get_perms, is_global_admin
+from pangalactic.core.clone  import clone
 from pangalactic.core.meta import (MAIN_VIEWS, PGEF_DIMENSION_ORDER, PGXN_HIDE,
                                    PGXN_HIDE_PARMS, PGXN_MASK,
                                    PGXN_PLACEHOLDERS, PGXN_VIEWS, PGXN_REQD,
@@ -48,7 +49,7 @@ from pangalactic.node.dialogs         import (CannotFreezeDialog,
                                               NotificationDialog,
                                               ObjectSelectionDialog,
                                               ValidationDialog)
-from pangalactic.node.utils           import (clone, get_all_project_usages,
+from pangalactic.node.utils           import (get_all_project_usages,
                                               get_object_title,
                                               extract_mime_data)
 from pangalactic.node.widgets         import get_widget, UnitsWidget
