@@ -330,6 +330,80 @@ class HWFieldsDialog(QDialog):
         self.accept()
 
 
+class ModelImportDialog(QDialog):
+    """
+    A dialog to import a model file and create related objects.
+
+    Keyword Args:
+        model_type (ModelType): type of model to be imported
+        parent (QWidget): parent widget of the dialog
+    """
+    def __init__(self, model_type=None, parent=None):
+        super().__init__(parent)
+        if model_type:
+            self.setWindowTitle(f"Import {model_type.name}")
+        else:
+            self.setWindowTitle("Import Model")
+            # TODO: model_type selector ...
+        self.mtype_oid = getattr(model_type, 'oid', '') or ''
+        vbox = QVBoxLayout(self)
+        self.model_file_path = ''
+        file_select_button = SizedButton("Select LOM File")
+        file_select_button.clicked.connect(self.on_select_file)
+        vbox.addWidget(file_select_button)
+        self.form = QFormLayout()
+        self.fields = {}
+        vbox.addLayout(self.form)
+        for name in ['model file', 'id', 'name', 'version']:
+            widget, autolabel = get_widget(name, 'str', value='')
+            label = QLabel(name, self)
+            self.fields[name] = widget
+            self.form.addRow(label, widget)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        vbox.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.on_submit)
+        self.buttons.rejected.connect(self.reject)
+
+    def on_select_file(self, evt):
+        dirpath = state.get('last_lom_path', '') or ''
+        dialog = QFileDialog(self, 'Open File', dirpath, "(*.mat)")
+        if dialog.exec_():
+            fpaths = dialog.selectedFiles()
+            if fpaths:
+                fpath = fpaths[0]
+            dialog.close()
+        if fpath:
+            orb.log.debug(f'  file selected: {fpath}')
+            self.model_file_path = fpath
+            fname = os.path.basename(fpath)
+            self.fields['model file'].set_value(fname)
+            state['last_lom_path'] = os.path.dirname(fpath)
+        else:
+            orb.log.debug('  no file was selected.')
+            return
+
+    def on_submit(self):
+        fname = self.fields.get('model file', '') or ''
+        if fname:
+            parms = {}
+            for name, widget in self.fields.items():
+                parms[name] = widget.get_value() or ''
+            orb.log.debug(f'  - mtype_oid: {self.mtype_oid}')
+            orb.log.debug(f'  - fpath: {self.model_file_path}')
+            orb.log.debug(f'  - parms: {parms}')
+            # dispatcher.send(signal='upload model',
+                            # mtype_oid=self.mtype_oid,
+                            # fpath=self.model_file_path,
+                            # parms=parms)
+            self.accept()
+        else:
+            orb.log.debug('  no file was selected -- select a file ...')
+            return
+
+
 class RqtFieldsDialog(QDialog):
     """
     A dialog to edit fields of a requirement.

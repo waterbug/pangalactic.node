@@ -3,11 +3,12 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, json, multiprocessing, os, shutil, sys
+import argparse, atexit, json, math, multiprocessing, os, shutil, sys
 import time, webbrowser
 # import traceback
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
+from functools import partial
 from pathlib  import Path
 
 # autobahn
@@ -2145,11 +2146,17 @@ class Main(QMainWindow):
                                     # icon="new_doc",
                                     # tip="Create a New Product Type",
                                     # modes=['system', 'component', 'db'])
-        self.new_model_action = self.create_action(
-                                "New Design or Analysis Model",
-                                slot=self.new_model,
+        self.add_or_update_model_action = self.create_action(
+                                "Add/Update a Design/Analysis Model",
+                                slot=self.add_update_model,
                                 icon='new_part',
-                                tip="Create a New Design or Analysis Model",
+                                tip="Add/Update a Design/Analysis Model",
+                                modes=['system', 'component'])
+        self.add_or_update_doc_action = self.create_action(
+                                "Add/Update a Document",
+                                slot=self.add_update_document,
+                                icon='new_doc',
+                                tip="Add/Update a Document",
                                 modes=['system', 'component'])
         self.new_functional_rqt_action = self.create_action(
                                     "New Functional Requirement",
@@ -4980,18 +4987,73 @@ class Main(QMainWindow):
         # orb.log.debug('  calling new_product_wizard() ...')
         self.new_product_wizard()
 
-    def new_model(self):
-        model = clone('Model')
-        view = ['id', 'name', 'abbreviation', 'description']
-        panels = ['main']
-        # modal_mode -> 'cancel' closes dialog
-        pxo = PgxnObject(model, edit_mode=True, new=True, view=view,
-                         panels=panels, modal_mode=True, parent=self)
-        pxo.obj_modified.connect(self.on_mod_object_qtsignal)
-        pxo.delete_obj.connect(self.del_object)
-        self.remote_frozen.connect(pxo.on_remote_frozen)
-        self.remote_thawed.connect(pxo.on_remote_thawed)
-        pxo.show()
+    def add_update_model(self):
+        """
+        Add or update a Model instance and upload the associated file.
+        """
+        pass
+
+    def add_update_document(self):
+        """
+        Add or update a Document instance and upload the associated file.
+        """
+        pass
+
+    def on_upload_file(self, fpath='', chunk_size=None):
+        """
+        Upload a file from a specified path.
+        """
+        chunk_size = chunk_size or 2**19
+        if fpath:
+            fname = os.path.basename(fpath)
+            orb.log.info(f'* uploading file: "{fname}"')
+            self.uploaded_chunks = 0
+            self.failed_chunks = 0
+            self.upload_progress = ProgressDialog(title='File Upload',
+                                              label=f'uploading "{fname}" ...',
+                                              parent=self)
+            self.upload_progress.setAttribute(Qt.WA_DeleteOnClose)
+            try:
+                with open(fpath, 'rb') as f:
+                    fsize = os.fstat(f.fileno()).st_size
+                    numchunks = math.ceil(fsize / chunk_size)
+                    self.upload_progress.setMaximum(numchunks)
+                    self.upload_progress.setValue(0)
+                    self.upload_progress.setMinimumDuration(2000)
+                    orb.log.info(f'  using {numchunks} chunks ...')
+                    for i, chunk in enumerate(iter(
+                                        partial(f.read, chunk_size), b'')):
+                        rpc = self.mbus.session.call('vger.upload_chunk',
+                                            fname=fname, seq=i, data=chunk)
+                        rpc.addCallback(self.on_chunk_upload_success)
+                        rpc.addErrback(self.on_chunk_upload_failure)
+                        if i == numchunks - 1:
+                            rpc.addCallback(self.on_file_upload_success)
+            except:
+                message = f'File "{fpath}" could not be uploaded.'
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "Error in uploading", message,
+                                    QMessageBox.Ok, self)
+                popup.show()
+                return
+        else:
+            # no file was selected
+            return
+
+    def on_chunk_upload_success(self, result):
+        orb.log.info(f'  chunk {result} uploaded.')
+        self.uploaded_chunks += 1
+        self.upload_progress.setValue(self.uploaded_chunks)
+
+    def on_chunk_upload_failure(self, result):
+        orb.log.info(f'  chunk {result} failed.')
+        self.failed_chunks += 1
+
+    def on_file_upload_success(self, result):
+        orb.log.info(f'  upload completed in {self.uploaded_chunks} chunks.')
+        self.upload_progress.done(0)
+        # TODO:  call vger.save_uploaded_file() rpc to associate file with the
+        # object that references it.
 
     def on_new_hardware_clone(self, product=None, objs=None):
         # go to component mode when clone() sends "new hardware clone" signal

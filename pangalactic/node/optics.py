@@ -43,6 +43,7 @@ from pangalactic.core.utils.datetimes import date2str, dtstamp
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
+from pangalactic.node.dialogs     import ModelImportDialog
 from pangalactic.node.libraries   import LibraryDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
@@ -533,12 +534,11 @@ class OpticalSysInfoPanel(QWidget):
         self.system_owner_value_field.setVisible(False)
         info_panel_layout.addWidget(self.system_owner_value_field)
         info_panel_layout.addStretch(1)
-        self.library_button = SizedButton("Library", color="green")
-        info_panel_layout.addWidget(self.library_button)
-        self.import_system_button = SizedButton("Import System from LOM",
-                                                color="blue")
-        info_panel_layout.addWidget(self.import_system_button)
-        self.import_system_button.clicked.connect(self.import_lom_system)
+        # self.library_button = SizedButton("Library", color="green")
+        # info_panel_layout.addWidget(self.library_button)
+        self.import_lom_button = SizedButton("Import LOM", color="blue")
+        info_panel_layout.addWidget(self.import_lom_button)
+        self.import_lom_button.clicked.connect(self.import_lom)
         self.error_budget_button = SizedButton("Create Error Budget")
         info_panel_layout.addWidget(self.error_budget_button)
         self.error_budget_button.clicked.connect(self.output_error_budget)
@@ -586,6 +586,21 @@ class OpticalSysInfoPanel(QWidget):
             return
 
     system = property(fget=_get_system, fset=_set_system)
+
+    def import_lom(self):
+        """
+        Perform the following steps:
+        1. identify or create a system with name, id, version, etc.
+        2. identify or create a model w/ name, id, version, etc.
+        3. dispatch signal that triggers an rpc that adds/updates those objects
+        and upload the associated .mat file
+        """
+        lom_model_type = orb.get('pgefobjects:ModelType.LOM')
+        dlg = ModelImportDialog(lom_model_type)
+        if dlg.exec_():
+            orb.log.info('* lom submitted ...')
+        else:
+            return
 
     # ------------------------------------------------------------------------
     # NOTE: implementing this on the server (vger) side, but saving this code
@@ -817,7 +832,7 @@ class OpticalSystemWidget(QWidget):
         super().__init__(parent=parent)
         orb.log.debug('* initializing OpticalSystemWidget ...')
         self.info_panel = OpticalSysInfoPanel(self.system)
-        self.library_button = self.info_panel.library_button
+        # self.library_button = self.info_panel.library_button
         self.init_toolbar()
         self.set_scene_and_view()
         self.layout = QVBoxLayout()
@@ -968,8 +983,7 @@ class OpticalSystemModeler(QMainWindow):
         sys_table_h = self.system_table.rowCount() * 20
         self.resize(sys_widget_w + 400,
                     sys_widget_h + sys_table_h + 200)
-        self.system_widget.library_button.clicked.connect(self.display_library)
-        # TODO: replace dispatcher with pyqtSignal
+        # self.system_widget.library_button.clicked.connect(self.display_library)
         # dispatcher.connect(self.on_double_click, "double clicked")
 
     @property
