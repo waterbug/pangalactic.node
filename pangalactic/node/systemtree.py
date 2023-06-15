@@ -918,7 +918,10 @@ class SystemTreeView(QTreeView):
         if cols:
             for i in range(1, len(cols)):
                 self.hideColumn(i)
-        self.setSelectionMode(self.SingleSelection)
+        if self.show_allocs:
+            self.setSelectionMode(self.NoSelection)
+        else:
+            self.setSelectionMode(self.SingleSelection)
         self.create_actions()
         # only use dispatcher messages for assembly tree and dashboard tree
         # (i.e., a shared model); ignore them when instantiated in rqt
