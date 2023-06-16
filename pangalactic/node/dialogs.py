@@ -394,10 +394,10 @@ class ModelImportDialog(QDialog):
             orb.log.debug(f'  - mtype_oid: {self.mtype_oid}')
             orb.log.debug(f'  - fpath: {self.model_file_path}')
             orb.log.debug(f'  - parms: {parms}')
-            # dispatcher.send(signal='upload model',
-                            # mtype_oid=self.mtype_oid,
-                            # fpath=self.model_file_path,
-                            # parms=parms)
+            dispatcher.send(signal='upload model file',
+                            mtype_oid=self.mtype_oid,
+                            fpath=self.model_file_path,
+                            parms=parms)
             self.accept()
         else:
             orb.log.debug('  no file was selected -- select a file ...')

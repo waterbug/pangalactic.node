@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QAction, QDialog, QDialogButtonBox, QFileDialog,
                              QVBoxLayout)
 
 from pangalactic.core             import prefs, state
-from pangalactic.core.access      import get_perms
+from pangalactic.core.access      import get_perms, is_global_admin
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import (get_attr_ext_name, get_ext_name_attr,
                                           pname_to_header, STD_VIEWS)
@@ -70,11 +70,23 @@ class RequirementManager(QDialog):
         self.hide_tree_button.clicked.connect(self.hide_allocation_panel)
         self.show_tree_button = SizedButton('Show Allocations', color="green")
         self.show_tree_button.clicked.connect(self.display_allocation_panel)
-        self.enable_allocs_button = SizedButton('Enable New Allocations',
+        self.enable_allocs_button = SizedButton('Enter Allocation Mode',
                                                 color="green")
         self.enable_allocs_button.clicked.connect(self.enable_allocations)
-        self.disable_allocs_button = SizedButton('Disable New Allocations',
-                                                 color="purple")
+        # "allocations mode" can only be enabled if user has correct role
+        # -- has to be a project Admin, LE, or SE, or a global admin
+        user = orb.get(state.get('local_user_oid'))
+        user_roles = orb.search_exact(cname='RoleAssignment', assigned_to=user,
+                                      role_assignment_context=self.project)
+        role_names = set([r.name for r in user_roles])
+        authorized_roles = set(['Systems Engineer', 'Lead Engineer',
+                                'Administrator'])
+        if (role_names & authorized_roles) or is_global_admin(user):
+            self.enable_allocs_button.setVisible(True)
+        else:
+            self.enable_allocs_button.setVisible(False)
+        self.disable_allocs_button = SizedButton('Exit Allocation Mode',
+                                                 color="red")
         self.disable_allocs_button.clicked.connect(self.disable_allocations)
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.select_cols_button)
@@ -95,7 +107,7 @@ class RequirementManager(QDialog):
         main_layout.addWidget(self.bbox)
         self.bbox.rejected.connect(self.reject)
         # NOTE: now using word wrap and PGEF_COL_WIDTHS
-        self.fpanel = FilterPanel(self.rqts, view=view, as_library=True,
+        self.fpanel = FilterPanel(self.rqts, view=view,
                                   sized_cols=self.sized_cols, word_wrap=True,
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -539,7 +551,7 @@ class RequirementManager(QDialog):
                                        show_allocs=True)
         self.sys_tree.collapseAll()
         self.sys_tree.expandToDepth(1)
-        self.sys_tree.clicked.connect(self.on_select_tree_node)
+        self.sys_tree.clicked.connect(self.on_click_tree_node)
         self.tree_layout = QVBoxLayout()
         self.tree_layout.addWidget(self.sys_tree)
         self.content_layout.addLayout(self.tree_layout, stretch=1)
@@ -553,8 +565,6 @@ class RequirementManager(QDialog):
         requirements to be allocated to an item in the system tree. This can
         only be done by an admin, lead engineer, or systems engineer.
         """
-        # TODO: only allow allocations to be enabled if user has correct role
-        # -- has to be an admin, LE, or SE
         self.enable_allocs_button.setVisible(False)
         self.disable_allocs_button.setVisible(True)
         self.hide_tree_button.setVisible(False)
@@ -571,12 +581,14 @@ class RequirementManager(QDialog):
         self.hide_tree_button.setVisible(True)
         self.allocations_enabled = False
 
-    def on_select_tree_node(self, index):
+    def on_click_tree_node(self, index):
         # TODO:  enable allocation/deallocation as in wizard if user has
-        # edit permission for selected rqt.
+        # edit permission for selected rqts.
         NOW = dtstamp()
+        user = orb.get(state.get('local_user_oid'))
         link = None
         allocation = 'None'
+        allocated_rqts_info = []
         allocated_rqts = []
         mapped_i = self.sys_tree.proxy_model.mapToSource(index)
         link = self.sys_tree.source_model.get_node(mapped_i).link
@@ -609,14 +621,18 @@ class RequirementManager(QDialog):
                     if not rqt.allocated_to is self.project:
                         rqt.allocated_to = self.project
                         rqt.mod_datetime = NOW
-                        allocated_rqts.append(f'{rqt.id}: {rqt.name}')
+                        rqt.modifier = user
+                        allocated_rqts.append(rqt)
+                        allocated_rqts_info.append(f'{rqt.id}: {rqt.name}')
                 allocation = self.project.id + ' project'
             else:
                 for rqt in rqts:
                     if not rqt.allocated_to is link:
                         rqt.allocated_to = link
                         rqt.mod_datetime = NOW
-                        allocated_rqts.append(f'{rqt.id}: {rqt.name}')
+                        rqt.modifier = user
+                        allocated_rqts.append(rqt)
+                        allocated_rqts_info.append(f'{rqt.id}: {rqt.name}')
                 if hasattr(link, 'system'):
                     allocation = link.system_role
                 elif hasattr(link, 'component'):
@@ -626,10 +642,22 @@ class RequirementManager(QDialog):
             self.sys_tree.expandToDepth(1)
             self.sys_tree.scrollTo(index)
             if allocated_rqts:
+                orb.save(allocated_rqts)
                 orb.log.debug('* requirements:')
-                for rqt_info in allocated_rqts:
+                for rqt_info in allocated_rqts_info:
                     orb.log.debug(f'  - {rqt_info}')
-                orb.log.debug(f'  have been allocated to: {allocation}')
+                orb.log.debug(f'  are now allocated to: {allocation}')
+                message = "<h3>Requirements:</h3><ul>"
+                for rqt_info in allocated_rqts_info:
+                    message += f'<li>{rqt_info}</li>'
+                message += "</ul>"
+                message += f'  are now allocated to: {allocation}'
+                popup = QMessageBox(QMessageBox.Warning,
+                            "Requirements Allocated", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                # "modified objects" signal triggers pgxn save() rpc
+                dispatcher.send(signal="modified objects", objs=allocated_rqts)
         else:
             # if not in allocation mode, filter rqts to show those allocated to
             # the selected tree node
