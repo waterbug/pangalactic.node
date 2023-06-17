@@ -928,7 +928,8 @@ class SystemTreeView(QTreeView):
         # allocation mode (different models -> the indexes are not valid
         # anyway!)
         if show_allocs:
-            dispatcher.connect(self.on_show_alloc, 'show alloc acu')
+            dispatcher.connect(self.on_show_allocated_to, 'show allocated_to')
+            self.clicked.connect(self.sys_node_clicked)
         else:
             self.expanded.connect(self.sys_node_expanded)
             self.collapsed.connect(self.sys_node_collapsed)
@@ -989,13 +990,13 @@ class SystemTreeView(QTreeView):
     def sizeHint(self):
         return QSize(300, 300)
 
-    def on_show_alloc(self, acu=None):
-        if acu:
+    def on_show_allocated_to(self, item=None):
+        if item:
             level = 1
             while 1:
                 try:
                     self.expandToDepth(level)
-                    idxs = self.link_indexes_in_tree(acu)
+                    idxs = self.link_indexes_in_tree(item)
                     if idxs:
                         self.scrollTo(self.proxy_model.mapFromSource(idxs[0]))
                         return
@@ -1005,7 +1006,7 @@ class SystemTreeView(QTreeView):
                             # we have our limits! ;)
                             return
                 except:
-                    orb.log.debug('  on_show_alloc() crashed (probably C++).')
+                    orb.log.debug('  on_show_allocated_to() crashed.')
                     return
 
     def sys_node_expanded(self, index):
@@ -1049,6 +1050,35 @@ class SystemTreeView(QTreeView):
             except:
                 # oops -- my C++ object probably got deleted
                 pass
+
+    def sys_node_clicked(self, index):
+        i = index
+        # need to expand when selected so its children are visible in the
+        # tree and can be located if there is a diagram drill-down
+        self.setExpanded(i, True)
+        try:
+            mapped_i = self.proxy_model.mapToSource(i)
+            obj = self.source_model.get_node(mapped_i).obj
+            link = self.source_model.get_node(mapped_i).link
+            if link and not obj:
+                if isinstance(link, orb.classes['Acu']):
+                    obj = link.component
+                elif isinstance(link, orb.classes['ProjectSystemUsage']):
+                    obj = link.system
+            orb.log.debug('- node clicked ...')
+            orb.log.debug('  + obj id: {}'.format(
+                          getattr(obj, 'id', '') or 'id unknown'))
+            # orb.log.debug('  + parent node obj id: {}'.format(
+                # getattr(self.source_model.get_node(
+                                                # mapped_i.parent()).obj,
+                                                # 'id', 'fake root')))
+            state['system'][state['project']] = obj.oid
+            orb.log.debug('  dispatching "sys node clicked"')
+            dispatcher.send(signal='sys node clicked', index=index,
+                            obj=obj, link=link)
+        except:
+            # oops -- my C++ object probably got deleted
+            pass
 
     def sys_node_expand(self, index=None):
         try:

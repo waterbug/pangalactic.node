@@ -119,6 +119,7 @@ class RequirementManager(QDialog):
         dispatcher.connect(self.on_new_or_mod_rqts, 'remote new or mod rqts')
         dispatcher.connect(self.on_modified_object, 'modified object')
         dispatcher.connect(self.on_deleted_object, 'deleted object')
+        dispatcher.connect(self.on_sys_node_clicked, 'sys node clicked')
         # "parameters recomputed" is the ultimate signal resulting from a
         # "received objects" pubsub msg after a "modified object" signal
         # triggers a "save" rpc ... so in a "connected" state, that is when a
@@ -375,6 +376,20 @@ class RequirementManager(QDialog):
     def on_deleted_object(self, oid=None, cname=None):
         orb.log.debug('* received "deleted object" signal.')
         self.fpanel.remove_object(oid)
+
+    def on_sys_node_clicked(self, index=None, obj=None, link=None):
+        # TODO: show "rqts allocated to" info
+        # and a "clear" button to clear filtering ...
+        self.fpanel.set_source_model(self.fpanel.create_model(self.rqts))
+        alloc_rqts = []
+        orb.log.debug('* received "sys node clicked" signal.')
+        if isinstance(obj, orb.classes['Project']):
+            alloc_rqts = obj.allocated_requirements
+        else:
+            alloc_rqts = link.allocated_requirements
+        rqt_ids = [rqt.id for rqt in alloc_rqts]
+        orb.log.debug(f'  allocated rqts: {rqt_ids}')
+        self.fpanel.set_source_model(self.fpanel.create_model(alloc_rqts))
 
     def on_parmz_recomputed(self):
         if state.get('new_or_modified_rqts'):
@@ -677,12 +692,11 @@ class RequirementManager(QDialog):
             rqt = orb.get(oid)
             if rqt:
                 self.set_rqt(rqt)
-                # if allocated to an acu, send signal to ensure that node of
-                # the tree is made visible -- not necessary if allocated to a
-                # "system", since tree will be expanded to at least 1 level
-                acu = rqt.allocated_to
-                if acu:
-                    dispatcher.send(signal='show alloc acu', acu=acu)
+                # if allocated, send signal to ensure that node of
+                # the tree is made visible
+                item = rqt.allocated_to
+                if item:
+                    dispatcher.send(signal='show allocated_to', item=item)
             else:
                 orb.log.debug('  rqt with oid "{}" not found.'.format(oid))
 
