@@ -28,7 +28,7 @@ from pangalactic.node.tablemodels import ObjectTableModel
 from pangalactic.node.utils       import (create_mime_data,
                                           create_template_from_product,
                                           get_pixmap)
-from pangalactic.node.widgets     import NameLabel
+from pangalactic.node.widgets     import ColorLabel
 
 
 class ProductFilterDialog(QDialog):
@@ -687,11 +687,13 @@ class FilterPanel(QWidget):
         proxy_group_box.setLayout(self.proxy_layout)
         if not title and as_library:
             title = label + ' Library'
-        title_widget = NameLabel(title)
-        title_widget.setStyleSheet(
-            'font-weight: bold; font-size: 18px; color: purple')
+        self.title_widget = ColorLabel(title)
+        self.title_widget.setStyleSheet('font-weight: bold; font-size: 18px')
+        title_layout = QHBoxLayout()
+        title_layout.addWidget(self.title_widget)
+        title_layout.addStretch(1)
         main_layout = QVBoxLayout()
-        main_layout.addWidget(title_widget)
+        main_layout.addLayout(title_layout)
         main_layout.addWidget(proxy_group_box)
         self.setLayout(main_layout)
         self.setWindowTitle("Custom Sort/Filter Model")
@@ -703,6 +705,10 @@ class FilterPanel(QWidget):
         self.create_actions()
         self.setup_context_menu()
         self.dirty = False
+
+    def set_title(self, text, color=None, element=None, border=None, margin=0):
+        self.title_widget.set_content(text, color=color, element=element,
+                                      border=border, margin=margin)
 
     @property
     def view(self):

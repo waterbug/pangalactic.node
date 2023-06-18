@@ -128,7 +128,7 @@ class ColorLabel(QLabel):
 
     def set_content(self, name, color=None, element=None, border=None,
                     margin=None):
-        if border:
+        if border is not None:
             self.setFrameStyle(QFrame.Box | QFrame.Plain)
             try:
                 self.setLineWidth(border)

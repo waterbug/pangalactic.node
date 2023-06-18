@@ -4,10 +4,8 @@ Requirement Manager
 """
 import os, sys
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QAction, QDialog, QDialogButtonBox, QFileDialog,
-                             QHBoxLayout, QLabel, QMessageBox, QSizePolicy,
-                             QVBoxLayout)
+from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QHBoxLayout,
+                             QLabel, QMessageBox, QSizePolicy, QVBoxLayout)
 
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms, is_global_admin
@@ -23,6 +21,7 @@ from pangalactic.node.dialogs     import (NotificationDialog, RqtFieldsDialog,
 from pangalactic.node.filters     import FilterPanel
 from pangalactic.node.systemtree  import SystemTreeView
 from pangalactic.node.rqtwizard   import RqtWizard
+from pangalactic.node.widgets     import ColorLabel
 from pangalactic.node.wizards     import DataImportWizard
 
 # Louie
@@ -47,13 +46,17 @@ class RequirementManager(QDialog):
         self.sized_cols = {'id': 0, 'name': 150}
         self.project = project
         self.rqts = orb.search_exact(cname='Requirement', owner=project)
-        title_txt = 'Project Requirements for {}'.format(project.id)
+        title_txt = f'Requirements for {project.id}'
         self.title = QLabel(title_txt)
         self.title.setStyleSheet('font-weight: bold; font-size: 20px')
         main_layout = QVBoxLayout(self)
-        # self.setLayout(main_layout)
-        # main_layout = self.layout()
-        main_layout.addWidget(self.title)
+        title_layout = QHBoxLayout()
+        title_layout.addWidget(self.title)
+        self.mode_label = ColorLabel('View Mode', color="green", border=2)
+        self.mode_label.setStyleSheet('font-size: 20px')
+        title_layout.addWidget(self.mode_label)
+        title_layout.addStretch(1)
+        main_layout.addLayout(title_layout)
         self.setWindowTitle('Requirements Manager')
         self.select_cols_button = SizedButton("Customize Columns")
         self.select_cols_button.clicked.connect(self.select_cols)
@@ -102,10 +105,6 @@ class RequirementManager(QDialog):
         self.content_layout = QHBoxLayout()
         main_layout.addLayout(top_layout)
         main_layout.addLayout(self.content_layout, stretch=1)
-        self.bbox = QDialogButtonBox(
-            QDialogButtonBox.Close, Qt.Horizontal, self)
-        main_layout.addWidget(self.bbox)
-        self.bbox.rejected.connect(self.reject)
         # NOTE: now using word wrap and PGEF_COL_WIDTHS
         self.fpanel = FilterPanel(self.rqts, view=view,
                                   sized_cols=self.sized_cols, word_wrap=True,
@@ -129,7 +128,7 @@ class RequirementManager(QDialog):
         # that opens the "allocation panel" (tree)
         self.display_allocation_panel()
         self.disable_allocations()
-        self.allocations_enabled = False
+        self.alloc_node = None
         width = width or 600
         height = height or 500
         self.resize(width, height)
@@ -377,20 +376,6 @@ class RequirementManager(QDialog):
         orb.log.debug('* received "deleted object" signal.')
         self.fpanel.remove_object(oid)
 
-    def on_sys_node_clicked(self, index=None, obj=None, link=None):
-        # TODO: show "rqts allocated to" info
-        # and a "clear" button to clear filtering ...
-        self.fpanel.set_source_model(self.fpanel.create_model(self.rqts))
-        alloc_rqts = []
-        orb.log.debug('* received "sys node clicked" signal.')
-        if isinstance(obj, orb.classes['Project']):
-            alloc_rqts = obj.allocated_requirements
-        else:
-            alloc_rqts = link.allocated_requirements
-        rqt_ids = [rqt.id for rqt in alloc_rqts]
-        orb.log.debug(f'  allocated rqts: {rqt_ids}')
-        self.fpanel.set_source_model(self.fpanel.create_model(alloc_rqts))
-
     def on_parmz_recomputed(self):
         if state.get('new_or_modified_rqts'):
             need_refresh = False
@@ -566,7 +551,6 @@ class RequirementManager(QDialog):
                                        show_allocs=True)
         self.sys_tree.collapseAll()
         self.sys_tree.expandToDepth(1)
-        self.sys_tree.clicked.connect(self.on_click_tree_node)
         self.tree_layout = QVBoxLayout()
         self.tree_layout.addWidget(self.sys_tree)
         self.content_layout.addLayout(self.tree_layout, stretch=1)
@@ -580,10 +564,20 @@ class RequirementManager(QDialog):
         requirements to be allocated to an item in the system tree. This can
         only be done by an admin, lead engineer, or systems engineer.
         """
+        # make sure all rqts are being displayed ...
+        self.fpanel.set_source_model(self.fpanel.create_model(self.rqts))
+        # make sure fpanel title is empty and alloc_node is None
+        self.fpanel.set_title("", border=0)
+        self.alloc_node = None
+        # turn off "show_allocs"
+        source_model = self.sys_tree.proxy_model.sourceModel()
+        source_model.show_allocs = False
         self.enable_allocs_button.setVisible(False)
         self.disable_allocs_button.setVisible(True)
         self.hide_tree_button.setVisible(False)
-        self.allocations_enabled = True
+        self.allocs_mode = True
+        self.mode_label.set_content('Allocation Mode', color='red', border=2)
+        self.sys_tree.repaint()
 
     def disable_allocations(self):
         """
@@ -594,21 +588,22 @@ class RequirementManager(QDialog):
         self.enable_allocs_button.setVisible(True)
         self.disable_allocs_button.setVisible(False)
         self.hide_tree_button.setVisible(True)
-        self.allocations_enabled = False
+        self.allocs_mode = False
+        # make sure "show_allocs" is True initially
+        source_model = self.sys_tree.proxy_model.sourceModel()
+        source_model.show_allocs = True
+        self.mode_label.set_content('View Mode', color="green", border=2)
+        self.sys_tree.repaint()
 
-    def on_click_tree_node(self, index):
-        # TODO:  enable allocation/deallocation as in wizard if user has
-        # edit permission for selected rqts.
-        NOW = dtstamp()
-        user = orb.get(state.get('local_user_oid'))
-        link = None
-        allocation = 'None'
-        allocated_rqts_info = []
-        allocated_rqts = []
-        mapped_i = self.sys_tree.proxy_model.mapToSource(index)
-        link = self.sys_tree.source_model.get_node(mapped_i).link
-        cname = self.sys_tree.source_model.get_node(mapped_i).cname
-        if self.allocations_enabled:
+    def on_sys_node_clicked(self, index=None, obj=None, link=None):
+        orb.log.debug('* received "sys node clicked" signal.')
+        if self.allocs_mode:
+            orb.log.debug('  in "Allocation Mode" ...')
+            NOW = dtstamp()
+            user = orb.get(state.get('local_user_oid'))
+            allocation = 'None'
+            allocated_rqts_info = []
+            allocated_rqts = []
             # if in allocation mode, allocate the selected rqts to the selected
             # tree node (or toggle: if allocated, de-allocate)
             rqts = []
@@ -628,10 +623,11 @@ class RequirementManager(QDialog):
                 # TODO: notify user ...
                 orb.log.debug('  no rows selected.')
 
-            if (not link and not (cname == 'Project')) or not rqts:
+            if ((not link and not isinstance(obj, orb.classes['Project'])) or
+                not rqts):
                 orb.log.debug('  no link or project, or no rqts selected.')
                 return
-            if cname == 'Project':
+            if isinstance(obj, orb.classes['Project']):
                 for rqt in rqts:
                     if not rqt.allocated_to is self.project:
                         rqt.allocated_to = self.project
@@ -674,14 +670,58 @@ class RequirementManager(QDialog):
                 # "modified objects" signal triggers pgxn save() rpc
                 dispatcher.send(signal="modified objects", objs=allocated_rqts)
         else:
-            # if not in allocation mode, filter rqts to show those allocated to
-            # the selected tree node
-            pass
+            orb.log.debug('  in "View Mode" ...')
+            # if in view mode, filter rqts to show those allocated to the
+            # clicked tree node
+            self.fpanel.set_source_model(self.fpanel.create_model(self.rqts))
+            # if clicked node *is* self.alloc_node, toggle the view off
+            if (isinstance(obj, orb.classes['Project']) and
+                self.alloc_node and self.alloc_node is obj):
+                orb.log.debug('  alloc node is project')
+                self.alloc_node = None
+                self.fpanel.set_title("", border=0)
+                # turn "show_allocs" off
+                source_model = self.sys_tree.proxy_model.sourceModel()
+                source_model.show_allocs = False
+                return
+            elif self.alloc_node and self.alloc_node is link:
+                orb.log.debug('  alloc node is link')
+                self.alloc_node = None
+                self.fpanel.set_title("", border=0)
+                # turn "show_allocs" off
+                source_model = self.sys_tree.proxy_model.sourceModel()
+                source_model.show_allocs = False
+                return
+            # turn "show_allocs" off
+            source_model = self.sys_tree.proxy_model.sourceModel()
+            source_model.show_allocs = False
+            alloc_rqts = []
+            if isinstance(obj, orb.classes['Project']):
+                alloc_rqts = obj.allocated_requirements
+                self.alloc_node = obj
+                orb.log.debug('  setting alloc node to project')
+                self.fpanel.set_title(
+                            "Project-Level Requirements", border=1)
+            else:
+                alloc_rqts = link.allocated_requirements
+                self.alloc_node = link
+                orb.log.debug('  setting alloc node to link')
+                item_id = getattr(link, 'system_role', '') or getattr(link,
+                                                    'reference_designator', '')
+                self.fpanel.set_title(
+                            f"Requirements Allocated to {item_id}", border=1)
+            rqt_ids = [rqt.id for rqt in alloc_rqts]
+            orb.log.debug(f'  allocated rqts: {rqt_ids}')
+            self.fpanel.set_source_model(self.fpanel.create_model(alloc_rqts))
+            self.sys_tree.repaint()
 
     def set_rqt(self, r):
         self.sys_tree.rqt = r
 
     def on_select_rqt(self):
+        # turn "show_allocs" back on
+        source_model = self.sys_tree.proxy_model.sourceModel()
+        source_model.show_allocs = True
         # orb.log.debug('* RequirementManager: on_select_rqt() ...')
         if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
             i = self.fpanel.proxy_model.mapToSource(
@@ -699,6 +739,7 @@ class RequirementManager(QDialog):
                     dispatcher.send(signal='show allocated_to', item=item)
             else:
                 orb.log.debug('  rqt with oid "{}" not found.'.format(oid))
+        self.sys_tree.repaint()
 
     def closeEvent(self, event):
         if self.fpanel.col_moved_view:
