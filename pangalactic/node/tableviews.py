@@ -511,7 +511,8 @@ class SystemInfoTable(QTableWidget):
                 header_label = colname
                 header_labels.append(header_label)
             else:
-                header_label = pname_to_header(pname, '', pwidth=15)
+                header_label = pname_to_header(pname, '', pwidth=15,
+                                               headers_are_ids=True)
                 header_labels.append(header_label)
             # set col widths based on length of header text
             if colname:
