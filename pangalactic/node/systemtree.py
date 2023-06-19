@@ -286,8 +286,8 @@ class SystemTreeModel(QAbstractItemModel):
     TRANSPARENT_BRUSH = QBrush(Qt.transparent)
     WHITE_BRUSH = QBrush(Qt.white)
 
-    def __init__(self, obj, refdes=True, show_allocs=False, rqt=None,
-                 show_mode_systems=False, parent=None):
+    def __init__(self, obj, refdes=True, rqt_allocs=False, show_allocs=False,
+                 rqt=None, show_mode_systems=False, parent=None):
         """
         Args:
             obj (Project): root object of the tree
@@ -295,10 +295,13 @@ class SystemTreeModel(QAbstractItemModel):
         Keyword Args:
             refdes (bool):  flag indicating whether to display the reference
                 designator as part of the tooltip (default: True)
-            show_allocs (bool):  flag indicating whether to highlight nodes to
-                which a specified requirement has been allocated (default:
-                False)
-            rqt (Requirement):  the requirement whose allocations should be
+            rqt_allocs (bool):  flag indicating whether the tree is being used
+                in the context of linking nodes to their allocated
+                requirement(s) and vice versa (default: False)
+            show_allocs (bool):  flag indicating that a node should be
+                highlighted in yellow if it corresponds to self.rqt
+                (default: False)
+            rqt (Requirement):  the requirement whose allocation should be
                 highlighted if 'show_allocs' is True
             show_mode_systems (bool):  flag indicating whether to highlight
                 systems selected for the Modes Table
@@ -308,6 +311,7 @@ class SystemTreeModel(QAbstractItemModel):
         super().__init__(parent=parent)
         self.parent = parent
         self.refdes = refdes
+        self.rqt_allocs = rqt_allocs
         self.show_allocs = show_allocs
         self.rqt = rqt
         self.show_mode_systems = show_mode_systems
@@ -882,7 +886,7 @@ class SystemTreeView(QTreeView):
     # MODIFIED 5/12/22:  drag/drop is disabled in the system tree -- was both
     # buggy and unnecessary, now that block diagram drag/drop works
 
-    def __init__(self, obj, refdes=True, show_allocs=False, rqt=None,
+    def __init__(self, obj, refdes=True, rqt_allocs=False, rqt=None,
                  parent=None):
         """
         Args:
@@ -892,18 +896,18 @@ class SystemTreeView(QTreeView):
             selected_system (Product): system that is selected
             refdes (bool):  flag indicating whether to display the reference
                 designator or the component name as the node name
-            show_allocs (bool):  flag indicating whether to highlight nodes to
+            rqt_allocs (bool):  flag indicating whether to highlight nodes to
                 which a specified requirement has been allocated
             rqt (Requirement):  the requirement whose allocation should be
-                highlighted if 'show_allocs' is True
+                highlighted if 'rqt_allocs' is True
         """
         super().__init__(parent)
         # NOTE: this logging is only needed for deep debugging
         # orb.log.debug('* SystemTreeView initializing with ...')
         # orb.log.debug('  - root node: "{}"'.format(obj.id))
-        self.show_allocs = show_allocs
+        self.rqt_allocs = rqt_allocs
         tree_model = SystemTreeModel(obj, refdes=refdes,
-                                     show_allocs=show_allocs,
+                                     rqt_allocs=rqt_allocs,
                                      rqt=rqt, parent=self)
         self.proxy_model = SystemTreeProxyModel(tree_model, parent=self)
         self.source_model = self.proxy_model.sourceModel()
@@ -918,7 +922,7 @@ class SystemTreeView(QTreeView):
         if cols:
             for i in range(1, len(cols)):
                 self.hideColumn(i)
-        if self.show_allocs:
+        if self.rqt_allocs:
             self.setSelectionMode(self.NoSelection)
         else:
             self.setSelectionMode(self.SingleSelection)
@@ -927,7 +931,7 @@ class SystemTreeView(QTreeView):
         # (i.e., a shared model); ignore them when instantiated in rqt
         # allocation mode (different models -> the indexes are not valid
         # anyway!)
-        if show_allocs:
+        if rqt_allocs:
             dispatcher.connect(self.on_show_allocated_to, 'show allocated_to')
             self.clicked.connect(self.sys_node_clicked)
         else:

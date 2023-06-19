@@ -110,7 +110,7 @@ class RequirementManager(QDialog):
                                   sized_cols=self.sized_cols, word_wrap=True,
                                   parent=self)
         self.fpanel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.fpanel.proxy_view.clicked.connect(self.on_select_rqt)
+        self.fpanel.proxy_view.clicked.connect(self.on_click_rqt)
         self.setup_context_menu()
         self.fpanel_layout = QVBoxLayout()
         self.fpanel_layout.addWidget(self.fpanel)
@@ -548,7 +548,7 @@ class RequirementManager(QDialog):
         if getattr(self, 'tree_layout', None):
             self.tree_layout.removeItem(self.tree_layout)
         self.sys_tree = SystemTreeView(self.project, refdes=True,
-                                       show_allocs=True)
+                                       rqt_allocs=True)
         self.sys_tree.collapseAll()
         self.sys_tree.expandToDepth(1)
         self.tree_layout = QVBoxLayout()
@@ -564,20 +564,20 @@ class RequirementManager(QDialog):
         requirements to be allocated to an item in the system tree. This can
         only be done by an admin, lead engineer, or systems engineer.
         """
+        # turn off "show_allocs" (yellow highlighting of tree nodes)
+        source_model = self.sys_tree.proxy_model.sourceModel()
+        source_model.show_allocs = False
+        self.sys_tree.repaint()
         # make sure all rqts are being displayed ...
         self.fpanel.set_source_model(self.fpanel.create_model(self.rqts))
         # make sure fpanel title is empty and alloc_node is None
         self.fpanel.set_title("", border=0)
         self.alloc_node = None
-        # turn off "show_allocs"
-        source_model = self.sys_tree.proxy_model.sourceModel()
-        source_model.show_allocs = False
         self.enable_allocs_button.setVisible(False)
         self.disable_allocs_button.setVisible(True)
         self.hide_tree_button.setVisible(False)
         self.allocs_mode = True
         self.mode_label.set_content('Allocation Mode', color='red', border=2)
-        self.sys_tree.repaint()
 
     def disable_allocations(self):
         """
@@ -589,15 +589,15 @@ class RequirementManager(QDialog):
         self.disable_allocs_button.setVisible(False)
         self.hide_tree_button.setVisible(True)
         self.allocs_mode = False
-        # make sure "show_allocs" is True initially
-        source_model = self.sys_tree.proxy_model.sourceModel()
-        source_model.show_allocs = True
         self.mode_label.set_content('View Mode', color="green", border=2)
         self.sys_tree.repaint()
 
     def on_sys_node_clicked(self, index=None, obj=None, link=None):
         orb.log.debug('* received "sys node clicked" signal.')
         if self.allocs_mode:
+            # turn "show_allocs" off
+            source_model = self.sys_tree.proxy_model.sourceModel()
+            source_model.show_allocs = False
             orb.log.debug('  in "Allocation Mode" ...')
             NOW = dtstamp()
             user = orb.get(state.get('local_user_oid'))
@@ -671,7 +671,10 @@ class RequirementManager(QDialog):
                 dispatcher.send(signal="modified objects", objs=allocated_rqts)
         else:
             orb.log.debug('  in "View Mode" ...')
-            # if in view mode, filter rqts to show those allocated to the
+            # in view mode, turn "show_allocs" (yellow highlighting) off
+            source_model = self.sys_tree.proxy_model.sourceModel()
+            source_model.show_allocs = False
+            # in view mode, filter rqts to show those allocated to the
             # clicked tree node
             self.fpanel.set_source_model(self.fpanel.create_model(self.rqts))
             # if clicked node *is* self.alloc_node, toggle the view off
@@ -680,36 +683,27 @@ class RequirementManager(QDialog):
                 orb.log.debug('  alloc node is project')
                 self.alloc_node = None
                 self.fpanel.set_title("", border=0)
-                # turn "show_allocs" off
-                source_model = self.sys_tree.proxy_model.sourceModel()
-                source_model.show_allocs = False
                 return
             elif self.alloc_node and self.alloc_node is link:
                 orb.log.debug('  alloc node is link')
                 self.alloc_node = None
                 self.fpanel.set_title("", border=0)
-                # turn "show_allocs" off
-                source_model = self.sys_tree.proxy_model.sourceModel()
-                source_model.show_allocs = False
                 return
-            # turn "show_allocs" off
-            source_model = self.sys_tree.proxy_model.sourceModel()
-            source_model.show_allocs = False
             alloc_rqts = []
             if isinstance(obj, orb.classes['Project']):
                 alloc_rqts = obj.allocated_requirements
                 self.alloc_node = obj
                 orb.log.debug('  setting alloc node to project')
-                self.fpanel.set_title(
-                            "Project-Level Requirements", border=1)
+                self.fpanel.set_title("Project Requirements", color="green",
+                                      border=1)
             else:
                 alloc_rqts = link.allocated_requirements
                 self.alloc_node = link
                 orb.log.debug('  setting alloc node to link')
                 item_id = getattr(link, 'system_role', '') or getattr(link,
                                                     'reference_designator', '')
-                self.fpanel.set_title(
-                            f"Requirements Allocated to {item_id}", border=1)
+                self.fpanel.set_title(f"Requirements Allocated to {item_id}",
+                                      color="green", border=1)
             rqt_ids = [rqt.id for rqt in alloc_rqts]
             orb.log.debug(f'  allocated rqts: {rqt_ids}')
             self.fpanel.set_source_model(self.fpanel.create_model(alloc_rqts))
@@ -718,27 +712,28 @@ class RequirementManager(QDialog):
     def set_rqt(self, r):
         self.sys_tree.rqt = r
 
-    def on_select_rqt(self):
-        # turn "show_allocs" back on
-        source_model = self.sys_tree.proxy_model.sourceModel()
-        source_model.show_allocs = True
-        # orb.log.debug('* RequirementManager: on_select_rqt() ...')
-        if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
-            i = self.fpanel.proxy_model.mapToSource(
-                self.fpanel.proxy_view.selectedIndexes()[0]).row()
+    def on_click_rqt(self, index):
+        # turn "show_allocs" on
+        tree_source_model = self.sys_tree.proxy_model.sourceModel()
+        tree_source_model.show_allocs = True
+        orb.log.debug('* RequirementManager: on_click_rqt() ...')
+        # if len(self.fpanel.proxy_view.selectedIndexes()) >= 1:
+            # i = self.fpanel.proxy_model.mapToSource(
+                # self.fpanel.proxy_view.selectedIndexes()[0]).row()
             # orb.log.debug('  selected row: {}'.format(i))
-            oid = getattr(self.fpanel.proxy_model.sourceModel().objs[i],
-                          'oid', '')
-            rqt = orb.get(oid)
-            if rqt:
-                self.set_rqt(rqt)
-                # if allocated, send signal to ensure that node of
-                # the tree is made visible
-                item = rqt.allocated_to
-                if item:
-                    dispatcher.send(signal='show allocated_to', item=item)
-            else:
-                orb.log.debug('  rqt with oid "{}" not found.'.format(oid))
+        idx = self.fpanel.proxy_model.mapToSource(index)
+        oid = getattr(self.fpanel.proxy_model.sourceModel().objs[idx.row()],
+                      'oid', '')
+        rqt = orb.get(oid)
+        if rqt:
+            self.set_rqt(rqt)
+            # if allocated, send signal to ensure that node of
+            # the tree is made visible
+            item = rqt.allocated_to
+            if item:
+                dispatcher.send(signal='show allocated_to', item=item)
+        else:
+            orb.log.debug('  rqt with oid "{}" not found.'.format(oid))
         self.sys_tree.repaint()
 
     def closeEvent(self, event):

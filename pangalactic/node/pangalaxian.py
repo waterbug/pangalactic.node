@@ -97,6 +97,9 @@ from pangalactic.node.message_bus      import PgxnMessageBus, reachable
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
 from pangalactic.node.optics           import OpticalSystemModeler
 from pangalactic.node.pgxnobject       import PgxnObject
+from pangalactic.node.rqtmanager       import RequirementManager
+from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
+from pangalactic.node.splash           import SplashScreen
 from pangalactic.node.startup          import (setup_db_with_ref_data,
                                                setup_dirs_and_state)
 from pangalactic.node.systemtree       import SystemTreeView
@@ -109,9 +112,6 @@ from pangalactic.node.widgets          import (AutosizingListWidget,
 from pangalactic.node.wizards          import (NewProductWizard,
                                                DataImportWizard,
                                                wizard_state)
-from pangalactic.node.rqtmanager       import RequirementManager
-from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
-from pangalactic.node.splash           import SplashScreen
 
 
 class Main(QMainWindow):
@@ -2147,14 +2147,14 @@ class Main(QMainWindow):
                                     # tip="Create a New Product Type",
                                     # modes=['system', 'component', 'db'])
         self.add_or_update_model_action = self.create_action(
-                                "Add/Update a Design/Analysis Model",
-                                slot=self.add_update_model,
+                                "Add or Update a Design/Analysis Model",
+                                slot=self.add_update_model_file,
                                 icon='new_part',
                                 tip="Add/Update a Design/Analysis Model",
                                 modes=['system', 'component'])
         self.add_or_update_doc_action = self.create_action(
-                                "Add/Update a Document",
-                                slot=self.add_update_document,
+                                "Add or Update a Document",
+                                slot=self.add_update_document_file,
                                 icon='new_doc',
                                 tip="Add/Update a Document",
                                 modes=['system', 'component'])
@@ -4987,19 +4987,29 @@ class Main(QMainWindow):
         # orb.log.debug('  calling new_product_wizard() ...')
         self.new_product_wizard()
 
-    def add_update_model(self):
+    def add_update_model_file(self):
         """
-        Add or update a Model instance and upload the associated file.
+        Select a model file, specify metadata, and initiate the process of
+        adding or updating the related objects.
         """
+        # TODO: use ModelImportDialog ...
         pass
 
-    def add_update_document(self):
+    def add_update_model(self):
+        """
+        Call rpc to add or update Model, Representation and RepresentationFile
+        objects related to a specified model file, and add callbacks to upload
+        the associated file if appropriate.
+        """
+
+    def add_update_document_file(self):
         """
         Add or update a Document instance and upload the associated file.
         """
+        # TODO: create and use DocImportDialog ...
         pass
 
-    def on_upload_file(self, fpath='', chunk_size=None):
+    def upload_file(self, fpath='', chunk_size=None):
         """
         Upload a file from a specified path.
         """
