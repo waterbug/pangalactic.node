@@ -14,21 +14,22 @@ import re
 from functools import reduce
 from textwrap import wrap
 
-from pangalactic.core             import prefs, state
-from pangalactic.core.meta        import MAIN_VIEWS, PGEF_COL_WIDTHS
-from pangalactic.core.names       import (get_external_name_plural,
-                                          pname_to_header)
-from pangalactic.core.parametrics import de_defz, parameterz, parm_defz
-from pangalactic.core.uberorb     import orb
-from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import (HWFieldsDialog,
-                                          SelectHWLibraryColsDialog)
-from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.tablemodels import ObjectTableModel
-from pangalactic.node.utils       import (create_mime_data,
-                                          create_template_from_product,
-                                          get_pixmap)
-from pangalactic.node.widgets     import ColorLabel
+from pangalactic.core              import prefs, state
+from pangalactic.core.meta         import MAIN_VIEWS, PGEF_COL_WIDTHS
+from pangalactic.core.names        import (get_external_name_plural,
+                                           pname_to_header)
+from pangalactic.core.parametrics  import de_defz, parameterz, parm_defz
+from pangalactic.core.uberorb      import orb
+from pangalactic.core.utils.msword import report
+from pangalactic.node.buttons      import SizedButton
+from pangalactic.node.dialogs      import (HWFieldsDialog,
+                                           SelectHWLibraryColsDialog)
+from pangalactic.node.pgxnobject   import PgxnObject
+from pangalactic.node.tablemodels  import ObjectTableModel
+from pangalactic.node.utils        import (create_mime_data,
+                                           create_template_from_product,
+                                           get_pixmap)
+from pangalactic.node.widgets      import ColorLabel
 
 
 class ProductFilterDialog(QDialog):
@@ -653,6 +654,8 @@ class FilterPanel(QWidget):
                                            'font-weight: bold; color: green;')
             self.set_view_button = SizedButton('Customize Columns')
             self.set_view_button.clicked.connect(self.set_custom_hw_lib_view)
+            # self.report_button = SizedButton('Output Report')
+            # self.report_button.clicked.connect(self.write_hw_lib_report)
 
         self.filter_case_checkbox = QCheckBox("case sensitive")
         filter_pattern_label = QLabel("Text Filter:")
@@ -670,6 +673,7 @@ class FilterPanel(QWidget):
             only_mine_hbox.addWidget(self.only_mine_label)
             only_mine_hbox.addStretch(1)
             only_mine_hbox.addWidget(self.set_view_button)
+            # only_mine_hbox.addWidget(self.report_button)
             self.proxy_layout.addLayout(only_mine_hbox)
             filters_hbox = QHBoxLayout()
             filters_hbox.addWidget(self.ext_filters)
@@ -881,6 +885,22 @@ class FilterPanel(QWidget):
             self.custom_view = new_view[:]
             # orb.log.debug(f'* new HW Library view: {new_view}')
             self.refresh()
+
+    def write_hw_lib_report(self):
+        """
+        Output an MS Word report on the contents of the HW Library.
+        """
+        data = [[self.proxy_model.data(self.proxy_model.index(i, j),
+                                       Qt.DisplayRole)
+                 for j in range(self.proxy_model.columnCount())]
+                 for i in range(self.proxy_model.rowCount())]
+        label = getattr(self, 'cur_filter_label', None) or None
+        info = ''
+        if label:
+            table = str.maketrans(
+                {' ': '_', '&': '_', '/': '_', '(': '', ')': ''})
+            info = label.text().translate(table)
+        report(self.view, data, info=info)
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
