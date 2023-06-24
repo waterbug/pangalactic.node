@@ -45,7 +45,8 @@ from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,
 from pangalactic.node.buttons     import SizedButton, UrlButton, FkButton
 from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
-from pangalactic.node.widgets     import (get_widget, FloatFieldWidget, HLine,
+from pangalactic.node.widgets     import (get_widget, ColorLabel,
+                                          FloatFieldWidget, HLine,
                                           IntegerFieldWidget, LogWidget,
                                           StringFieldWidget,
                                           StringSelectWidget, TextFieldWidget,
@@ -335,20 +336,43 @@ class ModelImportDialog(QDialog):
     A dialog to import a model file and create related objects.
 
     Keyword Args:
-        model_type (ModelType): type of model to be imported
+        model_type_id (str): id of ModelType to be imported
         parent (QWidget): parent widget of the dialog
     """
-    def __init__(self, model_type=None, parent=None):
+    def __init__(self, model_type_id='', parent=None):
         super().__init__(parent)
-        if model_type:
-            self.setWindowTitle(f"Import {model_type.name}")
+        vbox = QVBoxLayout(self)
+        if model_type_id:
+            self.model_type = orb.select("ModelType", id=model_type_id)
+            self.setWindowTitle(f"Import {model_type_id} Model")
+            self.build_form()
         else:
             self.setWindowTitle("Import Model")
-            # TODO: model_type selector ...
-        self.mtype_oid = getattr(model_type, 'oid', '') or ''
-        vbox = QVBoxLayout(self)
+            self.model_type_select = QComboBox()
+            self.model_type_select.setStyleSheet(
+                                'font-weight: bold; font-size: 14px')
+            model_types = orb.get_by_type('ModelType')
+            self.mts = {mt.id : mt for mt in model_types}
+            self.mt_ids = [mt.id for mt in model_types]
+            self.mt_ids.sort()
+            for mt_id in self.mt_ids:
+                self.model_type_select.addItem(mt_id, QVariant)
+            self.model_type_select.setCurrentIndex(0)
+            self.model_type_select.activated.connect(self.on_model_type_select)
+            label = ColorLabel("Select Model Type")
+            vbox.addWidget(label)
+            vbox.addWidget(self.model_type_select)
+
+    def on_model_type_select(self, index):
+        self.model_type = self.mts[self.mt_ids[index]]
+        orb.log.debug(f'* selected model type: "{self.model_type.id}"')
+        self.build_form()
+
+    def build_form(self):
+        vbox = self.layout()
+        self.mtype_oid = getattr(self.model_type, 'oid', '') or ''
         self.model_file_path = ''
-        file_select_button = SizedButton("Select LOM File")
+        file_select_button = SizedButton("Select Model File")
         file_select_button.clicked.connect(self.on_select_file)
         vbox.addWidget(file_select_button)
         self.form = QFormLayout()
@@ -370,6 +394,7 @@ class ModelImportDialog(QDialog):
     def on_select_file(self, evt):
         dirpath = state.get('last_lom_path', '') or ''
         dialog = QFileDialog(self, 'Open File', dirpath, "(*.mat)")
+        fpath = ''
         if dialog.exec_():
             fpaths = dialog.selectedFiles()
             if fpaths:

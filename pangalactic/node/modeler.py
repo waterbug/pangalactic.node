@@ -20,6 +20,7 @@ from pangalactic.core.names       import (get_block_model_id,
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
+from pangalactic.node.dialogs     import ModelImportDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (extract_mime_data,
                                           create_product_from_template)
@@ -190,25 +191,16 @@ class ModelWindow(QMainWindow):
 
     def init_toolbar(self):
         self.toolbar = self.addToolBar("Actions")
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         self.toolbar.setObjectName('ActionsToolBar')
-        # NOTE: disabling the history stuff for now -- it's broken and is not
-        # very useful anyway ... *might* fix in future.  The "component" mode
-        # history stuff still works, and that is *way* more important!
-        # self.back_action = self.create_action(
-                                    # "Back",
-                                    # slot=self.go_back,
-                                    # icon="back",
-                                    # tip="Back to Previous Model")
-        # self.toolbar.addAction(self.back_action)
-        # TODO:  create a dialog for saving a diagram to a SysML file ...
-        # self.save_action = self.create_action(
-                                    # "Save Model...",
-                                    # slot=self.write_block_model,
+        # TODO:  create a dialog for exporting a diagram to a SysML file ...
+        # self.export_action = self.create_action(
+                                    # "Export SysML ...",
+                                    # slot=self.export_sysml,
                                     # icon="save",
-                                    # tip="Save Model to a File")
-        # self.toolbar.addAction(self.save_action)
-        # TODO:  fix bug that crashes the external window ...
+                                    # tip="Export Model to SysML")
+        # self.toolbar.addAction(self.export_action)
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
                                           "100%"])
@@ -217,24 +209,30 @@ class ModelWindow(QMainWindow):
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
         # self.toolbar.addAction(self.diagram_view.scene().print_action)
-        self.print_action = self.create_action("print",
+        self.print_action = self.create_action("Snap",
                                                slot=self.print_preview,
-                                               icon="printer",
-                                               tip="Save as Image / Print")
+                                               icon="camera",
+                                               tip="Save as Image or Print")
         self.toolbar.addAction(self.print_action)
         self.view_cad_action = self.create_action(
-                                    "View CAD Model...",
+                                    "View CAD",
                                     slot=self.display_cad_model,
                                     icon="view_16",
                                     tip="View CAD Model (from STEP File)")
         self.toolbar.addAction(self.view_cad_action)
-        self.external_window_action = self.create_action(
-                                    "Display external diagram window ...",
-                                    slot=self.display_external_window,
-                                    icon="system",
-                                    tip="Display External Diagram Window")
-        if not self.external:
-            self.toolbar.addAction(self.external_window_action)
+        self.add_model_action = self.create_action(
+                                    "Upload a Model",
+                                    slot=self.add_update_model,
+                                    icon="lander",
+                                    tip="Add or Update a Model File")
+        self.toolbar.addAction(self.add_model_action)
+        # self.external_window_action = self.create_action(
+                                    # "Display external diagram window ...",
+                                    # slot=self.display_external_window,
+                                    # icon="system",
+                                    # tip="Display External Diagram Window")
+        # if not self.external:
+            # self.toolbar.addAction(self.external_window_action)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -272,12 +270,12 @@ class ModelWindow(QMainWindow):
                 pass
         self.placeholder = new_placeholder
 
-    def display_external_window(self):
-        # orb.log.debug('* ModelWindow.display_external_window() ...')
-        mw = ModelWindow(obj=self.obj, scene=self.diagram_view.scene(),
-                         logo=self.logo, external=True,
-                         parent=self.parent())
-        mw.show()
+    # def display_external_window(self):
+        # # orb.log.debug('* ModelWindow.display_external_window() ...')
+        # mw = ModelWindow(obj=self.obj, scene=self.diagram_view.scene(),
+                         # logo=self.logo, external=True,
+                         # parent=self.parent())
+        # mw.show()
 
     def set_new_diagram_view(self):
         new_diagram_view = DiagramView(self.obj, embedded=True, parent=self)
@@ -479,6 +477,10 @@ class ModelWindow(QMainWindow):
         except:
             # orb.log.debug('  CAD model not found.')
             pass
+
+    def add_update_model(self, model_type_id=None):
+        dlg = ModelImportDialog(model_type_id=model_type_id, parent=self)
+        dlg.show()
 
     def display_block_diagram(self):
         """

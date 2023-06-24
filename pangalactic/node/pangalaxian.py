@@ -320,6 +320,8 @@ class Main(QMainWindow):
         dispatcher.connect(self.set_new_object_table_view,
                                                 'new object table view pref')
         dispatcher.connect(self.on_rqts_imported, 'rqts imported from excel')
+        dispatcher.connect(self.on_add_update_model, 'add update model')
+        dispatcher.connect(self.on_add_update_doc, 'add update doc')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
@@ -2128,36 +2130,12 @@ class Main(QMainWindow):
                                     icon='parameter',
                                     tip=pd_lib_title,
                                     modes=['system', 'component', 'db'])
-        self.new_parameter_action = self.create_action(
-                                    "New Parameter Definition",
-                                    slot=self.new_parameter,
-                                    icon='new_parameter',
-                                    tip="Define a New Parameter",
-                                    modes=['system', 'component', 'db'])
         self.new_product_action = self.create_action(
                                     "New System or Component (Product)",
                                     slot=self.new_product,
                                     icon='new_part',
                                     tip="Create a New System or Component",
                                     modes=['system', 'component', 'db'])
-        # self.new_product_type_action = self.create_action(
-                                    # "New Product Type",
-                                    # slot=self.new_product_type,
-                                    # icon="new_doc",
-                                    # tip="Create a New Product Type",
-                                    # modes=['system', 'component', 'db'])
-        self.add_or_update_model_action = self.create_action(
-                                "Add or Update a Design/Analysis Model",
-                                slot=self.add_update_model_file,
-                                icon='new_part',
-                                tip="Add/Update a Design/Analysis Model",
-                                modes=['system', 'component'])
-        self.add_or_update_doc_action = self.create_action(
-                                "Add or Update a Document",
-                                slot=self.add_update_document_file,
-                                icon='new_doc',
-                                tip="Add/Update a Document",
-                                modes=['system', 'component'])
         self.new_functional_rqt_action = self.create_action(
                                     "New Functional Requirement",
                                     slot=self.new_functional_rqt,
@@ -2176,12 +2154,6 @@ class Main(QMainWindow):
                                     # icon="new_doc",
                                     # tip="Create a New Data Element",
                                     # modes=['system', 'component', 'db'])
-        self.new_test_action = self.create_action(
-                                    "New Test",
-                                    slot=self.new_test,
-                                    icon="new_doc",
-                                    tip="Create a New Test",
-                                    modes=['system', 'component', 'db'])
         # the cad viewer runs in the same process (which does not work on Mac!)
         if not sys.platform == 'darwin':
             self.view_cad_action = self.create_action(
@@ -2681,18 +2653,15 @@ class Main(QMainWindow):
         new_object_icon_file = 'new_box' + state['icon_type']
         new_object_icon_path = os.path.join(icon_dir, new_object_icon_file)
         new_object_actions = [
-                              # self.new_parameter_action,
                               self.new_product_action,
-                              # self.new_product_type_action,
                               self.new_functional_rqt_action,
-                              self.new_performance_rqt_action,
-                              # self.data_element_action,
-                              self.new_test_action]
-        new_object_button = MenuButton(QIcon(new_object_icon_path),
-                                   text='Create',
-                                   tooltip='Create New Objects',
-                                   actions=new_object_actions, parent=self)
-        self.toolbar.addWidget(new_object_button)
+                              self.new_performance_rqt_action]
+        add_update_object_button = MenuButton(QIcon(new_object_icon_path),
+                                   text='Create or Update',
+                                   tooltip='Create or Update Objects',
+                                   actions=new_object_actions,
+                                   parent=self)
+        self.toolbar.addWidget(add_update_object_button)
 
         system_tools_icon_file = 'tools' + state['icon_type']
         system_tools_icon_path = os.path.join(icon_dir,
@@ -4970,14 +4939,6 @@ class Main(QMainWindow):
             self.remote_thawed.connect(pxo.on_remote_thawed)
             pxo.show()
 
-    def new_parameter(self):
-        # Parameter Definitions are *always* "public"
-        param = clone('ParameterDefinition', public=True)
-        pxo = PgxnObject(param, edit_mode=True, modal_mode=True, new=True,
-                         parent=self)
-        pxo.obj_modified.connect(self.on_mod_object_qtsignal)
-        pxo.show()
-
     def new_product(self):
         """
         Display a dialog to create a new Product.  (Now simply calls
@@ -4987,26 +4948,22 @@ class Main(QMainWindow):
         # orb.log.debug('  calling new_product_wizard() ...')
         self.new_product_wizard()
 
-    def add_update_model_file(self):
+    def on_add_update_model(self):
         """
-        Select a model file, specify metadata, and initiate the process of
-        adding or updating the related objects.
+        Handle "add update model" signal: call rpc to add or update Model,
+        Representation and RepresentationFile objects related to a specified
+        item, and add callbacks to upload_file() to upload associated file(s)
+        file if appropriate.
         """
-        # TODO: use ModelImportDialog ...
         pass
 
-    def add_update_model(self):
+    def on_add_update_doc(self):
         """
-        Call rpc to add or update Model, Representation and RepresentationFile
-        objects related to a specified model file, and add callbacks to upload
-        the associated file if appropriate.
+        Handle "add update doc" signal: call rpc to add or update Document,
+        Representation and RepresentationFile objects related to a specified
+        item, and add callbacks to upload_file() to upload associated file(s)
+        if appropriate.
         """
-
-    def add_update_document_file(self):
-        """
-        Add or update a Document instance and upload the associated file.
-        """
-        # TODO: create and use DocImportDialog ...
         pass
 
     def upload_file(self, fpath='', chunk_size=None):
@@ -5146,41 +5103,6 @@ class Main(QMainWindow):
                 wizard.pgxn_obj.parent = None
                 wizard.pgxn_obj.close()
                 wizard.pgxn_obj = None
-
-    # def new_data_element(self):
-        # # TODO:  Wizard for data element -- needed to check uniqueness of "id"
-        # de_def = clone('DataElementDefinition')
-        # panels = ['main', 'admin']
-        # required = ['id', 'name', 'abbreviation', 'description',
-                    # 'range_datatype']
-        # pxo = PgxnObject(de_def, edit_mode=True, new=True, modal_mode=True,
-                         # required=required, panels=panels, parent=self)
-        # pxo.show()
-
-    def new_test(self):
-        # TODO:  Wizard for Test?
-        project_oid = state.get('project')
-        if project_oid:
-            proj = orb.get(project_oid)
-        else:
-            proj = None
-        test = clone('Test', owner=proj)
-        # modal_mode -> 'cancel' closes dialog
-        panels = ['main', 'info', 'admin']
-        pxo = PgxnObject(test, edit_mode=True, new=True, modal_mode=True,
-                         panels=panels, parent=self)
-        pxo.obj_modified.connect(self.on_mod_object_qtsignal)
-        pxo.delete_obj.connect(self.del_object)
-        pxo.show()
-
-    # def new_product_type(self):
-        # product_type = clone('ProductType')
-        # view = ['id', 'name', 'abbreviation', 'description']
-        # panels = ['main']
-        # # modal_mode -> 'cancel' closes dialog
-        # pxo = PgxnObject(product_type, edit_mode=True, new=True, view=view,
-                         # panels=panels, modal_mode=True, parent=self)
-        # pxo.show()
 
     def parameter_library(self):
         dlg = ParmDefsDialog(parent=self)
