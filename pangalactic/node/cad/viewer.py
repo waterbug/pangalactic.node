@@ -559,8 +559,7 @@ class QtViewer3DColor(QtBaseViewer):
 
 
 class Model3DViewer(QtWidgets.QMainWindow):
-    def __init__(self, step_file=None, stl_file=None, brep_file=None,
-                 parent=None):
+    def __init__(self, step_file='', stl_file='', brep_file='', parent=None):
         super().__init__(parent=parent)
         self.setWindowTitle(self.tr("3D CAD Model Viewer"))
         self.init_viewer_3d()
@@ -599,6 +598,8 @@ class Model3DViewer(QtWidgets.QMainWindow):
                                    tooltip='Export Data or Objects',
                                    actions=export_actions, parent=self)
         self.toolbar.addWidget(self.export_button)
+        if step_file:
+            self.open_specified_step_file(step_file)
 
     def create_action(self, text, icon=None, slot=None, tip=None):
         action = QtWidgets.QAction(text, self)
@@ -640,6 +641,20 @@ class Model3DViewer(QtWidgets.QMainWindow):
         else:
             orb.log.debug('* no path for export, aborting.')
             return
+
+    def open_specified_step_file(self, fpath):
+        if fpath:
+            # TODO: exception handling in case data import fails ...
+            # TODO: add an "index" column for sorting, or else figure out how
+            # to sort on the left header column ...
+            state['last_step_path'] = os.path.dirname(fpath)
+            if orb.started:
+                orb.log.debug('  - opening STEP file "{}" ...'.format(fpath))
+            if self.viewer_in_use:
+                self.init_viewer_3d()
+            self.qt_viewer_3d.init_shape_from_model(fpath, model_type='step')
+            if hasattr(self, 'export_to_image_action'):
+                self.export_to_image_action.setEnabled(True)
 
     def open_step_file(self):
         if platform.platform().startswith('Darwin'):

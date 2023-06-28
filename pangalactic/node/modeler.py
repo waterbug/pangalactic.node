@@ -13,37 +13,33 @@ from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
 from pangalactic.core             import diagramz, state
-from pangalactic.core.clone       import clone
-from pangalactic.core.names       import (get_block_model_id,
-                                          get_block_model_name,
-                                          get_block_model_file_name)
+# from pangalactic.core.clone       import clone
+# from pangalactic.core.names       import (get_block_model_id,
+                                          # get_block_model_name,
+                                          # get_block_model_file_name)
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.dialogs     import ModelImportDialog
-from pangalactic.node.pgxnobject  import PgxnObject
+# from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (extract_mime_data,
                                           create_product_from_template)
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 
 supported_model_types = {
     # CAD models get "eyes" icon, not a label button
-    'step:203' : None,
-    'step:214' : None,
-    'pgefobjects:Block' : 'Block',
-    'pgefobjects:ConOps' : 'Con Ops'}
+    'pgefobjects:ModelType.MCAD' : None,
+    }
 
 # a named tuple used in managing the "history" of the ModelWindow so that it
 # can be navigated
 ModelerState = namedtuple('ModelerState', 'obj idx')
-# oid of "block" model type
-BLOCK_OID = 'pgefobjects:Block'
 
 
 def get_model_path(model):
     """
-    Find the path for a model file.  For now, supported model types include
-    STEP AP203, AP214, and PGEF Block and ConOps models.
+    Find the path for a model file.  For now, supported model type is only
+    "MCAD".
 
     CAUTION:  this function short-circuits the model/rep/rep_files sequence and
     assumes that each model can be rendered from one file path!  (Granted, this
@@ -61,7 +57,7 @@ def get_model_path(model):
     if not isinstance(model, orb.classes['Modelable']):
         # orb.log.debug('  not an instance of Modelable.')
         return ''
-    # check if there is a STEP AP203/214/242 model type
+    # check if there is an "MCAD" model type
     model_type_oid = getattr(model.type_of_model, 'oid', '')
     # orb.log.debug('  - model type oid: "{}"'.format(model_type_oid))
     if (model.has_representations and model_type_oid in supported_model_types):
@@ -76,14 +72,6 @@ def get_model_path(model):
                 # model and file
                 if os.path.exists(fpath):
                     return fpath
-    elif model_type_oid == BLOCK_OID:
-        # special path for pgef block model files
-        fname = get_block_model_file_name(model.of_thing)
-        fpath = os.path.join(orb.vault, fname)
-        if os.path.exists(fpath):
-            return fpath
-        else:
-            return ''
     else:
         return ''
 
@@ -435,8 +423,6 @@ class ModelWindow(QMainWindow):
                     for m in self.obj.has_models:
                         fpath = get_model_path(m)
                         if fpath:
-                            # fpath only needed for CAD models, since block
-                            # models have a canonical path
                             self.model_files[m.oid] = fpath
                         # model_types.add(m.type_of_model.oid)
                 try:
@@ -457,24 +443,26 @@ class ModelWindow(QMainWindow):
             self.set_placeholder()
         # TODO:  enable multiple CAD models (e.g. "detailed" / "simplified")
         if self.model_files:
+            # orb.log.debug('* ModelWindow: model files found ...')
             self.models_by_label = {}
             for oid, fpath in self.model_files.items():
                 model = orb.get(oid)
-                if getattr(model.type_of_model, 'oid', None) in ['step:203',
-                                                                 'step:214']:
-                    self.models_by_label['CAD'] = (model, fpath)
-                    if hasattr(self, 'view_cad_action'):
+                fname = os.path.basename(fpath)
+                suffix = fname.split('.')[1]
+                # orb.log.debug(f'  {model.id} has suffix "{suffix}"')
+                mtype_oid = getattr(model.type_of_model, 'oid', '') or ''
+                if mtype_oid == 'pgefobjects:ModelType.MCAD':
+                    self.models_by_label['MCAD'] = (model, fpath)
+                    if (hasattr(self, 'view_cad_action')
+                        and suffix in ['step', 'stp', 'p21']):
                         try:
                             self.view_cad_action.setVisible(True)
                         except:
                             # oops, C++ object got deleted
                             pass
-        # if self.history:
-            # if hasattr(self, 'back_action'):
-                # self.back_action.setEnabled(True)
-        # else:
-            # if hasattr(self, 'back_action'):
-                # self.back_action.setEnabled(False)
+                else:
+                    pass
+                    # orb.log.debug(f'  {model.id} is {model.type_of_model.id}')
         self.cache_block_model()
         if hasattr(self, 'diagram_view'):
             try:
@@ -486,14 +474,14 @@ class ModelWindow(QMainWindow):
 
     def display_cad_model(self):
         try:
-            model, fpath = self.models_by_label.get('CAD')
+            model, fpath = self.models_by_label.get('MCAD')
             if fpath:
                 # orb.log.debug('* ModelWindow.display_cad_model({})'.format(
                                                                     # fpath))
                 viewer = Model3DViewer(step_file=fpath, parent=self)
                 viewer.show()
         except:
-            # orb.log.debug('  CAD model not found.')
+            orb.log.debug('  CAD model not found or not in STEP format.')
             pass
 
     def add_update_model(self, model_type_id=None):
@@ -556,17 +544,17 @@ class ModelWindow(QMainWindow):
             # orb.log.debug('  - generating new block diagram ...')
             # orb.log.debug('  - generating diagram (cache disabled for testing)')
             scene.generate_ibd(self.obj)
-            # create a block Model object if self.obj doesn't have one
-            block_model_type = orb.get(BLOCK_OID)
-            if self.obj.has_models:
-                block_models = [m for m in self.obj.has_models
-                    if getattr(m, 'type_of_model', None) == block_model_type]
-                if not block_models:
-                    model_id = get_block_model_id(self.obj)
-                    model_name = get_block_model_name(self.obj)
-                    self.model = clone('Model', id=model_id, name=model_name,
-                                       type_of_model=block_model_type,
-                                       of_thing=self.obj)
+            # # create a block Model object if self.obj doesn't have one
+            # block_model_type = orb.get(BLOCK_OID)
+            # if self.obj.has_models:
+                # block_models = [m for m in self.obj.has_models
+                    # if getattr(m, 'type_of_model', None) == block_model_type]
+                # if not block_models:
+                    # model_id = get_block_model_id(self.obj)
+                    # model_name = get_block_model_name(self.obj)
+                    # self.model = clone('Model', id=model_id, name=model_name,
+                                       # type_of_model=block_model_type,
+                                       # of_thing=self.obj)
 
     def on_deleted_object(self, oid, cname):
         """
@@ -614,17 +602,6 @@ class ModelWindow(QMainWindow):
             # orb.log.debug('  - generating new block diagram ...')
             # orb.log.debug('  - generating diagram (cache disabled for testing)')
             scene.generate_ibd(self.obj)
-            # create a block Model object if self.obj doesn't have one
-            block_model_type = orb.get(BLOCK_OID)
-            if self.obj.has_models:
-                block_models = [m for m in self.obj.has_models
-                    if getattr(m, 'type_of_model', None) == block_model_type]
-                if not block_models:
-                    model_id = get_block_model_id(self.obj)
-                    model_name = get_block_model_name(self.obj)
-                    self.model = clone('Model', id=model_id, name=model_name,
-                                       type_of_model=block_model_type,
-                                       of_thing=self.obj)
 
     def save_diagram_connector(self, start_item=None, end_item=None):
         pass
@@ -704,22 +681,6 @@ class ModelWindow(QMainWindow):
         self.canvas_box.setStretch(0, 0)
         self.canvas_box.setStretch(1, 1)
         self.canvas_box.setAlignment(Qt.AlignLeft|Qt.AlignTop)
-
-    def create_new_model(self, event):
-        if isinstance(self.obj, orb.classes['Identifiable']):
-            # TODO:  check for parameters; if found, add them
-            orb.log.debug('* ModelWindow: creating new Model for '
-                          'Product with id "%s"' % self.obj.id)
-            owner = orb.get(state.get('project'))
-            model_id = get_block_model_id(self.obj)
-            model_name = get_block_model_name(self.obj)
-            block_model_type = orb.get(BLOCK_OID)
-            new_model = clone('Model', id=model_id, name=model_name,
-                              type_of_model=block_model_type,
-                              owner=owner, of_thing=self.obj)
-            dlg = PgxnObject(new_model, edit_mode=True, parent=self)
-            # dialog.show() -> non-modal dialog
-            dlg.show()
 
 
 class ProductInfoPanel(QWidget):
