@@ -336,11 +336,14 @@ class ModelImportDialog(QDialog):
     A dialog to import a model file and create related objects.
 
     Keyword Args:
+        of_thing_oid (str): oid of the Model's "of_thing" attribute -- i.e.
+            oid of the thing of which the Model is a model
         model_type_id (str): id of ModelType to be imported
         parent (QWidget): parent widget of the dialog
     """
-    def __init__(self, model_type_id='', parent=None):
+    def __init__(self, of_thing_oid='', model_type_id='', parent=None):
         super().__init__(parent)
+        self.of_thing_oid = of_thing_oid
         vbox = QVBoxLayout(self)
         if model_type_id:
             self.model_type = orb.select("ModelType", id=model_type_id)
@@ -366,21 +369,36 @@ class ModelImportDialog(QDialog):
     def on_model_type_select(self, index):
         self.model_type = self.mts[self.mt_ids[index]]
         orb.log.debug(f'* selected model type: "{self.model_type.id}"')
-        self.build_form()
+        # if the form doesn't exist, build it
+        if not getattr(self, 'form', None):
+            self.build_form()
 
     def build_form(self):
         vbox = self.layout()
+        self.file_select_button = SizedButton("Select Model File")
+        self.file_select_button.clicked.connect(self.on_select_file)
+        vbox.addWidget(self.file_select_button)
+        self.form = QFormLayout()
+        vbox.addLayout(self.form)
         self.mtype_oid = getattr(self.model_type, 'oid', '') or ''
         self.model_file_path = ''
-        file_select_button = SizedButton("Select Model File")
-        file_select_button.clicked.connect(self.on_select_file)
-        vbox.addWidget(file_select_button)
-        self.form = QFormLayout()
         self.fields = {}
-        vbox.addLayout(self.form)
-        for name in ['model file', 'id', 'name', 'version']:
-            widget, autolabel = get_widget(name, 'str', value='')
-            label = QLabel(name, self)
+        file_widget, autolabel = get_widget('file name', 'str', value='',
+                                            editable=False)
+        self.fields['file name'] = file_widget
+        file_label = ColorLabel('file name')
+        self.form.addRow(file_label, file_widget)
+        m_label_text = '------------------- Model Properties '
+        m_label_text += '-------------------'
+        model_label = ColorLabel(m_label_text)
+        self.form.addRow(model_label)
+        for name in ['id', 'version', 'name',
+                     'description']:
+            if name == 'description':
+                widget, autolabel = get_widget(name, 'text', value='')
+            else:
+                widget, autolabel = get_widget(name, 'str', value='')
+            label = ColorLabel(name)
             self.fields[name] = widget
             self.form.addRow(label, widget)
         # OK and Cancel buttons
@@ -392,8 +410,8 @@ class ModelImportDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
 
     def on_select_file(self, evt):
-        dirpath = state.get('last_lom_path', '') or ''
-        dialog = QFileDialog(self, 'Open File', dirpath, "(*.mat)")
+        dirpath = state.get('last_model_path', '') or ''
+        dialog = QFileDialog(self, 'Open File', dirpath)
         fpath = ''
         if dialog.exec_():
             fpaths = dialog.selectedFiles()
@@ -404,22 +422,25 @@ class ModelImportDialog(QDialog):
             orb.log.debug(f'  file selected: {fpath}')
             self.model_file_path = fpath
             fname = os.path.basename(fpath)
-            self.fields['model file'].set_value(fname)
-            state['last_lom_path'] = os.path.dirname(fpath)
+            self.fields['file name'].setText(fname)
+            state['last_model_path'] = os.path.dirname(fpath)
         else:
             orb.log.debug('  no file was selected.')
             return
 
     def on_submit(self):
-        fname = self.fields.get('model file', '') or ''
-        if fname:
+        if self.model_file_path:
             parms = {}
             for name, widget in self.fields.items():
-                parms[name] = widget.get_value() or ''
+                if name == 'file name':
+                    parms[name] = widget.text()
+                else:
+                    parms[name] = widget.get_value() or ''
+            parms['of_thing_oid'] = self.of_thing_oid
             orb.log.debug(f'  - mtype_oid: {self.mtype_oid}')
             orb.log.debug(f'  - fpath: {self.model_file_path}')
             orb.log.debug(f'  - parms: {parms}')
-            dispatcher.send(signal='upload model file',
+            dispatcher.send(signal='add update model',
                             mtype_oid=self.mtype_oid,
                             fpath=self.model_file_path,
                             parms=parms)

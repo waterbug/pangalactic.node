@@ -226,6 +226,13 @@ class ModelWindow(QMainWindow):
                                     icon="lander",
                                     tip="Add or Update a Model File")
         self.toolbar.addAction(self.add_model_action)
+        if isinstance(self.obj, orb.classes['Modelable']):
+            if getattr(self.obj, 'owner', None):
+                self.add_model_action.setEnabled(True)
+            else:
+                self.add_model_action.setEnabled(False)
+        else:
+            self.add_model_action.setEnabled(False)
         # self.external_window_action = self.create_action(
                                     # "Display external diagram window ...",
                                     # slot=self.display_external_window,
@@ -413,6 +420,15 @@ class ModelWindow(QMainWindow):
         self.obj = obj or self.obj
         if self.obj:
             if isinstance(self.obj, orb.classes['Modelable']):
+                if hasattr(self, 'add_model_action'):
+                    try:
+                        if hasattr(self.obj, 'owner'):
+                            self.add_model_action.setEnabled(True)
+                        else:
+                            self.add_model_action.setEnabled(False)
+                    except:
+                        # C++ object got deleted
+                        pass
                 # orb.log.debug('* ModelWindow: checking for models ...')
                 # model_types = set()
                 if self.obj.has_models:
@@ -429,6 +445,8 @@ class ModelWindow(QMainWindow):
                     # orb.log.debug('* ModelWindow C++ object deleted.')
                     pass
             else:
+                if hasattr(self, 'add_model_action'):
+                    self.add_model_action.setEnabled(False)
                 # orb.log.debug('* ModelWindow: obj not Modelable, ignoring')
                 self.obj = None
                 # orb.log.debug('  ... setting placeholder widget.')
@@ -479,7 +497,8 @@ class ModelWindow(QMainWindow):
             pass
 
     def add_update_model(self, model_type_id=None):
-        dlg = ModelImportDialog(model_type_id=model_type_id, parent=self)
+        dlg = ModelImportDialog(of_thing_oid=self.obj.oid,
+                                model_type_id=model_type_id, parent=self)
         dlg.show()
 
     def display_block_diagram(self):

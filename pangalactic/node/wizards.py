@@ -140,7 +140,7 @@ class DataImportWizard(QWizard):
         sheet_names = list(datasets.keys())
         dataset = datasets[sheet_names[0]]
         first_col_names = dataset.pop(0)
-        orb.log.debug(f'  - col names: {first_col_names}')
+        # orb.log.debug(f'  - col names: {first_col_names}')
         first_col_lowered = []
         blank_col = False
         for n in first_col_names:
@@ -1236,7 +1236,7 @@ class IdentificationPage(QWizardPage):
         """
         Handle "new object" dispatcher signal, emitted when PgxnObject saves.
         """
-        orb.log.info('  - "new object" signal received')
+        # orb.log.info('  - "new object" signal received')
         if obj is self.product:
             self.completeChanged.emit()
 
@@ -1250,15 +1250,15 @@ class IdentificationPage(QWizardPage):
         Return `True` when the product_type has been set, which activates the
         `Next` button.
         """
-        orb.log.info('* IdentificationPage.isComplete()')
+        # orb.log.info('* IdentificationPage.isComplete()')
         if (self.product and self.product.id and self.product.name and
             self.product.product_type):
-            orb.log.info('  - product validated successfully')
+            # orb.log.info('  - product validated successfully')
             add_default_parameters(self.product)
             return True
         else:
-            orb.log.info('  - product did NOT validate successfully')
-            orb.log.info('  - returning False')
+            # orb.log.info('  - product did NOT validate successfully')
+            # orb.log.info('  - returning False')
             return False
 
 
@@ -1282,7 +1282,7 @@ class ProductTypePage(QWizardPage):
         # discipline(s)
         proj_oid = state.get('project')
         project = orb.get(proj_oid)
-        orb.log.debug('[comp wiz] checking for project/roles/disciplines ...')
+        # orb.log.debug('[comp wiz] checking for project/roles/disciplines ...')
         disciplines = set()
         if project:
             # get my role assignments on the project:
@@ -1297,18 +1297,20 @@ class ProductTypePage(QWizardPage):
                               for r in roles])
                 disciplines = set([dr.related_to_discipline for dr in drs])
             else:
-                orb.log.debug('[comp wiz] - no assigned roles found on '
-                              'project "{}".'.format(project.id))
+                pass
+                # orb.log.debug('[comp wiz] - no assigned roles found on '
+                              # 'project "{}".'.format(project.id))
         else:
-            orb.log.debug('[comp wiz] - either no project found or no '
-                          'assigned roles found or no role map.')
-        if disciplines:
-            orb.log.debug('[comp wiz] - disciplines found:')
-            for d in disciplines:
-                orb.log.debug('             {}'.format(d.id))
-        else:
-            orb.log.debug('[comp wiz] - no disciplines found '
-                          'related to assigned roles.')
+            pass
+            # orb.log.debug('[comp wiz] - either no project found or no '
+                          # 'assigned roles found or no role map.')
+        # if disciplines:
+            # orb.log.debug('[comp wiz] - disciplines found:')
+            # for d in disciplines:
+                # orb.log.debug('             {}'.format(d.id))
+        # else:
+            # orb.log.debug('[comp wiz] - no disciplines found '
+                          # 'related to assigned roles.')
         hbox = QHBoxLayout()
         # logo_path = config.get('tall_logo')
         # if logo_path:
@@ -1395,15 +1397,15 @@ class ProductTypePage(QWizardPage):
             self.product_type_panel.create_model(objs=pt_list))
 
     def product_type_selected(self, clicked_index):
-        clicked_row = clicked_index.row()
-        orb.log.debug('* clicked row is "{}"'.format(clicked_row))
+        # clicked_row = clicked_index.row()
+        # orb.log.debug('* clicked row is "{}"'.format(clicked_row))
         mapped_row = self.product_type_panel.proxy_model.mapToSource(
                                                         clicked_index).row()
         self.pt = self.product_type_panel.objs[mapped_row]
-        orb.log.debug(
-            '  product type selected [mapped row] is: {}'.format(mapped_row))
+        # orb.log.debug(
+            # '  product type selected [mapped row] is: {}'.format(mapped_row))
         pt_name = getattr(self.pt, 'name', '[not set]')
-        orb.log.debug('  ... which is "{}"'.format(pt_name))
+        # orb.log.debug('  ... which is "{}"'.format(pt_name))
         if self.pt:
             product = orb.get(wizard_state.get('product_oid'))
             if product:
@@ -1478,12 +1480,12 @@ class MaturityLevelPage(QWizardPage):
 
     def trl_selected(self, clicked_index):
         clicked_row = clicked_index.row()
-        orb.log.debug('* clicked row is "{}"'.format(clicked_row))
+        # orb.log.debug('* clicked row is "{}"'.format(clicked_row))
         wizard_state['trl'] = trls[clicked_row]
-        orb.log.debug('  trl selected is: {}'.format(trls[clicked_row]))
+        # orb.log.debug('  trl selected is: {}'.format(trls[clicked_row]))
         trl = wizard_state.get('trl')
         trl_nbr = trl.get('trl', '[not set]')
-        orb.log.debug('  ... which is "{}"'.format(trl_nbr))
+        # orb.log.debug('  ... which is "{}"'.format(trl_nbr))
         if trl:
             self.trl_label.setVisible(True)
             self.trl_value_label.setText(str(trl_nbr))
@@ -1546,7 +1548,7 @@ class NewProductWizardConclusionPage(QWizardPage):
 
     def initializePage(self):
         p = orb.get(wizard_state['product_oid'])
-        orb.log.info('  - product found: {}'.format(p.id))
+        # orb.log.info('  - product found: {}'.format(p.id))
         self.setTitle('New Product: <font color="blue">{}</font>'.format(
                                                                     p.name))
         self.setSubTitle("Click <b>Finish</b> to use these values<br>"

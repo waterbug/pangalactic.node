@@ -1518,8 +1518,8 @@ class Main(QMainWindow):
         """
         for item in msg.items():
             subject, content = item
-            # orb.log.info("* pubsub msg received ...")
-            # orb.log.info("  subject: {}".format(subject))
+            orb.log.info("* pubsub msg received ...")
+            orb.log.info("  subject: {}".format(subject))
             # orb.log.debug("  content: {}".format(content))
             obj_id = '[unknown]'
             # base msg
@@ -1533,8 +1533,8 @@ class Main(QMainWindow):
             elif subject == 'new':
                 # NOTE: content of 'new' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
-                # n = len(content)
-                # orb.log.debug(f'received {n} "new" object(s)')
+                n = len(content)
+                orb.log.debug(f'received {n} "new" object(s)')
                 self.on_received_objects(content)
             elif subject == 'modified':
                 # NOTE: content of 'modified' msg changed in version 2.2.dev8
@@ -1866,7 +1866,7 @@ class Main(QMainWindow):
         Args:
             content (list): a list of serialized objects
         """
-        # orb.log.debug("* on_received_objects")
+        orb.log.debug("* on_received_objects")
         serialized_objects = content
         # if serialized_objects:
             # n = len(serialized_objects)
@@ -2657,8 +2657,8 @@ class Main(QMainWindow):
                               self.new_functional_rqt_action,
                               self.new_performance_rqt_action]
         add_update_object_button = MenuButton(QIcon(new_object_icon_path),
-                                   text='Create or Update',
-                                   tooltip='Create or Update Objects',
+                                   text='Create',
+                                   tooltip='Create Objects',
                                    actions=new_object_actions,
                                    parent=self)
         self.toolbar.addWidget(add_update_object_button)
@@ -4948,14 +4948,43 @@ class Main(QMainWindow):
         # orb.log.debug('  calling new_product_wizard() ...')
         self.new_product_wizard()
 
-    def on_add_update_model(self):
+    def on_add_update_model(self, mtype_oid='', fpath='', parms=None):
         """
         Handle "add update model" signal: call rpc to add or update Model,
         Representation and RepresentationFile objects related to a specified
         item, and add callbacks to upload_file() to upload associated file(s)
         file if appropriate.
         """
-        pass
+        orb.log.debug('* "add update model" signal received ...')
+        if mtype_oid and fpath and parms:
+            orb.log.info('  - calling "vger.add_update_model"')
+            rpc = self.mbus.session.call('vger.add_update_model',
+                                         mtype_oid=mtype_oid,
+                                         fpath=fpath,
+                                         parms=parms)
+            rpc.addCallback(self.on_model_added)
+            rpc.addErrback(self.on_failure)
+        else:
+            orb.log.debug('  incomplete signature, rpc not called')
+            return
+
+    def on_model_added(self, result):
+        """
+        Callback for return values of rpc 'vger.add_update_model',
+
+        Args:
+            result (tuple): [0] path to the local model file,
+                            [1] serialized Model, Representation, and
+                                RepresentationFile instances
+        """
+        fpath, sobjs = result
+        orb.log.debug(f'* on_model_added(fpath={fpath}, sobjs)')
+        orb.log.debug('  deserializing model, rep, and rep_file ...')
+        objs = deserialize(orb, sobjs)
+        orb.log.debug('  deserialized objects:')
+        for obj in objs:
+            orb.log.debug(f'  {obj.id}')
+        self.upload_file(fpath=fpath)
 
     def on_add_update_doc(self):
         """

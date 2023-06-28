@@ -1742,7 +1742,7 @@ class PgxnObject(QDialog):
         Handler for dispatcher signal "parameters recomputed" -- updates all
         computed parameter values.
         """
-        orb.log.debug('* [pxo] got "parameters recomputed" signal ...')
+        # orb.log.debug('* [pxo] got "parameters recomputed" signal ...')
         # for update of parameters / data elements
         # (note that obj may have been deleted)
         if self.obj:
