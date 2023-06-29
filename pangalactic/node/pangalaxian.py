@@ -60,7 +60,7 @@ from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms, is_global_admin
 from pangalactic.core.clone            import clone
-from pangalactic.core.datastructures   import chunkify
+from pangalactic.core.datastructures   import chunkify, OrderedSet
 from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
                                                delete_data_element,
@@ -2510,10 +2510,10 @@ class Main(QMainWindow):
             prev_oid = self._product.oid
             prev_id = self._product.id
             orb.log.debug(f'  adding to cmh: "{prev_id}" ({prev_oid})')
-            if state.get('component_modeler_history'):
-                state['component_modeler_history'].append(prev_oid)
-            else:
-                state['component_modeler_history'] = [prev_oid]
+            hist = state.get('component_modeler_history', [])
+            hist.append(prev_oid)
+            # OrderedSet is used to eliminate duplicates
+            state['component_modeler_history'] = list(OrderedSet(hist))
         else:
             # if comp_modeler_back was True, reset it to False
             orb.log.debug('  "comp modeler back" was called')
@@ -2549,10 +2549,10 @@ class Main(QMainWindow):
         ProductInfoPanel when a product is dropped on it): load the product
         and add it to the history stack.
         """
-        if state.get('component_modeler_history'):
-            state['component_modeler_history'].append(p.oid)
-        else:
-            state['component_modeler_history'] = [p.oid]
+        hist = state.get('component_modeler_history', [])
+        hist.append(p.oid)
+        # OrderedSet is used to eliminate duplicates
+        state['component_modeler_history'] = list(OrderedSet(hist))
         self.product = p
         self.set_product_modeler_interface()
 

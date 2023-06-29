@@ -17,6 +17,7 @@ from pangalactic.core             import diagramz, state
 # from pangalactic.core.names       import (get_block_model_id,
                                           # get_block_model_name,
                                           # get_block_model_file_name)
+from pangalactic.core.datastructures import OrderedSet
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
@@ -117,7 +118,7 @@ class ModelWindow(QMainWindow):
         self.idx = idx
         self.preferred_size = preferred_size
         self.model_files = {}
-        self.history = []
+        self.history = OrderedSet()
         # NOTE: this set_subject() call serves only to create the diagram_view,
         # which is needed by _init_ui(); the final set_subject() actually sets
         # the subject to the currently selected object
@@ -196,12 +197,11 @@ class ModelWindow(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
-        # self.toolbar.addAction(self.diagram_view.scene().print_action)
-        self.print_action = self.create_action("Snap",
-                                               slot=self.print_preview,
+        self.image_action = self.create_action("Snap",
+                                               slot=self.image_preview,
                                                icon="camera",
                                                tip="Save as Image or Print")
-        self.toolbar.addAction(self.print_action)
+        self.toolbar.addAction(self.image_action)
         self.view_cad_action = self.create_action(
                                     "View CAD",
                                     slot=self.display_cad_model,
@@ -246,7 +246,7 @@ class ModelWindow(QMainWindow):
             action.setCheckable(True)
         return action
 
-    def print_preview(self):
+    def image_preview(self):
         form = DocForm(scene=self.diagram_view.scene(), edit_mode=False,
                        parent=self)
         form.show()
@@ -306,7 +306,7 @@ class ModelWindow(QMainWindow):
         # orb.log.debug('* set_subject_from_diagram_drill_down')
         self.cache_block_model()
         previous_obj = self.obj
-        self.history.append(ModelerState._make((self.obj, self.idx)))
+        self.history.add(ModelerState._make((self.obj, self.idx)))
         # now change self.obj to the new object
         if isinstance(usage, orb.classes['Acu']):
             self.obj = usage.component
@@ -365,7 +365,7 @@ class ModelWindow(QMainWindow):
         """
         if state.get('mode') == 'system':
             self.cache_block_model()
-            self.history.append(ModelerState._make((self.obj, self.idx)))
+            self.history.add(ModelerState._make((self.obj, self.idx)))
             self.idx = index
             # orb.log.debug('  setting subject from tree node selection ...')
             # obj_id = getattr(self.obj, 'id', '[None]')
@@ -476,8 +476,6 @@ class ModelWindow(QMainWindow):
         try:
             model, fpath = self.models_by_label.get('MCAD')
             if fpath:
-                # orb.log.debug('* ModelWindow.display_cad_model({})'.format(
-                                                                    # fpath))
                 viewer = Model3DViewer(step_file=fpath, parent=self)
                 viewer.show()
         except:
