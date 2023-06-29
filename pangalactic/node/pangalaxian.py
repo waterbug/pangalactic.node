@@ -2511,7 +2511,7 @@ class Main(QMainWindow):
             prev_id = self._product.id
             orb.log.debug(f'  adding to cmh: "{prev_id}" ({prev_oid})')
             hist = state.get('component_modeler_history', [])
-            if hist and prev_oid != hist[-1]:
+            if (hist and prev_oid != hist[-1]) or not hist:
                 hist.append(prev_oid)
             state['component_modeler_history'] = hist
         else:
@@ -2550,7 +2550,7 @@ class Main(QMainWindow):
         and add it to the history stack.
         """
         hist = state.get('component_modeler_history', [])
-        if hist and p.oid != hist[-1]:
+        if (hist and p.oid != hist[-1]) or not hist:
             hist.append(p.oid)
         state['component_modeler_history'] = hist
         self.product = p
