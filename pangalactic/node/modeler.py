@@ -17,7 +17,6 @@ from pangalactic.core             import diagramz, state
 # from pangalactic.core.names       import (get_block_model_id,
                                           # get_block_model_name,
                                           # get_block_model_file_name)
-from pangalactic.core.datastructures import OrderedSet
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
@@ -118,7 +117,7 @@ class ModelWindow(QMainWindow):
         self.idx = idx
         self.preferred_size = preferred_size
         self.model_files = {}
-        self.history = OrderedSet()
+        self.history = []
         # NOTE: this set_subject() call serves only to create the diagram_view,
         # which is needed by _init_ui(); the final set_subject() actually sets
         # the subject to the currently selected object
@@ -306,7 +305,7 @@ class ModelWindow(QMainWindow):
         # orb.log.debug('* set_subject_from_diagram_drill_down')
         self.cache_block_model()
         previous_obj = self.obj
-        self.history.add(ModelerState._make((self.obj, self.idx)))
+        self.history.append(ModelerState._make((self.obj, self.idx)))
         # now change self.obj to the new object
         if isinstance(usage, orb.classes['Acu']):
             self.obj = usage.component
@@ -365,7 +364,7 @@ class ModelWindow(QMainWindow):
         """
         if state.get('mode') == 'system':
             self.cache_block_model()
-            self.history.add(ModelerState._make((self.obj, self.idx)))
+            self.history.append(ModelerState._make((self.obj, self.idx)))
             self.idx = index
             # orb.log.debug('  setting subject from tree node selection ...')
             # obj_id = getattr(self.obj, 'id', '[None]')

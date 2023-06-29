@@ -60,7 +60,7 @@ from pangalactic.core                  import state, write_state
 from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms, is_global_admin
 from pangalactic.core.clone            import clone
-from pangalactic.core.datastructures   import chunkify, OrderedSet
+from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
                                                delete_data_element,
@@ -2511,9 +2511,9 @@ class Main(QMainWindow):
             prev_id = self._product.id
             orb.log.debug(f'  adding to cmh: "{prev_id}" ({prev_oid})')
             hist = state.get('component_modeler_history', [])
-            hist.append(prev_oid)
-            # OrderedSet is used to eliminate duplicates
-            state['component_modeler_history'] = list(OrderedSet(hist))
+            if hist and prev_oid != hist[-1]:
+                hist.append(prev_oid)
+            state['component_modeler_history'] = hist
         else:
             # if comp_modeler_back was True, reset it to False
             orb.log.debug('  "comp modeler back" was called')
@@ -2550,9 +2550,9 @@ class Main(QMainWindow):
         and add it to the history stack.
         """
         hist = state.get('component_modeler_history', [])
-        hist.append(p.oid)
-        # OrderedSet is used to eliminate duplicates
-        state['component_modeler_history'] = list(OrderedSet(hist))
+        if hist and p.oid != hist[-1]:
+            hist.append(p.oid)
+        state['component_modeler_history'] = hist
         self.product = p
         self.set_product_modeler_interface()
 
