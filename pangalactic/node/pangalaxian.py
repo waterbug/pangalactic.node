@@ -2159,7 +2159,7 @@ class Main(QMainWindow):
             self.view_cad_action = self.create_action(
                                     "View a CAD Model...",
                                     slot=self.view_cad,
-                                    icon="view_16",
+                                    icon="box",
                                     tip="View a CAD model",
                                     modes=['system', 'component'])
         # "open_step_file" opens an external viewer in a separate process ...
@@ -2168,7 +2168,7 @@ class Main(QMainWindow):
             self.view_multi_cad_action = self.create_action(
                                     "View CAD Model(s)...",
                                     slot=self.open_step_file,
-                                    icon="view_16",
+                                    icon="box",
                                     tip="View CAD model(s) from STEP file(s)",
                                     modes=['system', 'component'])
         self.export_project_to_file_action = self.create_action(
@@ -5003,6 +5003,9 @@ class Main(QMainWindow):
         if fpath:
             fname = os.path.basename(fpath)
             orb.log.info(f'* uploading file: "{fname}"')
+            # before uploading file, copy it to local vault ...
+            shutil.copy(fpath, os.path.join(orb.vault, fname))
+            orb.log.info('  [copied to local vault]')
             self.uploaded_chunks = 0
             self.failed_chunks = 0
             self.upload_progress = ProgressDialog(title='File Upload',

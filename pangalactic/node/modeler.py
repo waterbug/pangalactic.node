@@ -36,42 +36,32 @@ supported_model_types = {
 ModelerState = namedtuple('ModelerState', 'obj idx')
 
 
-def get_model_path(model):
+def get_step_file_path(model):
     """
-    Find the path for a model file.  For now, supported model type is only
-    "MCAD".
-
-    CAUTION:  this function short-circuits the model/rep/rep_files sequence and
-    assumes that each model can be rendered from one file path!  (Granted, this
-    works for STEP files, which may even include external references to other
-    STEP files, as the test data "Heart of Gold Spacecraft" AP214 model does.)
+    Find the path of a step file for a model.
 
     Args:
-        model (Model):  the Model for which model files are sought
+        model (Model):  the STEP model for which model the file is sought
 
     Returns:
-        a file path in the orb's "vault"
+        a path in the orb's "vault"
     """
-    # orb.log.debug('* get_model_path(model with oid "{}")'.format(
+    # orb.log.debug('* get_step_model_path(model with oid "{}")'.format(
                   # getattr(model, 'oid', 'None')))
-    if not isinstance(model, orb.classes['Modelable']):
-        # orb.log.debug('  not an instance of Modelable.')
-        return ''
-    # check if there is an "MCAD" model type
-    model_type_oid = getattr(model.type_of_model, 'oid', '')
-    # orb.log.debug('  - model type oid: "{}"'.format(model_type_oid))
-    if (model.has_representations and model_type_oid in supported_model_types):
-        # FIXME:  for now we assume 1 Representation and 1 File
-        rep = model.has_representations[0]
-        if rep.has_files:
-            rep_file = rep.has_files[0]
-            u = urlparse(rep_file.url)
-            if u.scheme == 'vault':
-                fpath = os.path.join(orb.vault, u.netloc)
-                # FIXME: for now, assume there is just one cad
-                # model and file
-                if os.path.exists(fpath):
-                    return fpath
+    if (model.has_representations and model.type_of_model.id == "MCAD"):
+        for rep in model.has_representations:
+            if rep.has_files:
+                for rep_file in rep.has_files:
+                    u = urlparse(rep_file.url)
+                    if (u.scheme == 'vault' and
+                        rep_file.url.endswith(('.stp', '.step', '.p21'))):
+                        fpath = os.path.join(orb.vault, u.netloc)
+                        if os.path.exists(fpath):
+                            return fpath
+                    else:
+                        continue
+            else:
+                continue
     else:
         return ''
 
@@ -81,8 +71,6 @@ class ModelWindow(QMainWindow):
     Main window for displaying models and their metadata.
 
     Attrs:
-        model_files (dict):  maps model "types" (for now just "CAD" and
-            "Block") to paths of associated files in vault
         idx (QModelIndex):  index in the system tree's proxy model
             corresponding to the object being modeled
         history (list):  list of previous ModelerState instances
@@ -116,7 +104,6 @@ class ModelWindow(QMainWindow):
         self.external = external
         self.idx = idx
         self.preferred_size = preferred_size
-        self.model_files = {}
         self.history = []
         # NOTE: this set_subject() call serves only to create the diagram_view,
         # which is needed by _init_ui(); the final set_subject() actually sets
@@ -156,6 +143,101 @@ class ModelWindow(QMainWindow):
         elif hasattr(self.obj, 'systems'):
             oids += [psu.system.oid for psu in self.obj.systems]
         return oids
+
+    @property
+    def models(self):
+        """
+        Returns a dict mapping "Model.type_of_model" (ModelType) id to the
+        models of that type for all models of self.obj.
+        """
+        model_instances = getattr(self.obj, 'has_models', [])
+        model_dict = {}
+        if model_instances:
+            for m in model_instances:
+                mtype_id = m.type_of_model.id
+                if mtype_id in model_dict:
+                    model_dict[mtype_id].append(m)
+                else:
+                    model_dict[mtype_id] = [m]
+        return model_dict
+
+    def set_subject(self, obj=None, msg=''):
+        """
+        Set an object for the current modeler context.  If the object does not
+        have a Block model one is created from its components (or an empty
+        Block Model if there are no components).
+
+        Keyword Args:
+            obj (Identifiable): if no model is provided, find models of obj
+        """
+        # orb.log.debug('* ModelWindow.set_subject({})'.format(
+                      # getattr(obj, 'id', 'None')))
+        # if msg:
+            # orb.log.debug('  {}'.format(msg))
+        if hasattr(self, 'view_cad_action'):
+            try:
+                self.view_cad_action.setVisible(False)
+            except:
+                # oops, C++ object got deleted
+                pass
+        self.obj = obj or self.obj
+        if self.obj:
+            if hasattr(self, 'add_model_action'):
+                try:
+                    if hasattr(self.obj, 'owner'):
+                        self.add_model_action.setEnabled(True)
+                    else:
+                        self.add_model_action.setEnabled(False)
+                except:
+                    # C++ object got deleted
+                    pass
+            try:
+                self.display_block_diagram()
+            except:
+                # orb.log.debug('* ModelWindow C++ object deleted.')
+                pass
+        else:
+            self.obj = None
+            # orb.log.debug('  no object; setting placeholder widget.')
+            self.set_placeholder()
+        # TODO:  enable multiple CAD models (e.g. "detailed" / "simplified")
+        if self.models:
+            # orb.log.debug('* ModelWindow: subject has models ...')
+            if hasattr(self, 'show_models_action'):
+                try:
+                    self.show_models_action.setVisible(True)
+                except:
+                    # oops, C++ object got deleted
+                    pass
+            # for oid, fpath in self.model_files.items():
+                # model = orb.get(oid)
+                # fname = os.path.basename(fpath)
+                # suffix = fname.split('.')[1]
+                # # orb.log.debug(f'  {model.id} has suffix "{suffix}"')
+                # mtype_oid = getattr(model.type_of_model, 'oid', '') or ''
+                # if mtype_oid == 'pgefobjects:ModelType.MCAD':
+            mcad_models = self.models.get('MCAD')
+            if mcad_models:
+                step_fpaths = [get_step_file_path(m) for m in mcad_models]
+                if step_fpaths and hasattr(self, 'view_cad_action'):
+                    try:
+                        self.view_cad_action.setVisible(True)
+                    except:
+                        # oops, C++ object got deleted
+                        pass
+                else:
+                    orb.log.debug('  no step files found.')
+        self.cache_block_model()
+        if hasattr(self, 'diagram_view'):
+            try:
+                self.diagram_view.verticalScrollBar().setValue(0)
+                self.diagram_view.horizontalScrollBar().setValue(0)
+            except:
+                # diagram_view C++ object got deleted
+                pass
+
+    def show_models(self):
+        pass
 
     def sizeHint(self):
         if self.preferred_size:
@@ -201,10 +283,15 @@ class ModelWindow(QMainWindow):
                                                icon="camera",
                                                tip="Save as Image or Print")
         self.toolbar.addAction(self.image_action)
+        self.show_models_action = self.create_action(
+                                "Info on Models ...",
+                                slot=self.show_models,
+                                icon="view_16",
+                                tip="Show Available Models of this Product")
         self.view_cad_action = self.create_action(
                                     "View CAD",
                                     slot=self.display_cad_model,
-                                    icon="view_16",
+                                    icon="box",
                                     tip="View CAD Model (from STEP File)")
         self.toolbar.addAction(self.view_cad_action)
         self.add_model_action = self.create_action(
@@ -213,11 +300,8 @@ class ModelWindow(QMainWindow):
                                     icon="lander",
                                     tip="Add or Update a Model File")
         self.toolbar.addAction(self.add_model_action)
-        if isinstance(self.obj, orb.classes['Modelable']):
-            if getattr(self.obj, 'owner', None):
-                self.add_model_action.setEnabled(True)
-            else:
-                self.add_model_action.setEnabled(False)
+        if getattr(self.obj, 'owner', None):
+            self.add_model_action.setEnabled(True)
         else:
             self.add_model_action.setEnabled(False)
         # self.external_window_action = self.create_action(
@@ -383,97 +467,30 @@ class ModelWindow(QMainWindow):
                 # orb.log.debug('  setting subject from selected system..')
                 self.set_subject(obj=obj, msg='(setting from selected system)')
 
-    def set_subject(self, obj=None, msg=''):
-        """
-        Set an object for the current modeler context.  If the object does not
-        have a Block model one is created from its components (or an empty
-        Block Model if there are no components).
-
-        Keyword Args:
-            obj (Identifiable): if no model is provided, find models of obj
-        """
-        # orb.log.debug('* ModelWindow.set_subject({})'.format(
-                      # getattr(obj, 'id', 'None')))
-        # if msg:
-            # orb.log.debug('  {}'.format(msg))
-        # reset model_files
-        self.model_files = {}
-        if hasattr(self, 'view_cad_action'):
-            try:
-                self.view_cad_action.setVisible(False)
-            except:
-                # oops, C++ object got deleted
-                pass
-        self.obj = obj or self.obj
-        if self.obj:
-            if isinstance(self.obj, orb.classes['Modelable']):
-                if hasattr(self, 'add_model_action'):
-                    try:
-                        if hasattr(self.obj, 'owner'):
-                            self.add_model_action.setEnabled(True)
-                        else:
-                            self.add_model_action.setEnabled(False)
-                    except:
-                        # C++ object got deleted
-                        pass
-                # orb.log.debug('* ModelWindow: checking for models ...')
-                # model_types = set()
-                if self.obj.has_models:
-                    for m in self.obj.has_models:
-                        fpath = get_model_path(m)
-                        if fpath:
-                            self.model_files[m.oid] = fpath
-                        # model_types.add(m.type_of_model.oid)
-                try:
-                    self.display_block_diagram()
-                except:
-                    # orb.log.debug('* ModelWindow C++ object deleted.')
-                    pass
-            else:
-                if hasattr(self, 'add_model_action'):
-                    self.add_model_action.setEnabled(False)
-                # orb.log.debug('* ModelWindow: obj not Modelable, ignoring')
-                self.obj = None
-                # orb.log.debug('  ... setting placeholder widget.')
-                self.set_placeholder()
-        else:
-            self.obj = None
-            # orb.log.debug('  no object; setting placeholder widget.')
-            self.set_placeholder()
-        # TODO:  enable multiple CAD models (e.g. "detailed" / "simplified")
-        if self.model_files:
-            # orb.log.debug('* ModelWindow: model files found ...')
-            self.models_by_label = {}
-            for oid, fpath in self.model_files.items():
-                model = orb.get(oid)
-                fname = os.path.basename(fpath)
-                suffix = fname.split('.')[1]
-                # orb.log.debug(f'  {model.id} has suffix "{suffix}"')
-                mtype_oid = getattr(model.type_of_model, 'oid', '') or ''
-                if mtype_oid == 'pgefobjects:ModelType.MCAD':
-                    self.models_by_label['MCAD'] = (model, fpath)
-                    if (hasattr(self, 'view_cad_action')
-                        and suffix in ['step', 'stp', 'p21']):
-                        try:
-                            self.view_cad_action.setVisible(True)
-                        except:
-                            # oops, C++ object got deleted
-                            pass
-                else:
-                    pass
-                    # orb.log.debug(f'  {model.id} is {model.type_of_model.id}')
-        self.cache_block_model()
-        if hasattr(self, 'diagram_view'):
-            try:
-                self.diagram_view.verticalScrollBar().setValue(0)
-                self.diagram_view.horizontalScrollBar().setValue(0)
-            except:
-                # diagram_view C++ object got deleted
-                pass
-
     def display_cad_model(self):
+        # TODO: display a dialog if multiple step models ...
+        # ... for now just pick the first one ...
+        mcad_models = self.models.get("MCAD")
+        fpath = ''
+        fpaths = []
+        if mcad_models:
+            orb.log.debug('  MCAD models found:')
+            for m in mcad_models:
+                orb.log.debug(f'      - model: "{m.id}"')
+                fpath = get_step_file_path(m)
+                if fpath:
+                    orb.log.debug(f'        step file path: {fpath}')
+                else:
+                    orb.log.debug('        no step file found.')
+                orb.log.debug(f'      - {fpath}')
+            orb.log.debug(f'  fpaths: {fpaths}')
+        else:
+            orb.log.debug('  MCAD models not found.')
+            return
+        if fpaths:
+            fpath = fpaths[0]
+            orb.log.debug(f'  step file: "{fpath}"')
         try:
-            model, fpath = self.models_by_label.get('MCAD')
             if fpath:
                 viewer = Model3DViewer(step_file=fpath, parent=self)
                 viewer.show()
