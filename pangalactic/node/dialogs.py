@@ -651,6 +651,37 @@ class PopupDialogMixin(object):
         self.move(global_point - QPoint(100, 0))
 
 
+class ModelsDialog(QDialog):
+    """
+    Dialog to Models (and Representations, if more than one) of a specified
+    Modelable.
+    """
+    def __init__(self, obj, parent=None):
+        """
+        Args:
+            obj (Modelable):  an instance of PGEF Modelable
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        self.obj = obj
+        self.summary = False
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.setWindowTitle("Models")
+        # set up dashboard selector
+        # TODO:  in addition to dashboard names, give options to use all
+        # default parameters or all parameters defined for self.obj
+        top_layout = QHBoxLayout()
+        # TODO: add info about Modelable ...
+        layout.addLayout(top_layout)
+        # set up mel table
+        self.set_mini_mel_table()
+
+
 class MiniMelDialog(QDialog):
     """
     Dialog to display a Mini MEL (a Master Equipment List for a specified

@@ -38,13 +38,13 @@ ModelerState = namedtuple('ModelerState', 'obj idx')
 
 def get_step_file_path(model):
     """
-    Find the path of a step file for a model.
+    Find the path of a STEP file for a model.
 
     Args:
-        model (Model):  the STEP model for which model the file is sought
+        model (Model):  the Model instance for which the STEP file is sought
 
     Returns:
-        a path in the orb's "vault"
+        the path to the STEP file in the orb's "vault"
     """
     # orb.log.debug('* get_step_model_path(model with oid "{}")'.format(
                   # getattr(model, 'oid', 'None')))
@@ -216,6 +216,10 @@ class ModelWindow(QMainWindow):
                 # # orb.log.debug(f'  {model.id} has suffix "{suffix}"')
                 # mtype_oid = getattr(model.type_of_model, 'oid', '') or ''
                 # if mtype_oid == 'pgefobjects:ModelType.MCAD':
+            # NOTE: a given product may have more than one MCAD model -- e.g.,
+            # a fully detailed model and one or more "simplified" models -- so
+            # the "view cad" action should display a dialog with info about all
+            # the MCAD models ...
             mcad_models = self.models.get('MCAD')
             if mcad_models:
                 step_fpaths = [get_step_file_path(m) for m in mcad_models]
@@ -290,7 +294,7 @@ class ModelWindow(QMainWindow):
                                 tip="Show Available Models of this Product")
         self.view_cad_action = self.create_action(
                                     "View CAD",
-                                    slot=self.display_cad_model,
+                                    slot=self.display_step_models,
                                     icon="box",
                                     tip="View CAD Model (from STEP File)")
         self.toolbar.addAction(self.view_cad_action)
@@ -467,9 +471,16 @@ class ModelWindow(QMainWindow):
                 # orb.log.debug('  setting subject from selected system..')
                 self.set_subject(obj=obj, msg='(setting from selected system)')
 
-    def display_cad_model(self):
-        # TODO: display a dialog if multiple step models ...
-        # ... for now just pick the first one ...
+    def display_step_models(self):
+        """
+        Display the STEP models associated with the current self.subject (a
+        Modelable instance, which may or may not have a STEP model). If there
+        is only one, simply open a Model3DViewer with that one; if more than
+        one, open a dialog with information about all and offer to display a
+        selected one.
+        """
+        # TODO: display a dialog if multiple STEP models ...
+        # ... if only one, just display it in the viewer ...
         mcad_models = self.models.get("MCAD")
         fpath = ''
         fpaths = []
@@ -478,6 +489,7 @@ class ModelWindow(QMainWindow):
             for m in mcad_models:
                 orb.log.debug(f'      - model: "{m.id}"')
                 fpath = get_step_file_path(m)
+                fpaths.append(fpath)
                 if fpath:
                     orb.log.debug(f'        step file path: {fpath}')
                 else:

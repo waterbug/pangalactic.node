@@ -5051,8 +5051,13 @@ class Main(QMainWindow):
     def on_file_upload_success(self, result):
         orb.log.info(f'  upload completed in {self.uploaded_chunks} chunks.')
         self.upload_progress.done(0)
-        # TODO:  call vger.save_uploaded_file() rpc to associate file with the
-        # object that references it.
+        model_window = getattr(self, 'system_model_window', None)
+        if model_window:
+            try:
+                model_window.set_subject()
+            except:
+                # C++ object got deleted ...
+                pass
 
     def on_new_hardware_clone(self, product=None, objs=None):
         # go to component mode when clone() sends "new hardware clone" signal
