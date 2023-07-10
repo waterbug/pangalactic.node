@@ -4320,7 +4320,6 @@ class Main(QMainWindow):
         else:
             state['sys_tree_expansion'][self.project.oid] = 0
         self.set_systree_expansion()
-        self.set_system_model_window()
 
     def set_systree_expansion(self, index=None):
         if index is None:
@@ -4611,6 +4610,7 @@ class Main(QMainWindow):
         # (only rebuild tree & dash if called in a project sync)
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
+        self.set_system_model_window()
         self.refresh_tree_views(rebuilding=True)
         self.top_dock_widget.setFeatures(QDockWidget.DockWidgetFloatable)
         self.top_dock_widget.setVisible(True)

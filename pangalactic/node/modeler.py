@@ -129,23 +129,7 @@ class ModelWindow(QMainWindow):
         # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(setting to selected object)')
 
-    @property
-    def diagram_oids(self):
-        """
-        Returns oids of the subject block and all object blocks in the diagram.
-        This is used by pangalaxian to decide whether to send a "block mod"
-        dispatcher signal to its blocks as a result of a callback to
-        on_remote_get_mod_object().
-        """
-        oids = [self.obj.oid]
-        if hasattr(self.obj, 'components'):
-            oids += [acu.component.oid for acu in self.obj.components]
-        elif hasattr(self.obj, 'systems'):
-            oids += [psu.system.oid for psu in self.obj.systems]
-        return oids
-
-    @property
-    def models(self):
+    def get_models(self):
         """
         Returns a dict mapping "Model.type_of_model" (ModelType) id to the
         models of that type for all models of self.obj.
@@ -154,7 +138,7 @@ class ModelWindow(QMainWindow):
         model_dict = {}
         if model_instances:
             for m in model_instances:
-                mtype_id = m.type_of_model.id
+                mtype_id = getattr(m.type_of_model, 'id', 'UNKNOWN')
                 if mtype_id in model_dict:
                     model_dict[mtype_id].append(m)
                 else:
@@ -172,8 +156,8 @@ class ModelWindow(QMainWindow):
         """
         # orb.log.debug('* ModelWindow.set_subject({})'.format(
                       # getattr(obj, 'id', 'None')))
-        # if msg:
-            # orb.log.debug('  {}'.format(msg))
+        if msg:
+            orb.log.debug('  {}'.format(msg))
         if hasattr(self, 'view_cad_action'):
             try:
                 self.view_cad_action.setVisible(False)
@@ -182,6 +166,7 @@ class ModelWindow(QMainWindow):
                 pass
         self.obj = obj or self.obj
         if self.obj:
+            orb.log.debug(f'  - Modeler subject is set to: {self.obj.id}')
             if hasattr(self, 'add_model_action'):
                 try:
                     if hasattr(self.obj, 'owner'):
@@ -194,43 +179,53 @@ class ModelWindow(QMainWindow):
             try:
                 self.display_block_diagram()
             except:
-                # orb.log.debug('* ModelWindow C++ object deleted.')
-                pass
+                orb.log.debug('* ModelWindow C++ object deleted.')
+                return
+            # TODO:  enable multiple CAD models (e.g. "detailed", "simplified")
+            models = self.get_models()
+            if models:
+                orb.log.debug('* ModelWindow: subject has models ...')
+                if hasattr(self, 'models_info_action'):
+                    try:
+                        self.models_info_action.setVisible(True)
+                    except:
+                        # oops, C++ object got deleted
+                        pass
+                # for oid, fpath in self.model_files.items():
+                    # model = orb.get(oid)
+                    # fname = os.path.basename(fpath)
+                    # suffix = fname.split('.')[1]
+                    # # orb.log.debug(f'  {model.id} has suffix "{suffix}"')
+                    # mtype_oid = getattr(model.type_of_model, 'oid', '') or ''
+                    # if mtype_oid == 'pgefobjects:ModelType.MCAD':
+                # NOTE: a given product may have more than one MCAD model --
+                # e.g., a fully detailed model and one or more "simplified"
+                # models -- so the "view cad" action should display a dialog
+                # with info about all the MCAD models ...
+                mcad_models = models.get('MCAD')
+                if mcad_models:
+                    orb.log.debug('* ModelWindow: subject has MCAD model(s) ...')
+                    step_fpaths = [get_step_file_path(m) for m in mcad_models]
+                    if step_fpaths and hasattr(self, 'view_cad_action'):
+                        orb.log.debug('  STEP file(s) found.')
+                        try:
+                            self.view_cad_action.setVisible(True)
+                        except:
+                            # oops, C++ object got deleted
+                            pass
+                    else:
+                        orb.log.debug('  no STEP files found.')
+            else:
+                if hasattr(self, 'models_info_action'):
+                    try:
+                        self.models_info_action.setVisible(False)
+                    except:
+                        # oops, C++ object got deleted
+                        pass
         else:
             self.obj = None
             # orb.log.debug('  no object; setting placeholder widget.')
             self.set_placeholder()
-        # TODO:  enable multiple CAD models (e.g. "detailed" / "simplified")
-        if self.models:
-            # orb.log.debug('* ModelWindow: subject has models ...')
-            if hasattr(self, 'show_models_action'):
-                try:
-                    self.show_models_action.setVisible(True)
-                except:
-                    # oops, C++ object got deleted
-                    pass
-            # for oid, fpath in self.model_files.items():
-                # model = orb.get(oid)
-                # fname = os.path.basename(fpath)
-                # suffix = fname.split('.')[1]
-                # # orb.log.debug(f'  {model.id} has suffix "{suffix}"')
-                # mtype_oid = getattr(model.type_of_model, 'oid', '') or ''
-                # if mtype_oid == 'pgefobjects:ModelType.MCAD':
-            # NOTE: a given product may have more than one MCAD model -- e.g.,
-            # a fully detailed model and one or more "simplified" models -- so
-            # the "view cad" action should display a dialog with info about all
-            # the MCAD models ...
-            mcad_models = self.models.get('MCAD')
-            if mcad_models:
-                step_fpaths = [get_step_file_path(m) for m in mcad_models]
-                if step_fpaths and hasattr(self, 'view_cad_action'):
-                    try:
-                        self.view_cad_action.setVisible(True)
-                    except:
-                        # oops, C++ object got deleted
-                        pass
-                else:
-                    orb.log.debug('  no step files found.')
         self.cache_block_model()
         if hasattr(self, 'diagram_view'):
             try:
@@ -239,9 +234,6 @@ class ModelWindow(QMainWindow):
             except:
                 # diagram_view C++ object got deleted
                 pass
-
-    def show_models(self):
-        pass
 
     def sizeHint(self):
         if self.preferred_size:
@@ -287,27 +279,29 @@ class ModelWindow(QMainWindow):
                                                icon="camera",
                                                tip="Save as Image or Print")
         self.toolbar.addAction(self.image_action)
-        self.show_models_action = self.create_action(
-                                "Info on Models ...",
-                                slot=self.show_models,
-                                icon="view_16",
-                                tip="Show Available Models of this Product")
+        self.add_model_action = self.create_action(
+                            "Add a Model",
+                            slot=self.add_update_model,
+                            icon="lander",
+                            tip="Add or Update a Model and Upload its File")
+        self.toolbar.addAction(self.add_model_action)
+        if getattr(self.obj, 'owner', None):
+            self.add_model_action.setEnabled(True)
+        else:
+            self.add_model_action.setEnabled(False)
+        self.models_info_action = self.create_action(
+                        "Info on Models ...",
+                        slot=self.models_info,
+                        icon="info",
+                        tip="Show Info on Available Models of this Product")
+        self.toolbar.addAction(self.models_info_action)
+        self.models_info_action.setVisible(False)
         self.view_cad_action = self.create_action(
                                     "View CAD",
                                     slot=self.display_step_models,
                                     icon="box",
                                     tip="View CAD Model (from STEP File)")
         self.toolbar.addAction(self.view_cad_action)
-        self.add_model_action = self.create_action(
-                                    "Upload a Model",
-                                    slot=self.add_update_model,
-                                    icon="lander",
-                                    tip="Add or Update a Model File")
-        self.toolbar.addAction(self.add_model_action)
-        if getattr(self.obj, 'owner', None):
-            self.add_model_action.setEnabled(True)
-        else:
-            self.add_model_action.setEnabled(False)
         # self.external_window_action = self.create_action(
                                     # "Display external diagram window ...",
                                     # slot=self.display_external_window,
@@ -481,7 +475,8 @@ class ModelWindow(QMainWindow):
         """
         # TODO: display a dialog if multiple STEP models ...
         # ... if only one, just display it in the viewer ...
-        mcad_models = self.models.get("MCAD")
+        models = self.get_models()
+        mcad_models = models.get("MCAD")
         fpath = ''
         fpaths = []
         if mcad_models:
@@ -509,6 +504,13 @@ class ModelWindow(QMainWindow):
         except:
             orb.log.debug('  CAD model not found or not in STEP format.')
             pass
+
+    def models_info(self):
+        """
+        Display a dialog with information about all available models related to
+        the currently selected product.
+        """
+        pass
 
     def add_update_model(self, model_type_id=None):
         dlg = ModelImportDialog(of_thing_oid=self.obj.oid,
