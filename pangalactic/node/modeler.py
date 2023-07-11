@@ -20,7 +20,7 @@ from pangalactic.core             import diagramz, state
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
-from pangalactic.node.dialogs     import ModelImportDialog
+from pangalactic.node.dialogs     import ModelImportDialog, ModelsInfoDialog
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (extract_mime_data,
                                           create_product_from_template)
@@ -156,8 +156,8 @@ class ModelWindow(QMainWindow):
         """
         # orb.log.debug('* ModelWindow.set_subject({})'.format(
                       # getattr(obj, 'id', 'None')))
-        if msg:
-            orb.log.debug('  {}'.format(msg))
+        # if msg:
+            # orb.log.debug('  {}'.format(msg))
         if hasattr(self, 'view_cad_action'):
             try:
                 self.view_cad_action.setVisible(False)
@@ -166,7 +166,7 @@ class ModelWindow(QMainWindow):
                 pass
         self.obj = obj or self.obj
         if self.obj:
-            orb.log.debug(f'  - Modeler subject is set to: {self.obj.id}')
+            # orb.log.debug(f'  - Modeler subject is set to: {self.obj.id}')
             if hasattr(self, 'add_model_action'):
                 try:
                     if hasattr(self.obj, 'owner'):
@@ -184,7 +184,7 @@ class ModelWindow(QMainWindow):
             # TODO:  enable multiple CAD models (e.g. "detailed", "simplified")
             models = self.get_models()
             if models:
-                orb.log.debug('* ModelWindow: subject has models ...')
+                # orb.log.debug('* ModelWindow: subject has models ...')
                 if hasattr(self, 'models_info_action'):
                     try:
                         self.models_info_action.setVisible(True)
@@ -204,17 +204,18 @@ class ModelWindow(QMainWindow):
                 # with info about all the MCAD models ...
                 mcad_models = models.get('MCAD')
                 if mcad_models:
-                    orb.log.debug('* ModelWindow: subject has MCAD model(s) ...')
+                    # orb.log.debug('* ModelWindow: subject has MCAD model(s) ...')
                     step_fpaths = [get_step_file_path(m) for m in mcad_models]
                     if step_fpaths and hasattr(self, 'view_cad_action'):
-                        orb.log.debug('  STEP file(s) found.')
+                        # orb.log.debug('  STEP file(s) found.')
                         try:
                             self.view_cad_action.setVisible(True)
                         except:
                             # oops, C++ object got deleted
                             pass
                     else:
-                        orb.log.debug('  no STEP files found.')
+                        # orb.log.debug('  no STEP files found.')
+                        pass
             else:
                 if hasattr(self, 'models_info_action'):
                     try:
@@ -274,10 +275,11 @@ class ModelWindow(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
-        self.image_action = self.create_action("Snap",
-                                               slot=self.image_preview,
-                                               icon="camera",
-                                               tip="Save as Image or Print")
+        self.image_action = self.create_action(
+                                    "Snap",
+                                    slot=self.image_preview,
+                                    icon="camera",
+                                    tip="Save Diagram as Image or Print")
         self.toolbar.addAction(self.image_action)
         self.add_model_action = self.create_action(
                             "Add a Model",
@@ -480,9 +482,9 @@ class ModelWindow(QMainWindow):
         fpath = ''
         fpaths = []
         if mcad_models:
-            orb.log.debug('  MCAD models found:')
+            # orb.log.debug('  MCAD models found:')
             for m in mcad_models:
-                orb.log.debug(f'      - model: "{m.id}"')
+                # orb.log.debug(f'      - model: "{m.id}"')
                 fpath = get_step_file_path(m)
                 fpaths.append(fpath)
                 if fpath:
@@ -490,13 +492,13 @@ class ModelWindow(QMainWindow):
                 else:
                     orb.log.debug('        no step file found.')
                 orb.log.debug(f'      - {fpath}')
-            orb.log.debug(f'  fpaths: {fpaths}')
+            # orb.log.debug(f'  fpaths: {fpaths}')
         else:
-            orb.log.debug('  MCAD models not found.')
+            orb.log.debug('  no MCAD models found.')
             return
         if fpaths:
             fpath = fpaths[0]
-            orb.log.debug(f'  step file: "{fpath}"')
+            # orb.log.debug(f'  step file: "{fpath}"')
         try:
             if fpath:
                 viewer = Model3DViewer(step_file=fpath, parent=self)
@@ -510,7 +512,12 @@ class ModelWindow(QMainWindow):
         Display a dialog with information about all available models related to
         the currently selected product.
         """
-        pass
+        if self.obj and getattr(self.obj, 'has_models', []):
+            orb.log.debug('* Modeler: models info dlg ...')
+            dlg = ModelsInfoDialog(self.obj, parent=self)
+            dlg.show()
+        else:
+            orb.log.debug('* Modeler: subject has no models.')
 
     def add_update_model(self, model_type_id=None):
         dlg = ModelImportDialog(of_thing_oid=self.obj.oid,

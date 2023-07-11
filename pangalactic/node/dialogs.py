@@ -651,9 +651,9 @@ class PopupDialogMixin(object):
         self.move(global_point - QPoint(100, 0))
 
 
-class ModelsDialog(QDialog):
+class ModelsInfoDialog(QDialog):
     """
-    Dialog to Models (and Representations, if more than one) of a specified
+    Dialog to display info on Representations of Models of a specified
     Modelable.
     """
     def __init__(self, obj, parent=None):
@@ -673,13 +673,48 @@ class ModelsDialog(QDialog):
         self.setLayout(layout)
         self.setWindowTitle("Models")
         # set up dashboard selector
-        # TODO:  in addition to dashboard names, give options to use all
-        # default parameters or all parameters defined for self.obj
         top_layout = QHBoxLayout()
         # TODO: add info about Modelable ...
         layout.addLayout(top_layout)
-        # set up mel table
-        self.set_mini_mel_table()
+        self.set_table()
+
+    def set_table(self):
+        layout = self.layout()
+        if getattr(self, 'table', None):
+            # remove and close current table
+            layout.removeWidget(self.table)
+            self.table.parent = None
+            self.table.close()
+        reps = []
+        for m in self.obj.has_models:
+            if m.has_representations:
+                for rep in m.has_representations:
+                    reps.append(rep)
+        view = ['id', 'name', 'of_object'] 
+        table_model = ObjectTableModel(reps, view=view)
+        self.table = QTableView()
+        self.table.setAttribute(Qt.WA_DeleteOnClose)
+        self.table.setModel(table_model)
+        self.table.setAlternatingRowColors(True)
+        self.table.setShowGrid(False)
+        self.table.setSelectionBehavior(1)
+        self.table.setStyleSheet('font-size: 12px')
+        self.table.verticalHeader().hide()
+        self.table.clicked.connect(self.item_selected)
+        col_header = self.table.horizontalHeader()
+        col_header.setStyleSheet('font-weight: bold')
+        self.table.setSizePolicy(QSizePolicy.Expanding,
+                                 QSizePolicy.Expanding)
+        self.table.setSizeAdjustPolicy(QTableView.AdjustToContents)
+        QTimer.singleShot(0, self.table.resizeColumnsToContents)
+        layout.addWidget(self.table)
+
+    def item_selected(self, clicked_index):
+        """
+        Handler for a clicked row ...
+        """
+        clicked_row = clicked_index.row()
+        orb.log.debug(f'* item selected: {clicked_row}')
 
 
 class MiniMelDialog(QDialog):
