@@ -450,6 +450,82 @@ class ModelImportDialog(QDialog):
             return
 
 
+class ModelsInfoDialog(QDialog):
+    """
+    Dialog to display info on Representations of Models of a specified
+    Modelable.
+    """
+    def __init__(self, obj, parent=None):
+        """
+        Args:
+            obj (Modelable):  an instance of PGEF Modelable
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        self.obj = obj
+        self.summary = False
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.setWindowTitle("Models")
+        # set up dashboard selector
+        top_layout = QHBoxLayout()
+        # TODO: add info about Modelable ...
+        layout.addLayout(top_layout)
+        self.set_table()
+
+    def set_table(self):
+        layout = self.layout()
+        if getattr(self, 'table', None):
+            # remove and close current table
+            layout.removeWidget(self.table)
+            self.table.parent = None
+            self.table.close()
+        models = []
+        # list representation "names" for a given model, etc. ...
+        for m in self.obj.has_models:
+            m_dict = {}
+            m_dict['ID'] = m.id
+            if m.type_of_model:
+                m_dict['Type'] = getattr(m.type_of_model, 'id', 'UNKNOWN')
+            if m.has_representations:
+                # for prototyping, assume 1 rep and 1 file
+                rep = m.has_representations[0]
+                m_dict['Rep'] = rep.name
+                if rep.has_files:
+                    f = rep.has_files[0]
+                    m_dict['File'] = f.user_file_name
+            models.append(m_dict)
+        view = ['ID', 'Type', 'Rep', 'File'] 
+        table_model = MappingTableModel(models, view=view)
+        self.table = QTableView()
+        self.table.setAttribute(Qt.WA_DeleteOnClose)
+        self.table.setModel(table_model)
+        self.table.setAlternatingRowColors(True)
+        self.table.setShowGrid(False)
+        self.table.setSelectionBehavior(1)
+        self.table.setStyleSheet('font-size: 12px')
+        self.table.verticalHeader().hide()
+        self.table.clicked.connect(self.item_selected)
+        col_header = self.table.horizontalHeader()
+        col_header.setStyleSheet('font-weight: bold')
+        self.table.setSizePolicy(QSizePolicy.Expanding,
+                                 QSizePolicy.Expanding)
+        self.table.setSizeAdjustPolicy(QTableView.AdjustToContents)
+        QTimer.singleShot(0, self.table.resizeColumnsToContents)
+        layout.addWidget(self.table)
+
+    def item_selected(self, clicked_index):
+        """
+        Handler for a clicked row ...
+        """
+        clicked_row = clicked_index.row()
+        orb.log.debug(f'* item selected: {clicked_row}')
+
+
 class RqtFieldsDialog(QDialog):
     """
     A dialog to edit fields of a requirement.
@@ -649,79 +725,6 @@ class PopupDialogMixin(object):
         point = call_widget.rect().bottomRight()
         global_point = call_widget.mapToGlobal(point)
         self.move(global_point - QPoint(100, 0))
-
-
-class ModelsInfoDialog(QDialog):
-    """
-    Dialog to display info on Representations of Models of a specified
-    Modelable.
-    """
-    def __init__(self, obj, parent=None):
-        """
-        Args:
-            obj (Modelable):  an instance of PGEF Modelable
-
-        Keyword Args:
-            parent (QWidget):  parent widget
-        """
-        super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.MinimumExpanding,
-                           QSizePolicy.MinimumExpanding)
-        self.obj = obj
-        self.summary = False
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-        self.setWindowTitle("Models")
-        # set up dashboard selector
-        top_layout = QHBoxLayout()
-        # TODO: add info about Modelable ...
-        layout.addLayout(top_layout)
-        self.set_table()
-
-    def set_table(self):
-        layout = self.layout()
-        if getattr(self, 'table', None):
-            # remove and close current table
-            layout.removeWidget(self.table)
-            self.table.parent = None
-            self.table.close()
-        models = []
-        for m in self.obj.has_models:
-            m_dict = {}
-            m_dict['ID'] = m.type_of_model.id
-            if m.type_of_model:
-                m_dict['Type'] = m.type_of_model.id
-            if m.has_representations:
-                for rep in m.has_representations:
-                    if rep.has_files:
-                        files = []
-                        for f in rep.has_files:
-                            files.append(f.user_file_name)
-        view = ['id', 'name', 'of_object'] 
-        table_model = ObjectTableModel(reps, view=view)
-        self.table = QTableView()
-        self.table.setAttribute(Qt.WA_DeleteOnClose)
-        self.table.setModel(table_model)
-        self.table.setAlternatingRowColors(True)
-        self.table.setShowGrid(False)
-        self.table.setSelectionBehavior(1)
-        self.table.setStyleSheet('font-size: 12px')
-        self.table.verticalHeader().hide()
-        self.table.clicked.connect(self.item_selected)
-        col_header = self.table.horizontalHeader()
-        col_header.setStyleSheet('font-weight: bold')
-        self.table.setSizePolicy(QSizePolicy.Expanding,
-                                 QSizePolicy.Expanding)
-        self.table.setSizeAdjustPolicy(QTableView.AdjustToContents)
-        QTimer.singleShot(0, self.table.resizeColumnsToContents)
-        layout.addWidget(self.table)
-
-    def item_selected(self, clicked_index):
-        """
-        Handler for a clicked row ...
-        """
-        clicked_row = clicked_index.row()
-        orb.log.debug(f'* item selected: {clicked_row}')
 
 
 class MiniMelDialog(QDialog):
