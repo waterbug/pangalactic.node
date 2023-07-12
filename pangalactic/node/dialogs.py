@@ -685,11 +685,18 @@ class ModelsInfoDialog(QDialog):
             layout.removeWidget(self.table)
             self.table.parent = None
             self.table.close()
-        reps = []
+        models = []
         for m in self.obj.has_models:
+            m_dict = {}
+            m_dict['ID'] = m.type_of_model.id
+            if m.type_of_model:
+                m_dict['Type'] = m.type_of_model.id
             if m.has_representations:
                 for rep in m.has_representations:
-                    reps.append(rep)
+                    if rep.has_files:
+                        files = []
+                        for f in rep.has_files:
+                            files.append(f.user_file_name)
         view = ['id', 'name', 'of_object'] 
         table_model = ObjectTableModel(reps, view=view)
         self.table = QTableView()
