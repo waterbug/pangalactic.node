@@ -681,7 +681,7 @@ class ModelWindow(QMainWindow):
             return
         # NOTE:  do not write to a file -- orb._save_diagramz() does that
         # TODO: also send the serialized "model" to vger to be saved there ...
-        # TODO: need to define a Model, Representation, and RepresentationFile
+        # TODO: need to define a Model and RepresentationFile
         # orb.log.debug('* Modeler: caching diagram geometry ...')
         try:
             scene = self.diagram_view.scene()

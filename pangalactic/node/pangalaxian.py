@@ -4950,10 +4950,10 @@ class Main(QMainWindow):
 
     def on_add_update_model(self, mtype_oid='', fpath='', parms=None):
         """
-        Handle "add update model" signal: call rpc to add or update Model,
-        Representation and RepresentationFile objects related to a specified
-        item, and add callbacks to upload_file() to upload associated file(s)
-        file if appropriate.
+        Handle "add update model" signal: call rpc to add or update Model and
+        RepresentationFile objects related to a specified item, and add
+        callbacks to upload_file() to upload associated file(s) file if
+        appropriate.
         """
         orb.log.debug('* "add update model" signal received ...')
         if mtype_oid and fpath and parms:
@@ -4974,8 +4974,8 @@ class Main(QMainWindow):
 
         Args:
             result (tuple): [0] path to the local model file,
-                            [1] serialized Model, Representation, and
-                                RepresentationFile instances
+                            [1] serialized Model and RepresentationFile
+                                instances
         """
         fpath, sobjs = result
         orb.log.debug(f'* on_model_added(fpath={fpath}, sobjs)')
@@ -4988,10 +4988,9 @@ class Main(QMainWindow):
 
     def on_add_update_doc(self):
         """
-        Handle "add update doc" signal: call rpc to add or update Document,
-        Representation and RepresentationFile objects related to a specified
-        item, and add callbacks to upload_file() to upload associated file(s)
-        if appropriate.
+        Handle "add update doc" signal: call rpc to add or update Document and
+        RepresentationFile objects related to a specified item, and add
+        callbacks to upload_file() to upload associated file(s) if appropriate.
         """
         pass
 

@@ -452,7 +452,7 @@ class ModelImportDialog(QDialog):
 
 class ModelsInfoDialog(QDialog):
     """
-    Dialog to display info on Representations of Models of a specified
+    Dialog to display info on RepresentationFiles of Models of a specified
     Modelable.
     """
     def __init__(self, obj, parent=None):
@@ -488,18 +488,17 @@ class ModelsInfoDialog(QDialog):
         # list representation "names" for a given model, etc. ...
         for m in self.obj.has_models:
             m_dict = {}
-            m_dict['ID'] = m.id
+            m_dict['Model ID'] = m.id
             if m.type_of_model:
-                m_dict['Type'] = getattr(m.type_of_model, 'id', 'UNKNOWN')
-            if m.has_representations:
-                # for prototyping, assume 1 rep and 1 file
-                rep = m.has_representations[0]
-                m_dict['Rep'] = rep.name
-                if rep.has_files:
-                    f = rep.has_files[0]
-                    m_dict['File'] = f.user_file_name
+                m_dict['Model Type'] = getattr(m.type_of_model, 'id',
+                                               'UNKNOWN')
+            if m.has_files:
+                # for prototyping, assume 1 file
+                rep_file = m.has_files[0]
+                m_dict['File Type'] = rep_file.representation_type
+                m_dict['File Name'] = rep_file.user_file_name
             models.append(m_dict)
-        view = ['ID', 'Type', 'Rep', 'File'] 
+        view = ['Model ID', 'Model Type', 'File Type', 'File Name'] 
         table_model = MappingTableModel(models, view=view)
         self.table = QTableView()
         self.table.setAttribute(Qt.WA_DeleteOnClose)
