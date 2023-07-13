@@ -495,7 +495,7 @@ class ModelsInfoDialog(QDialog):
             if m.has_files:
                 # for prototyping, assume 1 file
                 rep_file = m.has_files[0]
-                m_dict['File Type'] = rep_file.representation_type
+                m_dict['File Type'] = rep_file.representation
                 m_dict['File Name'] = rep_file.user_file_name
             models.append(m_dict)
         view = ['Model ID', 'Model Type', 'File Type', 'File Name'] 

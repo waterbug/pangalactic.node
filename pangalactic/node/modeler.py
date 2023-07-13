@@ -48,18 +48,17 @@ def get_step_file_path(model):
     """
     # orb.log.debug('* get_step_model_path(model with oid "{}")'.format(
                   # getattr(model, 'oid', 'None')))
-    if (model.has_representations and model.type_of_model.id == "MCAD"):
-        for rep in model.has_representations:
-            if rep.has_files:
-                for rep_file in rep.has_files:
-                    u = urlparse(rep_file.url)
-                    if (u.scheme == 'vault' and
-                        rep_file.url.endswith(('.stp', '.step', '.p21'))):
-                        fpath = os.path.join(orb.vault, u.netloc)
-                        if os.path.exists(fpath):
-                            return fpath
-                    else:
-                        continue
+    if (model.has_files and model.type_of_model.id == "MCAD"):
+        for rep_file in model.has_files:
+            for rep_file in model.has_files:
+                u = urlparse(rep_file.url)
+                if (u.scheme == 'vault' and
+                    rep_file.url.endswith(('.stp', '.step', '.p21'))):
+                    fpath = os.path.join(orb.vault, u.netloc)
+                    if os.path.exists(fpath):
+                        return fpath
+                else:
+                    continue
             else:
                 continue
     else:
