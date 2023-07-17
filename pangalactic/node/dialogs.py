@@ -22,7 +22,7 @@ from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
                              QLineEdit, QProgressDialog, QRadioButton,
                              QScrollArea, QSizePolicy, QTableView,
-                             QTextBrowser, QVBoxLayout, QWidget)
+                             QTableWidget, QTextBrowser, QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
@@ -42,9 +42,11 @@ from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,
                                             write_mel_to_xlsx)
-from pangalactic.node.buttons     import SizedButton, UrlButton, FkButton
+from pangalactic.node.buttons     import (FileButtonLabel, FkButton,
+                                          SizedButton, UrlButton)
 from pangalactic.node.tablemodels import ObjectTableModel, MappingTableModel
 from pangalactic.node.trees       import ParmDefTreeView
+from pangalactic.node.utils       import InfoTableItem
 from pangalactic.node.widgets     import (get_widget, ColorLabel,
                                           FloatFieldWidget, HLine,
                                           IntegerFieldWidget, LogWidget,
@@ -450,6 +452,96 @@ class ModelImportDialog(QDialog):
             return
 
 
+class ModelsInfoTable(QTableWidget):
+    """
+    Table whose purpose is to display information about all Models related to a
+    Modelable instance. The rows of the table contain attributes of the Models
+    and their associated RepresentationFile(s) and buttons that link to the
+    files associated with the RepresentationFile instances.
+    """
+    def __init__(self, obj=None, view=None, parent=None):
+        """
+        Initialize
+
+        Keyword Args:
+            obj (Modelable):  the Modelable
+            view (list):  list of attributes that represent the table coluns
+        """
+        super().__init__(parent=parent)
+        # orb.log.info('* [SystemInfoTable] initializing ...')
+        self.obj = obj
+        # TODO: get default view from prefs / config
+        default_view = [
+            'Model ID',
+            'Model Type',
+            # 'Version',
+            'File(s)',
+            ]
+        self.view = view or default_view[:]
+        self.setup_table()
+
+    def setup_table(self):
+        self.setColumnCount(len(self.view))
+        models = getattr(self.obj, 'has_models', []) or []
+        if models:
+            self.setRowCount(len(models))
+        else:
+            self.setRowCount(1)
+        header_labels = []
+        for col_name in self.view:
+            header_labels.append('  ' + col_name + '  ')
+        self.setHorizontalHeaderLabels(header_labels)
+        # populate relevant data
+        data = []
+        # TODO: list representation "names" for a given model, etc. ...
+        for m in self.obj.has_models:
+            orb.log.debug('* models found ...')
+            m_dict = {}
+            m_dict['Model ID'] = m.id
+            if m.type_of_model:
+                orb.log.debug(f'  type: {m.type_of_model.id}')
+                m_dict['Model Type'] = getattr(m.type_of_model, 'id',
+                                               'UNKNOWN')
+            if m.has_files:
+                if len(m.has_files) == 1:
+                    rep_file = m.has_files[0]
+                    txt = rep_file.user_file_name or 'unknown'
+                    orb.log.debug(f'  1 file found: {txt}')
+                    button = FileButtonLabel(txt, file=rep_file)
+                    button.clicked.connect(self.on_file_button)
+                    m_dict['File(s)'] = button
+                elif len(m.has_files) > 1:
+                    orb.log.debug(f'  {len(m.has_files)} files found ...')
+                    buttons_widget = QWidget()
+                    hbox = QHBoxLayout()
+                    buttons_widget.setLayout(hbox)
+                    for rep_file in m.has_files:
+                        txt = rep_file.user_file_name or 'unknown'
+                        orb.log.debug(f'  - {txt}')
+                        button = FileButtonLabel(txt, file=rep_file)
+                        button.clicked.connect(self.on_file_button)
+                        hbox.addWidget(button)
+                    m_dict['File(s)'] = buttons_widget
+            data.append(m_dict)
+        for i, m_dict in enumerate(data):
+            for j, name in enumerate(self.view):
+                if name == 'File(s)':
+                    self.setCellWidget(i, j, m_dict['File(s)'])
+                else:
+                    self.setItem(i, j, InfoTableItem(
+                        m_dict.get(name) or ''))
+        self.resize(550, 240)
+
+    def on_file_button(self):
+        button = self.sender()
+        txt = button.text()
+        orb.log.debug(f'* file button "{txt}" was clicked.')
+        # TODO: open a dialog that checks whether the file is available in the
+        # local "vault" or if it requires downloading -- if the latter, display
+        # the file size and offer to download it from the server. If already
+        # in the local vault, offer to save a copy in a user-specified folder.
+
+
 class ModelsInfoDialog(QDialog):
     """
     Dialog to display info on RepresentationFiles of Models of a specified
@@ -484,28 +576,11 @@ class ModelsInfoDialog(QDialog):
             layout.removeWidget(self.table)
             self.table.parent = None
             self.table.close()
-        models = []
-        # list representation "names" for a given model, etc. ...
-        for m in self.obj.has_models:
-            m_dict = {}
-            m_dict['Model ID'] = m.id
-            if m.type_of_model:
-                m_dict['Model Type'] = getattr(m.type_of_model, 'id',
-                                               'UNKNOWN')
-            if m.has_files:
-                # for prototyping, assume 1 file
-                rep_file = m.has_files[0]
-                m_dict['File Type'] = rep_file.representation
-                m_dict['File Name'] = rep_file.user_file_name
-            models.append(m_dict)
-        view = ['Model ID', 'Model Type', 'File Type', 'File Name'] 
-        table_model = MappingTableModel(models, view=view)
-        self.table = QTableView()
+        self.table = ModelsInfoTable(self.obj)
         self.table.setAttribute(Qt.WA_DeleteOnClose)
-        self.table.setModel(table_model)
         self.table.setAlternatingRowColors(True)
-        self.table.setShowGrid(False)
-        self.table.setSelectionBehavior(1)
+        # SelectionBehavior: 0 -> select items (1 -> rows)
+        self.table.setSelectionBehavior(0)
         self.table.setStyleSheet('font-size: 12px')
         self.table.verticalHeader().hide()
         self.table.clicked.connect(self.item_selected)
@@ -514,15 +589,31 @@ class ModelsInfoDialog(QDialog):
         self.table.setSizePolicy(QSizePolicy.Expanding,
                                  QSizePolicy.Expanding)
         self.table.setSizeAdjustPolicy(QTableView.AdjustToContents)
+        self.table.setShowGrid(True)
         QTimer.singleShot(0, self.table.resizeColumnsToContents)
         layout.addWidget(self.table)
+        self.resize(600, 150)
 
     def item_selected(self, clicked_index):
         """
         Handler for a clicked row ...
         """
         clicked_row = clicked_index.row()
-        orb.log.debug(f'* item selected: {clicked_row}')
+        clicked_col = clicked_index.column()
+        orb.log.debug(f'* item selected: ({clicked_row}, {clicked_col})')
+
+
+class ModelFileDialog(QDialog):
+    """
+    A dialog to download and/or save a copy of a Model file (i.e. the physical
+    file associated with a RepresentationFile instance).
+
+    Args:
+        oid (str): oid of the RepresentationFile instance
+
+    Keyword Args:
+        parent (QWidget): parent widget of the dialog
+    """
 
 
 class RqtFieldsDialog(QDialog):

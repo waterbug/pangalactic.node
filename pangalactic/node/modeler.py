@@ -576,19 +576,18 @@ class ModelWindow(QMainWindow):
             scene.generate_ibd(self.obj, ordering=block_ordering)
         else:
             # orb.log.debug('  - generating new block diagram ...')
-            # orb.log.debug('  - generating diagram (cache disabled for testing)')
             scene.generate_ibd(self.obj)
-            # # create a block Model object if self.obj doesn't have one
-            # block_model_type = orb.get(BLOCK_OID)
-            # if self.obj.has_models:
-                # block_models = [m for m in self.obj.has_models
-                    # if getattr(m, 'type_of_model', None) == block_model_type]
-                # if not block_models:
-                    # model_id = get_block_model_id(self.obj)
-                    # model_name = get_block_model_name(self.obj)
-                    # self.model = clone('Model', id=model_id, name=model_name,
-                                       # type_of_model=block_model_type,
-                                       # of_thing=self.obj)
+        # # TODO: create a SysML IBD Model object if self.obj doesn't have one
+        # block_model_type = orb.get(BLOCK_OID)
+        # if self.obj.has_models:
+            # block_models = [m for m in self.obj.has_models
+                # if getattr(m, 'type_of_model', None) == block_model_type]
+            # if not block_models:
+                # model_id = get_block_model_id(self.obj)
+                # model_name = get_block_model_name(self.obj)
+                # self.model = clone('Model', id=model_id, name=model_name,
+                                   # type_of_model=block_model_type,
+                                   # of_thing=self.obj)
 
     def on_deleted_object(self, oid, cname):
         """

@@ -8,10 +8,9 @@ import ruamel_yaml as yaml
 
 # PyQt
 from PyQt5.QtCore    import Qt, QSize, QTimer
-from PyQt5.QtGui     import QBrush, QColor, QFont
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QFileDialog, QSizePolicy, QTableView,
-                             QTableWidget, QTableWidgetItem, QVBoxLayout)
+                             QTableWidget, QVBoxLayout)
 
 # Louie
 from louie import dispatcher
@@ -29,6 +28,7 @@ from pangalactic.node.tablemodels import (ObjectTableModel,
                                           SpecialSortModel)
 from pangalactic.node.dialogs     import NotificationDialog, SelectColsDialog
 from pangalactic.node.pgxnobject  import PgxnObject
+from pangalactic.node.utils       import InfoTableHeaderItem, InfoTableItem
 
 
 class ObjectTableView(QTableView):
@@ -295,36 +295,6 @@ class CompareWidget(QDialog):
             self.resize(self.tableview.width()-200,
                         self.tableview.height()-100)
 
-
-
-class InfoTableItem(QTableWidgetItem):
-
-    def __init__(self, text=None):
-        if text is not None:
-            super().__init__(text)
-        else:
-            super().__init__()
-        self.isResolving = False
-
-    def setData(self, role, value):
-        super().setData(role, value)
-        if self.tableWidget():
-            self.tableWidget().viewport().update()
-
-
-class InfoTableHeaderItem(QTableWidgetItem):
-
-    def __init__(self, text=None):
-        if text is not None:
-            super().__init__(text)
-        else:
-            super().__init__()
-        color = QColor('#ffffd1')
-        self.setBackground(QBrush(color))
-        font = QFont()
-        font.setWeight(QFont.Bold)
-        self.setFont(font)
-        self.isResolving = False
 
 
 class ActivityInfoTable(QTableWidget):

@@ -6,11 +6,11 @@ import os
 from copy import deepcopy
 
 from PyQt5.QtWidgets import (QApplication, QStyle, QStyleOptionViewItem,
-                             QStyledItemDelegate)
+                             QStyledItemDelegate, QTableWidgetItem)
 from PyQt5.QtCore    import (Qt, QByteArray, QDataStream, QIODevice, QMimeData,
                              QSize, QVariant)
-from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QIcon, QPalette,
-                             QPixmap, QTextDocument)
+from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QBrush, QColor,
+                             QFont, QIcon, QPalette, QPixmap, QTextDocument)
 
 # Louie
 from louie import dispatcher
@@ -23,6 +23,97 @@ from pangalactic.core.names       import (get_display_name, get_acu_id,
 from pangalactic.core.parametrics import data_elementz, parameterz
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
+
+
+class HTMLDelegate(QStyledItemDelegate):
+
+    def paint(self, painter, option, index):
+        options = QStyleOptionViewItem(option)
+        self.initStyleOption(options,index)
+        if options.widget is None:
+            style = QApplication.style()
+        else:
+            style = options.widget.style()
+        doc = QTextDocument()
+        doc.setHtml(options.text)
+        options.text = ""
+        style.drawControl(QStyle.CE_ItemViewItem, options, painter)
+
+        ctx = QAbstractTextDocumentLayout.PaintContext()
+        # Highlighting text if item is selected
+        # if (option.state & QStyle::State_Selected)
+            # ctx.palette.setColor(QPalette::Text,
+            # option.palette.color(QPalette::Active,
+            # QPalette::HighlightedText));
+        textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
+        painter.save()
+        painter.translate(textRect.topLeft())
+        painter.setClipRect(textRect.translated(-textRect.topLeft()))
+        doc.documentLayout().draw(painter, ctx)
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        options = QStyleOptionViewItem(option)
+        self.initStyleOption(options,index)
+        doc = QTextDocument()
+        doc.setHtml(options.text)
+        doc.setTextWidth(options.rect.width())
+        return QSize(doc.idealWidth(), doc.size().height())
+
+
+class RqtAllocDelegate(QStyledItemDelegate):
+
+    def paint(self, painter, option, index):
+        if option.state & QStyle.State_Selected:
+            option.backgroundBrush = index.data(Qt.BackgroundRole)
+            option.palette.setBrush(QPalette.Highlight, option.backgroundBrush)
+            painter.fillRect(option.rect, option.palette.highlight())
+            # draw icon
+            icon_rect = option.rect
+            icon_rect.setLeft(icon_rect.left()+3)
+            option.widget.style().drawItemPixmap(painter, icon_rect,
+                Qt.AlignLeft | Qt.AlignVCenter,
+                index.data(Qt.DecorationRole))
+            # draw text
+            text_rect = option.rect
+            text_rect.setLeft(text_rect.left()+22)
+            option.widget.style().drawItemText(painter, text_rect,
+                                               Qt.AlignLeft | Qt.AlignVCenter,
+                                               option.palette, True,
+                                               index.data(Qt.DisplayRole))
+            # QStyledItemDelegate.paint(self, painter, option, index)
+        else:
+            super().paint(painter, option, index)
+
+
+class InfoTableItem(QTableWidgetItem):
+
+    def __init__(self, text=None):
+        if text is not None:
+            super().__init__(text)
+        else:
+            super().__init__()
+        self.isResolving = False
+
+    def setData(self, role, value):
+        super().setData(role, value)
+        if self.tableWidget():
+            self.tableWidget().viewport().update()
+
+
+class InfoTableHeaderItem(QTableWidgetItem):
+
+    def __init__(self, text=None):
+        if text is not None:
+            super().__init__(text)
+        else:
+            super().__init__()
+        color = QColor('#ffffd1')
+        self.setBackground(QBrush(color))
+        font = QFont()
+        font.setWeight(QFont.Bold)
+        self.setFont(font)
+        self.isResolving = False
 
 
 def get_all_usages(usage):
@@ -481,65 +572,4 @@ def white_to_transparent(img):
             if pixdata[x, y] == (255, 255, 255, 255):
                 pixdata[x, y] = (255, 255, 255, 0)
     return img
-
-
-class HTMLDelegate(QStyledItemDelegate):
-
-    def paint(self, painter, option, index):
-        options = QStyleOptionViewItem(option)
-        self.initStyleOption(options,index)
-        if options.widget is None:
-            style = QApplication.style()
-        else:
-            style = options.widget.style()
-        doc = QTextDocument()
-        doc.setHtml(options.text)
-        options.text = ""
-        style.drawControl(QStyle.CE_ItemViewItem, options, painter)
-
-        ctx = QAbstractTextDocumentLayout.PaintContext()
-        # Highlighting text if item is selected
-        # if (option.state & QStyle::State_Selected)
-            # ctx.palette.setColor(QPalette::Text,
-            # option.palette.color(QPalette::Active,
-            # QPalette::HighlightedText));
-        textRect = style.subElementRect(QStyle.SE_ItemViewItemText, options)
-        painter.save()
-        painter.translate(textRect.topLeft())
-        painter.setClipRect(textRect.translated(-textRect.topLeft()))
-        doc.documentLayout().draw(painter, ctx)
-        painter.restore()
-
-    def sizeHint(self, option, index):
-        options = QStyleOptionViewItem(option)
-        self.initStyleOption(options,index)
-        doc = QTextDocument()
-        doc.setHtml(options.text)
-        doc.setTextWidth(options.rect.width())
-        return QSize(doc.idealWidth(), doc.size().height())
-
-
-class RqtAllocDelegate(QStyledItemDelegate):
-
-    def paint(self, painter, option, index):
-        if option.state & QStyle.State_Selected:
-            option.backgroundBrush = index.data(Qt.BackgroundRole)
-            option.palette.setBrush(QPalette.Highlight, option.backgroundBrush)
-            painter.fillRect(option.rect, option.palette.highlight())
-            # draw icon
-            icon_rect = option.rect
-            icon_rect.setLeft(icon_rect.left()+3)
-            option.widget.style().drawItemPixmap(painter, icon_rect,
-                Qt.AlignLeft | Qt.AlignVCenter,
-                index.data(Qt.DecorationRole))
-            # draw text
-            text_rect = option.rect
-            text_rect.setLeft(text_rect.left()+22)
-            option.widget.style().drawItemText(painter, text_rect,
-                                               Qt.AlignLeft | Qt.AlignVCenter,
-                                               option.palette, True,
-                                               index.data(Qt.DisplayRole))
-            # QStyledItemDelegate.paint(self, painter, option, index)
-        else:
-            super().paint(painter, option, index)
 
