@@ -4979,12 +4979,19 @@ class Main(QMainWindow):
         """
         fpath, sobjs = result
         orb.log.debug(f'* on_model_added(fpath={fpath}, sobjs)')
-        orb.log.debug('  deserializing model, rep, and rep_file ...')
+        orb.log.debug('  deserializing Model and RepresentationFile ...')
         objs = deserialize(orb, sobjs)
         orb.log.debug('  deserialized objects:')
         for obj in objs:
             orb.log.debug(f'  {obj.id}')
-        self.upload_file(fpath=fpath)
+        oid = ''
+        for so in sobjs:
+            if so['_cname'] == "RepresentationFile":
+                oid = so['oid']
+        if oid:
+            self.upload_file(fpath=fpath, rep_file_oid=oid)
+        else:
+            orb.log.debug('  - RepresentationFile oid not found; no upload.')
 
     def on_add_update_doc(self):
         """
@@ -4994,16 +5001,23 @@ class Main(QMainWindow):
         """
         pass
 
-    def upload_file(self, fpath='', chunk_size=None):
+    def upload_file(self, fpath='', rep_file_oid='', chunk_size=None):
         """
-        Upload a file from a specified path.
+        Upload a file from a specified path, optionally specifying a
+        RepresentationFile.oid which if provided will be prepended to the user
+        file name to create the vault file name.
         """
         chunk_size = chunk_size or 2**19
         if fpath:
             fname = os.path.basename(fpath)
             orb.log.info(f'* uploading file: "{fname}"')
+            if rep_file_oid:
+                vault_fname = rep_file_oid + '_' + fname
+                orb.log.info(f'  using vault file name: "{vault_fname}"')
+            else:
+                vault_fname = fname
             # before uploading file, copy it to local vault ...
-            shutil.copy(fpath, os.path.join(orb.vault, fname))
+            shutil.copy(fpath, os.path.join(orb.vault, vault_fname))
             orb.log.info('  [copied to local vault]')
             self.uploaded_chunks = 0
             self.failed_chunks = 0
@@ -5022,7 +5036,8 @@ class Main(QMainWindow):
                     for i, chunk in enumerate(iter(
                                         partial(f.read, chunk_size), b'')):
                         rpc = self.mbus.session.call('vger.upload_chunk',
-                                            fname=fname, seq=i, data=chunk)
+                                                     fname=vault_fname,
+                                                     seq=i, data=chunk)
                         rpc.addCallback(self.on_chunk_upload_success)
                         rpc.addErrback(self.on_chunk_upload_failure)
                         if i == numchunks - 1:

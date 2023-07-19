@@ -41,7 +41,8 @@ class ButtonLabel(QPushButton):
     """
     A button with specifiable minimum size and optional context menu.
     """
-    def __init__(self, value, w=None, h=None, actions=None, parent=None):
+    def __init__(self, value, w=None, h=None, actions=None, color="purple",
+                 parent=None):
         """
         Args:
             value (str):  text for the button label
@@ -50,6 +51,7 @@ class ButtonLabel(QPushButton):
             w (int):  minimum width of the button
             h (int):  minimum height of the button
             actions (iterable of QAction):  items for the optional context menu
+            color (str):  color to use for button text
         """
         super().__init__(value, parent=parent)
         self.setFlat(True)
@@ -57,6 +59,7 @@ class ButtonLabel(QPushButton):
         height = h or 25
         self.setMinimumSize(QSize(width, height))
         self.actions = actions
+        self.color = color
         self.menu = None
         if self.actions:
             self.menu = QMenu(self)
@@ -65,7 +68,7 @@ class ButtonLabel(QPushButton):
                 'QMenu::item:selected {color: white; background: purple;}')
             for action in self.actions:
                 self.menu.addAction(action)
-        self.setStyleSheet('color: purple; background-color: white; '
+        self.setStyleSheet(f'color: {color}; background-color: white; '
                            'border: 1px solid black;')
 
     def contextMenuEvent(self, event):
@@ -73,11 +76,11 @@ class ButtonLabel(QPushButton):
             self.menu.exec_(self.mapToGlobal(event.pos()))
 
     def enterEvent(self, event):
-        self.setStyleSheet('color: purple; background-color: white; '
+        self.setStyleSheet(f'color: {self.color}; background-color: white; '
                            'border: 2px solid purple;')
 
     def leaveEvent(self, event):
-        self.setStyleSheet('color: purple; background-color: white; '
+        self.setStyleSheet(f'color: {self.color}; background-color: white; '
                            'border: 1px solid black;')
 
 
@@ -86,7 +89,7 @@ class FileButtonLabel(ButtonLabel):
     A subclass of ButtonLabel that points to a DigitalFile instance.
     """
     def __init__(self, value, file=None, w=None, h=None, actions=None,
-                 parent=None):
+                 color="purple", parent=None):
         """
         Args:
             value (str):  text for the button label
@@ -97,7 +100,8 @@ class FileButtonLabel(ButtonLabel):
             h (int):  minimum height of the button
             actions (iterable of QAction):  items for the optional context menu
         """
-        super().__init__(value, w=w, h=h, actions=actions, parent=parent)
+        super().__init__(value, w=w, h=h, actions=actions, color=color,
+                         parent=parent)
         self.file = file
 
 

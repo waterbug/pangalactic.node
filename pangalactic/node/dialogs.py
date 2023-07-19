@@ -507,7 +507,12 @@ class ModelsInfoTable(QTableWidget):
                     rep_file = m.has_files[0]
                     txt = rep_file.user_file_name or 'unknown'
                     orb.log.debug(f'  1 file found: {txt}')
-                    button = FileButtonLabel(txt, file=rep_file)
+                    if os.path.exists(os.path.join(orb.vault, rep_file.oid,
+                                      (rep_file.user_file_name or ''))):
+                        color='green'
+                    else:
+                        color='purple'
+                    button = FileButtonLabel(txt, file=rep_file, color=color)
                     button.clicked.connect(self.on_file_button)
                     m_dict['File(s)'] = button
                 elif len(m.has_files) > 1:
@@ -518,14 +523,20 @@ class ModelsInfoTable(QTableWidget):
                     for rep_file in m.has_files:
                         txt = rep_file.user_file_name or 'unknown'
                         orb.log.debug(f'  - {txt}')
-                        button = FileButtonLabel(txt, file=rep_file)
+                        if os.path.exists(os.path.join(orb.vault, rep_file.oid,
+                                          (rep_file.user_file_name or ''))):
+                            color='green'
+                        else:
+                            color='purple'
+                        button = FileButtonLabel(txt, file=rep_file,
+                                                 color=color)
                         button.clicked.connect(self.on_file_button)
                         hbox.addWidget(button)
                     m_dict['File(s)'] = buttons_widget
             data.append(m_dict)
         for i, m_dict in enumerate(data):
             for j, name in enumerate(self.view):
-                if name == 'File(s)':
+                if name == 'File(s)' and m_dict.get(name):
                     self.setCellWidget(i, j, m_dict['File(s)'])
                 else:
                     self.setItem(i, j, InfoTableItem(
