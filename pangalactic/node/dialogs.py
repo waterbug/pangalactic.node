@@ -11,7 +11,7 @@ Various dialogs.
 # CondaDialog)
 # from pangalactic.node.threads     import threadpool, Worker
 
-import os, sys
+import os, shutil, sys
 from textwrap import wrap
 
 from PyQt5.QtCore import (pyqtSignal, Qt, QPoint, QRectF, QSize, QTimer,
@@ -390,12 +390,16 @@ class ModelImportDialog(QDialog):
         self.fields['file name'] = file_widget
         file_label = ColorLabel('file name')
         self.form.addRow(file_label, file_widget)
+        fsize_widget, autolabel = get_widget('file size', 'str', value='',
+                                             editable=False)
+        self.fields['file size'] = fsize_widget
+        fsize_label = ColorLabel('file size')
+        self.form.addRow(fsize_label, fsize_widget)
         m_label_text = '------------------- Model Properties '
         m_label_text += '-------------------'
         model_label = ColorLabel(m_label_text)
         self.form.addRow(model_label)
-        for name in ['id', 'version', 'name',
-                     'description']:
+        for name in ['id', 'version', 'name', 'description']:
             if name == 'description':
                 widget, autolabel = get_widget(name, 'text', value='')
             else:
@@ -424,7 +428,9 @@ class ModelImportDialog(QDialog):
             orb.log.debug(f'  file selected: {fpath}')
             self.model_file_path = fpath
             fname = os.path.basename(fpath)
+            fsize = os.path.getsize(fpath)
             self.fields['file name'].setText(fname)
+            self.fields['file size'].setText(str(fsize))
             state['last_model_path'] = os.path.dirname(fpath)
         else:
             orb.log.debug('  no file was selected.')
@@ -434,7 +440,7 @@ class ModelImportDialog(QDialog):
         if self.model_file_path:
             parms = {}
             for name, widget in self.fields.items():
-                if name == 'file name':
+                if name in ['file name', 'file size']:
                     parms[name] = widget.text()
                 else:
                     parms[name] = widget.get_value() or ''
@@ -507,12 +513,14 @@ class ModelsInfoTable(QTableWidget):
                     rep_file = m.has_files[0]
                     txt = rep_file.user_file_name or 'unknown'
                     orb.log.debug(f'  1 file found: {txt}')
-                    if os.path.exists(os.path.join(orb.vault, rep_file.oid,
-                                      (rep_file.user_file_name or ''))):
+                    vault_fname = rep_file.oid + '_' + txt
+                    vault_file_path = os.path.join(orb.vault, vault_fname)
+                    if os.path.exists(vault_file_path):
                         color='green'
                     else:
                         color='purple'
-                    button = FileButtonLabel(txt, file=rep_file, color=color)
+                    label = '  ' + txt + '  '
+                    button = FileButtonLabel(label, file=rep_file, color=color)
                     button.clicked.connect(self.on_file_button)
                     m_dict['File(s)'] = button
                 elif len(m.has_files) > 1:
@@ -523,12 +531,14 @@ class ModelsInfoTable(QTableWidget):
                     for rep_file in m.has_files:
                         txt = rep_file.user_file_name or 'unknown'
                         orb.log.debug(f'  - {txt}')
-                        if os.path.exists(os.path.join(orb.vault, rep_file.oid,
-                                          (rep_file.user_file_name or ''))):
+                        vault_fname = rep_file.oid + '_' + txt
+                        vault_file_path = os.path.join(orb.vault, vault_fname)
+                        if os.path.exists(vault_file_path):
                             color='green'
                         else:
                             color='purple'
-                        button = FileButtonLabel(txt, file=rep_file,
+                        label = '  ' + txt + '  '
+                        button = FileButtonLabel(label, file=rep_file,
                                                  color=color)
                         button.clicked.connect(self.on_file_button)
                         hbox.addWidget(button)
@@ -546,11 +556,75 @@ class ModelsInfoTable(QTableWidget):
     def on_file_button(self):
         button = self.sender()
         txt = button.text()
+        rep_file = button.file
         orb.log.debug(f'* file button "{txt}" was clicked.')
-        # TODO: open a dialog that checks whether the file is available in the
-        # local "vault" or if it requires downloading -- if the latter, display
-        # the file size and offer to download it from the server. If already
-        # in the local vault, offer to save a copy in a user-specified folder.
+        # Open a dialog that displays the size of the file and offers to save a
+        # copy into a user-specified folder, informing the user if downloading
+        # from the server is required.
+        dlg = FileInfoDialog(rep_file, parent=self)
+        dlg.show()
+
+
+class FileInfoDialog(QDialog):
+    """
+    A dialog to display info about a physical file that is associated with a
+    DigitalFile instance and offer to download it and/or save a local copy.
+
+    Keyword Args:
+        digital_file (RepresentationFile): the RepresentationFile instance
+        parent (QWidget): parent widget of the dialog
+    """
+    def __init__(self, digital_file, parent=None):
+        super().__init__(parent)
+        orb.log.debug('* FileInfoDialog()')
+        self.vbox = QVBoxLayout(self)
+        self.dfile = digital_file
+        self.build_info_form()
+        vault_fname = self.dfile.oid + '_' + (self.dfile.user_file_name or '')
+        self.vault_file_path = os.path.join(orb.vault, vault_fname)
+        if os.path.exists(self.vault_file_path):
+            orb.log.debug('  file exists in local vault')
+            save_local_button = SizedButton("Save Local Copy")
+            save_local_button.clicked.connect(self.on_save_local)
+            self.vbox.addWidget(save_local_button)
+        else:
+            orb.log.debug('  file not found in local vault')
+            download_button = SizedButton("Download File")
+            download_button.clicked.connect(self.on_download_file)
+            self.vbox.addWidget(download_button)
+
+    def build_info_form(self):
+        self.form = QFormLayout()
+        self.vbox.addLayout(self.form)
+        self.fields = {}
+        label_text = '------------------- File Properties '
+        label_text += '-------------------'
+        file_label = ColorLabel(label_text)
+        self.form.addRow(file_label)
+        for name in ['user_file_name', 'file_size']:
+            widget, autolabel = get_widget(name, 'str',
+                                       value=getattr(self.dfile, name, ''),
+                                       editable=False)
+            label = ColorLabel(name)
+            self.fields[name] = widget
+            self.form.addRow(label, widget)
+
+    def on_download_file(self, evt):
+        dispatcher.send(signal='download file', file=self.dfile)
+
+    def on_save_local(self, evt):
+        suggested_path = os.path.join(state.get('last_path', ''),
+                                      (self.dfile.user_file_name or ''))
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Save As',
+                                    suggested_path)
+        if fpath:
+            orb.log.debug(f'  - path selected: "{fpath}"')
+            # copy vault file to fpath ...
+            shutil.copy(self.vault_file_path, fpath)
+            self.accept()
+        else:
+            self.reject()
 
 
 class ModelsInfoDialog(QDialog):
@@ -1323,10 +1397,11 @@ class SelectHWLibraryColsDialog(QDialog):
     library table.
 
     Args:
-        parameters (list of str):  list of parameter ids to select from
-        view (list of str):  the current view to be customized
+        parameters (list of str): list of parameter ids to select from
+        data_elements (list of str): list of data_element ids to select from
+        view (list of str): the current view to be customized
     """
-    def __init__(self, parameters, view, parent=None):
+    def __init__(self, parameters, data_elements, view, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Select Columns")
         vbox = QVBoxLayout(self)
@@ -1359,6 +1434,8 @@ class SelectHWLibraryColsDialog(QDialog):
             else:
                 r_form.addRow(self.checkboxes[col], label)
         vbox.addLayout(hbox)
+
+        # Parameters
         parm_sep = HLine()
         vbox.addWidget(parm_sep)
         parameters_label = QLabel(
@@ -1373,11 +1450,10 @@ class SelectHWLibraryColsDialog(QDialog):
         parm_hbox = QHBoxLayout()
         for form in forms.values():
             parm_hbox.addLayout(form)
-        parameters.sort(key=lambda x: (de_defz.get(x, {}).get('name')
-                                       or parm_defz.get(x, {}).get('name')
+        parameters.sort(key=lambda x: (parm_defz.get(x, {}).get('name')
                                        or x).lower())
         for i, col in enumerate(parameters):
-            col_def = de_defz.get(col) or parm_defz.get(col)
+            col_def = parm_defz.get(col)
             if col_def:
                 label = QLabel(col_def['name'], self)
                 dtxt = col_def.get('description', '')
@@ -1396,6 +1472,46 @@ class SelectHWLibraryColsDialog(QDialog):
             idx = i // 10
             forms[idx].addRow(self.checkboxes[col], label)
         vbox.addLayout(parm_hbox)
+
+        # Data Elements
+        de_sep = HLine()
+        vbox.addWidget(de_sep)
+        de_label = QLabel(
+            '<h3><font color="purple">Data Elements</font></h3>')
+        vbox.addWidget(de_label)
+        plen = len(data_elements)
+        m = plen // 10
+        if plen % 10:
+            forms = {i : QFormLayout() for i in range(m + 1)}
+        else:
+            forms = {i : QFormLayout() for i in range(m)}
+        de_hbox = QHBoxLayout()
+        for form in forms.values():
+            de_hbox.addLayout(form)
+        data_elements.sort(key=lambda x: (de_defz.get(x, {}).get('name')
+                                       or de_defz.get(x, {}).get('name')
+                                       or x).lower())
+        for i, col in enumerate(data_elements):
+            col_def = de_defz.get(col)
+            if col_def:
+                label = QLabel(col_def['name'], self)
+                dtxt = col_def.get('description', '')
+                dims = col_def.get('dimensions', '')
+                tt = f'<p><b>Definition:</b> {dtxt}</p>'
+                if dims:
+                    tt += f'<b>Dimensions:</b> {dims}'
+                label.setToolTip(tt)
+            else:
+                label = QLabel(col, self)
+            self.checkboxes[col] = QCheckBox(self)
+            if col in view:
+                self.checkboxes[col].setChecked(True)
+            else:
+                self.checkboxes[col].setChecked(False)
+            idx = i // 10
+            forms[idx].addRow(self.checkboxes[col], label)
+        vbox.addLayout(de_hbox)
+
         button_sep = HLine()
         vbox.addWidget(button_sep)
         # OK and Cancel buttons

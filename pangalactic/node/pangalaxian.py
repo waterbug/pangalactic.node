@@ -322,6 +322,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_rqts_imported, 'rqts imported from excel')
         dispatcher.connect(self.on_add_update_model, 'add update model')
         dispatcher.connect(self.on_add_update_doc, 'add update doc')
+        dispatcher.connect(self.download_file, 'download file')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
@@ -5072,6 +5073,78 @@ class Main(QMainWindow):
             except:
                 # C++ object got deleted ...
                 pass
+
+    def download_file(self, file=None, chunk_size=None):
+        """
+        Download a file, specifying a DigitalFile instance whose "oid" and
+        "user_file_name" attributes will be combined to create the unique name
+        of the vault file to be downloaded.
+
+        Args:
+            file (DigitalFile): the DigitalFile whose physical file is
+                to be downloaded
+
+        Keyword Args:
+            chunk_size (int):  size of chunks to be used
+        """
+        orb.log.info('* pgxn.download_file()')
+        chunk_size = chunk_size or 2**19
+        if file and isinstance(file, orb.classes['DigitalFile']):
+            fname = file.user_file_name
+            oid = file.oid
+            orb.log.info(f'* downloading to vault: "{fname}"')
+            orb.log.info(f'  of digital file: "{oid}"')
+            self.downloaded_chunks = 0
+            self.failed_chunks = 0
+            self.download_progress = ProgressDialog(title='File Download',
+                                          label=f'downloading "{fname}" ...',
+                                          parent=self)
+            self.download_progress.setAttribute(Qt.WA_DeleteOnClose)
+            try:
+                fsize = file.file_size
+                numchunks = math.ceil(fsize / chunk_size)
+                self.download_progress.setMaximum(numchunks)
+                self.download_progress.setValue(0)
+                self.download_progress.setMinimumDuration(2000)
+                orb.log.info(f'  using {numchunks} chunks ...')
+                for i in range(numchunks):
+                    rpc = self.mbus.session.call('vger.download_chunk',
+                                                 digital_file_oid=oid,
+                                                 seq=i)
+                    rpc.addCallback(self.on_chunk_download_success)
+                    rpc.addErrback(self.on_chunk_download_failure)
+                    if i == numchunks - 1:
+                        rpc.addCallback(self.on_file_download_success)
+            except:
+                message = f'File "{fname}" could not be downloaded.'
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "Error in downloading", message,
+                                    QMessageBox.Ok, self)
+                popup.show()
+                return
+        else:
+            orb.log.info('  no DigitalFile instance; returning None.')
+            return
+
+    def on_chunk_download_success(self, result):
+        oid, seq, data = result
+        orb.log.info(f'  chunk {seq} received ...')
+        self.downloaded_chunks += 1
+        self.download_progress.setValue(self.downloaded_chunks)
+        file = orb.get(oid)
+        vaultfname = file.oid + '_' + file.user_file_name
+        vaultfpath = os.path.join(orb.vault, vaultfname)
+        with open(vaultfpath, 'ab') as vaultf:
+            vaultf.write(data)
+        orb.log.info('  appended to vault file.')
+
+    def on_chunk_download_failure(self, result):
+        orb.log.info(f'  chunk {result} failed.')
+        self.failed_chunks += 1
+
+    def on_file_download_success(self, result):
+        orb.log.info(f'  download done in {self.downloaded_chunks} chunks.')
+        self.download_progress.done(0)
 
     def on_new_hardware_clone(self, product=None, objs=None):
         # go to component mode when clone() sends "new hardware clone" signal
