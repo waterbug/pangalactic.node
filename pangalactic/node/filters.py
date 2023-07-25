@@ -18,7 +18,8 @@ from pangalactic.core              import prefs, state
 from pangalactic.core.meta         import MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names        import (get_external_name_plural,
                                            pname_to_header)
-from pangalactic.core.parametrics  import de_defz, parameterz, parm_defz
+from pangalactic.core.parametrics  import (data_elementz, de_defz, parameterz,
+                                           parm_defz)
 from pangalactic.core.uberorb      import orb
 from pangalactic.core.utils.msword import report
 from pangalactic.node.buttons      import SizedButton
@@ -861,10 +862,14 @@ class FilterPanel(QWidget):
         """
         oids = [o.oid for o in self.objs]
         parms = reduce(lambda x,y: x.union(y),
-                       [set(parameterz.get(oid, [])) for oid in oids])
+                       [set(parameterz.get(oid) or []) for oid in oids])
         parms = [pid for pid in parms]
         parms.sort(key=lambda x: x.lower())
-        dlg = SelectHWLibraryColsDialog(parms, self.view, parent=self)
+        des = reduce(lambda x,y: x.union(y),
+                     [set(data_elementz.get(oid) or []) for oid in oids])
+        des = [deid for deid in des]
+        des.sort(key=lambda x: x.lower())
+        dlg = SelectHWLibraryColsDialog(parms, des, self.view, parent=self)
         if dlg.exec_() == QDialog.Accepted:
             if self.col_moved_view:
                 old_view = self.col_moved_view[:]
