@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os
 from collections import namedtuple
-from urllib.parse    import urlparse
 
 from louie import dispatcher
 
@@ -50,15 +49,12 @@ def get_step_file_path(model):
                   # getattr(model, 'oid', 'None')))
     if (model.has_files and model.type_of_model.id == "MCAD"):
         for rep_file in model.has_files:
-            for rep_file in model.has_files:
-                u = urlparse(rep_file.url)
-                if (u.scheme == 'vault' and
-                    rep_file.url.endswith(('.stp', '.step', '.p21'))):
-                    fpath = os.path.join(orb.vault, u.netloc)
-                    if os.path.exists(fpath):
-                        return fpath
-                else:
-                    continue
+            if rep_file.user_file_name.endswith(
+                            ('.stp', '.STP', '.step', '.STEP', '.p21', '.P21')):
+                vault_fname = rep_file.oid + '_' + rep_file.user_file_name
+                fpath = os.path.join(orb.vault, vault_fname)
+                if os.path.exists(fpath):
+                    return fpath
             else:
                 continue
     else:
