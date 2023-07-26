@@ -323,6 +323,8 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_add_update_model, 'add update model')
         dispatcher.connect(self.on_add_update_doc, 'add update doc')
         dispatcher.connect(self.download_file, 'download file')
+        dispatcher.connect(self.optics_modeler, 'open optics modeler')
+        dispatcher.connect(self.get_lom_surf_names, 'get lom surface names')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
@@ -5301,14 +5303,27 @@ class Main(QMainWindow):
         window = SC42Window(width=w, height=h, parent=self)
         window.show()
 
-    def optics_modeler(self):
-        window = OpticalSystemModeler(parent=self)
+    def optics_modeler(self, system=None):
+        window = OpticalSystemModeler(system=system, parent=self)
         window.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects_qtsignal)
         window.local_object_deleted.connect(
                                     self.del_object)
         window.system_widget.scene.des_set.connect(self.on_des_set_qtsignal)
         window.show()
+
+    def get_lom_surf_names(self, lom_oid=None):
+        rpc = self.mbus.session.call('vger.get_lom_surface_names',
+                                     lom_oid=lom_oid)
+        rpc.addCallback(self.on_vger_glsn_success)
+        rpc.addErrback(self.on_vger_glsn_failure)
+
+    def on_vger_glsn_success(self, result):
+        orb.log.debug('* on_vger_glsn_success()')
+        orb.log.debug(f'  result: {result}')
+
+    def on_vger_glsn_failure(self, result):
+        orb.log.debug('* on_vger_glsn_failure()')
 
     def product_types_library(self):
         dlg = LibraryDialog('ProductType',

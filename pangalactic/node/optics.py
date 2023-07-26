@@ -958,23 +958,23 @@ class OpticalSystemWidget(QWidget):
 
 class OpticalSystemModeler(QMainWindow):
     """
-    Tool for modeling an Optical System.
+    Tool for modeling a system with optical properties.
     """
 
     new_or_modified_objects = pyqtSignal(list)
     local_object_deleted = pyqtSignal(str, str)  # args: oid, cname
 
-    def __init__(self, parent=None):
+    def __init__(self, system=None, parent=None):
         """
         Initialize the tool.
 
         Keyword Args:
-            parent (QWidget):  parent widget
+            system (HardwareProduct): a system with optical properties
+            parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
         orb.log.info('* OpticalSystemModeler initializing')
-        project = orb.get(state.get('project'))
-        self.project = project
+        self.system = system
         self.init_toolbar()
         self.set_widgets(init=True)
         self.setWindowTitle('Optical System Modeler')
@@ -985,10 +985,13 @@ class OpticalSystemModeler(QMainWindow):
                     sys_widget_h + sys_table_h + 200)
         # self.system_widget.library_button.clicked.connect(self.display_library)
         # dispatcher.connect(self.on_double_click, "double clicked")
-
-    @property
-    def system(self):
-        return orb.get(state.get('optical_system', ''))
+        lom = None
+        if getattr(system, 'has_models', None):
+            for model in system.has_models:
+                if getattr(model.type_of_model, 'id', '') == 'LOM':
+                    lom = model
+        if lom:
+            dispatcher.send(signal='get lom surface names', lom_oid=lom.oid)
 
     def display_library(self):
         """

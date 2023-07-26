@@ -583,7 +583,7 @@ class ModelsInfoTable(QTableWidget):
         # and possibly use ModelDetailDialog for model types that don't have a
         # special interface ...
         if mtype == "LOM":
-            dispatcher.send(signal='open optics modeler', thing=self.obj)
+            dispatcher.send(signal='open optics modeler', system=self.obj)
         else:
             for model in self.obj.has_models:
                 if model.type_of_model.id == mtype:
