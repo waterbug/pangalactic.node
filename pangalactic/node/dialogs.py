@@ -482,6 +482,7 @@ class ModelsInfoTable(QTableWidget):
             'Model Type',
             # 'Version',
             'File(s)',
+            'More Info'
             ]
         self.view = view or default_view[:]
         self.setup_table()
@@ -511,15 +512,15 @@ class ModelsInfoTable(QTableWidget):
             if m.has_files:
                 if len(m.has_files) == 1:
                     rep_file = m.has_files[0]
-                    txt = rep_file.user_file_name or 'unknown'
-                    orb.log.debug(f'  1 file found: {txt}')
-                    vault_fname = rep_file.oid + '_' + txt
+                    fname = rep_file.user_file_name or 'unknown'
+                    orb.log.debug(f'  1 file found: {fname}')
+                    vault_fname = rep_file.oid + '_' + fname
                     vault_file_path = os.path.join(orb.vault, vault_fname)
                     if os.path.exists(vault_file_path):
                         color='green'
                     else:
                         color='purple'
-                    label = '  ' + txt + '  '
+                    label = '  ' + fname + '  '
                     button = FileButtonLabel(label, file=rep_file, color=color)
                     button.clicked.connect(self.on_file_button)
                     m_dict['File(s)'] = button
@@ -529,40 +530,64 @@ class ModelsInfoTable(QTableWidget):
                     hbox = QHBoxLayout()
                     buttons_widget.setLayout(hbox)
                     for rep_file in m.has_files:
-                        txt = rep_file.user_file_name or 'unknown'
-                        orb.log.debug(f'  - {txt}')
-                        vault_fname = rep_file.oid + '_' + txt
+                        fname = rep_file.user_file_name or 'unknown'
+                        orb.log.debug(f'  - {fname}')
+                        vault_fname = rep_file.oid + '_' + fname
                         vault_file_path = os.path.join(orb.vault, vault_fname)
                         if os.path.exists(vault_file_path):
                             color='green'
                         else:
                             color='purple'
-                        label = '  ' + txt + '  '
+                        label = '  ' + fname + '  '
                         button = FileButtonLabel(label, file=rep_file,
                                                  color=color)
                         button.clicked.connect(self.on_file_button)
                         hbox.addWidget(button)
                     m_dict['File(s)'] = buttons_widget
+                mtype = m_dict['Model Type']
+                info_button = SizedButton(f"{mtype} Info")
+                info_button.clicked.connect(self.on_more_info)
+                m_dict['More Info'] = info_button
             data.append(m_dict)
         for i, m_dict in enumerate(data):
             for j, name in enumerate(self.view):
-                if name == 'File(s)' and m_dict.get(name):
-                    self.setCellWidget(i, j, m_dict['File(s)'])
+                if name in ['File(s)', 'More Info'] and m_dict.get(name):
+                    self.setCellWidget(i, j, m_dict[name])
                 else:
                     self.setItem(i, j, InfoTableItem(
                         m_dict.get(name) or ''))
         self.resize(550, 240)
 
     def on_file_button(self):
+        """
+        Get info about a model file and/or download or save a local copy of it.
+        """
         button = self.sender()
-        txt = button.text()
+        fname = button.text().strip()
         rep_file = button.file
-        orb.log.debug(f'* file button "{txt}" was clicked.')
+        orb.log.debug(f'* file button "{fname}" was clicked.')
         # Open a dialog that displays the size of the file and offers to save a
         # copy into a user-specified folder, informing the user if downloading
         # from the server is required.
         dlg = FileInfoDialog(rep_file, parent=self)
         dlg.show()
+
+    def on_more_info(self):
+        button = self.sender()
+        mtype = button.text().split()[0]
+        orb.log.debug(f'* file button for "{mtype}" model was clicked.')
+
+        # REFACTORING IN PROGRESS ...
+        # dict of mtypes to interfaces:
+        #     {'LOM': optics.OpticalSystemModeler,
+        #      etc. ...}
+        # and possibly use ModelDetailDialog for model types that don't have a
+        # special interface ...
+
+        # for model in self.obj.has_models:
+            # if model.type_of_model.id == mtype:
+                # dlg = ModelDetailDialog(model)
+                # dlg.show()
 
 
 class FileInfoDialog(QDialog):
@@ -651,6 +676,8 @@ class ModelsInfoDialog(QDialog):
         # set up dashboard selector
         top_layout = QHBoxLayout()
         # TODO: add info about Modelable ...
+        self.title = ColorLabel(f'<h3>Models of {obj.name}</h3>', parent=self)
+        top_layout.addWidget(self.title)
         layout.addLayout(top_layout)
         self.set_table()
 
@@ -688,17 +715,32 @@ class ModelsInfoDialog(QDialog):
         orb.log.debug(f'* item selected: ({clicked_row}, {clicked_col})')
 
 
-class ModelFileDialog(QDialog):
+class ModelDetailDialog(QDialog):
     """
-    A dialog to download and/or save a copy of a Model file (i.e. the physical
-    file associated with a RepresentationFile instance).
-
-    Args:
-        oid (str): oid of the RepresentationFile instance
-
-    Keyword Args:
-        parent (QWidget): parent widget of the dialog
+    A dialog to display all available details about a Model.
     """
+    def __init__(self, model, parent=None):
+        """
+        Args:
+            model (Model): the Model instance
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        mtype = model.type_of_model.id
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.setWindowTitle(f"{mtype} Details")
+        # set up dashboard selector
+        top_layout = QHBoxLayout()
+        thing_name = model.of_thing.name
+        self.title = ColorLabel(f'<h3>{mtype} Model of {thing_name}</h3>',
+                                parent=self)
+        top_layout.addWidget(self.title)
+        layout.addLayout(top_layout)
 
 
 class RqtFieldsDialog(QDialog):
