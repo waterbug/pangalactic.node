@@ -576,18 +576,19 @@ class ModelsInfoTable(QTableWidget):
         button = self.sender()
         mtype = button.text().split()[0]
         orb.log.debug(f'* file button for "{mtype}" model was clicked.')
-
         # REFACTORING IN PROGRESS ...
         # dict of mtypes to interfaces:
         #     {'LOM': optics.OpticalSystemModeler,
         #      etc. ...}
         # and possibly use ModelDetailDialog for model types that don't have a
         # special interface ...
-
-        # for model in self.obj.has_models:
-            # if model.type_of_model.id == mtype:
-                # dlg = ModelDetailDialog(model)
-                # dlg.show()
+        if mtype == "LOM":
+            dispatcher.send(signal='open optics modeler', thing=self.obj)
+        else:
+            for model in self.obj.has_models:
+                if model.type_of_model.id == mtype:
+                    dlg = ModelDetailDialog(model)
+                    dlg.show()
 
 
 class FileInfoDialog(QDialog):
