@@ -989,6 +989,7 @@ class OpticalSystemModeler(QMainWindow):
         if getattr(system, 'has_models', None):
             for model in system.has_models:
                 if getattr(model.type_of_model, 'id', '') == 'LOM':
+                    # TODO: check for latest version of LOM
                     lom = model
         if lom:
             dispatcher.send(signal='get lom surface names', lom_oid=lom.oid)
