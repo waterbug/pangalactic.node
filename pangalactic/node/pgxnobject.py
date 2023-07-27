@@ -182,7 +182,7 @@ class PgxnForm(QWidget):
             self.dim_select = QComboBox()
             self.dim_select.setStyleSheet('font-size: 14; font-weight: bold;')
             self.dim_select.setSizeAdjustPolicy(0)  # size to fit contents
-            current_parm_dim = state.get('current_parm_dim') or 'mass'
+            current_parm_dim = state.get('current_parm_dim')
             base_ids = orb.get_ids(cname='ParameterDefinition')
             contingencies = [get_parameter_id(p, 'Ctgcy') for p in base_ids]
             parmz = parameterz.get(obj.oid) or {}
@@ -239,7 +239,11 @@ class PgxnForm(QWidget):
                               if pid not in contingencies]
                 # orb.log.info('  [pgxnf] parameter ordering: {}'.format(
                                                             # str(p_ordering)))
-                relevant_pids = [pid for pid in pids
+                if current_parm_dim in [None, '']:
+                    relevant_pids = [pid for pid in pids
+                          if parm_defz[pid]['dimensions'] in [None, '']]
+                else:
+                    relevant_pids = [pid for pid in pids
                           if parm_defz[pid]['dimensions'] == current_parm_dim]
                 # orb.log.info(f'* [pgxnf] relevant params: {relevant_pids}')
                 pids_on_panel = [pid for pid in p_ordering
