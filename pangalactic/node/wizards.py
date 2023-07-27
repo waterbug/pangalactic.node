@@ -25,8 +25,7 @@ from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import (get_external_name_plural,
                                           PREFERRED_ALIASES, STD_ALIASES,
                                           STD_VIEWS)
-from pangalactic.core.parametrics import (add_default_parameters, de_defz,
-                                          parm_defz, set_dval,
+from pangalactic.core.parametrics import (de_defz, parm_defz, set_dval,
                                           set_dval_from_str,
                                           set_pval_from_str)
 from pangalactic.core.refdata     import trls
@@ -1254,7 +1253,6 @@ class IdentificationPage(QWizardPage):
         if (self.product and self.product.id and self.product.name and
             self.product.product_type):
             # orb.log.info('  - product validated successfully')
-            add_default_parameters(self.product)
             return True
         else:
             # orb.log.info('  - product did NOT validate successfully')
