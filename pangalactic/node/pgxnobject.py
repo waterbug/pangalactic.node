@@ -401,7 +401,7 @@ class PgxnForm(QWidget):
                     # orb.log.debug('* getting data element "{}"'.format(deid))
                     field_name = deid
                     ded = de_defz[deid]
-                    ext_name = ded.get('name', '') or '[unknown]'
+                    ext_name = ded.get('label') or ded.get('name', 'unknown')
                     # parm types are 'float', 'int', 'bool', or 'text'
                     de_type = ded.get('range_datatype', 'str')
                     # field_type 'parameter' -> StringFieldWidget for edit mode
