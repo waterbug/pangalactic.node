@@ -2511,18 +2511,18 @@ class Main(QMainWindow):
             # if there was a product set before, add it to history unless
             # 'comp_modeler_back' is True (-> back navigation)
             prev_oid = self._product.oid
-            prev_id = self._product.id
-            orb.log.debug(f'  adding to cmh: "{prev_id}" ({prev_oid})')
+            # prev_id = self._product.id
+            # orb.log.debug(f'  adding to cmh: "{prev_id}" ({prev_oid})')
             hist = state.get('component_modeler_history', [])
             if (hist and prev_oid != hist[-1]) or not hist:
                 hist.append(prev_oid)
             state['component_modeler_history'] = hist
         else:
             # if comp_modeler_back was True, reset it to False
-            orb.log.debug('  "comp modeler back" was called')
+            # orb.log.debug('  "comp modeler back" was called')
             state['comp_modeler_back'] = False
-        cmh = state.get('component_modeler_history', [])
-        orb.log.debug(f'  cmh is now: {str(cmh)}')
+        # cmh = state.get('component_modeler_history', [])
+        # orb.log.debug(f'  cmh is now: {str(cmh)}')
         state['product'] = oid
         self._product = p
 
