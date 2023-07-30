@@ -958,8 +958,8 @@ class SubjectBlock(Block):
         """
         Accept the drag enter event if it has an accepted mime type.
         """
-        orb.log.debug('  - drag object mime types: {}'.format(
-                      event.mimeData().formats()))
+        # orb.log.debug('  - drag object mime types: {}'.format(
+                      # event.mimeData().formats()))
         if (event.mimeData().hasFormat(
                                 "application/x-pgef-hardware-product")
             or event.mimeData().hasFormat(
