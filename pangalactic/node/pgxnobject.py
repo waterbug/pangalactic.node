@@ -382,6 +382,15 @@ class PgxnForm(QWidget):
             # used for the other panels
             # orb.log.info('* [pgxnf] building "data" form ...')
             de_dict = data_elementz.get(obj.oid) or {}
+            # prune out any undefined de's
+            if de_dict:
+                undefined_des = []
+                for deid in de_dict:
+                    if deid not in de_defz:
+                        undefined_des.append(deid)
+                if undefined_des:
+                    for deid in undefined_des:
+                        del de_dict[deid]
             deids = sorted(list(de_dict))
             if deids:
                 # orb.log.info('* [pgxnf] data elements found: {}'.format(
