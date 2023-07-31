@@ -196,7 +196,8 @@ class Main(QMainWindow):
         # the "client" state is needed to enable the 'access' module to
         # differentiate permissions between client and server
         state['client'] = True
-        # initialize internal "_product" attr, so getter for "product" works
+        # initialize internal "_product" attr, so getter for "product" (i.e.,
+        # the subject of the Component Modeler mode) works
         self._product = None
         # set flag to monitor when connecting to server
         self.attempting_to_connect = False
@@ -2475,17 +2476,8 @@ class Main(QMainWindow):
                       # str([p.id for p in projects])))
         return projects
 
-    # 'systems' property (read-only)
-    @property
-    def systems(self):
-        """
-        The current systems of interest, determined by the current project.
-        """
-        project = orb.get(state.get('project') or '')
-        return [psu.system for psu in project.systems]
-
-    # 'product' property reflects the product selected in the product
-    # modeler; state['product'] is set to its oid
+    # 'product' property is the Product that is the subject of the Component
+    # Modler mode; state['product'] is set to its oid
     def get_product(self):
         """
         Get the current product.
