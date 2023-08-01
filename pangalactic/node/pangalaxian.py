@@ -206,9 +206,10 @@ class Main(QMainWindow):
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
-        # copy a `local.db` file containing ref data into home (NOTE: ref data
-        # used to be deserialized at initial startup -- that was time consuming
-        # and unnecessary!)
+        # check version of home directory, if one is found ...
+        if os.path.exists(home):
+        # copy `local.db` file from ref_db module into home (NOTE: ref data
+        # used to be deserialized at initial startup -- too slow!)
         setup_db_with_ref_data(home)
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)

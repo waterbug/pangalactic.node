@@ -25,11 +25,6 @@ from pangalactic.node.utils       import (extract_mime_data,
                                           create_product_from_template)
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 
-supported_model_types = {
-    # CAD models get "eyes" icon, not a label button
-    'pgefobjects:ModelType.MCAD' : None,
-    }
-
 # a named tuple used in managing the "history" of the ModelWindow so that it
 # can be navigated
 ModelerState = namedtuple('ModelerState', 'obj idx')
