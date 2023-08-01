@@ -100,7 +100,7 @@ from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.rqtmanager       import RequirementManager
 from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
 from pangalactic.node.splash           import SplashScreen
-from pangalactic.node.startup          import (setup_db_with_ref_data,
+from pangalactic.node.startup          import (setup_ref_db_and_version,
                                                setup_dirs_and_state)
 from pangalactic.node.systemtree       import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
@@ -142,6 +142,10 @@ class Main(QMainWindow):
     """
     # enumeration of modes
     modes = ['system', 'component', 'db', 'data']
+
+    # compatible release versions -- used to determine compatibility of the
+    # "home" directory
+    compat_versions = [Version('3.2.dev8')]
 
     # signals
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
@@ -206,11 +210,43 @@ class Main(QMainWindow):
         # dict for states obtained from self.saveState() -- used for saving the
         # window state when switching between modes
         self.main_states = {}
-        # check version of home directory, if one is found ...
+        # if a home directory exists, check its version for compatibility ...
+        compat_home_version = True
+        home_version = Version('3.1')
+        version_fpath = os.path.join(home, 'VERSION')
         if os.path.exists(home):
-        # copy `local.db` file from ref_db module into home (NOTE: ref data
-        # used to be deserialized at initial startup -- too slow!)
-        setup_db_with_ref_data(home)
+            if os.path.exists(version_fpath):
+                with open(version_fpath) as f:
+                    home_version = Version(f.read())
+            if home_version not in self.compat_versions:
+                compat_home_version = False
+        if compat_home_version:
+            msg = f'... home version is compatible: {home_version} ...'
+            self.add_splash_msg(msg)
+        else:
+            msg = f'... home version is NOT compatible: {home_version} ...'
+            self.add_splash_msg(msg)
+            # remove VERSION, local.db, onto, cache, all .json files
+            if os.path.exists(version_fpath):
+                os.remove(version_fpath)
+            localdb_path = os.path.join(home, 'local.db')
+            if os.path.exists(localdb_path):
+                os.remove(localdb_path)
+            cache_path = os.path.join(home, 'cache')
+            if os.path.exists(cache_path):
+                shutil.rmtree(cache_path)
+            onto_path = os.path.join(home, 'onto')
+            if os.path.exists(onto_path):
+                shutil.rmtree(onto_path)
+            fnames = os.listdir(home)
+            for fname in fnames:
+                if fname.endswith('.json'):
+                    os.remove(os.path.join(home, fname))
+            self.add_splash_msg('... home fixed ...')
+        # add the `local.db` file from ref_db module to home and add a
+        # "VERSION" file
+        this_version = self.app_version or __version__
+        setup_ref_db_and_version(home, this_version)
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)
         orb.start(home=home, console=console, debug=debug)
