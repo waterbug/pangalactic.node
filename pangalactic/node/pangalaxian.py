@@ -4865,7 +4865,7 @@ class Main(QMainWindow):
 
     def view_cad(self, file_path=None):
         orb.log.info('* view_cad()')
-        viewer = Model3DViewer(parent=self)
+        viewer = Model3DViewer(step_file=file_path, parent=self)
         viewer.show()
 
     def run_external_viewer(self, file_path):
