@@ -43,7 +43,6 @@ from pangalactic.core.utils.datetimes import date2str, dtstamp
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
-from pangalactic.node.dialogs     import ModelImportDialog
 from pangalactic.node.libraries   import LibraryDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
@@ -536,9 +535,9 @@ class OpticalSysInfoPanel(QWidget):
         info_panel_layout.addStretch(1)
         # self.library_button = SizedButton("Library", color="green")
         # info_panel_layout.addWidget(self.library_button)
-        self.import_lom_button = SizedButton("Import LOM", color="blue")
-        info_panel_layout.addWidget(self.import_lom_button)
-        self.import_lom_button.clicked.connect(self.import_lom)
+        # self.import_lom_button = SizedButton("Import LOM", color="blue")
+        # info_panel_layout.addWidget(self.import_lom_button)
+        # self.import_lom_button.clicked.connect(self.import_lom)
         self.error_budget_button = SizedButton("Create Error Budget")
         info_panel_layout.addWidget(self.error_budget_button)
         self.error_budget_button.clicked.connect(self.output_error_budget)
@@ -587,20 +586,20 @@ class OpticalSysInfoPanel(QWidget):
 
     system = property(fget=_get_system, fset=_set_system)
 
-    def import_lom(self):
-        """
-        Perform the following steps:
-        1. identify or create a system with name, id, version, etc.
-        2. identify or create a model w/ name, id, version, etc.
-        3. dispatch signal that triggers an rpc that adds/updates those objects
-        and upload the associated .mat file
-        """
-        lom_model_type = orb.get('pgefobjects:ModelType.LOM')
-        dlg = ModelImportDialog(lom_model_type)
-        if dlg.exec_():
-            orb.log.info('* lom submitted ...')
-        else:
-            return
+    # def import_lom(self):
+        # """
+        # Perform the following steps:
+        # 1. identify or create a system with name, id, version, etc.
+        # 2. identify or create a model w/ name, id, version, etc.
+        # 3. dispatch signal that triggers an rpc that adds/updates those objects
+        # and upload the associated .mat file
+        # """
+        # lom_model_type = orb.get('pgefobjects:ModelType.LOM')
+        # dlg = ModelImportDialog(lom_model_type)
+        # if dlg.exec_():
+            # orb.log.info('* lom submitted ...')
+        # else:
+            # return
 
     # ------------------------------------------------------------------------
     # NOTE: implementing this on the server (vger) side, but saving this code
@@ -985,6 +984,8 @@ class OpticalSystemModeler(QMainWindow):
                     sys_widget_h + sys_table_h + 200)
         # self.system_widget.library_button.clicked.connect(self.display_library)
         # dispatcher.connect(self.on_double_click, "double clicked")
+        dispatcher.connect(self.construct_lom_visualization,
+                           'got lom surface names')
         lom = None
         if getattr(system, 'has_models', None):
             for model in system.has_models:
@@ -992,7 +993,10 @@ class OpticalSystemModeler(QMainWindow):
                     # TODO: check for latest version of LOM
                     lom = model
         if lom:
+            orb.log.info('  - found ref to LOM, getting surface names ...')
             dispatcher.send(signal='get lom surface names', lom_oid=lom.oid)
+        else:
+            orb.log.info('  - did not find ref to LOM.')
 
     def display_library(self):
         """
@@ -1082,6 +1086,83 @@ class OpticalSystemModeler(QMainWindow):
         self.system_table.setSizePolicy(QSizePolicy.Expanding,
                                         QSizePolicy.Expanding)
         self.system_table.setAttribute(Qt.WA_DeleteOnClose)
+
+    def construct_lom_visualization(self, surface_names=None):
+        """
+        Construct a LOM visualization from a set of LOM surfaces.
+
+        Keyword Args:
+            surface_names (list of str): surface names extracted from the LOM
+        """
+        orb.log.debug('* construct_lom_visualization()')
+        orb.log.debug(f'  surface names: {surface_names}')
+        new_objs = []
+        opt_sys = self.system
+        # optics = orb.search_exact(cname='Discipline', name='Optics')
+        # LOM = orb.get('pgefobjects:ModelType.Optics.LOM')
+        optical_component = orb.get(
+                              'pgefobjects:ProductType.optical_component')
+        if surface_names:
+            NOW = dtstamp()
+            user = orb.get(state.get('local_user_oid'))
+            # HardwareProduct = orb.classes['HardwareProduct']
+            # Acu = orb.classes['Acu']
+            for name in surface_names:
+                # create a Model and Acu for each surface
+                opt_comp = clone('HardwareProduct', id=name, name=name,
+                                 product_type=optical_component,
+                                 create_datetime=NOW, mod_datetime=NOW,
+                                 creator=user, modifier=user)
+                # opt_comp = HardwareProduct(id=name, name=name,
+                                 # product_type=optical_component,
+                                 # create_datetime=NOW, mod_datetime=NOW,
+                                 # creator=user, modifier=user)
+                new_objs.append(opt_comp)
+                # surface = clone('Model', id=name, name=name,
+                                # model_definition_context=optics,
+                                # type_of_model=LOM,
+                                # create_datetime=NOW, mod_datetime=NOW,
+                                # creator=user, modifier=user)
+                # new_objs.append(surface)
+                # TODO: add id and name to each Acu
+                # surface_ref_des = get_next_ref_des(opt_sys, opt_comp)
+                # surface_acu_id = get_acu_id(opt_sys.id, surface_ref_des)
+                # surface_acu_name = get_acu_name(opt_sys.name, surface_ref_des)
+                # surface_usage = Acu(assembly=opt_sys,
+                            # id=surface_acu_id, name=surface_acu_name,
+                            # reference_designator=surface_ref_des,
+                            # component=opt_comp, create_datetime=NOW,
+                            # mod_datetime=NOW, creator=user,
+                            # modifier=user)
+                surface_ref_des = get_next_ref_des(opt_sys, opt_comp)
+                surface_acu_id = get_acu_id(opt_sys.id, surface_ref_des)
+                surface_acu_name = get_acu_name(opt_sys.name,
+                                                surface_ref_des)
+                surface_usage = clone('Acu', assembly=opt_sys,
+                            id=surface_acu_id, name=surface_acu_name,
+                            reference_designator=surface_ref_des,
+                            component=opt_comp, create_datetime=NOW,
+                            mod_datetime=NOW, creator=user,
+                            modifier=user)
+                new_objs += [surface_usage]
+                # model_ref_des = get_next_ref_des(self.model, surface)
+                # model_acu_id = get_acu_id(self.model.id, hw_ref_des)
+                # model_acu_name = get_acu_name(self.model.name,
+                                              # hw_ref_des)
+                # model_usage = clone('Acu', assembly=self.model,
+                                # id=model_acu_id, name=model_acu_name,
+                                # reference_designator=model_ref_des,
+                                # component=surface, create_datetime=NOW,
+                                # mod_datetime=NOW, creator=user,
+                                # modifier=user)
+                # new_objs += [model_usage]
+            if new_objs:
+                orb.save(new_objs)
+                # dispatcher.send(signal="new objects", objs=new_objs)
+                self.set_widgets()
+                self.system_widget.set_scene_and_view()
+        else:
+            orb.log.debug('  no surface names were found.')
 
     def remote_objects_deleted(self, oids):
         """

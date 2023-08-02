@@ -221,10 +221,10 @@ class Main(QMainWindow):
             if home_version not in self.compat_versions:
                 compat_home_version = False
         if compat_home_version:
-            msg = f'... home version is compatible: {home_version} ...'
+            msg = f'... home version ok: {home_version} ...'
             self.add_splash_msg(msg)
         else:
-            msg = f'... home version is NOT compatible: {home_version} ...'
+            msg = f'... home non-compatible: {home_version} ...'
             self.add_splash_msg(msg)
             # remove VERSION, local.db, onto, cache, all .json files
             if os.path.exists(version_fpath):
@@ -5350,6 +5350,7 @@ class Main(QMainWindow):
     def on_vger_glsn_success(self, result):
         orb.log.debug('* on_vger_glsn_success()')
         orb.log.debug(f'  result: {result}')
+        dispatcher.send(signal='got lom surface names', surface_names=result)
 
     def on_vger_glsn_failure(self, result):
         orb.log.debug('* on_vger_glsn_failure()')
