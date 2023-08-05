@@ -18,11 +18,11 @@ from louie import dispatcher
 
 from PyQt5.QtCore import pyqtSignal, Qt, QObject, QPointF, QPoint
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
-                             QFileDialog, QMainWindow, QWidget, QGraphicsItem,
-                             QGraphicsPolygonItem, QGraphicsScene,
-                             QGraphicsView, QHBoxLayout, QMenu, QMessageBox,
-                             QGraphicsPathItem, QSizePolicy, QToolBar,
-                             QVBoxLayout, QWidgetAction)
+                             QFileDialog, QFrame, QMainWindow, QWidget,
+                             QGraphicsItem, QGraphicsPolygonItem,
+                             QGraphicsScene, QGraphicsView, QHBoxLayout, QMenu,
+                             QMessageBox, QGraphicsPathItem, QSizePolicy,
+                             QToolBar, QVBoxLayout, QWidgetAction)
 # from PyQt5.QtWidgets import (QMessageBox, QStatusBar, QToolBox,
 from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
                          QTransform)
@@ -43,7 +43,6 @@ from pangalactic.core.utils.datetimes import date2str, dtstamp
 from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
-from pangalactic.node.libraries   import LibraryDialog
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
 from pangalactic.node.utils       import extract_mime_data
@@ -142,8 +141,10 @@ class OpticalComponentBlock(QGraphicsPolygonItem):
                     QPointF(10, -50), QPointF(-10, -50)
             ])
         self.setPolygon(self.myPolygon)
-        label_txt = getattr(self.usage, 'reference_designator', '') or ''
-        self.block_label = BlockLabel(label_txt, self, y=-100, centered=False)
+        # label_txt = getattr(self.usage, 'reference_designator', '') or ''
+        label_txt = self.usage.component.name
+        self.block_label = BlockLabel(label_txt, self, y=-100, centered=False,
+                                      point_size=10)
         dispatcher.connect(self.on_component_edited, 'component edited')
 
     def on_component_edited(self, component=None):
@@ -533,11 +534,6 @@ class OpticalSysInfoPanel(QWidget):
         self.system_owner_value_field.setVisible(False)
         info_panel_layout.addWidget(self.system_owner_value_field)
         info_panel_layout.addStretch(1)
-        # self.library_button = SizedButton("Library", color="green")
-        # info_panel_layout.addWidget(self.library_button)
-        # self.import_lom_button = SizedButton("Import LOM", color="blue")
-        # info_panel_layout.addWidget(self.import_lom_button)
-        # self.import_lom_button.clicked.connect(self.import_lom)
         self.error_budget_button = SizedButton("Create Error Budget")
         info_panel_layout.addWidget(self.error_budget_button)
         self.error_budget_button.clicked.connect(self.output_error_budget)
@@ -586,147 +582,6 @@ class OpticalSysInfoPanel(QWidget):
 
     system = property(fget=_get_system, fset=_set_system)
 
-    # def import_lom(self):
-        # """
-        # Perform the following steps:
-        # 1. identify or create a system with name, id, version, etc.
-        # 2. identify or create a model w/ name, id, version, etc.
-        # 3. dispatch signal that triggers an rpc that adds/updates those objects
-        # and upload the associated .mat file
-        # """
-        # lom_model_type = orb.get('pgefobjects:ModelType.LOM')
-        # dlg = ModelImportDialog(lom_model_type)
-        # if dlg.exec_():
-            # orb.log.info('* lom submitted ...')
-        # else:
-            # return
-
-    # ------------------------------------------------------------------------
-    # NOTE: implementing this on the server (vger) side, but saving this code
-    # for now, just in case ...
-    # ------------------------------------------------------------------------
-    # def import_lom_system(self):
-        # """
-        # Import an optical system from a LOM (.mat) file.
-        # """
-        # orb.log.debug('* import_lom_system()')
-        # data = None
-        # sys_name = ''
-        # message = ''
-        # if not state.get('last_lom_path'):
-            # state['last_lom_path'] = self.user_home
-        # # NOTE: can add filter if needed, e.g.: filter="(*.yaml)"
-        # dialog = QFileDialog(self, 'Open File', state['last_lom_path'],
-                             # "(*.mat)")
-        # fpath = ''
-        # if dialog.exec_():
-            # fpaths = dialog.selectedFiles()
-            # if fpaths:
-                # fpath = fpaths[0]
-            # dialog.close()
-        # if fpath:
-            # orb.log.debug('  file path: {}'.format(fpath))
-            # try:
-                # data = get_lom_data(fpath)
-                # fname = os.path.basename(fpath)
-                # sys_name = fname.split('.')[0]
-            # except:
-                # message = "File '%s' could not be opened." % fpath
-                # popup = QMessageBox(QMessageBox.Warning,
-                            # "Error in file path", message,
-                            # QMessageBox.Ok, self)
-                # popup.show()
-                # return
-        # else:
-            # # no file was selected
-            # return
-        # if data:
-            # new_objs = []
-            # surface_names = get_optical_surface_names(data)
-            # comp_names = []
-            # optics = orb.search_exact(cname='Discipline', name='Optics')
-            # LOM = orb.get('pgefobjects:ModelType.Optics.LOM')
-            # optical_component = orb.get(
-                                  # 'pgefobjects:ProductType.optical_component')
-            # if surface_names:
-                # NOW = dtstamp()
-                # user = orb.get(state.get('local_user_oid'))
-                # if sys_name:
-                    # # TODO: have a discussion about versioning etc. ... if
-                    # # versioning is used, the search for existing items should
-                    # # reference version(s), and versions should be added to any
-                    # # new objects created from the data.
-                    # opt_sys = orb.search_exact(cname='HardwareProduct',
-                                               # name=sys_name)
-                    # opt_sys_model = orb.search_exact(
-                                        # cname='Model', name=sys_name,
-                                        # of_thing=opt_sys,
-                                        # model_definition_context=optics,
-                                        # type_of_model=LOM)
-                    # if opt_sys_model:
-                        # self.system = opt_sys_model
-                        # comp_names = [acu.component.name
-                                      # for acu in opt_sys_model.components]
-                    # else:
-                        # # create a HardwareProduct and a Model representing the
-                        # # system
-                        # opt_sys = clone('HardwareProduct', id=sys_name,
-                                        # name=sys_name, create_datetime=NOW,
-                                        # mod_datetime=NOW, creator=user,
-                                        # modifier=user)
-                        # self.system = clone('Model', id=sys_name,
-                                            # name=sys_name,
-                                            # of_thing=opt_sys,
-                                            # model_definition_context=optics,
-                                            # type_of_model=LOM,
-                                            # create_datetime=NOW,
-                                            # mod_datetime=NOW, creator=user,
-                                            # modifier=user)
-                        # new_objs += [opt_sys, self.system]
-                # for name in surface_names:
-                    # if name not in comp_names:
-                        # # create a HW product and Acu for each surface that is
-                        # # not found among the system components ...
-                        # opt_comp = clone('HardwareProduct', id=name, name=name,
-                                         # product_type=optical_component,
-                                         # create_datetime=NOW, mod_datetime=NOW,
-                                         # creator=user, modifier=user)
-                        # surface = clone('Model', id=name, name=name,
-                                        # of_thing=opt_comp,
-                                        # model_definition_context=optics,
-                                        # type_of_model=LOM,
-                                        # create_datetime=NOW, mod_datetime=NOW,
-                                        # creator=user, modifier=user)
-                        # new_objs.append(surface)
-                        # # TODO: add id and name to each Acu
-                        # hw_ref_des = get_next_ref_des(opt_sys, opt_comp)
-                        # hw_acu_id = get_acu_id(opt_sys.id, hw_ref_des)
-                        # hw_acu_name = get_acu_name(opt_sys.name, hw_ref_des)
-                        # hw_usage = clone('Acu', assembly=opt_sys,
-                                    # id=hw_acu_id, name=hw_acu_name,
-                                    # reference_designator=hw_ref_des,
-                                    # component=opt_comp, create_datetime=NOW,
-                                    # mod_datetime=NOW, creator=user,
-                                    # modifier=user)
-                        # model_ref_des = get_next_ref_des(self.system, surface)
-                        # model_acu_id = get_acu_id(self.system.id, hw_ref_des)
-                        # model_acu_name = get_acu_name(self.system.name,
-                                                      # hw_ref_des)
-                        # model_usage = clone('Acu', assembly=self.system,
-                                        # id=model_acu_id, name=model_acu_name,
-                                        # reference_designator=model_ref_des,
-                                        # component=surface, create_datetime=NOW,
-                                        # mod_datetime=NOW, creator=user,
-                                        # modifier=user)
-                        # new_objs += [hw_usage, model_usage]
-                # if new_objs:
-                    # orb.save(new_objs)
-                    # dispatcher.send(signal="new objects", objs=new_objs)
-            # else:
-                # orb.log.debug('  no surface names were found.')
-        # else:
-            # orb.log.debug('  no data was found.')
-
     def output_error_budget(self):
         dtstr = date2str(dtstamp())
         if not state.get('last_eb_path'):
@@ -753,40 +608,40 @@ class OpticalSysInfoPanel(QWidget):
                 except:
                     orb.log.debug('  unable to start Excel')
 
-    def supportedDropActions(self):
-        return Qt.CopyAction
+    # def supportedDropActions(self):
+        # return Qt.CopyAction
 
-    def mimeTypes(self):
-        # TODO:  should return mime types for Product and *ALL* subclasses
-        return ["application/x-pgef-hardware-product",
-                "application/x-pgef-template"]
+    # def mimeTypes(self):
+        # # TODO:  should return mime types for Product and *ALL* subclasses
+        # return ["application/x-pgef-hardware-product",
+                # "application/x-pgef-template"]
 
-    def dragEnterEvent(self, event):
-        if (event.mimeData().hasFormat(
-                        "application/x-pgef-hardware-product") or
-            event.mimeData().hasFormat(
-                        "application/x-pgef-template")):
-            event.accept()
-        else:
-            event.ignore()
+    # def dragEnterEvent(self, event):
+        # if (event.mimeData().hasFormat(
+                        # "application/x-pgef-hardware-product") or
+            # event.mimeData().hasFormat(
+                        # "application/x-pgef-template")):
+            # event.accept()
+        # else:
+            # event.ignore()
 
-    def dropEvent(self, event):
-        orb.log.debug("* OpticalSysInfoPanel: hm, something dropped on me ...")
-        if event.mimeData().hasFormat(
-                                "application/x-pgef-hardware-product"):
-            data = extract_mime_data(event,
-                                     "application/x-pgef-hardware-product")
-            icon, p_oid, p_id, p_name, p_cname = data
-            system = orb.get(p_oid)
-            if (system and
-                getattr(system.product_type, 'id', '') in [
-                                            'optical_system', 'instrument']):
-                # triggers "_set_system()"
-                self.system = system
-            else:
-                event.ignore()
-                orb.log.debug("* drop event: ignoring -- "
-                              "not found in db or incorrect product type.")
+    # def dropEvent(self, event):
+        # orb.log.debug("* OpticalSysInfoPanel: hm, something dropped on me ...")
+        # if event.mimeData().hasFormat(
+                                # "application/x-pgef-hardware-product"):
+            # data = extract_mime_data(event,
+                                     # "application/x-pgef-hardware-product")
+            # icon, p_oid, p_id, p_name, p_cname = data
+            # system = orb.get(p_oid)
+            # if (system and
+                # getattr(system.product_type, 'id', '') in [
+                                            # 'optical_system', 'instrument']):
+                # # triggers "_set_system()"
+                # self.system = system
+            # else:
+                # event.ignore()
+                # orb.log.debug("* drop event: ignoring -- "
+                              # "not found in db or incorrect product type.")
         # TODO: maybe support Templates later ...
         # elif event.mimeData().hasFormat("application/x-pgef-template"):
             # # drop item is Template -> create a new system from it
@@ -801,25 +656,25 @@ class OpticalSysInfoPanel(QWidget):
                     # # dispatcher.send('new object', obj=acu)
             # dispatcher.send("drop on system info", obj=system)
             # dispatcher.send('new object', obj=system)
-        else:
-            event.ignore()
+        # else:
+            # event.ignore()
 
 
 class OpticalSystemView(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-    def dragEnterEvent(self, event):
-        try:
-            event.accept()
-        except:
-            pass
+    # def dragEnterEvent(self, event):
+        # try:
+            # event.accept()
+        # except:
+            # pass
 
-    def dragMoveEvent(self, event):
-        event.accept()
+    # def dragMoveEvent(self, event):
+        # event.accept()
 
-    def dragLeaveEvent(self, event):
-        event.accept()
+    # def dragLeaveEvent(self, event):
+        # event.accept()
 
 
 class OpticalSystemWidget(QWidget):
@@ -827,11 +682,11 @@ class OpticalSystemWidget(QWidget):
     new_or_modified_objects = pyqtSignal(list)
     object_deleted = pyqtSignal(str, str)  # args: oid, cname
 
-    def __init__(self, parent=None):
+    def __init__(self, system, parent=None):
         super().__init__(parent=parent)
         orb.log.debug('* initializing OpticalSystemWidget ...')
+        self.system = system
         self.info_panel = OpticalSysInfoPanel(self.system)
-        # self.library_button = self.info_panel.library_button
         self.init_toolbar()
         self.set_scene_and_view()
         self.layout = QVBoxLayout()
@@ -844,10 +699,6 @@ class OpticalSystemWidget(QWidget):
                            "rescale optical path")
         self.scene.rescale_optical_path.connect(self.on_rescale_optical_path)
         self.setUpdatesEnabled(True)
-
-    @property
-    def system(self):
-        return orb.get(state.get('optical_system', ''))
 
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
@@ -975,14 +826,13 @@ class OpticalSystemModeler(QMainWindow):
         orb.log.info('* OpticalSystemModeler initializing')
         self.system = system
         self.init_toolbar()
-        self.set_widgets(init=True)
+        self.set_widgets()
         self.setWindowTitle('Optical System Modeler')
         sys_widget_w = self.system_widget.width()
         sys_widget_h = self.system_widget.height()
         sys_table_h = self.system_table.rowCount() * 20
         self.resize(sys_widget_w + 400,
                     sys_widget_h + sys_table_h + 200)
-        # self.system_widget.library_button.clicked.connect(self.display_library)
         # dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.construct_lom_visualization,
                            'got lom surface names')
@@ -998,26 +848,7 @@ class OpticalSystemModeler(QMainWindow):
         else:
             orb.log.info('  - did not find ref to LOM.')
 
-    def display_library(self):
-        """
-        Open dialog with library of instruments and optical product types.
-        """
-        optical_system = orb.select('ProductType', id='optical_system')
-        optical_component = orb.select('ProductType', id='optical_component')
-        instrument = orb.select('ProductType', id='instrument')
-        lens = orb.select('ProductType', id='lens')
-        mirror = orb.select('ProductType', id='mirror')
-        pts = [instrument, optical_system, optical_component, lens, mirror]
-        dlg = LibraryDialog('Model',
-                            height=self.geometry().height(),
-                            width=self.geometry().width() // 2,
-                            parent=self)
-        dlg.lib_view.only_mine_checkbox.setChecked(False)
-        state['only_mine'] = False
-        dlg.on_product_types_selected(objs=pts)
-        dlg.show()
-
-    def set_widgets(self, init=False):
+    def set_widgets(self):
         """
         Populate the OpticalSystemModeler with an OpticalSystemWidget and a
         SystemInfoTable.
@@ -1026,13 +857,24 @@ class OpticalSystemModeler(QMainWindow):
         select that component in the SystemInfoTable.
         """
         orb.log.debug(' - set_widgets() ...')
-        self.system_widget = OpticalSystemWidget(parent=self)
-        self.system_widget.setMinimumSize(900, 400)
+        if not getattr(self, 'top_frame', None):
+            self.top_frame = QFrame()
+            self.top_layout = QHBoxLayout()
+            self.top_frame.setLayout(self.top_layout)
+        if getattr(self, 'system_widget', None):
+            self.top_layout.removeWidget(self.system_widget)
+            self.system_widget.parent = None
+            self.system_widget.close()
+            self.system_widget = None
+        self.system_widget = OpticalSystemWidget(self.system, parent=self)
+        self.system_widget.setAttribute(Qt.WA_DeleteOnClose)
+        self.system_widget.setMinimumSize(1200, 400)
         self.system_widget.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects)
         self.system_widget.object_deleted.connect(self.on_local_object_deleted)
         self.system_widget.scene.optical_path.signals.order_changed.connect(
                                                     self.rebuild_system_table)
+        self.top_layout.addWidget(self.system_widget)
         self.system_table_panel = QWidget()
         self.system_table_panel.setMinimumSize(1200, 300)
         self.system_table_layout = QHBoxLayout()
@@ -1045,7 +887,7 @@ class OpticalSystemModeler(QMainWindow):
         self.top_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.top_dock.setAllowedAreas(Qt.TopDockWidgetArea)
         self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock)
-        self.top_dock.setWidget(self.system_widget)
+        self.top_dock.setWidget(self.top_frame)
 
     def rebuild_system_table(self):
         if getattr(self, 'system_table', None):
@@ -1105,60 +947,34 @@ class OpticalSystemModeler(QMainWindow):
         if surface_names:
             NOW = dtstamp()
             user = orb.get(state.get('local_user_oid'))
-            # HardwareProduct = orb.classes['HardwareProduct']
-            # Acu = orb.classes['Acu']
             for name in surface_names:
-                # create a Model and Acu for each surface
-                opt_comp = clone('HardwareProduct', id=name, name=name,
-                                 product_type=optical_component,
-                                 create_datetime=NOW, mod_datetime=NOW,
-                                 creator=user, modifier=user)
-                # opt_comp = HardwareProduct(id=name, name=name,
-                                 # product_type=optical_component,
-                                 # create_datetime=NOW, mod_datetime=NOW,
-                                 # creator=user, modifier=user)
-                new_objs.append(opt_comp)
-                # surface = clone('Model', id=name, name=name,
-                                # model_definition_context=optics,
-                                # type_of_model=LOM,
-                                # create_datetime=NOW, mod_datetime=NOW,
-                                # creator=user, modifier=user)
-                # new_objs.append(surface)
-                # TODO: add id and name to each Acu
-                # surface_ref_des = get_next_ref_des(opt_sys, opt_comp)
-                # surface_acu_id = get_acu_id(opt_sys.id, surface_ref_des)
-                # surface_acu_name = get_acu_name(opt_sys.name, surface_ref_des)
-                # surface_usage = Acu(assembly=opt_sys,
-                            # id=surface_acu_id, name=surface_acu_name,
-                            # reference_designator=surface_ref_des,
-                            # component=opt_comp, create_datetime=NOW,
-                            # mod_datetime=NOW, creator=user,
-                            # modifier=user)
-                surface_ref_des = get_next_ref_des(opt_sys, opt_comp)
-                surface_acu_id = get_acu_id(opt_sys.id, surface_ref_des)
-                surface_acu_name = get_acu_name(opt_sys.name,
-                                                surface_ref_des)
-                surface_usage = clone('Acu', assembly=opt_sys,
-                            id=surface_acu_id, name=surface_acu_name,
-                            reference_designator=surface_ref_des,
-                            component=opt_comp, create_datetime=NOW,
-                            mod_datetime=NOW, creator=user,
-                            modifier=user)
-                new_objs += [surface_usage]
-                # model_ref_des = get_next_ref_des(self.model, surface)
-                # model_acu_id = get_acu_id(self.model.id, hw_ref_des)
-                # model_acu_name = get_acu_name(self.model.name,
-                                              # hw_ref_des)
-                # model_usage = clone('Acu', assembly=self.model,
-                                # id=model_acu_id, name=model_acu_name,
-                                # reference_designator=model_ref_des,
-                                # component=surface, create_datetime=NOW,
-                                # mod_datetime=NOW, creator=user,
-                                # modifier=user)
-                # new_objs += [model_usage]
+                orb.log.debug(f'  name: {name}')
+                # create a HardwareProduct and Acu for each surface, if one
+                # does not yet exist ...
+                surface = orb.select('HardwareProduct', name=name)
+                if surface:
+                    orb.log.debug('  HWProduct already exists.')
+                else:
+                    orb.log.debug('  HWProduct not found; creating one ...')
+                    surface = clone('HardwareProduct', id=name, name=name,
+                                     product_type=optical_component,
+                                     create_datetime=NOW, mod_datetime=NOW,
+                                     creator=user, modifier=user)
+                    new_objs.append(surface)
+                    surface_ref_des = get_next_ref_des(opt_sys, surface)
+                    surface_acu_id = get_acu_id(opt_sys.id, surface_ref_des)
+                    surface_acu_name = get_acu_name(opt_sys.name,
+                                                    surface_ref_des)
+                    surface_usage = clone('Acu', assembly=opt_sys,
+                                id=surface_acu_id, name=surface_acu_name,
+                                reference_designator=surface_ref_des,
+                                component=surface, create_datetime=NOW,
+                                mod_datetime=NOW, creator=user,
+                                modifier=user)
+                    new_objs += [surface_usage]
             if new_objs:
                 orb.save(new_objs)
-                # dispatcher.send(signal="new objects", objs=new_objs)
+                dispatcher.send(signal="new objects", objs=new_objs)
                 self.set_widgets()
                 self.system_widget.set_scene_and_view()
         else:
@@ -1183,18 +999,13 @@ class OpticalSystemModeler(QMainWindow):
         self.rebuild_system_table()
         self.new_or_modified_objects.emit(oids)
 
-    def on_double_click(self, acu):
-        # """
-        # Handle a double-click event on a OpticalComponentBlock, creating and
-        # displaying a new view.
-        # Args:
-            # obj (OpticalComponentBlock):  the block that received the
-            #   double-click
-        # """
-        # self.component = acu
-        # self.set_scene_and_view()
-        # previous = acu.where_occurs[0].assembly
-        # self.go_back_action.setDisabled(False)
+    def on_double_click(self, obj):
+        """
+        Handle a double-click event on an OpticalComponentBlock.
+        Args:
+            obj (OpticalComponentBlock):  the block that received the
+              double-click
+        """
         pass
 
     def init_toolbar(self):
