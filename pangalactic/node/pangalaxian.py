@@ -95,7 +95,7 @@ from pangalactic.node.libraries        import (LibraryDialog,
                                                CompoundLibraryWidget)
 from pangalactic.node.message_bus      import PgxnMessageBus, reachable
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
-from pangalactic.node.optics           import OpticalSystemModeler
+from pangalactic.node.optics           import LinearOpticalModelViewer
 from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.rqtmanager       import RequirementManager
 from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
@@ -363,6 +363,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.download_file, 'download file')
         dispatcher.connect(self.optics_modeler, 'open optics modeler')
         dispatcher.connect(self.get_lom_surf_names, 'get lom surface names')
+        dispatcher.connect(self.get_lom_structure, 'get lom structure')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
@@ -3753,11 +3754,13 @@ class Main(QMainWindow):
         Handle remote object deletions (and handle pyqtSignal
         "remote_deleted_object").
         """
-        orb.log.info('* received pubsub "deleted" message ...')
+        orb.log.info('* pgxn.on_remote_deleted_object()')
         obj_oid = oid
         orb.log.info('  oid: {}'.format(obj_oid))
-        # notify widgets looking for "object deleted" signal ...
+        # notify widgets looking for "deleted object" signal ...
+        # -----------------------------------------
         # NOTE: VERY IMPORTANT TO USE remote=True
+        # -----------------------------------------
         dispatcher.send(signal="deleted object", oid=oid, cname=cname,
                         remote=True)
         obj = orb.get(obj_oid or '')
@@ -5333,7 +5336,7 @@ class Main(QMainWindow):
         window.show()
 
     def optics_modeler(self, system=None):
-        window = OpticalSystemModeler(system=system, parent=self)
+        window = LinearOpticalModelViewer(system=system, parent=self)
         window.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects_qtsignal)
         window.local_object_deleted.connect(
@@ -5354,6 +5357,23 @@ class Main(QMainWindow):
 
     def on_vger_glsn_failure(self, result):
         orb.log.debug('* on_vger_glsn_failure()')
+
+    def get_lom_structure(self, lom_oid=None):
+        rpc = self.mbus.session.call('vger.get_lom_structure',
+                                     lom_oid=lom_oid)
+        rpc.addCallback(self.on_vger_gls_success)
+        rpc.addErrback(self.on_vger_gls_failure)
+
+    def on_vger_gls_success(self, result):
+        orb.log.debug('* on_vger_gls_success()')
+        orb.log.debug(f'  result: {result}')
+        status, lom_oid = result
+        if status == 'success':
+            lom_model = orb.get(lom_oid)
+            dispatcher.send(signal='got lom structure', lom_model=lom_model)
+
+    def on_vger_gls_failure(self, result):
+        orb.log.debug('* on_vger_gls_failure()')
 
     def product_types_library(self):
         dlg = LibraryDialog('ProductType',

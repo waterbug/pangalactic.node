@@ -399,7 +399,7 @@ class ModelImportDialog(QDialog):
         m_label_text += '-------------------'
         model_label = ColorLabel(m_label_text)
         self.form.addRow(model_label)
-        for name in ['id', 'version', 'name', 'description']:
+        for name in ['name', 'version', 'description']:
             if name == 'description':
                 widget, autolabel = get_widget(name, 'text', value='')
             else:
@@ -434,25 +434,41 @@ class ModelImportDialog(QDialog):
             state['last_model_path'] = os.path.dirname(fpath)
         else:
             orb.log.debug('  no file was selected.')
+            valid_dict = {'file name': 'no file was selected'}
+            dlg = ValidationDialog(valid_dict, parent=self)
+            dlg.show()
             return
 
     def on_submit(self):
         if self.model_file_path:
             parms = {}
+            valid_dict = {}
             for name, widget in self.fields.items():
                 if name in ['file name', 'file size']:
-                    parms[name] = widget.text()
+                    val = widget.text()
+                    if val:
+                        parms[name] = val
+                    else:
+                        valid_dict[name] = 'is required'
                 else:
-                    parms[name] = widget.get_value() or ''
-            parms['of_thing_oid'] = self.of_thing_oid
-            orb.log.debug(f'  - mtype_oid: {self.mtype_oid}')
-            orb.log.debug(f'  - fpath: {self.model_file_path}')
-            orb.log.debug(f'  - parms: {parms}')
-            dispatcher.send(signal='add update model',
-                            mtype_oid=self.mtype_oid,
-                            fpath=self.model_file_path,
-                            parms=parms)
-            self.accept()
+                    val = widget.get_value()
+                    if val:
+                        parms[name] = val
+                    else:
+                        valid_dict[name] = 'is required'
+            if valid_dict:
+                dlg = ValidationDialog(valid_dict, parent=self)
+                dlg.show()
+            else:
+                parms['of_thing_oid'] = self.of_thing_oid
+                orb.log.debug(f'  - mtype_oid: {self.mtype_oid}')
+                orb.log.debug(f'  - fpath: {self.model_file_path}')
+                orb.log.debug(f'  - parms: {parms}')
+                dispatcher.send(signal='add update model',
+                                mtype_oid=self.mtype_oid,
+                                fpath=self.model_file_path,
+                                parms=parms)
+                self.accept()
         else:
             orb.log.debug('  no file was selected -- select a file ...')
             return

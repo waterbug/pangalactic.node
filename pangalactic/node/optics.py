@@ -21,8 +21,8 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QFileDialog, QFrame, QMainWindow, QWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
                              QGraphicsScene, QGraphicsView, QHBoxLayout, QMenu,
-                             QMessageBox, QGraphicsPathItem, QSizePolicy,
-                             QToolBar, QVBoxLayout, QWidgetAction)
+                             QGraphicsPathItem, QSizePolicy, QToolBar,
+                             QVBoxLayout, QWidgetAction)
 # from PyQt5.QtWidgets import (QMessageBox, QStatusBar, QToolBox,
 from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
                          QTransform)
@@ -30,23 +30,18 @@ from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
 
 # pangalactic
 from pangalactic.core             import state
-from pangalactic.core.access      import get_perms
-from pangalactic.core.clone       import clone
 from pangalactic.core.meta        import PGXN_PLACEHOLDERS
-from pangalactic.core.names       import (get_acu_id, get_acu_name,
-                                          get_next_ref_des)
 from pangalactic.core.parametrics import get_dval, set_dval
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.errbudget   import gen_error_budget
 from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import date2str, dtstamp
-from pangalactic.core.validation  import get_bom_oids
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel, TextItem
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import SystemInfoTable
-from pangalactic.node.utils       import extract_mime_data
-from pangalactic.node.widgets     import NameLabel, StringFieldWidget, ValueLabel
+from pangalactic.node.widgets     import (ColorLabel, NameLabel,
+                                          StringFieldWidget, ValueLabel)
 
 
 # -----------------------------------------------------------------------------
@@ -219,133 +214,137 @@ class OpticalSystemScene(QGraphicsScene):
             # new_item != self.current_focus):
             # pass
 
-    def mousePressEvent(self, mouseEvent):
-        super().mousePressEvent(mouseEvent)
+    # --------------------------------------------------------------------
+    # NOTE: all d/d functionality is disabled -- the authoritative LOM is
+    # independent of this interface
+    # --------------------------------------------------------------------
+    # def mousePressEvent(self, mouseEvent):
+        # super().mousePressEvent(mouseEvent)
 
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-        self.grabbed_item = self.mouseGrabberItem()
+    # def mouseMoveEvent(self, event):
+        # super().mouseMoveEvent(event)
+        # self.grabbed_item = self.mouseGrabberItem()
 
-    def mouseReleaseEvent(self, event):
-        super().mouseReleaseEvent(event)
-        if self.grabbed_item != None:
-            self.grabbed_item.setPos(event.scenePos().x(), 250)
-            self.optical_path.arrange()
-        self.grabbed_item == None
+    # def mouseReleaseEvent(self, event):
+        # super().mouseReleaseEvent(event)
+        # if self.grabbed_item != None:
+            # self.grabbed_item.setPos(event.scenePos().x(), 250)
+            # self.optical_path.arrange()
+        # self.grabbed_item == None
 
-    def dropEvent(self, event):
-        orb.log.debug("* OpticalSystemScene: hm, something dropped on me ...")
-        user = orb.get(state.get('local_user_oid'))
-        sys_oid = getattr(self.system, 'oid', '')
-        if not sys_oid:
-            popup = QMessageBox(
-                  QMessageBox.Critical,
-                  "No System",
-                  "Cannot add a component",
-                  QMessageBox.Ok, self.parent())
-            popup.show()
-            event.ignore()
-            return
-        if self.system and not 'modify' in get_perms(self.system):
-            # --------------------------------------------------------
-            # 00: user permissions prohibit operation -> abort
-            # --------------------------------------------------------
-            popup = QMessageBox(
-                  QMessageBox.Critical,
-                  "Unauthorized Operation",
-                  "User's roles do not permit this operation",
-                  QMessageBox.Ok, self.parent())
-            popup.show()
-            event.ignore()
-            return
-        if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
-            data = extract_mime_data(event,
-                                     "application/x-pgef-hardware-product")
-            icon, obj_oid, obj_id, obj_name, obj_cname = data
-            if sys_oid == obj_oid:
-                # ------------------------------------------------------------
-                # 0: dropped item is system; would cause a cycle -> abort!
-                # ------------------------------------------------------------
-                orb.log.debug(
-                  '    invalid: dropped object is the system, aborted.')
-                popup = QMessageBox(
-                            QMessageBox.Critical,
-                            "Assembly same as Component",
-                            "A product cannot be a component of itself.",
-                            QMessageBox.Ok, self.parent())
-                popup.show()
-                event.ignore()
-                return
-            dropped_item = orb.get(obj_oid)
-            if dropped_item:
-                orb.log.info('  - dropped object name: "{}"'.format(obj_name))
-            else:
-                orb.log.info("  - dropped product oid not in db.")
-                event.ignore()
-                return
-            bom_oids = get_bom_oids(dropped_item)
-            if sys_oid in bom_oids:
-                # ---------------------------------------------------------
-                # 0: target is a component of dropped item (cycle) -> abort
-                # ---------------------------------------------------------
-                popup = QMessageBox(
-                        QMessageBox.Critical,
-                        "Prohibited Operation",
-                        "Product cannot be used in its own assembly.",
-                        QMessageBox.Ok, self.parent())
-                popup.show()
-                event.ignore()
-                return
-            if (isinstance(dropped_item.owner,
-                  orb.classes['Project']) and
-                  dropped_item.owner.oid != state.get('project')
-                  and not dropped_item.frozen):
-                msg = '<b>The spec for the dropped item is owned '
-                msg += 'by another project and is not frozen, '
-                msg += 'so it cannot be used on this project. '
-                msg += 'If a similar item is '
-                msg += 'needed, clone the item and then add the '
-                msg += 'clone to this assembly.</b>'
-                popup = QMessageBox(
-                      QMessageBox.Critical,
-                      "Prohibited Operation", msg,
-                      QMessageBox.Ok, self.parent())
-                popup.show()
-                return
-            # --------------------------------------------------------
-            # -> add the dropped item as a new component
-            # --------------------------------------------------------
-            # add new Acu
-            orb.log.info('      accepted as component ...')
-            # orb.log.debug('      creating Acu ...')
-            # generate a new reference_designator
-            ref_des = get_next_ref_des(self.system, dropped_item)
-            # NOTE: clone() adds create/mod_datetime & creator/modifier
-            new_acu = clone('Acu',
-                id=get_acu_id(self.system.id, ref_des),
-                name=get_acu_name(self.system.name, ref_des),
-                assembly=self.system,
-                component=dropped_item,
-                product_type_hint=dropped_item.product_type,
-                creator=user,
-                create_datetime=dtstamp(),
-                modifier=user,
-                mod_datetime=dtstamp(),
-                reference_designator=ref_des)
-            # new Acu -> self.system is modified (any computed
-            # parameters must be recomputed, etc.)
-            self.system.mod_datetime = dtstamp()
-            self.system.modifier = user
-            # add block before orb.save(), which takes time ...
-            item = OpticalComponentBlock(usage=new_acu, scene=self)
-            item.setPos(event.scenePos())
-            self.addItem(item)
-            self.optical_path.add_item(item)
-            orb.save([new_acu, self.system])
-            # orb.log.debug('      Acu created: {}'.format(
-                          # new_acu.name))
-            self.new_or_modified_objects.emit([new_acu.oid, self.system.oid])
-            self.update()
+    # def dropEvent(self, event):
+        # orb.log.debug("* OpticalSystemScene: hm, something dropped on me ...")
+        # user = orb.get(state.get('local_user_oid'))
+        # sys_oid = getattr(self.system, 'oid', '')
+        # if not sys_oid:
+            # popup = QMessageBox(
+                  # QMessageBox.Critical,
+                  # "No System",
+                  # "Cannot add a component",
+                  # QMessageBox.Ok, self.parent())
+            # popup.show()
+            # event.ignore()
+            # return
+        # if self.system and not 'modify' in get_perms(self.system):
+            # # --------------------------------------------------------
+            # # 00: user permissions prohibit operation -> abort
+            # # --------------------------------------------------------
+            # popup = QMessageBox(
+                  # QMessageBox.Critical,
+                  # "Unauthorized Operation",
+                  # "User's roles do not permit this operation",
+                  # QMessageBox.Ok, self.parent())
+            # popup.show()
+            # event.ignore()
+            # return
+        # if event.mimeData().hasFormat("application/x-pgef-hardware-product"):
+            # data = extract_mime_data(event,
+                                     # "application/x-pgef-hardware-product")
+            # icon, obj_oid, obj_id, obj_name, obj_cname = data
+            # if sys_oid == obj_oid:
+                # # ------------------------------------------------------------
+                # # 0: dropped item is system; would cause a cycle -> abort!
+                # # ------------------------------------------------------------
+                # orb.log.debug(
+                  # '    invalid: dropped object is the system, aborted.')
+                # popup = QMessageBox(
+                            # QMessageBox.Critical,
+                            # "Assembly same as Component",
+                            # "A product cannot be a component of itself.",
+                            # QMessageBox.Ok, self.parent())
+                # popup.show()
+                # event.ignore()
+                # return
+            # dropped_item = orb.get(obj_oid)
+            # if dropped_item:
+                # orb.log.info('  - dropped object name: "{}"'.format(obj_name))
+            # else:
+                # orb.log.info("  - dropped product oid not in db.")
+                # event.ignore()
+                # return
+            # bom_oids = get_bom_oids(dropped_item)
+            # if sys_oid in bom_oids:
+                # # ---------------------------------------------------------
+                # # 0: target is a component of dropped item (cycle) -> abort
+                # # ---------------------------------------------------------
+                # popup = QMessageBox(
+                        # QMessageBox.Critical,
+                        # "Prohibited Operation",
+                        # "Product cannot be used in its own assembly.",
+                        # QMessageBox.Ok, self.parent())
+                # popup.show()
+                # event.ignore()
+                # return
+            # if (isinstance(dropped_item.owner,
+                  # orb.classes['Project']) and
+                  # dropped_item.owner.oid != state.get('project')
+                  # and not dropped_item.frozen):
+                # msg = '<b>The spec for the dropped item is owned '
+                # msg += 'by another project and is not frozen, '
+                # msg += 'so it cannot be used on this project. '
+                # msg += 'If a similar item is '
+                # msg += 'needed, clone the item and then add the '
+                # msg += 'clone to this assembly.</b>'
+                # popup = QMessageBox(
+                      # QMessageBox.Critical,
+                      # "Prohibited Operation", msg,
+                      # QMessageBox.Ok, self.parent())
+                # popup.show()
+                # return
+            # # --------------------------------------------------------
+            # # -> add the dropped item as a new component
+            # # --------------------------------------------------------
+            # # add new Acu
+            # orb.log.info('      accepted as component ...')
+            # # orb.log.debug('      creating Acu ...')
+            # # generate a new reference_designator
+            # ref_des = get_next_ref_des(self.system, dropped_item)
+            # # NOTE: clone() adds create/mod_datetime & creator/modifier
+            # new_acu = clone('Acu',
+                # id=get_acu_id(self.system.id, ref_des),
+                # name=get_acu_name(self.system.name, ref_des),
+                # assembly=self.system,
+                # component=dropped_item,
+                # product_type_hint=dropped_item.product_type,
+                # creator=user,
+                # create_datetime=dtstamp(),
+                # modifier=user,
+                # mod_datetime=dtstamp(),
+                # reference_designator=ref_des)
+            # # new Acu -> self.system is modified (any computed
+            # # parameters must be recomputed, etc.)
+            # self.system.mod_datetime = dtstamp()
+            # self.system.modifier = user
+            # # add block before orb.save(), which takes time ...
+            # item = OpticalComponentBlock(usage=new_acu, scene=self)
+            # item.setPos(event.scenePos())
+            # self.addItem(item)
+            # self.optical_path.add_item(item)
+            # orb.save([new_acu, self.system])
+            # # orb.log.debug('      Acu created: {}'.format(
+                          # # new_acu.name))
+            # self.new_or_modified_objects.emit([new_acu.oid, self.system.oid])
+            # self.update()
 
     def edit_parameters(self, component):
         view = ['id', 'name', 'description']
@@ -469,34 +468,25 @@ class OpticalPathDiagram(QGraphicsPathItem):
         self.update()
 
 
-class OpticalSysInfoPanel(QWidget):
+class LOMInfoPanel(QWidget):
 
     def __init__(self, system=None, parent=None):
         """
-        Initialize OpticalSysInfoPanel.
+        Initialize LOMInfoPanel.
 
         Keyword Args:
             system (Model): an optical system
             parent (QWidget): the parent widget
         """
-        # TODO: make fields editable if "Define New System" is clicked
-        # - product_type is auto-set to "optical system"
-        # - add "owner" field (selection list of orgs)
-        # - add "TRL" field (selection list)
-        # - "save" button validates fields ...
-        # TODO: display a selection list of optical systems to which the user
-        # has "modify" perms
-        # - if only one, just load it
-        # - if more than one but state has 'optical_system', load that one
         super().__init__(parent)
-        orb.log.debug('* OpticalSysInfoPanel initializing ...')
+        orb.log.debug('* LOMInfoPanel initializing ...')
         self._system = None
-        self.setAcceptDrops(True)
+        # self.setAcceptDrops(True)
         frame_vbox = QVBoxLayout()
         frame_vbox.setAlignment(Qt.AlignLeft|Qt.AlignTop)
         frame_vbox.setSizeConstraint(QVBoxLayout.SetMinimumSize)
-        self.title = NameLabel('No System Loaded', parent=self)
-        self.title.setStyleSheet('font-weight: bold; font-size: 18px')
+        self.title = ColorLabel('No System Loaded', color="purple",
+                                element="h2", parent=self)
         frame_vbox.addWidget(self.title)
         info_panel_layout = QHBoxLayout()
         info_panel_layout.setAlignment(Qt.AlignLeft|Qt.AlignTop)
@@ -551,34 +541,27 @@ class OpticalSysInfoPanel(QWidget):
         return getattr(self, '_system', None)
 
     def _set_system(self, obj):
-        orb.log.debug('* OpticalSysInfoPanel: _set_system')
+        orb.log.debug('* LOMInfoPanel: _set_system')
         self._system = obj
-        product_type = getattr(obj, 'product_type', None) or None
-        if product_type:
-            # orb.log.debug(f'  - obj product type: {product_type.name}')
-            optical_system = orb.get('pgefobjects:ProductType.optical_system')
-            instrument = orb.get('pgefobjects:ProductType.instrument')
-            if product_type in [instrument, optical_system]:
-                # orb.log.debug('  - populating panel widgets ...')
-                self.title.setText(obj.name)
-                self.title.update()
-                self.system_id_value_label.setEnabled(True)
-                self.system_name_value_label.setEnabled(True)
-                self.system_id_value_label.setText(obj.id)
-                self.system_name_value_label.setText(obj.name)
-                state['optical_system'] = obj.oid
-            else:
-                # orb.log.debug('  - not an Optical System -- ignored.')
-                # set widgets to disabled state
-                self.title.setText('No System Loaded')
-                self.system_id_value_label.setText('No System Loaded')
-                self.system_id_value_label.setEnabled(False)
-                self.system_name_value_label.setText(
-                                    'Drag/Drop an Optical System here ...')
-                self.system_name_value_label.setEnabled(False)
+        if obj:
+            # orb.log.debug('  - populating panel widgets ...')
+            txt = f'Linear Optical Model for {obj.name}'
+            self.title.set_content(txt, color="purple", element="h2")
+            self.title.update()
+            self.system_id_value_label.setEnabled(True)
+            self.system_name_value_label.setEnabled(True)
+            self.system_id_value_label.setText(obj.id)
+            self.system_name_value_label.setText(obj.name)
+            state['optical_system'] = obj.oid
         else:
-            orb.log.debug('  - no product type, ignored')
-            return
+            # orb.log.debug('  - no system.')
+            # set widgets to disabled state
+            self.title.set_content('No System Loaded', element="h2")
+            self.system_id_value_label.setText('No System Loaded')
+            self.system_id_value_label.setEnabled(False)
+            self.system_name_value_label.setText(
+                                'Drag/Drop an Optical System here ...')
+            self.system_name_value_label.setEnabled(False)
 
     system = property(fget=_get_system, fset=_set_system)
 
@@ -626,7 +609,7 @@ class OpticalSysInfoPanel(QWidget):
             # event.ignore()
 
     # def dropEvent(self, event):
-        # orb.log.debug("* OpticalSysInfoPanel: hm, something dropped on me ...")
+        # orb.log.debug("* LOMInfoPanel: hm, something dropped on me ...")
         # if event.mimeData().hasFormat(
                                 # "application/x-pgef-hardware-product"):
             # data = extract_mime_data(event,
@@ -686,7 +669,7 @@ class OpticalSystemWidget(QWidget):
         super().__init__(parent=parent)
         orb.log.debug('* initializing OpticalSystemWidget ...')
         self.system = system
-        self.info_panel = OpticalSysInfoPanel(self.system)
+        self.info_panel = LOMInfoPanel(self.system)
         self.init_toolbar()
         self.set_scene_and_view()
         self.layout = QVBoxLayout()
@@ -806,9 +789,10 @@ class OpticalSystemWidget(QWidget):
         return action
 
 
-class OpticalSystemModeler(QMainWindow):
+class LinearOpticalModelViewer(QMainWindow):
     """
-    Tool for modeling a system with optical properties.
+    Tool for displaying information extracted from a Linear Optical Model and
+    generating an Error Budget for the system.
     """
 
     new_or_modified_objects = pyqtSignal(list)
@@ -819,7 +803,7 @@ class OpticalSystemModeler(QMainWindow):
         Initialize the tool.
 
         Keyword Args:
-            system (HardwareProduct): a system with optical properties
+            system (HardwareProduct): the subject of the Linear Optical Model
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
@@ -827,15 +811,13 @@ class OpticalSystemModeler(QMainWindow):
         self.system = system
         self.init_toolbar()
         self.set_widgets()
-        self.setWindowTitle('Optical System Modeler')
-        sys_widget_w = self.system_widget.width()
-        sys_widget_h = self.system_widget.height()
-        sys_table_h = self.system_table.rowCount() * 20
-        self.resize(sys_widget_w + 400,
-                    sys_widget_h + sys_table_h + 200)
+        self.setWindowTitle('Linear Optical Model')
+        width = self.parent().width()
+        height = self.parent().height()
+        self.resize(width, height)
         # dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.construct_lom_visualization,
-                           'got lom surface names')
+                           'got lom structure')
         lom = None
         if getattr(system, 'has_models', None):
             for model in system.has_models:
@@ -843,8 +825,8 @@ class OpticalSystemModeler(QMainWindow):
                     # TODO: check for latest version of LOM
                     lom = model
         if lom:
-            orb.log.info('  - found ref to LOM, getting surface names ...')
-            dispatcher.send(signal='get lom surface names', lom_oid=lom.oid)
+            orb.log.info('  - found ref to LOM, getting structure ...')
+            dispatcher.send(signal='get lom structure', lom_oid=lom.oid)
         else:
             orb.log.info('  - did not find ref to LOM.')
 
@@ -857,18 +839,23 @@ class OpticalSystemModeler(QMainWindow):
         select that component in the SystemInfoTable.
         """
         orb.log.debug(' - set_widgets() ...')
-        if not getattr(self, 'top_frame', None):
-            self.top_frame = QFrame()
-            self.top_layout = QHBoxLayout()
-            self.top_frame.setLayout(self.top_layout)
         if getattr(self, 'system_widget', None):
             self.top_layout.removeWidget(self.system_widget)
             self.system_widget.parent = None
             self.system_widget.close()
             self.system_widget = None
+            self.top_dock.parent = None
+            self.top_dock.close()
+            self.top_dock = None
+        if not getattr(self, 'top_frame', None):
+            self.top_frame = QFrame()
+            self.top_layout = QHBoxLayout()
+            self.top_layout.setAlignment(Qt.AlignLeft|Qt.AlignTop)
+            self.top_frame.setLayout(self.top_layout)
         self.system_widget = OpticalSystemWidget(self.system, parent=self)
         self.system_widget.setAttribute(Qt.WA_DeleteOnClose)
-        self.system_widget.setMinimumSize(1200, 400)
+        width = self.parent().width()
+        self.system_widget.setMinimumSize(width, 300)
         self.system_widget.new_or_modified_objects.connect(
                                     self.on_new_or_modified_objects)
         self.system_widget.object_deleted.connect(self.on_local_object_deleted)
@@ -876,7 +863,7 @@ class OpticalSystemModeler(QMainWindow):
                                                     self.rebuild_system_table)
         self.top_layout.addWidget(self.system_widget)
         self.system_table_panel = QWidget()
-        self.system_table_panel.setMinimumSize(1200, 300)
+        self.system_table_panel.setMinimumSize(width, 300)
         self.system_table_layout = QHBoxLayout()
         self.create_system_table()
         self.system_table_layout.addWidget(self.system_table)
@@ -929,56 +916,18 @@ class OpticalSystemModeler(QMainWindow):
                                         QSizePolicy.Expanding)
         self.system_table.setAttribute(Qt.WA_DeleteOnClose)
 
-    def construct_lom_visualization(self, surface_names=None):
+    def construct_lom_visualization(self, lom_model=None):
         """
-        Construct a LOM visualization from a set of LOM surfaces.
+        Construct a LOM visualization from a LOM structure.
 
         Keyword Args:
             surface_names (list of str): surface names extracted from the LOM
         """
         orb.log.debug('* construct_lom_visualization()')
-        orb.log.debug(f'  surface names: {surface_names}')
-        new_objs = []
-        opt_sys = self.system
-        # optics = orb.search_exact(cname='Discipline', name='Optics')
-        # LOM = orb.get('pgefobjects:ModelType.Optics.LOM')
-        optical_component = orb.get(
-                              'pgefobjects:ProductType.optical_component')
-        if surface_names:
-            NOW = dtstamp()
-            user = orb.get(state.get('local_user_oid'))
-            for name in surface_names:
-                orb.log.debug(f'  name: {name}')
-                # create a HardwareProduct and Acu for each surface, if one
-                # does not yet exist ...
-                surface = orb.select('HardwareProduct', name=name)
-                if surface:
-                    orb.log.debug('  HWProduct already exists.')
-                else:
-                    orb.log.debug('  HWProduct not found; creating one ...')
-                    surface = clone('HardwareProduct', id=name, name=name,
-                                     product_type=optical_component,
-                                     create_datetime=NOW, mod_datetime=NOW,
-                                     creator=user, modifier=user)
-                    new_objs.append(surface)
-                    surface_ref_des = get_next_ref_des(opt_sys, surface)
-                    surface_acu_id = get_acu_id(opt_sys.id, surface_ref_des)
-                    surface_acu_name = get_acu_name(opt_sys.name,
-                                                    surface_ref_des)
-                    surface_usage = clone('Acu', assembly=opt_sys,
-                                id=surface_acu_id, name=surface_acu_name,
-                                reference_designator=surface_ref_des,
-                                component=surface, create_datetime=NOW,
-                                mod_datetime=NOW, creator=user,
-                                modifier=user)
-                    new_objs += [surface_usage]
-            if new_objs:
-                orb.save(new_objs)
-                dispatcher.send(signal="new objects", objs=new_objs)
-                self.set_widgets()
-                self.system_widget.set_scene_and_view()
-        else:
-            orb.log.debug('  no surface names were found.')
+        self.system = lom_model.of_thing
+        orb.log.debug(f'  for system: {self.system.id}')
+        self.set_widgets()
+        self.rebuild_system_table()
 
     def remote_objects_deleted(self, oids):
         """
@@ -1021,7 +970,7 @@ if __name__ == '__main__':
     # orb.start(home='junk_home', debug=True)
     orb.start(home='/home/waterbug/cattens_home_dev', debug=True, console=True)
     app = QApplication(sys.argv)
-    mw = OpticalSystemModeler()
+    mw = LinearOpticalModelViewer()
     mw.show()
     sys.exit(app.exec_())
 
