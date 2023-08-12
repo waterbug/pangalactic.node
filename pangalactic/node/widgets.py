@@ -314,7 +314,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
         # NOTE:  'maxlen' here this is NOT the maximum length of the text field
         # contents -- it just sets the minimum width of the "view" label for
         # its contents
-        maxlen = 250
+        maxlen = 300
     elif field_name in SELECTABLE_VALUES:
         ### for EXTREMELY verbose debugging, uncomment:
         # orb.log.debug('* field "{}" is in SELECTABLE_VALUES'.format(
@@ -351,8 +351,17 @@ def get_widget(field_name, field_type, value=None, editable=True,
             widget = widget_class(value=value, editable=editable)
         else:
             if isinstance(value, str):
-                widget = ValueLabel(value, w=maxlen, wrappable=wrap_text,
-                                    placeholder=placeholder)
+                if field_name in TEXT_PROPERTIES or de_type == 'text':
+                    # this will be a read-only TextFieldWidget
+                    widget = widget_class(value=value, maxlen=maxlen,
+                                  related_cname=related_cname, obj_pk=obj_pk,
+                                  field_name=field_name, nullable=nullable,
+                                  editable=editable, placeholder=placeholder,
+                                  parm_field=parm_field, parm_type=parm_type,
+                                  de_field=de_field, de_type=de_type)
+                else:
+                    widget = ValueLabel(value, w=maxlen, wrappable=wrap_text,
+                                        placeholder=placeholder)
             else:
                 widget = ValueLabel(str(value), w=maxlen,
                                     placeholder=placeholder)
@@ -712,6 +721,9 @@ class TextFieldWidget(QTextEdit):
         self.maxlen = maxlen
         self.setWordWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
         self.setTabChangesFocus(True)
+        if 'editable' in kw and not kw['editable']:
+            # default of QTextEdit is readOnly set to False
+            self.setReadOnly(True)
         if kw.get('placeholder'):
             self.setPlaceholderText(kw['placeholder'])
         self.set_value(value)

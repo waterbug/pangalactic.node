@@ -160,8 +160,10 @@ class ModelWindow(QMainWindow):
             if hasattr(self, 'add_model_action'):
                 try:
                     if hasattr(self.obj, 'owner'):
+                        self.add_model_action.setVisible(True)
                         self.add_model_action.setEnabled(True)
                     else:
+                        self.add_model_action.setVisible(False)
                         self.add_model_action.setEnabled(False)
                 except:
                     # C++ object got deleted
@@ -278,8 +280,10 @@ class ModelWindow(QMainWindow):
                             tip="Add or Update a Model and Upload its File")
         self.toolbar.addAction(self.add_model_action)
         if getattr(self.obj, 'owner', None):
+            self.add_model_action.setVisible(True)
             self.add_model_action.setEnabled(True)
         else:
+            self.add_model_action.setVisible(False)
             self.add_model_action.setEnabled(False)
         self.models_info_action = self.create_action(
                         "Info on Models ...",
