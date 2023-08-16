@@ -282,7 +282,7 @@ class ModelWindow(QMainWindow):
         else:
             self.add_model_action.setVisible(False)
             self.add_model_action.setEnabled(False)
-        if 'add docs' in perms):
+        if 'add docs' in perms:
             self.add_doc_action.setVisible(True)
             self.add_doc_action.setEnabled(True)
         else:
