@@ -1295,13 +1295,14 @@ class PgxnObject(QDialog):
             self.models_and_docs_info_action.setVisible(False)
             # can only add models or docs if the user has "modify" permissions
             # for the object
-            if 'add related objects' in get_perms(self.obj):
+            if 'add models' in get_perms(self.obj):
                 self.add_model_action = self.create_action(
                                 "Add\nModel",
                                 slot=self.add_model,
                                 icon="lander",
                                 tip="Upload a Model File")
                 self.toolbar.addAction(self.add_model_action)
+            if 'add docs' in get_perms(self.obj):
                 self.add_doc_action = self.create_action(
                                 "Add\nDocument",
                                 slot=self.add_doc,

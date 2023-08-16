@@ -460,6 +460,7 @@ class ModelImportDialog(QDialog):
                 dlg = ValidationDialog(valid_dict, parent=self)
                 dlg.show()
             else:
+                parms['project_oid'] = state.get('project') or ''
                 parms['of_thing_oid'] = self.of_thing_oid
                 orb.log.debug(f'  - mtype_oid: {self.mtype_oid}')
                 orb.log.debug(f'  - fpath: {self.model_file_path}')

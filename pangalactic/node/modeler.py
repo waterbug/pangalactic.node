@@ -147,7 +147,7 @@ class ModelWindow(QMainWindow):
             perms = get_perms(self.obj)
             # orb.log.debug(f'  - Modeler subject is set to: {self.obj.id}')
             if (hasattr(self, 'add_model_action')
-                and 'add related objects' in perms):
+                and 'add models' in perms):
                 try:
                     if hasattr(self.obj, 'owner'):
                         self.add_model_action.setVisible(True)
@@ -159,14 +159,10 @@ class ModelWindow(QMainWindow):
                     # C++ object got deleted
                     pass
             if (hasattr(self, 'add_doc_action')
-                and 'add related objects' in perms):
+                and 'add docs' in perms):
                 try:
-                    if hasattr(self.obj, 'owner'):
-                        self.add_doc_action.setVisible(True)
-                        self.add_doc_action.setEnabled(True)
-                    else:
-                        self.add_doc_action.setVisible(False)
-                        self.add_doc_action.setEnabled(False)
+                    self.add_doc_action.setVisible(True)
+                    self.add_doc_action.setEnabled(True)
                 except:
                     # C++ object got deleted
                     pass
@@ -280,14 +276,16 @@ class ModelWindow(QMainWindow):
         self.toolbar.addAction(self.add_doc_action)
         perms = get_perms(self.obj)
         if (getattr(self.obj, 'owner', None)
-            and 'add related objects' in perms):
+            and 'add models' in perms):
             self.add_model_action.setVisible(True)
             self.add_model_action.setEnabled(True)
-            self.add_doc_action.setVisible(True)
-            self.add_doc_action.setEnabled(True)
         else:
             self.add_model_action.setVisible(False)
             self.add_model_action.setEnabled(False)
+        if 'add docs' in perms):
+            self.add_doc_action.setVisible(True)
+            self.add_doc_action.setEnabled(True)
+        else:
             self.add_doc_action.setVisible(False)
             self.add_doc_action.setEnabled(False)
         self.models_and_docs_info_action = self.create_action(
