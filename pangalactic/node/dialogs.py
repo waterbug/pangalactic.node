@@ -758,9 +758,9 @@ class DocsInfoTable(QTableWidget):
 
     def setup_table(self):
         self.setColumnCount(len(self.view))
-        models = getattr(self.obj, 'has_models', []) or []
-        if models:
-            self.setRowCount(len(models))
+        docs = [doc_ref.document for doc_ref in self.obj.doc_references]
+        if docs:
+            self.setRowCount(len(docs))
         else:
             self.setRowCount(1)
         header_labels = []
@@ -770,14 +770,13 @@ class DocsInfoTable(QTableWidget):
         # populate relevant data
         data = []
         # TODO: list representation "names" for a given model, etc. ...
-        docs = [doc_ref.document for doc_ref in self.obj.doc_references]
         for doc in docs:
             orb.log.debug('* documents found ...')
             doc_dict = {}
             doc_dict['Doc ID'] = doc.id
             doc_dict['Name'] = doc.name
             doc_dict['Description'] = doc.description
-            if docs:
+            if doc.has_files:
                 if len(doc.has_files) == 1:
                     rep_file = doc.has_files[0]
                     fname = rep_file.user_file_name or 'unknown'
