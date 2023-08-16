@@ -210,6 +210,10 @@ class ModelWindow(QMainWindow):
                     except:
                         # oops, C++ object got deleted
                         pass
+            if (isinstance(self.obj, orb.classes['HardwareProduct'])
+                and self.obj.components):
+                if getattr(self, 'mini_mel_action', None):
+                    self.mini_mel_action.setVisible(True)
         else:
             self.obj = None
             # orb.log.debug('  no object; setting placeholder widget.')
