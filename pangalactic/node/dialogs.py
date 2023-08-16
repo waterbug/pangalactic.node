@@ -407,6 +407,13 @@ class ModelImportDialog(QDialog):
             label = ColorLabel(name)
             self.fields[name] = widget
             self.form.addRow(label, widget)
+        project = orb.get(state.get('project'))
+        owner_widget = FkButton(parent=self, value=project)
+        owner_widget.field_name = "owner"
+        owner_widget.clicked.connect(self.on_select_owner)
+        label = ColorLabel('owner')
+        self.fields['owner'] = owner_widget
+        self.form.addRow(label, owner_widget)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -439,6 +446,16 @@ class ModelImportDialog(QDialog):
             dlg.show()
             return
 
+    def on_select_owner(self):
+        widget = self.sender()
+        objs = orb.get_all_subtypes('Organization')
+        objs.sort(key=lambda x: getattr(x, 'id', '') or '')
+        dlg = ObjectSelectionDialog(objs, with_none=False, parent=self)
+        if dlg.exec_():
+            new_oid = dlg.get_oid()
+            new_obj = orb.get(new_oid)
+            widget.set_value(new_obj)
+
     def on_submit(self):
         if self.model_file_path:
             parms = {}
@@ -450,6 +467,15 @@ class ModelImportDialog(QDialog):
                         parms[name] = val
                     else:
                         valid_dict[name] = 'is required'
+                elif name == 'owner':
+                    val = widget.get_value()
+                    if val:
+                        owner_oid = getattr(val, 'oid', None) or ''
+                        if not owner_oid:
+                            owner_oid = state.get('project') or ''
+                    else:
+                        owner_oid = state.get('project') or ''
+                    parms['owner_oid'] = owner_oid
                 else:
                     val = widget.get_value()
                     if val:
@@ -521,6 +547,13 @@ class DocImportDialog(QDialog):
             label = ColorLabel(name)
             self.fields[name] = widget
             self.form.addRow(label, widget)
+        project = orb.get(state.get('project'))
+        owner_widget = FkButton(parent=self, value=project)
+        owner_widget.field_name = "owner"
+        owner_widget.clicked.connect(self.on_select_owner)
+        label = ColorLabel('owner')
+        self.fields['owner'] = owner_widget
+        self.form.addRow(label, owner_widget)
         # OK and Cancel buttons
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -553,6 +586,16 @@ class DocImportDialog(QDialog):
             dlg.show()
             return
 
+    def on_select_owner(self):
+        widget = self.sender()
+        objs = orb.get_all_subtypes('Organization')
+        objs.sort(key=lambda x: getattr(x, 'id', '') or '')
+        dlg = ObjectSelectionDialog(objs, with_none=False, parent=self)
+        if dlg.exec_():
+            new_oid = dlg.get_oid()
+            new_obj = orb.get(new_oid)
+            widget.set_value(new_obj)
+
     def on_submit(self):
         if self.doc_file_path:
             parms = {}
@@ -564,6 +607,15 @@ class DocImportDialog(QDialog):
                         parms[name] = val
                     else:
                         valid_dict[name] = 'is required'
+                elif name == 'owner':
+                    val = widget.get_value()
+                    if val:
+                        owner_oid = getattr(val, 'oid', None) or ''
+                        if not owner_oid:
+                            owner_oid = state.get('project') or ''
+                    else:
+                        owner_oid = state.get('project') or ''
+                    parms['owner_oid'] = owner_oid
                 else:
                     val = widget.get_value()
                     if val:
