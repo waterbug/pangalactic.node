@@ -12,14 +12,18 @@ from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
 from pangalactic.core             import diagramz, state
+from pangalactic.core.access      import get_perms
 # from pangalactic.core.clone       import clone
 # from pangalactic.core.names       import (get_block_model_id,
                                           # get_block_model_name,
                                           # get_block_model_file_name)
 from pangalactic.core.uberorb     import orb
+from pangalactic.core.utils.step  import get_step_file_path
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
-from pangalactic.node.dialogs     import ModelImportDialog, ModelsInfoDialog
+from pangalactic.node.dialogs     import (DocImportDialog, MiniMelDialog,
+                                          ModelImportDialog, 
+                                          ModelsAndDocsInfoDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (extract_mime_data,
                                           create_product_from_template)
@@ -30,30 +34,14 @@ from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 ModelerState = namedtuple('ModelerState', 'obj idx')
 
 
-def get_step_file_path(model):
+def get_icon(icon_name):
     """
-    Find the path of a STEP file for a model.
-
-    Args:
-        model (Model):  the Model instance for which the STEP file is sought
-
-    Returns:
-        the path to the STEP file in the orb's "vault"
+    Get the icon for a known "icon name".
     """
-    # orb.log.debug('* get_step_model_path(model with oid "{}")'.format(
-                  # getattr(model, 'oid', 'None')))
-    if (model.has_files and model.type_of_model.id == "MCAD"):
-        for rep_file in model.has_files:
-            if rep_file.user_file_name.endswith(
-                            ('.stp', '.STP', '.step', '.STEP', '.p21', '.P21')):
-                vault_fname = rep_file.oid + '_' + rep_file.user_file_name
-                fpath = os.path.join(orb.vault, vault_fname)
-                if os.path.exists(fpath):
-                    return fpath
-            else:
-                continue
-    else:
-        return ''
+    icon_file = icon_name + state.get('icon_type', '.png')
+    icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+    icon_path = os.path.join(icon_dir, icon_file)
+    return QIcon(icon_path)
 
 
 class ModelWindow(QMainWindow):
@@ -156,8 +144,10 @@ class ModelWindow(QMainWindow):
                 pass
         self.obj = obj or self.obj
         if self.obj:
+            perms = get_perms(self.obj)
             # orb.log.debug(f'  - Modeler subject is set to: {self.obj.id}')
-            if hasattr(self, 'add_model_action'):
+            if (hasattr(self, 'add_model_action')
+                and 'add related objects' in perms):
                 try:
                     if hasattr(self.obj, 'owner'):
                         self.add_model_action.setVisible(True)
@@ -168,6 +158,18 @@ class ModelWindow(QMainWindow):
                 except:
                     # C++ object got deleted
                     pass
+            if (hasattr(self, 'add_doc_action')
+                and 'add related objects' in perms):
+                try:
+                    if hasattr(self.obj, 'owner'):
+                        self.add_doc_action.setVisible(True)
+                        self.add_doc_action.setEnabled(True)
+                    else:
+                        self.add_doc_action.setVisible(False)
+                        self.add_doc_action.setEnabled(False)
+                except:
+                    # C++ object got deleted
+                    pass
             try:
                 self.display_block_diagram()
             except:
@@ -175,28 +177,21 @@ class ModelWindow(QMainWindow):
                 return
             # TODO:  enable multiple CAD models (e.g. "detailed", "simplified")
             models = self.get_models()
-            if models:
+            if models or self.obj.doc_references:
                 # orb.log.debug('* ModelWindow: subject has models ...')
-                if hasattr(self, 'models_info_action'):
+                if hasattr(self, 'models_and_docs_info_action'):
                     try:
-                        self.models_info_action.setVisible(True)
+                        self.models_and_docs_info_action.setVisible(True)
                     except:
                         # oops, C++ object got deleted
                         pass
-                # for oid, fpath in self.model_files.items():
-                    # model = orb.get(oid)
-                    # fname = os.path.basename(fpath)
-                    # suffix = fname.split('.')[1]
-                    # # orb.log.debug(f'  {model.id} has suffix "{suffix}"')
-                    # mtype_oid = getattr(model.type_of_model, 'oid', '') or ''
-                    # if mtype_oid == 'pgefobjects:ModelType.MCAD':
                 # NOTE: a given product may have more than one MCAD model --
                 # e.g., a fully detailed model and one or more "simplified"
                 # models -- so the "view cad" action should display a dialog
                 # with info about all the MCAD models ...
                 mcad_models = models.get('MCAD')
                 if mcad_models:
-                    # orb.log.debug('* ModelWindow: subject has MCAD model(s) ...')
+                    # orb.log.debug('* ModelWindow: MCAD model(s) found ...')
                     step_fpaths = [get_step_file_path(m) for m in mcad_models]
                     if step_fpaths and hasattr(self, 'view_cad_action'):
                         # orb.log.debug('  STEP file(s) found.')
@@ -209,9 +204,9 @@ class ModelWindow(QMainWindow):
                         # orb.log.debug('  no STEP files found.')
                         pass
             else:
-                if hasattr(self, 'models_info_action'):
+                if hasattr(self, 'models_and_docs_info_action'):
                     try:
-                        self.models_info_action.setVisible(False)
+                        self.models_and_docs_info_action.setVisible(False)
                     except:
                         # oops, C++ object got deleted
                         pass
@@ -253,13 +248,6 @@ class ModelWindow(QMainWindow):
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self.toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         self.toolbar.setObjectName('ActionsToolBar')
-        # TODO:  create a dialog for exporting a diagram to a SysML file ...
-        # self.export_action = self.create_action(
-                                    # "Export SysML ...",
-                                    # slot=self.export_sysml,
-                                    # icon="save",
-                                    # tip="Export Model to SysML")
-        # self.toolbar.addAction(self.export_action)
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(["25%", "30%", "40%", "50%", "75%",
                                           "100%"])
@@ -267,44 +255,63 @@ class ModelWindow(QMainWindow):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
-        self.image_action = self.create_action(
-                                    "Snap",
-                                    slot=self.image_preview,
-                                    icon="camera",
-                                    tip="Save Diagram as Image or Print")
-        self.toolbar.addAction(self.image_action)
+        # TODO:  create a dialog for exporting a diagram to a SysML file ...
+        # self.export_action = self.create_action(
+                                    # "Export SysML ...",
+                                    # slot=self.export_sysml,
+                                    # icon="save",
+                                    # tip="Export Model to SysML")
+        # self.toolbar.addAction(self.export_action)
         self.add_model_action = self.create_action(
-                            "Add a Model",
-                            slot=self.add_update_model,
+                            "Add\nModel",
+                            slot=self.add_model,
                             icon="lander",
                             tip="Add or Update a Model and Upload its File")
         self.toolbar.addAction(self.add_model_action)
-        if getattr(self.obj, 'owner', None):
+        self.add_doc_action = self.create_action(
+                            "Add\nDocument",
+                            slot=self.add_doc,
+                            icon="new_doc",
+                            tip="Add or Update a Document and Upload its File")
+        self.toolbar.addAction(self.add_doc_action)
+        perms = get_perms(self.obj)
+        if (getattr(self.obj, 'owner', None)
+            and 'add related objects' in perms):
             self.add_model_action.setVisible(True)
             self.add_model_action.setEnabled(True)
+            self.add_doc_action.setVisible(True)
+            self.add_doc_action.setEnabled(True)
         else:
             self.add_model_action.setVisible(False)
             self.add_model_action.setEnabled(False)
-        self.models_info_action = self.create_action(
-                        "Info on Models ...",
-                        slot=self.models_info,
+            self.add_doc_action.setVisible(False)
+            self.add_doc_action.setEnabled(False)
+        self.models_and_docs_info_action = self.create_action(
+                        "Models\nand Docs",
+                        slot=self.models_and_docs_info,
                         icon="info",
-                        tip="Show Info on Available Models of this Product")
-        self.toolbar.addAction(self.models_info_action)
-        self.models_info_action.setVisible(False)
+                        tip="Show info on related Models and Documents")
+        self.toolbar.addAction(self.models_and_docs_info_action)
+        self.models_and_docs_info_action.setVisible(False)
         self.view_cad_action = self.create_action(
                                     "View CAD",
                                     slot=self.display_step_models,
                                     icon="box",
                                     tip="View CAD Model (from STEP File)")
         self.toolbar.addAction(self.view_cad_action)
-        # self.external_window_action = self.create_action(
-                                    # "Display external diagram window ...",
-                                    # slot=self.display_external_window,
-                                    # icon="system",
-                                    # tip="Display External Diagram Window")
-        # if not self.external:
-            # self.toolbar.addAction(self.external_window_action)
+        self.image_action = self.create_action(
+                                    "Snapshot",
+                                    slot=self.image_preview,
+                                    icon="camera",
+                                    tip="Save Diagram as Image or Print")
+        if (isinstance(self.obj, orb.classes['HardwareProduct'])
+            and self.obj.components):
+            # the "Mini MEL" action only makes sense for white box objects
+            self.mini_mel_action = self.create_action('Mini\nMEL',
+                                    slot=self.display_mini_mel, icon='data',
+                                    tip='Generate a mini-MEL for this object')
+            self.toolbar.addAction(self.mini_mel_action)
+        self.toolbar.addAction(self.image_action)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -322,6 +329,14 @@ class ModelWindow(QMainWindow):
         if checkable:
             action.setCheckable(True)
         return action
+
+    def display_mini_mel(self):
+        """
+        Display a "Mini MEL" for the current object when 'Mini MEL' action is
+        selected.
+        """
+        dlg = MiniMelDialog(self.obj, parent=self)
+        dlg.show()
 
     def image_preview(self):
         form = DocForm(scene=self.diagram_view.scene(), edit_mode=False,
@@ -501,21 +516,27 @@ class ModelWindow(QMainWindow):
             orb.log.debug('  CAD model not found or not in STEP format.')
             pass
 
-    def models_info(self):
+    def models_and_docs_info(self):
         """
         Display a dialog with information about all available models related to
         the currently selected product.
         """
-        if self.obj and getattr(self.obj, 'has_models', []):
-            orb.log.debug('* Modeler: models info dlg ...')
-            dlg = ModelsInfoDialog(self.obj, parent=self)
+        if (self.obj and
+            (getattr(self.obj, 'has_models', []) or
+             getattr(self.obj, 'doc_references', []))):
+            orb.log.debug('* Modeler: models and docs info dlg ...')
+            dlg = ModelsAndDocsInfoDialog(self.obj, parent=self)
             dlg.show()
         else:
-            orb.log.debug('* Modeler: subject has no models.')
+            orb.log.debug('* Modeler: subject has no models or docs.')
 
-    def add_update_model(self, model_type_id=None):
+    def add_model(self, model_type_id=None):
         dlg = ModelImportDialog(of_thing_oid=self.obj.oid,
                                 model_type_id=model_type_id, parent=self)
+        dlg.show()
+
+    def add_doc(self):
+        dlg = DocImportDialog(rel_obj_oid=self.obj.oid, parent=self)
         dlg.show()
 
     def display_block_diagram(self):

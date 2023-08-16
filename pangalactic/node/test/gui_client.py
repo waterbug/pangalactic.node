@@ -607,8 +607,8 @@ class MainWindow(QMainWindow):
                     self.progress_dialog.setValue(0)
                     self.progress_dialog.setMinimumDuration(2000)
                     self.log(f'  using {numchunks} chunks ...')
-                    for i, chunk in enumerate(iter(
-                                        partial(f.read, chunk_size), b'')):
+                    for i in range(numchunks):
+                        chunk = f.read(chunk_size)
                         rpc = message_bus.session.call('vger.upload_chunk',
                                             fname=fname, seq=i, data=chunk)
                         rpc.addCallback(self.on_chunk_upload_success)

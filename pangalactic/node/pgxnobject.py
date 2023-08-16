@@ -40,12 +40,17 @@ from pangalactic.core.uberorb         import orb
 from pangalactic.core.units           import alt_units, in_si, ureg
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_to_tsv
+from pangalactic.core.utils.step      import get_step_file_path
 from pangalactic.core.validation      import get_bom, validate_all
 from pangalactic.node.buttons         import SizedButton
+from pangalactic.node.cad.viewer      import Model3DViewer
 from pangalactic.node.dialogs         import (CannotFreezeDialog,
                                               CloningDialog,
+                                              DocImportDialog,
                                               FreezingDialog,
                                               MiniMelDialog, 
+                                              ModelImportDialog,
+                                              ModelsAndDocsInfoDialog,
                                               NotificationDialog,
                                               ObjectSelectionDialog,
                                               ValidationDialog)
@@ -976,14 +981,21 @@ class PgxnObject(QDialog):
         # destroy the existing stuff, if necessary ...
         if not getattr(self, 'vbox', None):
             self.vbox = QVBoxLayout()
+        if not getattr(self, 'title_box', None):
+            self.title_box = QHBoxLayout()
         if not getattr(self, 'title', None):
             self.title = QLabel()
         self.title.setAttribute(Qt.WA_DeleteOnClose)
         self.title.setSizePolicy(QSizePolicy.Minimum,
                                  QSizePolicy.Minimum)
-        self.vbox.addWidget(self.title)
         self.title_text = get_object_title(self.obj, new=self.new)
         self.title.setText(self.title_text)
+        self.title_box.addWidget(self.title)
+        self.title_box.addStretch(1)
+        if not getattr(self, 'class_label', None):
+            self.class_label = SizedButton(self.cname, color='green')
+            self.title_box.addWidget(self.class_label, alignment=Qt.AlignRight)
+        self.vbox.addLayout(self.title_box)
         tab_names = ['main', 'info', 'narrative', 'admin']
         if self.panels:
             self.tab_names = [name for name in tab_names if name in self.panels]
@@ -1208,8 +1220,6 @@ class PgxnObject(QDialog):
     def init_toolbar(self):
         self.toolbar = QToolBar('Tools')
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        class_label = SizedButton(self.cname, color='green')
-        self.toolbar.addWidget(class_label)
         if isinstance(self.obj, orb.classes['HardwareProduct']):
             self.freeze_action = self.create_action('Freeze',
                                     slot=self.freeze, icon='freeze_16',
@@ -1270,6 +1280,80 @@ class PgxnObject(QDialog):
                                     modes=['edit', 'view'])
             self.toolbar.addAction(self.clone_action)
             self.clone_action.setEnabled(True)
+        if (not self.embedded and (
+            isinstance(self.obj, (orb.classes['HardwareProduct'],
+                                  orb.classes['Software'],
+                                  orb.classes['Model'],
+                                  orb.classes['Requirement'],
+                                 )))):
+            self.models_and_docs_info_action = self.create_action(
+                            "Models\nand Docs",
+                            slot=self.models_and_docs_info,
+                            icon="info",
+                            tip="Show info on related Models and Documents")
+            self.toolbar.addAction(self.models_and_docs_info_action)
+            self.models_and_docs_info_action.setVisible(False)
+            # can only add models or docs if the user has "modify" permissions
+            # for the object
+            if 'add related objects' in get_perms(self.obj):
+                self.add_model_action = self.create_action(
+                                "Add\nModel",
+                                slot=self.add_model,
+                                icon="lander",
+                                tip="Upload a Model File")
+                self.toolbar.addAction(self.add_model_action)
+                self.add_doc_action = self.create_action(
+                                "Add\nDocument",
+                                slot=self.add_doc,
+                                icon="new_doc",
+                                tip="Upload a Document File")
+                self.toolbar.addAction(self.add_doc_action)
+            self.view_cad_action = self.create_action(
+                                    "View CAD",
+                                    slot=self.display_step_models,
+                                    icon="box",
+                                    tip="View CAD Model (from STEP File)")
+            self.toolbar.addAction(self.view_cad_action)
+            self.view_cad_action.setVisible(False)
+            # =================================================================
+            # check for existence of models, and then MCAD models, to determine
+            # whether to make "models_and_docs_info_action" and "view_cad_action"
+            # visible or not ...
+            models = self.get_models()
+            if models or self.obj.doc_references:
+                # orb.log.debug('* pgxno: object has models ...')
+                if hasattr(self, 'models_and_docs_info_action'):
+                    try:
+                        self.models_and_docs_info_action.setVisible(True)
+                    except:
+                        # oops, C++ object got deleted
+                        pass
+                # NOTE: a given product may have more than one MCAD model --
+                # e.g., a fully detailed model and one or more "simplified"
+                # models -- so the "view cad" action should display a dialog
+                # with info about all the MCAD models ...
+                mcad_models = models.get('MCAD')
+                if mcad_models:
+                    # orb.log.debug('* pgxno: MCAD model(s) found ...')
+                    step_fpaths = [get_step_file_path(m) for m in mcad_models]
+                    if step_fpaths and hasattr(self, 'view_cad_action'):
+                        # orb.log.debug('  STEP file(s) found.')
+                        try:
+                            self.view_cad_action.setVisible(True)
+                        except:
+                            # oops, C++ object got deleted
+                            pass
+                    else:
+                        # orb.log.debug('  no STEP files found.')
+                        pass
+            else:
+                if hasattr(self, 'models_and_docs_info_action'):
+                    try:
+                        self.models_and_docs_info_action.setVisible(False)
+                    except:
+                        # oops, C++ object got deleted
+                        pass
+            # =================================================================
         if (isinstance(self.obj, orb.classes['HardwareProduct'])
             and self.obj.components):
             # the "Mini MEL" action only makes sense for white box objects
@@ -1278,12 +1362,6 @@ class PgxnObject(QDialog):
                                     tip='Generate a mini-MEL for this object',
                                     modes=['edit', 'view'])
             self.toolbar.addAction(self.mini_mel_action)
-        # NOTE: viewer may be reactivated later ...
-        # self.viewer_action = self.create_action('viewer',
-                                # slot=self.open_viewer, icon='view_16',
-                                # tip='View models of this object',
-                                # modes=['edit', 'view'])
-        # self.toolbar.addAction(self.viewer_action)
         self.vbox.insertWidget(0, self.toolbar)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
@@ -1308,6 +1386,85 @@ class PgxnObject(QDialog):
             else:
                 self.mode_widgets['view'].add(action)
         return action
+
+    def get_models(self):
+        """
+        Returns a dict mapping "Model.type_of_model" (ModelType) id to the
+        models of that type for all models of self.obj.
+        """
+        model_instances = getattr(self.obj, 'has_models', [])
+        model_dict = {}
+        if model_instances:
+            for m in model_instances:
+                mtype_id = getattr(m.type_of_model, 'id', 'UNKNOWN')
+                if mtype_id in model_dict:
+                    model_dict[mtype_id].append(m)
+                else:
+                    model_dict[mtype_id] = [m]
+        return model_dict
+
+    def add_model(self, model_type_id=None):
+        dlg = ModelImportDialog(of_thing_oid=self.obj.oid,
+                                model_type_id=model_type_id, parent=self)
+        dlg.show()
+
+    def add_doc(self, model_type_id=None):
+        dlg = DocImportDialog(rel_obj_oid=self.obj.oid, parent=self)
+        dlg.show()
+
+    def models_and_docs_info(self):
+        """
+        Display a dialog with information about all available models and
+        documents related to the currently selected product.
+        """
+        if (self.obj and
+            (getattr(self.obj, 'has_models', []) or
+             getattr(self.obj, 'doc_references', []))):
+            orb.log.debug('* pgxno: models and docs info dlg ...')
+            dlg = ModelsAndDocsInfoDialog(self.obj, parent=self)
+            dlg.show()
+        else:
+            orb.log.debug('* pgxno: object has no models or docs.')
+
+    def display_step_models(self):
+        """
+        Display the STEP models associated with the current self.subject (a
+        Modelable instance, which may or may not have a STEP model). If there
+        is only one, simply open a Model3DViewer with that one; if more than
+        one, open a dialog with information about all and offer to display a
+        selected one.
+        """
+        # TODO: display a dialog if multiple STEP models ...
+        # ... if only one, just display it in the viewer ...
+        models = self.get_models()
+        mcad_models = models.get("MCAD")
+        fpath = ''
+        fpaths = []
+        if mcad_models:
+            # orb.log.debug('  MCAD models found:')
+            for m in mcad_models:
+                # orb.log.debug(f'      - model: "{m.id}"')
+                fpath = get_step_file_path(m)
+                fpaths.append(fpath)
+                if fpath:
+                    orb.log.debug(f'        step file path: {fpath}')
+                else:
+                    orb.log.debug('        no step file found.')
+                orb.log.debug(f'      - {fpath}')
+            # orb.log.debug(f'  fpaths: {fpaths}')
+        else:
+            orb.log.debug('  no MCAD models found.')
+            return
+        if fpaths:
+            fpath = fpaths[0]
+            # orb.log.debug(f'  step file: "{fpath}"')
+        try:
+            if fpath:
+                viewer = Model3DViewer(step_file=fpath, parent=self)
+                viewer.show()
+        except:
+            orb.log.debug('  CAD model not found or not in STEP format.')
+            pass
 
     def freeze(self, remote=False):
         """

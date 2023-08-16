@@ -335,7 +335,7 @@ class HWFieldsDialog(QDialog):
 
 class ModelImportDialog(QDialog):
     """
-    A dialog to import a model file and create related objects.
+    A dialog to import a model file.
 
     Keyword Args:
         of_thing_oid (str): oid of the Model's "of_thing" attribute -- i.e.
@@ -474,6 +474,118 @@ class ModelImportDialog(QDialog):
             return
 
 
+class DocImportDialog(QDialog):
+    """
+    A dialog to import a document file.
+
+    Keyword Args:
+        rel_obj_oid (str): oid of the related object, which will be the
+            "related_item" in a DocumentReference relationship
+        parent (QWidget): parent widget of the dialog
+    """
+    def __init__(self, rel_obj_oid='', parent=None):
+        super().__init__(parent)
+        self.rel_obj_oid = rel_obj_oid
+        self.setWindowTitle("Import Document")
+        self.build_form()
+
+    def build_form(self):
+        vbox = QVBoxLayout(self)
+        self.file_select_button = SizedButton("Select Document File")
+        self.file_select_button.clicked.connect(self.on_select_file)
+        vbox.addWidget(self.file_select_button)
+        self.form = QFormLayout()
+        vbox.addLayout(self.form)
+        self.doc_file_path = ''
+        self.fields = {}
+        file_widget, autolabel = get_widget('file name', 'str', value='',
+                                            editable=False)
+        self.fields['file name'] = file_widget
+        file_label = ColorLabel('file name')
+        self.form.addRow(file_label, file_widget)
+        fsize_widget, autolabel = get_widget('file size', 'str', value='',
+                                             editable=False)
+        self.fields['file size'] = fsize_widget
+        fsize_label = ColorLabel('file size')
+        self.form.addRow(fsize_label, fsize_widget)
+        doc_label_text = '------------------- Document Properties '
+        doc_label_text += '-------------------'
+        doc_label = ColorLabel(doc_label_text)
+        self.form.addRow(doc_label)
+        for name in ['name', 'version', 'description']:
+            if name == 'description':
+                widget, autolabel = get_widget(name, 'text', value='')
+            else:
+                widget, autolabel = get_widget(name, 'str', value='')
+            label = ColorLabel(name)
+            self.fields[name] = widget
+            self.form.addRow(label, widget)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        vbox.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.on_submit)
+        self.buttons.rejected.connect(self.reject)
+
+    def on_select_file(self, evt):
+        dirpath = state.get('last_doc_path', '') or ''
+        dialog = QFileDialog(self, 'Open File', dirpath)
+        fpath = ''
+        if dialog.exec_():
+            fpaths = dialog.selectedFiles()
+            if fpaths:
+                fpath = fpaths[0]
+            dialog.close()
+        if fpath:
+            orb.log.debug(f'  file selected: {fpath}')
+            self.doc_file_path = fpath
+            fname = os.path.basename(fpath)
+            fsize = os.path.getsize(fpath)
+            self.fields['file name'].setText(fname)
+            self.fields['file size'].setText(str(fsize))
+            state['last_doc_path'] = os.path.dirname(fpath)
+        else:
+            orb.log.debug('  no file was selected.')
+            valid_dict = {'file name': 'no file was selected'}
+            dlg = ValidationDialog(valid_dict, parent=self)
+            dlg.show()
+            return
+
+    def on_submit(self):
+        if self.doc_file_path:
+            parms = {}
+            valid_dict = {}
+            for name, widget in self.fields.items():
+                if name in ['file name', 'file size']:
+                    val = widget.text()
+                    if val:
+                        parms[name] = val
+                    else:
+                        valid_dict[name] = 'is required'
+                else:
+                    val = widget.get_value()
+                    if val:
+                        parms[name] = val
+                    else:
+                        valid_dict[name] = 'is required'
+            if valid_dict:
+                dlg = ValidationDialog(valid_dict, parent=self)
+                dlg.show()
+            else:
+                parms['rel_obj_oid'] = self.rel_obj_oid
+                parms['project_oid'] = state.get('project') or ''
+                orb.log.debug(f'  - fpath: {self.doc_file_path}')
+                orb.log.debug(f'  - parms: {parms}')
+                dispatcher.send(signal='add update doc',
+                                fpath=self.doc_file_path,
+                                parms=parms)
+                self.accept()
+        else:
+            orb.log.debug('  no file was selected -- select a file ...')
+            return
+
+
 class ModelsInfoTable(QTableWidget):
     """
     Table whose purpose is to display information about all Models related to a
@@ -495,7 +607,9 @@ class ModelsInfoTable(QTableWidget):
         # TODO: get default view from prefs / config
         default_view = [
             'Model ID',
-            'Model Type',
+            'Type',
+            'Name',
+            'Description',
             # 'Version',
             'File(s)',
             'More Info'
@@ -523,8 +637,10 @@ class ModelsInfoTable(QTableWidget):
             m_dict['Model ID'] = m.id
             if m.type_of_model:
                 orb.log.debug(f'  type: {m.type_of_model.id}')
-                m_dict['Model Type'] = getattr(m.type_of_model, 'id',
+                m_dict['Type'] = getattr(m.type_of_model, 'id',
                                                'UNKNOWN')
+            m_dict['Name'] = m.name
+            m_dict['Description'] = m.description
             if m.has_files:
                 if len(m.has_files) == 1:
                     rep_file = m.has_files[0]
@@ -560,10 +676,11 @@ class ModelsInfoTable(QTableWidget):
                         button.clicked.connect(self.on_file_button)
                         hbox.addWidget(button)
                     m_dict['File(s)'] = buttons_widget
-                mtype = m_dict['Model Type']
-                info_button = SizedButton(f"{mtype} Info")
-                info_button.clicked.connect(self.on_more_info)
-                m_dict['More Info'] = info_button
+                mtype = m_dict['Type']
+                if mtype == 'LOM':
+                    info_button = SizedButton(f"{mtype} Info")
+                    info_button.clicked.connect(self.on_more_info)
+                    m_dict['More Info'] = info_button
             data.append(m_dict)
         for i, m_dict in enumerate(data):
             for j, name in enumerate(self.view):
@@ -572,7 +689,8 @@ class ModelsInfoTable(QTableWidget):
                 else:
                     self.setItem(i, j, InfoTableItem(
                         m_dict.get(name) or ''))
-        self.resize(550, 240)
+        height = self.rowCount() * 10
+        self.resize(700, height)
 
     def on_file_button(self):
         """
@@ -606,6 +724,159 @@ class ModelsInfoTable(QTableWidget):
                 else:
                     dlg = ModelDetailDialog(model)
                     dlg.show()
+
+
+class DocsInfoTable(QTableWidget):
+    """
+    Table whose purpose is to display information about all Documents related
+    to a Modelable instance. The rows of the table contain attributes of the
+    Documents and their associated RepresentationFile(s) and buttons that link
+    to the files associated with the RepresentationFile instances.
+    """
+    def __init__(self, obj=None, view=None, parent=None):
+        """
+        Initialize
+
+        Keyword Args:
+            obj (Modelable):  the Modelable
+            view (list):  list of attributes that represent the table coluns
+        """
+        super().__init__(parent=parent)
+        # orb.log.info('* [SystemInfoTable] initializing ...')
+        self.obj = obj
+        # TODO: get default view from prefs / config
+        default_view = [
+            'Doc ID',
+            'Name',
+            'Description',
+            # 'Version',
+            'File(s)',
+            'View'
+            ]
+        self.view = view or default_view[:]
+        self.setup_table()
+
+    def setup_table(self):
+        self.setColumnCount(len(self.view))
+        models = getattr(self.obj, 'has_models', []) or []
+        if models:
+            self.setRowCount(len(models))
+        else:
+            self.setRowCount(1)
+        header_labels = []
+        for col_name in self.view:
+            header_labels.append('  ' + col_name + '  ')
+        self.setHorizontalHeaderLabels(header_labels)
+        # populate relevant data
+        data = []
+        # TODO: list representation "names" for a given model, etc. ...
+        docs = [doc_ref.document for doc_ref in self.obj.doc_references]
+        for doc in docs:
+            orb.log.debug('* documents found ...')
+            doc_dict = {}
+            doc_dict['Doc ID'] = doc.id
+            doc_dict['Name'] = doc.name
+            doc_dict['Description'] = doc.description
+            if docs:
+                if len(doc.has_files) == 1:
+                    rep_file = doc.has_files[0]
+                    fname = rep_file.user_file_name or 'unknown'
+                    orb.log.debug(f'  1 file found: {fname}')
+                    vault_fname = rep_file.oid + '_' + fname
+                    vault_file_path = os.path.join(orb.vault, vault_fname)
+                    if os.path.exists(vault_file_path):
+                        color='green'
+                    else:
+                        color='purple'
+                    label = '  ' + fname + '  '
+                    button = FileButtonLabel(label, file=rep_file, color=color)
+                    button.clicked.connect(self.on_file_button)
+                    doc_dict['File(s)'] = button
+                    open_button = FileButtonLabel("Open", file=rep_file)
+                    open_button.clicked.connect(self.open_doc)
+                    doc_dict['View'] = open_button
+                elif len(doc.has_files) > 1:
+                    orb.log.debug(f'  {len(doc.has_files)} files found ...')
+                    buttons_widget = QWidget()
+                    hbox = QHBoxLayout()
+                    buttons_widget.setLayout(hbox)
+                    for rep_file in doc.has_files:
+                        fname = rep_file.user_file_name or 'unknown'
+                        orb.log.debug(f'  - {fname}')
+                        vault_fname = rep_file.oid + '_' + fname
+                        vault_file_path = os.path.join(orb.vault, vault_fname)
+                        if os.path.exists(vault_file_path):
+                            color='green'
+                        else:
+                            color='purple'
+                        label = '  ' + fname + '  '
+                        button = FileButtonLabel(label, file=rep_file,
+                                                 color=color)
+                        button.clicked.connect(self.on_file_button)
+                        hbox.addWidget(button)
+                    selected = doc.has_files[0]
+                    open_button = FileButtonLabel("Open", file=selected)
+                    open_button.clicked.connect(self.open_doc)
+                    doc_dict['View'] = open_button
+                    doc_dict['File(s)'] = buttons_widget
+            data.append(doc_dict)
+        for i, doc_dict in enumerate(data):
+            for j, name in enumerate(self.view):
+                if name in ['File(s)', 'View'] and doc_dict.get(name):
+                    self.setCellWidget(i, j, doc_dict[name])
+                else:
+                    self.setItem(i, j, InfoTableItem(
+                        doc_dict.get(name) or ''))
+        height = self.rowCount() * 10
+        self.resize(700, height)
+
+    def on_file_button(self):
+        """
+        Get info about a model file and/or download or save a local copy of it.
+        """
+        button = self.sender()
+        fname = button.text().strip()
+        rep_file = button.file
+        orb.log.debug(f'* file button "{fname}" was clicked.')
+        # Open a dialog that displays the size of the file and offers to save a
+        # copy into a user-specified folder, informing the user if downloading
+        # from the server is required.
+        dlg = FileInfoDialog(rep_file, parent=self)
+        dlg.show()
+
+    def open_doc(self):
+        button = self.sender()
+        rep_file = button.file
+        orb.log.debug('* "Open" button clicked')
+        orb.log.debug(f'   for "{rep_file.user_file_name}"')
+        vault_fname = rep_file.oid + '_' + rep_file.user_file_name
+        vault_fpath = os.path.join(orb.vault, vault_fname)
+        # try to guess file type and select an app
+        suffix = rep_file.user_file_name.split('.')[-1]
+        if suffix in ['doc', 'docx', 'ppt', 'pptx']:
+            # try to start Word with file if on Win or Mac ...
+            if sys.platform == 'win32':
+                try:
+                    os.system(f'start "{vault_fpath}"')
+                except:
+                    orb.log.debug('  unable to find Word')
+            elif sys.platform == 'darwin':
+                try:
+                    os.system(f'open -a "Microsoft Word.app" "{vault_fpath}"')
+                except:
+                    orb.log.debug('  unable to start Word')
+        elif suffix in ['xls', 'xlsx', 'csv', 'tsv']:
+            # try to start Excel with file if on Win or Mac ...
+            if sys.platform == 'win32':
+                try:
+                    os.system(f'start excel.exe "{vault_fpath}"')
+                except:
+                    orb.log.debug('  unable to start Excel')
+            elif sys.platform == 'darwin':
+                try:
+                    os.system(f'open -a "Microsoft Excel.app" "{vault_fpath}"')
+                except:
+                    orb.log.debug('  unable to start Excel')
 
 
 class FileInfoDialog(QDialog):
@@ -670,9 +941,9 @@ class FileInfoDialog(QDialog):
             self.reject()
 
 
-class ModelsInfoDialog(QDialog):
+class ModelsAndDocsInfoDialog(QDialog):
     """
-    Dialog to display info on RepresentationFiles of Models of a specified
+    Dialog to display info on Models and Documents related to a specified
     Modelable.
     """
     def __init__(self, obj, parent=None):
@@ -688,41 +959,64 @@ class ModelsInfoDialog(QDialog):
                            QSizePolicy.MinimumExpanding)
         self.obj = obj
         self.summary = False
-        layout = QVBoxLayout()
-        self.setLayout(layout)
-        self.setWindowTitle("Models")
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+        self.setWindowTitle("Models and Documents")
         # set up dashboard selector
         top_layout = QHBoxLayout()
         # TODO: add info about Modelable ...
-        self.title = ColorLabel(f'<h3>Models of {obj.name}</h3>', parent=self)
+        txt = f'Models and Documents related to {obj.name}'
+        self.title = ColorLabel(f'<h3>{txt}</h3>', parent=self)
         top_layout.addWidget(self.title)
-        layout.addLayout(top_layout)
-        self.set_table()
+        vbox.addLayout(top_layout)
+        self.set_tables()
 
-    def set_table(self):
+    def set_tables(self):
         layout = self.layout()
-        if getattr(self, 'table', None):
-            # remove and close current table
-            layout.removeWidget(self.table)
-            self.table.parent = None
-            self.table.close()
-        self.table = ModelsInfoTable(self.obj)
-        self.table.setAttribute(Qt.WA_DeleteOnClose)
-        self.table.setAlternatingRowColors(True)
+        if getattr(self, 'models_table', None):
+            # remove and close current models_table and docs_table
+            layout.removeWidget(self.models_table)
+            self.models_table.parent = None
+            self.models_table.close()
+            layout.removeWidget(self.docs_table)
+            self.docs_table.parent = None
+            self.docs_table.close()
+        self.models_table = ModelsInfoTable(self.obj)
+        self.models_table.setAttribute(Qt.WA_DeleteOnClose)
+        self.models_table.setAlternatingRowColors(True)
         # SelectionBehavior: 0 -> select items (1 -> rows)
-        self.table.setSelectionBehavior(0)
-        self.table.setStyleSheet('font-size: 12px')
-        self.table.verticalHeader().hide()
-        self.table.clicked.connect(self.item_selected)
-        col_header = self.table.horizontalHeader()
+        self.models_table.setSelectionBehavior(0)
+        self.models_table.setStyleSheet('font-size: 12px')
+        self.models_table.verticalHeader().hide()
+        self.models_table.clicked.connect(self.item_selected)
+        col_header = self.models_table.horizontalHeader()
         col_header.setStyleSheet('font-weight: bold')
-        self.table.setSizePolicy(QSizePolicy.Expanding,
+        self.models_table.setSizePolicy(QSizePolicy.Expanding,
                                  QSizePolicy.Expanding)
-        self.table.setSizeAdjustPolicy(QTableView.AdjustToContents)
-        self.table.setShowGrid(True)
-        QTimer.singleShot(0, self.table.resizeColumnsToContents)
-        layout.addWidget(self.table)
-        self.resize(600, 150)
+        self.models_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
+        self.models_table.setShowGrid(True)
+        QTimer.singleShot(0, self.models_table.resizeColumnsToContents)
+        layout.addWidget(self.models_table)
+        # docs table
+        self.docs_table = DocsInfoTable(self.obj)
+        self.docs_table.setAttribute(Qt.WA_DeleteOnClose)
+        self.docs_table.setAlternatingRowColors(True)
+        # SelectionBehavior: 0 -> select items (1 -> rows)
+        self.docs_table.setSelectionBehavior(0)
+        self.docs_table.setStyleSheet('font-size: 12px')
+        self.docs_table.verticalHeader().hide()
+        self.docs_table.clicked.connect(self.item_selected)
+        col_header = self.docs_table.horizontalHeader()
+        col_header.setStyleSheet('font-weight: bold')
+        self.docs_table.setSizePolicy(QSizePolicy.Expanding,
+                                 QSizePolicy.Expanding)
+        self.docs_table.setSizeAdjustPolicy(QTableView.AdjustToContents)
+        self.docs_table.setShowGrid(True)
+        QTimer.singleShot(0, self.docs_table.resizeColumnsToContents)
+        layout.addWidget(self.docs_table)
+        height = self.models_table.height() + self.docs_table.height() + 200
+        width = self.models_table.width() + 200
+        self.resize(width, height)
 
     def item_selected(self, clicked_index):
         """

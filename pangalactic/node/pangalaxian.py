@@ -5028,13 +5028,52 @@ class Main(QMainWindow):
         else:
             orb.log.debug('  - RepresentationFile oid not found; no upload.')
 
-    def on_add_update_doc(self):
+    def on_add_update_doc(self, fpath='', parms=None):
         """
-        Handle "add update doc" signal: call rpc to add or update Document and
+        Handle "add update doc" signal: call rpc to add or update Model and
         RepresentationFile objects related to a specified item, and add
-        callbacks to upload_file() to upload associated file(s) if appropriate.
+        callbacks to upload_file() to upload associated file(s) file if
+        appropriate.
         """
-        pass
+        orb.log.debug('* "add update doc" signal received ...')
+        if fpath and parms:
+            orb.log.info('  - calling "vger.add_update_doc"')
+            rpc = self.mbus.session.call('vger.add_update_doc',
+                                         fpath=fpath,
+                                         parms=parms)
+            rpc.addCallback(self.on_doc_added)
+            rpc.addErrback(self.on_failure)
+        else:
+            orb.log.debug('  incomplete signature, rpc not called')
+            return
+
+    def on_doc_added(self, result):
+        """
+        Callback for return values of rpc 'vger.add_update_doc',
+
+        Args:
+            result (tuple): [0] path to the local doc file,
+                            [1] serialized Document, DocumentReference, and
+                                RepresentationFile instances
+        """
+        fpath, sobjs = result
+        orb.log.debug(f'* on_doc_added(fpath={fpath}, sobjs)')
+        orb.log.debug('* serialized objects:')
+        orb.log.debug(f'  {sobjs}')
+        orb.log.debug('  deserializing Document, DocumentReference,')
+        orb.log.debug('  and RepresentationFile ...')
+        objs = deserialize(orb, sobjs)
+        orb.log.debug('  deserialized objects:')
+        for obj in objs:
+            orb.log.debug(f'  {obj.id}')
+        oid = ''
+        for so in sobjs:
+            if so['_cname'] == "RepresentationFile":
+                oid = so['oid']
+        if oid:
+            self.upload_file(fpath=fpath, rep_file_oid=oid)
+        else:
+            orb.log.debug('  - RepresentationFile oid not found; no upload.')
 
     def upload_file(self, fpath='', rep_file_oid='', chunk_size=None):
         """
