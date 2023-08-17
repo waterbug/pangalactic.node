@@ -12,7 +12,6 @@ from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
 from pangalactic.core             import diagramz, state
-from pangalactic.core.access      import get_perms
 # from pangalactic.core.clone       import clone
 # from pangalactic.core.names       import (get_block_model_id,
                                           # get_block_model_name,
@@ -143,28 +142,6 @@ class ModelWindow(QMainWindow):
                 pass
         self.obj = obj or self.obj
         if self.obj:
-            perms = get_perms(self.obj)
-            # orb.log.debug(f'  - Modeler subject is set to: {self.obj.id}')
-            if (hasattr(self, 'add_model_action')
-                and 'add models' in perms):
-                try:
-                    if hasattr(self.obj, 'owner'):
-                        self.add_model_action.setVisible(True)
-                        self.add_model_action.setEnabled(True)
-                    else:
-                        self.add_model_action.setVisible(False)
-                        self.add_model_action.setEnabled(False)
-                except:
-                    # C++ object got deleted
-                    pass
-            if (hasattr(self, 'add_doc_action')
-                and 'add docs' in perms):
-                try:
-                    self.add_doc_action.setVisible(True)
-                    self.add_doc_action.setEnabled(True)
-                except:
-                    # C++ object got deleted
-                    pass
             try:
                 self.display_block_diagram()
             except:
@@ -262,32 +239,6 @@ class ModelWindow(QMainWindow):
                                     # icon="save",
                                     # tip="Export Model to SysML")
         # self.toolbar.addAction(self.export_action)
-        self.add_model_action = self.create_action(
-                            "Add\nModel",
-                            slot=self.add_model,
-                            icon="lander",
-                            tip="Add or Update a Model and Upload its File")
-        self.toolbar.addAction(self.add_model_action)
-        self.add_doc_action = self.create_action(
-                            "Add\nDocument",
-                            slot=self.add_doc,
-                            icon="new_doc",
-                            tip="Add or Update a Document and Upload its File")
-        self.toolbar.addAction(self.add_doc_action)
-        perms = get_perms(self.obj)
-        if (getattr(self.obj, 'owner', None)
-            and 'add models' in perms):
-            self.add_model_action.setVisible(True)
-            self.add_model_action.setEnabled(True)
-        else:
-            self.add_model_action.setVisible(False)
-            self.add_model_action.setEnabled(False)
-        if 'add docs' in perms:
-            self.add_doc_action.setVisible(True)
-            self.add_doc_action.setEnabled(True)
-        else:
-            self.add_doc_action.setVisible(False)
-            self.add_doc_action.setEnabled(False)
         self.models_and_docs_info_action = self.create_action(
                         "Models\nand Docs",
                         slot=self.models_and_docs_info,
@@ -531,15 +482,6 @@ class ModelWindow(QMainWindow):
             dlg.show()
         else:
             orb.log.debug('* Modeler: subject has no models or docs.')
-
-    def add_model(self, model_type_id=None):
-        dlg = ModelImportDialog(of_thing_oid=self.obj.oid,
-                                model_type_id=model_type_id, parent=self)
-        dlg.show()
-
-    def add_doc(self):
-        dlg = DocImportDialog(rel_obj_oid=self.obj.oid, parent=self)
-        dlg.show()
 
     def display_block_diagram(self):
         """
