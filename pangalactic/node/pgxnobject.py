@@ -1279,12 +1279,11 @@ class PgxnObject(QDialog):
                                     modes=['edit', 'view'])
             self.toolbar.addAction(self.clone_action)
             self.clone_action.setEnabled(True)
-        if (not self.embedded and (
-            isinstance(self.obj, (orb.classes['HardwareProduct'],
-                                  orb.classes['Software'],
-                                  orb.classes['Model'],
-                                  orb.classes['Requirement'],
-                                 )))):
+        if isinstance(self.obj, (orb.classes['HardwareProduct'],
+                                 orb.classes['Software'],
+                                 orb.classes['Model'],
+                                 orb.classes['Requirement'],
+                                 )):
             self.models_and_docs_info_action = self.create_action(
                             "Models\nand Docs",
                             slot=self.models_and_docs_info,
@@ -1301,6 +1300,7 @@ class PgxnObject(QDialog):
                                 icon="lander",
                                 tip="Upload a Model File")
                 self.toolbar.addAction(self.add_model_action)
+                self.add_model_action.setVisible(True)
             if 'add docs' in get_perms(self.obj):
                 self.add_doc_action = self.create_action(
                                 "Add\nDocument",
@@ -1308,6 +1308,7 @@ class PgxnObject(QDialog):
                                 icon="new_doc",
                                 tip="Upload a Document File")
                 self.toolbar.addAction(self.add_doc_action)
+                self.add_doc_action.setVisible(True)
             self.view_cad_action = self.create_action(
                                     "View CAD",
                                     slot=self.display_step_models,
