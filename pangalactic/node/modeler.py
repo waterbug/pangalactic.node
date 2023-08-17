@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os
+import os, sys
 from collections import namedtuple
 
 from louie import dispatcher
@@ -19,8 +19,7 @@ from pangalactic.core             import diagramz, state
 from pangalactic.core.uberorb     import orb
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
-from pangalactic.node.dialogs     import (DocImportDialog, MiniMelDialog,
-                                          ModelImportDialog, 
+from pangalactic.node.dialogs     import (MiniMelDialog,
                                           ModelsAndDocsInfoDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (extract_mime_data,
@@ -246,12 +245,14 @@ class ModelWindow(QMainWindow):
                         tip="Show info on related Models and Documents")
         self.toolbar.addAction(self.models_and_docs_info_action)
         self.models_and_docs_info_action.setVisible(False)
-        self.view_cad_action = self.create_action(
-                                    "View CAD",
-                                    slot=self.display_step_models,
-                                    icon="box",
-                                    tip="View CAD Model (from STEP File)")
-        self.toolbar.addAction(self.view_cad_action)
+        if sys.platform != 'darwin':
+            # cad viewer currently not working on Mac
+            self.view_cad_action = self.create_action(
+                                        "View CAD",
+                                        slot=self.display_step_models,
+                                        icon="box",
+                                        tip="View CAD Model (from STEP File)")
+            self.toolbar.addAction(self.view_cad_action)
         self.image_action = self.create_action(
                                     "Snapshot",
                                     slot=self.image_preview,
@@ -826,7 +827,6 @@ class ProductInfoPanel(QWidget):
             self.product_version_value_label.setEnabled(False)
 
 if __name__ == '__main__':
-    import sys
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import (create_test_project,
                                              create_test_users)

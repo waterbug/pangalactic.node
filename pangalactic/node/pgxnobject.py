@@ -1315,13 +1315,15 @@ class PgxnObject(QDialog):
                 self.add_doc_action.setVisible(True)
             else:
                 orb.log.debug('* user does not have "add docs" permission.')
-            self.view_cad_action = self.create_action(
-                                    "View CAD",
-                                    slot=self.display_step_models,
-                                    icon="box",
-                                    tip="View CAD Model (from STEP File)")
-            self.toolbar.addAction(self.view_cad_action)
-            self.view_cad_action.setVisible(False)
+            if sys.platform != 'darwin':
+                # cad viewer currently not working on Mac
+                self.view_cad_action = self.create_action(
+                                        "View CAD",
+                                        slot=self.display_step_models,
+                                        icon="box",
+                                        tip="View CAD Model (from STEP File)")
+                self.toolbar.addAction(self.view_cad_action)
+                self.view_cad_action.setVisible(False)
             # =================================================================
             # check for existence of models, and then MCAD models, to determine
             # whether to make "models_and_docs_info_action" and "view_cad_action"
