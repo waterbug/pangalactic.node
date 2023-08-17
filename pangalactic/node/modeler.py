@@ -18,7 +18,6 @@ from pangalactic.core.access      import get_perms
                                           # get_block_model_name,
                                           # get_block_model_file_name)
 from pangalactic.core.uberorb     import orb
-from pangalactic.core.utils.step  import get_step_file_path
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.dialogs     import (DocImportDialog, MiniMelDialog,
@@ -188,7 +187,8 @@ class ModelWindow(QMainWindow):
                 mcad_models = models.get('MCAD')
                 if mcad_models:
                     # orb.log.debug('* ModelWindow: MCAD model(s) found ...')
-                    step_fpaths = [get_step_file_path(m) for m in mcad_models]
+                    step_fpaths = [orb.get_step_file_path(m)
+                                   for m in mcad_models]
                     if step_fpaths and hasattr(self, 'view_cad_action'):
                         # orb.log.debug('  STEP file(s) found.')
                         try:
@@ -496,7 +496,7 @@ class ModelWindow(QMainWindow):
             # orb.log.debug('  MCAD models found:')
             for m in mcad_models:
                 # orb.log.debug(f'      - model: "{m.id}"')
-                fpath = get_step_file_path(m)
+                fpath = orb.get_step_file_path(m)
                 fpaths.append(fpath)
                 if fpath:
                     orb.log.debug(f'        step file path: {fpath}')

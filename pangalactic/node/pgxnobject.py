@@ -40,7 +40,6 @@ from pangalactic.core.uberorb         import orb
 from pangalactic.core.units           import alt_units, in_si, ureg
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_to_tsv
-from pangalactic.core.utils.step      import get_step_file_path
 from pangalactic.core.validation      import get_bom, validate_all
 from pangalactic.node.buttons         import SizedButton
 from pangalactic.node.cad.viewer      import Model3DViewer
@@ -1336,7 +1335,8 @@ class PgxnObject(QDialog):
                 mcad_models = models.get('MCAD')
                 if mcad_models:
                     # orb.log.debug('* pgxno: MCAD model(s) found ...')
-                    step_fpaths = [get_step_file_path(m) for m in mcad_models]
+                    step_fpaths = [orb.get_step_file_path(m)
+                                   for m in mcad_models]
                     if step_fpaths and hasattr(self, 'view_cad_action'):
                         # orb.log.debug('  STEP file(s) found.')
                         try:
@@ -1445,7 +1445,7 @@ class PgxnObject(QDialog):
             # orb.log.debug('  MCAD models found:')
             for m in mcad_models:
                 # orb.log.debug(f'      - model: "{m.id}"')
-                fpath = get_step_file_path(m)
+                fpath = orb.get_step_file_path(m)
                 fpaths.append(fpath)
                 if fpath:
                     orb.log.debug(f'        step file path: {fpath}')
