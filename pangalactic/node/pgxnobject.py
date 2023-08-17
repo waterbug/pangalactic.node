@@ -3,7 +3,7 @@
 PgxnObject (a domain object viewer/editor)
 """
 # from collections import OrderedDict
-import os
+import os, sys
 from functools import partial
 
 from PyQt5.QtCore import pyqtSignal, Qt, QVariant
@@ -2456,7 +2456,6 @@ if __name__ == '__main__':
     """
     Cmd line invocation for testing / prototyping
     """
-    import sys
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import create_test_project
     from pangalactic.core.test.utils import create_test_users
