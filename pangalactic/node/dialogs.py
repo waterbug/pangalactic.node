@@ -11,7 +11,7 @@ Various dialogs.
 # CondaDialog)
 # from pangalactic.node.threads     import threadpool, Worker
 
-import os, shutil, sys
+import os, shutil, sys, webbrowser
 from textwrap import wrap
 
 from PyQt5.QtCore import (pyqtSignal, Qt, QPoint, QRectF, QSize, QTimer,
@@ -929,6 +929,13 @@ class DocsInfoTable(QTableWidget):
                     os.system(f'open -a "Microsoft Excel.app" "{vault_fpath}"')
                 except:
                     orb.log.debug('  unable to start Excel')
+        else:
+            # fall-back to browser
+            try:
+                file_url = f'file:///{vault_fpath}'
+                webbrowser.open_new(file_url)
+            except:
+                orb.log.debug('  browser unable to open file.')
 
 
 class FileInfoDialog(QDialog):
