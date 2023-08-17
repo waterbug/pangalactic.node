@@ -21,7 +21,6 @@ from pangalactic.core.names        import (get_external_name_plural,
 from pangalactic.core.parametrics  import (data_elementz, de_defz, parameterz,
                                            parm_defz)
 from pangalactic.core.uberorb      import orb
-from pangalactic.core.utils.msword import report
 from pangalactic.node.buttons      import SizedButton
 from pangalactic.node.dialogs      import (HWFieldsDialog,
                                            SelectHWLibraryColsDialog)
@@ -655,8 +654,6 @@ class FilterPanel(QWidget):
                                            'font-weight: bold; color: green;')
             self.set_view_button = SizedButton('Customize Columns')
             self.set_view_button.clicked.connect(self.set_custom_hw_lib_view)
-            # self.report_button = SizedButton('Output Report')
-            # self.report_button.clicked.connect(self.write_hw_lib_report)
 
         self.filter_case_checkbox = QCheckBox("case sensitive")
         filter_pattern_label = QLabel("Text Filter:")
@@ -890,22 +887,6 @@ class FilterPanel(QWidget):
             self.custom_view = new_view[:]
             # orb.log.debug(f'* new HW Library view: {new_view}')
             self.refresh()
-
-    def write_hw_lib_report(self):
-        """
-        Output an MS Word report on the contents of the HW Library.
-        """
-        data = [[self.proxy_model.data(self.proxy_model.index(i, j),
-                                       Qt.DisplayRole)
-                 for j in range(self.proxy_model.columnCount())]
-                 for i in range(self.proxy_model.rowCount())]
-        label = getattr(self, 'cur_filter_label', None) or None
-        info = ''
-        if label:
-            table = str.maketrans(
-                {' ': '_', '&': '_', '/': '_', '(': '', ')': ''})
-            info = label.text().translate(table)
-        report(self.view, data, info=info)
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
