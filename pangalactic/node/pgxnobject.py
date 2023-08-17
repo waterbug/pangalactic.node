@@ -1294,6 +1294,7 @@ class PgxnObject(QDialog):
             # can only add models or docs if the user has "modify" permissions
             # for the object
             if 'add models' in get_perms(self.obj):
+                orb.log.debug('* user has "add models" permission.')
                 self.add_model_action = self.create_action(
                                 "Add\nModel",
                                 slot=self.add_model,
@@ -1301,7 +1302,10 @@ class PgxnObject(QDialog):
                                 tip="Upload a Model File")
                 self.toolbar.addAction(self.add_model_action)
                 self.add_model_action.setVisible(True)
+            else:
+                orb.log.debug('* user does not have "add models" permission.')
             if 'add docs' in get_perms(self.obj):
+                orb.log.debug('* user has "add docs" permission.')
                 self.add_doc_action = self.create_action(
                                 "Add\nDocument",
                                 slot=self.add_doc,
@@ -1309,6 +1313,8 @@ class PgxnObject(QDialog):
                                 tip="Upload a Document File")
                 self.toolbar.addAction(self.add_doc_action)
                 self.add_doc_action.setVisible(True)
+            else:
+                orb.log.debug('* user does not have "add docs" permission.')
             self.view_cad_action = self.create_action(
                                     "View CAD",
                                     slot=self.display_step_models,
@@ -1322,7 +1328,7 @@ class PgxnObject(QDialog):
             # visible or not ...
             models = self.get_models()
             if models or self.obj.doc_references:
-                # orb.log.debug('* pgxno: object has models ...')
+                orb.log.debug('* pgxno: object has models or docs ...')
                 if hasattr(self, 'models_and_docs_info_action'):
                     try:
                         self.models_and_docs_info_action.setVisible(True)
@@ -1349,6 +1355,7 @@ class PgxnObject(QDialog):
                         # orb.log.debug('  no STEP files found.')
                         pass
             else:
+                orb.log.debug('* pgxno: object has no models or docs ...')
                 if hasattr(self, 'models_and_docs_info_action'):
                     try:
                         self.models_and_docs_info_action.setVisible(False)
