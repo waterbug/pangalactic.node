@@ -5184,9 +5184,9 @@ class Main(QMainWindow):
             # try to start Word with file if on Win or Mac ...
             if sys.platform == 'win32':
                 try:
-                    os.system(f'start "{vault_fpath}"')
+                    os.startfile(f'{vault_fpath}')
                 except:
-                    orb.log.debug('  unable to find Word')
+                    orb.log.debug('  unable to find app to open file.')
             elif sys.platform == 'darwin':
                 try:
                     os.system(f'open -a "Microsoft Word.app" "{vault_fpath}"')
@@ -5196,9 +5196,9 @@ class Main(QMainWindow):
             # try to start Excel with file if on Win or Mac ...
             if sys.platform == 'win32':
                 try:
-                    os.system(f'start excel.exe "{vault_fpath}"')
+                    os.startfile(f'{vault_fpath}')
                 except:
-                    orb.log.debug('  unable to start Excel')
+                    orb.log.debug('  unable to find app to open file.')
             elif sys.platform == 'darwin':
                 try:
                     os.system(f'open -a "Microsoft Excel.app" "{vault_fpath}"')
