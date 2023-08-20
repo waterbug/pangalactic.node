@@ -5278,6 +5278,7 @@ class Main(QMainWindow):
         with open(vault_fpath, 'ab') as vaultf:
             vaultf.write(data)
         orb.log.info('  appended to vault file.')
+        return result
 
     def on_chunk_download_failure(self, result):
         orb.log.info(f'  chunk {result} failed.')
