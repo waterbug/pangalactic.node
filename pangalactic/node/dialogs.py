@@ -742,7 +742,7 @@ class ModelsInfoTable(QTableWidget):
                 else:
                     self.setItem(i, j, InfoTableItem(
                         m_dict.get(name) or ''))
-        height = self.rowCount() * 10
+        height = self.rowCount() * 20
         self.resize(700, height)
 
     def on_file_button(self):
@@ -879,7 +879,7 @@ class DocsInfoTable(QTableWidget):
                 else:
                     self.setItem(i, j, InfoTableItem(
                         doc_dict.get(name) or ''))
-        height = self.rowCount() * 10
+        height = self.rowCount() * 20
         self.resize(700, height)
 
     def on_file_button(self):
@@ -1039,9 +1039,13 @@ class ModelsAndDocsInfoDialog(QDialog):
         self.docs_table.setShowGrid(True)
         QTimer.singleShot(0, self.docs_table.resizeColumnsToContents)
         layout.addWidget(self.docs_table)
-        height = self.models_table.height() + self.docs_table.height() + 200
+        height = self.models_table.height() + self.docs_table.height() + 300
+        # orb.log.debug(f'* height to fit tables: {height}')
+        screen_height = QApplication.desktop().screenGeometry().height()
+        # orb.log.debug(f'* screen height: {screen_height}')
+        optimal_height = min(height, screen_height)
         width = self.models_table.width() + 200
-        self.resize(width, height)
+        self.resize(width, optimal_height)
 
     def item_selected(self, clicked_index):
         """
