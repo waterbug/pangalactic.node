@@ -361,6 +361,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_add_update_model, 'add update model')
         dispatcher.connect(self.on_add_update_doc, 'add update doc')
         dispatcher.connect(self.download_file, 'download file')
+        dispatcher.connect(self.open_doc_file, 'open doc file')
         dispatcher.connect(self.optics_modeler, 'open optics modeler')
         dispatcher.connect(self.get_lom_surf_names, 'get lom surface names')
         dispatcher.connect(self.get_lom_structure, 'get lom structure')
@@ -5147,24 +5148,89 @@ class Main(QMainWindow):
                 # C++ object got deleted ...
                 pass
 
-    def download_file(self, file=None, chunk_size=None):
+    def open_doc_file(self, rep_file=None):
         """
-        Download a file, specifying a DigitalFile instance whose "oid" and
-        "user_file_name" attributes will be combined to create the unique name
-        of the vault file to be downloaded.
+        Open a document file corresponding to a RepresentationFile instance,
+        downloading the physical file from the server if necessary before
+        opening it.
 
         Args:
-            file (DigitalFile): the DigitalFile whose physical file is
-                to be downloaded
+            rep_file (RepresentationFile): the RepresentationFile instance
 
         Keyword Args:
             chunk_size (int):  size of chunks to be used
         """
+        vault_fpath = orb.get_vault_fpath(rep_file)
+        if os.path.exists(vault_fpath):
+            self.open_vault_file(rep_file=rep_file)
+        else:
+            self.download_file(digital_file=rep_file, open_file=True)
+
+    def open_vault_file(self, rep_file=None):
+        """
+        Open a document file corresponding to a RepresentationFile instance
+        for which the physical file is known to be in the vault.
+
+        Args:
+            rep_file (RepresentationFile): the RepresentationFile instance
+
+        Keyword Args:
+            chunk_size (int):  size of chunks to be used
+        """
+        # try to guess file type and select an app
+        vault_fpath = orb.get_vault_fpath(rep_file)
+        suffix = rep_file.user_file_name.split('.')[-1]
+        if suffix in ['doc', 'docx', 'ppt', 'pptx']:
+            # try to start Word with file if on Win or Mac ...
+            if sys.platform == 'win32':
+                try:
+                    os.system(f'start "{vault_fpath}"')
+                except:
+                    orb.log.debug('  unable to find Word')
+            elif sys.platform == 'darwin':
+                try:
+                    os.system(f'open -a "Microsoft Word.app" "{vault_fpath}"')
+                except:
+                    orb.log.debug('  unable to start Word')
+        elif suffix in ['xls', 'xlsx', 'csv', 'tsv']:
+            # try to start Excel with file if on Win or Mac ...
+            if sys.platform == 'win32':
+                try:
+                    os.system(f'start excel.exe "{vault_fpath}"')
+                except:
+                    orb.log.debug('  unable to start Excel')
+            elif sys.platform == 'darwin':
+                try:
+                    os.system(f'open -a "Microsoft Excel.app" "{vault_fpath}"')
+                except:
+                    orb.log.debug('  unable to start Excel')
+        else:
+            # fall-back to browser
+            try:
+                file_url = f'file:///{vault_fpath}'
+                webbrowser.open_new(file_url)
+            except:
+                orb.log.debug('  browser unable to open file.')
+
+    def download_file(self, digital_file=None, chunk_size=None,
+                      open_file=False):
+        """
+        Download a file corresponding to a DigitalFile instance.
+
+        Args:
+            digital_file (DigitalFile): the DigitalFile whose physical file is
+                to be downloaded
+
+        Keyword Args:
+            chunk_size (int): size of chunks to be used
+            open_file (bool): open the file when download is complete
+        """
         orb.log.info('* pgxn.download_file()')
         chunk_size = chunk_size or 2**19
-        if file and isinstance(file, orb.classes['DigitalFile']):
-            fname = file.user_file_name
-            oid = file.oid
+        if (digital_file and
+            isinstance(digital_file, orb.classes['DigitalFile'])):
+            fname = digital_file.user_file_name
+            oid = digital_file.oid
             orb.log.info(f'* downloading to vault: "{fname}"')
             orb.log.info(f'  of digital file: "{oid}"')
             self.downloaded_chunks = 0
@@ -5174,7 +5240,7 @@ class Main(QMainWindow):
                                           parent=self)
             self.download_progress.setAttribute(Qt.WA_DeleteOnClose)
             try:
-                fsize = file.file_size
+                fsize = digital_file.file_size
                 numchunks = math.ceil(fsize / chunk_size)
                 self.download_progress.setMaximum(numchunks)
                 self.download_progress.setValue(0)
@@ -5187,7 +5253,10 @@ class Main(QMainWindow):
                     rpc.addCallback(self.on_chunk_download_success)
                     rpc.addErrback(self.on_chunk_download_failure)
                     if i == numchunks - 1:
-                        rpc.addCallback(self.on_file_download_success)
+                        if open_file:
+                            rpc.addCallback(self.on_download_open_success)
+                        else:
+                            rpc.addCallback(self.on_file_download_success)
             except:
                 message = f'File "{fname}" could not be downloaded.'
                 popup = QMessageBox(QMessageBox.Warning,
@@ -5204,10 +5273,9 @@ class Main(QMainWindow):
         orb.log.info(f'  chunk {seq} received ...')
         self.downloaded_chunks += 1
         self.download_progress.setValue(self.downloaded_chunks)
-        file = orb.get(oid)
-        vaultfname = file.oid + '_' + file.user_file_name
-        vaultfpath = os.path.join(orb.vault, vaultfname)
-        with open(vaultfpath, 'ab') as vaultf:
+        digital_file = orb.get(oid)
+        vault_fpath = orb.get_vault_fpath(digital_file)
+        with open(vault_fpath, 'ab') as vaultf:
             vaultf.write(data)
         orb.log.info('  appended to vault file.')
 
@@ -5218,6 +5286,13 @@ class Main(QMainWindow):
     def on_file_download_success(self, result):
         orb.log.info(f'  download done in {self.downloaded_chunks} chunks.')
         self.download_progress.done(0)
+
+    def on_download_open_success(self, result):
+        orb.log.info(f'  download done in {self.downloaded_chunks} chunks.')
+        self.download_progress.done(0)
+        oid, seq, data = result
+        digital_file = orb.get(oid)
+        self.open_vault_file(rep_file=digital_file)
 
     def on_new_hardware_clone(self, product=None, objs=None):
         # go to component mode when clone() sends "new hardware clone" signal

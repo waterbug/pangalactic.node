@@ -11,7 +11,7 @@ Various dialogs.
 # CondaDialog)
 # from pangalactic.node.threads     import threadpool, Worker
 
-import os, shutil, sys, webbrowser
+import os, shutil, sys
 from textwrap import wrap
 
 from PyQt5.QtCore import (pyqtSignal, Qt, QPoint, QRectF, QSize, QTimer,
@@ -901,41 +901,7 @@ class DocsInfoTable(QTableWidget):
         rep_file = button.file
         orb.log.debug('* "Open" button clicked')
         orb.log.debug(f'   for "{rep_file.user_file_name}"')
-        vault_fname = rep_file.oid + '_' + rep_file.user_file_name
-        vault_fpath = os.path.join(orb.vault, vault_fname)
-        # try to guess file type and select an app
-        suffix = rep_file.user_file_name.split('.')[-1]
-        if suffix in ['doc', 'docx', 'ppt', 'pptx']:
-            # try to start Word with file if on Win or Mac ...
-            if sys.platform == 'win32':
-                try:
-                    os.system(f'start "{vault_fpath}"')
-                except:
-                    orb.log.debug('  unable to find Word')
-            elif sys.platform == 'darwin':
-                try:
-                    os.system(f'open -a "Microsoft Word.app" "{vault_fpath}"')
-                except:
-                    orb.log.debug('  unable to start Word')
-        elif suffix in ['xls', 'xlsx', 'csv', 'tsv']:
-            # try to start Excel with file if on Win or Mac ...
-            if sys.platform == 'win32':
-                try:
-                    os.system(f'start excel.exe "{vault_fpath}"')
-                except:
-                    orb.log.debug('  unable to start Excel')
-            elif sys.platform == 'darwin':
-                try:
-                    os.system(f'open -a "Microsoft Excel.app" "{vault_fpath}"')
-                except:
-                    orb.log.debug('  unable to start Excel')
-        else:
-            # fall-back to browser
-            try:
-                file_url = f'file:///{vault_fpath}'
-                webbrowser.open_new(file_url)
-            except:
-                orb.log.debug('  browser unable to open file.')
+        dispatcher.send(signal='open doc file', rep_file=rep_file)
 
 
 class FileInfoDialog(QDialog):
@@ -953,9 +919,8 @@ class FileInfoDialog(QDialog):
         self.vbox = QVBoxLayout(self)
         self.dfile = digital_file
         self.build_info_form()
-        vault_fname = self.dfile.oid + '_' + (self.dfile.user_file_name or '')
-        self.vault_file_path = os.path.join(orb.vault, vault_fname)
-        if os.path.exists(self.vault_file_path):
+        vault_file_path = orb.get_vault_fpath(self.dfile)
+        if os.path.exists(vault_file_path):
             orb.log.debug('  file exists in local vault')
             save_local_button = SizedButton("Save Local Copy")
             save_local_button.clicked.connect(self.on_save_local)
@@ -983,7 +948,7 @@ class FileInfoDialog(QDialog):
             self.form.addRow(label, widget)
 
     def on_download_file(self, evt):
-        dispatcher.send(signal='download file', file=self.dfile)
+        dispatcher.send(signal='download file', digital_file=self.dfile)
 
     def on_save_local(self, evt):
         suggested_path = os.path.join(state.get('last_path', ''),
@@ -994,7 +959,8 @@ class FileInfoDialog(QDialog):
         if fpath:
             orb.log.debug(f'  - path selected: "{fpath}"')
             # copy vault file to fpath ...
-            shutil.copy(self.vault_file_path, fpath)
+            vault_fpath = orb.get_vault_fpath(self.dfile)
+            shutil.copy(vault_fpath, fpath)
             self.accept()
         else:
             self.reject()
