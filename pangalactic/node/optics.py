@@ -886,8 +886,7 @@ class LinearOpticalModelViewer(QMainWindow):
         self.system_table_layout.addWidget(self.system_table)
 
     def create_system_table(self):
-        view = [('reference_designator', 'Optical\nSurface\nLabel', 'usage'),
-                ('name', 'Optical\nSurface\nName', 'component'),
+        view = [('name', 'Optical\nSurface\nName', 'component'),
                 ('description', 'Optical\nSurface\nDescription', 'component'),
                 ('dRMSWFE_dx', '', 'usage'),
                 ('dRMSWFE_dy', '', 'usage'),
