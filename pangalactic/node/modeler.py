@@ -146,6 +146,12 @@ class ModelWindow(QMainWindow):
             except:
                 orb.log.debug('* ModelWindow C++ object deleted.')
                 return
+            if getattr(self, 'mini_mel_action', None):
+                if (isinstance(self.obj, orb.classes['HardwareProduct'])
+                    and self.obj.components):
+                    self.mini_mel_action.setVisible(True)
+                else:
+                    self.mini_mel_action.setVisible(False)
             # TODO:  enable multiple CAD models (e.g. "detailed", "simplified")
             models = self.get_models()
             if models or self.obj.doc_references:
@@ -182,10 +188,6 @@ class ModelWindow(QMainWindow):
                     except:
                         # oops, C++ object got deleted
                         pass
-            if (isinstance(self.obj, orb.classes['HardwareProduct'])
-                and self.obj.components):
-                if getattr(self, 'mini_mel_action', None):
-                    self.mini_mel_action.setVisible(True)
         else:
             self.obj = None
             # orb.log.debug('  no object; setting placeholder widget.')
@@ -258,13 +260,10 @@ class ModelWindow(QMainWindow):
                                     slot=self.image_preview,
                                     icon="camera",
                                     tip="Save Diagram as Image or Print")
-        if (isinstance(self.obj, orb.classes['HardwareProduct'])
-            and self.obj.components):
-            # the "Mini MEL" action only makes sense for white box objects
-            self.mini_mel_action = self.create_action('Mini\nMEL',
-                                    slot=self.display_mini_mel, icon='data',
-                                    tip='Generate a mini-MEL for this object')
-            self.toolbar.addAction(self.mini_mel_action)
+        self.mini_mel_action = self.create_action('Mini\nMEL',
+                                slot=self.display_mini_mel, icon='data',
+                                tip='Generate a mini-MEL for this object')
+        self.toolbar.addAction(self.mini_mel_action)
         self.toolbar.addAction(self.image_action)
 
     def create_action(self, text, slot=None, icon=None, tip=None,
