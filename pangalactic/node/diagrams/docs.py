@@ -10,8 +10,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 
 # pangalactic
+from pangalactic.core                 import orb
 from pangalactic.core.meta            import asciify
-from pangalactic.core.uberorb         import orb
 from pangalactic.node.diagrams.shapes import TextItem
 
 # NOTE: not using native Mac menus ...

@@ -14,13 +14,12 @@ import re
 from functools import reduce
 from textwrap import wrap
 
-from pangalactic.core              import prefs, state
+from pangalactic.core              import orb, prefs, state
 from pangalactic.core.meta         import MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names        import (get_external_name_plural,
                                            pname_to_header)
 from pangalactic.core.parametrics  import (data_elementz, de_defz, parameterz,
                                            parm_defz)
-from pangalactic.core.uberorb      import orb
 from pangalactic.node.buttons      import SizedButton
 from pangalactic.node.dialogs      import (HWFieldsDialog,
                                            SelectHWLibraryColsDialog)

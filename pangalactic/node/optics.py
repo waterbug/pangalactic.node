@@ -29,12 +29,12 @@ from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
 # from PyQt5.QtGui import QGraphicsProxyWidget
 
 # pangalactic
+from pangalactic.core             import orb
 from pangalactic.core             import state
 from pangalactic.core.meta        import PGXN_PLACEHOLDERS
 from pangalactic.core.parametrics import get_dval, set_dval
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.errbudget   import gen_error_budget
-from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import date2str, dtstamp
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.diagrams.shapes import BlockLabel, TextItem

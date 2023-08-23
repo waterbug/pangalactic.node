@@ -32,13 +32,17 @@ from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
+# set the torb orb
+import pangalactic.core.set_torb
+
 # pangalactic
 from pangalactic.core                  import __version__
-from pangalactic.core                  import diagramz
+from pangalactic.core                  import diagramz, orb
 from pangalactic.core                  import config, write_config
 from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
 from pangalactic.core                  import write_trash
+from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.meta             import asciify
 from pangalactic.core.parametrics      import (allocz,
@@ -54,9 +58,14 @@ from pangalactic.core.parametrics      import (allocz,
                                                parmz_by_dimz, rqt_allocz,
                                                save_data_elementz, save_parmz)
 from pangalactic.core.refdata          import ref_oids
+from pangalactic.core.smerializers     import (DESERIALIZATION_ORDER,
+                                               deserialize, serialize)
+from pangalactic.core.tachistry        import matrix, schemas
 from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
+from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
+from pangalactic.node.activities       import ModesTool
 from pangalactic.node.admin            import AdminDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
@@ -70,32 +79,29 @@ from pangalactic.node.message_bus      import PgxnMessageBus, reachable
                                                # wizard_state)
 # ------------------------------------------------------------------------
 from pangalactic.node.splash           import SplashScreen
-from pangalactic.tach.tports           import write_mel_xlsx_from_model
-from pangalactic.tach.smerializers     import (DESERIALIZATION_ORDER,
-                                               deserialize, serialize)
-from pangalactic.tach.tachistry        import matrix, schemas
-from pangalactic.tach.torb             import orb
-from pangalactic.marv.mactivities      import ModesTool
-from pangalactic.marv.mconops          import ConOpsModeler
-from pangalactic.marv.mdialogs         import (LoginDialog,
+# ============================================================================
+# FIXME: the following modules had been specialized for marvin -- "torb" needs
+# mods to support them ...
+from pangalactic.node.conops           import ConOpsModeler
+from pangalactic.node.dialogs          import (LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog,
                                                ProgressDialog)
-from pangalactic.marv.minterface42     import SC42Window
-from pangalactic.marv.mlibs            import LibraryDialog, LibraryListWidget
-from pangalactic.marv.mmodeler         import ModelWindow, ProductInfoPanel
-from pangalactic.marv.mobject          import MarvObject
-from pangalactic.marv.mrqtmanager      import RqtManager
-from pangalactic.marv.mrqtwizard       import RqtWizard, rqt_wizard_state
-from pangalactic.marv.mstartup         import setup_dirs_and_state
-from pangalactic.marv.msystree         import SystemTreeView
-from pangalactic.marv.mtableviews      import ObjectTableView
-from pangalactic.marv.mwidgets         import (AutosizingListWidget,
+from pangalactic.node.interface42      import SC42Window
+from pangalactic.node.libraries        import (LibraryDialog,
+                                               CompoundLibraryWidget)
+from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
+from pangalactic.node.pgxnobject       import PgxnObject
+from pangalactic.node.rqtmanager       import RequirementManager
+from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
+from pangalactic.node.startup          import setup_dirs_and_state
+from pangalactic.node.systemtree       import SystemTreeView
+from pangalactic.node.tableviews       import ObjectTableView
+from pangalactic.node.widgets          import (AutosizingListWidget,
                                                ModeLabel, PlaceHolder)
-from pangalactic.marv.mashboards       import SystemDashboard
-from pangalactic.marv.mutils           import clone
-from pangalactic.marv.perms            import am_global_admin
+from pangalactic.node.dashboards       import SystemDashboard
+# ============================================================================
 
 # fix qt import error -- import this before importing anything in PyQt5
 from pangalactic.node import fix_qt_import_error
@@ -125,8 +131,8 @@ class Main(QMainWindow):
             (its oid is persisted as `project` in the `state` dict)
         projects (list of Project):  current authorized Projects in db
             (a read-only property linked to the local db)
-        library_widget (LibraryListWidget):  a panel widget containing library
-            views for specified classes and a selector (combo box)
+        library_widget (CompoundLibraryWidget):  a panel widget containing
+            library views for specified classes and a selector (combo box)
         sys_tree (SystemTreeView):  the system tree widget (in left dock)
         use_tls (bool): use tls to connect to message bus
         auth_method (str): authentication method ("cryptosign" or "ticket")
@@ -689,7 +695,7 @@ class Main(QMainWindow):
         orb.user_raz = serialize(orb, local_user_ras, include_refdata=True)
         orb.log.debug('  orb.user_raz is now:')
         orb.log.debug(f'  {pprint.pformat(orb.user_raz)}')
-        if am_global_admin():
+        if orb.am_global_admin():
             # only deserialize all role assignments of user is a global admin
             deserialize(orb, szd_ras)
         org_oids = [ra.get('role_assignment_context') for ra in orb.user_raz]
@@ -2180,7 +2186,7 @@ class Main(QMainWindow):
         projects = []
         try:
             userid = getattr(self.local_user, 'id', 'unknown') or 'unknown'
-            global_admin = am_global_admin()
+            global_admin = orb.am_global_admin()
             if global_admin:
                 orb.log.debug(f'  - local user "{userid}" is a Global Admin')
                 projects = orb.get_by_type('Project')
@@ -2325,7 +2331,7 @@ class Main(QMainWindow):
 
     def create_lib_list_widget(self, cnames=None, include_subtypes=True):
         """
-        Creates an instance of 'LibraryListWidget' to be assigned to
+        Creates an instance of 'CompoundLibraryWidget' to be assigned to
         self.library_widget.
 
         Keyword Args:
@@ -2337,7 +2343,7 @@ class Main(QMainWindow):
             cnames = ['HardwareProduct', 'Template', 'PortType',
                       'PortTemplate', 'ParameterDefinition',
                       'DataElementDefinition']
-        widget = LibraryListWidget(cnames=cnames,
+        widget = CompoundLibraryWidget(cnames=cnames,
                                    include_subtypes=include_subtypes,
                                    parent=self)
         return widget
@@ -3200,7 +3206,7 @@ class Main(QMainWindow):
                       'Port', 'Flow']):
             # DIAGRAM MAY NEED UPDATING
             # update state['product'] if needed, and regenerate diagram
-            # this will set placeholders in place of MarvObject and diagram
+            # this will set placeholders in place of PgxnObject and diagram
             dispatcher.send('refresh diagram')
             self.set_product_modeler_interface()
         elif (self.mode == 'system' and
@@ -3248,7 +3254,7 @@ class Main(QMainWindow):
         role_label_txt = ''
         tt_txt = ''
         p_roles = []
-        global_admin = am_global_admin()
+        global_admin = orb.am_global_admin()
         userid = self.local_user.id
         if global_admin:
             orb.log.debug(f'* local user "{userid}" IS a global admin.')
@@ -3426,7 +3432,7 @@ class Main(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
 
     def _setup_right_dock(self):
-        # NOTE:  refactored to use LibraryListWidget instead of
+        # NOTE:  refactored to use CompoundLibraryWidget instead of
         # multiple instances of LibraryListView
         # orb.log.debug('  - no right dock widget -- building one now...')
         # if we don't have a right dock widget yet, create ALL the stuff
@@ -3441,7 +3447,7 @@ class Main(QMainWindow):
 
     def update_pgxn_obj_panel(self, create_new=True):
         """
-        Set up a new MarvObject panel (left dock widget in Component mode).
+        Set up a new PgxnObject panel (left dock widget in Component mode).
         """
         # orb.log.debug('* update_pgxn_obj_panel(create_new={})'.format(
                                                            # str(create_new)))
@@ -3483,7 +3489,7 @@ class Main(QMainWindow):
             pgxn_panel_layout.setAlignment(self.pgxn_obj_panel,
                                          Qt.AlignLeft|Qt.AlignTop)
             if self.product:
-                self.pgxn_obj = MarvObject(self.product, component=True,
+                self.pgxn_obj = PgxnObject(self.product, component=True,
                                            embedded=True)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
                 pgxn_panel_layout.setAlignment(self.pgxn_obj,
@@ -4051,7 +4057,7 @@ class Main(QMainWindow):
         else:
             org_parent = orb.get('pgefobjects:PGANA')
         proj = clone('Project', public=True, parent_organization=org_parent)
-        pxo = MarvObject(proj, edit_mode=True, new=True, view=view,
+        pxo = PgxnObject(proj, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self)
         pxo.show()
 
@@ -4176,13 +4182,13 @@ class Main(QMainWindow):
 
     def on_display_object_signal(self, obj=None):
         if obj:
-            pxo = MarvObject(obj, parent=self)
+            pxo = PgxnObject(obj, parent=self)
             pxo.show()
 
     def new_parameter(self):
         # Parameter Definitions are *always* "public"
         param = clone('ParameterDefinition', public=True)
-        pxo = MarvObject(param, edit_mode=True, modal_mode=True, new=True,
+        pxo = PgxnObject(param, edit_mode=True, modal_mode=True, new=True,
                          parent=self)
         pxo.show()
 
@@ -4200,7 +4206,7 @@ class Main(QMainWindow):
         view = ['id', 'name', 'abbreviation', 'description']
         panels = ['main']
         # modal_mode -> 'cancel' closes dialog
-        pxo = MarvObject(model, edit_mode=True, new=True, view=view,
+        pxo = PgxnObject(model, edit_mode=True, new=True, view=view,
                          panels=panels, modal_mode=True, parent=self)
         pxo.show()
 
@@ -4251,7 +4257,7 @@ class Main(QMainWindow):
                 # dispatcher.send(signal='deleted object', oid=oid, cname=cname)
 
     def new_functional_requirement(self):
-        wizard = ReqWizard(parent=self, performance=False)
+        wizard = RqtWizard(parent=self, performance=False)
         if wizard.exec_() == QDialog.Accepted:
             orb.log.debug('* rqt wizard completed.')
             rqt_oid = rqt_wizard_state.get('rqt_oid')
@@ -4270,7 +4276,7 @@ class Main(QMainWindow):
                 wizard.pgxn_obj = None
 
     def new_perform_requirement(self):
-        wizard = ReqWizard(parent=self, performance=True)
+        wizard = RqtWizard(parent=self, performance=True)
         if wizard.exec_() == QDialog.Accepted:
             orb.log.debug('* rqt wizard completed.')
             if getattr(wizard, 'pgxn_obj', None):
@@ -4292,7 +4298,7 @@ class Main(QMainWindow):
         # panels = ['main', 'admin']
         # required = ['id', 'name', 'abbreviation', 'description',
                     # 'range_datatype']
-        # pxo = MarvObject(de_def, edit_mode=True, new=True, modal_mode=True,
+        # pxo = PgxnObject(de_def, edit_mode=True, new=True, modal_mode=True,
                          # required=required, panels=panels, parent=self)
         # pxo.show()
 
@@ -4306,7 +4312,7 @@ class Main(QMainWindow):
         test = clone('Test', owner=proj)
         # modal_mode -> 'cancel' closes dialog
         panels = ['main', 'info', 'admin']
-        pxo = MarvObject(test, edit_mode=True, new=True, modal_mode=True,
+        pxo = PgxnObject(test, edit_mode=True, new=True, modal_mode=True,
                          panels=panels, parent=self)
         pxo.show()
 
@@ -4315,7 +4321,7 @@ class Main(QMainWindow):
         # view = ['id', 'name', 'abbreviation', 'description']
         # panels = ['main']
         # # modal_mode -> 'cancel' closes dialog
-        # pxo = MarvObject(product_type, edit_mode=True, new=True, view=view,
+        # pxo = PgxnObject(product_type, edit_mode=True, new=True, view=view,
                          # panels=panels, modal_mode=True, parent=self)
         # pxo.show()
 
@@ -4367,7 +4373,8 @@ class Main(QMainWindow):
     def display_requirements_manager(self):
         w = self.geometry().width()
         h = self.geometry().height()
-        dlg = RqtManager(project=self.project, width=w, height=h, parent=self)
+        dlg = RequirementManager(project=self.project, width=w, height=h,
+                                 parent=self)
         dlg.show()
 
     def display_conops_modeler(self):

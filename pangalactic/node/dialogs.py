@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
 
 from louie import dispatcher
 
-from pangalactic.core             import prefs, state
+from pangalactic.core             import orb, prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.clone       import clone
 from pangalactic.core.meta        import (M2M, NUMERIC_FORMATS, ONE2M,
@@ -37,7 +37,6 @@ from pangalactic.core.names       import (get_attr_ext_name,
                                           get_external_name_plural)
 from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
                                           get_dval, mode_defz, set_dval)
-from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,

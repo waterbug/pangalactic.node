@@ -51,9 +51,12 @@ from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QCheckBox,
                              QDialog, QProgressBar, QSizePolicy, QStyleFactory,
                              QVBoxLayout, QWidget)
 
+# set the uberorb orb
+import pangalactic.core.set_uberorb
+
 # pangalactic
 from pangalactic.core                  import __version__
-from pangalactic.core                  import diagramz
+from pangalactic.core                  import diagramz, orb
 from pangalactic.core                  import config, write_config
 from pangalactic.core                  import prefs, write_prefs
 from pangalactic.core                  import state, write_state
@@ -72,7 +75,6 @@ from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
                                                uncook_datetime)
 from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
-from pangalactic.core.uberorb          import orb
 from pangalactic.core.meta             import asciify
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model

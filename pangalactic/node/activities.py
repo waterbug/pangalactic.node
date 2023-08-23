@@ -16,13 +16,12 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QSizePolicy, QStatusBar, QTableView, QTreeView,
                              QVBoxLayout, QWidget)
 
-from pangalactic.core             import state
+from pangalactic.core             import orb, state
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 # from pangalactic.core.parametrics import get_pval_as_str,
 from pangalactic.core.parametrics import (get_variable_and_context,
                                           mode_defz, parameterz)
-from pangalactic.core.uberorb     import orb
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel

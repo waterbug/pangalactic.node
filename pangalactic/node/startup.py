@@ -7,9 +7,9 @@ import os, shutil
 from copy import deepcopy
 
 # pangalactic
+from pangalactic.core         import orb
 from pangalactic.core         import config, prefs, state
 from pangalactic.core.meta    import PGXN_PARAMETERS
-from pangalactic.core.uberorb import orb
 from pangalactic.node         import icons, images, ref_db
 
 

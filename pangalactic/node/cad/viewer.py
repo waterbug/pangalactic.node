@@ -19,8 +19,7 @@
 
 import os, platform, sys
 
-from pangalactic.core         import state
-from pangalactic.core.uberorb import orb
+from pangalactic.core         import orb, state
 from pangalactic.node.buttons import MenuButton
 
 from OCC.Display import OCCViewer

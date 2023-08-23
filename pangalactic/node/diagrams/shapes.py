@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (QDialog, QGraphicsItem, QGraphicsLineItem,
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core             import prefs, state
+from pangalactic.core             import orb, prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.clone       import clone
 from pangalactic.core.meta        import MAIN_VIEWS
@@ -27,7 +27,6 @@ from pangalactic.core.names       import (get_acu_id, get_acu_name,
                                           get_port_name)
 from pangalactic.core.parametrics import (data_elementz, get_dval,
                                           get_pval, parameterz, parm_defz)
-from pangalactic.core.uberorb     import orb
 from pangalactic.core.units       import in_si
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_bom_oids

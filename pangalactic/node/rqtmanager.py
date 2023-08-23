@@ -7,12 +7,12 @@ import os, sys
 from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QHBoxLayout,
                              QLabel, QMessageBox, QSizePolicy, QVBoxLayout)
 
+from pangalactic.core             import orb
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms, is_global_admin
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import (get_attr_ext_name, get_ext_name_attr,
                                           pname_to_header, STD_VIEWS)
-from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
 from pangalactic.node.buttons     import SizedButton

@@ -11,12 +11,12 @@ from sqlalchemy   import (BigInteger, Boolean, Date, DateTime, Float,
 from textwrap import wrap
 
 # pangalactic
+### uncomment orb if debug logging is needed ...
+# from pangalactic.core             import orb
 from pangalactic.core             import state
 from pangalactic.core.meta        import TEXT_PROPERTIES, SELECTABLE_VALUES
 from pangalactic.core.parametrics import (make_de_html, make_parm_html,
                                           mode_defz)
-### uncomment orb if debug logging is needed ...
-# from pangalactic.core.uberorb     import orb
 from pangalactic.node.buttons     import FkButton, UrlButton
 
 

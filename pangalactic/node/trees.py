@@ -9,9 +9,9 @@ from PyQt5.QtCore import QAbstractItemModel, QModelIndex, QPoint, QSize, Qt
 from PyQt5.QtGui import QDrag, QIcon, QPixmap
 from PyQt5.QtWidgets import QAbstractItemView, QApplication, QTreeView
 
+from pangalactic.core             import orb
 from pangalactic.core             import state
 from pangalactic.core.parametrics import parm_defz
-from pangalactic.core.uberorb     import orb
 from pangalactic.node.utils       import create_mime_data
 
 

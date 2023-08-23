@@ -18,6 +18,7 @@ from louie      import dispatcher
 from sqlalchemy.orm.collections import InstrumentedList
 
 # pangalactic
+from pangalactic.core import orb
 from pangalactic.core import prefs, state
 from pangalactic.core.access import get_perms, is_global_admin
 from pangalactic.core.clone  import clone
@@ -36,7 +37,6 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           parm_defz, round_to,
                                           set_dval_from_str,
                                           set_pval_from_str)
-from pangalactic.core.uberorb         import orb
 from pangalactic.core.units           import alt_units, in_si, ureg
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_to_tsv

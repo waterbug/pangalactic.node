@@ -42,11 +42,10 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
 
 # pangalactic
-from pangalactic.core             import state
+from pangalactic.core             import orb, state
 from pangalactic.core.clone       import clone
 # from pangalactic.core.parametrics import get_pval
 # from pangalactic.core.meta        import DEFAULT_CLASS_PARAMETERS
-from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.node.activities  import ActivityTable, ModesTool
 from pangalactic.node.buttons     import SizedButton, ToolButton

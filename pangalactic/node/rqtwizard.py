@@ -13,13 +13,13 @@ from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDialogButtonBox,
 
 from louie import dispatcher
 
+from pangalactic.core             import orb
 from pangalactic.core             import state
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import (get_attr_ext_name, get_parm_rel_id,
                                           get_parm_rel_name, get_rel_id,
                                           get_rel_name)
 from pangalactic.core.parametrics import parm_defz
-from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.units       import alt_units
 from pangalactic.node.libraries   import LibraryListView

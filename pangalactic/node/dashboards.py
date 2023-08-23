@@ -12,11 +12,10 @@ from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QMessageBox,
                              QTreeView)
 
 # pangalactic
-from pangalactic.core                 import prefs, state
+from pangalactic.core                 import orb, prefs, state
 from pangalactic.core.names           import get_link_name, get_link_object
 from pangalactic.core.parametrics     import (get_usage_mode_val_as_str,
                                               mode_defz, parm_defz)
-from pangalactic.core.uberorb         import orb
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import (write_data_to_tsv,
                                               write_mel_to_tsv)

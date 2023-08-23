@@ -11,11 +11,10 @@ from PyQt5.QtCore    import pyqtSignal, Qt, QLineF, QPoint, QPointF, QRectF
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core                 import diagramz, state
+from pangalactic.core                 import diagramz, orb, state
 from pangalactic.core.access          import get_perms
 from pangalactic.core.parametrics     import get_dval, get_pval
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.uberorb         import orb
 from pangalactic.node.diagrams.shapes import (ObjectBlock, PortBlock,
                                               RoutedConnector, SubjectBlock)
 

@@ -19,6 +19,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 from louie import dispatcher
 
 # pangalactic
+from pangalactic.core             import orb
 from pangalactic.core             import config, state
 from pangalactic.core.clone       import clone
 from pangalactic.core.meta        import MAIN_VIEWS
@@ -29,7 +30,6 @@ from pangalactic.core.parametrics import (de_defz, parm_defz, set_dval,
                                           set_dval_from_str,
                                           set_pval_from_str)
 from pangalactic.core.refdata     import trls
-from pangalactic.core.uberorb     import orb
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.utils.excelreader import get_raw_excel_data
 from pangalactic.core.utils.xlsxreader import get_raw_xlsx_data

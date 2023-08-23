@@ -32,7 +32,12 @@ from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
+# set to torb or uberorb
+# import pangalactic.core.set_torb
+import pangalactic.core.set_uberorb
+
 from pangalactic.core                 import __version__
+from pangalactic.core                 import orb
 from pangalactic.core                 import state
 from pangalactic.core.clone           import clone
 from pangalactic.core.parametrics     import add_parameter, set_dval
@@ -42,7 +47,6 @@ from pangalactic.core.test.utils      import (create_test_project,
                                               create_test_users,
                                               gen_test_pvals, test_parms)
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.core.uberorb         import orb
 # from pangalactic.node.conops          import ConOpsModeler
 from pangalactic.node.dialogs         import LoginDialog, ProgressDialog
 from pangalactic.node.widgets         import LogWidget, ModeLabel

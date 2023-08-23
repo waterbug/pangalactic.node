@@ -10,11 +10,11 @@ from PyQt5.QtCore import (Qt, QAbstractTableModel, QMimeData, QModelIndex,
 from PyQt5.QtGui import QIcon, QPixmap
 
 # pangalactic
+from pangalactic.core             import orb
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import MAIN_VIEWS
 from pangalactic.core.names       import pname_to_header, to_media_name
 from pangalactic.core.parametrics import de_defz, get_pval_as_str, parm_defz
-from pangalactic.core.uberorb     import orb
 from pangalactic.node.utils       import get_pixmap
 
 

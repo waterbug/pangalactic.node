@@ -14,9 +14,8 @@ from louie import dispatcher
 
 from binaryornot.check import is_binary
 
-from pangalactic.core                 import config, state
+from pangalactic.core                 import config, orb, state
 from pangalactic.core.clone           import clone
-from pangalactic.core.uberorb         import orb
 from pangalactic.core.names           import get_ra_id, get_ra_name
 from pangalactic.node.buttons         import ButtonLabel, SizedButton
 from pangalactic.node.dialogs         import ObjectSelectionDialog

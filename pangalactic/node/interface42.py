@@ -11,8 +11,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QMenu, QMessageBox, QPushButton, QHBoxLayout,
                              QVBoxLayout, QLabel, QScrollArea, QWidget)
 
-from pangalactic.core             import state
-from pangalactic.core.uberorb     import orb
+from pangalactic.core             import orb, state
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.widgets     import NameLabel

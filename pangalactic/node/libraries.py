@@ -12,10 +12,9 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
 from louie import dispatcher
 
 # pangalactic
-from pangalactic.core            import prefs, state
+from pangalactic.core            import orb, prefs, state
 from pangalactic.core.names      import (display_id, get_external_name_plural,
                                          to_media_name)
-from pangalactic.core.uberorb    import orb
 from pangalactic.node.buttons    import SizedButton
 from pangalactic.node.filters    import FilterPanel, ProductFilterDialog
 from pangalactic.node.trees      import ParmDefTreeView
