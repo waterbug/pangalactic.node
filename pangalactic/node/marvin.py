@@ -203,7 +203,7 @@ class Main(QMainWindow):
         # missing or unreadable, the user will be informed at startup that
         # parameters and/or data_elements will be unavailable until the next
         # repository sync.
-        setup_dirs_and_state()
+        setup_dirs_and_state(app_name='Marvin')
         self.get_or_create_local_user()
         self.add_splash_msg('... logging started ...')
         # NOTES ON `config` and `state`:
