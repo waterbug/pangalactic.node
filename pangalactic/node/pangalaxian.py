@@ -65,6 +65,7 @@ from pangalactic.core                  import trash, write_trash
 from pangalactic.core.access           import get_perms, is_global_admin
 from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
+from pangalactic.core.meta             import asciify
 from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
                                                delete_data_element,
@@ -76,7 +77,6 @@ from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
                                                uncook_datetime)
 from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
-from pangalactic.core.meta             import asciify
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
@@ -205,6 +205,7 @@ class Main(QMainWindow):
         state['client'] = True
         # initialize internal "_product" attr, so getter for "product" (i.e.,
         # the subject of the Component Modeler mode) works
+        # initialize internal "_product" attr, so getter for "product" works
         self._product = None
         # set flag to monitor when connecting to server
         self.attempting_to_connect = False
