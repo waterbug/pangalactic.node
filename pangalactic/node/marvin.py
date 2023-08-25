@@ -32,7 +32,8 @@ from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
-# set the torb orb
+# sets "orb" to torb.orb, so that
+# "from pangalactic.core import orb" imports p.core.torb.orb
 import pangalactic.core.set_torb
 
 # pangalactic
@@ -58,9 +59,12 @@ from pangalactic.core.parametrics      import (allocz,
                                                parmz_by_dimz, rqt_allocz,
                                                save_data_elementz, save_parmz)
 from pangalactic.core.refdata          import ref_oids
+# ------------------------------------------------------------------------
+# marvin-specific modules in core
 from pangalactic.core.smerializers     import (DESERIALIZATION_ORDER,
                                                deserialize, serialize)
 from pangalactic.core.tachistry        import matrix, schemas
+# ------------------------------------------------------------------------
 from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
@@ -73,7 +77,7 @@ from pangalactic.node.message_bus      import PgxnMessageBus, reachable
 # CompareWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews  import CompareWidget
 # ------------------------------------------------------------------------
-# NOTE:  need to create "marv" versions of wizards ...
+# NOTE:  need to create "marvinized" versions of wizards ...
 # from pangalactic.node.wizards          import (NewProductWizard,
                                                # DataImportWizard,
                                                # wizard_state)
@@ -83,6 +87,7 @@ from pangalactic.node.splash           import SplashScreen
 # FIXME: the following modules had been specialized for marvin -- "torb" needs
 # mods to support them ...
 from pangalactic.node.conops           import ConOpsModeler
+from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.dialogs          import (LoginDialog,
                                                NotificationDialog,
                                                ObjectSelectionDialog,
@@ -100,7 +105,6 @@ from pangalactic.node.systemtree       import SystemTreeView
 from pangalactic.node.tableviews       import ObjectTableView
 from pangalactic.node.widgets          import (AutosizingListWidget,
                                                ModeLabel, PlaceHolder)
-from pangalactic.node.dashboards       import SystemDashboard
 # ============================================================================
 
 # fix qt import error -- import this before importing anything in PyQt5

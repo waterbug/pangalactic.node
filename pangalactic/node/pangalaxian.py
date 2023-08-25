@@ -51,7 +51,8 @@ from PyQt5.QtWidgets import (QAction, QActionGroup, QApplication, QCheckBox,
                              QDialog, QProgressBar, QSizePolicy, QStyleFactory,
                              QVBoxLayout, QWidget)
 
-# set the uberorb orb
+# sets "orb" to uberorb.orb, so that
+# "from pangalactic.core import orb" imports p.core.uberorb.orb
 import pangalactic.core.set_uberorb
 
 # pangalactic
