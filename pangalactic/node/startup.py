@@ -38,7 +38,7 @@ def setup_ref_db_and_version(home, version):
         f.write(version)
 
 
-def setup_dirs_and_state():
+def setup_dirs_and_state(app_name='Pangalaxian'):
     # create "icon_vault" for runtime-generated icons
     orb.icon_vault = os.path.join(orb.vault, 'icons')
     if not os.path.exists(orb.icon_vault):
@@ -52,7 +52,7 @@ def setup_dirs_and_state():
         # or platform.platform().startswith('Darwin')):
         # state['icon_type'] = '.png'
     prefs['userid'] =  prefs.get('userid') or 'me'
-    default_config = {'app_name': 'Pangalaxian',
+    default_config = {'app_name': app_name,
                       'logo': 'pangalactic_logo.png',
                       'tall_logo': 'pangalactic_logo.png',
                       'units': 'mks'}
