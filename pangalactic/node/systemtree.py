@@ -410,8 +410,8 @@ class SystemTreeModel(QAbstractItemModel):
         # NOTE:  Selectable is needed for node selection
         return (Qt.ItemIsEnabled | Qt.ItemIsSelectable)
 
-    def supportedDropActions(self): 
-        return Qt.CopyAction | Qt.MoveAction         
+    # def supportedDropActions(self):
+        # return Qt.CopyAction | Qt.MoveAction
 
     def get_node(self, index):
         """

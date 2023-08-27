@@ -4431,30 +4431,26 @@ class Main(QMainWindow):
             return
         # orb.log.debug(' + rebuilding ...')
         if getattr(self, 'dashboard_panel', None):
-            # orb.log.debug('         + dashboard_panel exists ...')
+            # orb.log.debug('  + dashboard_panel exists ...')
+            # orb.log.debug('    clearing out select and dashboard ...')
             dashboard_layout = self.dashboard_panel.layout()
-            if dashboard_layout.layout():
-                # orb.log.debug('           dashboard_layout has a layout ...')
-                # orb.log.debug('           clearing out old stuff ...')
-                dashboard_layout_layout = dashboard_layout.layout()
-        if getattr(self, 'dashboard', None):
             if getattr(self, 'dash_select', None):
-                dashboard_layout_layout.removeWidget(self.dash_select)
+                dashboard_layout.removeWidget(self.dash_select)
                 self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
                 self.dash_select.close()
                 self.dash_select = None
             if getattr(self, 'dashboard', None):
-                dashboard_layout_layout.removeWidget(self.dashboard)
+                dashboard_layout.removeWidget(self.dashboard)
                 self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
                 self.dashboard.close()
                 self.dashboard = None
-            # orb.log.debug('           destroying old dashboard_panel ...')
+            # orb.log.debug('    destroying old dashboard_panel ...')
             self.dashboard_panel.setAttribute(Qt.WA_DeleteOnClose)
             self.dashboard_panel.close()
             self.dashboard_panel = None
         # else:
-            # orb.log.debug('         + no dashboard_panel exists ...')
-        # orb.log.debug('           creating new dashboard panel ...')
+            # orb.log.debug('  + no dashboard_panel exists ...')
+        # orb.log.debug('    creating new dashboard panel ...')
         self.dashboard_panel = QWidget(self)
         self.dashboard_panel.setContextMenuPolicy(Qt.PreventContextMenu)
         self.dashboard_panel.setMinimumSize(500, 200)
