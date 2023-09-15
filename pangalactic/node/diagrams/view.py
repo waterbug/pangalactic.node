@@ -490,7 +490,7 @@ class DiagramScene(QGraphicsScene):
                 self.removeItem(shape)
         ordering = ordering or self.get_block_ordering()
         if not len(ordering) == 2:
-            # if ordering is read from a 'diagramz' cached that was in an
+            # if ordering is read from a 'diagramz' cache that was in an
             # old or improper format, it will fail -- in which case, just
             # use the output of 'get_block_ordering()' instead ...
             ordering = self.get_block_ordering()
