@@ -32,8 +32,8 @@ from twisted.internet._sslverify import OpenSSLCertificateAuthorities
 from twisted.internet.ssl import CertificateOptions
 from OpenSSL import crypto
 
-# set to torb or uberorb
-# import pangalactic.core.set_torb
+# set to fastorb or uberorb
+# import pangalactic.core.set_fastorb
 import pangalactic.core.set_uberorb
 
 from pangalactic.core                 import __version__
