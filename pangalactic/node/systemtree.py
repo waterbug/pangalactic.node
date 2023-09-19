@@ -893,7 +893,6 @@ class SystemTreeView(QTreeView):
             obj (Project or Product): root object of the tree
 
         Keyword Args:
-            selected_system (Product): system that is selected
             refdes (bool):  flag indicating whether to display the reference
                 designator or the component name as the node name
             rqt_allocs (bool):  flag indicating whether to highlight nodes to
@@ -1333,10 +1332,7 @@ class SystemTreeView(QTreeView):
             return []
         model = self.source_model
         assembly_node = model.get_node(idx)
-        if hasattr(assembly_node.link, 'component'):
-            assembly = assembly_node.link.component
-        else:
-            assembly = assembly_node.link.system
+        assembly = assembly_node.obj
         # orb.log.debug('* object_indexes_in_assembly({})'.format(assembly.id))
         if obj.oid == assembly.oid:
             # orb.log.debug('  assembly *is* the object')
