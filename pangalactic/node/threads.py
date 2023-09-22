@@ -1,12 +1,14 @@
 import time
 import traceback, sys
 
+from louie import dispatcher
+
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QLabel,
                              QProgressBar, QPushButton, QWidget)
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, QObject, QRunnable,
                           QThreadPool, QTimer)
 
-# from pangalactic.core.serializers import deserialize
+from pangalactic.core.smerializers import deserialize
 
 
 threadpool = QThreadPool.globalInstance()
@@ -81,10 +83,34 @@ class Worker(QRunnable):
             self.signals.finished.emit()
 
 # ----------------------------------------------------------------------------
-# NOTE:  Running the deserializer in a separate thread is not possible because
-# sqlite objects cannot be used from a thread other than the one in which they
-# were created.
+# NOTE:  Running the serializers.deserializer() function in a separate thread
+# is not possible because sqlite objects cannot be used from a thread other
+# than the one in which they were created.
 # ----------------------------------------------------------------------------
+
+
+def run_deserializer(*args, **kwargs):
+    """
+    Run the smerializers.deserialize() function -- this wrapper is designed to
+    be run by a Worker so deserialization can be done in a separate thread from
+    the gui and emit progress signals that update a progress dialog.
+
+    Args:
+        args (tuple):  arguments to deserialize()
+
+    Keyword Args:
+        progress_signal (pyqtSignal): signal object (passed in by the Worker
+            instance that calls this function.
+    """
+    progress_signal = kwargs.get('progress_signal')
+    if progress_signal:
+        del kwargs['progress_signal']
+    else:
+        return
+    def send_progress_update(msg, n):
+        progress_signal.emit(msg, n)
+    dispatcher.connect(send_progress_update, 'deserialized object')
+    deserialize(*args, **kwargs)
 
 
 # NOTE:  this "MainWindow" is just some example code to demonstrate usage ...
