@@ -2206,7 +2206,8 @@ class CloningDialog(QDialog):
         cb_all_label = QLabel(cb_all_txt, self)
         white_box_form = QFormLayout()
         white_box_form.addRow(self.cb_all, cb_all_label)
-        for acu in self.obj.components:
+        acus = [orb.get(c.usage_oid) for c in componentz.get(obj.oid, [])]
+        for acu in acus:
             comp = acu.component
             if comp is None:
                 # ignore "None" components

@@ -4,17 +4,16 @@ PgxnObject (a domain object viewer/editor)
 """
 # from collections import OrderedDict
 import os, sys
-from functools import partial
+from functools import partial, reduce
 
 from PyQt5.QtCore import pyqtSignal, Qt, QVariant
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
-                             QDialogButtonBox, QFileDialog, QFormLayout,
-                             QHBoxLayout, QLabel, QMessageBox, QSizePolicy,
-                             QSpacerItem, QTabWidget, QToolBar, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtWidgets import (QAction, QComboBox, QDialog, QDialogButtonBox,
+                             QFormLayout, QHBoxLayout, QLabel, QMessageBox,
+                             QSizePolicy, QSpacerItem, QTabWidget, QToolBar,
+                             QVBoxLayout, QWidget)
 
-from louie      import dispatcher
+from louie import dispatcher
 from sqlalchemy.orm.collections import InstrumentedList
 
 # pangalactic
@@ -28,6 +27,7 @@ from pangalactic.core.meta import (MAIN_VIEWS, PGEF_DIMENSION_ORDER, PGXN_HIDE,
                                    SELECTION_FILTERS)
 from pangalactic.core.names       import get_attr_ext_name
 from pangalactic.core.parametrics import (add_data_element, add_parameter,
+                                          componentz,
                                           data_elementz, de_defz,
                                           delete_parameter,
                                           delete_data_element,
@@ -38,9 +38,8 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           set_dval_from_str,
                                           set_pval_from_str)
 from pangalactic.core.units           import alt_units, in_si, ureg
-from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.utils.reports   import write_mel_to_tsv
-from pangalactic.core.validation      import get_bom, validate_all
+from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.validation      import validate_all
 from pangalactic.node.buttons         import SizedButton
 from pangalactic.node.cad.viewer      import Model3DViewer
 from pangalactic.node.dialogs         import (CannotFreezeDialog,
@@ -50,7 +49,6 @@ from pangalactic.node.dialogs         import (CannotFreezeDialog,
                                               MiniMelDialog, 
                                               ModelImportDialog,
                                               ModelsAndDocsInfoDialog,
-                                              NotificationDialog,
                                               ObjectSelectionDialog,
                                               ValidationDialog)
 from pangalactic.node.utils           import (get_all_project_usages,
@@ -652,10 +650,7 @@ class PgxnForm(QWidget):
         if SELECTION_FILTERS.get(field_name):
             fltrs = SELECTION_FILTERS[field_name]
             for cname in fltrs:
-                if fltrs[cname]:
-                    objs += orb.select(cname, **fltrs[cname])
-                else:
-                    objs += orb.get_by_type(cname)
+                objs += orb.get_by_type(cname)
         else:
             objs = orb.get_all_subtypes(cname)
         if objs:
@@ -1004,7 +999,7 @@ class PgxnObject(QDialog):
         # insert parameter panels if appropriate
         n_of_parm_panels = 1
         if ((not self.panels or (self.panels and 'parameters' in self.panels))
-            and isinstance(self.obj, orb.classes['Modelable'])
+            and orb.is_a(self.obj, 'Modelable')
             and not cname in PGXN_HIDE_PARMS):
             # All subclasses of Modelable except the ones in PGXN_HIDE_PARMS
             # get a 'parameters' panel
@@ -1366,7 +1361,7 @@ class PgxnObject(QDialog):
                         pass
             # =================================================================
         if (isinstance(self.obj, orb.classes['HardwareProduct'])
-            and self.obj.components):
+            and self.obj.oid in componentz):
             # the "Mini MEL" action only makes sense for white box objects
             self.mini_mel_action = self.create_action('Mini\nMEL',
                                     slot=self.display_mini_mel, icon='data',
@@ -1483,7 +1478,7 @@ class PgxnObject(QDialog):
         be accessible to users who have 'modify' permission on the Product.
         """
         orb.log.debug('* freeze called ...')
-        if not isinstance(self.obj, orb.classes['Product']):
+        if not orb.is_a(self.obj, 'Product'):
             orb.log.debug('  object is not a Product, cannot be frozen.')
             return
         if self.obj.frozen:
@@ -1495,10 +1490,10 @@ class PgxnObject(QDialog):
         user = orb.get(state.get('local_user_oid'))
         global_admin = is_global_admin(user)
         # check whether object is white box or black box
-        if self.obj.components:
+        if self.obj.oid in componentz:
             orb.log.debug('  white box, checking for non-frozen components ..')
             # white box -- all components must be frozen
-            bom = get_bom(self.obj)
+            bom = orb.get_bom_from_compz(self.obj)
             not_frozens = [obj for obj in bom if not obj.frozen]
             if not_frozens:
                 orb.log.debug('  non-frozens found, checking permissions ..')
@@ -1514,7 +1509,6 @@ class PgxnObject(QDialog):
                         self.obj.frozen = True
                         for obj in not_frozens:
                             obj.frozen = True
-                        orb.db.commit()
                         # only a global admin can "thaw"
                         self.thaw_action.setVisible(True)
                         oids = [self.obj.oid] + [o.oid for o in not_frozens]
@@ -1546,7 +1540,6 @@ class PgxnObject(QDialog):
                             self.obj.frozen = True
                             for obj in not_frozens:
                                 obj.frozen = True
-                            orb.db.commit()
                             # only a global admin can "thaw"
                             self.thaw_action.setVisible(False)
                             oids = [self.obj.oid] + [o.oid
@@ -1564,7 +1557,6 @@ class PgxnObject(QDialog):
                     self.freeze_action.setVisible(False)
                     self.frozen_action.setVisible(True)
                     self.obj.frozen = True
-                    orb.db.commit()
                     if global_admin:
                         # only a global admin can "thaw"
                         self.thaw_action.setVisible(True)
@@ -1580,7 +1572,6 @@ class PgxnObject(QDialog):
                 self.freeze_action.setVisible(False)
                 self.frozen_action.setVisible(True)
                 self.obj.frozen = True
-                orb.db.commit()
                 if global_admin:
                     # only a global admin can "thaw"
                     self.thaw_action.setVisible(True)
@@ -1607,7 +1598,6 @@ class PgxnObject(QDialog):
             orb.log.debug('  aha, my object is in there ...')
             # refresh our "obj" from the database
             oid = self.obj.oid
-            orb.db.commit()
             self.obj = orb.get(oid)
             html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
             html += 'has been <b>frozen</b>.'
@@ -1650,7 +1640,6 @@ class PgxnObject(QDialog):
             orb.log.debug('  aha, my object is in there ...')
             # refresh our "obj" from the database
             oid = self.obj.oid
-            orb.db.commit()
             self.obj = orb.get(oid)
             html = f'<b>{self.obj.name}</b> [{self.obj.id}] '
             html += 'has been <b>thawed</b>.'
@@ -1690,7 +1679,7 @@ class PgxnObject(QDialog):
         orb.log.debug('* thaw action called ...')
         # notice = None
         thaw_permitted = False
-        if (isinstance(self.obj, orb.classes['Product'])
+        if (orb.is_a(self.obj, 'Product')
             and self.obj.frozen):
             if getattr(self.obj, 'where_used', None):
                 assemblies = [acu.assembly for acu in self.obj.where_used]
@@ -1724,47 +1713,71 @@ class PgxnObject(QDialog):
             self.frozen_action.setVisible(False)
             self.thaw_action.setVisible(False)
             self.obj.frozen = False
-            orb.db.commit()
             dispatcher.send(signal="thaw", oids=[self.obj.oid])
             self.build_from_object()
 
     def show_where_used(self):
         info = ''
-        where_used = getattr(self.obj, 'where_used', None)
-        if where_used:
-            assemblies = set([acu.assembly for acu in self.obj.where_used])
-            # if assemblies and len(assemblies) > 0:
+        all_comps = set(reduce(lambda x,y: x+y, componentz.values()))
+        all_comp_oids = [comp.oid for comp in all_comps]
+        if self.obj.oid in all_comp_oids:
+            assmb_oids = [oid for oid in componentz
+                          if self.obj.oid in
+                          [comp.oid for comp in componentz[oid]]]
+            assemblies = [orb.get(oid) for oid in set(assmb_oids)]
             txt = 'This product is used as a component '
             txt += 'in the following assemblies:'
             assmb_info = '<p><b>Assemblies:</b></p>'
             assmb_info += '<p><ul>{}</ul></p>'.format('\n'.join(
                        ['<li><b>{}</b><br>({})</li>'.format(
                        a.name, a.id) for a in assemblies if a]))
-        projects_using = getattr(self.obj, 'projects_using_system', None)
-        if projects_using:
-            txt = 'This product is used as a top-level system '
-            txt += 'in the following project(s):'
-            p_ids = [psu.project.id for psu in self.obj.projects_using_system]
-            proj_info = '<p><b>A Top Level System in Projects:</b></p>'
-            proj_info += '<p><ul>{}</ul></p>'.format('\n'.join(
-                                      ['<li><b>{}</b></li>'.format(p_id) for
-                                      p_id in p_ids]))
-        if where_used and projects_using:
-            txt = 'This product is used as a component '
-            txt += 'in the following assemblies and '
-            txt += 'as a top-level system '
-            txt += 'in the following project(s):'
-            info = assmb_info + proj_info
-        elif where_used:
-            info = assmb_info
-        elif projects_using:
-            info = proj_info
         else:
             txt = 'This product is not used in any assemblies or projects.'
         notice = QMessageBox(QMessageBox.Information, 'Where Used',
                              txt, QMessageBox.Ok, self)
         notice.setInformativeText(info)
         notice.show()
+
+        # ====================================================================
+        # ORM (sqlalchemy) based implementation
+        # ====================================================================
+        # where_used = getattr(self.obj, 'where_used', None)
+        # if where_used:
+            # assemblies = set([acu.assembly for acu in self.obj.where_used])
+            # # if assemblies and len(assemblies) > 0:
+            # txt = 'This product is used as a component '
+            # txt += 'in the following assemblies:'
+            # assmb_info = '<p><b>Assemblies:</b></p>'
+            # assmb_info += '<p><ul>{}</ul></p>'.format('\n'.join(
+                       # ['<li><b>{}</b><br>({})</li>'.format(
+                       # a.name, a.id) for a in assemblies if a]))
+
+        # projects_using = getattr(self.obj, 'projects_using_system', None)
+        # if projects_using:
+            # txt = 'This product is used as a top-level system '
+            # txt += 'in the following project(s):'
+            # p_ids = [psu.project.id for psu in self.obj.projects_using_system]
+            # proj_info = '<p><b>A Top Level System in Projects:</b></p>'
+            # proj_info += '<p><ul>{}</ul></p>'.format('\n'.join(
+                                      # ['<li><b>{}</b></li>'.format(p_id) for
+                                      # p_id in p_ids]))
+        # if where_used and projects_using:
+            # txt = 'This product is used as a component '
+            # txt += 'in the following assemblies and '
+            # txt += 'as a top-level system '
+            # txt += 'in the following project(s):'
+            # info = assmb_info + proj_info
+        # elif where_used:
+            # info = assmb_info
+        # elif projects_using:
+            # info = proj_info
+        # else:
+            # txt = 'This product is not used in any assemblies or projects.'
+        # notice = QMessageBox(QMessageBox.Information, 'Where Used',
+                             # txt, QMessageBox.Ok, self)
+        # notice.setInformativeText(info)
+        # notice.show()
+        # ====================================================================
 
     def show_projects_using(self):
         info = ''
@@ -1836,47 +1849,6 @@ class PgxnObject(QDialog):
         dlg = MiniMelDialog(self.obj, parent=self)
         dlg.show()
 
-    def gen_mini_mel(self, dash_name=None):
-        """
-        Generate a tsv MEL for the current object.
-
-        Keyword Args:
-            dash_name (str):  name of the dashboard whose schema is to be used
-        """
-        orb.log.debug('* [pgxo] gen_mini_mel()')
-        dtstr = date2str(dtstamp())
-        dash_name = state.get('dashboard_name') or 'MEL'
-        if 'MEL' not in dash_name:
-            # replace spaces (if any) in dash_name with hyphens
-            dname = dash_name.replace(' ', '-')
-            mel_name = '-' + dname + '-MEL-'
-        else:
-            mel_name = '-MEL-'
-        fname = self.obj.id + mel_name + dtstr + '.tsv'
-        state_path = state.get('mini_mel_last_path') or ''
-        suggested_fpath = os.path.join(state_path, fname)
-        fpath, filters = QFileDialog.getSaveFileName(
-                                    self, 'Write to tsv File',
-                                    suggested_fpath, '(*.tsv)')
-        if fpath:
-            # orb.log.debug(f'  - file selected: "{fpath}"')
-            fpath = str(fpath)   # extra-cautious :)
-            state['mini_mel_last_path'] = os.path.dirname(fpath)
-            dash_schemas = prefs.get('dashboards') or {}
-            data_cols = dash_schemas.get(dash_name)
-            data_cols = data_cols or prefs.get('default_parms')
-            # orb.log.debug(f'  - data columns: "{str(data_cols)}"')
-            write_mel_to_tsv(self.obj, schema=data_cols, file_path=fpath)
-            html = '<h3>Success!</h3>'
-            msg = 'Dashboard contents exported to file:'
-            html += f'<p><b><font color="green">{msg}</font></b><br>'
-            html += f'<b><font color="blue">{fpath}</font></b></p>'
-            self.w = NotificationDialog(html, news=False, parent=self)
-            self.w.show()
-        else:
-            # orb.log.debug('  ... export to tsv cancelled.')
-            return
-
     def on_new_version(self):
         """
         Respond to 'new version' action by cloning the current object using the
@@ -1884,7 +1856,7 @@ class PgxnObject(QDialog):
         of 'Product' -- "new version" menu option will not be displayed
         otherwise.
         """
-        if not isinstance(self.obj, orb.classes['Product']):
+        if not orb.is_a(self.obj, 'Product'):
             msg = '"{}" is not a Product -> not versionable.'.format(
                                                             self.obj.id)
             orb.log.debug('* [pgxo] on_new_version(): {}'.format(msg))
@@ -2192,7 +2164,7 @@ class PgxnObject(QDialog):
         if self.edit_mode:
             txt = '* [pgxo] unsaved edits cancelled, rolling back...'
             orb.log.info(txt)
-            orb.db.rollback()
+            # orb.db.rollback()
             self.edit_mode = False
             self.build_from_object()
 
@@ -2382,7 +2354,7 @@ class PgxnObject(QDialog):
             dispatcher.send(signal="modified object", obj=self.obj,
                             cname=cname)
             self.obj_modified.emit(self.obj.oid)
-            if isinstance(self.obj, orb.classes['Activity']):
+            if orb.is_a(self.obj, 'Activity'):
                 # NOTE: this includes 'Mission' subclass of Activity
                 self.activity_edited.emit(self.obj.oid)
         parent = self.parent()
@@ -2412,10 +2384,7 @@ class PgxnObject(QDialog):
         if SELECTION_FILTERS.get(field_name):
             fltrs = SELECTION_FILTERS[field_name]
             for cname in fltrs:
-                if fltrs[cname]:
-                    objs += orb.select(cname, **fltrs[cname])
-                else:
-                    objs += orb.get_by_type(cname)
+                objs += orb.get_by_type(cname)
         else:
             objs = orb.get_all_subtypes(cname)
         if objs:
@@ -2452,34 +2421,38 @@ class PgxnObject(QDialog):
             self.new_window.show()
 
 
-if __name__ == '__main__':
-    """
-    Cmd line invocation for testing / prototyping
-    """
-    from pangalactic.core.serializers import deserialize
-    from pangalactic.core.test.utils import create_test_project
-    from pangalactic.core.test.utils import create_test_users
-    app = QApplication(sys.argv)
-    # ***************************************
-    # Test using ref and test data
-    # ***************************************
-    if len(sys.argv) < 2:
-        print(' * You must specify a home directory for the orb *')
-        sys.exit()
-    home = sys.argv[1]
-    orb.start(home, console=True, debug=True)
-    deserialize(orb, create_test_users() + create_test_project())
-    HardwareProduct = orb.classes['HardwareProduct']
-    test_part = HardwareProduct(oid='fusionworld:mrfusion.000',
-            id='mrfusion.000', id_ns='fusionworld', name='Mr. Fusion v.000',
-            security_mask=0, description='Fusion Power Source, MF Series',
-            comment='Omni-Fuel, Compact Semi-Portable Fusion Power Module')
-    h2g2 = orb.get('hog0')
-    if h2g2:
-        test_part = h2g2
-    admin = orb.get('pgefobjects:admin')
-    pgana = orb.get('pgefobjects:PGANA')
-    window = PgxnObject(test_part)
-    window.show()
-    sys.exit(app.exec_())
+# ==========================================================================
+# This would need to be modified to work with fastorb ...
+# ==========================================================================
+# if __name__ == '__main__':
+    # """
+    # Cmd line invocation for testing / prototyping
+    # """
+    # from PyQt5.QtWidgets import QApplication
+    # from pangalactic.core.serializers import deserialize
+    # from pangalactic.core.test.utils import create_test_project
+    # from pangalactic.core.test.utils import create_test_users
+    # app = QApplication(sys.argv)
+    # # ***************************************
+    # # Test using ref and test data
+    # # ***************************************
+    # if len(sys.argv) < 2:
+        # print(' * You must specify a home directory for the orb *')
+        # sys.exit()
+    # home = sys.argv[1]
+    # orb.start(home, console=True, debug=True)
+    # deserialize(orb, create_test_users() + create_test_project())
+    # HardwareProduct = orb.classes['HardwareProduct']
+    # test_part = HardwareProduct(oid='fusionworld:mrfusion.000',
+            # id='mrfusion.000', id_ns='fusionworld', name='Mr. Fusion v.000',
+            # security_mask=0, description='Fusion Power Source, MF Series',
+            # comment='Omni-Fuel, Compact Semi-Portable Fusion Power Module')
+    # h2g2 = orb.get('hog0')
+    # if h2g2:
+        # test_part = h2g2
+    # admin = orb.get('pgefobjects:admin')
+    # pgana = orb.get('pgefobjects:PGANA')
+    # window = PgxnObject(test_part)
+    # window.show()
+    # sys.exit(app.exec_())
 
