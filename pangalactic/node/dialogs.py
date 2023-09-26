@@ -35,8 +35,9 @@ from pangalactic.core.meta        import (M2M, NUMERIC_FORMATS, ONE2M,
                                           TEXT_PROPERTIES)
 from pangalactic.core.names       import (get_attr_ext_name,
                                           get_external_name_plural)
-from pangalactic.core.parametrics import (de_defz, parm_defz, parmz_by_dimz,
-                                          get_dval, mode_defz, set_dval)
+from pangalactic.core.parametrics import (componentz, de_defz, parm_defz,
+                                          parmz_by_dimz, get_dval, mode_defz,
+                                          set_dval)
 from pangalactic.core.units       import alt_units, in_si
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,
@@ -2206,7 +2207,7 @@ class CloningDialog(QDialog):
         cb_all_label = QLabel(cb_all_txt, self)
         white_box_form = QFormLayout()
         white_box_form.addRow(self.cb_all, cb_all_label)
-        acus = [orb.get(c.usage_oid) for c in componentz.get(obj.oid, [])]
+        acus = [orb.get(c.usage_oid) for c in componentz.get(self.obj.oid, [])]
         for acu in acus:
             comp = acu.component
             if comp is None:
