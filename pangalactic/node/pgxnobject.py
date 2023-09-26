@@ -115,7 +115,7 @@ class PgxnForm(QWidget):
                 fields)
             parent (QWidget): parent widget
         """
-        orb.log.info('* [pgxnf] PgxnForm()')
+        # orb.log.info('* [pgxnf] PgxnForm()')
         super().__init__(parent=parent)
         self.obj = obj
         self.pgxo = pgxo
@@ -490,7 +490,7 @@ class PgxnForm(QWidget):
         else:  # "admin" tab
             form_view = [f for f in PGXN_VIEWS['admin']
                         if f not in pgxn_main_view]
-        orb.log.info(f'  [pgxnf] form_type: {form_type}')
+        # orb.log.info(f'  [pgxnf] form_type: {form_type}')
         # if a view is specified, it restricts the fields displayed
         if view:
             this_view = [f for f in form_view if f in view]
@@ -501,7 +501,7 @@ class PgxnForm(QWidget):
             requireds = PGXN_REQD.get(cname) or []
         reqd_fields = [f for f in field_names if f in requireds]
         # don't create panel if it will have no fields
-        orb.log.info(f'  [pgxnf] view: {this_view}')
+        # orb.log.info(f'  [pgxnf] view: {this_view}')
         if not this_view:
             return None
         for field_name in this_view:
@@ -529,9 +529,9 @@ class PgxnForm(QWidget):
                 editable = False
             related_cname = schema['fields'][field_name].get('related_cname')
             # NOTE: this should be uncommented if needed for debugging
-            orb.log.debug('* [pgxnf] get_widget("{}", {})'.format(
-                                                        field_name,
-                                                        str(field_type)))
+            # orb.log.debug('* [pgxnf] get_widget("{}", {})'.format(
+                                                        # field_name,
+                                                        # str(field_type)))
             widget, label = get_widget(field_name, field_type, value=val,
                                    editable=editable, nullable=nullable,
                                    maxlen=max_length, obj_pk=obj_pk,
@@ -540,10 +540,10 @@ class PgxnForm(QWidget):
                                    placeholder=placeholders.get(field_name),
                                    choices=choices, tooltip=definition)
             if widget:
-                orb.log.debug('  [pgxnf]'
-                              ' - got widget (%s) and label, "%s"' % (
-                                                     str(widget),
-                                                     str(label.text())))
+                # orb.log.debug('  [pgxnf]'
+                              # ' - got widget (%s) and label, "%s"' % (
+                                                     # str(widget),
+                                                     # str(label.text())))
                 if editable:
                     self.editable_widgets[field_name] = widget
                 widget.setSizePolicy(QSizePolicy.Minimum,
@@ -560,8 +560,8 @@ class PgxnForm(QWidget):
                         widget.clicked.connect(self.on_select_related)
                     elif val is not None:
                         widget.clicked.connect(self.on_view_related)
-            else:
-                orb.log.debug('  [pgxnf] - no widget returned.')
+            # else:
+                # orb.log.debug('  [pgxnf] - no widget returned.')
         if required_note:
             form.addRow(QWidget(), QLabel())
             rnote = QLabel("** required fields\n  (cannot be empty or None)")
