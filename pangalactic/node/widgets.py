@@ -302,7 +302,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
     """
     # related_cname will be None for datatypes; a class name for FK fields
     ### for EXTREMELY verbose debugging, uncomment:
-    orb.log.debug('get_widget for field type: {}'.format(field_type))
+    # orb.log.debug('get_widget for field type: {}'.format(field_type))
     wrap_text = False
     if field_name == 'url':
         if editable:
@@ -335,7 +335,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
     else:
         widget_class = widgets.get(field_type)
     if widget_class:
-        orb.log.debug(f' - widget_class: "{widget_class.__name__}"')
+        # orb.log.debug(f' - widget_class: "{widget_class.__name__}"')
         if field_name == 'url' and not editable:
             # orb.log.debug('  instantiating UrlButton')
             widget = widget_class(value=value, maxlen=maxlen,
@@ -394,7 +394,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
             label.setToolTip(txt)
         return widget, label
     else:
-        orb.log.debug(' - no widget_class.')
+        # orb.log.debug(' - no widget_class.')
         return None, None
 
 
