@@ -30,14 +30,6 @@ from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 ModelerState = namedtuple('ModelerState', 'obj idx')
 
 
-def get_icon(icon_name):
-    """
-    Get the icon for a known "icon name".
-    """
-    icon_file = icon_name + state.get('icon_type', '.png')
-    icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-    icon_path = os.path.join(icon_dir, icon_file)
-    return QIcon(icon_path)
 
 
 class ModelWindow(QMainWindow):

@@ -5,20 +5,21 @@ from PyQt5.QtWidgets  import (QApplication, QCheckBox, QComboBox, QDateEdit,
                               QDateTimeEdit, QFrame, QLabel, QLineEdit,
                               QListView, QListWidget, QSizePolicy,
                               QTextBrowser, QTextEdit, QVBoxLayout)
-from sqlalchemy   import (BigInteger, Boolean, Date, DateTime, Float,
-                          ForeignKey, Integer, String, Text, Time, Unicode)
-
 from textwrap import wrap
+import datetime
 
 # pangalactic
 ### uncomment orb if debug logging is needed ...
 # from pangalactic.core             import orb
-from pangalactic.core             import state
+from pangalactic.core             import orb, state
 from pangalactic.core.meta        import TEXT_PROPERTIES, SELECTABLE_VALUES
 from pangalactic.core.parametrics import (make_de_html, make_parm_html,
                                           mode_defz)
 from pangalactic.node.buttons     import FkButton, UrlButton
 
+if not orb.is_fastorb:
+    from sqlalchemy   import (BigInteger, Boolean, Date, DateTime, Float,
+                              ForeignKey, Integer, String, Text, Time, Unicode)
 
 def HLine():
     toto = QFrame()
@@ -301,7 +302,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
     """
     # related_cname will be None for datatypes; a class name for FK fields
     ### for EXTREMELY verbose debugging, uncomment:
-    # orb.log.debug('get_widget for field type: {}'.format(field_type))
+    orb.log.debug('get_widget for field type: {}'.format(field_type))
     wrap_text = False
     if field_name == 'url':
         if editable:
@@ -333,8 +334,8 @@ def get_widget(field_name, field_type, value=None, editable=True,
         widget_class = widgets.get(de_type)
     else:
         widget_class = widgets.get(field_type)
-    # print ' - widget_class = %s' % widget_class.__name__
     if widget_class:
+        orb.log.debug(f' - widget_class: "{widget_class.__name__}"')
         if field_name == 'url' and not editable:
             # orb.log.debug('  instantiating UrlButton')
             widget = widget_class(value=value, maxlen=maxlen,
@@ -346,8 +347,11 @@ def get_widget(field_name, field_type, value=None, editable=True,
                                   editable=editable, placeholder=placeholder,
                                   parm_field=parm_field, parm_type=parm_type,
                                   de_field=de_field, de_type=de_type)
-        elif field_type == Boolean:
-            # read-only boolean field -> disabled checkbox
+        elif not orb.is_fastorb:
+            if field_type == Boolean:
+                # read-only boolean field -> disabled checkbox
+                widget = widget_class(value=value, editable=editable)
+        elif field_type == bool:
             widget = widget_class(value=value, editable=editable)
         else:
             if isinstance(value, str):
@@ -390,6 +394,7 @@ def get_widget(field_name, field_type, value=None, editable=True,
             label.setToolTip(txt)
         return widget, label
     else:
+        orb.log.debug(' - no widget_class.')
         return None, None
 
 
@@ -776,18 +781,14 @@ class UnitsWidget(QComboBox):
 
 
 # keys based on SqlAlchemy column data types, except for 'parameter'
+
 widgets = {
-    BigInteger  : IntegerFieldWidget,
-    Boolean     : BooleanFieldWidget,
-    Date        : DateFieldWidget,
-    DateTime    : DateTimeFieldWidget,
-    Float       : FloatFieldWidget,
-    Integer     : IntegerFieldWidget,
-    String      : StringFieldWidget,
-    Text        : TextFieldWidget,
-    Unicode     : UnicodeFieldWidget,
-    Time        : TimeFieldWidget,
-    ForeignKey  : FkButton,
+    datetime.date : DateFieldWidget,
+    datetime.datetime : DateTimeFieldWidget,
+    float       : FloatFieldWidget,
+    int         : IntegerFieldWidget,
+    set         : TextFieldWidget,
+    str         : StringFieldWidget,
     'object'    : FkButton,
     'parameter' : StringFieldWidget,
     # these are for data elements, 'de_type'
@@ -795,23 +796,39 @@ widgets = {
     'str'       : StringFieldWidget,
     'float'     : FloatFieldWidget,
     'int'       : IntegerFieldWidget,
-    'text'      : TextFieldWidget,
+    'text'      : TextFieldWidget
     # FIXME: stop-gap pending policy for "non-functional" properties -- really
     # should at least make it some kind of list widget
-    set         : TextFieldWidget
     }
 
+if not orb.is_fastorb:
+    uberorb_widgets = {
+        BigInteger  : IntegerFieldWidget,
+        Boolean     : BooleanFieldWidget,
+        Date        : DateFieldWidget,
+        DateTime    : DateTimeFieldWidget,
+        Float       : FloatFieldWidget,
+        Integer     : IntegerFieldWidget,
+        String      : StringFieldWidget,
+        Text        : TextFieldWidget,
+        Unicode     : UnicodeFieldWidget,
+        Time        : TimeFieldWidget,
+        ForeignKey  : FkButton
+        }
+    widgets.update(uberorb_widgets)
+
 # currently only used for ParameterDefinition.range_datatype and dimensions
-# (both are String/Unicode datatypes)
+# (both are str datatypes)
 select_widgets = {
-    # BigInteger  : IntegerSelectWidget,
-    # Float       : FloatSelectWidget,
-    # Integer     : IntegerSelectWidget,
-    String      : StringSelectWidget,
-    Unicode     : StringSelectWidget,
-    # ForeignKey  : FkSelectWidget,
-    # set         : TextSelectWidget
+    str         : StringSelectWidget
     }
+
+if not orb.is_fastorb:
+    uberorb_select_widgets = {
+        String      : StringSelectWidget,
+        Unicode     : StringSelectWidget
+        }
+    select_widgets.update(uberorb_select_widgets)
 
 
 class AutosizingListWidget(QListWidget):
