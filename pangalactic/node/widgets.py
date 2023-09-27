@@ -347,11 +347,10 @@ def get_widget(field_name, field_type, value=None, editable=True,
                                   editable=editable, placeholder=placeholder,
                                   parm_field=parm_field, parm_type=parm_type,
                                   de_field=de_field, de_type=de_type)
-        elif not orb.is_fastorb:
-            if field_type == Boolean:
+        elif not orb.is_fastorb and field_type == Boolean:
                 # read-only boolean field -> disabled checkbox
                 widget = widget_class(value=value, editable=editable)
-        elif field_type == bool:
+        elif field_type == bool or field_type == 'bool':
             widget = widget_class(value=value, editable=editable)
         else:
             if isinstance(value, str):
