@@ -646,8 +646,8 @@ class DiagramScene(QGraphicsScene):
             if flow:
                 assembly = flow.flow_context
                 orb.delete([flow])
-                # dispatcher.send('deleted object', oid=flow_oid)
-                self.deleted_object.emit(oid, 'Flow')
+                dispatcher.send('deleted object', oid=flow_oid)
+                # self.deleted_object.emit(oid, 'Flow')
                 assembly.mod_datetime = dtstamp()
                 assembly.modifier = orb.get(state.get('local_user_oid'))
                 orb.save([assembly])
