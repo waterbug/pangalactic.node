@@ -4909,10 +4909,11 @@ class Main(QMainWindow):
         else:
             org_parent = orb.get('pgefobjects:PGANA')
         proj = clone('Project', public=True, parent_organization=org_parent)
-        pxo = PgxnObject(proj, edit_mode=True, new=True, view=view,
-                         panels=panels, modal_mode=True, parent=self)
-        pxo.obj_modified.connect(self.on_mod_object_qtsignal)
-        pxo.show()
+        if proj:
+            pxo = PgxnObject(proj, edit_mode=True, new=True, view=view,
+                             panels=panels, modal_mode=True, parent=self)
+            pxo.obj_modified.connect(self.on_mod_object_qtsignal)
+            pxo.show()
 
     def delete_project(self):
         """

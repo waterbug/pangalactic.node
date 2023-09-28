@@ -218,9 +218,12 @@ class LibraryListView(QListView):
             # orb.log.debug('* clicked index: {}]'.format(i))
             oid = getattr(self.model().objs[i], 'oid')
             obj = orb.get(oid)
-            dlg = PgxnObject(obj, modal_mode=True, parent=self)
-            # TODO:  connect pgxo's "mod_object" signal to ...?
-            dlg.show()
+            if obj:
+                dlg = PgxnObject(obj, modal_mode=True, parent=self)
+                # TODO:  connect pgxo's "mod_object" signal to ...?
+                dlg.show()
+            else:
+                orb.log.debug('  PgxnObject got a None, ignoring.')
 
     def refresh(self, **kw):
         """

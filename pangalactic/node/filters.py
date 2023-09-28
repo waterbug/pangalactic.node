@@ -997,10 +997,13 @@ class FilterPanel(QWidget):
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             if oid:
                 obj = orb.get(oid)
-                dlg = PgxnObject(obj, parent=self)
-                dlg.obj_modified.connect(self.on_pgxo_mod_object_signal)
-                dlg.delete_obj.connect(self.on_delete_obj_signal)
-                dlg.show()
+                if obj:
+                    dlg = PgxnObject(obj, parent=self)
+                    dlg.obj_modified.connect(self.on_pgxo_mod_object_signal)
+                    dlg.delete_obj.connect(self.on_delete_obj_signal)
+                    dlg.show()
+                else:
+                    orb.log.debug('  PgxnObject got a None, ignoring.')
 
     def create_template(self):
         """
@@ -1014,9 +1017,12 @@ class FilterPanel(QWidget):
             oid = getattr(self.proxy_model.sourceModel().objs[i], 'oid', '')
             obj = orb.get(oid)
             template = create_template_from_product(obj)
-            dlg = PgxnObject(template, edit_mode=True, modal_mode=True,
-                             parent=self)
-            dlg.show()
+            if template:
+                dlg = PgxnObject(template, edit_mode=True, modal_mode=True,
+                                 parent=self)
+                dlg.show()
+            else:
+                orb.log.debug('  PgxnObject got a None, ignoring.')
 
     def add_object(self, obj):
         """
