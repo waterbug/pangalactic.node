@@ -910,6 +910,8 @@ class PgxnObject(QDialog):
             parent (QWidget): parent widget of this dialog (default: None)
         """
         super().__init__(parent=parent)
+        if not obj:
+            return
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.obj          = obj
         self.new          = new
