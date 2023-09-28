@@ -91,6 +91,7 @@ class ModelWindow(QMainWindow):
         dispatcher.connect(self.on_signal_to_refresh, 'new object')
         dispatcher.connect(self.on_signal_to_refresh, 'modified object')
         dispatcher.connect(self.on_set_selected_system, 'set selected system')
+        dispatcher.connect(self.on_deleted_object, 'deleted object')
         # orb.log.debug('  init calls set_subject() again to set system:')
         # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(setting to selected object)')
@@ -310,7 +311,7 @@ class ModelWindow(QMainWindow):
 
     def set_new_diagram_view(self):
         new_diagram_view = DiagramView(self.obj, embedded=True, parent=self)
-        new_diagram_view.scene().deleted_object.connect(self.on_deleted_object)
+        # new_diagram_view.scene().deleted_object.connect(self.on_deleted_object)
         new_diagram_view.setSizePolicy(QSizePolicy.Preferred,
                                        QSizePolicy.Preferred)
         layout = QVBoxLayout()
@@ -550,7 +551,7 @@ class ModelWindow(QMainWindow):
         """
         if state.get('mode') in ['system', 'component']:
             self.refresh_block_diagram()
-            self.deleted_object.emit(oid, cname)
+            # self.deleted_object.emit(oid, cname)
         return
 
     def on_signal_to_refresh(self):
