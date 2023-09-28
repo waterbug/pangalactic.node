@@ -32,7 +32,7 @@ from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
 from pangalactic.core             import orb
 from pangalactic.core             import state
 from pangalactic.core.meta        import PGXN_PLACEHOLDERS
-from pangalactic.core.parametrics import get_dval, set_dval
+from pangalactic.core.parametrics import get_dval, set_dval, set_pval
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.errbudget   import gen_error_budget
 from pangalactic.core.utils.datetimes import date2str, dtstamp
@@ -818,15 +818,16 @@ class LinearOpticalModelViewer(QMainWindow):
         # dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.construct_lom_visualization,
                            'got lom structure')
-        lom = None
+        dispatcher.connect(self.on_lom_parms, 'got lom parms')
+        self.lom = None
         if getattr(system, 'has_models', None):
             for model in system.has_models:
                 if getattr(model.type_of_model, 'id', '') == 'LOM':
                     # TODO: check for latest version of LOM
-                    lom = model
-        if lom:
+                    self.lom = model
+        if self.lom:
             orb.log.info('  - found ref to LOM, getting structure ...')
-            dispatcher.send(signal='get lom structure', lom_oid=lom.oid)
+            dispatcher.send(signal='get lom structure', lom_oid=self.lom.oid)
         else:
             orb.log.info('  - did not find ref to LOM.')
 
@@ -887,25 +888,15 @@ class LinearOpticalModelViewer(QMainWindow):
 
     def create_system_table(self):
         view = [('name', 'Optical\nSurface\nName', 'component'),
-                ('description', 'Optical\nSurface\nDescription', 'component'),
-                ('dRMSWFE_dx', '', 'usage'),
-                ('dRMSWFE_dy', '', 'usage'),
-                ('dRMSWFE_dz', '', 'usage'),
-                ('dRMSWFE_rx', '', 'usage'),
-                ('dRMSWFE_ry', '', 'usage'),
-                ('dRMSWFE_rz', '', 'usage'),
-                ('dLOSx_dx', '', 'usage'),
-                ('dLOSx_dy', '', 'usage'),
-                ('dLOSx_dz', '', 'usage'),
-                ('dLOSx_rx', '', 'usage'),
-                ('dLOSx_ry', '', 'usage'),
-                ('dLOSx_rz', '', 'usage'),
-                ('dLOSy_dx', '', 'usage'),
-                ('dLOSy_dy', '', 'usage'),
-                ('dLOSy_dz', '', 'usage')]
-                # 'RoC', 'K',
-                # 'X_vertex', 'Y_vertex', 'Z_vertex',
-                # 'RotX_vertex', 'RotY_vertex', 'RotZ_vertex',
+                # ('description', 'Optical\nSurface\nDescription', 'component'),
+                ('dRMS_dRBM_dx', '', 'component'),
+                ('dRMS_dRBM_dy', '', 'component'),
+                ('dRMS_dRBM_dz', '', 'component'),
+                ('dRMS_dRBM_rx', '', 'component'),
+                ('dRMS_dRBM_ry', '', 'component'),
+                ('dRMS_dRBM_rz', '', 'component'),
+                ('dRMS_dRoC', '', 'component'),
+                ('dRMS_dK', '', 'component')]
         self.system_table = SystemInfoTable(
                                     system=self.system, view=view,
                                     sort_by_field='position_in_optical_path',
@@ -917,16 +908,41 @@ class LinearOpticalModelViewer(QMainWindow):
 
     def construct_lom_visualization(self, lom_model=None):
         """
-        Construct a LOM visualization from a LOM structure.
+        Construct a visualization from a LOM structure.
 
         Keyword Args:
-            surface_names (list of str): surface names extracted from the LOM
+            lom_model (Model): LOM Model instance
         """
         orb.log.debug('* construct_lom_visualization()')
-        self.system = lom_model.of_thing
-        orb.log.debug(f'  for system: {self.system.id}')
-        self.set_widgets()
-        self.rebuild_system_table()
+        if self.lom:
+            self.system = self.lom.of_thing
+            orb.log.debug(f'  for system: {self.system.id}')
+            self.set_widgets()
+            self.rebuild_system_table()
+            dispatcher.send(signal='refresh lom parms', lom_oid=self.lom.oid)
+
+    def on_lom_parms(self, content=None):
+        orb.log.debug('* got lom parms, updating system info table ...')
+        if getattr(self, 'system_table', None):
+            drms_drbm = content.get('drms_drbm')
+            if drms_drbm:
+                for surface_name in drms_drbm:
+                    for acu in self.system.components:
+                        if acu.component.name == surface_name:
+                            for pid, val in drms_drbm[surface_name].items():
+                                set_pval(acu.component.oid, pid, val)
+            else:
+                orb.log.debug('  drms_drbm not found in data')
+            drms_drk = content.get('drms_drk')
+            if drms_drk:
+                for surface_name in drms_drk:
+                    for acu in self.system.components:
+                        if acu.component.name == surface_name:
+                            for pid, val in drms_drk[surface_name].items():
+                                set_pval(acu.component.oid, pid, val)
+            else:
+                orb.log.debug('  drms_drk not found in data')
+            self.rebuild_system_table()
 
     def remote_objects_deleted(self, oids):
         """

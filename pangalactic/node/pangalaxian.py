@@ -369,6 +369,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.optics_modeler, 'open optics modeler')
         dispatcher.connect(self.get_lom_surf_names, 'get lom surface names')
         dispatcher.connect(self.get_lom_structure, 'get lom structure')
+        dispatcher.connect(self.get_lom_parms, 'refresh lom parms')
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
@@ -1774,6 +1775,8 @@ class Main(QMainWindow):
                 dispatcher.send(signal="remote: de del", content=content)
             elif subject == 'parm del':
                 dispatcher.send(signal="remote: parm del", content=content)
+            elif subject == 'lom parms':
+                dispatcher.send(signal="got lom parms", content=content)
             elif subject == 'organization':
                 obj_oid = content['oid']
                 obj_id = content['id']
@@ -5487,7 +5490,25 @@ class Main(QMainWindow):
             lom_model = orb.get(lom_oid)
             dispatcher.send(signal='got lom structure', lom_model=lom_model)
 
-    def on_vger_gls_failure(self, result):
+    def on_vger_gls_failure(self, f):
+        orb.log.debug('* on_vger_gls_failure()')
+        orb.log.debug(f'  {f.get_traceback()}')
+
+    def get_lom_parms(self, lom_oid=None):
+        rpc = self.mbus.session.call('vger.get_lom_parms',
+                                     lom_oid=lom_oid)
+        rpc.addCallback(self.on_vger_glp_success)
+        rpc.addErrback(self.on_vger_glp_failure)
+
+    def on_vger_glp_success(self, result):
+        orb.log.debug('* vger.get_lom_parms succeeded ...')
+        status, parms = result
+        # extremely verbose:
+        # orb.log.debug(f'  parms: {parms}')
+        if status == 'success':
+            dispatcher.send(signal='got lom parms', content=parms)
+
+    def on_vger_glp_failure(self, result):
         orb.log.debug('* on_vger_gls_failure()')
 
     def product_types_library(self):
