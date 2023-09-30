@@ -22,7 +22,7 @@ from louie import dispatcher
 from pangalactic.core             import orb
 from pangalactic.core             import config, state
 from pangalactic.core.clone       import clone
-from pangalactic.core.meta        import MAIN_VIEWS
+from pangalactic.core.meta        import MAIN_VIEWS, SELECTABLE_VALUES
 from pangalactic.core.names       import (get_external_name_plural,
                                           PREFERRED_ALIASES, STD_ALIASES,
                                           STD_VIEWS)
@@ -148,7 +148,7 @@ class DataImportWizard(QWizard):
             else:
                 blank_col = True
         # orb.log.debug(f'    lowered: {first_col_lowered}')
-        aliases = STD_ALIASES[object_type]
+        aliases = STD_ALIASES.get(object_type, []) or []
         # orb.log.debug(f'    aliases: {aliases}')
         if (not blank_col and object_type in STD_ALIASES and
             all([(a in aliases) for a in first_col_lowered])):
@@ -956,16 +956,27 @@ class ObjectCreationPage(QWizardPage):
             for name, val in row.items():
                 if name in col_map:
                     a = col_map[name]
-                    if schema[a]['field_type'] == 'object':
-                        # skip object-valued fields, for now ...
-                        continue
-                    else:
-                        dtype = dtypes[schema[a]['range']]
-                        try:
-                            kw[a] = dtype(val)
-                        except:
-                            # ignore a
+                    if a in schema:
+                        if schema[a]['field_type'] == 'object':
+                            # skip object-valued fields, for now ...
                             continue
+                        else:
+                            dtype = dtypes[schema[a]['range']]
+                    elif a in parm_defz:
+                        dtype_name = parm_defz[a]['range_datatype']
+                        dtype = SELECTABLE_VALUES['range_datatype'].get(
+                                                                dtype_name,
+                                                                float)
+                    elif a in de_defz:
+                        dtype_name = de_defz[a]['range_datatype']
+                        dtype = SELECTABLE_VALUES['range_datatype'].get(
+                                                                dtype_name,
+                                                                str)
+                    try:
+                        kw[a] = dtype(val)
+                    except:
+                        # could not cast value; ignore a
+                        continue
             # for cleanup after test run ...
             if self.test_mode:
                 kw['comment'] = "TEST TEST TEST"

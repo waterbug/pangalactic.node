@@ -300,10 +300,7 @@ class HWFieldsDialog(QDialog):
         if SELECTION_FILTERS.get(field_name):
             fltrs = SELECTION_FILTERS[field_name]
             for cname in fltrs:
-                if fltrs[cname]:
-                    objs += orb.select(cname, **fltrs[cname])
-                else:
-                    objs += orb.get_by_type(cname)
+                objs += orb.get_by_type(cname)
         else:
             objs = orb.get_all_subtypes(cname)
         if objs:
@@ -1150,10 +1147,7 @@ class RqtFieldsDialog(QDialog):
         if SELECTION_FILTERS.get(field_name):
             fltrs = SELECTION_FILTERS[field_name]
             for cname in fltrs:
-                if fltrs[cname]:
-                    objs += orb.select(cname, **fltrs[cname])
-                else:
-                    objs += orb.get_by_type(cname)
+                objs += orb.get_by_type(cname)
         else:
             objs = orb.get_all_subtypes(cname)
         if objs:

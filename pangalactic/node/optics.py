@@ -47,8 +47,8 @@ from pangalactic.node.widgets     import (ColorLabel, NameLabel,
 # -----------------------------------------------------------------------------
 # LOM API
 #
-# These functions are being implemented on the server side -- this will change
-# to an rpc-based API
+# These functions are being implemented on the server side -- this will support
+# an rpc-based API
 # -----------------------------------------------------------------------------
 
 # from scipy.io import loadmat
