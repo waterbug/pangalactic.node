@@ -174,7 +174,7 @@ class Node(object):
     def is_traversed(self):
         if self.cname == 'FakeRoot':
             return True
-        elif isinstance(self.obj, orb.classes['Product']):
+        elif orb.is_a(self.obj, 'Product'):
             return self.child_count() == len(self.obj.components)
         elif self.cname == 'Project':
             return self.child_count() == len(self.obj.systems)
@@ -184,9 +184,9 @@ class Node(object):
     def is_branch_node(self):
         if self.cname == 'FakeRoot':
             return True
-        elif isinstance(self.obj, orb.classes['Product']):
+        elif orb.is_a(self.obj, 'Product'):
             return bool(self.obj.components)
-        elif isinstance(self.obj, orb.classes['Project']):
+        elif orb.is_a(self.obj, 'Project'):
             return bool(self.obj.systems)
         return False
 
