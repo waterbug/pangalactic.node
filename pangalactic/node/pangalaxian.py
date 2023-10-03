@@ -5112,15 +5112,15 @@ class Main(QMainWindow):
                     self.upload_progress.setValue(0)
                     self.upload_progress.setMinimumDuration(2000)
                     orb.log.info(f'  using {numchunks} chunks ...')
-                    for i, chunk in enumerate(iter(
-                                        partial(f.read, chunk_size), b'')):
+                    i = 0
+                    for chunk in iter(partial(f.read, chunk_size), b''):
                         rpc = self.mbus.session.call('vger.upload_chunk',
                                                      fname=vault_fname,
                                                      seq=i, data=chunk)
                         rpc.addCallback(self.on_chunk_upload_success)
                         rpc.addErrback(self.on_chunk_upload_failure)
-                        if i == numchunks - 1:
-                            rpc.addCallback(self.on_file_upload_success)
+                        i += 1
+                    rpc.addCallback(self.on_file_upload_success)
             except:
                 message = f'File "{fpath}" could not be uploaded.'
                 popup = QMessageBox(QMessageBox.Warning,
