@@ -1,5 +1,10 @@
-import time
-import traceback, sys
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Thread-related functions
+"""
+import os, time, traceback, sys
+from functools import partial
 
 from louie import dispatcher
 
@@ -83,9 +88,9 @@ class Worker(QRunnable):
             self.signals.finished.emit()
 
 # ----------------------------------------------------------------------------
-# NOTE:  Running the serializers.deserializer() function in a separate thread
-# is not possible because sqlite objects cannot be used from a thread other
-# than the one in which they were created.
+# NOTE:  Running the UberOrb-based serializers.deserializer() function in a
+# separate thread is not possible because sqlite objects cannot be used from a
+# thread other than the one in which they were created.
 # ----------------------------------------------------------------------------
 
 
@@ -111,6 +116,41 @@ def run_deserializer(*args, **kwargs):
         progress_signal.emit(msg, n)
     dispatcher.connect(send_progress_update, 'deserialized object')
     deserialize(*args, **kwargs)
+
+
+def run_chunkify_file(fpath, chunk_size, **kwargs):
+    """
+    Chunkify a file -- this function is designed to be run by a Worker so the
+    chunkification can be done in a separate thread from the gui and emit
+    progress signals that update a progress dialog.
+
+    Args:
+        fpath (str):  path of the file to chunkify
+        chunk_size (int):  the size of the chunks
+
+    Keyword Args:
+        progress_signal (pyqtSignal): signal object (passed in by the Worker
+            instance that calls this function.
+    """
+    progress_signal = kwargs.get('progress_signal')
+    if progress_signal:
+        del kwargs['progress_signal']
+    else:
+        return
+    def send_progress_update(msg, n):
+        progress_signal.emit(msg, n)
+    return chunkify_file(fpath, chunk_size, progress_signal)
+
+
+def chunkify_file(fpath, chunk_size, progress_signal):
+    chunks = []
+    fsize = os.path.getsize(fpath)
+    with open(fpath, 'rb') as f:
+        for chunk in iter(partial(f.read, chunk_size), b''):
+            chunks.append(chunk)
+            p = (len(chunks) * chunk_size * 100) // fsize
+            progress_signal.emit('', p)
+    return chunks
 
 
 # NOTE:  this "MainWindow" is just some example code to demonstrate usage ...
@@ -161,7 +201,7 @@ class MainWindow(QMainWindow):
     def execute_this_fn(self, progress_signal):
         for n in range(0, 5):
             time.sleep(1)
-            progress_signal.emit('stuff', n*100/4)
+            progress_signal.emit('stuff', n*100//4)
         return "Done."
 
     def print_output(self, s):
