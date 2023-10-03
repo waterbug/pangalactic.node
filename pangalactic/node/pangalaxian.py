@@ -109,6 +109,7 @@ from pangalactic.node.systemtree       import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews  import CompareWidget
 from pangalactic.node.tableviews       import ObjectTableView
+from pangalactic.node.threads          import threadpool, Worker
 from pangalactic.node.widgets          import (AutosizingListWidget,
                                                DashSelectCombo,
                                                ModeLabel, PlaceHolder)
@@ -5029,7 +5030,7 @@ class Main(QMainWindow):
             if so['_cname'] == "RepresentationFile":
                 oid = so['oid']
         if oid:
-            self.upload_file(fpath=fpath, rep_file_oid=oid)
+            self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
         else:
             orb.log.debug('  - RepresentationFile oid not found; no upload.')
 
@@ -5076,27 +5077,80 @@ class Main(QMainWindow):
             if so['_cname'] == "RepresentationFile":
                 oid = so['oid']
         if oid:
-            self.upload_file(fpath=fpath, rep_file_oid=oid)
+            self.read_and_upload_file(fpath=fpath, rep_file_oid=oid)
         else:
             orb.log.debug('  - RepresentationFile oid not found; no upload.')
 
-    def upload_file(self, fpath='', rep_file_oid='', chunk_size=None):
+    def read_and_upload_file(self, fpath='', rep_file_oid='', chunk_size=None):
         """
-        Upload a file from a specified path, optionally specifying a
+        Read a file into a list of chunks and call upload_file() to upload it
+        to the server.
+        """
+        orb.log.info('* read_and_upload_file()')
+        fname = os.path.basename(fpath)
+        self.chunk_progress = ProgressDialog(title='Reading File',
+                                             label=f'reading "{fname}" ...',
+                                             parent=self)
+        self.chunk_progress.setMaximum(100)
+        self.chunks_to_upload = []
+        self.fpath_to_upload = fpath
+        self.rep_file_oid_to_upload = rep_file_oid
+        if fpath:
+            worker = Worker(self.chunk_file, fpath, chunk_size)
+            # worker.signals.result.connect(self.print_output)
+            worker.signals.finished.connect(self.chunking_completed)
+            worker.signals.progress.connect(self.update_chunk_progress)
+            threadpool.start(worker)
+        else:
+            orb.log.info('  no file path specified.')
+
+    def chunk_file(self, fpath, chunk_size, progress_signal):
+        orb.log.info('* chunk_file()')
+        chunk_size = chunk_size or 2**19
+        fsize = os.path.getsize(fpath)
+        with open(fpath, 'rb') as f:
+            for i, chunk in enumerate(iter(partial(f.read, chunk_size), b'')):
+                self.chunks_to_upload.append(chunk)
+                p = (len(self.chunks_to_upload) * chunk_size * 100) // fsize
+                time.sleep(.01)
+                progress_signal.emit('', p)
+        # return chunks
+        # return "Done."
+
+    def update_chunk_progress(self, what, n):
+        """
+        Set max and value for chunk_progress dialog.
+
+        Args:
+            n (float): progress as a fraction (<= 1.0)
+        """
+        orb.log.debug(f'  chunking {n}% done')
+        self.chunk_progress.setValue(n)
+
+    def chunking_completed(self):
+        orb.log.debug('  chunking thread completed.')
+        self.chunk_progress.done(0)
+        self.chunk_progress.close()
+        self.upload_file()
+
+    def upload_file(self):
+        """
+        Upload a file from list of chunks, optionally specifying a
         RepresentationFile.oid which if provided will be prepended to the user
         file name to create the vault file name.
         """
-        chunk_size = chunk_size or 2**19
-        if fpath:
+        fpath = self.fpath_to_upload
+        rep_file_oid = self.rep_file_oid_to_upload
+        if fpath and self.chunks_to_upload:
             fname = os.path.basename(fpath)
             orb.log.info(f'* uploading file: "{fname}"')
             if rep_file_oid:
-                vault_fname = rep_file_oid + '_' + fname
-                orb.log.info(f'  using vault file name: "{vault_fname}"')
+                self.vault_fname = rep_file_oid + '_' + fname
+                orb.log.info(f'  using vault file name: "{self.vault_fname}"')
             else:
-                vault_fname = fname
+                self.vault_fname = fname
             # before uploading file, copy it to local vault ...
-            shutil.copy(fpath, os.path.join(orb.vault, vault_fname))
+            shutil.copy(fpath, os.path.join(orb.vault, self.vault_fname))
             orb.log.info('  [copied to local vault]')
             self.uploaded_chunks = 0
             self.failed_chunks = 0
@@ -5105,22 +5159,17 @@ class Main(QMainWindow):
                                               parent=self)
             self.upload_progress.setAttribute(Qt.WA_DeleteOnClose)
             try:
-                with open(fpath, 'rb') as f:
-                    fsize = os.fstat(f.fileno()).st_size
-                    numchunks = math.ceil(fsize / chunk_size)
-                    self.upload_progress.setMaximum(numchunks)
-                    self.upload_progress.setValue(0)
-                    self.upload_progress.setMinimumDuration(2000)
-                    orb.log.info(f'  using {numchunks} chunks ...')
-                    i = 0
-                    for chunk in iter(partial(f.read, chunk_size), b''):
-                        rpc = self.mbus.session.call('vger.upload_chunk',
-                                                     fname=vault_fname,
-                                                     seq=i, data=chunk)
-                        rpc.addCallback(self.on_chunk_upload_success)
-                        rpc.addErrback(self.on_chunk_upload_failure)
-                        i += 1
-                    rpc.addCallback(self.on_file_upload_success)
+                numchunks = len(self.chunks_to_upload)
+                self.upload_progress.setMaximum(numchunks)
+                self.upload_progress.setValue(0)
+                self.upload_progress.setMinimumDuration(2000)
+                orb.log.info(f'  using {numchunks} chunks ...')
+                rpc = self.mbus.session.call('vger.upload_chunk',
+                                             fname=self.vault_fname,
+                                             seq=0,
+                                             data=self.chunks_to_upload[0])
+                rpc.addCallback(self.on_chunk_upload_success)
+                rpc.addErrback(self.on_chunk_upload_failure)
             except:
                 message = f'File "{fpath}" could not be uploaded.'
                 popup = QMessageBox(QMessageBox.Warning,
@@ -5129,22 +5178,37 @@ class Main(QMainWindow):
                 popup.show()
                 return
         else:
-            # no file was selected
+            orb.log.info('  file path or list of chunks were missing.')
             return
 
     def on_chunk_upload_success(self, result):
         orb.log.info(f'  chunk {result} uploaded.')
         self.uploaded_chunks += 1
         self.upload_progress.setValue(self.uploaded_chunks)
+        if self.uploaded_chunks < len(self.chunks_to_upload):
+            rpc = self.mbus.session.call('vger.upload_chunk',
+                                     fname=self.vault_fname,
+                                     seq=self.uploaded_chunks,
+                                     data=self.chunks_to_upload[
+                                                    self.uploaded_chunks])
+            rpc.addCallback(self.on_chunk_upload_success)
+            rpc.addErrback(self.on_chunk_upload_failure)
+        else:
+            self.on_file_upload_success()
 
     def on_chunk_upload_failure(self, result):
         orb.log.info(f'  chunk {result} failed.')
         self.failed_chunks += 1
 
-    def on_file_upload_success(self, result):
+    def on_file_upload_success(self):
         orb.log.info(f'  upload completed in {self.uploaded_chunks} chunks.')
         self.upload_progress.done(0)
         model_window = getattr(self, 'system_model_window', None)
+        self.fpath_to_upload = ''
+        self.rep_file_oid_to_upload = ''
+        self.vault_fname = ''
+        self.chunks_to_upload = []
+        self.uploaded_chunks = 0
         if model_window:
             try:
                 model_window.set_subject()
