@@ -12,13 +12,16 @@ from PyQt5.QtGui import QIcon, QTransform
 
 # pangalactic
 from pangalactic.core             import diagramz, orb, state
+from pangalactic.core.access      import get_perms
 # from pangalactic.core.clone       import clone
 # from pangalactic.core.names       import (get_block_model_id,
                                           # get_block_model_name,
                                           # get_block_model_file_name)
 from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
-from pangalactic.node.dialogs     import (MiniMelDialog,
+from pangalactic.node.dialogs     import (DocImportDialog,
+                                          MiniMelDialog,
+                                          ModelImportDialog,
                                           ModelsAndDocsInfoDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (extract_mime_data,
@@ -232,6 +235,16 @@ class ModelWindow(QMainWindow):
                                     # icon="save",
                                     # tip="Export Model to SysML")
         # self.toolbar.addAction(self.export_action)
+        self.image_action = self.create_action(
+                                    "Snapshot",
+                                    slot=self.image_preview,
+                                    icon="camera",
+                                    tip="Save Diagram as Image or Print")
+        self.toolbar.addAction(self.image_action)
+        self.mini_mel_action = self.create_action('Mini\nMEL',
+                                slot=self.display_mini_mel, icon='data',
+                                tip='Generate a mini-MEL for this object')
+        self.toolbar.addAction(self.mini_mel_action)
         self.models_and_docs_info_action = self.create_action(
                         "Models\nand Docs",
                         slot=self.models_and_docs_info,
@@ -247,16 +260,28 @@ class ModelWindow(QMainWindow):
                                         icon="box",
                                         tip="View CAD Model (from STEP File)")
             self.toolbar.addAction(self.view_cad_action)
-        self.image_action = self.create_action(
-                                    "Snapshot",
-                                    slot=self.image_preview,
-                                    icon="camera",
-                                    tip="Save Diagram as Image or Print")
-        self.mini_mel_action = self.create_action('Mini\nMEL',
-                                slot=self.display_mini_mel, icon='data',
-                                tip='Generate a mini-MEL for this object')
-        self.toolbar.addAction(self.mini_mel_action)
-        self.toolbar.addAction(self.image_action)
+        if 'add models' in get_perms(self.obj):
+            orb.log.debug('* user has "add models" permission.')
+            self.add_model_action = self.create_action(
+                            "Add\nModel",
+                            slot=self.add_model,
+                            icon="lander",
+                            tip="Upload a Model File")
+            self.toolbar.addAction(self.add_model_action)
+            self.add_model_action.setVisible(True)
+        else:
+            orb.log.debug('* user does not have "add models" permission.')
+        if 'add docs' in get_perms(self.obj):
+            orb.log.debug('* user has "add docs" permission.')
+            self.add_doc_action = self.create_action(
+                            "Add\nDocument",
+                            slot=self.add_doc,
+                            icon="new_doc",
+                            tip="Upload a Document File")
+            self.toolbar.addAction(self.add_doc_action)
+            self.add_doc_action.setVisible(True)
+        else:
+            orb.log.debug('* user does not have "add docs" permission.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -287,6 +312,15 @@ class ModelWindow(QMainWindow):
         form = DocForm(scene=self.diagram_view.scene(), edit_mode=False,
                        parent=self)
         form.show()
+
+    def add_model(self, model_type_id=None):
+        dlg = ModelImportDialog(of_thing_oid=self.obj.oid,
+                                model_type_id=model_type_id, parent=self)
+        dlg.show()
+
+    def add_doc(self, model_type_id=None):
+        dlg = DocImportDialog(rel_obj_oid=self.obj.oid, parent=self)
+        dlg.show()
 
     def set_placeholder(self):
         new_placeholder = PlaceHolder(image=self.logo, min_size=200,
