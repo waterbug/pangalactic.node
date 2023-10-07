@@ -808,12 +808,13 @@ class ObjectBlock(Block):
                     orb.log.debug('  - checking for flows ...')
                     flows = orb.get_all_usage_flows(self.usage)
                     if flows:
+                        orb.log.debug('    flows found: ...')
                         for flow in flows:
-                            orb.log.debug('   id: {}, name: {} (oid {})'.format(
-                                          flow.id, flow.name, flow.oid))
-                            orb.db.delete(flow)
-                            orb.log.debug('     ... deleted.')
-                        orb.db.commit()
+                            txt = f'id: {flow.id}, name: {flow.name} '
+                            txt += f'(oid {flow.oid})'
+                            orb.log.debug(f'   - {txt}')
+                        orb.log.debug('     deleting ... ')
+                        orb.delete(flows)
                     else:
                         orb.log.debug('   no associated flows.')
                     mod_objs = []
@@ -1215,7 +1216,6 @@ class SubjectBlock(Block):
                 new_port = clone('Port', id=port_id, name=port_name,
                                  abbreviation=port_abbr,
                                  type_of_port=port_type, of_product=self.obj)
-                orb.db.commit()
                 dispatcher.send('new object', obj=new_port)
                 # new Port -> self.obj is modified (parameters may need to
                 # be recomputed, etc.)
@@ -1264,7 +1264,6 @@ class SubjectBlock(Block):
                                  create_datetime=dtstamp(),
                                  modifier=user,
                                  mod_datetime=dtstamp())
-                orb.db.commit()
                 # if the port_template has parameters, add them to the new port
                 if parameterz.get(port_template.oid):
                     new_parameters = deepcopy(parameterz[port_template.oid])
@@ -1868,7 +1867,6 @@ class RoutedConnector(QGraphicsItem):
                 end_port_context=end_port_context,
                 creator=user, create_datetime=dtstamp(),
                 modifier=user, mod_datetime=dtstamp())
-            orb.db.commit()
             # new Flow -> context object is modified
             context.mod_datetime = dtstamp()
             context.modifier = user
