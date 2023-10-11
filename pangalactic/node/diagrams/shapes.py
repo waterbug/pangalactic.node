@@ -901,7 +901,9 @@ class SubjectBlock(Block):
         version = getattr(self.obj, 'version', '')
         if version:
             name += ' v.' + version
-        if hasattr(self.obj, 'product_type'):
+        if orb.is_a(self.obj, 'Project'):
+            desc = 'Project'
+        elif hasattr(self.obj, 'product_type'):
             desc = getattr(self.obj.product_type, 'abbreviation',
                            'Unspecified Type')
         else:
