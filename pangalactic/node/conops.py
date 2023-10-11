@@ -290,7 +290,9 @@ class TimelineScene(QGraphicsScene):
             new_item is not None and
             new_item != self.current_focus):
             self.current_focus = new_item
-            dispatcher.send("activity focused", act=self.focusItem().activity)
+            if hasattr(self.focusItem(), 'activity'):
+                dispatcher.send("activity focused",
+                                act=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
         super().mousePressEvent(mouseEvent)
