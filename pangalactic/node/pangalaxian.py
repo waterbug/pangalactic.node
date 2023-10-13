@@ -1045,7 +1045,8 @@ class Main(QMainWindow):
         # Here we just include the most important subtypes of ManagedObject ...
         # we will get back ALL subtypes anyway.
         data = orb.get_mod_dts(cnames=['HardwareProduct', 'Template',
-                                       'DataElementDefinition', 'Model'])
+                                       'DataElementDefinition', 'Model',
+                                       'Document', 'RepresentationFile'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
         return self.mbus.session.call('vger.sync_library_objects',
