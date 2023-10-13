@@ -805,11 +805,6 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(' - ConOpsModeler.init_toolbar() ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
-        self.sc_combo_box = QComboBox()
-        self.sys_names = [usage.system.name for usage in self.usage_list]
-        self.sc_combo_box.addItems(self.sys_names)
-        self.sc_combo_box.currentIndexChanged.connect(self.change_system)
-        self.toolbar.addWidget(self.sc_combo_box)
         self.modes_tool_button = SizedButton("Modes Tool")
         self.modes_tool_button.clicked.connect(self.display_modes_tool)
         self.toolbar.addWidget(self.modes_tool_button)
