@@ -340,6 +340,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_freeze_signal, 'freeze')
         dispatcher.connect(self.on_thaw_signal, 'thaw')
         dispatcher.connect(self.on_parm_del, 'parm del')
+        dispatcher.connect(self.on_parm_added, 'parm added')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.on_des_set, 'des set')
@@ -1240,17 +1241,6 @@ class Main(QMainWindow):
             # state['modal views need update'] so that
             # self._update_modal_views() will be run after vger.save() is
             # called, which will update the 'role_label' with the project etc.
-            # ----------------------------------------------------------------
-            # NOTE: self._update_modal_views() was previously run here but may
-            # have been the cause of serious GUI problems involving the error
-            # message "QBackingStore::endPaint() called with active painter;
-            # did you forget to destroy it or call QPainter::end() on it?" and
-            # random seg faults, possibly due to rpc / async actions
-            # interrupting the GUI operations of self._update_modal_views() --
-            # therefore state['modal views need update'] is used to trigger the
-            # call to self._update_modal_views() *AFTER* rpc call to
-            # vger.save() has completed and its callback has been called.
-            # ----------------------------------------------------------------
             state['modal views need update'] = True
         if server_deleted_oids:
             n = len(server_deleted_oids)
@@ -2313,6 +2303,10 @@ class Main(QMainWindow):
                                     "Refresh System Tree and Dashboard",
                                     slot=self.refresh_tree_and_dashboard,
                                     modes=['system'])
+        self.update_pgxno_action = self.create_action(
+                                    "Update Editor",
+                                    slot=self.update_pgxno,
+                                    modes=['system'])
         # self.compare_items_action = self.create_action(
                                     # "Compare Items by Parameters",
                                     # slot=self.compare_items)
@@ -2722,6 +2716,7 @@ class Main(QMainWindow):
                                 self.parameter_lib_action,
                                 self.de_def_lib_action,
                                 self.refresh_tree_action,
+                                self.update_pgxno_action,
                                 self.sync_project_action,
                                 self.full_resync_action]
         if not sys.platform == 'darwin':
@@ -3177,6 +3172,20 @@ class Main(QMainWindow):
             # END OF OFFLINE LOCAL UPDATES
             # ------------------------------------------------------------
 
+    def on_parm_added(self, oid='', pid=''):
+        """
+        Handle local dispatcher signal "parm added".
+        """
+        if oid and pid and state.get('connected'):
+            rpc = self.mbus.session.call('vger.add_parm', oid=oid,
+                                         pid=pid)
+            rpc.addCallback(self.on_vger_add_parm_result)
+            rpc.addErrback(self.on_failure)
+
+    def on_vger_add_parm_result(self, msg):
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+
     def on_parm_del(self, oid='', pid=''):
         """
         Handle local dispatcher signal "parm del".
@@ -3193,15 +3202,16 @@ class Main(QMainWindow):
 
     def on_remote_parm_del(self, content):
         """
-        Handle dispatcher "remote: parm del" (triggered by vger mbus msg "parm
-        del").
+        Handle dispatcher "remote: parm del" (triggered by vger pubsub msg
+        "parm del").
         """
         try:
             oid, pid = content
             orb.log.debug(f'* vger: del parameter "{pid}" from "{oid}"')
             # local=False is *extremely* important here, to avoid cycles!
             delete_parameter(oid, pid, local=False)
-            self.resync_current_project(msg='resync for parameter deletion')
+            # TODO: check if deleted parm is involved in computations ...
+            # if so, do recompute or get_parmz
         except:
             orb.log.info('* malformed "remote: parm del" message:')
             orb.log.info(f'  content: {str(content)}')
@@ -3363,9 +3373,9 @@ class Main(QMainWindow):
             # orb.log.info('  [ovgpr] diagram needs refresh ...')
             self.system_model_window.on_signal_to_refresh()
             state['diagram needs refresh'] = False
-        if state.get('modal views need update'):
-            # orb.log.info('  [ovgpr] modal views need update ...')
-            self._update_modal_views()
+        # if state.get('modal views need update'):
+            # # orb.log.info('  [ovgpr] modal views need update ...')
+            # self._update_modal_views()
         # ---------------------------------------------------------------
         # NOTE: lib updates are done last
         # ---------------------------------------------------------------
@@ -4194,6 +4204,13 @@ class Main(QMainWindow):
                 self.library_widget.expand_button.setVisible(True)
                 self.library_widget.expand_button.setText('Collapse')
 
+    def update_pgxno(self):
+        """
+        Send "update pgxno" signal to update the editor.
+        """
+        dispatcher.send(signal="update pgxno",
+                        mod_oids=state.get('pgxno_oids'))
+
     def update_pgxn_obj_panel(self, create_new=True):
         """
         Set up a new PgxnObject panel (left dock widget in Component mode).
@@ -4265,6 +4282,7 @@ class Main(QMainWindow):
         self.refresh_tree_views(selected_link_oid=selected_link_oid)
 
     def refresh_tree_views(self, rebuilding=False, selected_link_oid=None):
+        orb.log.debug('* refresh_tree_views()')
         # first check for cycles in the current project systems
         psus = orb.search_exact(cname='ProjectSystemUsage',
                                 project=self.project)
@@ -4283,15 +4301,14 @@ class Main(QMainWindow):
         # cache all oids and use that to determine whether the tree needs to be
         # refreshed ...
         ######################################################################
-        # orb.log.debug('* refresh_tree_views()')
-        # orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
+        orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
         # use number of tree levels to set max in progress bar
         try:
-            # orb.log.debug('  + self.sys_tree exists ...')
+            orb.log.debug('  + self.sys_tree exists ...')
             # if dashboard exists, it has to be destroyed too since the tree
             # and dashboard share their model()
             if hasattr(self, 'dashboard_panel'):
-                # orb.log.debug('  + destroying existing dashboard, if any ...')
+                orb.log.debug('  + destroying existing dashboard, if any ...')
                 dashboard_layout = self.dashboard_panel.layout()
                 if getattr(self, 'dashboard', None):
                     dashboard_layout.removeWidget(self.dashboard)
@@ -4305,7 +4322,7 @@ class Main(QMainWindow):
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
         try:
-            # orb.log.debug('  + destroying existing self.sys_tree, if any ...')
+            orb.log.debug('  + destroying existing self.sys_tree, if any ...')
             # NOTE:  WA_DeleteOnClose kills the "ghost tree" bug
             self.sys_tree.setAttribute(Qt.WA_DeleteOnClose)
             self.sys_tree.parent = None
@@ -4314,10 +4331,10 @@ class Main(QMainWindow):
         except:
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
-        # orb.log.debug('  + destroying existing pgxn_obj panel, if any ...')
+        orb.log.debug('  + destroying existing pgxn_obj panel, if any ...')
         self.update_pgxn_obj_panel(create_new=False)
-        # orb.log.debug('    self.pgxn_obj is {}'.format(str(
-                      # getattr(self, 'pgxn_obj', None))))
+        orb.log.debug('    self.pgxn_obj is {}'.format(str(
+                      getattr(self, 'pgxn_obj', None))))
         # destroy left dock's widget
         ld_widget = self.left_dock.widget()
         if ld_widget:
@@ -4327,7 +4344,7 @@ class Main(QMainWindow):
         self.sys_tree = SystemTreeView(self.project)
         self.sys_tree.obj_modified.connect(self.on_mod_object_qtsignal)
         self.sys_tree.delete_obj.connect(self.del_object)
-        # orb.log.debug('  + new self.sys_tree created ...')
+        orb.log.debug('  + new self.sys_tree created ...')
         # sys_id = getattr(sys, 'id', '[none]') or '[none]'
         # orb.log.debug(f'    with selected system: {sys_id}')
         # model = self.sys_tree.source_model
@@ -4913,7 +4930,7 @@ class Main(QMainWindow):
         proj = clone('Project', public=True, parent_organization=org_parent)
         if proj:
             pxo = PgxnObject(proj, edit_mode=True, new=True, view=view,
-                             panels=panels, modal_mode=True, parent=self)
+                             panels=panels, modal_mode=True)
             pxo.obj_modified.connect(self.on_mod_object_qtsignal)
             pxo.show()
 
@@ -4974,7 +4991,7 @@ class Main(QMainWindow):
 
     def on_display_object_signal(self, obj=None):
         if obj:
-            pxo = PgxnObject(obj, parent=self)
+            pxo = PgxnObject(obj)
             pxo.obj_modified.connect(self.on_mod_object_qtsignal)
             pxo.delete_obj.connect(self.del_object)
             self.remote_frozen.connect(pxo.on_remote_frozen)

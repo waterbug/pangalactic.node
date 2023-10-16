@@ -448,7 +448,7 @@ class PgxnForm(QWidget):
                         if self.edit_mode:
                             del_action = QAction('delete', label)
                             del_action.triggered.connect(
-                                partial(parent.on_del_data_elmt, deid=deid))
+                                partial(parent.on_del_de, deid=deid))
                             label.addAction(del_action)
                             label.setContextMenuPolicy(Qt.ActionsContextMenu)
                         value_layout = QHBoxLayout()
@@ -798,10 +798,8 @@ class ParameterForm(PgxnForm):
                 event.setDropAction(Qt.CopyAction)
                 event.accept()
                 add_parameter(self.obj.oid, pd_id)
-                self.obj.modifier = orb.get(state.get('local_user_oid'))
-                self.obj.mod_datetime = dtstamp()
-                orb.save([self.obj])
-                dispatcher.send(signal='modified object', obj=self.obj)
+                dispatcher.send(signal='parm added',
+                                oid=self.obj.oid, pid=pd_id)
                 self.pgxo.build_from_object()
             else:
                 event.ignore()
@@ -817,10 +815,8 @@ class ParameterForm(PgxnForm):
                 event.setDropAction(Qt.CopyAction)
                 event.accept()
                 add_parameter(self.obj.oid, pid)
-                self.obj.modifier = orb.get(state.get('local_user_oid'))
-                self.obj.mod_datetime = dtstamp()
-                orb.save([self.obj])
-                dispatcher.send(signal='modified object', obj=self.obj)
+                dispatcher.send(signal='parm added',
+                                oid=self.obj.oid, pid=pid)
                 self.pgxo.build_from_object()
             else:
                 event.ignore()
@@ -968,7 +964,10 @@ class PgxnObject(QDialog):
                                                         # '[not applicable]'))
         # orb.log.info('  [pgxo] cname: "%s"' % self.cname)
         self.build_from_object()
-        # NOTE:  commented out because not doing anything ... :P
+        if state.get('pgxno_oids'):
+            state['pgxno_oids'].append(self.obj.oid)
+        else:
+            state['pgxno_oids'] = [self.obj.oid]
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
         dispatcher.connect(self.on_update_pgxno, 'update pgxno')
@@ -1983,6 +1982,8 @@ class PgxnObject(QDialog):
                     # orb.log.debug(f' + found parm_widget for "{pid}"')
                 # else:
                     # orb.log.debug(f' + got no parm_widget for "{pid}"')
+                if not parm_widget:
+                    continue
                 units_widget = self.u_widgets.get(pid)
                 try:
                     units = units_widget.get_value()
@@ -2000,11 +2001,13 @@ class PgxnObject(QDialog):
                     except:
                         # C++ obj got deleted
                         continue
-            try:
-                self.update()
-            except:
-                # C++ obj got deleted
-                pass
+            # try:
+                # orb.log.debug('- calling self.update() for pgxno ...')
+                # self.update()
+            # except:
+                # # C++ obj got deleted
+                # orb.log.debug('  caught exception!')
+                # pass
 
     def on_ded_id_edited(self):
         """
@@ -2155,18 +2158,12 @@ class PgxnObject(QDialog):
 
     def on_del_parameter(self, pid=None):
         delete_parameter(self.obj.oid, pid)
-        self.obj.modifier = orb.get(state.get('local_user_oid'))
-        self.obj.mod_datetime = dtstamp()
-        orb.save([self.obj])
-        self.obj_modified.emit(self.obj.oid)
+        dispatcher.send(signal="parm del", oid=self.obj.oid, pid=pid)
         self.build_from_object()
 
-    def on_del_data_elmt(self, deid=None):
+    def on_del_de(self, deid=None):
         delete_data_element(self.obj.oid, deid)
-        self.obj.modifier = orb.get(state.get('local_user_oid'))
-        self.obj.mod_datetime = dtstamp()
-        orb.save([self.obj])
-        self.obj_modified.emit(self.obj.oid)
+        dispatcher.send(signal="de del", oid=self.obj.oid, deid=deid)
         self.build_from_object()
 
     def cancel(self):
@@ -2178,9 +2175,13 @@ class PgxnObject(QDialog):
             self.build_from_object()
 
     def closeEvent(self, event):
-        # txt = '* [pgxo] closing.'
-        # orb.log.info(txt)
+        txt = '* [pgxo] closing.'
+        orb.log.info(txt)
         # orb.db.rollback()
+        if (state.get('pgxno_oids') and
+            getattr(self.obj, 'oid', None) and
+            self.obj.oid in state['pgxno_oids']):
+            state['pgxno_oids'].remove(self.obj.oid)
         self.close()
 
     # TODO:  remove -- wasn't doing anything!
