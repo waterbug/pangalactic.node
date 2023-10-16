@@ -67,6 +67,8 @@ from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.meta             import asciify
 from pangalactic.core.parametrics      import (data_elementz,
+                                               add_parameter,
+                                               add_data_element,
                                                delete_parameter,
                                                delete_data_element,
                                                mode_defz, parameterz,
@@ -377,8 +379,6 @@ class Main(QMainWindow):
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
         dispatcher.connect(self.on_received_objects, 'remote: decloaked')
         dispatcher.connect(self.on_received_objects, 'remote: new')
-        dispatcher.connect(self.on_remote_parm_del, 'remote: parm del')
-        dispatcher.connect(self.on_remote_de_del, 'remote: de del')
         dispatcher.connect(self.on_drop_product, 'drop on product info')
         dispatcher.connect(self.on_drill_down, 'diagram object drill down')
         dispatcher.connect(self.on_comp_back, 'comp modeler back')
@@ -1763,10 +1763,14 @@ class Main(QMainWindow):
                         self.on_remote_freeze_or_thaw(thawed_attrs, 'thaw')
                 else:
                     orb.log.info('  but it was empty!')
+            elif subject == 'de added':
+                self.on_remote_de_added(content)
             elif subject == 'de del':
-                dispatcher.send(signal="remote: de del", content=content)
+                self.on_remote_de_del(content)
+            elif subject == 'parm added':
+                self.on_remote_parm_added(content)
             elif subject == 'parm del':
-                dispatcher.send(signal="remote: parm del", content=content)
+                self.on_remote_parm_del(content)
             elif subject == 'lom parms':
                 dispatcher.send(signal="got lom parms", content=content)
             elif subject == 'organization':
@@ -3200,21 +3204,39 @@ class Main(QMainWindow):
         if msg:
             orb.log.info(f'* vger: {msg}.')
 
+    def on_remote_parm_added(self, content):
+        """
+        Handle vger pubsub msg "parm added".
+        """
+        # try:
+        oid, pid = content
+        orb.log.debug(f'* vger: added parm "{pid}" from oid "{oid}"')
+        if parameterz.get(oid) and pid in parameterz['oid']:
+            orb.log.debug('  already exists locally; no action.')
+        else:
+            add_parameter(oid, pid)
+            orb.log.debug('  added.')
+            self.update_pgxno()
+        # except:
+            # orb.log.info('* malformed "parm added" pubsub message:')
+            # orb.log.info(f'  content: {str(content)}')
+
     def on_remote_parm_del(self, content):
         """
-        Handle dispatcher "remote: parm del" (triggered by vger pubsub msg
-        "parm del").
+        Handle vger pubsub msg "parm del".
         """
-        try:
-            oid, pid = content
-            orb.log.debug(f'* vger: del parameter "{pid}" from "{oid}"')
-            # local=False is *extremely* important here, to avoid cycles!
+        # try:
+        oid, pid = content
+        orb.log.debug(f'* vger: del parm "{pid}" from oid "{oid}"')
+        if parameterz.get(oid) and pid in parameterz['oid']:
             delete_parameter(oid, pid, local=False)
-            # TODO: check if deleted parm is involved in computations ...
-            # if so, do recompute or get_parmz
-        except:
-            orb.log.info('* malformed "remote: parm del" message:')
-            orb.log.info(f'  content: {str(content)}')
+            orb.log.debug('  deleted.')
+            self.update_pgxno()
+        else:
+            orb.log.debug('  does not exist locally; no action.')
+        # except:
+            # orb.log.info('* malformed "parm del" pubsub message:')
+            # orb.log.info(f'  content: {str(content)}')
 
     def on_de_del(self, oid='', deid=''):
         """
@@ -3259,19 +3281,41 @@ class Main(QMainWindow):
         if msg:
             orb.log.info(f'* vger: {msg}.')
 
+    def on_remote_de_added(self, content):
+        """
+        Handle vger pubsub msg "de added".
+        """
+        # NOTE: try/except only used for dev debugging
+        # try:
+        oid, deid = content
+        orb.log.debug(f'* vger: added de "{deid}" from oid "{oid}"')
+        if data_elementz.get(oid) and deid in data_elementz['oid']:
+            orb.log.debug('  already exists locally; no action.')
+        else:
+            add_data_element(oid, deid)
+            orb.log.debug('  added.')
+            self.update_pgxno()
+        # except:
+            # orb.log.info('* malformed "de added" pubsub message:')
+            # orb.log.info(f'  content: {str(content)}')
+
     def on_remote_de_del(self, content):
         """
-        Handle dispatcher "remote: de del" (triggered by vger mbus msg "de
-        del").
+        Handle vger pubsub msg "de del".
         """
-        try:
-            oid, deid = content
-            orb.log.debug(f'* vger: del data element "{deid}" from "{oid}"')
-            # local=False is *extremely* important here, to avoid cycles!
+        # NOTE: try/except only used for dev debugging
+        # try:
+        oid, deid = content
+        orb.log.debug(f'* vger: del data element "{deid}" from "{oid}"')
+        if data_elementz.get(oid) and deid in data_elementz['oid']:
             delete_data_element(oid, deid, local=False)
-        except:
-            orb.log.info('* malformed "remote: de del" message:')
-            orb.log.info(f'  content: {str(content)}')
+            orb.log.debug('  deleted.')
+            self.update_pgxno()
+        else:
+            orb.log.debug('  does not exist locally; no action.')
+        # except:
+            # orb.log.info('* malformed vger "de del" message:')
+            # orb.log.info(f'  content: {str(content)}')
 
     # ------------------------------------------------------------------------
     # NOTE [SCW 2022-10-11]: when in "connected" state, call vger.get_parmz()

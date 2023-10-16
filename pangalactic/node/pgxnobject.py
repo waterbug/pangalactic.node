@@ -2158,12 +2158,14 @@ class PgxnObject(QDialog):
 
     def on_del_parameter(self, pid=None):
         delete_parameter(self.obj.oid, pid)
-        dispatcher.send(signal="parm del", oid=self.obj.oid, pid=pid)
+        # NOTE: delete_parameter() sends dispatcher signal "parm del", which
+        # triggers pgxn to call rpc vger.del_parm()
         self.build_from_object()
 
     def on_del_de(self, deid=None):
         delete_data_element(self.obj.oid, deid)
-        dispatcher.send(signal="de del", oid=self.obj.oid, deid=deid)
+        # NOTE: delete_data_element() sends dispatcher signal "de del", which
+        # triggers pgxn to call rpc vger.del_de()
         self.build_from_object()
 
     def cancel(self):
