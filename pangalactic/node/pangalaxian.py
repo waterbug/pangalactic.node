@@ -3417,9 +3417,9 @@ class Main(QMainWindow):
             # orb.log.info('  [ovgpr] diagram needs refresh ...')
             self.system_model_window.on_signal_to_refresh()
             state['diagram needs refresh'] = False
-        # if state.get('modal views need update'):
-            # # orb.log.info('  [ovgpr] modal views need update ...')
-            # self._update_modal_views()
+        if state.get('modal views need update'):
+            # orb.log.info('  [ovgpr] modal views need update ...')
+            self._update_modal_views()
         # ---------------------------------------------------------------
         # NOTE: lib updates are done last
         # ---------------------------------------------------------------
