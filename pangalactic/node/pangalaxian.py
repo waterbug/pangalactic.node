@@ -3208,7 +3208,6 @@ class Main(QMainWindow):
         """
         Handle vger pubsub msg "parm added".
         """
-        # try:
         oid, pid = content
         orb.log.debug(f'* vger: added parm "{pid}" to oid "{oid}"')
         if parameterz.get(oid) and pid in parameterz[oid]:
@@ -3217,15 +3216,11 @@ class Main(QMainWindow):
             add_parameter(oid, pid)
             orb.log.debug('  added.')
             self.update_pgxno(mod_oids=[oid])
-        # except:
-            # orb.log.info('* malformed "parm added" pubsub message:')
-            # orb.log.info(f'  content: {str(content)}')
 
     def on_remote_parm_del(self, content):
         """
         Handle vger pubsub msg "parm del".
         """
-        # try:
         oid, pid = content
         orb.log.debug(f'* vger: del parm "{pid}" from oid "{oid}"')
         if parameterz.get(oid) and pid in parameterz[oid]:
@@ -3234,9 +3229,6 @@ class Main(QMainWindow):
             self.update_pgxno(mod_oids=[oid])
         else:
             orb.log.debug('  does not exist locally; no action.')
-        # except:
-            # orb.log.info('* malformed "parm del" pubsub message:')
-            # orb.log.info(f'  content: {str(content)}')
 
     def on_de_del(self, oid='', deid=''):
         """
@@ -3285,8 +3277,6 @@ class Main(QMainWindow):
         """
         Handle vger pubsub msg "de added".
         """
-        # NOTE: try/except only used for dev debugging
-        # try:
         oid, deid = content
         orb.log.debug(f'* vger: added de "{deid}" from oid "{oid}"')
         if data_elementz.get(oid) and deid in data_elementz[oid]:
@@ -3295,16 +3285,11 @@ class Main(QMainWindow):
             add_data_element(oid, deid)
             orb.log.debug('  added.')
             self.update_pgxno(mod_oids=[oid])
-        # except:
-            # orb.log.info('* malformed "de added" pubsub message:')
-            # orb.log.info(f'  content: {str(content)}')
 
     def on_remote_de_del(self, content):
         """
         Handle vger pubsub msg "de del".
         """
-        # NOTE: try/except only used for dev debugging
-        # try:
         oid, deid = content
         orb.log.debug(f'* vger: del data element "{deid}" from "{oid}"')
         if data_elementz.get(oid) and deid in data_elementz[oid]:
@@ -3313,9 +3298,6 @@ class Main(QMainWindow):
             self.update_pgxno(mod_oids=[oid])
         else:
             orb.log.debug('  does not exist locally; no action.')
-        # except:
-            # orb.log.info('* malformed vger "de del" message:')
-            # orb.log.info(f'  content: {str(content)}')
 
     # ------------------------------------------------------------------------
     # NOTE [SCW 2022-10-11]: when in "connected" state, call vger.get_parmz()
