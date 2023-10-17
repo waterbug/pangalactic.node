@@ -3210,13 +3210,13 @@ class Main(QMainWindow):
         """
         # try:
         oid, pid = content
-        orb.log.debug(f'* vger: added parm "{pid}" from oid "{oid}"')
+        orb.log.debug(f'* vger: added parm "{pid}" to oid "{oid}"')
         if parameterz.get(oid) and pid in parameterz['oid']:
             orb.log.debug('  already exists locally; no action.')
         else:
             add_parameter(oid, pid)
             orb.log.debug('  added.')
-            self.update_pgxno()
+            self.update_pgxno(mod_oids=[oid])
         # except:
             # orb.log.info('* malformed "parm added" pubsub message:')
             # orb.log.info(f'  content: {str(content)}')
@@ -3231,7 +3231,7 @@ class Main(QMainWindow):
         if parameterz.get(oid) and pid in parameterz['oid']:
             delete_parameter(oid, pid, local=False)
             orb.log.debug('  deleted.')
-            self.update_pgxno()
+            self.update_pgxno(mod_oids=[oid])
         else:
             orb.log.debug('  does not exist locally; no action.')
         # except:
@@ -3294,7 +3294,7 @@ class Main(QMainWindow):
         else:
             add_data_element(oid, deid)
             orb.log.debug('  added.')
-            self.update_pgxno()
+            self.update_pgxno(mod_oids=[oid])
         # except:
             # orb.log.info('* malformed "de added" pubsub message:')
             # orb.log.info(f'  content: {str(content)}')
@@ -3310,7 +3310,7 @@ class Main(QMainWindow):
         if data_elementz.get(oid) and deid in data_elementz['oid']:
             delete_data_element(oid, deid, local=False)
             orb.log.debug('  deleted.')
-            self.update_pgxno()
+            self.update_pgxno(mod_oids=[oid])
         else:
             orb.log.debug('  does not exist locally; no action.')
         # except:
@@ -4248,12 +4248,14 @@ class Main(QMainWindow):
                 self.library_widget.expand_button.setVisible(True)
                 self.library_widget.expand_button.setText('Collapse')
 
-    def update_pgxno(self):
+    def update_pgxno(self, mod_oids=None):
         """
         Send "update pgxno" signal to update the editor.
         """
+        if not mod_oids:
+             mod_oids = state.get('pgxno_oids')
         dispatcher.send(signal="update pgxno",
-                        mod_oids=state.get('pgxno_oids'))
+                        mod_oids=mod_oids)
 
     def update_pgxn_obj_panel(self, create_new=True):
         """
