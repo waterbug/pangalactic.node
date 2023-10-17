@@ -3211,7 +3211,7 @@ class Main(QMainWindow):
         # try:
         oid, pid = content
         orb.log.debug(f'* vger: added parm "{pid}" to oid "{oid}"')
-        if parameterz.get(oid) and pid in parameterz['oid']:
+        if parameterz.get(oid) and pid in parameterz[oid]:
             orb.log.debug('  already exists locally; no action.')
         else:
             add_parameter(oid, pid)
@@ -3228,7 +3228,7 @@ class Main(QMainWindow):
         # try:
         oid, pid = content
         orb.log.debug(f'* vger: del parm "{pid}" from oid "{oid}"')
-        if parameterz.get(oid) and pid in parameterz['oid']:
+        if parameterz.get(oid) and pid in parameterz[oid]:
             delete_parameter(oid, pid, local=False)
             orb.log.debug('  deleted.')
             self.update_pgxno(mod_oids=[oid])
@@ -3289,7 +3289,7 @@ class Main(QMainWindow):
         # try:
         oid, deid = content
         orb.log.debug(f'* vger: added de "{deid}" from oid "{oid}"')
-        if data_elementz.get(oid) and deid in data_elementz['oid']:
+        if data_elementz.get(oid) and deid in data_elementz[oid]:
             orb.log.debug('  already exists locally; no action.')
         else:
             add_data_element(oid, deid)
@@ -3307,7 +3307,7 @@ class Main(QMainWindow):
         # try:
         oid, deid = content
         orb.log.debug(f'* vger: del data element "{deid}" from "{oid}"')
-        if data_elementz.get(oid) and deid in data_elementz['oid']:
+        if data_elementz.get(oid) and deid in data_elementz[oid]:
             delete_data_element(oid, deid, local=False)
             orb.log.debug('  deleted.')
             self.update_pgxno(mod_oids=[oid])
