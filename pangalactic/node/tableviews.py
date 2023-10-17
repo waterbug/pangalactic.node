@@ -334,11 +334,11 @@ class ActivityInfoTable(QTableWidget):
         default_view_conf = [
             ('name', '', 100),
             ('t_start', 'Start\n(s)', 80),
-            ('duration', '', 80),
+            ('duration', '', 100),
             ('t_end', 'End\n(s)', 80),
             ('P[average]', '', 100),
             ('R_D[average]', '', 100),
-            ('description', '', 150)
+            ('description', '', 180)
             ]
         self.view_conf = view_conf or default_view_conf[:]
         self.setup_table()
