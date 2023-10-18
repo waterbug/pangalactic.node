@@ -97,8 +97,12 @@ class InfoTableItem(QTableWidgetItem):
 
     def setData(self, role, value):
         super().setData(role, value)
-        if self.tableWidget():
-            self.tableWidget().viewport().update()
+        try:
+            if self.tableWidget():
+                self.tableWidget().viewport().update()
+        except:
+            # C++ obj got deleted
+            pass
 
 
 class InfoTableHeaderItem(QTableWidgetItem):

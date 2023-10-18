@@ -374,11 +374,6 @@ class ActivityInfoTable(QTableWidget):
                 # create col names based on pnames
                 header_label = InfoTableHeaderItem(
                                 text=pname_to_header(pname, '', width=width))
-            # if width is unspecified, set based on length of header_label
-            if not width:
-                if colname:
-                    width = len(header_label.text())*20
-                width = min(max(width, self.min_col_width), self.max_col_width)
             self.setHorizontalHeaderItem(i, header_label)
         # populate relevant data
         for i, act in enumerate(self.acts):

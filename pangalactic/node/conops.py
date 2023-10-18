@@ -400,6 +400,7 @@ class TimelineWidget(QWidget):
         dispatcher.connect(self.delete_activity, "deleted object")
         dispatcher.connect(self.delete_activity, "delete activity")
         dispatcher.connect(self.on_rescale_timeline, "rescale timeline")
+        dispatcher.connect(self.on_act_mod, "act mod")
         self.setUpdatesEnabled(True)
 
     @property
@@ -544,6 +545,10 @@ class TimelineWidget(QWidget):
             self.scene_scale_select.setCurrentIndex(new_index)
         else:
             orb.log.debug(f'* rescale factor {percentscale} unavailable')
+
+    def on_act_mod(self, act):
+        if act is self.subject:
+            self.set_title()
 
     def on_activity_modified(self, oid):
         activity = orb.get(oid)

@@ -69,6 +69,7 @@ class ActivityTable(QWidget):
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
+        dispatcher.connect(self.on_act_mod, 'act mod')
 
     @property
     def act_of(self):
@@ -85,6 +86,10 @@ class ActivityTable(QWidget):
         if not subj:
             return []
         return subj.sub_activities
+
+    def on_act_mod(self, act):
+        if act is self.subject:
+            self.set_title_text()
 
     def set_title_text(self):
         if not hasattr(self, 'title_widget'):
