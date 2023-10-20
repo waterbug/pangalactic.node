@@ -1683,7 +1683,7 @@ class PrefsDialog(QDialog):
 
     def set_num_prec(self, index):
         """
-        Set the numeric format.
+        Set the global numeric precision.
         """
         orb.log.info('* [orb] setting numeric precision preference ...')
         try:

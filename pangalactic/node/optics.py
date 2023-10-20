@@ -16,7 +16,7 @@ import os, sys
 
 from louie import dispatcher
 
-from PyQt5.QtCore import pyqtSignal, Qt, QObject, QPointF, QPoint
+from PyQt5.QtCore import pyqtSignal, Qt, QObject, QPointF, QPoint, QVariant
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QFileDialog, QFrame, QMainWindow, QWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
@@ -30,8 +30,8 @@ from PyQt5.QtGui import (QFont, QIcon, QCursor, QPainterPath, QPolygonF,
 
 # pangalactic
 from pangalactic.core             import orb
-from pangalactic.core             import state
-from pangalactic.core.meta        import PGXN_PLACEHOLDERS
+from pangalactic.core             import prefs, state
+from pangalactic.core.meta        import NUMERIC_PRECISION, PGXN_PLACEHOLDERS
 from pangalactic.core.parametrics import get_dval, set_dval, set_pval
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.errbudget   import gen_error_budget
@@ -524,6 +524,20 @@ class LOMInfoPanel(QWidget):
         self.system_owner_value_field.setVisible(False)
         info_panel_layout.addWidget(self.system_owner_value_field)
         info_panel_layout.addStretch(1)
+        self.num_prec_select = QComboBox()
+        self.num_prec_select.activated.connect(self.set_err_num_prec)
+        num_prec_label = ColorLabel('Error Budget Numeric Precision',
+                                    color="purple", parent=self)
+        info_panel_layout.addWidget(num_prec_label)
+        for num_prec in NUMERIC_PRECISION:
+            self.num_prec_select.addItem(num_prec, QVariant())
+        np = prefs.get('ebnp')
+        if np in NUMERIC_PRECISION:
+            self.num_prec_select.setCurrentIndex(NUMERIC_PRECISION.index(np))
+        else:
+            self.num_prec_select.setCurrentIndex(NUMERIC_PRECISION.index('4'))
+        info_panel_layout.addWidget(self.num_prec_select)
+
         self.error_budget_button = SizedButton("Create Error Budget")
         info_panel_layout.addWidget(self.error_budget_button)
         self.error_budget_button.clicked.connect(self.output_error_budget)
@@ -564,6 +578,18 @@ class LOMInfoPanel(QWidget):
             self.system_name_value_label.setEnabled(False)
 
     system = property(fget=_get_system, fset=_set_system)
+
+    def set_err_num_prec(self, index):
+        """
+        Set the numeric precision for the error budget (ebnp).
+        """
+        orb.log.info('* setting error budget numeric precision ...')
+        try:
+            ebnp = NUMERIC_PRECISION[index]
+            prefs['ebnp'] = ebnp
+            orb.log.info(f'  set to "{ebnp}"')
+        except:
+            orb.log.debug(f'  invalid index ({index})')
 
     def output_error_budget(self):
         dtstr = date2str(dtstamp())
