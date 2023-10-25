@@ -173,7 +173,7 @@ class TimelineBar(QGraphicsPolygonItem):
         """
         super().__init__(parent)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
-                      QGraphicsItem.ItemIsFocusable|
+                      QGraphicsItem.ItemIsFocusable |
                       QGraphicsItem.ItemSendsGeometryChanges)
         self.style = style or Qt.SolidLine
         self.subject = subject
