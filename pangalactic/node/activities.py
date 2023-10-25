@@ -117,7 +117,6 @@ class ActivityTable(QWidget):
         self.title_widget.setText(title_txt)
 
     def set_table(self):
-        # view = ['name', 't_start', 't_end', 'duration', 'description']
         project = orb.get(state.get('project'))
         table = ActivityInfoTable(self.subject, project=project)
         table.setSizePolicy(QSizePolicy.Preferred,

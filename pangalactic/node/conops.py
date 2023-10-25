@@ -42,7 +42,11 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
 
 # pangalactic
-from pangalactic.core             import orb, state
+try:
+    from pangalactic.core             import orb, state
+except:
+    import pangalactic.core.set_uberorb
+    from pangalactic.core             import orb, state
 from pangalactic.core.clone       import clone
 # from pangalactic.core.parametrics import get_pval
 # from pangalactic.core.meta        import DEFAULT_CLASS_PARAMETERS

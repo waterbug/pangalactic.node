@@ -336,12 +336,13 @@ class ActivityInfoTable(QTableWidget):
             ('t_start', 'Start\n(s)', 80),
             ('duration', 'Duration', 100),
             ('t_end', 'End\n(s)', 80),
-            ('P[average]', '', 100),
-            ('R_D[average]', '', 100),
-            ('description', 'Description', 180)
+            ('P', '', 100),
+            ('R_D', '', 100),
+            ('description', 'Notes', 180)
             ]
         self.view_conf = view_conf or default_view_conf[:]
         self.setup_table()
+        self.cell_action = False
         self.cellChanged.connect(self.on_item_mod)
 
     @property
@@ -390,6 +391,12 @@ class ActivityInfoTable(QTableWidget):
                      vertical.height() * .6)
 
     def on_item_mod(self, row=None, col=None):
+        # NOTE: self.cell_action prevents recursive calls from the cellChanged
+        # event
+        if self.cell_action:
+            self.cell_action = False
+            return
+        self.cell_action = True
         orb.log.debug('  - ActivityInfoTable.on_item_mod()')
         act = None
         pname = None
@@ -405,9 +412,41 @@ class ActivityInfoTable(QTableWidget):
             return
         if act and pname:
             item = self.item(row, col)
-            val = item.data(Qt.EditRole)
-            orb.log.debug(f'    setting "{act.name}" "{pname}" to <{val}>')
+            str_val = item.data(Qt.EditRole)
+            try:
+                val = float(str_val)
+            except:
+                orb.log.debug(f'    value <{str_val}> to float failed ...')
+                orb.log.debug('    operation aborted.')
+                return
             orb.set_prop_value(act, pname, val)
+            orb.log.debug(f'    setting "{act.name}" "{pname}" to <{val}>')
+            if pname == 'duration':
+                t_start = orb.get_prop_value(act, 't_start')
+                new_t_end = val + t_start
+                orb.set_prop_value(act, 't_end', new_t_end)
+                txt = f'setting "{act.name}" "t_end" to <{new_t_end}>'
+                orb.log.debug(f'    {txt}')
+                self.setItem(row, self.view.index('t_end'),
+                             InfoTableItem(str(new_t_end)))
+            elif pname == 't_start':
+                duration = orb.get_prop_value(act, 'duration')
+                new_t_end = val + duration
+                orb.set_prop_value(act, 't_end', new_t_end)
+                txt = f'setting "{act.name}" "t_end" to <{new_t_end}>'
+                orb.log.debug(f'    {txt}')
+                self.setItem(row, self.view.index('t_end'),
+                             InfoTableItem(str(new_t_end)))
+            elif pname == 't_end':
+                t_start = orb.get_prop_value(act, 't_start')
+                new_duration = val - t_start
+                orb.set_prop_value(act, 'duration', new_duration)
+                txt = f'setting "{act.name}" "duration" to <{new_duration}>'
+                orb.log.debug(f'    {txt}')
+                self.setItem(row, self.view.index('duration'),
+                             InfoTableItem(str(new_duration)))
+            # TODO: check if item is a de or parm -- if so, no need to save the
+            # object ...
             act.mod_datetime = dtstamp()
             orb.save([act])
             dispatcher.send(signal="act mod", act=act)
