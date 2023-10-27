@@ -82,7 +82,7 @@ class EventBlock(QGraphicsPolygonItem):
         path = QPainterPath()
         #---draw blocks depending on the 'shape' string passed in
         self.create_actions()
-        if self.activity.activity_type.name == "Operation":
+        if self.activity.activity_type.name == "Op":
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
                     QPointF(50, -50), QPointF(-50, -50)])
@@ -315,14 +315,14 @@ class TimelineScene(QGraphicsScene):
     def dropEvent(self, event):
         orb.log.debug('* scene.dropEvent()')
         seq = len(self.subject.sub_activities) + 1
-        # activity type is one of "Cycle", "Operation", "Event"
+        # activity type is one of "Cycle", "Op", "Event"
         activity_type_name = event.mimeData().text()
         activity_type = orb.select("ActivityType", name=activity_type_name)
         prefix = (getattr(self.act_of, 'reference_designator', '') or
                   getattr(self.act_of, 'system_role', '') or
                   # for Mission ...
                   getattr(getattr(self.act_of, 'owner', None), 'id', '') or
-                  'Timeline')
+                  'Mission')
         act_id = '-'.join([prefix, activity_type_name, str(seq)])
         act_name = ' '.join([prefix, activity_type_name, str(seq)])
         project = orb.get(state.get('project'))
@@ -739,6 +739,8 @@ class ConOpsModeler(QMainWindow):
         super().__init__(parent=parent)
         orb.log.info('* ConOpsModeler initializing')
         project = orb.get(state.get('project'))
+        if not project:
+            project = orb.get('pgefobjects:SANDBOX')
         mission_name = ' '.join([project.id, 'Mission'])
         mission = None
         # NOTE: usage_list is only relevant if the subject is a Mission;
@@ -792,13 +794,13 @@ class ConOpsModeler(QMainWindow):
         triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
         square = QPixmap(os.path.join( orb.home, 'images', 'square.png'))
         op_button = ToolButton(square, "")
-        op_button.setData("Operation")
+        op_button.setData("Op")
         ev_button = ToolButton(triangle, "")
         ev_button.setData("Event")
         cyc_button = ToolButton(circle, "")
         cyc_button.setData("Cycle")
         layout.addWidget(op_button, 0, 0)
-        layout.addWidget(NameLabel("Operation"), 0, 1)
+        layout.addWidget(NameLabel("Op"), 0, 1)
         layout.addWidget(ev_button, 1, 0)
         layout.addWidget(NameLabel("Event"), 1, 1)
         layout.addWidget(cyc_button, 2, 0)
