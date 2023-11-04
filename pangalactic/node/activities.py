@@ -29,7 +29,7 @@ from pangalactic.node.tableviews  import ActivityInfoTable
 from pangalactic.node.widgets     import NameLabel
 
 
-class ActivityTable(QWidget):
+class ActivityWidget(QWidget):
     """
     Table for displaying the sub-activities of an Activity and related data.
 
@@ -52,7 +52,7 @@ class ActivityTable(QWidget):
         """
         super().__init__(parent=parent)
         name = getattr(subject, 'name', 'None')
-        orb.log.info(f'* ActivityTable initializing for "{name}" ...')
+        orb.log.info(f'* ActivityWidget initializing for "{name}" ...')
         self.subject = subject
         self.project = orb.get(state.get('project'))
         self.position = position
@@ -136,18 +136,15 @@ class ActivityTable(QWidget):
         # txt = '* {} table: on_activity_remote_mod()'
         # orb.log.debug(txt.format(self.position))
         if activity and activity.sub_activity_of:
-            composite_activity = getattr(activity.where_occurs[0],
-                                         'composite_activity', None)
-            if composite_activity:
-                self.on_activity_added(activity.oid)
+            self.on_activity_added(activity.sub_activity_of.oid)
 
     def on_activity_added(self, oid):
-        orb.log.debug('  - ActivityTable.on_activity_added()')
+        orb.log.debug('  - ActivityWidget.on_activity_added()')
         if oid in [act.oid for act in self.activities]:
             self.reset_table()
 
     def on_activity_removed(self, oid):
-        orb.log.debug('  - ActivityTable.on_activity_removed()')
+        orb.log.debug('  - ActivityWidget.on_activity_removed()')
         self.reset_table()
 
     def on_drill_down(self, obj=None, position=None):
@@ -991,7 +988,7 @@ if __name__ == '__main__':
         sub_act_role = '1'
         orb.save([launch])
     app = QApplication(sys.argv)
-    w = ActivityTable(subject=mission)
+    w = ActivityWidget(subject=mission)
     w.show()
     sys.exit(app.exec_())
 

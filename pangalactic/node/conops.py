@@ -51,7 +51,7 @@ from pangalactic.core.clone       import clone
 # from pangalactic.core.parametrics import get_pval
 # from pangalactic.core.meta        import DEFAULT_CLASS_PARAMETERS
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.node.activities  import ActivityTable, ModesTool
+from pangalactic.node.activities  import ActivityWidget, ModesTool
 from pangalactic.node.buttons     import SizedButton, ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 # from pangalactic.node.pgxnobject  import PgxnObject
@@ -720,12 +720,12 @@ class ConOpsModeler(QMainWindow):
 
     Then if a subsystem TimelineBar gets focus, the following are added for
     that subsystem:
-        - activity_table (ActivityTable)
+        - activity_table (ActivityWidget)
         - sub_timeline (TimelineWidget(QWidget))
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
             * activity blocks (EventBlock(QGraphicsPolygonItem)
-        - sub_activity_table (ActivityTable)
+        - sub_activity_table (ActivityWidget)
     """
 
     def __init__(self, subject=None, parent=None):
@@ -834,11 +834,11 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.subject, position='main')
         self.main_timeline.setMinimumSize(1000, 300)
-        self.sub_timeline = TimelineWidget(
-                                        self.main_timeline.scene.current_focus,
-                                        position='sub')
-        self.sub_timeline.setEnabled(False)
-        self.sub_timeline.setMinimumSize(1000, 300)
+        # self.sub_timeline = TimelineWidget(
+                                        # self.main_timeline.scene.current_focus,
+                                        # position='sub')
+        # self.sub_timeline.setEnabled(False)
+        # self.sub_timeline.setMinimumSize(1000, 300)
         self.outer_layout = QGridLayout()
         self.create_activity_table()
         self.outer_layout.addWidget(self.activity_table, 0, 0)
@@ -846,7 +846,7 @@ class ConOpsModeler(QMainWindow):
         self.create_sub_activity_table()
         self.sub_activity_table.setEnabled(False)
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
-        self.outer_layout.addWidget(self.sub_timeline, 1, 1)
+        # self.outer_layout.addWidget(self.sub_timeline, 1, 1)
         self.widget = QWidget()
         self.widget.setMinimumSize(1500, 700)
         self.widget.setLayout(self.outer_layout)
@@ -863,8 +863,8 @@ class ConOpsModeler(QMainWindow):
 
     def create_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
-        self.activity_table = ActivityTable(self.subject, parent=self,
-                                            position='main')
+        self.activity_table = ActivityWidget(self.subject, parent=self,
+                                             position='main')
         self.activity_table.setSizePolicy(QSizePolicy.Minimum,
                                           QSizePolicy.Expanding)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
@@ -872,8 +872,8 @@ class ConOpsModeler(QMainWindow):
     def create_sub_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_sub_activity_table()")
         act = getattr(self.main_timeline.scene.current_focus, 'activity', None)
-        self.sub_activity_table = ActivityTable(act, parent=self,
-                                                position='sub')
+        self.sub_activity_table = ActivityWidget(act, parent=self,
+                                                 position='sub')
         self.sub_activity_table.setSizePolicy(QSizePolicy.Minimum,
                                               QSizePolicy.Expanding)
         self.sub_activity_table.setAttribute(Qt.WA_DeleteOnClose)
@@ -932,12 +932,12 @@ class ConOpsModeler(QMainWindow):
         """
         Set sub_timeline to show all sub_activities of the focused activity.
         """
-        self.sub_timeline.subject = act
-        self.sub_timeline.set_new_scene()
-        self.sub_timeline.setEnabled(True)
-        self.rebuild_sub_activity_table()
-        self.sub_activity_table.setEnabled(True)
-        self.sub_timeline.setEnabled(True)
+        # self.sub_timeline.subject = act
+        # self.sub_timeline.set_new_scene()
+        # self.sub_timeline.setEnabled(True)
+        # self.rebuild_sub_activity_table()
+        # self.sub_activity_table.setEnabled(True)
+        # self.sub_timeline.setEnabled(True)
 
     def on_new_activity(self, act):
         orb.log.debug("* ConOpsModeler.on_new_activity()")
