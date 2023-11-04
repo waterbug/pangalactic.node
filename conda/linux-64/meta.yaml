@@ -3,7 +3,7 @@ package:
   version: "4.0.dev0"
 
 source:
-        path: /home/waterbug/gitlab/pangalactic.node
+  path: /home/waterbug/gitlab/pangalactic.node
 
 build:
   entry_points:
@@ -19,6 +19,7 @@ requirements:
     - autobahn
     - binaryornot
     - inflect
+    - packaging
     - pynacl
     - pyqt
     - python {{PY_VER}}

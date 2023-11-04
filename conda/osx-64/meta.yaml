@@ -1,6 +1,6 @@
 package:
-  name: pangalaxian
-  version: "2.0"
+  name: pangalactic.node
+  version: "4.0.dev0"
 
 source:
   path: # [path to source]
@@ -8,17 +8,28 @@ source:
 build:
   number: 1
   entry_points:
-          - pangalaxian = pangalaxian.__main__:main
+    - pangalaxian = pangalactic.node.pangalaxian:run
 
 requirements:
   build:
-    - python
+    - python {{PY_VER}}
     - setuptools
 
   run:
-    - python
-    - menuinst
-    - pangalactic.node >=2.0
+    - pangalactic.core >=4.0.dev0
+    - autobahn
+    - binaryornot
+    - inflect
+    - packaging
+    - pynacl
+    - pyqt
+    - python {{PY_VER}}
+    - pythonocc-core
+    - pytz
+    - qt5reactor
+    - sqlalchemy
+    - twisted
+    - websocket-client
 
 about:
   # home: [url]

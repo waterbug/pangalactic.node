@@ -9,7 +9,7 @@ source:
 build:
   number: 1
   entry_points:
-          - pangalaxian = pangalaxian.__main__:main
+    - pangalaxian = pangalactic.node.pangalaxian:run
 
 requirements:
   build:
@@ -17,9 +17,21 @@ requirements:
     - setuptools
 
   run:
-    - python {{PY_VER}}
+    - pangalactic.core >=4.0.dev0
+    - autobahn
+    - binaryornot
+    - inflect
     - menuinst
-    - pangalactic.node >=4.0.dev0
+    - packaging
+    - pynacl
+    - pyqt
+    - python {{PY_VER}}
+    - pythonocc-core
+    - pytz
+    - qt5reactor
+    - sqlalchemy
+    - twisted
+    - websocket-client
 
 about:
   # home: [url]
