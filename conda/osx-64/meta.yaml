@@ -25,9 +25,7 @@ requirements:
     - pyqt
     - python {{PY_VER}}
     - pythonocc-core
-    - pytz
     - qt5reactor
-    - sqlalchemy
     - twisted
     - websocket-client
 

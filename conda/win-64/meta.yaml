@@ -20,16 +20,12 @@ requirements:
     - pangalactic.core >=4.0.dev0
     - autobahn
     - binaryornot
-    - inflect
-    - menuinst
     - packaging
     - pynacl
     - pyqt
     - python {{PY_VER}}
-    - pythonocc-core
-    - pytz
+    - pythonocc-core ==7.4.0
     - qt5reactor
-    - sqlalchemy
     - twisted
     - websocket-client
 
