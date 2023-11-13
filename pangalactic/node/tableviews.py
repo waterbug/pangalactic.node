@@ -431,8 +431,12 @@ class ActivityInfoTable(QTableWidget):
                 orb.log.debug(f'    {txt}')
                 # get new value of "t_end" as a str
                 t_end_str = orb.get_prop_val_as_str(act, 't_end')
-                self.setItem(row, self.view.index('t_end'),
-                             InfoTableItem(t_end_str))
+                self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
+                                                                 t_end_str)
+                # also set the item value using the corrected datatype str
+                duration_str = orb.get_prop_val_as_str(act, 'duration')
+                self.item(row, self.view.index('duration')).setData(Qt.EditRole,
+                                                                    duration_str)
             elif pname == 't_start':
                 duration = orb.get_prop_val(act, 'duration')
                 # get new value of "t_start"
@@ -443,8 +447,12 @@ class ActivityInfoTable(QTableWidget):
                 orb.log.debug(f'    {txt}')
                 # get new value of "t_end" as a str
                 t_end_str = orb.get_prop_val_as_str(act, 't_end')
-                self.setItem(row, self.view.index('t_end'),
-                             InfoTableItem(t_end_str))
+                self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
+                                                                 t_end_str)
+                # also set the item value using the corrected datatype str
+                t_start_str = orb.get_prop_val_as_str(act, 't_start')
+                self.item(row, self.view.index('t_start')).setData(Qt.EditRole,
+                                                                   t_start_str)
             elif pname == 't_end':
                 t_start = orb.get_prop_val(act, 't_start')
                 # get new value of "t_end"
@@ -455,8 +463,12 @@ class ActivityInfoTable(QTableWidget):
                 orb.log.debug(f'    {txt}')
                 # get new value of "duration" as a str
                 duration_str = orb.get_prop_val_as_str(act, 'duration')
-                self.setItem(row, self.view.index('duration'),
-                             InfoTableItem(duration_str))
+                self.item(row, self.view.index('duration')).setData(Qt.EditRole,
+                                                                    duration_str)
+                # also set the item value using the corrected datatype str
+                t_end_str = orb.get_prop_val_as_str(act, 't_end')
+                self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
+                                                                 t_end_str)
             # TODO: check if item is a de or parm -- if so, no need to save the
             # object ...
             act.mod_datetime = dtstamp()
