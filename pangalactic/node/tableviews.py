@@ -381,7 +381,7 @@ class ActivityInfoTable(QTableWidget):
             for j, ptuple in enumerate(self.view_conf):
                 pname, colname, width = ptuple
                 self.setItem(i, j,
-                   InfoTableItem(orb.get_prop_str_value(act, pname) or ''))
+                   InfoTableItem(orb.get_prop_val_as_str(act, pname) or ''))
         self.resizeColumnsToContents()
 
     def sizeHint(self):
@@ -414,37 +414,49 @@ class ActivityInfoTable(QTableWidget):
             item = self.item(row, col)
             str_val = item.data(Qt.EditRole)
             try:
-                val = float(str_val)
+                # set_prop_val() tries to cast value to correct datatype
+                orb.set_prop_val(act, pname, str_val)
             except:
-                orb.log.debug(f'    value <{str_val}> to float failed ...')
+                orb.log.debug(f'    val <{str_val}> datatype incompatible')
                 orb.log.debug('    operation aborted.')
                 return
-            orb.set_prop_value(act, pname, val)
-            orb.log.debug(f'    setting "{act.name}" "{pname}" to <{val}>')
+            orb.log.debug(f'    setting "{act.name}" "{pname}" to <{str_val}>')
             if pname == 'duration':
-                t_start = orb.get_prop_value(act, 't_start')
-                new_t_end = val + t_start
-                orb.set_prop_value(act, 't_end', new_t_end)
+                t_start = orb.get_prop_val(act, 't_start')
+                # get new value of "duration"
+                duration = orb.get_prop_val(act, 'duration')
+                new_t_end = t_start + duration
+                orb.set_prop_val(act, 't_end', new_t_end)
                 txt = f'setting "{act.name}" "t_end" to <{new_t_end}>'
                 orb.log.debug(f'    {txt}')
+                # get new value of "t_end" as a str
+                t_end_str = orb.get_prop_val_as_str(act, 't_end')
                 self.setItem(row, self.view.index('t_end'),
-                             InfoTableItem(str(new_t_end)))
+                             InfoTableItem(t_end_str))
             elif pname == 't_start':
-                duration = orb.get_prop_value(act, 'duration')
-                new_t_end = val + duration
-                orb.set_prop_value(act, 't_end', new_t_end)
+                duration = orb.get_prop_val(act, 'duration')
+                # get new value of "t_start"
+                t_start = orb.get_prop_val(act, 't_start')
+                new_t_end = t_start + duration
+                orb.set_prop_val(act, 't_end', new_t_end)
                 txt = f'setting "{act.name}" "t_end" to <{new_t_end}>'
                 orb.log.debug(f'    {txt}')
+                # get new value of "t_end" as a str
+                t_end_str = orb.get_prop_val_as_str(act, 't_end')
                 self.setItem(row, self.view.index('t_end'),
-                             InfoTableItem(str(new_t_end)))
+                             InfoTableItem(t_end_str))
             elif pname == 't_end':
-                t_start = orb.get_prop_value(act, 't_start')
-                new_duration = val - t_start
-                orb.set_prop_value(act, 'duration', new_duration)
+                t_start = orb.get_prop_val(act, 't_start')
+                # get new value of "t_end"
+                t_end = orb.get_prop_val(act, 't_end')
+                new_duration = t_end - t_start
+                orb.set_prop_val(act, 'duration', new_duration)
                 txt = f'setting "{act.name}" "duration" to <{new_duration}>'
                 orb.log.debug(f'    {txt}')
+                # get new value of "duration" as a str
+                duration_str = orb.get_prop_val_as_str(act, 'duration')
                 self.setItem(row, self.view.index('duration'),
-                             InfoTableItem(str(new_duration)))
+                             InfoTableItem(duration_str))
             # TODO: check if item is a de or parm -- if so, no need to save the
             # object ...
             act.mod_datetime = dtstamp()
@@ -455,7 +467,7 @@ class ActivityInfoTable(QTableWidget):
         if act in self.acts:
             row = self.acts.index(act)
             for j, pname in self.view:
-                val = orb.get_prop_str_value(act, pname)
+                val = orb.get_prop_val_as_str(act, pname)
                 self.setItem(row, j, val)
 
 
@@ -532,21 +544,21 @@ class SystemInfoTable(QTableWidget):
         if usages:
             if self.sort_by_field:
                 if self.sort_on == 'component':
-                    usages.sort(key=lambda x:orb.get_prop_value(x.component,
+                    usages.sort(key=lambda x:orb.get_prop_val(x.component,
                                                           self.sort_by_field))
                 elif self.sort_on == 'usage':
                     usages.sort(key=lambda x:
-                                orb.get_prop_value(x, self.sort_by_field))
+                                orb.get_prop_val(x, self.sort_by_field))
             for i, usage in enumerate(usages):
                 for j, ptuple in enumerate(self.view):
                     pname, colname, otype = ptuple
                     if otype == 'component':
                         component = getattr(usage, 'component')
                         self.setItem(i, j, InfoTableItem(
-                            orb.get_prop_str_value(component, pname) or ''))
+                            orb.get_prop_val_as_str(component, pname) or ''))
                     elif otype == 'usage':
                         self.setItem(i, j, InfoTableItem(
-                            orb.get_prop_str_value(usage, pname) or ''))
+                            orb.get_prop_val_as_str(usage, pname) or ''))
         width_fit = sum(w for w in widths) + 100
         self.resize(width_fit, 240)
 
