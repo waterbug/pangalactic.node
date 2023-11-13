@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
+<svg width="14cm" height="5cm" viewBox="-1526 560 274 100" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs/>
+  <g id="Background">
+    <rect style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2.35099e-37; stroke: #ffffff" x="-1525.5" y="560" width="273.322" height="100" rx="0" ry="0"/>
+    <image x="-1513.5" y="603.334" width="222.337" height="40.6006" xlink:href="mode_buttons.png"/>
+    <g transform="matrix(1.00111,0,0,0.859742,1.65704,78.6848)">
+      <polygon style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" fill-rule="evenodd" points="-1494,562 -1446,562 -1446,588 -1468,588 -1461.62,617.898 -1478,588 -1494,588 "/>
+      <text font-size="9.01982" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="-1491.44" y="571.888">
+        <tspan x="-1491.44" y="571.888">Mode</tspan>
+        <tspan x="-1491.44" y="583.163">Indicator</tspan>
+      </text>
+    </g>
+    <g transform="matrix(0.890259,0,0,0.860555,-149.137,78.2288)">
+      <polygon style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" fill-rule="evenodd" points="-1358,562 -1316,562 -1316,588 -1338,588 -1326,616 -1348,588 -1358,588 "/>
+      <text font-size="9.01982" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="-1355.44" y="571.888">
+        <tspan x="-1355.44" y="571.888">Systems</tspan>
+        <tspan x="-1355.44" y="583.163">Modeler</tspan>
+      </text>
+    </g>
+    <g transform="matrix(0.921024,0,0,0.871392,-110.013,72.1489)">
+      <polygon style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" fill-rule="evenodd" points="-1392,562 -1362,562 -1362,588 -1374,588 -1346,618 -1382,588 -1392,588 "/>
+      <text font-size="9.01982" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="-1389.44" y="571.886">
+        <tspan x="-1389.44" y="571.886">Local</tspan>
+        <tspan x="-1389.44" y="583.161">DB</tspan>
+      </text>
+    </g>
+    <g transform="matrix(1.03267,0,0,0.845608,40.9367,86.6139)">
+      <polygon style="fill: #ffffff; fill-opacity: 1; stroke-opacity: 1; stroke-width: 2; stroke: #000000" fill-rule="evenodd" points="-1312,562 -1254,562 -1254,588 -1292,588 -1302,618 -1300,588 -1312,588 "/>
+      <text font-size="9.01982" style="fill: #000000; fill-opacity: 1; stroke: none;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:normal" x="-1310" y="572">
+        <tspan x="-1310" y="572">Component</tspan>
+        <tspan x="-1310" y="583.275">Modeler</tspan>
+      </text>
+    </g>
+  </g>
+</svg>

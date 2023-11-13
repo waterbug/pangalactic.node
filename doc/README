@@ -1,0 +1,16 @@
+Generating the help docs depends on the "pandoc" utility.
+
+    ./htmlify user_guide.md
+
+... creates user_guide.html, using the pandoc.css stylesheet.
+
+NOTE:  when creating figures using the "dia" diagramming tool, the best
+anti-aliasing and resolution can be obtained by this procedure:
+
+    * export to .svg format
+    * import the .svg file into Inkscape
+    * export to .png from Inkscape
+
+Exporting directly from dia to .png gives very poor anti-aliasing and no
+control over scaling the output.
+
