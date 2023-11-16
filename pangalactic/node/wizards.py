@@ -103,6 +103,9 @@ class DataImportWizard(QWizard):
         if not hasattr(orb, 'log'):
             orb.log = PrintLogger()
         orb.log.info('* DataImportWizard')
+        # clear the data_wizard_state; otherwise, successive invocations
+        # will have state carried over, which would definitely be a bug!
+        data_wizard_state.clear()
         data_wizard_state['object_type'] = object_type
         orb.log.info(f'  - object type: {object_type}')
         self.setWizardStyle(QWizard.ClassicStyle)
