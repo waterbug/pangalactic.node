@@ -47,10 +47,10 @@ class ObjectTableView(QTableView):
         # orb.log.debug('* [ObjectTableView] initializing ...')
         self.objs = objs
         self.view = view
-        self.setup_table()
+        self.setup()
         self.add_context_menu()
 
-    def setup_table(self):
+    def setup(self):
         self.cname = None
         # if a main_table_proxy exists, remove it so gui doesn't get confused
         if self.objs:
@@ -192,7 +192,7 @@ class ObjectTableView(QTableView):
             prefs['db_views'][self.cname] = new_view[:]
             self.view = new_view[:]
             orb.log.debug('  self.view: {}'.format(str(self.view)))
-            self.setup_table()
+            self.setup()
 
     def export_tsv(self):
         """
@@ -341,7 +341,7 @@ class ActivityInfoTable(QTableWidget):
             ('description', 'Notes', 180)
             ]
         self.view_conf = view_conf or default_view_conf[:]
-        self.setup_table()
+        self.setup()
         self.itemChanged.connect(self.on_item_mod)
 
     @property
@@ -364,7 +364,28 @@ class ActivityInfoTable(QTableWidget):
         """
         return [x[0] for x in self.view_conf]
 
-    def setup_table(self):
+    # def align_activities(self):
+        # orb.log.debug('  - ActivityInfoTable.align_activities()')
+        # orb.log.debug(f'    {len(self.acts)} activities.')
+        # if len(self.acts) < 2:
+            # orb.log.debug('    less than 2 activities, exiting.')
+            # return
+        # for i, act in enumerate(self.acts):
+            # if i + 2 > len(self.acts):
+                # orb.log.debug('    end of activities, alignment is done.')
+                # return
+            # t_start = orb.get_prop_val(act, 't_start')
+            # duration = orb.get_prop_val(act, 'duration')
+            # t_end = orb.get_prop_val(act, 't_end')
+            # orb.set_prop_val(self.acts[i+1], 't_start', t_end)
+            # name = self.acts[i+1].name
+            # orb.log.debug(f'    {name} t_start set to <{t_end}>')
+            # next_duration = orb.get_prop_val(self.acts[i+1], 'duration')
+            # orb.set_prop_val(self.acts[i+1], 't_end', t_end + next_duration)
+            # orb.log.debug(f'    {name} t_end set to <{t_end + next_duration}>')
+
+    def setup(self):
+        orb.log.debug('  - ActivityInfoTable.setup()')
         self.setColumnCount(len(self.view))
         self.setRowCount(len(self.acts))
         for i, (pname, colname, width) in enumerate(self.view_conf):
@@ -393,27 +414,54 @@ class ActivityInfoTable(QTableWidget):
         orb.log.debug('  - ActivityInfoTable.on_item_mod()')
         row = item.row()
         col = item.column()
+        cur_item = self.currentItem()
+        cur_row = cur_item.row()
+        cur_col = cur_item.column()
+        if (row == cur_row and col == cur_col):
+            act = self.acts[row]
+            pname = self.view[col]
+            str_val = item.data(Qt.EditRole)
+            try:
+                # set_prop_val() tries to cast value to correct datatype
+                orb.set_prop_val(act, pname, str_val)
+            except:
+                # TODO: pop-up notification to user ...
+                orb.log.debug(f'    val <{str_val}> datatype incompatible')
+                orb.log.debug('    operation aborted.')
+                return
+            orb.log.debug(f'    setting {act.name} {pname} to <{str_val}>')
+            self.blockSignals(True)
+            self.adjust_timeline(item)
+            self.blockSignals(False)
+            # TODO: check if item is a de or parm -- if so, no need to save the
+            # object ...
+            # act.mod_datetime = dtstamp()
+            # orb.save([act])
+            # dispatcher.send(signal="act mod", act=act)
+        else:
+            loc = f'({row}, {col})'
+            orb.log.debug(f'    item {loc} is not current item; ignoring.')
+
+    def adjust_timeline(self, item):
+        """
+        Adjust all activity timeline properties when an item value has been
+        set.
+
+        Args:
+            item (InfoTableItem): item whose value was set
+        """
+        # TODO: allow for different time units than seconds ...
+        row = item.row()
+        col = item.column()
         act = self.acts[row]
         pname = self.view[col]
-        str_val = item.data(Qt.EditRole)
-        try:
-            # set_prop_val() tries to cast value to correct datatype
-            orb.set_prop_val(act, pname, str_val)
-        except:
-            # TODO: pop-up notification to user ...
-            orb.log.debug(f'    val <{str_val}> datatype incompatible')
-            orb.log.debug('    operation aborted.')
-            return
-        orb.log.debug(f'    setting "{act.name}" "{pname}" to <{str_val}>')
-        # NOTE: there may be a more elegant way to do this as part of the
-        # InfoTableItem class definition ...
         if pname == 'duration':
             t_start = orb.get_prop_val(act, 't_start')
             # get new value of "duration"
             duration = orb.get_prop_val(act, 'duration')
             new_t_end = t_start + duration
             orb.set_prop_val(act, 't_end', new_t_end)
-            txt = f'setting "{act.name}" "t_end" to <{new_t_end}>'
+            txt = f'setting {act.name} t_end to <{new_t_end}>'
             orb.log.debug(f'    {txt}')
             # get new value of "t_end" as a str
             t_end_str = orb.get_prop_val_as_str(act, 't_end')
@@ -428,7 +476,7 @@ class ActivityInfoTable(QTableWidget):
             t_start = orb.get_prop_val(act, 't_start')
             new_t_end = t_start + duration
             orb.set_prop_val(act, 't_end', new_t_end)
-            txt = f'setting "{act.name}" "t_end" to <{new_t_end}>'
+            txt = f'setting {act.name} t_end to <{new_t_end}>'
             orb.log.debug(f'    {txt}')
             # get new value of "t_end" as a str
             t_end_str = orb.get_prop_val_as_str(act, 't_end')
@@ -443,7 +491,7 @@ class ActivityInfoTable(QTableWidget):
             t_end = orb.get_prop_val(act, 't_end')
             new_duration = t_end - t_start
             orb.set_prop_val(act, 'duration', new_duration)
-            txt = f'setting "{act.name}" "duration" to <{new_duration}>'
+            txt = f'setting {act.name} duration to <{new_duration}>'
             orb.log.debug(f'    {txt}')
             # get new value of "duration" as a str
             duration_str = orb.get_prop_val_as_str(act, 'duration')
@@ -452,18 +500,40 @@ class ActivityInfoTable(QTableWidget):
             # also set the item value using the corrected datatype str
             t_end_str = orb.get_prop_val_as_str(act, 't_end')
             item.setData(Qt.EditRole, t_end_str)
-        # TODO: check if item is a de or parm -- if so, no need to save the
-        # object ...
-        act.mod_datetime = dtstamp()
-        orb.save([act])
-        dispatcher.send(signal="act mod", act=act)
+        # ===================================================================
+        # NOTE: this section is causing major problems -- need to avoid
+        # recursive setting of items!!
+        # ===================================================================
+        # if there are activities following this one, adjust their properties
+        # accordingly ...
+        # self.align_activities()
+        if len(self.acts) > row + 1:
+            t_end = orb.get_prop_val(act, 't_end')
+            for i, other_act in enumerate(self.acts[row+1:len(self.acts)]):
+                r = row + 1 + i
+                txt = f'updating {other_act.name} ...'
+                orb.log.debug(f'    {txt}')
+                orb.set_prop_val(other_act, 't_start', t_end)
+                orb.log.debug(f'    {other_act.name} t_start set to {t_end}')
+                t_start = orb.get_prop_val(other_act, 't_start')
+                start_str = orb.get_prop_val_as_str(other_act, 't_start')
+                self.item(r, self.view.index('t_start')).setData(Qt.EditRole,
+                                                                 start_str)
+                duration = orb.get_prop_val(other_act, 'duration')
+                t_end = t_start + duration
+                orb.set_prop_val(other_act, 't_end', t_end)
+                orb.log.debug(f'    {other_act.name} t_end set to {t_end}')
+                t_end_str = orb.get_prop_val_as_str(other_act, 't_end')
+                self.item(r, self.view.index('t_end')).setData(Qt.EditRole,
+                                                               t_end_str)
 
     def update_activity(self, act=None):
         if act in self.acts:
             row = self.acts.index(act)
-            for j, pname in self.view:
+            for j, pname in enumerate(self.view):
                 val = orb.get_prop_val_as_str(act, pname)
-                self.setItem(row, j, val)
+                item = InfoTableItem(text=val)
+                self.setItem(row, j, item)
 
 
 class SystemInfoTable(QTableWidget):
@@ -508,9 +578,9 @@ class SystemInfoTable(QTableWidget):
             ('R_D[CBE]', '', 'component')
             ]
         self.view = view or default_view[:]
-        self.setup_table()
+        self.setup()
 
-    def setup_table(self):
+    def setup(self):
         self.setColumnCount(len(self.view))
         usages = getattr(self.system, 'components', []) or []
         if usages:

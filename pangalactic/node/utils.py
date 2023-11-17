@@ -116,7 +116,7 @@ class InfoTableHeaderItem(QTableWidgetItem):
         self.setBackground(QBrush(color))
         font = QFont()
         fsize = font.pointSize()
-        orb.log.debug(f'* header uses font size {fsize}')
+        # orb.log.debug(f'* header uses font size {fsize}')
         font.setWeight(QFont.Bold)
         self.setFont(font)
         self.isResolving = False
