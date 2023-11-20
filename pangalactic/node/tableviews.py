@@ -364,26 +364,6 @@ class ActivityInfoTable(QTableWidget):
         """
         return [x[0] for x in self.view_conf]
 
-    # def align_activities(self):
-        # orb.log.debug('  - ActivityInfoTable.align_activities()')
-        # orb.log.debug(f'    {len(self.acts)} activities.')
-        # if len(self.acts) < 2:
-            # orb.log.debug('    less than 2 activities, exiting.')
-            # return
-        # for i, act in enumerate(self.acts):
-            # if i + 2 > len(self.acts):
-                # orb.log.debug('    end of activities, alignment is done.')
-                # return
-            # t_start = orb.get_prop_val(act, 't_start')
-            # duration = orb.get_prop_val(act, 'duration')
-            # t_end = orb.get_prop_val(act, 't_end')
-            # orb.set_prop_val(self.acts[i+1], 't_start', t_end)
-            # name = self.acts[i+1].name
-            # orb.log.debug(f'    {name} t_start set to <{t_end}>')
-            # next_duration = orb.get_prop_val(self.acts[i+1], 'duration')
-            # orb.set_prop_val(self.acts[i+1], 't_end', t_end + next_duration)
-            # orb.log.debug(f'    {name} t_end set to <{t_end + next_duration}>')
-
     def setup(self):
         orb.log.debug('  - ActivityInfoTable.setup()')
         self.setColumnCount(len(self.view))
@@ -526,14 +506,7 @@ class ActivityInfoTable(QTableWidget):
                 t_end_str = orb.get_prop_val_as_str(other_act, 't_end')
                 self.item(r, self.view.index('t_end')).setData(Qt.EditRole,
                                                                t_end_str)
-
-    def update_activity(self, act=None):
-        if act in self.acts:
-            row = self.acts.index(act)
-            for j, pname in enumerate(self.view):
-                val = orb.get_prop_val_as_str(act, pname)
-                item = InfoTableItem(text=val)
-                self.setItem(row, j, item)
+        dispatcher.send(signal="act mod", act=act)
 
 
 class SystemInfoTable(QTableWidget):
