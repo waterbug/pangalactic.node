@@ -2009,8 +2009,6 @@ class EditModesDialog(QDialog):
     system power mode that is to be defined using p.node.activities.ModesTool.
     """
 
-    modes_edited = pyqtSignal(str)  # arg: project oid
-
     def __init__(self, project, default_modes=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add or Edit a System Power Mode")
@@ -2089,7 +2087,7 @@ class EditModesDialog(QDialog):
             # in case all modes have been deleted, add "Undefined" mode
             modes_dict['Undefined'] = 'Off'
         if deleteds or adds or self.new_mode_fields:
-            self.modes_edited.emit(self.project.oid)
+            dispatcher.send(signal='modes edited', oid=self.project.oid)
         self.accept()
 
 
