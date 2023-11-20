@@ -645,7 +645,7 @@ class ModesTool(QMainWindow):
         self.mode_definition_table = ModeDefinitionView(self.project)
         self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mode_definition_table.setModel(model)
-        dispatcher.connect('modes edited', self.on_dlg_modes_edited)
+        dispatcher.connect(self.on_dlg_modes_edited, 'modes edited')
         self._delegates = []
         for row, item in enumerate(items):
             for sys_oid in sys_dict:

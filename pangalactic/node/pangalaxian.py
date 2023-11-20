@@ -349,6 +349,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.get_parmz, 'get parmz')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
+        dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
         dispatcher.connect(self.on_power_modes_updated, 'power modes updated')
         # NOTE: Entity apparatus is not currently being used
         # dispatcher.connect(self.on_entity_saved, 'entity saved')
@@ -3500,9 +3501,9 @@ class Main(QMainWindow):
 
     def on_mode_defs_edited(self, project_oid):
         """
-        Handle local ModesTool pyqtSignal "modes_edited".
+        Handle local ModesTool "modes edited" signal.
         """
-        orb.log.debug('* signal: "modes_edited"')
+        orb.log.debug('* signal: "modes edited"')
         proj_mode_defs = mode_defz.get(project_oid) or {}
         if proj_mode_defs and state['connected']:
             data = json.dumps(proj_mode_defs)
@@ -4430,7 +4431,7 @@ class Main(QMainWindow):
             # after expanding, set the selected system
             dispatcher.send(signal='set selected system')
 
-    def rebuild_dash_selector(self, modes_edited=False):
+    def rebuild_dash_selector(self):
         # orb.log.debug('* rebuild_dash_selector()')
         if getattr(self, 'dashboard_title_layout', None):
             orb.log.debug('  - dashboard_title_layout exists ...')
@@ -5555,7 +5556,6 @@ class Main(QMainWindow):
     def define_op_modes(self):
         win = ModesTool(self.project, parent=self)
         self.modes_published.connect(win.on_modes_published)
-        win.modes_edited.connect(self.on_mode_defs_edited)
         win.show()
 
     def sc_42_modeler(self):
