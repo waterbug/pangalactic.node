@@ -372,6 +372,7 @@ class ModesTool(QMainWindow):
         self.left_dock.setWidget(self.sys_tree_panel)
         self.new_window = True
         dispatcher.connect(self.on_modes_edited, 'modes edited')
+        dispatcher.connect(self.on_modes_published, 'modes published')
         dispatcher.connect(self.on_remote_sys_mode_datum,
                            'remote sys mode datum')
         dispatcher.connect(self.on_remote_comp_mode_datum,
@@ -437,9 +438,6 @@ class ModesTool(QMainWindow):
                 if state.get('mode') == "system":
                     orb.log.debug('  - sending "power modes updated" signal')
                     dispatcher.send("power modes updated")
-
-    def on_dlg_modes_edited(self, oid):
-        dispatcher.send(signal='modes edited', oid=oid)
 
     def on_modes_edited(self, oid):
         self.set_table_and_adjust()
@@ -645,7 +643,6 @@ class ModesTool(QMainWindow):
         self.mode_definition_table = ModeDefinitionView(self.project)
         self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mode_definition_table.setModel(model)
-        dispatcher.connect(self.on_dlg_modes_edited, 'modes edited')
         self._delegates = []
         for row, item in enumerate(items):
             for sys_oid in sys_dict:
@@ -887,14 +884,10 @@ class ModeDefinitionView(QTableView):
         mode_defz[self.project.oid]['modes'] = new_modes_dict
         mode_defz[self.project.oid]['systems'] = new_sys_dict
         mode_defz[self.project.oid]['components'] = new_comp_dict
-        dispatcher.send(signal='modes edited', oid=self.project.oid)
 
     def edit_modes(self):
         dlg = EditModesDialog(self.project, parent=self)
         dlg.show()
-
-    def on_dlg_modes_edited(self, oid):
-        dispatcher.send(signal='modes edited', oid=oid)
 
     def delete_modes(self):
         """

@@ -480,10 +480,6 @@ class ActivityInfoTable(QTableWidget):
             # also set the item value using the corrected datatype str
             t_end_str = orb.get_prop_val_as_str(act, 't_end')
             item.setData(Qt.EditRole, t_end_str)
-        # ===================================================================
-        # NOTE: this section is causing major problems -- need to avoid
-        # recursive setting of items!!
-        # ===================================================================
         # if there are activities following this one, adjust their properties
         # accordingly ...
         # self.align_activities()

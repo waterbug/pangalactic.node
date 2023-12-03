@@ -155,7 +155,6 @@ class Main(QMainWindow):
 
     # signals
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
-    modes_published = pyqtSignal()
     new_object = pyqtSignal(str)                  # args: oid
     mod_object = pyqtSignal(str)                  # args: oid
     remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
@@ -1605,9 +1604,8 @@ class Main(QMainWindow):
                         mode_defz.update(all_proj_modes)
                         state['mode_defz_dts'] = md_dts
                         orb.log.debug('    mode_defz updated.')
-                        orb.log.debug('    emitting "modes_published" signal')
+                        orb.log.debug('    dispatching "modes published"')
                         dispatcher.send(signal='modes published')
-                        self.modes_published.emit()
                     else:
                         orb.log.debug('    same datetime stamp; ignored.')
             elif subject == 'sys mode datum updated':
@@ -3499,12 +3497,12 @@ class Main(QMainWindow):
         # TODO:  add more detailed status message ...
         pass
 
-    def on_mode_defs_edited(self, project_oid):
+    def on_mode_defs_edited(self, oid=None):
         """
         Handle local ModesTool "modes edited" signal.
         """
         orb.log.debug('* signal: "modes edited"')
-        proj_mode_defs = mode_defz.get(project_oid) or {}
+        proj_mode_defs = mode_defz.get(oid) or {}
         if proj_mode_defs and state['connected']:
             data = json.dumps(proj_mode_defs)
             # s = json.dumps(proj_mode_defs, separators=(',', ':'),
@@ -3514,7 +3512,7 @@ class Main(QMainWindow):
             # orb.log.debug(f'    {s}')
             # orb.log.debug('    =============================')
             rpc = self.mbus.session.call('vger.update_mode_defs',
-                                         project_oid=project_oid,
+                                         project_oid=oid,
                                          data=data)
             rpc.addCallback(self.rpc_update_mode_defs_result)
             rpc.addErrback(self.on_failure)
@@ -5555,7 +5553,6 @@ class Main(QMainWindow):
 
     def define_op_modes(self):
         win = ModesTool(self.project, parent=self)
-        self.modes_published.connect(win.on_modes_published)
         win.show()
 
     def sc_42_modeler(self):

@@ -363,7 +363,7 @@ class TimelineScene(QGraphicsScene):
 # Mission, a selected project system or group of systems (e.g. a selected SC,
 # all SC's, ground system, all of the above, etc.), or (2) if TimelineWidget
 # activity is a non-Mission activity instance, all subsystems of the current
-# activity's "of_system" system.
+# activity's "of_system" usage.
 
 # TODO: implement "back" based on history
 
@@ -715,7 +715,7 @@ class ConOpsModeler(QMainWindow):
             * timeline (Timeline(QGraphicsPathItem))
             * activity blocks (EventBlock(QGraphicsPolygonItem)
             * timelinebars (TimelineBar(QGraphicsPolygonItem))
-              for each subsystem in the system that is the "of_system"
+              for each subsystem usage that is the "of_system"
               in the main_timeline:
 
     Then if a subsystem TimelineBar gets focus, the following are added for
