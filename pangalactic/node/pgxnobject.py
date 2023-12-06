@@ -976,28 +976,35 @@ class PgxnObject(QDialog):
         """
         Build tabbed forms from the supplied object
         """
+        orb.log.debug('* [pgxo] build_from_object()')
         self.setWindowTitle('Object Viewer / Editor')
         # set min width so text fields don't get truncated
         self.setMinimumWidth(550)
+        need_title_box = False
         # self.setMinimumHeight(300)
         # destroy the existing stuff, if necessary ...
         if not getattr(self, 'vbox', None):
             self.vbox = QVBoxLayout()
         if not getattr(self, 'title_box', None):
+            orb.log.debug('* [pgxo] no title_box layout -- adding ...')
             self.title_box = QHBoxLayout()
+            need_title_box = True
         if not getattr(self, 'title', None):
+            orb.log.debug('* [pgxo] no title label -- adding ...')
             self.title = QLabel()
-        self.title.setAttribute(Qt.WA_DeleteOnClose)
-        self.title.setSizePolicy(QSizePolicy.Minimum,
-                                 QSizePolicy.Minimum)
-        self.title_text = get_object_title(self.obj, new=self.new)
-        self.title.setText(self.title_text)
-        self.title_box.addWidget(self.title)
-        self.title_box.addStretch(1)
+            self.title.setAttribute(Qt.WA_DeleteOnClose)
+            self.title.setSizePolicy(QSizePolicy.Minimum,
+                                     QSizePolicy.Minimum)
+            self.title_text = get_object_title(self.obj, new=self.new)
+            self.title.setText(self.title_text)
+            self.title_box.addWidget(self.title)
+            self.title_box.addStretch(1)
         if not getattr(self, 'class_label', None):
+            orb.log.debug('* [pgxo] no class_label -- adding ...')
             self.class_label = SizedButton(self.cname, color='green')
             self.title_box.addWidget(self.class_label, alignment=Qt.AlignRight)
-        self.vbox.addLayout(self.title_box)
+        if need_title_box:
+            self.vbox.addLayout(self.title_box)
         tab_names = ['main', 'info', 'narrative', 'admin']
         if self.panels:
             self.tab_names = [name for name in tab_names if name in self.panels]
