@@ -155,17 +155,22 @@ class ObjectTableView(QTableView):
         Handle 'modified object' dispatcher signal.
         """
         orb.log.debug('* ObjectTableView: on_mod_object_signal()')
-        idx = self.main_table_model.mod_object(obj)
-        if idx is not None:
-            try:
-                self.selectRow(idx.row())
-            except:
-                # oops, my C++ object went away ...
-                orb.log.debug('  - obj not found (table possibly recreated).')
+        try:
+            idx = self.main_table_model.mod_object(obj.oid)
+        except:
+            # oops, my model's C++ object went away ...
+            orb.log.debug('  - obj not found (table possibly recreated).')
+        # if idx is not None:
+            # try:
+                # self.selectRow(idx.row())
+            # except:
+                # # oops, my C++ object went away ...
+                # orb.log.debug('  - obj not found (table possibly recreated).')
 
     def select_columns(self):
         """
-        Dialog displayed in response to 'select columns' context menu item.
+        Displays the SelectColsDialog in response to 'select columns' context
+        menu item.
         """
         orb.log.debug('* ObjectTableView: select_columns() ...')
         # NOTE: all_cols is a *copy* from the schema -- DO NOT modify the
