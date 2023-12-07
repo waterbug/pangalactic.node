@@ -21,7 +21,7 @@ from pangalactic.core.names        import (get_external_name_plural,
 from pangalactic.core.parametrics  import (data_elementz, de_defz, parameterz,
                                            parm_defz)
 from pangalactic.node.buttons      import SizedButton
-from pangalactic.node.dialogs      import (HWFieldsDialog,
+from pangalactic.node.dialogs      import (HWFieldsDialog, SelectColsDialog,
                                            SelectHWLibraryColsDialog)
 from pangalactic.node.pgxnobject   import PgxnObject
 from pangalactic.node.tablemodels  import ObjectTableModel
@@ -643,7 +643,7 @@ class FilterPanel(QWidget):
                              (a in de_defz))]
         # NOTE: if no view is provided, the "view" property has logic to select
         # an appropriate view ...
-        if external_filters:
+        if external_filters and cname == 'HardwareProduct':
             self.ext_filters = SizedButton("Filters")
             self.clear_filters_btn = SizedButton("Clear Product Filters",
                                                  color="green")
@@ -658,8 +658,8 @@ class FilterPanel(QWidget):
             self.only_mine_label = QLabel("Only My Products")
             self.only_mine_label.setStyleSheet(
                                            'font-weight: bold; color: green;')
-            self.set_view_button = SizedButton('Customize Columns')
-            self.set_view_button.clicked.connect(self.set_custom_hw_lib_view)
+        self.set_view_button = SizedButton('Customize Columns')
+        self.set_view_button.clicked.connect(self.set_custom_view)
 
         self.filter_case_checkbox = QCheckBox("case sensitive")
         filter_pattern_label = QLabel("Text Filter:")
@@ -671,18 +671,19 @@ class FilterPanel(QWidget):
         self.clear_btn.clicked.connect(self.clear_text)
 
         self.proxy_layout = QVBoxLayout()
-        if external_filters:
-            only_mine_hbox = QHBoxLayout()
-            only_mine_hbox.addWidget(self.only_mine_checkbox)
-            only_mine_hbox.addWidget(self.only_mine_label)
-            only_mine_hbox.addStretch(1)
-            only_mine_hbox.addWidget(self.set_view_button)
-            # only_mine_hbox.addWidget(self.report_button)
-            self.proxy_layout.addLayout(only_mine_hbox)
+        if external_filters and cname == 'HardwareProduct':
+            set_view_hbox = QHBoxLayout()
+            set_view_hbox.addWidget(self.set_view_button)
+            # set_view_hbox.addWidget(self.report_button)
+            set_view_hbox.addStretch(1)
+            self.proxy_layout.addLayout(set_view_hbox)
             filters_hbox = QHBoxLayout()
             filters_hbox.addWidget(self.ext_filters)
             filters_hbox.addWidget(self.clear_filters_btn)
             filters_hbox.addWidget(self.cur_filter_label)
+            filters_hbox.addStretch(1)
+            filters_hbox.addWidget(self.only_mine_checkbox)
+            filters_hbox.addWidget(self.only_mine_label)
             self.proxy_layout.addLayout(filters_hbox)
         text_filter_hbox = QHBoxLayout()
         text_filter_hbox.addWidget(filter_pattern_label)
@@ -860,40 +861,74 @@ class FilterPanel(QWidget):
                                  as_library=self.as_library)
         return model
 
-    def set_custom_hw_lib_view(self):
+    def set_custom_view(self):
         """
-        Set a specified view for the panel when used for the HW Library.
+        Set a customized view for the panel.
         """
-        oids = [o.oid for o in self.objs]
-        parms = reduce(lambda x,y: x.union(y),
-                       [set(parameterz.get(oid) or []) for oid in oids])
-        parms = [pid for pid in parms]
-        parms.sort(key=lambda x: x.lower())
-        des = reduce(lambda x,y: x.union(y),
-                     [set(data_elementz.get(oid) or []) for oid in oids])
-        des = [deid for deid in des]
-        des.sort(key=lambda x: x.lower())
-        dlg = SelectHWLibraryColsDialog(parms, des, self.view, parent=self)
-        if dlg.exec_() == QDialog.Accepted:
-            if self.col_moved_view:
-                old_view = self.col_moved_view[:]
-                self.col_moved_view = []
-            else:
-                old_view = self.proxy_model.view[:]
-            new_view = []
-            # add any columns from old_view first
-            for col in old_view:
-                if col in dlg.checkboxes and dlg.checkboxes[col].isChecked():
-                    new_view.append(col)
-            # then append any newly selected columns
-            for col in dlg.checkboxes:
-                if col not in new_view and dlg.checkboxes[col].isChecked():
-                    new_view.append(col)
-            prefs['hw_library_view'] = new_view[:]
-            self.view = new_view
-            self.custom_view = new_view[:]
-            # orb.log.debug(f'* new HW Library view: {new_view}')
-            self.refresh()
+        if self.cname == 'HardwareProduct':
+            # HW views can include parameters and data elements
+            oids = [o.oid for o in self.objs]
+            parms = reduce(lambda x,y: x.union(y),
+                           [set(parameterz.get(oid) or []) for oid in oids])
+            parms = [pid for pid in parms]
+            parms.sort(key=lambda x: x.lower())
+            des = reduce(lambda x,y: x.union(y),
+                         [set(data_elementz.get(oid) or []) for oid in oids])
+            des = [deid for deid in des]
+            des.sort(key=lambda x: x.lower())
+            dlg = SelectHWLibraryColsDialog(parms, des, self.view, parent=self)
+            if dlg.exec_() == QDialog.Accepted:
+                if self.col_moved_view:
+                    old_view = self.col_moved_view[:]
+                    self.col_moved_view = []
+                else:
+                    old_view = self.proxy_model.view[:]
+                new_view = []
+                # add any columns from old_view first
+                for col in old_view:
+                    if (col in dlg.checkboxes
+                        and dlg.checkboxes[col].isChecked()):
+                        new_view.append(col)
+                # then append any newly selected columns
+                for col in dlg.checkboxes:
+                    if (col not in new_view
+                        and dlg.checkboxes[col].isChecked()):
+                        new_view.append(col)
+                if self.as_library:
+                    prefs['hw_library_view'] = new_view[:]
+                    # orb.log.debug(f'* new HW Library view: {new_view}')
+                else:
+                    prefs['hw_db_view'] = new_view[:]
+                    # orb.log.debug(f'* new HW DB view: {new_view}')
+                self.view = new_view
+                self.custom_view = new_view[:]
+                self.refresh()
+        else:
+            all_cols = ((orb.schemas.get(self.cname) or {}).get(
+                                                'field_names') or [])[:]
+            dlg = SelectColsDialog(all_cols, self.view, parent=self)
+            if dlg.exec_() == QDialog.Accepted:
+                # rebuild custom view from the selected columns
+                old_view = self.view[:]
+                new_view = []
+                # add any columns from old_view first
+                for col in old_view:
+                    if (col in dlg.checkboxes
+                        and dlg.checkboxes[col].isChecked()):
+                        new_view.append(col)
+                        all_cols.remove(col)
+                # then append any newly selected columns
+                for col in all_cols:
+                    if dlg.checkboxes[col].isChecked():
+                        new_view.append(col)
+                orb.log.debug('  new view: {}'.format(new_view))
+                if not prefs.get('db_views'):
+                    prefs['db_views'] = {}
+                prefs['db_views'][self.cname] = new_view[:]
+                self.view = new_view[:]
+                self.custom_view = new_view[:]
+                orb.log.debug('  self.view: {}'.format(str(self.view)))
+                self.refresh()
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
