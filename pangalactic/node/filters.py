@@ -229,16 +229,18 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
     rqtpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)*(\.[0-9][0-9]*)+'
 
-    def __init__(self, cname=None, headers_are_ids=False, parent=None):
+    def __init__(self, cname=None, headers_are_ids=False, as_library=False,
+                 parent=None):
         super().__init__(parent=parent)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
         self.cname = cname
         self.headers_are_ids = headers_are_ids
+        self.as_library = as_library
         self.schema = orb.schemas[self.cname]
 
     @property
     def view(self):
-        if self.cname == 'HardwareProduct':
+        if self.cname == 'HardwareProduct' and self.as_library:
             return prefs.get('hw_library_view') or []
         elif self.cname == 'Requirement':
             return prefs.get('rqt_mgr_view') or []
@@ -247,7 +249,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     @view.setter
     def view(self, v):
-        if self.cname == 'HardwareProduct':
+        if self.cname == 'HardwareProduct' and self.as_library:
             prefs['hw_library_view'] = v
         elif self.cname == 'Requirement':
             prefs['rqt_mgr_view'] = v
@@ -446,10 +448,6 @@ class ProxyView(QTableView):
                  headers_are_ids=False, word_wrap=False, parent=None):
         super().__init__(parent=parent)
         self.sized_cols = sized_cols or {}
-        # always resize "id" and "name" cols to fit contents -- see
-        # resize_sized_cols(), below ...
-        fitted_cols = {'id': 0, 'name': 0}
-        self.sized_cols.update(fitted_cols)
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -512,6 +510,14 @@ class ProxyView(QTableView):
                 try:
                     pos = labels.index(self.model().col_to_label[col])
                     self.setColumnWidth(pos, PGEF_COL_WIDTHS[col])
+                except:
+                    continue
+            else:
+                # if neither a sized col nor in PGEF_COL_WIDTHS, resize to
+                # contents ...
+                try:
+                    pos = labels.index(self.model().col_to_label[col])
+                    self.resizeColumnToContents(pos)
                 except:
                     continue
 
@@ -579,7 +585,8 @@ class FilterPanel(QWidget):
             min_width (int):  minimum width of widget
             height (int):  height of widget
             as_library (bool):  (default: False) flag whether to act as library
-                -- i.e. its objects can be drag/dropped onto other widgets
+                -- i.e. its objects can be drag/dropped onto other widgets and
+                it may use a library-specific view
             external_filters (bool):  (default: False) flag whether external
                 widgets will be called to select additional filter states --
                 so far this is only used for the Product library
@@ -776,6 +783,7 @@ class FilterPanel(QWidget):
         self.proxy_model = ObjectSortFilterProxyModel(
                                         cname=self.cname,
                                         headers_are_ids=self.headers_are_ids,
+                                        as_library=self.as_library,
                                         parent=self)
         self.proxy_model.setDynamicSortFilter(True)
         self.proxy_view = ProxyView(self.proxy_model,
