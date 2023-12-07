@@ -201,7 +201,7 @@ class LibraryListView(QListView):
         return QSize(400, 450)
 
     def create_actions(self):
-        self.pgxnobj_action = QAction('View this object', self)
+        self.pgxnobj_action = QAction('View or edit this object', self)
         self.pgxnobj_action.triggered.connect(self.display_object)
 
     def setup_context_menu(self):
