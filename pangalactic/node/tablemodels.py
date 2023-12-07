@@ -359,15 +359,18 @@ class ObjectTableModel(MappingTableModel):
         instance of itself.
         """
         orb.log.debug("* ObjectTableModel.mod_object() ...")
-        try:
-            row = self.oids.index(oid)  # raises ValueError if problem
+        # try:
+        if oid in self.oids:
+            row = self.oids.index(oid)
             orb.log.debug(f"    oid found at row {row}")
-            idx = self.index(row, 0, parent=QModelIndex())
+            try:
+                idx = self.index(row, 0, parent=QModelIndex())
+            except:
+                return QModelIndex()
             obj = orb.get(oid)
             self.setData(idx, obj)
             return idx
-        except:
-            # possibly because my C++ object has been deleted ...
+        else:
             txt = f'oid "{oid}" not found in table.'
             orb.log.debug(f"    {txt}")
         return QModelIndex()
