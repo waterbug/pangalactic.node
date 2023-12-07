@@ -435,16 +435,10 @@ class ObjectBlock(Block):
         menu = QMenu()
         perms = get_perms(self.usage)
         obj = None
-        self.allocs = None
         if isinstance(self.usage, orb.classes['Acu']):
             obj = self.usage.component
-            self.allocs = self.usage.allocated_requirements
-        if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+        elif isinstance(self.usage, orb.classes['ProjectSystemUsage']):
             obj = self.usage.system
-            # DEPRECATED attribute 'system_requirements' =>
-            # IS NOW 'allocated_requirements'
-            # self.allocs = self.usage.system_requirements
-            self.allocs = self.usage.allocated_requirements
         orb.log.debug("  permissions on usage: {}".format(str(perms)))
         if getattr(obj, 'id', 'TBD') == 'TBD':
             if isinstance(self.usage, orb.classes['Acu']):
@@ -454,11 +448,14 @@ class ObjectBlock(Block):
                 menu.addAction('Filter library by allowed product type',
                                self.filter_library_by_type)
         else:
-            # block is not TBD -- enable viewing of the object ...
-            menu.addAction('View this object', self.display_object)
+            # block is not TBD -- enable pgxno viewer/editor ...
+            menu.addAction('View or edit this object', self.display_object)
             pt_id = getattr(getattr(obj, 'product_type', None), 'id', '')
+            # if appropriate perms, enable adding default SC subsystems ...
             if pt_id == 'spacecraft' and 'modify' in get_perms(obj):
-                menu.addAction('Populate Subsystems', self.populate_subsystems)
+                menu.addAction('Add Standard Spacecraft Subsystems',
+                               self.populate_subsystems)
+        self.allocs = self.usage.allocated_requirements
         if self.allocs:
             menu.addAction('Show allocated requirements', self.display_reqts)
         else:
@@ -503,7 +500,6 @@ class ObjectBlock(Block):
     def populate_subsystems(self):
         if isinstance(self.usage, orb.classes['Acu']):
             obj = self.usage.component
-            self.allocs = self.usage.allocated_requirements
         if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
             obj = self.usage.system
         pt_id = getattr(getattr(obj, 'product_type', None), 'id', '')
