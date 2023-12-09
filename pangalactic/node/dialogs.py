@@ -1768,10 +1768,10 @@ class SelectColsDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
 
 
-class SelectHWLibraryColsDialog(QDialog):
+class SelectHWColsDialog(QDialog):
     """
-    Dialog for selecting columns to be displayed in the Hardware Products
-    library table.
+    Dialog for selecting columns to be displayed in the FilterPanel when
+    populated by Hardware Products.
 
     Args:
         parameters (list of str): list of parameter ids to select from

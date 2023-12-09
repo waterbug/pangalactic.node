@@ -22,7 +22,7 @@ from pangalactic.core.parametrics  import (data_elementz, de_defz, parameterz,
                                            parm_defz)
 from pangalactic.node.buttons      import SizedButton
 from pangalactic.node.dialogs      import (HWFieldsDialog, SelectColsDialog,
-                                           SelectHWLibraryColsDialog)
+                                           SelectHWColsDialog)
 from pangalactic.node.pgxnobject   import PgxnObject
 from pangalactic.node.tablemodels  import ObjectTableModel
 from pangalactic.node.utils        import (create_mime_data,
@@ -240,23 +240,65 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     @property
     def view(self):
-        if self.cname == 'HardwareProduct' and self.as_library:
-            return prefs.get('hw_library_view') or []
-        elif self.cname == 'Requirement':
-            return prefs.get('rqt_mgr_view') or []
+        # orb.log.debug('* proxy view [property]')
+        cname = getattr(self, 'cname', 'None')
+        if cname == 'HardwareProduct' and self.as_library:
+            # orb.log.debug('  cname: "HardwareProduct", as_library')
+            v = prefs.get('hw_library_view') or ['id', 'name',
+                                                    'product_type']
+            # orb.log.debug(f'  view: {v}')
+            return v
+        elif cname == 'HardwareProduct':
+            # orb.log.debug('  cname: "HardwareProduct", NOT as_library')
+            v = (prefs.get('hw_db_view') or
+                 prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
+                                cname, ['id', 'name', 'description']))
+            # orb.log.debug(f'  view: {v}')
+            return v
+        elif cname == 'Requirement':
+            # orb.log.debug('  cname: "Requirement"')
+            v = prefs.get('rqt_mgr_view') or []
+            # orb.log.debug(f'  view: {v}')
+            return v
         else:
-            return prefs.get('views', {}).get(self.cname) or []
+            # orb.log.debug(f'  cname: {cname}')
+            v = prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
+                                cname, ['id', 'name', 'description'])
+            # orb.log.debug(f'  view: {v}')
+            return v
+
+        # PREVIOUS DEFINITION (DEPRECATED)
+        # cname = getattr(self, 'cname', None)
+        # if cname == 'HardwareProduct' and self.as_library:
+            # return prefs.get('hw_library_view') or []
+        # elif cname == 'Requirement':
+            # return prefs.get('rqt_mgr_view') or []
+        # else:
+            # return prefs.get('views', {}).get(cname) or []
 
     @view.setter
     def view(self, v):
-        if self.cname == 'HardwareProduct' and self.as_library:
+        cname = getattr(self, 'cname', 'None')
+        if cname == 'HardwareProduct' and self.as_library:
             prefs['hw_library_view'] = v
-        elif self.cname == 'Requirement':
+        elif cname == 'HardwareProduct':
+            prefs['hw_db_view'] = v
+        elif cname == 'Requirement':
             prefs['rqt_mgr_view'] = v
         else:
             if not prefs.get('views'):
                 prefs['views'] = {}
-            prefs['views'][self.cname] = v
+            prefs['views'][cname] = v
+
+        # PREVIOUS DEFINITION (DEPRECATED)
+        # if self.cname == 'HardwareProduct' and self.as_library:
+            # prefs['hw_library_view'] = v
+        # elif self.cname == 'Requirement':
+            # prefs['rqt_mgr_view'] = v
+        # else:
+            # if not prefs.get('views'):
+                # prefs['views'] = {}
+            # prefs['views'][self.cname] = v
 
     @property
     def ncols(self):
@@ -574,7 +616,8 @@ class FilterPanel(QWidget):
             cname (str): name of a PGEF class (orb.classes) -- NOTE: if cname
                 is supplied, 'objs' may be None, and if not None, must be
                 instances of cname
-            view (iterable):  names of columns to be shown
+            view (iterable):  names of columns to be shown -- if not specified,
+                appropriate per-class defaults will be used
             sized_cols (iterable):  names of columns to be sized to fit
                 contents
             label (str):  string to incorporate in title
@@ -624,7 +667,7 @@ class FilterPanel(QWidget):
                 self.cname = self.objs[0].__class__.__name__
             elif cname:
                 # orb.log.debug(f'* FilterPanel: cname = "{cname}"')
-                # orb.log.debug('  NOT a library ...')
+                # orb.log.debug('  NOT as library ...')
                 self.cname = cname
                 self.objs = []
             else:
@@ -643,7 +686,8 @@ class FilterPanel(QWidget):
                              (a in de_defz))]
         # NOTE: if no view is provided, the "view" property has logic to select
         # an appropriate view ...
-        if external_filters and cname == 'HardwareProduct':
+        # if external_filters and cname == 'HardwareProduct':
+        if cname == 'HardwareProduct':
             self.ext_filters = SizedButton("Filters")
             self.clear_filters_btn = SizedButton("Clear Product Filters",
                                                  color="green")
@@ -671,12 +715,13 @@ class FilterPanel(QWidget):
         self.clear_btn.clicked.connect(self.clear_text)
 
         self.proxy_layout = QVBoxLayout()
-        if external_filters and cname == 'HardwareProduct':
-            set_view_hbox = QHBoxLayout()
-            set_view_hbox.addWidget(self.set_view_button)
-            # set_view_hbox.addWidget(self.report_button)
-            set_view_hbox.addStretch(1)
-            self.proxy_layout.addLayout(set_view_hbox)
+        view_hbox = QHBoxLayout()
+        view_hbox.addWidget(self.set_view_button)
+        # view_hbox.addWidget(self.report_button)
+        view_hbox.addStretch(1)
+        self.proxy_layout.addLayout(view_hbox)
+        # if external_filters and cname == 'HardwareProduct':
+        if cname == 'HardwareProduct':
             filters_hbox = QHBoxLayout()
             filters_hbox.addWidget(self.ext_filters)
             filters_hbox.addWidget(self.clear_filters_btn)
@@ -722,25 +767,27 @@ class FilterPanel(QWidget):
     @property
     def view(self):
         # orb.log.debug('* view [property]')
-        if self.cname == 'HardwareProduct' and self.as_library:
+        cname = getattr(self, 'cname', 'None')
+        if cname == 'HardwareProduct' and self.as_library:
             # orb.log.debug('  cname: "HardwareProduct", as_library')
             v = prefs.get('hw_library_view') or ['id', 'name',
                                                     'product_type']
             # orb.log.debug(f'  view: {v}')
             return v
-        elif self.cname == 'HardwareProduct':
+        elif cname == 'HardwareProduct':
             # orb.log.debug('  cname: "HardwareProduct", NOT as_library')
-            v = prefs.get('hw_db_view') or ['id', 'name', 'product_type']
+            v = (prefs.get('hw_db_view') or
+                 prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
+                                cname, ['id', 'name', 'description']))
             # orb.log.debug(f'  view: {v}')
             return v
-        elif self.cname == 'Requirement':
+        elif cname == 'Requirement':
             # orb.log.debug('  cname: "Requirement"')
             v = prefs.get('rqt_mgr_view') or []
             # orb.log.debug(f'  view: {v}')
             return v
         else:
-            cname = getattr(self, 'cname', 'None')
-            # orb.log.debug(f'  cname: "{cname}"')
+            # orb.log.debug(f'  cname: {cname}')
             v = prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
                                 cname, ['id', 'name', 'description'])
             # orb.log.debug(f'  view: {v}')
@@ -748,16 +795,17 @@ class FilterPanel(QWidget):
 
     @view.setter
     def view(self, v):
-        if self.cname == 'HardwareProduct' and self.as_library:
+        cname = getattr(self, 'cname', 'None')
+        if cname == 'HardwareProduct' and self.as_library:
             prefs['hw_library_view'] = v
-        elif self.cname == 'HardwareProduct':
+        elif cname == 'HardwareProduct':
             prefs['hw_db_view'] = v
-        elif self.cname == 'Requirement':
+        elif cname == 'Requirement':
             prefs['rqt_mgr_view'] = v
         else:
             if not prefs.get('views'):
                 prefs['views'] = {}
-            prefs['views'][self.cname] = v
+            prefs['views'][cname] = v
 
     @property
     def oids(self):
@@ -876,7 +924,7 @@ class FilterPanel(QWidget):
                          [set(data_elementz.get(oid) or []) for oid in oids])
             des = [deid for deid in des]
             des.sort(key=lambda x: x.lower())
-            dlg = SelectHWLibraryColsDialog(parms, des, self.view, parent=self)
+            dlg = SelectHWColsDialog(parms, des, self.view, parent=self)
             if dlg.exec_() == QDialog.Accepted:
                 if self.col_moved_view:
                     old_view = self.col_moved_view[:]
@@ -944,7 +992,7 @@ class FilterPanel(QWidget):
             new_view = self.col_moved_view
         else:
             new_view = self.proxy_model.view[:]
-        # orb.log.debug(f'* current view: {new_view}')
+        orb.log.debug(f'* current view: {new_view}')
         if 0 <= old_index < len(self.view):
             item = new_view.pop(old_index)
             new_view.insert(new_index, item)
