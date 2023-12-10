@@ -10,9 +10,8 @@ from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QHBoxLayout,
 from pangalactic.core             import orb
 from pangalactic.core             import prefs, state
 from pangalactic.core.access      import get_perms, is_global_admin
-from pangalactic.core.meta        import MAIN_VIEWS
-from pangalactic.core.names       import (get_attr_ext_name, get_ext_name_attr,
-                                          pname_to_header, STD_VIEWS)
+from pangalactic.core.names       import (STD_VIEWS, get_attr_ext_name,
+                                          get_ext_name_attr, pname_to_header)
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_objects_to_xlsx
 from pangalactic.node.buttons     import SizedButton
@@ -41,7 +40,7 @@ class RequirementManager(QDialog):
     """
     def __init__(self, project=None, width=None, height=None, parent=None):
         super().__init__(parent=parent)
-        view = prefs.get('rqt_mgr_view') or MAIN_VIEWS['Requirement']
+        view = prefs.get('rqt_mgr_view') or STD_VIEWS['Requirement']
         self.view = view
         self.sized_cols = {'id': 0, 'name': 150}
         self.project = project
