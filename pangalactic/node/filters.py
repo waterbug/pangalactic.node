@@ -6,11 +6,11 @@ from PyQt5.QtCore import (pyqtSignal, Qt, QModelIndex, QPoint, QRegExp,
                           QSortFilterProxyModel, QTimer, QVariant)
 from PyQt5.QtGui import QDrag, QIcon
 from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
-                             QCheckBox, QDialog, QDialogButtonBox, QGroupBox,
-                             QHBoxLayout, QLabel, QLineEdit, QSizePolicy,
-                             QTableView, QVBoxLayout, QWidget)
+                             QCheckBox, QDialog, QDialogButtonBox, QFileDialog,
+                             QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+                             QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
-import re
+import os, re
 from functools import reduce
 from textwrap import wrap
 
@@ -20,8 +20,10 @@ from pangalactic.core.names        import (get_external_name_plural,
                                            pname_to_header)
 from pangalactic.core.parametrics  import (data_elementz, de_defz, parameterz,
                                            parm_defz)
+from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.node.buttons      import SizedButton
-from pangalactic.node.dialogs      import (HWFieldsDialog, SelectColsDialog,
+from pangalactic.node.dialogs      import (HWFieldsDialog, NotificationDialog,
+                                           SelectColsDialog,
                                            SelectHWColsDialog)
 from pangalactic.node.pgxnobject   import PgxnObject
 from pangalactic.node.tablemodels  import ObjectTableModel
@@ -464,6 +466,11 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
                         return tt
                     else:
                         return ''
+                elif role == Qt.EditRole:
+                    if model_idx.column() < len(self.view):
+                        return model.data(model_idx)
+                    else:
+                        return ''
                 else:
                     return super().data(index, role)
             else:
@@ -702,8 +709,6 @@ class FilterPanel(QWidget):
             self.only_mine_label = QLabel("Only My Products")
             self.only_mine_label.setStyleSheet(
                                            'font-weight: bold; color: green;')
-        self.set_view_button = SizedButton('Customize Columns')
-        self.set_view_button.clicked.connect(self.set_custom_view)
 
         self.filter_case_checkbox = QCheckBox("case sensitive")
         filter_pattern_label = QLabel("Text Filter:")
@@ -716,7 +721,12 @@ class FilterPanel(QWidget):
 
         self.proxy_layout = QVBoxLayout()
         view_hbox = QHBoxLayout()
+        self.set_view_button = SizedButton('Customize Columns')
+        self.set_view_button.clicked.connect(self.set_custom_view)
         view_hbox.addWidget(self.set_view_button)
+        self.export_tsv_button = SizedButton('Export to tsv file')
+        self.export_tsv_button.clicked.connect(self.export_tsv)
+        view_hbox.addWidget(self.export_tsv_button)
         # view_hbox.addWidget(self.report_button)
         view_hbox.addStretch(1)
         self.proxy_layout.addLayout(view_hbox)
@@ -977,6 +987,45 @@ class FilterPanel(QWidget):
                 self.custom_view = new_view[:]
                 orb.log.debug('  self.view: {}'.format(str(self.view)))
                 self.refresh()
+
+    def export_tsv(self):
+        """
+        Write the table content to a tsv (tab-separated-values) file.
+        """
+        orb.log.debug('* export_tsv()')
+        dtstr = date2str(dtstamp())
+        objs_name = '-'.join(get_external_name_plural(self.cname).split(' '))
+        file_path = os.path.join(state.get('last_path', ''),
+                                 objs_name + '-' + dtstr + '.tsv')
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Write to tsv File',
+                                    file_path)
+        if fpath:
+            orb.log.debug('  - file selected: "%s"' % fpath)
+            # fpath = str(fpath)    # QFileDialog fpath is unicode; UTF-8 (?)
+            last_path = os.path.dirname(fpath)
+            state['last_path'] = last_path
+            orb.log.debug(f'  - saving last_path as "{last_path}"')
+            f = open(fpath, 'w')
+            table = self.proxy_model
+            header = '\t'.join(table.view[:])
+            rows = [header]
+            for row in range(table.rowCount()):
+                rows.append('\t'.join([
+                            table.data(table.index(row, col), Qt.EditRole)
+                                       for col in range(len(self.view))]))
+            content = '\n'.join(rows)
+            f.write(content)
+            f.close()
+            html = '<h3>Success!</h3>'
+            msg = 'Data exported to file:'
+            html += '<p><b><font color="green">{}</font></b><br>'.format(msg)
+            html += '<b><font color="blue">{}</font></b></p>'.format(fpath)
+            self.w = NotificationDialog(html, news=False, parent=self)
+            self.w.show()
+        else:
+            orb.log.debug('  ... export to tsv cancelled.')
+            return
 
     def refresh(self):
         # orb.log.debug('  - FilterPanel.refresh()')
