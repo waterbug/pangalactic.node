@@ -16,7 +16,7 @@ from textwrap import wrap
 
 from pangalactic.core              import orb, prefs, state
 from pangalactic.core.meta         import MAIN_VIEWS, PGEF_COL_WIDTHS
-from pangalactic.core.names        import (get_external_name_plural,
+from pangalactic.core.names        import (STD_VIEWS, get_external_name_plural,
                                            pname_to_header)
 from pangalactic.core.parametrics  import (data_elementz, de_defz, parameterz,
                                            parm_defz)
@@ -259,7 +259,7 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
             return v
         elif cname == 'Requirement':
             # orb.log.debug('  cname: "Requirement"')
-            v = prefs.get('rqt_mgr_view') or []
+            v = prefs.get('rqt_mgr_view') or STD_VIEWS[cname]
             # orb.log.debug(f'  view: {v}')
             return v
         else:

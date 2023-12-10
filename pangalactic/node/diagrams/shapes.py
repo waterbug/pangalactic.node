@@ -19,8 +19,7 @@ from louie import dispatcher
 from pangalactic.core             import orb, prefs, state
 from pangalactic.core.access      import get_perms
 from pangalactic.core.clone       import clone
-from pangalactic.core.meta        import MAIN_VIEWS
-from pangalactic.core.names       import (get_acu_id, get_acu_name,
+from pangalactic.core.names       import (STD_VIEWS, get_acu_id, get_acu_name,
                                           get_flow_id, get_flow_name,
                                           get_next_port_seq, get_next_ref_des,
                                           get_port_abbr, get_port_id,
@@ -541,7 +540,7 @@ class ObjectBlock(Block):
     def display_reqts(self):
         h = state.get('height') or 700
         w = 7 * (state.get('width') or 1000) // 8
-        view = prefs.get('rqt_mgr_view') or MAIN_VIEWS['Requirement']
+        view = prefs.get('rqt_mgr_view') or STD_VIEWS['Requirement']
         sized_cols = {'id': 0, 'name': 150}
         dlg = FilterDialog(self.allocs, view=view, sized_cols=sized_cols,
                            word_wrap=True, label='Allocated Requirements',

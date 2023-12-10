@@ -13,7 +13,8 @@ from PyQt5.QtGui import QIcon, QPixmap
 from pangalactic.core             import orb
 from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import MAIN_VIEWS
-from pangalactic.core.names       import pname_to_header, to_media_name
+from pangalactic.core.names       import (STD_VIEWS, pname_to_header,
+                                          to_media_name)
 from pangalactic.core.parametrics import de_defz, get_pval_as_str, parm_defz
 from pangalactic.node.utils       import get_pixmap
 
@@ -233,7 +234,7 @@ class ObjectTableModel(MappingTableModel):
                                 'HardwareProduct',
                                 ['id', 'name', 'product_type', 'description'])
                 elif self.cname == 'Requirement':
-                    view = prefs.get('rqt_mgr_view') or []
+                    view = prefs.get('rqt_mgr_view') or STD_VIEWS[self.cname]
                 else:
                     view = MAIN_VIEWS.get(self.cname,
                                            ['id', 'name', 'description'])
@@ -279,9 +280,10 @@ class ObjectTableModel(MappingTableModel):
             return prefs.get('hw_library_view') or ['id', 'name',
                                                     'product_type']
         elif self.cname == 'HardwareProduct':
-            return prefs.get('hw_db_view') or ['id', 'name', 'product_type']
+            return prefs.get('hw_db_view') or MAIN_VIEWS.get(
+                        self.cname, ['id', 'name', 'product_type'])
         elif self.cname == 'Requirement':
-            return prefs.get('rqt_mgr_view') or ['id', 'name', 'description']
+            return prefs.get('rqt_mgr_view') or STD_VIEWS[self.cname]
         else:
             return prefs.get('views', {}).get(self.cname) or ['id', 'name',
                                                               'description']
