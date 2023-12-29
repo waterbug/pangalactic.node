@@ -1359,6 +1359,10 @@ class MiniMelDialog(QDialog):
         """
         orb.log.debug('* export_tsv()')
         dtstr = date2str(dtstamp())
+        if self.dash_name:
+            dash_name = self.dash_name
+        else:
+            dash_name = "Customized"
         name = '-' + self.dash_name + '-'
         if self.summary:
             name = '-Summary' + name

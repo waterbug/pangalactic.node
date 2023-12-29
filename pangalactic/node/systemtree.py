@@ -962,7 +962,7 @@ class SystemTreeView(QTreeView):
             state['sys_trees'][self.project.id]['expanded'] = []
 
     def create_actions(self):
-        self.pgxnobj_action = QAction('View this object', self)
+        self.pgxnobj_action = QAction('View or edit this object', self)
         self.pgxnobj_action.triggered.connect(self.view_object)
 
     def contextMenuEvent(self, event):

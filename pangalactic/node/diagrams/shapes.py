@@ -541,10 +541,9 @@ class ObjectBlock(Block):
         h = state.get('height') or 700
         w = 7 * (state.get('width') or 1000) // 8
         view = prefs.get('rqt_mgr_view') or STD_VIEWS['Requirement']
-        sized_cols = {'id': 0, 'name': 150}
-        dlg = FilterDialog(self.allocs, view=view, sized_cols=sized_cols,
-                           word_wrap=True, label='Allocated Requirements',
-                           height=h, width=w, parent=self.parentWidget())
+        dlg = FilterDialog(self.allocs, view=view, word_wrap=True,
+                           label='Allocated Requirements', height=h, width=w,
+                           parent=self.parentWidget())
         dlg.show()
 
     def del_position(self):

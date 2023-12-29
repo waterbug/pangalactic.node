@@ -66,6 +66,7 @@ from pangalactic.core.access           import get_perms, is_global_admin
 from pangalactic.core.clone            import clone
 from pangalactic.core.datastructures   import chunkify
 from pangalactic.core.meta             import asciify
+from pangalactic.core.names            import get_external_name_plural
 from pangalactic.core.parametrics      import (data_elementz,
                                                add_parameter,
                                                add_data_element,
@@ -94,7 +95,7 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog,
                                                ProgressDialog, VersionDialog)
-# from pangalactic.node.filters          import FilterPanel
+from pangalactic.node.filters          import FilterPanel
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import (LibraryDialog,
                                                CompoundLibraryWidget)
@@ -109,8 +110,8 @@ from pangalactic.node.startup          import (setup_ref_db_and_version,
                                                setup_dirs_and_state)
 from pangalactic.node.systemtree       import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
-# from pangalactic.node.tableviews  import CompareWidget
-from pangalactic.node.tableviews       import ObjectTableView
+# from pangalactic.node.tableviews       import CompareWidget
+# from pangalactic.node.tableviews       import ObjectTableView
 from pangalactic.node.threads          import threadpool, Worker
 from pangalactic.node.widgets          import (AutosizingListWidget,
                                                DashSelectCombo,
@@ -279,7 +280,6 @@ class Main(QMainWindow):
         self.sandbox = orb.get('pgefobjects:SANDBOX')
         if not state.get('system') or isinstance(state['system'], str):
             state['system'] = {}
-        state['last_path'] = ""
         state['synced_projects'] = []
         state['connected'] = False
         if not prefs.get('dashboard_names'):
@@ -4866,7 +4866,10 @@ class Main(QMainWindow):
             # orb.log.debug('  no class specified, ignoring.')
             return
         objs = list(orb.get_by_type(cname))
-        tableview = ObjectTableView(objs)
+        # ObjectTableView is deprecated in favor of FilterPanel
+        # tableview = ObjectTableView(objs)
+        title_text = get_external_name_plural(cname)
+        tableview = FilterPanel(objs, title=title_text)
         self.setCentralWidget(tableview)
         self.object_tableview = tableview
 
@@ -6274,7 +6277,7 @@ class Main(QMainWindow):
             # ensure that final col moves in hw lib are saved
             hw_lib = self.library_widget.libraries.get('HardwareProduct')
             if hw_lib and hw_lib.col_moved_view:
-                prefs['hw_library_view'] = hw_lib.col_moved_view
+                prefs['hw_lib_view'] = hw_lib.col_moved_view
         self.statusbar.showMessage('* saving data elements and parameters...')
         # NOTE: save_caches saves the cache files *and* creates backup copies
         orb.save_caches()

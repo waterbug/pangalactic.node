@@ -599,9 +599,9 @@ class LibraryDialog(QDialog):
             if self.cname == 'HardwareProduct':
                 label = 'Systems and Components (Hardware Products)'
                 self.setWindowTitle(label)
-                lib_view = FilterPanel(objs, view=view, as_library=True,
-                                       label=label, external_filters=True,
-                                       parent=self)
+                lib_view = FilterPanel(objs, cname=self.cname, view=view,
+                                       as_library=True, label=label,
+                                       external_filters=True, parent=self)
                 lib_view.ext_filters.clicked.connect(self.show_ext_filters)
                 lib_view.clear_filters_btn.clicked.connect(
                                                 self.clear_product_filters)
@@ -693,7 +693,7 @@ class LibraryDialog(QDialog):
     def closeEvent(self, evt):
         if self.lib_view.col_moved_view:
             # ensure that final column moves are saved ...
-            prefs['hw_library_view'] = self.lib_view.col_moved_view[:]
+            prefs['hw_lib_view'] = self.lib_view.col_moved_view[:]
         if self.cname == 'HardwareProduct':
             dispatcher.send('hw library dialog closed')
 

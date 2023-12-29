@@ -19,7 +19,6 @@ requirements:
     - pangalactic.core >=4.0.dev0
     - autobahn
     - binaryornot
-    - inflect
     - packaging
     - pynacl
     - pyqt

@@ -79,7 +79,6 @@ class MappingTableModel(QAbstractTableModel):
         """
         super().__init__(parent=parent, **kwargs)
         # TODO: some validity checking on the data ...
-        self.view = view or []
         self.icons = icons or []
         _aligns = dict(left=Qt.AlignLeft, right=Qt.AlignRight,
                        center=Qt.AlignHCenter)
@@ -88,6 +87,13 @@ class MappingTableModel(QAbstractTableModel):
         self.as_library = as_library
         # self.ds = ds or [{0:'no data'}]
         self.ds = ds or []
+        if self.ds:
+            if view:
+                self.view = [a for a in view if a in self.ds[0].keys()]
+            else:
+                self.view = []
+        else:
+            self.view = view or []
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         self.default_icon = QIcon(QPixmap(os.path.join(icon_dir,
                                   'box'+state.get('icon_type', '.png'))))
@@ -97,7 +103,7 @@ class MappingTableModel(QAbstractTableModel):
             return self.view
         if self.ds:
             return list(self.ds[0].keys())
-        return ['id']
+        return []
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
@@ -188,8 +194,10 @@ class ObjectTableModel(MappingTableModel):
     A MappingTableModel subclass based on a list of objects.
 
     Attributes:
+        as_library (bool): (default: False) if True, provide icons, etc.
         cname (str): class name of the objects
         col_labels (list):  list of column header labels (strings)
+        view (list):  list of field names (columns)
     """
 
     def __init__(self, objs, view=None, with_none=False, as_library=False,
@@ -208,12 +216,12 @@ class ObjectTableModel(MappingTableModel):
         # orb.log.debug("* ObjectTableModel initializing ...")
         self.objs = objs or []
         icons = []
+        self.as_library = as_library
         if as_library:
-            self.as_library = True
             # orb.log.debug("  ... as library ...")
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
         # orb.log.debug("  ... with {} objects.".format(len(objs)))
-        view = view or ['id']
+        view = view or []
         self.cname = ''
         if self.objs:
             self.cname = objs[0].__class__.__name__
@@ -227,7 +235,7 @@ class ObjectTableModel(MappingTableModel):
             if not view:
                 if self.cname == 'HardwareProduct':
                     if as_library:
-                        view = prefs.get('hw_library_view') or ['id', 'name',
+                        view = prefs.get('hw_lib_view') or ['id', 'name',
                                                                 'product_type']
                     else:
                         view = prefs.get('hw_db_view') or MAIN_VIEWS.get(
@@ -264,7 +272,6 @@ class ObjectTableModel(MappingTableModel):
                 ds = [d]
         super().__init__(ds, as_library=as_library, icons=icons,
                          view=view, parent=parent, **kwargs)
-        # self.view = view[:]
 
     @property
     def oids(self):
@@ -277,7 +284,7 @@ class ObjectTableModel(MappingTableModel):
     def view(self):
         as_library = getattr(self, 'as_library', False) or False
         if self.cname == 'HardwareProduct' and as_library:
-            return prefs.get('hw_library_view') or ['id', 'name',
+            return prefs.get('hw_lib_view') or ['id', 'name',
                                                     'product_type']
         elif self.cname == 'HardwareProduct':
             return prefs.get('hw_db_view') or MAIN_VIEWS.get(
@@ -292,7 +299,7 @@ class ObjectTableModel(MappingTableModel):
     def view(self, v):
         as_library = getattr(self, 'as_library', False) or False
         if self.cname == 'HardwareProduct' and as_library:
-            prefs['hw_library_view'] = v
+            prefs['hw_lib_view'] = v
         elif self.cname == 'HardwareProduct':
             prefs['hw_db_view'] = v
         elif self.cname == 'Requirement':

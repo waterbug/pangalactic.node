@@ -134,7 +134,7 @@ class RequirementManager(QDialog):
 
     @property
     def view(self):
-        return prefs.get('rqt_mgr_view') or []
+        return prefs.get('rqt_mgr_view') or STD_VIEWS['Requirement']
 
     @view.setter
     def view(self, v):
