@@ -231,9 +231,10 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
     numpat = r'[0-9][0-9]*(\.[0-9][0-9]*)'
     rqtpat = r'[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9](\-[0-9][0-9]*)*(\.[0-9][0-9]*)+'
 
-    def __init__(self, cname=None, headers_are_ids=False, as_library=False,
-                 parent=None):
+    def __init__(self, source_model=None, cname=None, headers_are_ids=False,
+                 as_library=False, parent=None):
         super().__init__(parent=parent)
+        self.setSourceModel(source_model)
         self.setSortCaseSensitivity(Qt.CaseInsensitive)
         self.cname = cname
         self.headers_are_ids = headers_are_ids
@@ -242,58 +243,11 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     @property
     def view(self):
-        # orb.log.debug('* proxy view [property]')
-        cname = getattr(self, 'cname', 'None')
-        if cname == 'HardwareProduct' and self.as_library:
-            # orb.log.debug('  cname: "HardwareProduct", as_library')
-            v = prefs.get('hw_lib_view') or ['id', 'name',
-                                                    'product_type']
-            # orb.log.debug(f'  view: {v}')
-            return v
-        elif cname == 'HardwareProduct':
-            # orb.log.debug('  cname: "HardwareProduct", NOT as_library')
-            v = (prefs.get('hw_db_view') or
-                 prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
-                                cname, ['id', 'name', 'description']))
-            # orb.log.debug(f'  view: {v}')
-            return v
-        elif cname == 'Requirement':
-            # orb.log.debug('  cname: "Requirement"')
-            if state.get('mode') == "db":
-                v = prefs.get('db_views', {}).get(cname) or STD_VIEWS[cname]
-            else:
-                v = prefs.get('rqt_mgr_view') or STD_VIEWS[cname]
-            # orb.log.debug(f'  view: {v}')
-            return v
-        else:
-            # orb.log.debug(f'  cname: {cname}')
-            v = prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
-                                cname, ['id', 'name', 'description'])
-            # orb.log.debug(f'  view: {v}')
-            return v
+        return self.sourceModel().view
 
     @view.setter
     def view(self, v):
-        cname = getattr(self, 'cname', 'None')
-        if cname == 'HardwareProduct' and self.as_library:
-            prefs['hw_lib_view'] = v
-        elif cname == 'HardwareProduct':
-            prefs['hw_db_view'] = v
-        elif cname == 'Requirement':
-            if state.get('mode') == "db":
-                db_views = prefs.get('db_views', {})
-                db_views[cname] = v
-            else:
-                prefs['rqt_mgr_view'] = v
-        else:
-            if not prefs.get('views'):
-                prefs['views'] = {}
-            if not prefs.get('db_views'):
-                prefs['db_views'] = {}
-            if state.get('mode') == "db":
-                prefs['db_views'][cname] = v
-            else:
-                prefs['views'][cname] = v
+        self.sourceModel().view = v
 
     @property
     def ncols(self):
@@ -652,6 +606,7 @@ class FilterPanel(QWidget):
         self.excluded_oids = excluded_oids or []
         self.edit_rqt_calls = 0
         self.edit_rqt_fields_calls = 0
+        self.objs = []
         if as_library and cname:
             self.cname = cname
             if cname in orb.classes:
@@ -661,9 +616,8 @@ class FilterPanel(QWidget):
                              if o.oid not in self.excluded_oids]
             else:
                 # not a pangalactic domain object, can't display as a library
-                # orb.log.debug('  - Cannot display objs of class "{}".'.format(
-                                                                        # cname))
-                self.objs = []
+                orb.log.debug('  - Cannot display objs of class "{}".'.format(
+                                                                        cname))
         else:
             if objs and isinstance(objs[0], orb.classes['Identifiable']):
                 self.objs = objs
@@ -672,11 +626,8 @@ class FilterPanel(QWidget):
                 # orb.log.debug(f'* FilterPanel: cname = "{cname}"')
                 # orb.log.debug('  NOT as library ...')
                 self.cname = cname
-                self.objs = []
             else:
                 # empty table used for Products ...
-                # self.objs = [orb.get('pgefobjects:TBD')]
-                self.objs = []
                 self.cname = 'Product'
         self.schema = orb.schemas[self.cname]
         # make sure items in a supplied view are valid ...
@@ -773,60 +724,13 @@ class FilterPanel(QWidget):
         self.title_widget.set_content(text, color=color, element=element,
                                       border=border, margin=margin)
 
-    # @property
-    # def view(self):
-        # # orb.log.debug('* view [property]')
-        # cname = getattr(self, 'cname', 'None')
-        # if cname == 'HardwareProduct' and self.as_library:
-            # # orb.log.debug('  cname: "HardwareProduct", as_library')
-            # v = prefs.get('hw_lib_view') or ['id', 'name',
-                                                    # 'product_type']
-            # # orb.log.debug(f'  view: {v}')
-            # return v
-        # elif cname == 'HardwareProduct':
-            # # orb.log.debug('  cname: "HardwareProduct", NOT as_library')
-            # v = (prefs.get('hw_db_view') or
-                 # prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
-                                # cname, ['id', 'name', 'description']))
-            # # orb.log.debug(f'  view: {v}')
-            # return v
-        # elif cname == 'Requirement':
-            # # orb.log.debug('  cname: "Requirement"')
-            # if state.get('mode') == "db":
-                # v = prefs.get('db_views', {}).get(cname) or STD_VIEWS[cname]
-            # else:
-                # v = prefs.get('rqt_mgr_view') or STD_VIEWS[cname]
-            # # orb.log.debug(f'  view: {v}')
-            # return v
-        # else:
-            # # orb.log.debug(f'  cname: {cname}')
-            # v = prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
-                                # cname, ['id', 'name', 'description'])
-            # # orb.log.debug(f'  view: {v}')
-            # return v
+    @property
+    def view(self):
+        return self.proxy_model.view
 
-    # @view.setter
-    # def view(self, v):
-        # cname = getattr(self, 'cname', 'None')
-        # if cname == 'HardwareProduct' and self.as_library:
-            # prefs['hw_lib_view'] = v
-        # elif cname == 'HardwareProduct':
-            # prefs['hw_db_view'] = v
-        # elif cname == 'Requirement':
-            # if state.get('mode') == "db":
-                # db_views = prefs.get('db_views', {})
-                # db_views[cname] = v
-            # else:
-                # prefs['rqt_mgr_view'] = v
-        # else:
-            # if not prefs.get('views'):
-                # prefs['views'] = {}
-            # if not prefs.get('db_views'):
-                # prefs['db_views'] = {}
-            # if state.get('mode') == "db":
-                # prefs['db_views'][cname] = v
-            # else:
-                # prefs['views'][cname] = v
+    @view.setter
+    def view(self, v):
+        self.proxy_model.view = v
 
     @property
     def oids(self):
@@ -841,7 +745,7 @@ class FilterPanel(QWidget):
         else:
             return []
 
-    def build_proxy_view(self, objs=None):
+    def build_proxy_view(self):
         if getattr(self, 'proxy_view', None):
             self.proxy_layout.removeWidget(self.proxy_view)
             self.proxy_view.setAttribute(Qt.WA_DeleteOnClose)
@@ -850,7 +754,10 @@ class FilterPanel(QWidget):
             self.proxy_view = None
         if getattr(self, 'proxy_model', None):
             self.proxy_model = None
+        model = ObjectTableModel(self.objs, view=self.custom_view,
+                                 as_library=self.as_library)
         self.proxy_model = ObjectSortFilterProxyModel(
+                                        source_model=model,
                                         cname=self.cname,
                                         headers_are_ids=self.headers_are_ids,
                                         as_library=self.as_library,
@@ -874,19 +781,7 @@ class FilterPanel(QWidget):
         self.proxy_model.layoutChanged.connect(
                                         self.proxy_view.resize_cols)
         self.proxy_model.beginResetModel()
-        objs = self.objs or []
-        if not objs:
-            if self.as_library and self.cname:
-                objs = orb.get_by_type(self.cname)
-                self.objs = [o for o in objs
-                             if o.oid not in self.excluded_oids]
-        # self.objs = self.objs or [orb.get('pgefobjects:TBD')]
-        self.objs = self.objs or []
-        model = ObjectTableModel(self.objs, view=self.custom_view,
-                                 as_library=self.as_library)
-        self.proxy_model.setSourceModel(model)
         self.proxy_model.endResetModel()
-        self.view = self.proxy_model.view
         for i, colname in enumerate(self.view):
             self.proxy_view.setColumnWidth(i,
                                            PGEF_COL_WIDTHS.get(colname, 100))

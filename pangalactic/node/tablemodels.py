@@ -283,31 +283,58 @@ class ObjectTableModel(MappingTableModel):
     @property
     def view(self):
         as_library = getattr(self, 'as_library', False) or False
-        if self.cname == 'HardwareProduct' and as_library:
-            return prefs.get('hw_lib_view') or ['id', 'name',
+        cname = getattr(self, 'cname', 'None')
+        if cname == 'HardwareProduct' and as_library:
+            # orb.log.debug('  cname: "HardwareProduct", as_library')
+            v = prefs.get('hw_lib_view') or ['id', 'name',
                                                     'product_type']
-        elif self.cname == 'HardwareProduct':
-            return prefs.get('hw_db_view') or MAIN_VIEWS.get(
-                        self.cname, ['id', 'name', 'product_type'])
-        elif self.cname == 'Requirement':
-            return prefs.get('rqt_mgr_view') or STD_VIEWS[self.cname]
+            # orb.log.debug(f'  view: {v}')
+            return v
+        elif cname == 'HardwareProduct':
+            # orb.log.debug('  cname: "HardwareProduct", NOT as_library')
+            v = (prefs.get('hw_db_view') or
+                 prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
+                                cname, ['id', 'name', 'description']))
+            # orb.log.debug(f'  view: {v}')
+            return v
+        elif cname == 'Requirement':
+            # orb.log.debug('  cname: "Requirement"')
+            if state.get('mode') == "db":
+                v = prefs.get('db_views', {}).get(cname) or STD_VIEWS[cname]
+            else:
+                v = prefs.get('rqt_mgr_view') or STD_VIEWS[cname]
+            # orb.log.debug(f'  view: {v}')
+            return v
         else:
-            return prefs.get('views', {}).get(self.cname) or ['id', 'name',
-                                                              'description']
+            # orb.log.debug(f'  cname: {cname}')
+            v = prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
+                                cname, ['id', 'name', 'description'])
+            # orb.log.debug(f'  view: {v}')
+            return v
 
     @view.setter
     def view(self, v):
         as_library = getattr(self, 'as_library', False) or False
-        if self.cname == 'HardwareProduct' and as_library:
+        cname = getattr(self, 'cname', 'None')
+        if cname == 'HardwareProduct' and as_library:
             prefs['hw_lib_view'] = v
-        elif self.cname == 'HardwareProduct':
+        elif cname == 'HardwareProduct':
             prefs['hw_db_view'] = v
-        elif self.cname == 'Requirement':
-            prefs['rqt_mgr_view'] = v
+        elif cname == 'Requirement':
+            if state.get('mode') == "db":
+                db_views = prefs.get('db_views', {})
+                db_views[cname] = v
+            else:
+                prefs['rqt_mgr_view'] = v
         else:
             if not prefs.get('views'):
                 prefs['views'] = {}
-            prefs['views'][self.cname] = v
+            if not prefs.get('db_views'):
+                prefs['db_views'] = {}
+            if state.get('mode') == "db":
+                prefs['db_views'][cname] = v
+            else:
+                prefs['views'][cname] = v
 
     @property
     def col_labels(self):
