@@ -1359,11 +1359,10 @@ class MiniMelDialog(QDialog):
         """
         orb.log.debug('* export_tsv()')
         dtstr = date2str(dtstamp())
+        dash_name = "Customized"
         if self.dash_name:
             dash_name = self.dash_name
-        else:
-            dash_name = "Customized"
-        name = '-' + self.dash_name + '-'
+        name = '-' + dash_name + '-'
         if self.summary:
             name = '-Summary' + name
         fname = self.obj.id + name + dtstr + '.tsv'
@@ -1376,7 +1375,7 @@ class MiniMelDialog(QDialog):
             orb.log.debug(f'  - file selected: "{fpath}"')
             fpath = str(fpath)   # extra-cautious :)
             state['mini_mel_last_path'] = os.path.dirname(fpath)
-            data_cols = prefs['dashboards'].get(self.dash_name)
+            data_cols = prefs['dashboards'].get(dash_name)
             orb.log.debug(f'  - data cols: "{str(data_cols)}"')
             write_mel_to_tsv(self.obj, schema=data_cols, pref_units=True,
                              summary=self.summary, file_path=fpath)
@@ -1398,7 +1397,10 @@ class MiniMelDialog(QDialog):
         """
         orb.log.debug('* export_excel()')
         dtstr = date2str(dtstamp())
-        name = '-' + self.dash_name + '-'
+        dash_name = "Customized"
+        if self.dash_name:
+            dash_name = self.dash_name
+        name = '-' + dash_name + '-'
         if self.summary:
             name = '-Summary' + name
         fname = self.obj.id + name + dtstr + '.xlsx'
@@ -1411,7 +1413,7 @@ class MiniMelDialog(QDialog):
             orb.log.debug(f'  - file selected: "{fpath}"')
             fpath = str(fpath)   # extra-cautious :)
             state['mini_mel_last_path'] = os.path.dirname(fpath)
-            data_cols = prefs['dashboards'].get(self.dash_name)
+            data_cols = prefs['dashboards'].get(dash_name)
             orb.log.debug(f'  - data cols: "{str(data_cols)}"')
             write_mel_to_xlsx(self.obj, schema=data_cols, pref_units=True,
                               summary=self.summary, file_path=fpath)
