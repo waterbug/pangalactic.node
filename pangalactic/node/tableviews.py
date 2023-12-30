@@ -156,7 +156,7 @@ class ObjectTableView(QTableView):
         """
         orb.log.debug('* ObjectTableView: on_mod_object_signal()')
         try:
-            idx = self.main_table_model.mod_object(obj.oid)
+            self.main_table_model.mod_object(obj.oid)
         except:
             # oops, my model's C++ object went away ...
             orb.log.debug('  - obj not found (table possibly recreated).')
