@@ -247,7 +247,9 @@ class ObjectSortFilterProxyModel(QSortFilterProxyModel):
 
     @view.setter
     def view(self, v):
+        self.beginResetModel()
         self.sourceModel().view = v
+        self.endResetModel()
 
     @property
     def ncols(self):
@@ -596,7 +598,7 @@ class FilterPanel(QWidget):
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
-        # orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
+        orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
         self.as_library = as_library
         self.sized_cols = sized_cols
         self.col_moved_view = []
@@ -633,7 +635,7 @@ class FilterPanel(QWidget):
         # make sure items in a supplied view are valid ...
         self.custom_view = []
         if view:
-            # orb.log.debug('    a custom view has been specified ...')
+            orb.log.debug('    a custom view has been specified ...')
             self.custom_view = [a for a in view
                          if ((a in self.schema['field_names']) or
                              (a in parm_defz) or
@@ -754,7 +756,8 @@ class FilterPanel(QWidget):
             self.proxy_view = None
         if getattr(self, 'proxy_model', None):
             self.proxy_model = None
-        model = ObjectTableModel(self.objs, view=self.custom_view,
+        model = ObjectTableModel(self.objs, cname=self.cname,
+                                 view=self.custom_view,
                                  as_library=self.as_library)
         self.proxy_model = ObjectSortFilterProxyModel(
                                         source_model=model,
@@ -780,8 +783,8 @@ class FilterPanel(QWidget):
                                     self.proxy_view.resizeRowsToContents)
         self.proxy_model.layoutChanged.connect(
                                         self.proxy_view.resize_cols)
-        self.proxy_model.beginResetModel()
-        self.proxy_model.endResetModel()
+        # self.proxy_model.beginResetModel()
+        # self.proxy_model.endResetModel()
         for i, colname in enumerate(self.view):
             self.proxy_view.setColumnWidth(i,
                                            PGEF_COL_WIDTHS.get(colname, 100))

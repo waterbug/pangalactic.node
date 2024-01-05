@@ -200,13 +200,14 @@ class ObjectTableModel(MappingTableModel):
         view (list):  list of field names (columns)
     """
 
-    def __init__(self, objs, view=None, with_none=False, as_library=False,
-                 parent=None, **kwargs):
+    def __init__(self, objs, cname=None, view=None, with_none=False,
+                 as_library=False, parent=None, **kwargs):
         """
         Args:
             objs (list):  list of objects
 
         Keyword Args:
+            cname (str): class name of the objects
             view (list):  list of field names (columns)
             with_none (bool):  (default: False) if True, include a "NullObject"
                 (used for ObjectSelectionDialog when a "None" choice is needed)
@@ -222,9 +223,11 @@ class ObjectTableModel(MappingTableModel):
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
         # orb.log.debug("  ... with {} objects.".format(len(objs)))
         view = view or []
-        self.cname = ''
+        self.cname = cname
         if self.objs:
+            # if self.objs, their class name overrides the provided "cname"
             self.cname = objs[0].__class__.__name__
+        if self.cname:
             self.schema = orb.schemas.get(self.cname) or {}
             if self.schema and view:
                 # sanity-check view
@@ -286,15 +289,7 @@ class ObjectTableModel(MappingTableModel):
         cname = getattr(self, 'cname', 'None')
         if cname == 'HardwareProduct' and as_library:
             # orb.log.debug('  cname: "HardwareProduct", as_library')
-            v = prefs.get('hw_lib_view') or ['id', 'name',
-                                                    'product_type']
-            # orb.log.debug(f'  view: {v}')
-            return v
-        elif cname == 'HardwareProduct':
-            # orb.log.debug('  cname: "HardwareProduct", NOT as_library')
-            v = (prefs.get('hw_db_view') or
-                 prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
-                                cname, ['id', 'name', 'description']))
+            v = prefs.get('hw_lib_view') or ['id', 'name', 'product_type']
             # orb.log.debug(f'  view: {v}')
             return v
         elif cname == 'Requirement':
@@ -307,34 +302,36 @@ class ObjectTableModel(MappingTableModel):
             return v
         else:
             # orb.log.debug(f'  cname: {cname}')
-            v = prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
-                                cname, ['id', 'name', 'description'])
-            # orb.log.debug(f'  view: {v}')
+            if state.get('mode') == "db":
+                # orb.log.debug('  mode: db')
+                v = prefs.get('db_views', {}).get(cname) or MAIN_VIEWS.get(
+                                    cname) or ['id', 'name', 'description']
+            else:
+                v = prefs.get('views', {}).get(cname) or MAIN_VIEWS.get(
+                                    cname, ['id', 'name', 'description'])
             return v
 
     @view.setter
     def view(self, v):
+        orb.log.debug(f'* set ObjectTableModel.view({v})')
+        self.beginResetModel()
+        if not v:
+            return
         as_library = getattr(self, 'as_library', False) or False
         cname = getattr(self, 'cname', 'None')
         if cname == 'HardwareProduct' and as_library:
             prefs['hw_lib_view'] = v
-        elif cname == 'HardwareProduct':
-            prefs['hw_db_view'] = v
         elif cname == 'Requirement':
-            if state.get('mode') == "db":
-                db_views = prefs.get('db_views', {})
-                db_views[cname] = v
-            else:
-                prefs['rqt_mgr_view'] = v
-        else:
-            if not prefs.get('views'):
-                prefs['views'] = {}
-            if not prefs.get('db_views'):
+            prefs['rqt_mgr_view'] = v
+        elif state.get('mode') == "db":
+            if not isinstance(prefs.get('db_views'), dict):
                 prefs['db_views'] = {}
-            if state.get('mode') == "db":
-                prefs['db_views'][cname] = v
-            else:
-                prefs['views'][cname] = v
+            prefs['db_views'][cname] = v
+        else:
+            if not isinstance(prefs.get('views'), dict):
+                prefs['views'] = {}
+            prefs['views'][cname] = v
+        self.endResetModel()
 
     @property
     def col_labels(self):

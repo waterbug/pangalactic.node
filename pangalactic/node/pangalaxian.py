@@ -4869,7 +4869,7 @@ class Main(QMainWindow):
         # ObjectTableView is deprecated in favor of FilterPanel
         # tableview = ObjectTableView(objs)
         title_text = get_external_name_plural(cname)
-        tableview = FilterPanel(objs, title=title_text)
+        tableview = FilterPanel(objs, cname=cname, title=title_text)
         self.setCentralWidget(tableview)
         self.object_tableview = tableview
 
