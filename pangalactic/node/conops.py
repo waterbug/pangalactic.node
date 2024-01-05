@@ -43,8 +43,10 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
 
 # pangalactic
 try:
+    # if an orb has been set (uberorb or fastorb), this works
     from pangalactic.core             import orb, state
 except:
+    # if an orb has not been set, uberorb is set by default
     import pangalactic.core.set_uberorb
     from pangalactic.core             import orb, state
 from pangalactic.core.clone       import clone
@@ -73,15 +75,15 @@ class EventBlock(QGraphicsPolygonItem):
         super().__init__(parent)
         self.setFlags(QGraphicsItem.ItemIsSelectable |
                       QGraphicsItem.ItemIsMovable |
-                      QGraphicsItem.ItemIsFocusable|
+                      QGraphicsItem.ItemIsFocusable |
                       QGraphicsItem.ItemSendsGeometryChanges)
         self.style = style or Qt.SolidLine
         self.activity = activity
         self.scene = scene
         self.setBrush(Qt.white)
         path = QPainterPath()
-        #---draw blocks depending on the 'shape' string passed in
         self.create_actions()
+        # shape of block depends on activity_type.name
         if self.activity.activity_type.name == "Op":
             self.myPolygon = QPolygonF([
                     QPointF(-50, 50), QPointF(50, 50),
@@ -91,6 +93,7 @@ class EventBlock(QGraphicsPolygonItem):
                      QPointF(0, 0), QPointF(-50, 80),
                      QPointF(50, 80)])
         else:
+            # "Cycle"
             path.addEllipse(-100, 0, 200, 200)
             self.myPolygon = path.toFillPolygon(QTransform())
         self.setPolygon(self.myPolygon)
@@ -789,6 +792,34 @@ class ConOpsModeler(QMainWindow):
         Create the library of operation/event block types.
         """
         orb.log.debug(' - ConOpsModeler.create_block_library() ...')
+        layout = QGridLayout()
+        circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
+        triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
+        square = QPixmap(os.path.join( orb.home, 'images', 'square.png'))
+        op_button = ToolButton(square, "")
+        op_button.setData("Op")
+        ev_button = ToolButton(triangle, "")
+        ev_button.setData("Event")
+        cyc_button = ToolButton(circle, "")
+        cyc_button.setData("Cycle")
+        layout.addWidget(op_button, 0, 0)
+        layout.addWidget(NameLabel("Op"), 0, 1)
+        layout.addWidget(ev_button, 1, 0)
+        layout.addWidget(NameLabel("Event"), 1, 1)
+        layout.addWidget(cyc_button, 2, 0)
+        layout.addWidget(NameLabel("Cycle"), 2, 1)
+        library_widget = QWidget()
+        library_widget.setLayout(layout)
+        self.library = QToolBox()
+        self.library.addItem(library_widget, "Activities")
+        self.library.setSizePolicy(QSizePolicy.Fixed,
+                                   QSizePolicy.Fixed)
+
+    def create_mode_library(self):
+        """
+        Create the library of modes.
+        """
+        orb.log.debug(' - ConOpsModeler.create_mode_library() ...')
         layout = QGridLayout()
         circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
         triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
