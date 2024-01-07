@@ -867,6 +867,7 @@ class FilterPanel(QWidget):
             all_cols = ((orb.schemas.get(self.cname) or {}).get(
                                                 'field_names') or [])[:]
             dlg = SelectColsDialog(all_cols, self.view, parent=self)
+            dlg = SelectColsDialog(all_cols, self.view, parent=self)
             if dlg.exec_() == QDialog.Accepted:
                 # rebuild custom view from the selected columns
                 if self.col_moved_view:

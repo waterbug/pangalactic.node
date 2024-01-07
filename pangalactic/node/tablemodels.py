@@ -86,17 +86,41 @@ class MappingTableModel(QAbstractTableModel):
         self.aligns = [_aligns.get(a, Qt.AlignLeft) for a in aligns]
         self.as_library = as_library
         # self.ds = ds or [{0:'no data'}]
-        self.ds = ds or []
-        if self.ds:
-            if view:
-                self.view = [a for a in view if a in self.ds[0].keys()]
-            else:
-                self.view = []
-        else:
-            self.view = view or []
+        # self.ds = ds or []
+        self._ds = ds or []
+        self._view = view or []
+        # if self.ds:
+            # if view:
+                # self.view = [a for a in view if a in self.ds[0].keys()]
+            # else:
+                # self.view = []
+        # else:
+            # self.view = view or []
         icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         self.default_icon = QIcon(QPixmap(os.path.join(icon_dir,
                                   'box'+state.get('icon_type', '.png'))))
+
+    @property
+    def ds(self):
+        return self._ds or []
+
+    @ds.setter
+    def ds(self, dicts):
+        if isinstance(dicts, list):
+            self._ds = dicts
+        else:
+            self._ds = []
+
+    @property
+    def view(self):
+        return self._view
+
+    @view.setter
+    def view(self, v):
+        if self._ds and v:
+            self._view = [a for a in v if a in self._ds[0].keys()]
+        else:
+            self._view = v
 
     def columns(self):
         if self.view:
@@ -215,40 +239,45 @@ class ObjectTableModel(MappingTableModel):
             parent (QWidget):  parent widget
         """
         # orb.log.debug("* ObjectTableModel initializing ...")
-        self.objs = objs or []
+        objs = objs or []
+        view = view or []
+        self._ds = []
+        self._objs = objs
+        self.schema = None
         icons = []
         self.as_library = as_library
         if as_library:
             # orb.log.debug("  ... as library ...")
             icons = [QIcon(get_pixmap(obj)) for obj in objs]
         # orb.log.debug("  ... with {} objects.".format(len(objs)))
-        view = view or []
         self.cname = cname
-        if self.objs:
-            # if self.objs, their class name overrides the provided "cname"
+        if objs:
+            # if objs, their class name overrides the provided "cname"
             self.cname = objs[0].__class__.__name__
+        elif not objs and self.cname:
+            self._objs = orb.get_by_type(cname)
         if self.cname:
-            self.schema = orb.schemas.get(self.cname) or {}
-            if self.schema and view:
-                # sanity-check view
-                view = [a for a in view if
-                             (a in self.schema['field_names']
-                              or a in parm_defz
-                              or a in de_defz)]
-            if not view:
-                if self.cname == 'HardwareProduct':
-                    if as_library:
-                        view = prefs.get('hw_lib_view') or ['id', 'name',
-                                                                'product_type']
-                    else:
-                        view = prefs.get('hw_db_view') or MAIN_VIEWS.get(
-                                'HardwareProduct',
-                                ['id', 'name', 'product_type', 'description'])
-                elif self.cname == 'Requirement':
-                    view = prefs.get('rqt_mgr_view') or STD_VIEWS[self.cname]
-                else:
-                    view = MAIN_VIEWS.get(self.cname,
-                                           ['id', 'name', 'description'])
+            # self.schema = orb.schemas.get(self.cname) or {}
+            # if self.schema and view:
+                # # sanity-check view
+                # view = [a for a in view if
+                             # (a in self.schema['field_names']
+                              # or a in parm_defz
+                              # or a in de_defz)]
+            # if not view:
+                # if self.cname == 'HardwareProduct':
+                    # if as_library:
+                        # view = prefs.get('hw_lib_view') or ['id', 'name',
+                                                                # 'product_type']
+                    # else:
+                        # view = prefs.get('hw_db_view') or MAIN_VIEWS.get(
+                                # 'HardwareProduct',
+                                # ['id', 'name', 'product_type', 'description'])
+                # elif self.cname == 'Requirement':
+                    # view = prefs.get('rqt_mgr_view') or STD_VIEWS[self.cname]
+                # else:
+                    # view = MAIN_VIEWS.get(self.cname,
+                                           # ['id', 'name', 'description'])
             if with_none:
                 null_obj = NullObject()
                 for name in view:
@@ -256,8 +285,8 @@ class ObjectTableModel(MappingTableModel):
                     if name == 'id':
                         val = 'None'
                     setattr(null_obj, name, val)
-                self.objs.insert(0, null_obj)
-            ds = [orb.obj_view_to_dict(o, view) for o in self.objs]
+                self._objs.insert(0, null_obj)
+            ds = [orb.obj_view_to_dict(o, self.view) for o in self._objs]
         else:
             # ds = [{0:'no data'}]
             ds = []
@@ -282,6 +311,19 @@ class ObjectTableModel(MappingTableModel):
             return [getattr(o, 'oid', '') for o in self.objs if o is not None]
         else:
             return []
+
+    @property
+    def objs(self):
+        return self._objs
+
+    @objs.setter
+    def objs(self, objects):
+        if objects:
+            self._objs = objects
+            self._ds = [orb.obj_view_to_dict(o, self.view) for o in self._objs]
+        else:
+            self._objs = []
+            self._ds = []
 
     @property
     def view(self):
@@ -315,8 +357,28 @@ class ObjectTableModel(MappingTableModel):
     def view(self, v):
         orb.log.debug(f'* set ObjectTableModel.view({v})')
         self.beginResetModel()
+        self.schema = orb.schemas.get(self.cname) or {}
+        if self.schema and v:
+            # sanity-check view
+            v = [a for a in v if
+                         (a in self.schema['field_names']
+                          or a in parm_defz
+                          or a in de_defz)]
         if not v:
-            return
+            if self.cname == 'HardwareProduct':
+                if self.as_library:
+                    v = prefs.get('hw_lib_view') or ['id', 'name',
+                                                            'product_type']
+                else:
+                    v = prefs.get('hw_db_view') or MAIN_VIEWS.get(
+                            'HardwareProduct',
+                            ['id', 'name', 'product_type', 'description'])
+            elif self.cname == 'Requirement':
+                v = prefs.get('rqt_mgr_view') or STD_VIEWS[self.cname]
+            else:
+                v = MAIN_VIEWS.get(self.cname, ['id', 'name', 'description'])
+        # if not v:
+            # return
         as_library = getattr(self, 'as_library', False) or False
         cname = getattr(self, 'cname', 'None')
         if cname == 'HardwareProduct' and as_library:
@@ -331,6 +393,8 @@ class ObjectTableModel(MappingTableModel):
             if not isinstance(prefs.get('views'), dict):
                 prefs['views'] = {}
             prefs['views'][cname] = v
+        # IMPORTANT: internal dicts (ds) need updating when the view changes
+        self._ds = [orb.obj_view_to_dict(o, v) for o in self._objs]
         self.endResetModel()
 
     @property

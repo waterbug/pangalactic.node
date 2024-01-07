@@ -418,7 +418,6 @@ class CompoundLibraryWidget(QWidget):
             lib_table = ParmDefTreeView(parent=self)
         elif cname == 'DataElementDefinition':
             select_label = 'Data Elements'
-            view = ['id', 'range_datatype', 'name']
             # exclude DEs that are only computed for the MEL -- this is kludgy:
             # identify them by oid endings (same as id endings)
             ded_objs = orb.get_by_type('DataElementDefinition')
@@ -431,7 +430,7 @@ class CompoundLibraryWidget(QWidget):
                                  o.oid.endswith('_units') or
                                  o.oid.endswith('_spares') or
                                  o.oid.endswith('_ctgcy'))]
-            lib_table = FilterPanel(None, view=view, as_library=True,
+            lib_table = FilterPanel(None, as_library=True,
                                     cname=cname, label=select_label,
                                     min_width=min_width,
                                     excluded_oids=excluded_oids,
@@ -439,7 +438,6 @@ class CompoundLibraryWidget(QWidget):
             lib_table.obj_modified.connect(self.on_obj_modified)
         elif cname == 'Person':
             select_label = 'People'
-            view = ['id', 'last_name', 'first_name', 'org']
             # exclude "me", "TBD", and "admin"
             excluded_oids = ['me', 'pgefobjects:Person.TBD',
                              'pgefobjects:admin']
@@ -448,7 +446,7 @@ class CompoundLibraryWidget(QWidget):
             # orb.log.debug('- oids non grata: {}'.format(str(excluded_oids)))
             # orb.log.debug('- people: {}'.format([p.oid for p in people]))
             people.sort(key=lambda o: getattr(o, 'last_name', '') or '')
-            lib_table = FilterPanel(people, view=view, as_library=True,
+            lib_table = FilterPanel(people, as_library=True,
                                     min_width=min_width,
                                     label=select_label,
                                     excluded_oids=excluded_oids,
