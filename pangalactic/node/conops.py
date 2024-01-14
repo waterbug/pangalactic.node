@@ -772,7 +772,7 @@ class ConOpsModeler(QMainWindow):
                 dispatcher.send("new object", obj=mission)
             self.subject = mission
         self.project = project
-        self.create_block_library()
+        self.create_block_and_mode_libraries()
         self.init_toolbar()
         self.set_widgets(init=True)
         self.setWindowTitle('Concept of Operations (Con Ops) Modeler')
@@ -787,11 +787,11 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
         dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
 
-    def create_block_library(self):
+    def create_block_and_mode_libraries(self):
         """
         Create the library of operation/event block types.
         """
-        orb.log.debug(' - ConOpsModeler.create_block_library() ...')
+        orb.log.debug(' - ConOpsModeler.create_block_and_mode_libraries() ...')
         layout = QGridLayout()
         circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
         triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
@@ -810,37 +810,34 @@ class ConOpsModeler(QMainWindow):
         layout.addWidget(NameLabel("Cycle"), 2, 1)
         library_widget = QWidget()
         library_widget.setLayout(layout)
+        library_widget.setStyleSheet('background-color: #dbffd6;')
+        mode_lib_layout = QGridLayout()
+        # get all defined modes for current system ...
+        modes = ['Spam', 'Eggs', 'More Spam']
+        # add a label for each mode ...
+        for i, mode in enumerate(modes):
+            button = ToolButton(circle, "")
+            button.setData(mode)
+            mode_lib_layout.addWidget(button, i, 0)
+            mode_lib_layout.addWidget(NameLabel(mode), i, 1)
+        mode_library_widget = QWidget()
+        mode_library_widget.setLayout(mode_lib_layout)
+        mode_library_widget.setStyleSheet('background-color: #ffccf9;')
         self.library = QToolBox()
         self.library.addItem(library_widget, "Activities")
-        self.library.setSizePolicy(QSizePolicy.Fixed,
-                                   QSizePolicy.Fixed)
-
-    def create_mode_library(self):
-        """
-        Create the library of modes.
-        """
-        orb.log.debug(' - ConOpsModeler.create_mode_library() ...')
-        layout = QGridLayout()
-        circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
-        triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
-        square = QPixmap(os.path.join( orb.home, 'images', 'square.png'))
-        op_button = ToolButton(square, "")
-        op_button.setData("Op")
-        ev_button = ToolButton(triangle, "")
-        ev_button.setData("Event")
-        cyc_button = ToolButton(circle, "")
-        cyc_button.setData("Cycle")
-        layout.addWidget(op_button, 0, 0)
-        layout.addWidget(NameLabel("Op"), 0, 1)
-        layout.addWidget(ev_button, 1, 0)
-        layout.addWidget(NameLabel("Event"), 1, 1)
-        layout.addWidget(cyc_button, 2, 0)
-        layout.addWidget(NameLabel("Cycle"), 2, 1)
-        library_widget = QWidget()
-        library_widget.setLayout(layout)
-        self.library = QToolBox()
-        self.library.addItem(library_widget, "Activities")
-        self.library.setSizePolicy(QSizePolicy.Fixed,
+        # set an icon for Activities item ...
+        act_icon_file = 'tools' + state.get('icon_type', '.png')
+        act_icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+        act_icon_path = os.path.join(act_icon_dir, act_icon_file)
+        self.library.setItemIcon(0, QIcon(act_icon_path))
+        self.library.addItem(mode_library_widget, "Modes")
+        # set an icon for Modes item ...
+        mode_icon_file = 'lander' + state.get('icon_type', '.png')
+        mode_icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+        mode_icon_path = os.path.join(mode_icon_dir, mode_icon_file)
+        self.library.setItemIcon(1, QIcon(mode_icon_path))
+        self.library.setMinimumWidth(200)
+        self.library.setSizePolicy(QSizePolicy.Minimum,
                                    QSizePolicy.Fixed)
 
     def init_toolbar(self):
