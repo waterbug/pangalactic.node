@@ -286,12 +286,16 @@ class Main(QMainWindow):
             prefs['dashboard_names'] = ['MEL']
         if not state.get('dashboard_name'):
             state['dashboard_name'] = prefs['dashboard_names'][0]
-        # set path to server cert
+        # ---------------------------------------------------------------------
+        # NOTE: a cert file is only needed for a self-signed certificate -- if
+        # the server is using a CA-signed cert, there is no server_cert.pem
+        # ---------------------------------------------------------------------
         self.cert_path = os.path.join(orb.home, 'server_cert.pem')
         if os.path.exists(self.cert_path):
             orb.log.debug('    server cert found.')
         else:
             orb.log.debug('    server cert NOT found.')
+            self.cert_path = None
         # set "auto" for auto-connect ...
         if 'auto' in prefs:
             self.auto = prefs['auto']
@@ -487,21 +491,21 @@ class Main(QMainWindow):
         """
         orb.log.debug('* setting message bus state ...')
         if self.connect_to_bus_action.isChecked():
-            # first check whether crossbar is reachable ...
             host = config.get('host', 'localhost')
-            port = config.get('port', '8080')
-            url = 'ws://{}:{}/ws'.format(host, port)
-            if reachable(url):
-                orb.log.debug('* message bus is reachable.')
-            else:
-                self.connect_to_bus_action.setChecked(False)
-                html = '<p><b><font color="red">The Message Bus'
-                html += ' is not reachable ...</font></b></p>'
-                html += '<p><b>Either the server is down or '
-                html += 'there is a network connectivity issue.</b></p>'
-                dlg = NotificationDialog(html, news=False, parent=self)
-                dlg.show()
-                return
+            port = config.get('port', '443')
+            url = 'wss://{}:{}/ws'.format(host, port)
+            # # first check whether crossbar is reachable ...
+            # if reachable(url):
+                # orb.log.debug('* message bus is reachable.')
+            # else:
+                # self.connect_to_bus_action.setChecked(False)
+                # html = '<p><b><font color="red">The Message Bus'
+                # html += ' is not reachable ...</font></b></p>'
+                # html += '<p><b>Either the server is down or '
+                # html += 'there is a network connectivity issue.</b></p>'
+                # dlg = NotificationDialog(html, news=False, parent=self)
+                # dlg.show()
+                # return
             ###########################################################
             # Initialize message bus instance
             ###########################################################
@@ -527,25 +531,26 @@ class Main(QMainWindow):
                     self.mbus.set_key_path(self.key_path)
                     tls_options = None
                     if self.use_tls:
+                        orb.log.debug('  - using tls ...')
                         if self.cert_path:
-                            orb.log.debug('  - getting cert for tls ...')
-                            try:
-                                cert = crypto.load_certificate(
-                                            crypto.FILETYPE_PEM,
-                                            open(self.cert_path, 'r').read())
-                                tls_options = CertificateOptions(
-                                    trustRoot=OpenSSLCertificateAuthorities(
-                                                                    [cert]))
-                                url = 'wss://{}:{}/ws'.format(host, port)
-                            except:
-                                orb.log.debug('  - tls cert failed.')
-                                self.connect_to_bus_action.setChecked(False)
-                                return
+                            orb.log.debug('  - with self-signed cert ...')
+                            cert = crypto.load_certificate(
+                                        crypto.FILETYPE_PEM,
+                                        open(self.cert_path, 'r').read())
+                            # ---------------------------------------------
+                            # NOTE: trustRoot arg is only needed when using
+                            # a self-signed certificate ...
+                            # ---------------------------------------------
+                            tls_options = CertificateOptions(
+                                trustRoot=OpenSSLCertificateAuthorities(
+                                                                [cert]))
+                            url = 'wss://{}:{}/ws'.format(host, port)
                         else:
-                            orb.log.debug('  - no server cert; no tls.')
-                            self.connect_to_bus_action.setChecked(False)
-                            return
+                            orb.log.debug('  - no self-signed cert.')
+                            tls_options = CertificateOptions()
+                            url = 'wss://{}:{}/ws'.format(host, port)
                     else:
+                        orb.log.debug('  - not using tls ...')
                         url = 'ws://{}:{}/ws'.format(host, port)
                     orb.log.debug('  - setting up connection ...')
                     self.mbus.run(url, auth_method='cryptosign',
@@ -561,8 +566,9 @@ class Main(QMainWindow):
                     self.mbus.set_passwd(login_dlg.passwd)
                     tls_options = None
                     if self.use_tls:
+                        orb.log.debug('  - using tls ...')
                         if self.cert_path:
-                            orb.log.debug('  - using tls ...')
+                            orb.log.debug('  -  with self-signed cert ...')
                             cert = crypto.load_certificate(
                                             crypto.FILETYPE_PEM,
                                             open(self.cert_path, 'r').read())
@@ -570,9 +576,11 @@ class Main(QMainWindow):
                                 trustRoot=OpenSSLCertificateAuthorities([cert]))
                             url = 'wss://{}:{}/ws'.format(host, port)
                         else:
-                            orb.log.debug('  - no server cert; cannot use tls.')
-                            return
+                            orb.log.debug('  - no self-signed cert.')
+                            tls_options = CertificateOptions()
+                            url = 'wss://{}:{}/ws'.format(host, port)
                     else:
+                        orb.log.debug('  - not using tls ...')
                         url = 'ws://{}:{}/ws'.format(host, port)
                     orb.log.info('  logging in with userid "{}"'.format(
                                                                 login_dlg.userid))
