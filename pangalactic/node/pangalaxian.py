@@ -99,7 +99,7 @@ from pangalactic.node.filters          import FilterPanel
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import (LibraryDialog,
                                                CompoundLibraryWidget)
-from pangalactic.node.message_bus      import PgxnMessageBus, reachable
+from pangalactic.node.message_bus      import PgxnMessageBus
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
 from pangalactic.node.optics           import LinearOpticalModelViewer
 from pangalactic.node.pgxnobject       import PgxnObject
@@ -290,12 +290,14 @@ class Main(QMainWindow):
         # NOTE: a cert file is only needed for a self-signed certificate -- if
         # the server is using a CA-signed cert, there is no server_cert.pem
         # ---------------------------------------------------------------------
-        self.cert_path = os.path.join(orb.home, 'server_cert.pem')
-        if os.path.exists(self.cert_path):
-            orb.log.debug('    server cert found.')
-        else:
-            orb.log.debug('    server cert NOT found.')
-            self.cert_path = None
+        self.cert_path = None
+        if config.get('self_signed_cert'):
+            self.cert_path = os.path.join(orb.home, 'server_cert.pem')
+            if os.path.exists(self.cert_path):
+                orb.log.debug('    server_cert.pem found.')
+            else:
+                orb.log.debug('    server_cert.pem not found ...')
+                orb.log.debug('    config "self_signed_cert" requires one!')
         # set "auto" for auto-connect ...
         if 'auto' in prefs:
             self.auto = prefs['auto']
@@ -472,7 +474,6 @@ class Main(QMainWindow):
         local_user = orb.get(state.get('local_user_oid', 'me'))
         if local_user:
             self.local_user = local_user
-            # oid should be bytes (str)
         else:
             orb.startup_msg = '* creating local user "me" object ...'
             local_user = clone('Person')
@@ -481,7 +482,7 @@ class Main(QMainWindow):
             local_user.name = 'Me'
             orb.save([local_user])
             self.local_user = local_user
-        state['local_user_oid'] = str(self.local_user.oid)
+        state['local_user_oid'] = self.local_user.oid
 
     def set_bus_state(self):
         """
@@ -494,7 +495,7 @@ class Main(QMainWindow):
             host = config.get('host', 'localhost')
             port = config.get('port', '443')
             url = 'wss://{}:{}/ws'.format(host, port)
-            # # first check whether crossbar is reachable ...
+            # NOTE: this only works for non-tls connections
             # if reachable(url):
                 # orb.log.debug('* message bus is reachable.')
             # else:
@@ -532,7 +533,7 @@ class Main(QMainWindow):
                     tls_options = None
                     if self.use_tls:
                         orb.log.debug('  - using tls ...')
-                        if self.cert_path:
+                        if config.get('self_signed_cert') and self.cert_path:
                             orb.log.debug('  - with self-signed cert ...')
                             cert = crypto.load_certificate(
                                         crypto.FILETYPE_PEM,
@@ -627,13 +628,15 @@ class Main(QMainWindow):
             while 1:
                 if state.get('connected'):
                     orb.log.info('  connected.')
+                    self.attempting_to_connect = False
                     return
-                elif n < 50000000:
+                elif n < 20000000:
                     n += 1
                     QApplication.processEvents()
                     continue
                 else:
                     orb.log.info('  connection failed.')
+                    self.connect_to_bus_action.setChecked(False)
                     html = '<h3>Cannot connect to the Repository Service</h3>'
                     html += '<p><b><font color="red">Contact the Administrator '
                     html += 'for status.</font></b></p>'

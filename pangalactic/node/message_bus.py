@@ -9,6 +9,7 @@ from autobahn.wamp import cryptosign
 
 
 def reachable(url):
+    # NOTE: this only works for non-tls connections, so not very useful
     url = url or 'ws://localhost:8080/ws'
     websocket.enableTrace(True)
     s = websocket.WebSocket()
