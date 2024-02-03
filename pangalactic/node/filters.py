@@ -451,6 +451,7 @@ class ProxyView(QTableView):
                  headers_are_ids=False, word_wrap=False, parent=None):
         super().__init__(parent=parent)
         self.sized_cols = sized_cols or {}
+        self.word_wrap = word_wrap
         self.setAlternatingRowColors(True)
         # disable editing
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -774,21 +775,26 @@ class FilterPanel(QWidget):
                                     parent=self)
         self.proxy_view.horizontalHeader().sectionMoved.connect(
                                                         self.on_column_moved)
-        # IMPORTANT:  after a sort, rows retain the heights they had before
-        # the sort (i.e. wrong) unless this is done:
-        # [2020-10-22 SCW] NO, not necessary because not word-wrapping -> rows
-        # are all the same height!
+        # NOTE:  after a sort, rows retain the heights they had before the sort
+        # unless layoutChanged is connected to resizeRowsToContents
+        # [2020-10-22 SCW] not necessary because not word-wrapping -> rows
+        # are all the same height
         # [2021-01-16 SCW] now necessary again because word-wrapping ...
-        self.proxy_model.layoutChanged.connect(
+        if self.word_wrap:
+            self.proxy_model.layoutChanged.connect(
                                     self.proxy_view.resizeRowsToContents)
-        self.proxy_model.layoutChanged.connect(
+        else:
+            self.proxy_model.layoutChanged.connect(
                                         self.proxy_view.resize_cols)
         # self.proxy_model.beginResetModel()
         # self.proxy_model.endResetModel()
-        for i, colname in enumerate(self.view):
-            self.proxy_view.setColumnWidth(i,
-                                           PGEF_COL_WIDTHS.get(colname, 100))
-        self.proxy_view.resizeRowsToContents()
+        if self.word_wrap:
+            for i, colname in enumerate(self.view):
+                self.proxy_view.setColumnWidth(
+                                        i, PGEF_COL_WIDTHS.get(colname, 100))
+            self.proxy_view.resizeRowsToContents()
+        else:
+            self.proxy_view.resize_cols()
         if self.cname == 'Requirement':
             # for Reqt Manager, show grid
             self.proxy_view.setShowGrid(True)
