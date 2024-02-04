@@ -51,7 +51,7 @@ except:
     from pangalactic.core             import orb, state
 from pangalactic.core.clone       import clone
 # from pangalactic.core.parametrics import get_pval
-# from pangalactic.core.meta        import DEFAULT_CLASS_PARAMETERS
+from pangalactic.core.parametrics import mode_defz
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.node.activities  import ActivityWidget, ModesTool
 from pangalactic.node.buttons     import SizedButton, ToolButton
@@ -361,12 +361,12 @@ class TimelineScene(QGraphicsScene):
         super().mouseDoubleClickEvent(event)
 
 
-# TODO:  we need a subclass of TimelineWidget (maybe SubTimelineWidget) that
-# displays the timelines of either (1) if TimelineWidget activity is the
-# Mission, a selected project system or group of systems (e.g. a selected SC,
-# all SC's, ground system, all of the above, etc.), or (2) if TimelineWidget
-# activity is a non-Mission activity instance, all subsystems of the current
-# activity's "of_system" usage.
+# TODO:  the TimelineWidget should display the timelines of either
+# (1) if TimelineWidget activity is the Mission, a selected project system or
+# group of systems (e.g. a selected SC, all SC's, ground system, all of the
+# above, etc.), or
+# (2) if TimelineWidget activity is a non-Mission activity instance, all
+# subsystems of the current activity's "of_system" usage.
 
 # TODO: implement "back" based on history
 
@@ -772,7 +772,7 @@ class ConOpsModeler(QMainWindow):
                 dispatcher.send("new object", obj=mission)
             self.subject = mission
         self.project = project
-        self.create_block_and_mode_libraries()
+        self.create_toolbox()
         self.init_toolbar()
         self.set_widgets(init=True)
         self.setWindowTitle('Concept of Operations (Con Ops) Modeler')
@@ -787,58 +787,111 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
         dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
 
-    def create_block_and_mode_libraries(self):
+    def create_toolbox(self):
         """
-        Create the library of operation/event block types.
+        Create the toolbox for activities and modes.
         """
-        orb.log.debug(' - ConOpsModeler.create_block_and_mode_libraries() ...')
-        layout = QGridLayout()
-        circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
-        triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
+        orb.log.debug(' - ConOpsModeler.create_toolbox() ...')
+        acts_layout = QGridLayout()
         square = QPixmap(os.path.join( orb.home, 'images', 'square.png'))
+        triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
+        circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
         op_button = ToolButton(square, "")
         op_button.setData("Op")
         ev_button = ToolButton(triangle, "")
         ev_button.setData("Event")
         cyc_button = ToolButton(circle, "")
         cyc_button.setData("Cycle")
-        layout.addWidget(op_button, 0, 0)
-        layout.addWidget(NameLabel("Op"), 0, 1)
-        layout.addWidget(ev_button, 1, 0)
-        layout.addWidget(NameLabel("Event"), 1, 1)
-        layout.addWidget(cyc_button, 2, 0)
-        layout.addWidget(NameLabel("Cycle"), 2, 1)
-        library_widget = QWidget()
-        library_widget.setLayout(layout)
-        library_widget.setStyleSheet('background-color: #dbffd6;')
-        mode_lib_layout = QGridLayout()
-        # get all defined modes for current system ...
-        modes = ['Spam', 'Eggs', 'More Spam']
-        # add a label for each mode ...
-        for i, mode in enumerate(modes):
-            button = ToolButton(circle, "")
-            button.setData(mode)
-            mode_lib_layout.addWidget(button, i, 0)
-            mode_lib_layout.addWidget(NameLabel(mode), i, 1)
-        mode_library_widget = QWidget()
-        mode_library_widget.setLayout(mode_lib_layout)
-        mode_library_widget.setStyleSheet('background-color: #ffccf9;')
-        self.library = QToolBox()
-        self.library.addItem(library_widget, "Activities")
+        acts_layout.addWidget(op_button, 0, 0)
+        acts_layout.addWidget(NameLabel("Op"), 0, 1)
+        acts_layout.addWidget(ev_button, 1, 0)
+        acts_layout.addWidget(NameLabel("Event"), 1, 1)
+        acts_layout.addWidget(cyc_button, 2, 0)
+        acts_layout.addWidget(NameLabel("Cycle"), 2, 1)
+        toolbox_widget = QWidget()
+        toolbox_widget.setLayout(acts_layout)
+        toolbox_widget.setStyleSheet('background-color: #dbffd6;')
+        self.toolbox = QToolBox()
+        self.toolbox.addItem(toolbox_widget, "Activities")
         # set an icon for Activities item ...
         act_icon_file = 'tools' + state.get('icon_type', '.png')
         act_icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         act_icon_path = os.path.join(act_icon_dir, act_icon_file)
-        self.library.setItemIcon(0, QIcon(act_icon_path))
-        self.library.addItem(mode_library_widget, "Modes")
+        self.toolbox.setItemIcon(0, QIcon(act_icon_path))
+        self.update_mode_tools()
+        self.toolbox.setMinimumWidth(250)
+        self.toolbox.setSizePolicy(QSizePolicy.Minimum,
+                                   QSizePolicy.Fixed)
+
+    def update_mode_tools(self):
+        """
+        Update the Modes section of the toolbox depending on the selected
+        subject activity and system of the conops tool.
+        """
+        orb.log.debug(' - ConOpsModeler.update_mode_tools() ...')
+        mlw = getattr(self, 'modes_widget', None)
+        idx = self.toolbox.indexOf(mlw)
+        if mlw:
+            if idx != -1:
+                self.toolbox.removeItem(idx)
+            mlw.close()
+            self.modes_widget = None
+        if isinstance(self.subject, orb.classes['Mission']):
+            return
+        modes_layout = QGridLayout()
+        # get all defined modes for current system ...
+        # first make sure that mode_defz[project.oid] is initialized ...
+        if not mode_defz.get(self.project.oid):
+            mode_defz[self.project.oid] = dict(modes={}, systems={},
+                                               components={})
+        # Only populate "Modes" toolbox item if the subject Activity has an
+        # "of_system" for which modes have been defined
+        system_usage = getattr(self.subject, 'of_system', None)
+        modes_title = 'No Modes Defined'
+        if system_usage:
+            if isinstance(system_usage, orb.classes['Acu']):
+                sys_name = getattr(system_usage, 'reference_designator', None)
+                if not sys_name:
+                    sys = system_usage.component
+                    sys_name = sys.name or sys.id
+            elif isinstance(system_usage, orb.classes['ProjectSystemUsage']):
+                sys_name = getattr(system_usage, 'system_role', None)
+                if not sys_name:
+                    sys = system_usage.system
+                    sys_name = sys.name or sys.id
+            else:
+                sys_name = 'Unknown'
+            modes_title = f'Modes of {sys_name}'
+        # modes = ['Spam', 'Eggs', 'More Spam']
+        modes = []
+        systems = mode_defz[self.project.oid]['systems']
+        components = mode_defz[self.project.oid]['components']
+        # WORKING HERE ...
+        # comp_modez = 
+        # if (self.system.oid in systems and
+            # len(systems.get(self.system.oid) or {}) > 0):
+            # # system has modes defined -- add them
+            # for mode_name in list(systems[self.system.oid]):
+                # modes.append(mode_name)
+        # elif (self.system.oid in components and
+              # len(components.get(self.system.oid) or {}) > 0):
+            # # system has modes defined -- add them
+            # for mode_name in components[self.system.oid]:
+        circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
+        for i, mode in enumerate(modes):
+            button = ToolButton(circle, "")
+            button.setData(mode)
+            modes_layout.addWidget(button, i, 0)
+            modes_layout.addWidget(NameLabel(mode), i, 1)
+        self.modes_widget = QWidget()
+        self.modes_widget.setLayout(modes_layout)
+        self.modes_widget.setStyleSheet('background-color: #ffccf9;')
+        self.toolbox.addItem(self.modes_widget, modes_title)
         # set an icon for Modes item ...
         mode_icon_file = 'lander' + state.get('icon_type', '.png')
         mode_icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         mode_icon_path = os.path.join(mode_icon_dir, mode_icon_file)
-        self.library.setItemIcon(1, QIcon(mode_icon_path))
-        self.library.setMinimumWidth(200)
-        self.library.setSizePolicy(QSizePolicy.Minimum,
-                                   QSizePolicy.Fixed)
+        self.toolbox.setItemIcon(1, QIcon(mode_icon_path))
 
     def init_toolbar(self):
         orb.log.debug(' - ConOpsModeler.init_toolbar() ...')
@@ -885,7 +938,7 @@ class ConOpsModeler(QMainWindow):
             self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
             self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
             self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
-            self.right_dock.setWidget(self.library)
+            self.right_dock.setWidget(self.toolbox)
         dispatcher.connect(self.rebuild_tables, "order changed")
         dispatcher.connect(self.on_new_activity, "new activity")
 
@@ -941,6 +994,7 @@ class ConOpsModeler(QMainWindow):
     def change_system(self, index):
         orb.log.debug("* ConOpsModeler.change_system()")
         self.system = self.usage_list[index]
+        self.update_mode_tools()
         self.set_widgets()
 
     def resizeEvent(self, event):
