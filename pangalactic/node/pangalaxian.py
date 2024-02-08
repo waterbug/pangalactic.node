@@ -2472,7 +2472,7 @@ class Main(QMainWindow):
             p (Project):  Project instance to be set
         """
         if p:
-            orb.log.debug(f'* set_project({p.id})')
+            orb.log.debug(f'* set_project({str(p.id)})')
             state['project'] = p.oid
             if state['connected']:
                 self.role_label.setText('online: syncing project data ...')
@@ -2531,7 +2531,9 @@ class Main(QMainWindow):
             projects = list(projects)
             # "SANDBOX project" doesn't have roles so add it separately
             projects.append(self.sandbox)
-        projects.sort(key=lambda p: p.id)
+        # str() is needed in case p.id is None, which happens if the dialog
+        # creating a project is cancelled
+        projects.sort(key=lambda p: str(p.id))
         # orb.log.debug('  - project list: {}'.format(
                       # str([p.id for p in projects])))
         return projects
@@ -2558,7 +2560,7 @@ class Main(QMainWindow):
             p = orb.get('pgefobjects:TBD')
         orb.log.debug('* setting state["product"] ...')
         oid = getattr(p, 'oid', None)
-        orb.log.debug(f'  product: "{p.id}" ({oid})')
+        orb.log.debug(f'  product: "{str(p.id)}" ({oid})')
         if self._product and not state.get('comp_modeler_back'):
             # if there was a product set before, add it to history unless
             # 'comp_modeler_back' is True (-> back navigation)
@@ -4039,8 +4041,8 @@ class Main(QMainWindow):
         admin_role = orb.get('pgefobjects:Role.Administrator')
         global_admin = is_global_admin(self.local_user)
         if p:
-            self.project_selection.setText(p.id)
-            # orb.log.debug('* set_project({})'.format(p.id))
+            self.project_selection.setText(str(p.id))
+            # orb.log.debug('* set_project({})'.format(str(p.id)))
             # state['project'] = str(p.oid)
             # if hasattr(self, 'delete_project_action'):
             if p is self.sandbox:
@@ -4068,14 +4070,14 @@ class Main(QMainWindow):
                                           role_assignment_context=p)
                 if 'delete' in get_perms(p):
                     project_is_local = True
-                    role_label_txt = ': '.join([p.id, '[local]'])
+                    role_label_txt = ': '.join([str(p.id), '[local]'])
                 number_of_roles = len(p_roles)
                 if global_admin:
                     number_of_roles += 1
                 if number_of_roles:
                     if number_of_roles > 1:
                         # add asterisk to indicate multiple roles
-                        role_label_txt = ': '.join([p.id, p_roles[0],
+                        role_label_txt = ': '.join([str(p.id), p_roles[0],
                                                     ' *'])
                         tt_txt = '<ul>\n'
                         for r in p_roles:
@@ -4086,7 +4088,7 @@ class Main(QMainWindow):
                             tt_txt += '<li>Global&nbsp;Administrator</li>\n'
                         tt_txt += '</ul>'
                     elif p_roles:
-                        role_label_txt = ': '.join([p.id, p_roles[0]])
+                        role_label_txt = ': '.join([str(p.id), p_roles[0]])
                     elif global_admin:
                         role_label_txt = 'Global Administrator'
                 if state['connected']:
