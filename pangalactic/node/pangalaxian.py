@@ -114,7 +114,11 @@ from pangalactic.node.systemtree       import SystemTreeView
 # from pangalactic.node.tableviews       import ObjectTableView
 from pangalactic.node.threads          import threadpool, Worker
 from pangalactic.node.widgets          import (AutosizingListWidget,
-                                               DashSelectCombo,
+                                               # NOTE: dash_select temporarily
+                                               # deactivated -- dash switching
+                                               # is causing segfaults
+                                               # [SCW 2024-02-07]
+                                               # DashSelectCombo,
                                                ModeLabel, PlaceHolder)
 from pangalactic.node.wizards          import (NewProductWizard,
                                                DataImportWizard,
@@ -4441,26 +4445,29 @@ class Main(QMainWindow):
             dispatcher.send(signal='set selected system')
 
     def rebuild_dash_selector(self):
+        # NOTE: dash_select temporarily deactivated -- dash switching is
+        # causing segfaults [SCW 2024-02-07]
+        pass
         # orb.log.debug('* rebuild_dash_selector()')
-        if getattr(self, 'dashboard_title_layout', None):
-            orb.log.debug('  - dashboard_title_layout exists ...')
-            orb.log.debug('  - removing old dash selector ...')
-            self.dashboard_title_layout.removeWidget(self.dash_select)
-            self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
-            self.dash_select.close()
-            self.dash_select = None
-            # orb.log.debug('  - creating new dash selector ...')
-            new_dash_select = DashSelectCombo()
-            new_dash_select.setStyleSheet(
-                                'font-weight: bold; font-size: 14px')
-            for dash_name in prefs['dashboard_names']:
-                new_dash_select.addItem(dash_name, QVariant)
-            if state.get('project', '') in mode_defz:
-                new_dash_select.addItem('System Power Modes', QVariant)
-            new_dash_select.setCurrentIndex(0)
-            new_dash_select.activated.connect(self.set_dashboard)
-            self.dash_select = new_dash_select
-            self.dashboard_title_layout.addWidget(self.dash_select)
+        # if getattr(self, 'dashboard_title_layout', None):
+            # orb.log.debug('  - dashboard_title_layout exists ...')
+            # orb.log.debug('  - removing old dash selector ...')
+            # self.dashboard_title_layout.removeWidget(self.dash_select)
+            # self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
+            # self.dash_select.close()
+            # self.dash_select = None
+            # # orb.log.debug('  - creating new dash selector ...')
+            # new_dash_select = DashSelectCombo()
+            # new_dash_select.setStyleSheet(
+                                # 'font-weight: bold; font-size: 14px')
+            # for dash_name in prefs['dashboard_names']:
+                # new_dash_select.addItem(dash_name, QVariant)
+            # if state.get('project', '') in mode_defz:
+                # new_dash_select.addItem('System Power Modes', QVariant)
+            # new_dash_select.setCurrentIndex(0)
+            # new_dash_select.activated.connect(self.set_dashboard)
+            # self.dash_select = new_dash_select
+            # self.dashboard_title_layout.addWidget(self.dash_select)
 
     def on_parm_recompute(self):
         # rebuilding dashboard is only needed in "system" mode
@@ -4494,11 +4501,13 @@ class Main(QMainWindow):
             # orb.log.debug('  + dashboard_panel exists ...')
             # orb.log.debug('    clearing out select and dashboard ...')
             dashboard_layout = self.dashboard_panel.layout()
-            if getattr(self, 'dash_select', None):
-                dashboard_layout.removeWidget(self.dash_select)
-                self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
-                self.dash_select.close()
-                self.dash_select = None
+            # NOTE: dash_select temporarily deactivated -- dash switching is
+            # causing segfaults [SCW 2024-02-07]
+            # if getattr(self, 'dash_select', None):
+                # dashboard_layout.removeWidget(self.dash_select)
+                # self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
+                # self.dash_select.close()
+                # self.dash_select = None
             if getattr(self, 'dashboard', None):
                 dashboard_layout.removeWidget(self.dashboard)
                 self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
@@ -4519,21 +4528,24 @@ class Main(QMainWindow):
         self.dash_title = QLabel()
         # orb.log.debug('           adding title ...')
         self.dashboard_title_layout.addWidget(self.dash_title)
-        self.dash_select = DashSelectCombo()
-        self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
-        for dash_name in prefs['dashboard_names']:
-            self.dash_select.addItem(dash_name, QVariant)
-        if state.get('project', '') in mode_defz:
-            self.dash_select.addItem('System Power Modes', QVariant)
-        if (state.get('dashboard_name') == 'System Power Modes' and
-            not (state.get('project', '') in mode_defz)):
-            state['dashboard_name'] = 'MEL'
-        dash_name = state.get('dashboard_name', 'MEL')
-        state['dashboard_name'] = dash_name
-        self.dash_select.setCurrentText(dash_name)
-        self.dash_select.activated.connect(self.set_dashboard)
-        # orb.log.debug('           adding dashboard selector ...')
-        self.dashboard_title_layout.addWidget(self.dash_select)
+        # NOTE: dash_select temporarily deactivated -- dash switching is
+        # causing segfaults [SCW 2024-02-07]
+        # self.dash_select = DashSelectCombo()
+        # self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
+        # for dash_name in prefs['dashboard_names']:
+            # self.dash_select.addItem(dash_name, QVariant)
+        # if state.get('project', '') in mode_defz:
+            # self.dash_select.addItem('System Power Modes', QVariant)
+        # if (state.get('dashboard_name') == 'System Power Modes' and
+            # not (state.get('project', '') in mode_defz)):
+            # state['dashboard_name'] = 'MEL'
+        # dash_name = state.get('dashboard_name', 'MEL')
+        # state['dashboard_name'] = dash_name
+        state['dashboard_name'] = 'MEL'
+        # self.dash_select.setCurrentText(dash_name)
+        # self.dash_select.activated.connect(self.set_dashboard)
+        # # orb.log.debug('           adding dashboard selector ...')
+        # self.dashboard_title_layout.addWidget(self.dash_select)
         dashboard_layout.addLayout(self.dashboard_title_layout)
         self.dashboard_panel.setLayout(dashboard_layout)
         self.top_dock_widget.setWidget(self.dashboard_panel)
@@ -4566,11 +4578,15 @@ class Main(QMainWindow):
         """
         Set the dashboard state to the selected view.
         """
-        dash_name = self.dash_select.currentText()
+        # NOTE: dash_select temporarily deactivated -- dash switching is
+        # causing segfaults [SCW 2024-02-07]
+
+        # dash_name = self.dash_select.currentText()
+        dash_name = 'MEL'
         if (dash_name == 'System Power Modes' and
             not (state.get('project', '') in mode_defz)):
             dash_name = 'MEL'
-        self.dash_select.setCurrentText(dash_name)
+        # self.dash_select.setCurrentText(dash_name)
         state['dashboard_name'] = dash_name
         self.refresh_tree_and_dashboard()
 

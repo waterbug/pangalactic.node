@@ -101,21 +101,26 @@ class SystemDashboard(QTreeView):
         delete_columns_action = QAction('delete columns', dash_header)
         delete_columns_action.triggered.connect(self.delete_columns)
         dash_header.addAction(delete_columns_action)
-        create_dashboard_action = QAction('create new dashboard', dash_header)
-        create_dashboard_action.triggered.connect(self.create_dashboard)
-        dash_header.addAction(create_dashboard_action)
-        set_as_pref_action = QAction('set as preferred dashboard', dash_header)
-        set_as_pref_action.triggered.connect(self.set_as_pref_dashboard)
-        dash_header.addAction(set_as_pref_action)
-        dash_name = state.get('dashboard_name')
+        # -------------------------------------------------------------------
+        # NOTE: dash board mods temporarily deactivated -- dash switching is
+        # causing segfaults [SCW 2024-02-07]
+        # -------------------------------------------------------------------
+        # create_dashboard_action = QAction('create new dashboard', dash_header)
+        # create_dashboard_action.triggered.connect(self.create_dashboard)
+        # dash_header.addAction(create_dashboard_action)
+        # set_as_pref_action = QAction('set as preferred dashboard', dash_header)
+        # set_as_pref_action.triggered.connect(self.set_as_pref_dashboard)
+        # dash_header.addAction(set_as_pref_action)
+        # dash_name = state.get('dashboard_name')
+        dash_name = 'MEL'
         if dash_name in (state.get('app_dashboards') or {}).keys():
             txt = f'use standard {dash_name} dashboard schema'
             use_app_dash_action = QAction(txt, dash_header)
             use_app_dash_action.triggered.connect(self.use_app_dash_schema)
             dash_header.addAction(use_app_dash_action)
-        delete_dashboard_action = QAction('delete dashboard', dash_header)
-        delete_dashboard_action.triggered.connect(self.delete_dashboard)
-        dash_header.addAction(delete_dashboard_action)
+        # delete_dashboard_action = QAction('delete dashboard', dash_header)
+        # delete_dashboard_action.triggered.connect(self.delete_dashboard)
+        # dash_header.addAction(delete_dashboard_action)
         export_tsv_mks_action = QAction('export to .tsv file (mks units)',
                                         dash_header)
         export_tsv_mks_action.triggered.connect(self.export_tsv_mks)
@@ -126,7 +131,9 @@ class SystemDashboard(QTreeView):
         export_tsv_pref_action.triggered.connect(self.export_tsv_pref)
         dash_header.addAction(export_tsv_pref_action)
         dash_header.setContextMenuPolicy(Qt.ActionsContextMenu)
-        dash_header.sectionMoved.connect(self.on_section_moved)
+        # NOTE: moving a section currently causes a crash -- temporarily
+        # deactivated [SCW 2024-02-07]
+        # dash_header.sectionMoved.connect(self.on_section_moved)
         dash_header.setStretchLastSection(False)
         # "successful_drop" refers to product drops on sys tree (for syncing)
         # *** DEPRECATED now that tree is not editable

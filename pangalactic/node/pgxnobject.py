@@ -989,7 +989,21 @@ class PgxnObject(QDialog):
             orb.log.debug('* [pgxo] no title_box layout -- adding ...')
             self.title_box = QHBoxLayout()
             need_title_box = True
-        if not getattr(self, 'title', None):
+        if getattr(self, 'title', None):
+            self.title_text = get_object_title(self.obj, new=self.new)
+            # use try/except in case self.title's C++ obj got deleted ...
+            try:
+                self.title.setText(self.title_text)
+            except:
+                orb.log.debug('* [pgxo] update of title failed, new title ...')
+                self.title = QLabel()
+                self.title.setAttribute(Qt.WA_DeleteOnClose)
+                self.title.setSizePolicy(QSizePolicy.Minimum,
+                                         QSizePolicy.Minimum)
+                self.title.setText(self.title_text)
+                self.title_box.addWidget(self.title)
+                self.title_box.addStretch(1)
+        else:
             orb.log.debug('* [pgxo] no title label -- adding ...')
             self.title = QLabel()
             self.title.setAttribute(Qt.WA_DeleteOnClose)
