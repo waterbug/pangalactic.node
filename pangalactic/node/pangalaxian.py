@@ -479,13 +479,19 @@ class Main(QMainWindow):
         if local_user:
             self.local_user = local_user
         else:
-            orb.startup_msg = '* creating local user "me" object ...'
-            local_user = clone('Person')
-            local_user.oid = 'me'
-            local_user.id = 'me'
-            local_user.name = 'Me'
-            orb.save([local_user])
-            self.local_user = local_user
+            me = orb.get('me')
+            if me:
+                # if "me" Person exists, use it
+                self.local_user = me
+            else:
+                # otherwise, create me ...
+                orb.startup_msg = '* creating local user "me" object ...'
+                local_user = clone('Person')
+                local_user.oid = 'me'
+                local_user.id = 'me'
+                local_user.name = 'Me'
+                orb.save([local_user])
+                self.local_user = local_user
         state['local_user_oid'] = self.local_user.oid
 
     def set_bus_state(self):
