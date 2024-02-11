@@ -2202,6 +2202,7 @@ class PgxnObject(QDialog):
         orb.log.info(txt)
         # orb.db.rollback()
         if (state.get('pgxno_oids') and
+            getattr(self, 'obj', None) and
             getattr(self.obj, 'oid', None) and
             self.obj.oid in state['pgxno_oids']):
             state['pgxno_oids'].remove(self.obj.oid)

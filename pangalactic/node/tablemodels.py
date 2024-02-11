@@ -130,8 +130,9 @@ class MappingTableModel(QAbstractTableModel):
         return []
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
-            return self.columns()[section]
+        if (role == Qt.DisplayRole and orientation == Qt.Horizontal
+            and section < len(self.columns())):
+                return self.columns()[section]
         return QAbstractTableModel.headerData(self, section, orientation, role)
 
     def rowCount(self, parent=QModelIndex()):
