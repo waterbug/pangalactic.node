@@ -1143,7 +1143,7 @@ class Main(QMainWindow):
                     # make sure obj is valid (i.e. has an oid)
                     oid = getattr(obj, 'oid', None)
                     if oid and oid not in ref_oids:
-                        dts = obj.mod_datetime
+                        dts = str(obj.mod_datetime)
                         oid_dts[obj.oid] = dts
         else:
             self.statusbar.showMessage('project synced.')
