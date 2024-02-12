@@ -1746,20 +1746,31 @@ class PgxnObject(QDialog):
             self.build_from_object()
 
     def show_where_used(self):
+        """
+        Display the names of assemblies in which the object occurs as a
+        component.
+        """
+        # orb.log.debug('* pgxno: show_where_used()')
         info = ''
         all_comps = set(reduce(lambda x,y: x+y, componentz.values()))
         all_comp_oids = [comp.oid for comp in all_comps]
+        # orb.log.debug(f'  all comp oids found ({len(all_comp_oids)})')
         if self.obj.oid in all_comp_oids:
+            # orb.log.debug(f'  obj oid ({self.obj.oid}) found in all_comp_oids')
             assmb_oids = [oid for oid in componentz
                           if self.obj.oid in
                           [comp.oid for comp in componentz[oid]]]
+            # orb.log.debug(f'  assembly oids where used: {assmb_oids}')
             assemblies = [orb.get(oid) for oid in set(assmb_oids)]
+            assmb_ids = [a.id for a in assemblies]
+            # orb.log.debug(f'  assembly ids where used: {assmb_ids}')
             txt = 'This product is used as a component '
             txt += 'in the following assemblies:'
             assmb_info = '<p><b>Assemblies:</b></p>'
             assmb_info += '<p><ul>{}</ul></p>'.format('\n'.join(
                        ['<li><b>{}</b><br>({})</li>'.format(
                        a.name, a.id) for a in assemblies if a]))
+            txt += assmb_info
         else:
             txt = 'This product is not used in any assemblies or projects.'
         notice = QMessageBox(QMessageBox.Information, 'Where Used',
