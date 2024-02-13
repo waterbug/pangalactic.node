@@ -932,12 +932,16 @@ class PgxnObject(QDialog):
         self.view         = view or []
         self.main_view    = main_view or []
         self.panels       = panels or []
-        self.mask         = mask
         self.noctgcy      = noctgcy
         self.required     = required
         self.tabs         = QTabWidget()
         self.tabs.tabBarClicked.connect(self.on_set_tab)
         self.cname        = obj.__class__.__name__
+        if self.cname == 'Project' and not self.new:
+            # id for an existing project cannot be modified
+            self.mask = ['id']
+        else:
+            self.mask = mask
         self.schema       = orb.schemas.get(self.cname)
         self.title_text   = title_text
         self.ded_id_modified = False
@@ -1762,7 +1766,7 @@ class PgxnObject(QDialog):
                           [comp.oid for comp in componentz[oid]]]
             # orb.log.debug(f'  assembly oids where used: {assmb_oids}')
             assemblies = [orb.get(oid) for oid in set(assmb_oids)]
-            assmb_ids = [a.id for a in assemblies]
+            # assmb_ids = [a.id for a in assemblies]
             # orb.log.debug(f'  assembly ids where used: {assmb_ids}')
             txt = 'This product is used as a component '
             txt += 'in the following assemblies:'
