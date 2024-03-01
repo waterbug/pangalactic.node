@@ -1,6 +1,6 @@
 package:
   name: pangalaxian
-  version: "4.1.dev0"
+  version: "4.1.dev1"
 
 source:
   # path to source ... modify if necessary
@@ -17,7 +17,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=4.1.dev0
+    - pangalactic.core >=4.1.dev1
     - autobahn
     - binaryornot
     - packaging
