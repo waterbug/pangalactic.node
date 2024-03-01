@@ -261,7 +261,7 @@ class ModelWindow(QMainWindow):
                                         tip="View CAD Model (from STEP File)")
             self.toolbar.addAction(self.view_cad_action)
         if 'add models' in get_perms(self.obj):
-            orb.log.debug('* user has "add models" permission.')
+            # orb.log.debug('* user has "add models" permission.')
             self.add_model_action = self.create_action(
                             "Add\nModel",
                             slot=self.add_model,
@@ -269,10 +269,10 @@ class ModelWindow(QMainWindow):
                             tip="Upload a Model File")
             self.toolbar.addAction(self.add_model_action)
             self.add_model_action.setVisible(True)
-        else:
-            orb.log.debug('* user does not have "add models" permission.')
+        # else:
+            # orb.log.debug('* user does not have "add models" permission.')
         if 'add docs' in get_perms(self.obj):
-            orb.log.debug('* user has "add docs" permission.')
+            # orb.log.debug('* user has "add docs" permission.')
             self.add_doc_action = self.create_action(
                             "Add\nDocument",
                             slot=self.add_doc,
@@ -280,8 +280,8 @@ class ModelWindow(QMainWindow):
                             tip="Upload a Document File")
             self.toolbar.addAction(self.add_doc_action)
             self.add_doc_action.setVisible(True)
-        else:
-            orb.log.debug('* user does not have "add docs" permission.')
+        # else:
+            # orb.log.debug('* user does not have "add docs" permission.')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
