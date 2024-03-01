@@ -1235,30 +1235,28 @@ class Main(QMainWindow):
                 'deserializing {} objects ...'.format(n))
             # deserialize(orb, sobjs)
             self.load_serialized_objects(sobjs)
-        created_sos = []
-        sobjs_to_save = serialize(orb, orb.get(oids=to_update))
+        objs_to_save = orb.get(oids=to_update)
+        created_objs = []
+        objs_to_delete = set()
         if local_only:
             orb.log.debug('       objects unknown to server found ...')
             local_only_objs = orb.get(oids=local_only)
-            created_objs = set()
-            objs_to_delete = set()
             for o in local_only_objs:
                 if hasattr(o, 'creator') and o.creator == self.local_user:
                     if not (o.__class__.__name__ == 'ProjectSystemUsage' and
                             o.project is self.sandbox):
                         # NOTE:  SANDBOX PSUs are ignored
-                        created_objs.add(o)
+                        created_objs.append(o)
                 else:
                     objs_to_delete.add(o)
             if objs_to_delete:
                 orb.log.debug('       to be deleted: {}'.format(str([
-                              o.oid for o in objs_to_delete])))
+                              o.id for o in objs_to_delete])))
                 orb.delete(objs_to_delete)
-            created_sos = serialize(orb, created_objs)
-        if created_sos:
-            sobjs_to_save += created_sos
+        objs_to_save += created_objs
+        if created_objs:
             orb.log.debug('       to be saved in repo: {}'.format(str(
-                          [sobj['oid'] for sobj in sobjs_to_save])))
+                          [obj.id for obj in objs_to_save])))
         if project_sync:
             # if on_sync_result() was called from a project sync, set
             # state['modal views need update'] so that
@@ -1288,7 +1286,16 @@ class Main(QMainWindow):
         if user_objs_sync:
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
-        if sobjs_to_save:
+        # --------------------------------------------------------------------
+        # The following is added to fix a bug involving the client attempting
+        # to save the user's Person object, RoleAssignment for the current
+        # Project, and the current Project object -- which should NOT be done
+        # by a non-privileged user [SCW 2024-02-29]
+        # --------------------------------------------------------------------
+        valid_objs_to_save = [obj for obj in objs_to_save
+                              if 'modify' in get_perms(obj)]
+        if valid_objs_to_save:
+            sobjs_to_save = serialize(orb, valid_objs_to_save)
             orb.log.debug('  calling rpc vger.save() ...')
             orb.log.debug('  [called from on_sync_result()]')
             orb.log.debug('  - saved objs ids:')
