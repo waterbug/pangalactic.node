@@ -1289,6 +1289,9 @@ class Main(QMainWindow):
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
         if sobjs_to_save:
+            orb.log.debug('  calling rpc vger.save() ...')
+            orb.log.debug('  [called from on_sync_result()]')
+            orb.log.debug('  - saved objs ids:')
             rpc = self.mbus.session.call('vger.save', sobjs_to_save)
             rpc.addCallback(self.on_vger_save_result)
             rpc.addCallback(self.get_parmz)
@@ -2953,6 +2956,8 @@ class Main(QMainWindow):
             rpc.addCallback(self.on_result)
             rpc.addErrback(self.on_failure)
 
+    # NOTE: the pyqtSignal "new_or_modified_objects" is only used in the optics
+    # module currently [SCW 2024-02-28]
     # NOTE TODO: handle RoleAssignment objects separately -- need to call
     # vger.assign_role() for them ...
     # NOTE TODO: also need to update the diagram -- i.e., DiagramScene
@@ -3066,6 +3071,7 @@ class Main(QMainWindow):
                     rpc.addCallback(self.on_result)
                 else:
                     orb.log.debug('  calling rpc vger.save() ...')
+                    orb.log.debug('  [called by on_mod_object_signal()]')
                     orb.log.debug('  - saved obj id: {} | oid: {}'.format(
                                                           obj.id, obj.oid))
                     rpc = self.mbus.session.call('vger.save', serialized_objs)
@@ -3159,6 +3165,7 @@ class Main(QMainWindow):
             serialized_objs = serialize(orb, objs,
                                         include_components=True)
             orb.log.debug('  calling rpc vger.save() ...')
+            orb.log.debug('  [called from on_mod_objects_signal()]')
             orb.log.debug('  - saved objs ids:')
             for obj in objs:
                 orb.log.debug(f'    + "{obj.id}"')
@@ -5458,6 +5465,9 @@ class Main(QMainWindow):
         self.component_mode_action.trigger()
         if state.get('connected'):
             # ... which has to be true to enable cloning ...
+            orb.log.debug('  calling rpc vger.save() ...')
+            orb.log.debug('  [called from on_new_hardware_clone()]')
+            orb.log.debug('  - saved objs ids:')
             sobjs = serialize(orb, [product] + objs)
             rpc = self.mbus.session.call('vger.save', sobjs)
             rpc.addCallback(self.on_vger_save_result)
