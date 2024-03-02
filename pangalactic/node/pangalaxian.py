@@ -710,51 +710,74 @@ class Main(QMainWindow):
                 self.net_status.setToolTip('unreliable network connection')
                 msg = f'reconnect > {delta} seconds since last sync, re-sync'
                 orb.log.info(f'  {msg}')
-                self.resync_current_project(msg='connection lost, reconnect: ')
+                if state.get('library_sync_completed'):
+                    self.resync_current_project(msg='reconnect: ')
+                else:
+                    msg = 'sync was aborted; restarting sync'
+                    orb.log.info(f'  {msg}')
+                    self.sync_with_services()
             else:
-                # less than [delta] seconds since we synced -> NO re-sync
-                msg = f'disconnected < {delta} secs; reconnected, no re-sync'
+                # less than [delta] seconds since we synced
+                msg = f'disconnected < {delta} secs; reconnected ...'
                 self.statusbar.showMessage(msg)
                 orb.log.info(f'  {msg}')
-                orb.log.info('  but re-subscribing to channels:')
-                for channel in self.channels:
-                    orb.log.info('  + {}'.format(channel))
-                self.subscribe_to_mbus_channels()
-                if not state.get('role_asgts_received'):
+                if state.get('library_sync_completed'):
+                    self.resync_current_project()
+                else:
+                    msg = 'sync was aborted; restarting sync'
+                    orb.log.info(f'  {msg}')
                     self.sync_with_services()
-                elif not state.get('user_objs_sync_completed'):
-                    data = []  # 'data' is a reqd parameter for
-                               # sync_user_created_objs_to_repo()
-                               # but is ignored ...
-                    rpc = self.sync_user_created_objs_to_repo(data)
-                    rpc.addErrback(self.on_failure)
-                    rpc.addCallback(self.on_user_objs_sync_result)
-                    rpc.addErrback(self.on_failure)
-                    if self.force:
-                        rpc.addCallback(self.force_sync_managed_objs)
-                        rpc.addErrback(self.on_failure)
-                        rpc.addCallback(self.on_force_sync_managed_result)
-                        rpc.addErrback(self.on_failure)
-                    else:
-                        rpc.addCallback(self.sync_library_objs)
-                        rpc.addErrback(self.on_failure)
-                        rpc.addCallback(self.on_sync_library_result)
-                        rpc.addErrback(self.on_failure)
-                elif not state.get('library_sync_completed'):
-                    data = []  # 'data' is a reqd parameter for
-                               # force_sync_managed_objs()
-                               # and for sync_library_objs()
-                               # but is ignored ...
-                    if self.force:
-                        rpc = self.force_sync_managed_objs()
-                        rpc.addErrback(self.on_failure)
-                        rpc.addCallback(self.on_force_sync_managed_result)
-                        rpc.addErrback(self.on_failure)
-                    else:
-                        rpc.addCallback(self.sync_library_objs)
-                        rpc.addErrback(self.on_failure)
-                        rpc.addCallback(self.on_sync_library_result)
-                        rpc.addErrback(self.on_failure)
+                    # ---------------------------------------------------------
+                    # previous approach was just to re-subscribe to channels --
+                    # insufficient if sync was aborted
+                    # ---------------------------------------------------------
+                    # orb.log.info('  re-subscribing to channels:')
+                    # for channel in self.channels:
+                        # orb.log.info('  + {}'.format(channel))
+                    # rpc = self.subscribe_to_mbus_channels()
+                    # rpc.addErrback(self.on_failure)
+
+                # -------------------------------------------------------------
+                # the below approach may be unnecessarily complicated -- simply
+                # calling self.sync_with_services() will determine what remains
+                # to be synced
+                # -------------------------------------------------------------
+                # if not state.get('role_asgts_received'):
+                    # msg = 'sync was aborted; restarting sync'
+                    # orb.log.info(f'  {msg}')
+                    # self.sync_with_services()
+                # else:
+                    # orb.log.info('  re-subscribing to channels:')
+                    # for channel in self.channels:
+                        # orb.log.info('  + {}'.format(channel))
+                    # rpc = self.subscribe_to_mbus_channels()
+                    # rpc.addErrback(self.on_failure)
+                    # if not state.get('user_objs_sync_completed'):
+                        # rpc.addCallback(self.sync_user_created_objs_to_repo)
+                        # rpc.addErrback(self.on_failure)
+                        # rpc.addCallback(self.on_user_objs_sync_result)
+                        # rpc.addErrback(self.on_failure)
+                        # if self.force:
+                            # rpc.addCallback(self.force_sync_managed_objs)
+                            # rpc.addErrback(self.on_failure)
+                            # rpc.addCallback(self.on_force_sync_managed_result)
+                            # rpc.addErrback(self.on_failure)
+                        # else:
+                            # rpc.addCallback(self.sync_library_objs)
+                            # rpc.addErrback(self.on_failure)
+                            # rpc.addCallback(self.on_sync_library_result)
+                            # rpc.addErrback(self.on_failure)
+                    # if not state.get('library_sync_completed'):
+                        # if self.force:
+                            # rpc.addCallback(self.force_sync_managed_objs)
+                            # rpc.addErrback(self.on_failure)
+                            # rpc.addCallback(self.on_force_sync_managed_result)
+                            # rpc.addErrback(self.on_failure)
+                        # else:
+                            # rpc.addCallback(self.sync_library_objs)
+                            # rpc.addErrback(self.on_failure)
+                            # rpc.addCallback(self.on_sync_library_result)
+                            # rpc.addErrback(self.on_failure)
 
     def sync_with_services(self, force=False):
         self.force = force
