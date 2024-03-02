@@ -329,6 +329,10 @@ class Main(QMainWindow):
         self._init_ui(width, height)
         state['width'] = width
         state['height'] = height
+        # set state vars related to sync processes ...
+        state['role_asgts_received'] = False
+        state['user_objs_sync_completed'] = False
+        state['library_sync_completed'] = False
         # self.create_timer()
         # connect pyqtSignals ...
         self.deleted_object.connect(self.del_object)
@@ -716,6 +720,41 @@ class Main(QMainWindow):
                 for channel in self.channels:
                     orb.log.info('  + {}'.format(channel))
                 self.subscribe_to_mbus_channels()
+                if not state.get('role_asgts_received'):
+                    self.sync_with_services()
+                elif not state.get('user_objs_sync_completed'):
+                    data = []  # 'data' is a reqd parameter for
+                               # sync_user_created_objs_to_repo()
+                               # but is ignored ...
+                    rpc = self.sync_user_created_objs_to_repo(data)
+                    rpc.addErrback(self.on_failure)
+                    rpc.addCallback(self.on_user_objs_sync_result)
+                    rpc.addErrback(self.on_failure)
+                    if self.force:
+                        rpc.addCallback(self.force_sync_managed_objs)
+                        rpc.addErrback(self.on_failure)
+                        rpc.addCallback(self.on_force_sync_managed_result)
+                        rpc.addErrback(self.on_failure)
+                    else:
+                        rpc.addCallback(self.sync_library_objs)
+                        rpc.addErrback(self.on_failure)
+                        rpc.addCallback(self.on_sync_library_result)
+                        rpc.addErrback(self.on_failure)
+                elif not state.get('library_sync_completed'):
+                    data = []  # 'data' is a reqd parameter for
+                               # force_sync_managed_objs()
+                               # and for sync_library_objs()
+                               # but is ignored ...
+                    if self.force:
+                        rpc = self.force_sync_managed_objs()
+                        rpc.addErrback(self.on_failure)
+                        rpc.addCallback(self.on_force_sync_managed_result)
+                        rpc.addErrback(self.on_failure)
+                    else:
+                        rpc.addCallback(self.sync_library_objs)
+                        rpc.addErrback(self.on_failure)
+                        rpc.addCallback(self.on_sync_library_result)
+                        rpc.addErrback(self.on_failure)
 
     def sync_with_services(self, force=False):
         self.force = force
@@ -889,6 +928,7 @@ class Main(QMainWindow):
         # 'role_assignment_context' (Organization or Project)
         # deserialize all new RoleAssignment objects
         deserialize(orb, szd_ras)
+        state['role_asgts_received'] = True
         ras = orb.get_by_type('RoleAssignment')
         org_ids = [getattr(ra.role_assignment_context, 'id', '')
                    for ra in ras]
@@ -1286,6 +1326,7 @@ class Main(QMainWindow):
         if user_objs_sync:
             state['synced_oids'] = [o.oid for o in
                                     self.local_user.created_objects]
+            state['user_objs_sync_completed'] = True
         # --------------------------------------------------------------------
         # The following is added to fix a bug involving the client attempting
         # to save the user's Person object, RoleAssignment for the current
@@ -1434,6 +1475,7 @@ class Main(QMainWindow):
         else:
             orb.log.debug('  - done getting library objects ...')
             orb.log.debug('    now resyncing current project ...')
+            state['library_sync_completed'] = True
             self.resync_current_project()
 
     def on_force_sync_managed_result(self, data, project_sync=False):
