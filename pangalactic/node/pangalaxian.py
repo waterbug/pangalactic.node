@@ -156,7 +156,7 @@ class Main(QMainWindow):
 
     # compatible release versions -- used to determine compatibility of the
     # "home" directory
-    compat_versions = [Version('4.1.dev3')]
+    compat_versions = [Version('4.1.dev4')]
 
     # signals
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
@@ -727,57 +727,6 @@ class Main(QMainWindow):
                     msg = 'sync was aborted; restarting sync'
                     orb.log.info(f'  {msg}')
                     self.sync_with_services()
-                    # ---------------------------------------------------------
-                    # previous approach was just to re-subscribe to channels --
-                    # insufficient if sync was aborted
-                    # ---------------------------------------------------------
-                    # orb.log.info('  re-subscribing to channels:')
-                    # for channel in self.channels:
-                        # orb.log.info('  + {}'.format(channel))
-                    # rpc = self.subscribe_to_mbus_channels()
-                    # rpc.addErrback(self.on_failure)
-
-                # -------------------------------------------------------------
-                # the below approach may be unnecessarily complicated -- simply
-                # calling self.sync_with_services() will determine what remains
-                # to be synced
-                # -------------------------------------------------------------
-                # if not state.get('role_asgts_received'):
-                    # msg = 'sync was aborted; restarting sync'
-                    # orb.log.info(f'  {msg}')
-                    # self.sync_with_services()
-                # else:
-                    # orb.log.info('  re-subscribing to channels:')
-                    # for channel in self.channels:
-                        # orb.log.info('  + {}'.format(channel))
-                    # rpc = self.subscribe_to_mbus_channels()
-                    # rpc.addErrback(self.on_failure)
-                    # if not state.get('user_objs_sync_completed'):
-                        # rpc.addCallback(self.sync_user_created_objs_to_repo)
-                        # rpc.addErrback(self.on_failure)
-                        # rpc.addCallback(self.on_user_objs_sync_result)
-                        # rpc.addErrback(self.on_failure)
-                        # if self.force:
-                            # rpc.addCallback(self.force_sync_managed_objs)
-                            # rpc.addErrback(self.on_failure)
-                            # rpc.addCallback(self.on_force_sync_managed_result)
-                            # rpc.addErrback(self.on_failure)
-                        # else:
-                            # rpc.addCallback(self.sync_library_objs)
-                            # rpc.addErrback(self.on_failure)
-                            # rpc.addCallback(self.on_sync_library_result)
-                            # rpc.addErrback(self.on_failure)
-                    # if not state.get('library_sync_completed'):
-                        # if self.force:
-                            # rpc.addCallback(self.force_sync_managed_objs)
-                            # rpc.addErrback(self.on_failure)
-                            # rpc.addCallback(self.on_force_sync_managed_result)
-                            # rpc.addErrback(self.on_failure)
-                        # else:
-                            # rpc.addCallback(self.sync_library_objs)
-                            # rpc.addErrback(self.on_failure)
-                            # rpc.addCallback(self.on_sync_library_result)
-                            # rpc.addErrback(self.on_failure)
 
     def sync_with_services(self, force=False):
         self.force = force
@@ -1489,6 +1438,12 @@ class Main(QMainWindow):
         if data is not None:
             orb.log.debug('  - deserializing {} objects ...'.format(len(data)))
             self.load_serialized_objects(data)
+            lib_widget = getattr(self, 'library_widget', None)
+            if lib_widget:
+                try:
+                    lib_widget.refresh('HardwareProduct')
+                except:
+                    pass
         if state.get('chunks_to_get'):
             chunk = state['chunks_to_get'].pop(0)
             orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
@@ -1499,6 +1454,12 @@ class Main(QMainWindow):
             orb.log.debug('  - done getting library objects ...')
             orb.log.debug('    now resyncing current project ...')
             state['library_sync_completed'] = True
+            lib_widget = getattr(self, 'library_widget', None)
+            if lib_widget:
+                try:
+                    lib_widget.refresh('HardwareProduct')
+                except:
+                    pass
             self.resync_current_project()
 
     def on_force_sync_managed_result(self, data, project_sync=False):
