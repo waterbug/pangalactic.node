@@ -112,6 +112,7 @@ class SystemDashboard(QTreeView):
         # set_as_pref_action.triggered.connect(self.set_as_pref_dashboard)
         # dash_header.addAction(set_as_pref_action)
         # dash_name = state.get('dashboard_name')
+        # -------------------------------------------------------------------
         dash_name = 'MEL'
         if dash_name in (state.get('app_dashboards') or {}).keys():
             txt = f'use standard {dash_name} dashboard schema'

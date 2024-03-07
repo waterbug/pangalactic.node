@@ -830,16 +830,17 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug(' - ConOpsModeler.update_mode_tools() ...')
         mlw = getattr(self, 'modes_widget', None)
-        idx = self.toolbox.indexOf(mlw)
         if mlw:
+            idx = self.toolbox.indexOf(mlw)
             if idx != -1:
                 self.toolbox.removeItem(idx)
             mlw.close()
             self.modes_widget = None
         if isinstance(self.subject, orb.classes['Mission']):
+            # if the subject is a Mission, no modes can be defined for it
             return
         modes_layout = QGridLayout()
-        # get all defined modes for current system ...
+        # get all defined modes for the current system ...
         # first make sure that mode_defz[project.oid] is initialized ...
         if not mode_defz.get(self.project.oid):
             mode_defz[self.project.oid] = dict(modes={}, systems={},
@@ -886,6 +887,7 @@ class ConOpsModeler(QMainWindow):
         self.modes_widget = QWidget()
         self.modes_widget.setLayout(modes_layout)
         self.modes_widget.setStyleSheet('background-color: #ffccf9;')
+        self.modes_widget.setAttribute(Qt.WA_DeleteOnClose)
         self.toolbox.addItem(self.modes_widget, modes_title)
         # set an icon for Modes item ...
         mode_icon_file = 'lander' + state.get('icon_type', '.png')
