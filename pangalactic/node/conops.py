@@ -111,6 +111,7 @@ class EventBlock(QGraphicsPolygonItem):
     def contextMenuEvent(self, event):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
+        self.menu.addAction(self.show_modes_action)
         # self.menu.addAction(self.edit_action)
         self.menu.exec(QCursor.pos())
 
@@ -118,6 +119,9 @@ class EventBlock(QGraphicsPolygonItem):
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
                                      triggered=self.delete_block_activity)
+        self.show_modes_action = QAction("Assign Mode", self.scene,
+                                     statusTip="Assign a Mode",
+                                     triggered=self.show_modes)
         # self.edit_action = QAction("Edit", self.scene,
                                    # statusTip="Edit activity",
                                    # triggered=self.edit_activity)
@@ -126,8 +130,11 @@ class EventBlock(QGraphicsPolygonItem):
         self.scene.edit_scene_activity(self.activity)
 
     def delete_block_activity(self):
-        orb.log.debug(' - calling scene to emit ()')
+        orb.log.debug(' - dipatching "delete activity" signal')
         dispatcher.send(signal='delete activity', oid=self.activity.oid)
+
+    def show_modes(self):
+        orb.log.debug(' - showing modes possible to assign to this activity')
 
     def itemChange(self, change, value):
         return value
@@ -789,7 +796,7 @@ class ConOpsModeler(QMainWindow):
 
     def create_toolbox(self):
         """
-        Create the toolbox for activities and modes.
+        Create the toolbox for activities.
         """
         orb.log.debug(' - ConOpsModeler.create_toolbox() ...')
         acts_layout = QGridLayout()
@@ -818,7 +825,6 @@ class ConOpsModeler(QMainWindow):
         act_icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         act_icon_path = os.path.join(act_icon_dir, act_icon_file)
         self.toolbox.setItemIcon(0, QIcon(act_icon_path))
-        self.update_mode_tools()
         self.toolbox.setMinimumWidth(250)
         self.toolbox.setSizePolicy(QSizePolicy.Minimum,
                                    QSizePolicy.Fixed)
@@ -829,13 +835,6 @@ class ConOpsModeler(QMainWindow):
         subject activity and system of the conops tool.
         """
         orb.log.debug(' - ConOpsModeler.update_mode_tools() ...')
-        mlw = getattr(self, 'modes_widget', None)
-        if mlw:
-            idx = self.toolbox.indexOf(mlw)
-            if idx != -1:
-                self.toolbox.removeItem(idx)
-            mlw.close()
-            self.modes_widget = None
         if isinstance(self.subject, orb.classes['Mission']):
             # if the subject is a Mission, no modes can be defined for it
             return

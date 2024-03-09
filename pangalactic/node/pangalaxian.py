@@ -3138,8 +3138,9 @@ class Main(QMainWindow):
                     lun = "no"
                 lmsg = f'lib updates needed: {lun}'
                 orb.log.info(f'  - {lmsg}')
-                if lun == "yes" and hasattr(self, 'library_widget'):
-                    self.library_widget.refresh()
+                lib_widget = getattr(self, 'library_widget', None)
+                if lun == "yes" and lib_widget:
+                    lib_widget.refresh()
                     state['lib updates needed'] = []
                 # ------------------------------------------------------------
                 # END OF OFFLINE LOCAL UPDATES
@@ -3767,13 +3768,15 @@ class Main(QMainWindow):
                 state['product'] = ''
         if not state.get('connected'):
             orb.recompute_parmz()
-            # only attempt to update tree and dashboard if in "system" mode ...
             if (self.mode in ['component', 'system']
                 and cname == 'HardwareProduct'):
+                # if a library_widget exists, refresh it ...
+                lib_widget = getattr(self, 'library_widget', None)
                 try:
-                    self.library_widget.refresh()
+                    lib_widget.refresh('HardwareProduct')
                 except:
                     pass
+            # only attempt to update tree and dashboard if in "system" mode ...
             if ((self.mode == 'system') and
                 cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
                 self.refresh_tree_and_dashboard()
@@ -3800,6 +3803,13 @@ class Main(QMainWindow):
                 if getattr(self, 'system_model_window', None):
                     self.system_model_window.on_signal_to_refresh()
         if remote and state.get('connected'):
+            # update library widget if one exists ...
+            lib_widget = getattr(self, 'library_widget', None)
+            if lib_widget:
+                try:
+                    lib_widget.refresh('HardwareProduct')
+                except:
+                    pass
             # only attempt to update tree and dashboard if in "system" mode ...
             if (self.mode in ['component', 'system']
                 and cname == 'HardwareProduct'):
