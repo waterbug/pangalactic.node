@@ -954,29 +954,185 @@ class StateSelectorDelegate(QItemDelegate):
         editor.setGeometry(option.rect)
 
 
+class ModeDefinitionTool(QMainWindow):
+    """
+    Tool for defining the operational Modes of a set of systems in terms of
+    the states of their subsystems.
+
+    Attrs:
+        project (Project): the project in which the systems are operating
+    """
+
+    default_modes = ['Launch', 'Calibration', 'Propulsive', 'Slew',
+                     'Science Mode, Transmitting', 'Science Mode, Acquisition',
+                     'Standby', 'Survival', 'Safe Mode']
+
+    def __init__(self, project=None, parent=None):
+        """
+        Keyword Args:
+            project (Project): the project context in which the systems are
+                operating
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        orb.log.debug('* ModeDefinitionTool')
+        project = project or orb.get(state.get('project'))
+        self.project = project
+        names = []
+        # first make sure that mode_defz[project.oid] is initialized ...
+        if not mode_defz.get(project.oid):
+            mode_defz[project.oid] = dict(modes={}, systems={}, components={})
+        if mode_defz[project.oid]['systems']:
+            for link_oid in mode_defz[project.oid]['systems']:
+                link = orb.get(link_oid)
+                names.append(get_link_name(link))
+        modes = list(mode_defz[self.project.oid].get('modes') or [])
+        modes = modes or self.default_modes
+        # set initial default system state for modes that don't have one ...
+        for mode in modes:
+            if not mode_defz[self.project.oid]['modes'].get(mode):
+                mode_defz[self.project.oid]['modes'][mode] = 'Off'
+        if names:
+            orb.log.debug('  - specified systems:')
+            for name in names:
+                orb.log.debug(f'    {name}')
+            # NOTE: VERY verbose debugging msg ...
+            # orb.log.debug('  - mode_defz:')
+            # orb.log.debug(f'   {pprint(mode_defz)}')
+        else:
+            orb.log.debug('  - no systems specified yet.')
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
+        title = 'Operational Modes of Specified Systems'
+        self.setWindowTitle(title)
+        self.sys_select_tree = SystemSelectionView(self.project, refdes=True)
+        self.sys_select_tree.expandToDepth(1)
+        self.sys_select_tree.setExpandsOnDoubleClick(False)
+        self.sys_select_tree.clicked.connect(self.on_select_system)
+        self.left_dock = QDockWidget()
+        self.left_dock.setFloating(False)
+        self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
+        self.sys_tree_panel = QWidget(self)
+        self.sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
+                                     QSizePolicy.MinimumExpanding)
+        self.sys_tree_panel.setMinimumWidth(400)
+        self.sys_tree_panel.setMaximumWidth(500)
+        sys_tree_layout = QVBoxLayout(self.sys_tree_panel)
+        sys_tree_layout.addWidget(self.sys_select_tree)
+        self.left_dock.setWidget(self.sys_tree_panel)
+        self.new_window = True
+        dispatcher.connect(self.on_modes_edited, 'modes edited')
+        dispatcher.connect(self.on_modes_published, 'modes published')
+        dispatcher.connect(self.on_remote_sys_mode_datum,
+                           'remote sys mode datum')
+        dispatcher.connect(self.on_remote_comp_mode_datum,
+                           'remote comp mode datum')
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.set_dash_and_adjust()
+
+    def set_dash_and_adjust(self):
+        orb.log.debug('  - setting mode definition dashboard ...')
+        # NOTE: very verbose debugging msg ...
+        # orb.log.debug('   *** current mode_defz:')
+        # orb.log.debug(f'   {pprint(mode_defz)}')
+        # if self.new_window:
+            # size = QSize(state.get('mode_def_w') or self.width(),
+                         # state.get('mode_def_h') or self.height())
+        # else:
+            # size = self.size()
+            # state['mode_def_w'] = self.width()
+            # state['mode_def_h'] = self.height()
+        if getattr(self, 'mode_definition_table', None):
+            # remove and close current mode def table
+            self.mode_definition_table.parent = None
+            self.mode_definition_table.close()
+        sys_dict = mode_defz[self.project.oid]['systems']
+        comp_dict = mode_defz[self.project.oid]['components']
+        mode_dict = mode_defz[self.project.oid]['modes']
+        modes = list(mode_defz[self.project.oid].get('modes') or [])
+        items = []
+        for oid in sys_dict:
+            link = orb.get(oid)
+            if link:
+                items.append(link)
+                if link.oid in comp_dict:
+                    comps = []
+                    for oid in comp_dict[link.oid]:
+                        comps.append(orb.get(oid))
+                    # sort comps by "name" (same as in the system tree)
+                    by_name = [(get_link_name(comp), comp) for comp in comps]
+                    by_name.sort()
+                    comps = [bn[1] for bn in by_name]
+                    items += comps
+        self.mode_def_dash = ModeDefinitionDashboard(self.project)
+        self.mode_def_dash.setAttribute(Qt.WA_DeleteOnClose)
+        self.setCentralWidget(self.mode_def_dash)
+        # try to expand the tree enough to show the last selected system
+        links = [orb.get(oid)
+                 for oid in mode_defz[self.project.oid]['systems']]
+        if links:
+            level = 1
+            tree = self.sys_select_tree
+            while 1:
+                # try:
+                tree.expandToDepth(level)
+                idxs = tree.link_indexes_in_tree(links[-1])
+                if idxs:
+                    tree.scrollTo(tree.proxy_model.mapFromSource(idxs[0]))
+                    break
+                else:
+                    level += 1
+                    if level > 5:
+                        # 5 really should be deep enough!
+                        break
+                # except:
+                    # orb.log.debug('  - crashed while trying to expand tree.')
+                    # break
+        # self.resize(self.minimumSize())
+        self.new_window = False
+
+
+class ModeDefinitionDashboard(QWidget):
+    """
+    Interface for defining system modes in terms of component states.
+    """
+
+    def __init__(self, project):
+        self.project = project
+
+
 if __name__ == '__main__':
     # for testing purposes only ...
-    from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import (create_test_project,
                                              create_test_users)
     orb.start(home='junk_home', debug=True)
-    mission = orb.get('test:Mission.H2G2')
     H2G2 = orb.get('H2G2')
-    if not mission:
-        if not state.get('test_users_loaded'):
-            # print('* loading test users ...')
-            deserialize(orb, create_test_users())
-            state['test_users_loaded'] = True
-        # print('* loading test project H2G2 ...')
-        deserialize(orb, create_test_project())
-        mission = orb.get('test:Mission.H2G2')
-    if not mission.sub_activities:
-        launch = clone('Activity', id='launch', name='Launch',
-                       owner=H2G2, sub_activity_of=mission)
-        sub_act_role = '1'
-        orb.save([launch])
     app = QApplication(sys.argv)
-    w = ActivityWidget(subject=mission)
-    w.show()
+    # NOTE:  set either test_mdt or test_act to True ...
+    test_mdt = True
+    test_act = False
+    if test_mdt:
+        w = ModeDefinitionTool(H2G2)
+        w.show()
+    elif test_act:
+        # test ActivityWidget
+        from pangalactic.core.serializers import deserialize
+        mission = orb.get('test:Mission.H2G2')
+        if not mission:
+            if not state.get('test_users_loaded'):
+                # print('* loading test users ...')
+                deserialize(orb, create_test_users())
+                state['test_users_loaded'] = True
+            # print('* loading test project H2G2 ...')
+            deserialize(orb, create_test_project())
+            mission = orb.get('test:Mission.H2G2')
+        if not mission.sub_activities:
+            launch = clone('Activity', id='launch', name='Launch',
+                           owner=H2G2, sub_activity_of=mission)
+            sub_act_role = '1'
+            orb.save([launch])
+        w = ActivityWidget(subject=mission)
+        w.show()
     sys.exit(app.exec_())
 
