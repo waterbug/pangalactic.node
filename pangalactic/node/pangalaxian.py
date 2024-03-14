@@ -3914,7 +3914,7 @@ class Main(QMainWindow):
                 if relevant_obj_oid and selected_sys_oid == relevant_obj_oid:
                     if (state.get('component_modeler_history') and
                     relevant_obj_oid in state['component_modeler_history']):
-                        state['component_modeler_history'].remove(obj_oid)
+                        state['component_modeler_history'].remove(relevant_obj_oid)
                     orb.log.info('  deleted object was selected system')
                     state['system'][state['project']] = state['project']
                     # NOTE: not currently using system_model_window.history
