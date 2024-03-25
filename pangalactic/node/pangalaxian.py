@@ -83,7 +83,7 @@ from pangalactic.core.test.utils       import (create_test_project,
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
-from pangalactic.node.activities       import ModesTool
+from pangalactic.node.activities       import ModeDefinitionTool, ModesTool
 from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
@@ -2168,6 +2168,12 @@ class Main(QMainWindow):
         # default:  modes_def_action is not visible if not authorized
         self.modes_def_action.setEnabled(False)
         self.modes_def_action.setVisible(False)
+        # new modes tool ...
+        self.mode_def_tool_action = self.create_action(
+                                    "Mode Definition Tool",
+                                    slot=self.mode_def_tool,
+                                    icon='lander',
+                                    modes=['system', 'component'])
         conops_tip_text = "Model a Concept of Operations"
         self.conops_modeler_action = self.create_action(
                                 "ConOps Modeler",
@@ -2769,6 +2775,7 @@ class Main(QMainWindow):
                                               system_tools_icon_file)
         system_tools_actions = [self.rqts_manager_action,
                                 self.modes_def_action,
+                                self.mode_def_tool_action,
                                 self.conops_modeler_action,
                                 self.modeler42_action,
                                 self.optics_modeler_action,
@@ -3883,8 +3890,8 @@ class Main(QMainWindow):
         # -----------------------------------------
         dispatcher.send(signal="deleted object", oid=oid, cname=cname,
                         remote=True)
-        obj = orb.get(obj_oid or '')
-        if obj:
+        deleted_obj = orb.get(obj_oid or '')
+        if deleted_obj:
             # NOTE (SCW 2023-01-14) new state key, used by get_parmz()
             state['updates_needed_for_remote_obj_deletion'] = cname
             # if deleted object was the selected system, set selected system
@@ -3894,22 +3901,22 @@ class Main(QMainWindow):
             if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
                 relevant_obj_oid = None
                 if cname == 'HardwareProduct':
-                    relevant_obj_oid = obj.oid
+                    relevant_obj_oid = obj_oid
                     state['lib updates needed'] = True
                 elif cname == 'Acu':
                     # don't crash if acu is corrupted ...
                     try:
-                        relevant_obj_oid = obj.component.oid
+                        relevant_obj_oid = deleted_obj.component.oid
                     except:
                         pass
                     state['lib updates needed'] = True
                 elif cname == 'ProjectSystemUsage':
                     # don't crash if psu is corrupted ...
                     try:
-                        relevant_obj_oid = obj.system.oid
+                        relevant_obj_oid = deleted_obj.system.oid
                     except:
                         pass
-                orb.delete([obj])
+                orb.delete([deleted_obj])
                 orb.log.debug('  deleted.')
                 if relevant_obj_oid and selected_sys_oid == relevant_obj_oid:
                     if (state.get('component_modeler_history') and
@@ -3930,26 +3937,26 @@ class Main(QMainWindow):
                             # diagram model window C++ object got deleted
                             pass
             elif cname == 'RoleAssignment':
-                if obj.assigned_to is self.local_user:
+                if deleted_obj.assigned_to is self.local_user:
                     # TODO: if removed role assignment was the last one for
                     # this user on the project, switch to SANDBOX project
                     html = '<h3>Your role:</h3>'
                     html += '<p><b><font color="green">{}</font></b>'.format(
-                                                        obj.assigned_role.name)
+                                                deleted_obj.assigned_role.name)
                     html += ' in <b><font color="green">{}</font>'.format(
-                                    getattr(obj.role_assignment_context, 'id',
-                                            'global context'))
+                            getattr(deleted_obj.role_assignment_context, 'id',
+                                    'global context'))
                     html += '<br> has been removed.</b></p>'
                     self.w = NotificationDialog(html, parent=self)
                     self.w.show()
-                orb.delete([obj])
+                orb.delete([deleted_obj])
                 orb.log.debug('  deleted.')
             elif cname == 'Activity':
                 # TODO:  special case for "Mission"
-                orb.delete([obj])
+                orb.delete([deleted_obj])
                 orb.log.debug('  deleted.')
             else:
-                orb.delete([obj])
+                orb.delete([deleted_obj])
                 orb.log.debug('  deleted.')
             self.get_parmz()
         else:
@@ -5660,6 +5667,10 @@ class Main(QMainWindow):
 
     def define_op_modes(self):
         win = ModesTool(self.project, parent=self)
+        win.show()
+
+    def mode_def_tool(self):
+        win = ModeDefinitionTool(self.project, parent=self)
         win.show()
 
     def sc_42_modeler(self):

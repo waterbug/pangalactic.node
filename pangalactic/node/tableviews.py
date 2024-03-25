@@ -392,8 +392,9 @@ class ActivityInfoTable(QTableWidget):
     def sizeHint(self):
         horizontal = self.horizontalHeader()
         vertical = self.verticalHeader()
-        return QSize(horizontal.width() * .7,
-                     vertical.height() * .6)
+        frame = self.frameWidth() * 2
+        return QSize(horizontal.width() * .8,
+                     vertical.length() + horizontal.height() + frame)
 
     def on_item_mod(self, item=None):
         orb.log.debug('  - ActivityInfoTable.on_item_mod()')

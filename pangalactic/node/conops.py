@@ -526,14 +526,19 @@ class TimelineWidget(QWidget):
         Keyword Args:
             oid (str): oid of the object to be deleted
         """
+        orb.log.debug('* TimelineWidget.delete_activity(')
+        orb.log.debug(f'      oid="{oid}", cname="{cname}", remote={remote})')
         if oid is None:
             return
         obj = orb.get(oid)
         if not obj:
+            orb.log.debug(f'  - obj with oid "{oid}" not found.')
             return
         current_subacts = self.subject.sub_activities
         subj_oid = self.subject.oid
         if obj in current_subacts:
+            orb.log.debug(f'  - obj "{obj.id}" in sub-activities --')
+            orb.log.debug('    removing ...')
             objs_to_delete = [obj] + obj.sub_activities
             oids = [o.oid for o in objs_to_delete]
             orb.delete(objs_to_delete)
@@ -720,6 +725,7 @@ class ConOpsModeler(QMainWindow):
     GUI structure of the ConOpsModeler is:
 
     ConOpsModeler (QMainWindow)
+        - activity_table (ActivityWidget)
         - main_timeline (TimelineWidget(QWidget))
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
@@ -923,11 +929,13 @@ class ConOpsModeler(QMainWindow):
         self.sub_timeline.setMinimumSize(1000, 300)
         self.outer_layout = QGridLayout()
         self.create_activity_table()
-        self.outer_layout.addWidget(self.activity_table, 0, 0)
+        self.outer_layout.addWidget(self.activity_table, 0, 0,
+                                    alignment=Qt.AlignTop)
         self.outer_layout.addWidget(self.main_timeline, 0, 1)
         self.create_sub_activity_table()
         self.sub_activity_table.setEnabled(False)
-        self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
+        self.outer_layout.addWidget(self.sub_activity_table, 1, 0,
+                                    alignment=Qt.AlignTop)
         self.outer_layout.addWidget(self.sub_timeline, 1, 1)
         self.widget = QWidget()
         self.widget.setMinimumSize(1500, 700)
@@ -942,13 +950,16 @@ class ConOpsModeler(QMainWindow):
             self.right_dock.setWidget(self.toolbox)
         dispatcher.connect(self.rebuild_tables, "order changed")
         dispatcher.connect(self.on_new_activity, "new activity")
+        self.resize(self.layout().sizeHint())
 
     def create_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
         self.activity_table = ActivityWidget(self.subject, parent=self,
                                              position='main')
+        # self.activity_table.setSizePolicy(QSizePolicy.Fixed,
+                                          # QSizePolicy.Fixed)
         self.activity_table.setSizePolicy(QSizePolicy.Minimum,
-                                          QSizePolicy.Expanding)
+                                          QSizePolicy.MinimumExpanding)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
 
     def create_sub_activity_table(self):
@@ -956,17 +967,16 @@ class ConOpsModeler(QMainWindow):
         act = getattr(self.main_timeline.scene.current_focus, 'activity', None)
         self.sub_activity_table = ActivityWidget(act, parent=self,
                                                  position='sub')
+        # self.sub_activity_table.setSizePolicy(QSizePolicy.Fixed,
+                                              # QSizePolicy.Fixed)
         self.sub_activity_table.setSizePolicy(QSizePolicy.Minimum,
-                                              QSizePolicy.Expanding)
+                                              QSizePolicy.MinimumExpanding)
         self.sub_activity_table.setAttribute(Qt.WA_DeleteOnClose)
 
-    def rebuild_tables(self, act):
-        if (getattr(self, 'activity_table', None) and
-            act in self.activity_table.activities):
-            self.rebuild_activity_table()
-        if (getattr(self, 'sub_activity_table', None) and
-            act in self.sub_activity_table.activities):
-            self.rebuild_sub_activity_table()
+    def rebuild_tables(self):
+        self.rebuild_activity_table()
+        self.rebuild_sub_activity_table()
+        self.resize(self.layout().sizeHint())
 
     def rebuild_activity_table(self):
         orb.log.debug("* ConOpsModeler.rebuild_activity_table()")
@@ -1010,6 +1020,7 @@ class ConOpsModeler(QMainWindow):
         except Exception as e:
             orb.log.debug("    exception occurred:")
             orb.log.debug(e)
+        self.rebuild_tables()
 
     def on_activity_got_focus(self, act):
         """
@@ -1018,15 +1029,15 @@ class ConOpsModeler(QMainWindow):
         self.sub_timeline.subject = act
         self.sub_timeline.set_new_scene()
         self.sub_timeline.setEnabled(True)
-        self.rebuild_sub_activity_table()
         self.sub_activity_table.setEnabled(True)
         self.sub_timeline.setEnabled(True)
+        self.rebuild_tables()
 
     def on_new_activity(self, act):
         orb.log.debug("* ConOpsModeler.on_new_activity()")
-        self.rebuild_tables(act)
         orb.log.debug(f'  sending "new object" signal on {act.id}')
         dispatcher.send("new object", obj=act)
+        self.rebuild_tables()
 
     def on_remote_mod_acts(self, oids=None):
         """

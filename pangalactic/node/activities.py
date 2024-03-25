@@ -66,6 +66,8 @@ class ActivityWidget(QWidget):
         self.set_table()
         # self.setSizePolicy(QSizePolicy.Minimum,
                            # QSizePolicy.Minimum)
+        self.setSizePolicy(QSizePolicy.Maximum,
+                           QSizePolicy.Maximum)
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
@@ -111,7 +113,7 @@ class ActivityWidget(QWidget):
                 title_txt += 'Activity Details'
             elif self.position == "sub":
                 title_txt += red_text.format(self.subject.name)
-                title_txt += ' Details'
+                title_txt += ' Activity Details'
         else:
             title_txt += red_text.format('No Activity')
         self.title_widget.setText(title_txt)
@@ -119,12 +121,15 @@ class ActivityWidget(QWidget):
     def set_table(self):
         project = orb.get(state.get('project'))
         table = ActivityInfoTable(self.subject, project=project)
-        table.setSizePolicy(QSizePolicy.Preferred,
-                            QSizePolicy.Preferred)
+        table.setSizePolicy(QSizePolicy.MinimumExpanding,
+                            QSizePolicy.MinimumExpanding)
+        table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        table.resizeColumnsToContents()
         table.setAlternatingRowColors(True)
-        self.main_layout.addWidget(table, stretch=1)
+        self.main_layout.addWidget(table)
+        self.main_layout.addStretch()
         self.table = table
-        self.setFixedSize(self.main_layout.sizeHint())
 
     def sizeHint(self):
         w = self.table.sizeHint().width()
@@ -1008,7 +1013,9 @@ class ModeDefinitionTool(QMainWindow):
         self.sys_select_tree = SystemSelectionView(self.project, refdes=True)
         self.sys_select_tree.expandToDepth(1)
         self.sys_select_tree.setExpandsOnDoubleClick(False)
-        self.sys_select_tree.clicked.connect(self.on_select_system)
+        # WORKING HERE ...
+        # TODO: define on_select_system ...
+        # self.sys_select_tree.clicked.connect(self.on_select_system)
         self.left_dock = QDockWidget()
         self.left_dock.setFloating(False)
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
@@ -1022,12 +1029,13 @@ class ModeDefinitionTool(QMainWindow):
         sys_tree_layout.addWidget(self.sys_select_tree)
         self.left_dock.setWidget(self.sys_tree_panel)
         self.new_window = True
-        dispatcher.connect(self.on_modes_edited, 'modes edited')
-        dispatcher.connect(self.on_modes_published, 'modes published')
-        dispatcher.connect(self.on_remote_sys_mode_datum,
-                           'remote sys mode datum')
-        dispatcher.connect(self.on_remote_comp_mode_datum,
-                           'remote comp mode datum')
+        # TODO: define these functions ...
+        # dispatcher.connect(self.on_modes_edited, 'modes edited')
+        # dispatcher.connect(self.on_modes_published, 'modes published')
+        # dispatcher.connect(self.on_remote_sys_mode_datum,
+                           # 'remote sys mode datum')
+        # dispatcher.connect(self.on_remote_comp_mode_datum,
+                           # 'remote comp mode datum')
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.set_dash_and_adjust()
 
@@ -1098,7 +1106,8 @@ class ModeDefinitionDashboard(QWidget):
     Interface for defining system modes in terms of component states.
     """
 
-    def __init__(self, project):
+    def __init__(self, project, parent=None):
+        super().__init__(parent=parent)
         self.project = project
 
 
