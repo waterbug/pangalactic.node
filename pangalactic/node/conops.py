@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Defines the ConOps tool for modeling a Mission Concept of Operations.
 
@@ -16,7 +18,6 @@ Initially, ConOps shows a blank timeline for the current project
   -- parameters (e.g. power level) can come from the subsystem spec or be
   specified ad hoc.
 """
-#!/usr/bin/env python
 
 # import pyqtgraph as pg
 # from pyqtgraph.dockarea import Dock, DockArea
@@ -131,6 +132,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def delete_block_activity(self):
         orb.log.debug(' - dipatching "delete activity" signal')
+        self.scene.removeItem(self)
         dispatcher.send(signal='delete activity', oid=self.activity.oid)
 
     def show_modes(self):
@@ -910,7 +912,8 @@ class ConOpsModeler(QMainWindow):
 
     def set_widgets(self, init=False):
         """
-        Add a TimelineWidget containing all activities of the current system.
+        Add TimelineWidgets and ActivityInfoTables containing all activities of
+        the current system.
 
         Note that focusing (mouse click) on an activity in the timeline will
         make that activity the "current_activity" and restrict the graph
