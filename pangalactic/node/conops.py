@@ -959,6 +959,9 @@ class ConOpsModeler(QMainWindow):
             self.right_dock.setWidget(self.toolbox)
         dispatcher.connect(self.rebuild_tables, "order changed")
         dispatcher.connect(self.on_new_activity, "new activity")
+        dispatcher.connect(self.on_delete_activity, "delete activity")
+        dispatcher.connect(self.on_delete_activity, "remove activity")
+        dispatcher.connect(self.on_delete_activity, "deleted object")
         self.resize(self.layout().sizeHint())
 
     def create_activity_table(self):
@@ -1039,7 +1042,6 @@ class ConOpsModeler(QMainWindow):
         self.sub_timeline.set_new_scene()
         self.sub_timeline.setEnabled(True)
         self.sub_activity_table.setEnabled(True)
-        self.sub_timeline.setEnabled(True)
         self.rebuild_tables()
 
     def on_new_activity(self, act):
@@ -1047,6 +1049,18 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(f'  sending "new object" signal on {act.id}')
         dispatcher.send("new object", obj=act)
         self.rebuild_tables()
+
+    def on_delete_activity(self, oid=None, cname=None, remote=False):
+        sub_tl = getattr(self, 'sub_timeline', None)
+        if (sub_tl and
+            oid == getattr(sub_tl.subject, 'oid', None)):
+            sub_tl.set_new_scene()
+            sub_tl.setEnabled(False)
+            txt = 'No Activity Selected'
+            title = f'<font color="red">{txt}</font>'
+            sub_tl.title_widget.setText(title)
+            self.rebuild_tables()
+            self.sub_activity_table.setEnabled(False)
 
     def on_remote_mod_acts(self, oids=None):
         """
