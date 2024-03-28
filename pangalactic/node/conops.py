@@ -245,11 +245,11 @@ class Timeline(QGraphicsPathItem):
         self.arrange()
 
     def calc_length(self):
-        if len(self.evt_blocks) <= 5:
+        if len(self.evt_blocks) <= 6:
             self.path_length = 1000
         else:
             # adjust timeline length and rescale scene
-            delta = len(self.evt_blocks) - 5
+            delta = len(self.evt_blocks) - 6
             self.path_length = 1000 + (delta // 2) * 300
             scale = 70 - (delta // 2) * 10
             pscale = str(scale) + "%"
@@ -302,7 +302,11 @@ class TimelineScene(QGraphicsScene):
         dispatcher.connect(self.on_act_mod, "act mod")
 
     def focus_changed_handler(self, new_item, old_item):
-        if (self.position == "main" and
+        if getattr(self, "right_button_pressed", False):
+            # ignore: context menu event
+            self.right_button_pressed = False
+            return
+        elif (self.position == "main" and
             new_item is not None and
             new_item != self.current_focus):
             self.current_focus = new_item
@@ -311,6 +315,8 @@ class TimelineScene(QGraphicsScene):
                                 act=self.focusItem().activity)
 
     def mousePressEvent(self, mouseEvent):
+        if mouseEvent.button() == Qt.RightButton:
+            self.right_button_pressed = True
         super().mousePressEvent(mouseEvent)
 
     def mouseMoveEvent(self, event):
