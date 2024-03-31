@@ -377,20 +377,21 @@ def get_icon_path(obj):
     """
     icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
     # check for a special icon for this specific object
+    icon_type = state.get('icon_type', '.png')
     if getattr(obj, 'id', None):
-        special_icon_path = os.path.join(icon_dir, obj.id + state['icon_type'])
+        special_icon_path = os.path.join(icon_dir, obj.id + icon_type)
         if os.path.exists(special_icon_path):
             return special_icon_path
     if isinstance(obj, orb.classes['PortType']):
         # special icons for PortTypes
         prefix = 'PortType_' + obj.id
-        icon_path = os.path.join(icon_dir, prefix + state['icon_type'])
+        icon_path = os.path.join(icon_dir, prefix + icon_type)
         if os.path.exists(icon_path):
             return icon_path
     if isinstance(obj, orb.classes['PortTemplate']):
         # special icons for PortTemplates
         prefix = 'PortTemplate_' + obj.type_of_port.id
-        icon_path = os.path.join(icon_dir, prefix + state['icon_type'])
+        icon_path = os.path.join(icon_dir, prefix + icon_type)
         if os.path.exists(icon_path):
             return icon_path
     # ManagedObject has the "public" attribute, but Product is the only class
@@ -401,40 +402,36 @@ def get_icon_path(obj):
             if obj.components:
                 # white box
                 if obj.frozen:
-                    return os.path.join(icon_dir,
-                        'frz_wbox' + state['icon_type'])
+                    return os.path.join(icon_dir, 'frz_wbox' + icon_type)
                 else:
-                    return os.path.join(icon_dir, 'box' + state['icon_type'])
+                    return os.path.join(icon_dir, 'box' + icon_type)
             else:
                 # black box
                 if obj.frozen:
-                    return os.path.join(icon_dir,
-                        'frz_bbox' + state['icon_type'])
+                    return os.path.join(icon_dir, 'frz_bbox' + icon_type)
                 else:
-                    return os.path.join(icon_dir,
-                        'black_box' + state['icon_type'])
+                    return os.path.join(icon_dir, 'black_box' + icon_type)
         else:
             # if obj is not public, use the 'cloakable' icon
             if obj.components:
                 if obj.frozen:
                     return os.path.join(icon_dir,
-                        'frz_wbox_cloakable' + state['icon_type'])
+                        'frz_wbox_cloakable' + icon_type)
                 else:
-                    return os.path.join(icon_dir,
-                        'cloakable' + state['icon_type'])
+                    return os.path.join(icon_dir, 'cloakable' + icon_type)
             else:
                 if obj.frozen:
-                    return os.path.join(icon_dir,
-                        'frz_bbox_cloakable' + state['icon_type'])
+                    return os.path.join(icon_dir, 'frz_bbox_cloakable' +
+                                        icon_type)
                 else:
-                    return os.path.join(icon_dir,
-                        'black_cloakable' + state['icon_type'])
+                    return os.path.join(icon_dir, 'black_cloakable' +
+                                        icon_type)
     cname = obj.__class__.__name__
     if ((cname == 'Person') and
         obj.id in (state.get('active_users') or [])):
-        return os.path.join(icon_dir, 'green_box' + state['icon_type'])
+        return os.path.join(icon_dir, 'green_box' + icon_type)
     # check for a special icon for this class
-    class_icon_path = os.path.join(icon_dir, cname + state['icon_type'])
+    class_icon_path = os.path.join(icon_dir, cname + icon_type)
     if os.path.exists(class_icon_path):
         return class_icon_path
     # check for a special icon in the icon vault (runtime-generated icons)
@@ -442,7 +439,7 @@ def get_icon_path(obj):
     if not os.path.exists(icon_vault_path):
         os.makedirs(icon_vault_path)
     if getattr(obj, 'id', None):
-        return os.path.join(icon_vault_path, obj.id+state['icon_type'])
+        return os.path.join(icon_vault_path, obj.id + icon_type)
     return ''
 
 def get_pixmap(obj):
@@ -455,15 +452,14 @@ def get_pixmap(obj):
     """
     if obj:
         icon_path = get_icon_path(obj)
+        icon_type = state.get('icon_type', '.png')
         if not os.path.exists(icon_path):
             # if no generated icon is found, fall back to default icons
             icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             if obj.__class__.__name__ == 'Project':
-                icon_path = os.path.join(icon_dir,
-                                         'favicon' + state['icon_type'])
+                icon_path = os.path.join(icon_dir, 'favicon' + icon_type)
             else:
-                icon_path = os.path.join(
-                                icon_dir, 'box' + state['icon_type'])
+                icon_path = os.path.join(icon_dir, 'box' + icon_type)
         return QPixmap(icon_path)
     else:
         return QVariant()
