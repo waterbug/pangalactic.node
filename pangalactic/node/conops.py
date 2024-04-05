@@ -542,8 +542,8 @@ class TimelineWidget(QWidget):
         if not obj:
             orb.log.debug(f'  - obj with oid "{oid}" not found.')
             return
-        current_subacts = self.subject.sub_activities
-        subj_oid = self.subject.oid
+        current_subacts = getattr(self.subject, 'sub_activities', [])
+        subj_oid = getattr(self.subject, 'oid', '')
         if obj in current_subacts:
             orb.log.debug(f'  - obj "{obj.id}" in sub-activities --')
             orb.log.debug('    removing ...')
@@ -1011,6 +1011,9 @@ class ConOpsModeler(QMainWindow):
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
 
     def display_modes_tool(self):
+        """
+        Display the ModesTool.
+        """
         win = ModesTool(self.project, parent=self)
         win.show()
 
@@ -1021,9 +1024,22 @@ class ConOpsModeler(QMainWindow):
         self.set_widgets()
 
     def resizeEvent(self, event):
+        """
+        Reimplementation of resizeEvent to capture width and height in a state
+        variable.
+
+        Args:
+            event (Event): the Event instance
+        """
         state['model_window_size'] = (self.width(), self.height())
 
     def on_double_click(self, act):
+        """
+        Handler for double-click on an activity block.
+
+        Args:
+            act (Activity): the Activity instance that was double-clicked
+        """
         orb.log.debug("  - ConOpsModeler.on_double_click()...")
         try:
             orb.log.debug(f'     + activity: {act.id}')
@@ -1037,6 +1053,9 @@ class ConOpsModeler(QMainWindow):
     def on_activity_got_focus(self, act):
         """
         Set sub_timeline to show all sub_activities of the focused activity.
+
+        Args:
+            act (Activity): the Activity instance that got focus
         """
         self.sub_timeline.subject = act
         self.sub_timeline.set_new_scene()
@@ -1045,12 +1064,28 @@ class ConOpsModeler(QMainWindow):
         self.rebuild_tables()
 
     def on_new_activity(self, act):
+        """
+        Handler for "new activity" dispatcher signal.
+
+        Args:
+            act (Activity): the new Activity instance
+        """
         orb.log.debug("* ConOpsModeler.on_new_activity()")
         orb.log.debug(f'  sending "new object" signal on {act.id}')
         dispatcher.send("new object", obj=act)
         self.rebuild_tables()
 
     def on_delete_activity(self, oid=None, cname=None, remote=False):
+        """
+        Handler for dispatcher signals "delete activity", "remove activity",
+        and "deleted object", refreshes the sub-timeline if the deleted object
+        was the focused activity.
+
+        Keyword Args:
+            oid (str): oid of the deleted activity
+            cname (str): class name of the deleted object
+            remote (bool): True if the operation was initiated remotely
+        """
         sub_tl = getattr(self, 'sub_timeline', None)
         if (sub_tl and
             oid == getattr(sub_tl.subject, 'oid', None)):
@@ -1065,6 +1100,9 @@ class ConOpsModeler(QMainWindow):
     def on_remote_mod_acts(self, oids=None):
         """
         Handle dispatcher "remote new or mod acts" signal.
+
+        Keyword Args:
+            oids (list of str): oids of the new or modified Activity instances
         """
         self.main_timeline.set_new_scene()
         self.rebuild_tables()
