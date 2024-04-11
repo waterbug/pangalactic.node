@@ -12,21 +12,27 @@ from louie import dispatcher
 from PyQt5.QtCore    import QSize, Qt, QModelIndex, QVariant
 from PyQt5.QtGui     import QBrush, QStandardItemModel
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
-                             QDockWidget, QItemDelegate, QMainWindow,
-                             QSizePolicy, QStatusBar, QTableView, QTreeView,
-                             QVBoxLayout, QWidget)
+                             QDockWidget, QGridLayout, QItemDelegate,
+                             QMainWindow, QSizePolicy, QStatusBar, QTableView,
+                             QTreeView, QVBoxLayout, QWidget)
 
-from pangalactic.core             import orb, state
+try:
+    from pangalactic.core         import orb
+except:
+    import pangalactic.core.set_uberorb
+    from pangalactic.core         import orb
+from pangalactic.core             import state, write_state
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 # from pangalactic.core.parametrics import get_pval_as_str,
 from pangalactic.core.parametrics import (get_variable_and_context,
                                           mode_defz, parameterz)
 from pangalactic.core.validation  import get_assembly
+from pangalactic.node.buttons     import ButtonLabel
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.tableviews  import ActivityInfoTable
-from pangalactic.node.widgets     import NameLabel
+from pangalactic.node.widgets     import ColorLabel, NameLabel
 
 
 class ActivityWidget(QWidget):
@@ -614,7 +620,7 @@ class ModesTool(QMainWindow):
                     by_name.sort()
                     comps = [bn[1] for bn in by_name]
                     items += comps
-        model = ModeDefinitionModel(items, view=view, project=self.project)
+        model = ModesModel(items, view=view, project=self.project)
         for i, mode in enumerate(view):
             model.setHeaderData(i, Qt.Horizontal, self.wrap_header(mode))
         vheader_labels = [get_link_name(item) for item in items]
@@ -645,7 +651,7 @@ class ModesTool(QMainWindow):
                         # if no val, use default
                         val = val or mode_dict[view[col]]
                         model.setData(index, val)
-        self.mode_definition_table = ModeDefinitionView(self.project)
+        self.mode_definition_table = ModesView(self.project)
         self.mode_definition_table.setAttribute(Qt.WA_DeleteOnClose)
         self.mode_definition_table.setModel(model)
         self._delegates = []
@@ -698,7 +704,7 @@ class ModesTool(QMainWindow):
         event.accept()
 
 
-class ModeDefinitionModel(QStandardItemModel):
+class ModesModel(QStandardItemModel):
 
     def __init__(self, objs, view=None, project=None, parent=None):
         """
@@ -841,7 +847,7 @@ class ModeDefinitionModel(QStandardItemModel):
                     return True
 
 
-class ModeDefinitionView(QTableView):
+class ModesView(QTableView):
 
     def __init__(self, project, parent=None):
         super().__init__(parent=parent)
@@ -859,7 +865,7 @@ class ModeDefinitionView(QTableView):
         header.addAction(delete_modes_action)
 
     def on_section_moved(self, logical_index, old_index, new_index):
-        orb.log.debug('* ModeDefinitionView: on_section_moved() ...')
+        orb.log.debug('* ModesView: on_section_moved() ...')
         orb.log.debug('  logical index: {}'.format(logical_index))
         orb.log.debug('  old index: {}'.format(old_index))
         orb.log.debug('  new index: {}'.format(new_index))
@@ -961,28 +967,70 @@ class StateSelectorDelegate(QItemDelegate):
 
 class ModeDefinitionTool(QMainWindow):
     """
-    Tool for defining the operational Modes of a set of systems in terms of
-    the states of their subsystems.
+    Tool for defining the operational modes (initially just power modes) of a
+    system in terms of the states of its subsystems. The primary purpose of
+    this interface is for discipline subsystem engineers to define the power
+    states of their subsystem in the context of a set of global system power
+    modes / activities.
 
     Attrs:
-        project (Project): the project in which the systems are operating
+        project (Project): the project context in which modes are to be defined
+        usage (Acu or ProjectSystemUsage): the system usage for which modes are
+            to be defined
     """
 
     default_modes = ['Launch', 'Calibration', 'Propulsive', 'Slew',
                      'Science Mode, Transmitting', 'Science Mode, Acquisition',
                      'Standby', 'Survival', 'Safe Mode']
 
-    def __init__(self, project=None, parent=None):
+    def __init__(self, project=None, system=None, usage=None, parent=None):
         """
         Keyword Args:
-            project (Project): the project context in which the systems are
-                operating
+            project (Project): the project context in which modes are to be
+                defined
+            system (HardwareProduct): the system for which modes are to be
+                defined
+            usage (Acu or ProjectSystemUsage): the system usage for which modes
+                are to be defined
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
         orb.log.debug('* ModeDefinitionTool')
-        project = project or orb.get(state.get('project'))
-        self.project = project
+        self.project = project or orb.get(state.get('project'))
+        TBD = orb.get('pgefobjects:TBD')
+        if system:
+            self.system = system
+        else:
+            self.system = TBD
+        self.usage = usage
+        self.user = orb.get(state.get('local_user_oid'))
+        # ====================================================================
+        # NOTE: do all this "convenience" stuff later -- for now, use the
+        # subject of the Component Modeler as the system and assume that it is
+        # a spacecraft subsystem or a component thereof (in future, may be an
+        # instrument) ...
+        # ====================================================================
+        # either the specified usage or the usage related to the user's
+        # discipline role in the current project ...
+        # if usage:
+            # if isinstance(usage, orb.classes['Acu']):
+                # self.system = usage.component
+            # elif isinstance(usage, orb.classes['ProjectSystemUsage']):
+                # self.system = usage.system
+        # if not self.system:
+            # if project:
+                # # get user's role in project, if any
+                # ras = orb.search_exact(cname='RoleAssignment',
+                                       # assigned_to=user,
+                                       # role_assignment_context=project)
+                # if ras:
+                    # roles = [ra.assigned_role for ra in ras]
+                    # drs = [role.related_to_disciplines for role in roles]
+                    # disciplines = [dr.
+            # else:
+                # # if no project, refuse to guess ...
+                # self.project = None
+        # ====================================================================
         names = []
         # first make sure that mode_defz[project.oid] is initialized ...
         if not mode_defz.get(project.oid):
@@ -1008,26 +1056,9 @@ class ModeDefinitionTool(QMainWindow):
             orb.log.debug('  - no systems specified yet.')
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
-        title = 'Operational Modes of Specified Systems'
+        sys_name = getattr(self.system, 'name', 'TBD')
+        title = f'Power Modes of {sys_name}'
         self.setWindowTitle(title)
-        self.sys_select_tree = SystemSelectionView(self.project, refdes=True)
-        self.sys_select_tree.expandToDepth(1)
-        self.sys_select_tree.setExpandsOnDoubleClick(False)
-        # WORKING HERE ...
-        # TODO: define on_select_system ...
-        # self.sys_select_tree.clicked.connect(self.on_select_system)
-        self.left_dock = QDockWidget()
-        self.left_dock.setFloating(False)
-        self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
-        self.sys_tree_panel = QWidget(self)
-        self.sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
-                                     QSizePolicy.MinimumExpanding)
-        self.sys_tree_panel.setMinimumWidth(400)
-        self.sys_tree_panel.setMaximumWidth(500)
-        sys_tree_layout = QVBoxLayout(self.sys_tree_panel)
-        sys_tree_layout.addWidget(self.sys_select_tree)
-        self.left_dock.setWidget(self.sys_tree_panel)
         self.new_window = True
         # TODO: define these functions ...
         # dispatcher.connect(self.on_modes_edited, 'modes edited')
@@ -1037,24 +1068,11 @@ class ModeDefinitionTool(QMainWindow):
         # dispatcher.connect(self.on_remote_comp_mode_datum,
                            # 'remote comp mode datum')
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.set_dash_and_adjust()
+        self.set_dash_contents()
 
-    def set_dash_and_adjust(self):
-        orb.log.debug('  - setting mode definition dashboard ...')
-        # NOTE: very verbose debugging msg ...
-        # orb.log.debug('   *** current mode_defz:')
-        # orb.log.debug(f'   {pprint(mode_defz)}')
-        # if self.new_window:
-            # size = QSize(state.get('mode_def_w') or self.width(),
-                         # state.get('mode_def_h') or self.height())
-        # else:
-            # size = self.size()
-            # state['mode_def_w'] = self.width()
-            # state['mode_def_h'] = self.height()
-        if getattr(self, 'mode_definition_table', None):
-            # remove and close current mode def table
-            self.mode_definition_table.parent = None
-            self.mode_definition_table.close()
+    def set_dash_contents(self):
+        orb.log.debug('  - setting dashboard contents ...')
+        # collect current mode_defz data ...
         sys_dict = mode_defz[self.project.oid]['systems']
         comp_dict = mode_defz[self.project.oid]['components']
         mode_dict = mode_defz[self.project.oid]['modes']
@@ -1073,69 +1091,148 @@ class ModeDefinitionTool(QMainWindow):
                     by_name.sort()
                     comps = [bn[1] for bn in by_name]
                     items += comps
-        self.mode_def_dash = ModeDefinitionDashboard(self.project)
-        self.mode_def_dash.setAttribute(Qt.WA_DeleteOnClose)
-        self.setCentralWidget(self.mode_def_dash)
-        # try to expand the tree enough to show the last selected system
-        links = [orb.get(oid)
-                 for oid in mode_defz[self.project.oid]['systems']]
-        if links:
-            level = 1
-            tree = self.sys_select_tree
-            while 1:
-                # try:
-                tree.expandToDepth(level)
-                idxs = tree.link_indexes_in_tree(links[-1])
-                if idxs:
-                    tree.scrollTo(tree.proxy_model.mapFromSource(idxs[0]))
-                    break
-                else:
-                    level += 1
-                    if level > 5:
-                        # 5 really should be deep enough!
-                        break
-                # except:
-                    # orb.log.debug('  - crashed while trying to expand tree.')
-                    # break
-        # self.resize(self.minimumSize())
+        # set up dash widget
+        if getattr(self, 'dash_widget', None):
+            # remove and close
+            self.dash_widget.parent = None
+            self.dash_widget.close()
+        self.dash_widget = ModeDefinitionDashboard(project=self.project,
+                                                   system=self.system,
+                                                   usage=self.usage,
+                                                   user=self.user,
+                                                   parent=self)
+        self.dash_widget.setAttribute(Qt.WA_DeleteOnClose)
+        self.setCentralWidget(self.dash_widget)
         self.new_window = False
 
 
 class ModeDefinitionDashboard(QWidget):
     """
-    Interface for defining system modes in terms of component states.
+    Main widget for ModeDefinitionTool.
     """
 
-    def __init__(self, project, parent=None):
+    def __init__(self, project=None, system=None, usage=None, user=None,
+        parent=None):
+        """
+        Initialize.
+
+        Keyword Args:
+            project (Project): the project context in which modes are to be
+                defined
+            system (HardwareProduct): the system for which modes are to be
+                defined
+            usage (Acu or ProjectSystemUsage): the system usage for which modes
+                are to be defined
+            user (Person): the user of the tool
+            parent (QWidget):  parent widget
+        """
         super().__init__(parent=parent)
         self.project = project
+        self.system = system
+        self.sys_name = getattr(self.system, 'name', '') or 'TBD'
+        self.usage = usage
+        self.user = user
+        # named fields
+        self.fields = dict(power_level='Power\nLevel',
+                           duty_cycle='Duty\nCycle',
+                           net_cbe='Net\nCBE\n(Watts)',
+                           net_mev='Net\nMEV\n(Watts)',
+                           notes='Notes')
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
+        self.title_widget = NameLabel('')
+        self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
+        main_layout.addWidget(self.title_widget)
+        self.set_title_text()
+        self.dash_panel = QWidget(parent=self)
+        grid_layout = QGridLayout()
+        self.dash_panel.setLayout(grid_layout)
+        self.setup_dash()
+        main_layout.addWidget(self.dash_panel)
+
+    def set_title_text(self):
+        if not hasattr(self, 'title_widget'):
+            return
+        subj = getattr(self, 'subject', None)
+        blue_text = '<font color="blue">{}</font>'
+        title_txt = ''
+        title_txt += blue_text.format(self.sys_name) + ' '
+        title_txt += ' Power Modes'
+        self.title_widget.setText(title_txt)
+
+    def setup_dash(self):
+        grid = self.dash_panel.layout()
+        # column titles
+        grid.addWidget(ColorLabel('System', element='h3'), 0, 0)
+        grid.addWidget(ColorLabel('Component', element='h3'), 0, 1)
+        for i, name in enumerate(self.fields):
+            grid.addWidget(ColorLabel(self.fields[name], element='h3'), 0, i+2)
+        # col names
+        grid.addWidget(ButtonLabel(self.sys_name), 1, 0)
+        self.set_row_fields(self.system, 1)
+        # data fields
+        acus = self.system.components
+        TBD = orb.get('pgefobjects:TBD')
+        j = 1
+        for acu in acus:
+            comp = acu.component
+            if comp and comp is not TBD:
+                j += 1
+                grid.addWidget(ButtonLabel(comp.name), j, 1)
+                self.set_row_fields(comp, j)
+
+    def set_row_fields(self, item, row):
+        grid = self.dash_panel.layout()
+        for i, name in enumerate(self.fields):
+            txt = f'{item.name} {name}'
+            label = ButtonLabel(txt)
+            grid.addWidget(label, row, i+2)
 
 
 if __name__ == '__main__':
     # for testing purposes only ...
+    import os
+    from pangalactic.core import __version__
+    from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import (create_test_project,
                                              create_test_users)
-    orb.start(home='junk_home', debug=True)
+    from pangalactic.node.startup import (setup_ref_db_and_version,
+                                          setup_dirs_and_state)
+    print("* starting orb ...")
+    home = 'junk_home'
+    orb.start(home=home, debug=True, console=True)
+    print("* setting up ref_db and version ...")
+    setup_ref_db_and_version(home, __version__)
+    print("* setting up dirs and state ...")
+    setup_dirs_and_state(app_name='Pangalaxian')
+    if state.get('test_project_loaded'):
+        print('* test project H2G2 already loaded.')
+    else:
+        print('* loading test project H2G2 ...')
+        deserialize(orb, create_test_project())
+        state['test_project_loaded'] = True
+    mission = orb.get('test:Mission.H2G2')
     H2G2 = orb.get('H2G2')
+    if state.get('test_project_loaded'):
+        print('* test users already loaded.')
+    else:
+        print('* loading test users ...')
+        deserialize(orb, create_test_users())
+        state['test_users_loaded'] = True
     app = QApplication(sys.argv)
     # NOTE:  set either test_mdt or test_act to True ...
+    test_mt = False
     test_mdt = True
     test_act = False
-    if test_mdt:
-        w = ModeDefinitionTool(H2G2)
+    if test_mt:
+        w = ModesTool(H2G2)
+        w.show()
+    elif test_mdt:
+        s = orb.get('test:spacecraft0')
+        w = ModeDefinitionTool(project=H2G2, system=s)
         w.show()
     elif test_act:
         # test ActivityWidget
-        from pangalactic.core.serializers import deserialize
-        mission = orb.get('test:Mission.H2G2')
-        if not mission:
-            if not state.get('test_users_loaded'):
-                # print('* loading test users ...')
-                deserialize(orb, create_test_users())
-                state['test_users_loaded'] = True
-            # print('* loading test project H2G2 ...')
-            deserialize(orb, create_test_project())
-            mission = orb.get('test:Mission.H2G2')
         if not mission.sub_activities:
             launch = clone('Activity', id='launch', name='Launch',
                            owner=H2G2, sub_activity_of=mission)
@@ -1143,5 +1240,6 @@ if __name__ == '__main__':
             orb.save([launch])
         w = ActivityWidget(subject=mission)
         w.show()
+    write_state(os.path.join(home, 'state'))
     sys.exit(app.exec_())
 
