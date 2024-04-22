@@ -14,7 +14,7 @@ from PyQt5.QtGui     import QBrush, QStandardItemModel
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
                              QDockWidget, QGridLayout, QItemDelegate,
                              QMainWindow, QSizePolicy, QStatusBar, QTableView,
-                             QTreeView, QVBoxLayout, QWidget)
+                             QTreeView, QHBoxLayout, QVBoxLayout, QWidget)
 
 try:
     from pangalactic.core         import orb
@@ -972,11 +972,6 @@ class ModeDefinitionTool(QMainWindow):
     this interface is for discipline subsystem engineers to define the power
     states of their subsystem in the context of a set of global system power
     modes / activities.
-
-    Attrs:
-        project (Project): the project context in which modes are to be defined
-        usage (Acu or ProjectSystemUsage): the system usage for which modes are
-            to be defined
     """
 
     default_modes = ['Launch', 'Calibration', 'Propulsive', 'Slew',
@@ -1001,14 +996,11 @@ class ModeDefinitionTool(QMainWindow):
         if system:
             self.system = system
         else:
-            self.system = TBD
+            self.system = orb.get(state.get('system')) or TBD
         self.usage = usage
         self.user = orb.get(state.get('local_user_oid'))
         # ====================================================================
-        # NOTE: do all this "convenience" stuff later -- for now, use the
-        # subject of the Component Modeler as the system and assume that it is
-        # a spacecraft subsystem or a component thereof (in future, may be an
-        # instrument) ...
+        # NOTE: do all this "convenience" stuff later ...
         # ====================================================================
         # either the specified usage or the usage related to the user's
         # discipline role in the current project ...
@@ -1127,23 +1119,37 @@ class ModeDefinitionDashboard(QWidget):
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
-        self.project = project
-        self.system = system
-        self.sys_name = getattr(self.system, 'name', '') or 'TBD'
+        self.project = project or orb.get(state.get('project'))
+        self.system = system or orb.get(state.get('system'))
+        self.sys_name = getattr(self.system, 'name', '')
+        self.sys_name = self.sys_name or 'TBD'
         self.usage = usage
         self.user = user
         # named fields
         self.fields = dict(power_level='Power\nLevel',
-                           duty_cycle='Duty\nCycle',
                            net_cbe='Net\nCBE\n(Watts)',
                            net_mev='Net\nMEV\n(Watts)',
                            notes='Notes')
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
+        title_layout = QHBoxLayout()
         self.title_widget = NameLabel('')
         self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
-        main_layout.addWidget(self.title_widget)
         self.set_title_text()
+        title_layout.addWidget(self.title_widget)
+        default_modes = ['Launch', 'Calibration', 'Propulsive', 'Slew',
+                         'Science Mode, Transmitting',
+                         'Science Mode,Acquisition', 'Standby', 'Survival',
+                         'Safe Mode']
+        self.modes = default_modes  # for demo purposes ...
+        self.mode_select = QComboBox()
+        self.mode_select.addItems(self.modes)
+        self.mode_select.setCurrentIndex(0)
+        self.mode_select.currentIndexChanged[str].connect(
+                                                    self.set_mode)
+        title_layout.addWidget(self.mode_select)
+        title_layout.addStretch(1)
+        main_layout.addLayout(title_layout)
         self.dash_panel = QWidget(parent=self)
         grid_layout = QGridLayout()
         self.dash_panel.setLayout(grid_layout)
@@ -1153,12 +1159,14 @@ class ModeDefinitionDashboard(QWidget):
     def set_title_text(self):
         if not hasattr(self, 'title_widget'):
             return
-        subj = getattr(self, 'subject', None)
         blue_text = '<font color="blue">{}</font>'
         title_txt = ''
         title_txt += blue_text.format(self.sys_name) + ' '
-        title_txt += ' Power Modes'
+        title_txt += ' Power Modes: '
         self.title_widget.setText(title_txt)
+
+    def set_mode(self, evt):
+        pass
 
     def setup_dash(self):
         grid = self.dash_panel.layout()
