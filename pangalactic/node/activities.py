@@ -992,11 +992,13 @@ class ModeDefinitionTool(QMainWindow):
         super().__init__(parent)
         orb.log.debug('* ModeDefinitionTool')
         self.project = project or orb.get(state.get('project'))
+        project_oid = state.get('project', '')
         TBD = orb.get('pgefobjects:TBD')
         if system:
             self.system = system
         else:
-            self.system = orb.get(state.get('system')) or TBD
+            self.system = orb.get(state.get('system', {}).get(project_oid))
+            self.system = self.system or TBD
         self.usage = usage
         self.user = orb.get(state.get('local_user_oid'))
         # ====================================================================
@@ -1119,8 +1121,9 @@ class ModeDefinitionDashboard(QWidget):
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
-        self.project = project or orb.get(state.get('project'))
-        self.system = system or orb.get(state.get('system'))
+        project_oid = getattr(project, 'oid', '') or state.get('project')
+        self.project = project or orb.get(project_oid)
+        self.system = orb.get(state.get('system', {}).get(project_oid))
         self.sys_name = getattr(self.system, 'name', '')
         self.sys_name = self.sys_name or 'TBD'
         self.usage = usage
