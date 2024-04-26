@@ -2525,9 +2525,9 @@ class Main(QMainWindow):
             orb.log.debug(f'* set_project({str(p.id)})')
             state['project'] = p.oid
             if state['connected']:
-                self.role_label.setText('online: syncing project data ...')
+                self.role_label.setText(f'online: syncing {p.id} data ...')
             else:
-                self.role_label.setText('loading project data ...')
+                self.role_label.setText(f'loading {p.id} data ...')
         else:
             # orb.log.debug('* set_project(None)')
             # orb.log.debug('  setting project to SANDBOX (default)')
