@@ -365,7 +365,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
         dispatcher.connect(self.on_power_modes_updated, 'power modes updated')
         # NOTE: Entity apparatus is not currently being used
-        # dispatcher.connect(self.on_entity_saved, 'entity saved')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
         dispatcher.connect(self.on_parm_recompute, 'parameters recomputed')
@@ -621,6 +620,7 @@ class Main(QMainWindow):
                     self.mbus.runner.stop()
                 orb.log.info('  message bus session disconnected.')
                 self.sync_project_action.setEnabled(False)
+                self.sync_all_projects_action.setEnabled(False)
                 self.full_resync_action.setEnabled(False)
                 self.net_status.setPixmap(self.offline_icon)
                 self.net_status.setToolTip('offline')
@@ -674,6 +674,7 @@ class Main(QMainWindow):
         self.net_status.setPixmap(self.online_ok_icon)
         self.net_status.setToolTip('connected')
         self.sync_project_action.setEnabled(True)
+        self.sync_all_projects_action.setEnabled(True)
         self.full_resync_action.setEnabled(True)
         # delta is interval allowed for a disconnect before a project resync is
         # done -- default is 60 seconds; can be overridden by a user preference
@@ -809,6 +810,7 @@ class Main(QMainWindow):
                 self.mbus.runner.stop()
             orb.log.info('  message bus session disconnected.')
             self.sync_project_action.setEnabled(False)
+            self.sync_all_projects_action.setEnabled(False)
             self.full_resync_action.setEnabled(False)
             self.net_status.setPixmap(self.offline_icon)
             self.net_status.setToolTip('offline')
@@ -964,6 +966,7 @@ class Main(QMainWindow):
                 self.mbus.runner.stop()
             orb.log.info('  message bus session disconnected.')
             self.sync_project_action.setEnabled(False)
+            self.sync_all_projects_action.setEnabled(False)
             self.full_resync_action.setEnabled(False)
             self.net_status.setPixmap(self.offline_icon)
             self.net_status.setToolTip('offline')
@@ -1738,13 +1741,6 @@ class Main(QMainWindow):
                                     comp_oid=comp_oid,
                                     mode=mode,
                                     value=value)
-            elif subject == 'entity created':
-                # TODO: implement with Entity paradigm
-                pass
-            elif subject == 'data item updated':
-                # TODO:  needs to be re-implemented with Entity paradigm --
-                # should be 'entity update'
-                pass
             elif subject == 'deleted':
                 obj_oid = content
                 obj = orb.get(obj_oid)
@@ -2363,6 +2359,10 @@ class Main(QMainWindow):
                                     "Re-Sync Current Project",
                                     slot=self.resync_current_project,
                                     modes=['system', 'component'])
+        self.sync_all_projects_action = self.create_action(
+                                    "Re-Sync All Projects",
+                                    slot=self.resync_all_projects,
+                                    modes=['system', 'component'])
         self.full_resync_action = self.create_action(
                                     "Force Full Re-Sync",
                                     slot=self.full_resync,
@@ -2789,6 +2789,7 @@ class Main(QMainWindow):
                                 self.refresh_tree_action,
                                 self.update_pgxno_action,
                                 self.sync_project_action,
+                                self.sync_all_projects_action,
                                 self.full_resync_action]
         if not sys.platform == 'darwin':
             system_tools_actions.append(self.view_cad_action)
@@ -2798,6 +2799,7 @@ class Main(QMainWindow):
         system_tools_actions.append(self.del_test_objs_action)
         # disable sync project action until we are online
         self.sync_project_action.setEnabled(False)
+        self.sync_all_projects_action.setEnabled(False)
         self.full_resync_action.setEnabled(False)
         system_tools_button = MenuButton(QIcon(system_tools_icon_path),
                                    text='Tools',
@@ -3713,28 +3715,6 @@ class Main(QMainWindow):
             # self.dashboard.update()
             # QTimer.singleShot(0, self.dashboard.update)
 
-    # def on_entity_saved(self, e=None):
-        # """
-        # Handle the event of an entity being saved, as a result of either
-        # creation or modification.
-
-        # Args:
-            # e (Entity): the entity that was saved.
-        # """
-        # if state['connected']:
-            # rpc = self.mbus.session.call('vger.save_entity', oid=e.oid,
-                          # dm_oid=e.dm_oid, parent_oid=e.parent_oid,
-                          # system_oid=e.system_oid, system_name=e.system_name,
-                          # owner=e.owner, creator=e.creator,
-                          # modifier=e.modifier,
-                          # create_datetime=e.create_datetime,
-                          # mod_datetime=e.mod_datetime)
-            # rpc.addCallback(self.rpc_save_entity_result)
-            # rpc.addErrback(self.on_failure)
-
-    def rpc_save_entity_result(self, result):
-        orb.log.debug(f'* "vger.save_entity" result: "{result}"')
-
     def on_deleted_object_signal(self, oid='', cname='', remote=False):
         """
         Handle dispatcher "deleted object" signal by calling functions to
@@ -4049,6 +4029,17 @@ class Main(QMainWindow):
         orb.log.debug('* resync_current_project()')
         self.on_set_current_project(msg=msg)
 
+    def resync_all_projects(self):
+        """
+        Convenience function that saves having to select each project to which
+        the user has access in turn, which is rather boring and time-consuming.
+        """
+        for project in self.projects:
+            oid = project.oid
+            if oid != 'pgefobjects:SANDBOX':
+                state['project'] = oid
+                self.on_set_current_project(msg='')
+
     def full_resync(self):
         """
         Force full synchronization with server (ignoring mod_datetimes).
@@ -4073,8 +4064,12 @@ class Main(QMainWindow):
         project_oid = state.get('project')
         if ((project_oid and project_oid != 'pgefobjects:SANDBOX')
              and state.get('connected')):
+            # =================================================================
+            # NOTE: this commented code is retained as an example of what NOT
+            # to do!
+            # =================================================================
             # NOTE: ProgressDialog stuff caused mbus to lose its transport --
-            # BAD! -- so is disabled unless some way to do it async is found
+            # BAD! -- so is disabled ...
             # project = orb.get(project_oid)
             # title_text = f'Syncing project {project.id}'
             # label_text = f'Receiving {project.id} items ... '
@@ -4085,6 +4080,7 @@ class Main(QMainWindow):
             # self.proj_sync_progress.setValue(0)
             # self.proj_sync_progress.setMinimumDuration(2000)
             # QApplication.processEvents()
+            # =================================================================
             orb.log.debug('  calling sync_current_project()')
             rpc = self.sync_current_project(None, msg=msg)
             rpc.addCallback(self.on_project_sync_result)

@@ -54,7 +54,7 @@ from pangalactic.core.clone       import clone
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.parametrics import mode_defz
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.node.activities  import ActivityWidget, ModesTool
+from pangalactic.node.activities  import ActivityWidget, ModeDefinitionTool
 from pangalactic.node.buttons     import SizedButton, ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 # from pangalactic.node.pgxnobject  import PgxnObject
@@ -771,9 +771,12 @@ class ConOpsModeler(QMainWindow):
         # otherwise, only the usage value of the 'of_system' attribute of the
         # subject is relevant
         self.usage_list = []
+        TBD = orb.get('pgefobjects:TBD')
         if project.systems:
             for psu in project.systems:
                 self.usage_list.append(psu)
+            self.system = self.usage_list[0].system
+        self.system = self.system or TBD
         if subject:
             self.subject = subject
         else:
@@ -912,7 +915,7 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(' - ConOpsModeler.init_toolbar() ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
-        self.modes_tool_button = SizedButton("Modes Tool")
+        self.modes_tool_button = SizedButton("Mode Definition Tool")
         self.modes_tool_button.clicked.connect(self.display_modes_tool)
         self.toolbar.addWidget(self.modes_tool_button)
 
@@ -1014,7 +1017,9 @@ class ConOpsModeler(QMainWindow):
         """
         Display the ModesTool.
         """
-        win = ModesTool(self.project, parent=self)
+        # win = ModesTool(self.project, parent=self)
+        win = ModeDefinitionTool(project=self.project, system=self.system,
+                                 parent=self)
         win.show()
 
     def change_system(self, index):
