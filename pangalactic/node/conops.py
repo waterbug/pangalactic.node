@@ -37,9 +37,9 @@ from PyQt5.QtGui import (QColor, QIcon, QPixmap, QCursor, QPainter,
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
                              QGraphicsPolygonItem, QGraphicsScene,
-                             QGraphicsView, QGridLayout, QMenu, QToolBox,
-                             QGraphicsPathItem, QVBoxLayout, QToolBar,
-                             QWidgetAction, QMessageBox)
+                             QGraphicsView, QGridLayout, QHBoxLayout, QMenu,
+                             QToolBox, QGraphicsPathItem, QVBoxLayout,
+                             QToolBar, QWidgetAction, QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
 
 # pangalactic
@@ -51,14 +51,19 @@ except:
     import pangalactic.core.set_uberorb
     from pangalactic.core             import orb, state
 from pangalactic.core.clone       import clone
+from pangalactic.core.names       import get_link_name
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.parametrics import mode_defz
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.node.activities  import ActivityWidget, ModeDefinitionTool
-from pangalactic.node.buttons     import SizedButton, ToolButton
+from pangalactic.node.activities  import (DEFAULT_ACTIVITIES,
+                                          ActivityWidget,
+                                          ModeDefinitionDashboard,
+                                          SystemSelectionView)
+from pangalactic.node.buttons     import ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.widgets     import NameLabel
+
 
 
 class EventBlock(QGraphicsPolygonItem):
@@ -120,9 +125,6 @@ class EventBlock(QGraphicsPolygonItem):
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
                                      triggered=self.delete_block_activity)
-        self.show_modes_action = QAction("Assign Mode", self.scene,
-                                     statusTip="Assign a Mode",
-                                     triggered=self.show_modes)
         # self.edit_action = QAction("Edit", self.scene,
                                    # statusTip="Edit activity",
                                    # triggered=self.edit_activity)
@@ -135,9 +137,6 @@ class EventBlock(QGraphicsPolygonItem):
         self.scene.removeItem(self)
         dispatcher.send(signal='delete activity', oid=self.activity.oid)
 
-    def show_modes(self):
-        orb.log.debug(' - showing modes possible to assign to this activity')
-
     def itemChange(self, change, value):
         return value
 
@@ -148,8 +147,8 @@ class EventBlock(QGraphicsPolygonItem):
         super().mouseMoveEvent(event)
 
 BAR_COLORS = ['red', 'darkRed', 'green', 'darkGreen', 'blue',
-            'darkBlue', 'cyan', 'darkCyan', 'magenta', 'darkMagenta', 'yellow',
-            'darkYellow', 'gray', 'darkGray', 'lightGray']
+              'darkBlue', 'cyan', 'darkCyan', 'magenta', 'darkMagenta',
+              'yellow', 'darkYellow', 'gray', 'darkGray', 'lightGray']
 bar_colors = [getattr(Qt, color) for color in BAR_COLORS]
 # -----------------------------------------------------
 #  pinkity (#ffccf9)
@@ -767,16 +766,11 @@ class ConOpsModeler(QMainWindow):
             project = orb.get('pgefobjects:SANDBOX')
         mission_name = ' '.join([project.id, 'Mission'])
         mission = None
-        # NOTE: usage_list is only relevant if the subject is a Mission;
-        # otherwise, only the usage value of the 'of_system' attribute of the
-        # subject is relevant
-        self.usage_list = []
         TBD = orb.get('pgefobjects:TBD')
         if project.systems:
-            for psu in project.systems:
-                self.usage_list.append(psu)
-            self.system = self.usage_list[0].system
-        self.system = self.system or TBD
+            self.system = project.systems[0].system
+        else:
+            self.system = TBD
         if subject:
             self.subject = subject
         else:
@@ -792,8 +786,27 @@ class ConOpsModeler(QMainWindow):
                 mission = clone('Mission', id=mission_id, name=mission_name,
                                 owner=project)
                 orb.save([mission])
-                orb.log.debug('* ConOpsModeler: sending "new object" signal')
-                dispatcher.send("new object", obj=mission)
+                orb.log.debug('* ConOps: sending "new object" signal')
+
+                orb.log.debug('* ConOps: creating default activities ...')
+                acts = []
+                seq = 0
+                for name in DEFAULT_ACTIVITIES:
+                    activity_type = orb.get(
+                                    "pgefobjects:ActivityType.Operation")
+                    prefix = project.id
+                    act_id = '-'.join([prefix, name])
+                    act_name = ' '.join([prefix, name])
+                    activity = clone("Activity", id=act_id, name=act_name,
+                                     activity_type=activity_type,
+                                     owner=project,
+                                     sub_activity_of=mission,
+                                     sub_activity_sequence=seq)
+                    orb.db.commit()
+                    acts.append(activity)
+                    seq += 1
+                new_objs = [mission] + acts
+                dispatcher.send("new objects", objs=new_objs)
             self.subject = mission
         self.project = project
         self.create_toolbox()
@@ -813,7 +826,8 @@ class ConOpsModeler(QMainWindow):
 
     def create_toolbox(self):
         """
-        Create the toolbox for activities.
+        Create the toolbox for activities.  Note that this toolbox is placed
+        into the right dock widget (that is done in self.set_widgets()).
         """
         orb.log.debug(' - ConOpsModeler.create_toolbox() ...')
         acts_layout = QGridLayout()
@@ -846,78 +860,11 @@ class ConOpsModeler(QMainWindow):
         self.toolbox.setSizePolicy(QSizePolicy.Minimum,
                                    QSizePolicy.Fixed)
 
-    def update_mode_tools(self):
-        """
-        Update the Modes section of the toolbox depending on the selected
-        subject activity and system of the conops tool.
-        """
-        orb.log.debug(' - ConOpsModeler.update_mode_tools() ...')
-        if isinstance(self.subject, orb.classes['Mission']):
-            # if the subject is a Mission, no modes can be defined for it
-            return
-        modes_layout = QGridLayout()
-        # get all defined modes for the current system ...
-        # first make sure that mode_defz[project.oid] is initialized ...
-        if not mode_defz.get(self.project.oid):
-            mode_defz[self.project.oid] = dict(modes={}, systems={},
-                                               components={})
-        # Only populate "Modes" toolbox item if the subject Activity has an
-        # "of_system" for which modes have been defined
-        system_usage = getattr(self.subject, 'of_system', None)
-        modes_title = 'No Modes Defined'
-        if system_usage:
-            if isinstance(system_usage, orb.classes['Acu']):
-                sys_name = getattr(system_usage, 'reference_designator', None)
-                if not sys_name:
-                    sys = system_usage.component
-                    sys_name = sys.name or sys.id
-            elif isinstance(system_usage, orb.classes['ProjectSystemUsage']):
-                sys_name = getattr(system_usage, 'system_role', None)
-                if not sys_name:
-                    sys = system_usage.system
-                    sys_name = sys.name or sys.id
-            else:
-                sys_name = 'Unknown'
-            modes_title = f'Modes of {sys_name}'
-        # modes = ['Spam', 'Eggs', 'More Spam']
-        modes = []
-        systems = mode_defz[self.project.oid]['systems']
-        components = mode_defz[self.project.oid]['components']
-        # WORKING HERE ...
-        # comp_modez = 
-        # if (self.system.oid in systems and
-            # len(systems.get(self.system.oid) or {}) > 0):
-            # # system has modes defined -- add them
-            # for mode_name in list(systems[self.system.oid]):
-                # modes.append(mode_name)
-        # elif (self.system.oid in components and
-              # len(components.get(self.system.oid) or {}) > 0):
-            # # system has modes defined -- add them
-            # for mode_name in components[self.system.oid]:
-        circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
-        for i, mode in enumerate(modes):
-            button = ToolButton(circle, "")
-            button.setData(mode)
-            modes_layout.addWidget(button, i, 0)
-            modes_layout.addWidget(NameLabel(mode), i, 1)
-        self.modes_widget = QWidget()
-        self.modes_widget.setLayout(modes_layout)
-        self.modes_widget.setStyleSheet('background-color: #ffccf9;')
-        self.modes_widget.setAttribute(Qt.WA_DeleteOnClose)
-        self.toolbox.addItem(self.modes_widget, modes_title)
-        # set an icon for Modes item ...
-        mode_icon_file = 'lander' + state.get('icon_type', '.png')
-        mode_icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-        mode_icon_path = os.path.join(mode_icon_dir, mode_icon_file)
-        self.toolbox.setItemIcon(1, QIcon(mode_icon_path))
-
     def init_toolbar(self):
+        # NOTE: toolbar is currently empty but may have a role later ...
         orb.log.debug(' - ConOpsModeler.init_toolbar() ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
-        self.modes_tool_button = SizedButton("Mode Definition Tool")
-        self.modes_tool_button.clicked.connect(self.display_modes_tool)
-        self.toolbar.addWidget(self.modes_tool_button)
 
     def set_widgets(self, init=False):
         """
@@ -954,12 +901,51 @@ class ConOpsModeler(QMainWindow):
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         if init:
-            self.right_dock = QDockWidget()
-            self.right_dock.setObjectName('RightDock')
-            self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-            self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
-            self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
-            self.right_dock.setWidget(self.toolbox)
+            # ----------------------------------------------------------------
+            # NOTE: right dock only had "toolbox" with event types -- not
+            # really needed (use context menu to add activities to the
+            # timeline) so eliminated to save real estate
+            # ----------------------------------------------------------------
+            # self.right_dock = QDockWidget()
+            # self.right_dock.setObjectName('RightDock')
+            # self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            # self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
+            # self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
+            # self.right_dock.setWidget(self.toolbox)
+            # ----------------------------------------------------------------
+            # Bottom dock contains sys_modes_panel, which has
+            # sys_select_tree and mode_dash ...
+            # ----------------------------------------------------------------
+            self.sys_modes_panel = QWidget(self)
+            self.sys_modes_panel.setSizePolicy(QSizePolicy.Preferred,
+                                               QSizePolicy.MinimumExpanding)
+            self.sys_modes_panel.setMinimumWidth(1200)
+            sys_modes_layout = QHBoxLayout(self.sys_modes_panel)
+            self.sys_select_tree = SystemSelectionView(self.project,
+                                                       refdes=True)
+            self.sys_select_tree.setObjectName('Sys Select Tree')
+            self.sys_select_tree.setMinimumWidth(500)
+            self.sys_select_tree.expandToDepth(1)
+            self.sys_select_tree.setExpandsOnDoubleClick(False)
+            self.sys_select_tree.clicked.connect(self.on_select_system)
+            # self.sys_tree_panel = QWidget(self)
+            sys_tree_layout = QVBoxLayout()
+            sys_tree_layout.setObjectName('Sys Tree Layout')
+            sys_tree_layout.addWidget(self.sys_select_tree)
+            sys_modes_layout.addLayout(sys_tree_layout)
+            self.mode_dash = ModeDefinitionDashboard(activity=self.subject,
+                                                     parent=self)
+            self.mode_dash.setObjectName('Mode Dash')
+            mode_dash_layout = QVBoxLayout()
+            mode_dash_layout.setObjectName('Mode Dash Layout')
+            mode_dash_layout.addWidget(self.mode_dash)
+            sys_modes_layout.addLayout(mode_dash_layout)
+            self.bottom_dock = QDockWidget()
+            self.bottom_dock.setObjectName('BottomDock')
+            self.bottom_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
+            self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
+            self.bottom_dock.setWidget(self.sys_modes_panel)
         dispatcher.connect(self.rebuild_tables, "order changed")
         dispatcher.connect(self.on_new_activity, "new activity")
         dispatcher.connect(self.on_delete_activity, "delete activity")
@@ -1013,19 +999,135 @@ class ConOpsModeler(QMainWindow):
         self.create_sub_activity_table()
         self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
 
-    def display_modes_tool(self):
+    def on_select_system(self, index):
         """
-        Display the ModesTool.
+        Select a "product usage" (aka "link" or "node") in the assembly tree
+        for inclusion in the mode definitions table.  Note that if the selected
+        system has components, they will also be included in the mode
+        definitions table by default but will not be considered "selected
+        systems" -- i.e. their sub-components will NOT be included -- unless
+        they are separately selected.
         """
-        # win = ModesTool(self.project, parent=self)
-        win = ModeDefinitionTool(project=self.project, system=self.system,
-                                 parent=self)
-        win.show()
+        orb.log.debug('  - updating mode_defz ...')
+        mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
+        link = self.sys_select_tree.source_model.get_node(mapped_i).link
+        if not hasattr(link, 'oid'):
+            return
+        name = get_link_name(link)
+        project_mode_defz = mode_defz[self.project.oid]
+        sys_dict = project_mode_defz['systems']
+        comp_dict = project_mode_defz['components']
+        mode_dict = project_mode_defz['modes']
+        # link might be None -- allow for that
+        if link.oid in sys_dict:
+            # if selected link is in sys_dict, remove it
+            orb.log.debug(f' - removing "{name}" from systems ...')
+            del sys_dict[link.oid]
+            # if it is in comp_dict, remove it there too
+            if link.oid in comp_dict:
+                del comp_dict[link.oid]
+            # if it occurs as a component of an item in sys_dict, add it back
+            # to components
+            orb.log.debug(f'   checking if "{name}" is a component ...')
+            for syslink_oid in sys_dict:
+                lk = orb.get(syslink_oid)
+                clink_oids = []
+                if hasattr(lk, 'system') and lk.system.components:
+                    clink_oids = [acu.oid for acu in lk.system.components]
+                elif hasattr(lk, 'component') and lk.component.components:
+                    clink_oids = [acu.oid for acu in lk.component.components]
+                if link.oid in clink_oids:
+                    orb.log.debug(f' - "{name}" is a component, adding it')
+                    orb.log.debug('   back to components of its parent')
+                    if not comp_dict.get(syslink_oid):
+                        comp_dict[syslink_oid] = {}
+                    comp_dict[syslink_oid][link.oid] = {}
+                    for mode in mode_dict:
+                        comp_dict[syslink_oid][link.oid][
+                                                mode] = (mode_dict.get(mode)
+                                                         or '[select state]')
+        else:
+            # selected link is NOT in sys_dict:
+            # [1] if it it is in comp_dict and
+            #     [a] it has components itself, remove its comp_dict entry and
+            #         add it to sys_dict (also create comp_dict items for its
+            #         components)
+            #     [b] it has no components, ignore the operation because it is
+            #         already included in comp_dict and adding it to sys_dict
+            #         would not have any effect on modes calculations
+            # [2] if it it is NOT in comp_dict, add it to sys_dict (creating
+            #     comp_dict items for any components)
+            has_components = False
+            if ((hasattr(link, 'system')
+                 and link.system.components) or
+                (hasattr(link, 'component')
+                 and link.component.components)):
+                has_components = True
+            in_comp_dict = False
+            for syslink_oid in comp_dict:
+                if link.oid in comp_dict[syslink_oid]:
+                    in_comp_dict = True
+                    # [1]
+                    if has_components:
+                        # [a] it has components -> remove it from comp_dict and
+                        #     add it to sys_dict
+                        del comp_dict[syslink_oid][link.oid]
+                        sys_dict[link.oid] = {}
+                        for mode in mode_dict:
+                            sys_dict[link.oid][mode] = '[computed]'
+                    else:
+                        # [b] if it has no components, ignore the operation
+                        # since it is already included as a component and
+                        # adding it as a system would change nothing
+                        has_components = False
+                        orb.log.debug(' - item selected is a component with')
+                        orb.log.debug('   no components -- operation ignored.')
+            if not in_comp_dict:
+                # [2] neither in sys_dict NOR in comp_dict -- add it *if* it
+                #     exists ... in degenerate case it may be None (no oid)
+                if hasattr(link, 'oid'):
+                    sys_dict[link.oid] = {}
+                    for mode in mode_dict:
+                        if has_components:
+                            sys_dict[link.oid][mode] = '[computed]'
+                        else:
+                            context = mode_dict.get(mode)
+                            context = context or '[select state]'
+                            sys_dict[link.oid][mode] = context
+        # ensure that all selected systems (sys_dict) that have components,
+        # have those components included in comp_dict ...
+        system = None
+        for syslink_oid in sys_dict:
+            link = orb.get(syslink_oid)
+            if hasattr(link, 'system'):
+                system = link.system
+            elif hasattr(link, 'component'):
+                system = link.component
+            if (system and system.components and not comp_dict.get(link.oid)):
+                comp_dict[link.oid] = {}
+                acus = [acu for acu in system.components
+                        if acu.oid not in sys_dict]
+                # sort by "name" (so order is the same as the system tree)
+                by_name = [(get_link_name(acu), acu) for acu in acus]
+                by_name.sort()
+                for name, acu in by_name:
+                    if not comp_dict[link.oid].get(acu.oid):
+                        comp_dict[link.oid][acu.oid] = {}
+                    for mode in mode_dict:
+                        context = mode_dict.get(mode)
+                        context = context or '[select state]'
+                        comp_dict[link.oid][acu.oid][mode] = context
+        # the expandToDepth is needed to make it repaint to show the selected
+        # node as highlighted
+        self.sys_select_tree.expandToDepth(1)
+        self.sys_select_tree.scrollTo(index)
+        self.sys_select_tree.clearSelection()
+        self.change_system(system)
+        dispatcher.send(signal='modes edited', oid=self.project.oid)
 
-    def change_system(self, index):
+    def change_system(self, system):
         orb.log.debug("* ConOpsModeler.change_system()")
-        self.system = self.usage_list[index]
-        self.update_mode_tools()
+        self.system = system
         self.set_widgets()
 
     def resizeEvent(self, event):

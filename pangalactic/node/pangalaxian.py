@@ -83,7 +83,7 @@ from pangalactic.core.test.utils       import (create_test_project,
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
-from pangalactic.node.activities       import ModeDefinitionTool, ModesTool
+# from pangalactic.node.activities       import ModeDefinitionTool, ModesTool
 from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
@@ -2154,22 +2154,22 @@ class Main(QMainWindow):
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
-        modes_def_action_tip = "Define Operational Power Modes"
-        self.modes_def_action = self.create_action(
-                                    "Define Operational Modes",
-                                    slot=self.define_op_modes,
-                                    icon='lander',
-                                    tip=modes_def_action_tip,
-                                    modes=['system'])
+        # modes_def_action_tip = "Define Operational Power Modes"
+        # self.modes_def_action = self.create_action(
+                                    # "Define Operational Modes",
+                                    # slot=self.define_op_modes,
+                                    # icon='lander',
+                                    # tip=modes_def_action_tip,
+                                    # modes=['system'])
         # default:  modes_def_action is not visible if not authorized
-        self.modes_def_action.setEnabled(False)
-        self.modes_def_action.setVisible(False)
+        # self.modes_def_action.setEnabled(False)
+        # self.modes_def_action.setVisible(False)
         # new modes tool ...
-        self.mode_def_tool_action = self.create_action(
-                                    "Mode Definition Tool",
-                                    slot=self.mode_def_tool,
-                                    icon='lander',
-                                    modes=['system', 'component'])
+        # self.mode_def_tool_action = self.create_action(
+                                    # "Mode Definition Tool",
+                                    # slot=self.mode_def_tool,
+                                    # icon='lander',
+                                    # modes=['system', 'component'])
         conops_tip_text = "Model a Concept of Operations"
         self.conops_modeler_action = self.create_action(
                                 "ConOps Modeler",
@@ -2774,8 +2774,8 @@ class Main(QMainWindow):
         system_tools_icon_path = os.path.join(icon_dir,
                                               system_tools_icon_file)
         system_tools_actions = [self.rqts_manager_action,
-                                self.modes_def_action,
-                                self.mode_def_tool_action,
+                                # self.modes_def_action,
+                                # self.mode_def_tool_action,
                                 self.conops_modeler_action,
                                 self.modeler42_action,
                                 self.optics_modeler_action,
@@ -4167,19 +4167,19 @@ class Main(QMainWindow):
                     if project_admin or global_admin:
                         self.admin_action.setVisible(True)
                         self.admin_action.setEnabled(True)
-                    SELE = set(['Systems Engineer', 'Lead Engineer'])
-                    if project_admin or global_admin or (SELE & set(p_roles)):
-                        self.modes_def_action.setVisible(True)
-                        self.modes_def_action.setEnabled(True)
-                    else:
-                        self.modes_def_action.setVisible(False)
-                        self.modes_def_action.setEnabled(False)
+                    # SELE = set(['Systems Engineer', 'Lead Engineer'])
+                    # if project_admin or global_admin or (SELE & set(p_roles)):
+                        # self.modes_def_action.setVisible(True)
+                        # self.modes_def_action.setEnabled(True)
+                    # else:
+                        # self.modes_def_action.setVisible(False)
+                        # self.modes_def_action.setEnabled(False)
                 else:
                     # when offline, admin and modes def actions are disabled
                     self.admin_action.setVisible(False)
                     self.admin_action.setEnabled(False)
-                    self.modes_def_action.setVisible(False)
-                    self.modes_def_action.setEnabled(False)
+                    # self.modes_def_action.setVisible(False)
+                    # self.modes_def_action.setEnabled(False)
                     # only local projects can be deleted
                     if (project_is_local and 
                         (p.creator == self.local_user or global_admin)):
@@ -5661,13 +5661,13 @@ class Main(QMainWindow):
         win.move(50, 50)
         win.show()
 
-    def define_op_modes(self):
-        win = ModesTool(self.project, parent=self)
-        win.show()
+    # def define_op_modes(self):
+        # win = ModesTool(self.project, parent=self)
+        # win.show()
 
-    def mode_def_tool(self):
-        win = ModeDefinitionTool(self.project, parent=self)
-        win.show()
+    # def mode_def_tool(self):
+        # win = ModeDefinitionTool(self.project, parent=self)
+        # win.show()
 
     def sc_42_modeler(self):
         w = 4 * self.geometry().width() / 5

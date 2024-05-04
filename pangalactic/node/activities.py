@@ -36,9 +36,10 @@ from pangalactic.node.widgets     import ColorLabel, NameLabel
 
 
 DEFAULT_STATES = ['Nominal', 'Peak', 'Standby', 'Survival', 'Off']
-DEFAULT_MODES = ['Launch', 'Calibration', 'Propulsive', 'Slew',
-                 'Science Mode, Transmitting', 'Science Mode, Acquisition',
-                 'Standby', 'Survival', 'Safe Mode']
+DEFAULT_ACTIVITIES = ['Launch', 'Calibration', 'Propulsion', 'Slew',
+                      'Science Mode, Transmitting',
+                      'Science Mode, Acquisition',
+                      'Safe Mode']
 
 
 
@@ -350,7 +351,7 @@ class ModesTool(QMainWindow):
                 link = orb.get(link_oid)
                 names.append(get_link_name(link))
         modes = list(mode_defz[self.project.oid].get('modes') or [])
-        modes = modes or DEFAULT_MODES
+        modes = modes or DEFAULT_ACTIVITIES
         # set initial default system state for modes that don't have one ...
         for mode in modes:
             if not mode_defz[self.project.oid]['modes'].get(mode):
@@ -970,36 +971,91 @@ class StateSelectorDelegate(QItemDelegate):
 class ModeDefinitionTool(QMainWindow):
     """
     Tool for defining the operational modes (initially just power modes) of a
-    system in terms of the states of its subsystems. The primary purpose of
-    this interface is for discipline subsystem engineers to define the power
-    states of their subsystem in the context of a set of global system power
-    modes / activities.
+    system during a specified activity in terms of the states of its
+    subsystems. The primary purpose of this interface is for discipline
+    subsystem engineers to define the power states of their subsystem in the
+    context of a set of global system power modes / activities.
     """
 
-    def __init__(self, project=None, system=None, usage=None, parent=None):
+    def __init__(self, project=None, system=None, usage=None, activity=None,
+                 parent=None):
         """
         Keyword Args:
-            project (Project): the project context in which modes are to be
+            project (Project): the project context in which a power mode is to
+                be defined
+            system (HardwareProduct): the system for which a power mode is to
+                be defined
+            usage (Acu or ProjectSystemUsage): the system usage for which a
+                power mode is to be defined
+            activity (Activity): the activity for which the power mode is to be
                 defined
-            system (HardwareProduct): the system for which modes are to be
-                defined
-            usage (Acu or ProjectSystemUsage): the system usage for which modes
-                are to be defined
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
+        TBD = orb.get('pgefobjects:TBD')
         orb.log.debug('* ModeDefinitionTool')
         self.project = project or orb.get(state.get('project'))
         proj_oid = getattr(self.project, 'oid', '')
-        TBD = orb.get('pgefobjects:TBD')
+        self.system = system
+        self.usage = usage
+        # activity cannot be inferred from other attributes, but if it is
+        # specified, it will imply other attributes (see below) ...
+        self.act = activity or TBD
         if system:
             self.system = system
-        else:
-            self.system = orb.get(state.get('system', {}).get(proj_oid))
-            self.system = self.system or TBD
+            if not proj_oid and system.owner:
+                self.project = system.owner
+                proj_oid = getattr(self.project, 'oid', '')
+        if usage and isinstance(usage,
+                                    (orb.classes['ProjectSystemUsage'],
+                                     orb.classes['Acu'])):
+            if isinstance(usage, orb.classes['ProjectSystemUsage']):
+                self.system = usage.system or TBD
+                if (not proj_oid and self.system is not TBD
+                    and self.system.owner):
+                    self.project = self.system.owner
+                    proj_oid = getattr(self.project, 'oid', '')
+            elif isinstance(usage, orb.classes['Acu']):
+                self.system = usage.component or TBD
+                if (not proj_oid and self.system is not TBD
+                    and self.system.owner):
+                    self.project = self.system.owner
+                    proj_oid = getattr(self.project, 'oid', '')
+        if activity and isinstance(activity, orb.classes['Activity']):
+            # if an activity is specified, it implies other attributes ...
+            if activity.of_system and isinstance(activity.of_system,
+                                    (orb.classes['ProjectSystemUsage'],
+                                     orb.classes['Acu'])):
+                self.usage = activity.of_system
+                if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+                    self.system = self.usage.system or TBD
+                    if (not proj_oid and self.system is not TBD
+                        and self.system.owner):
+                        self.project = self.system.owner
+                        proj_oid = getattr(self.project, 'oid', '')
+                elif isinstance(self.usage, orb.classes['Acu']):
+                    self.system = self.usage.component or TBD
+                    if (not proj_oid and self.system is not TBD
+                        and self.system.owner):
+                        self.project = self.system.owner
+                        proj_oid = getattr(self.project, 'oid', '')
+            elif isinstance(activity, orb.classes['Mission']):
+                # NOTE: if activity is a Mission, there is no 'of_system',
+                # hence no self.system or self.usage
+                self.system = None
+                self.usage = None
+                if activity.owner:
+                    self.project = activity.owner
+                    proj_oid = getattr(self.project, 'oid', '')
+            else:
+                self.system = orb.get(state.get('system', {}).get(proj_oid))
+                self.system = self.system or TBD
+                if (not proj_oid and self.system is not TBD
+                    and self.system.owner):
+                    self.project = system.owner
+                    proj_oid = getattr(self.project, 'oid', '')
         sysname = getattr(self.system, 'name', 'unspecified')
         orb.log.debug(f'* [MDT] self.system is "{sysname}"')
-        self.usage = usage
         self.user = orb.get(state.get('local_user_oid'))
         # ====================================================================
         # NOTE: do all this "convenience" stuff later ...
@@ -1027,7 +1083,7 @@ class ModeDefinitionTool(QMainWindow):
         self.setSizePolicy(QSizePolicy.Expanding,
                            QSizePolicy.Expanding)
         sys_name = getattr(self.system, 'name', 'TBD')
-        title = f'Power Modes of {sys_name}'
+        title = f'{self.act.name} Power Mode of {sys_name}'
         self.setWindowTitle(title)
         self.new_window = True
         # TODO: define these functions ...
@@ -1048,36 +1104,21 @@ class ModeDefinitionTool(QMainWindow):
     def project(self, val):
         self._project = val
 
-    # TODO: define modes.setter ...
-    @property
-    def modes(self):
-        proj_oid = getattr(getattr(self, 'project', None), 'oid', '')
-        if proj_oid:
-            val = list(mode_defz[proj_oid].get('modes') or [])
-            return val or DEFAULT_MODES
-        return DEFAULT_MODES
-
     def set_dash_contents(self):
         orb.log.debug('  - setting dashboard contents ...')
         proj_oid = getattr(self.project, 'oid', '')
         if not proj_oid:
             # Advise user that no project has been selected ...
             return
+        # assume that mode_defz has been initialized for this project ...
+        project_mode_defz = mode_defz[proj_oid]
+        sys_dict = project_mode_defz['systems']
+        comp_dict = project_mode_defz['components']
         # ********************************************************************
         # TODO: the code for "initializing" mode_defz for a specified project
         # should be put into its own function!
         # ====================================================================
-        # Check mode_defz to see if project has modes defined ...
-        # ====================================================================
         names = []
-        # first make sure that mode_defz[project.oid] is initialized ...
-        if not mode_defz.get(proj_oid):
-            mode_defz[proj_oid] = dict(modes={}, systems={}, components={})
-        # collect current mode_defz data ...
-        sys_dict = mode_defz[proj_oid]['systems']
-        comp_dict = mode_defz[proj_oid]['components']
-        mode_dict = mode_defz[proj_oid]['modes']
-        modes = list(mode_defz[proj_oid].get('modes') or [])
         # next, check "systems" -- make sure it is populated with any
         # ProjectSystemUsages associated with the specified project ...
         psus = self.project.systems
@@ -1088,16 +1129,10 @@ class ModeDefinitionTool(QMainWindow):
             if psu_oid != 'no oid' and psu_oid not in sys_dict:
                 sys_dict[psu_oid] = {}
             names.append(get_link_name(psu))
-        for mode in self.modes:
-            if not mode_defz[proj_oid]['modes'].get(mode):
-                mode_defz[proj_oid]['modes'][mode] = 'Off'
         if names:
             orb.log.debug('  - specified systems:')
             for name in names:
                 orb.log.debug(f'    {name}')
-            # NOTE: VERY verbose debugging msg ...
-            # orb.log.debug('  - mode_defz:')
-            # orb.log.debug(f'   {pprint(mode_defz)}')
         else:
             orb.log.debug('  - no systems specified yet.')
         # make sure all psu.system components are in comp_dict
@@ -1115,9 +1150,7 @@ class ModeDefinitionTool(QMainWindow):
             # remove and close
             self.dash_widget.parent = None
             self.dash_widget.close()
-        self.dash_widget = ModeDefinitionDashboard(project=self.project,
-                                                   system=self.system,
-                                                   usage=self.usage,
+        self.dash_widget = ModeDefinitionDashboard(activity=self.act,
                                                    user=self.user,
                                                    parent=self)
         self.dash_widget.setAttribute(Qt.WA_DeleteOnClose)
@@ -1130,28 +1163,38 @@ class ModeDefinitionDashboard(QWidget):
     Main widget for ModeDefinitionTool.
     """
 
-    def __init__(self, project=None, system=None, usage=None, user=None,
-        parent=None):
+    def __init__(self, activity=None, user=None, parent=None):
         """
         Initialize.
 
         Keyword Args:
-            project (Project): the project context in which modes are to be
-                defined
-            system (HardwareProduct): the system for which modes are to be
-                defined
-            usage (Acu or ProjectSystemUsage): the system usage for which modes
-                are to be defined
+            activity (Activity): the activity for which modes are to be defined
             user (Person): the user of the tool
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
-        proj_oid = getattr(project, 'oid', '') or state.get('project')
-        self.project = project or orb.get(proj_oid)
-        self.system = system
+        self.editable_state = False
+        self.act = activity
+        if self.act and isinstance(self.act, orb.classes['Activity']):
+            self.project = self.act.owner
+            if isinstance(self.act, orb.classes['Mission']):
+                self.system = None
+                self.usage = None
+            elif isinstance(self.act.of_system,
+                                 (orb.classes['ProjectSystemUsage'],
+                                  orb.classes['Acu'])):
+                self.usage = self.act.of_system
+                if isinstance(self.act.of_system,
+                              orb.classes['ProjectSystemUsage']):
+                    self.system = self.act.of_system.system
+                elif isinstance(self.act.of_system, orb.classes['Acu']):
+                    self.system = self.act.of_system.component
+            else:
+                self.project = None
+                self.system = None
+                self.usage = None
         self.sys_name = getattr(self.system, 'name', '')
         self.sys_name = self.sys_name or 'TBD'
-        self.usage = usage
         self.user = user
         # named fields
         self.fields = dict(power_level='Power\nLevel',
@@ -1165,19 +1208,10 @@ class ModeDefinitionDashboard(QWidget):
         self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
         self.set_title_text()
         title_layout.addWidget(self.title_widget)
-        self.modes = DEFAULT_MODES
-        self.mode_select = QComboBox()
-        self.mode_select.addItems(self.modes)
-        self.mode_select.setCurrentIndex(0)
-        self.mode_select.currentIndexChanged[str].connect(
-                                                    self.set_mode)
-        title_layout.addWidget(self.mode_select)
         title_layout.addStretch(1)
         main_layout.addLayout(title_layout)
         self.dash_panel = QWidget(parent=self)
-        grid_layout = QGridLayout()
-        self.dash_panel.setLayout(grid_layout)
-        self.setup_dash()
+        self.setup_interface()
         main_layout.addWidget(self.dash_panel)
 
     def set_title_text(self):
@@ -1185,58 +1219,87 @@ class ModeDefinitionDashboard(QWidget):
             return
         blue_text = '<font color="blue">{}</font>'
         title_txt = ''
-        title_txt += blue_text.format(self.sys_name) + ' '
-        title_txt += ' Power Modes for Activity:'
-        self.title_widget.setText(title_txt)
+        if isinstance(self.act, orb.classes['Mission']):
+            title_txt += 'To specify Power Modes, select a '
+            title_txt += blue_text.format(self.project.id) + ' '
+            title_txt += 'Mission System ...'
+        else:
+            title_txt += 'Power Modes for '
+            title_txt += blue_text.format(self.act.id)
+            self.title_widget.setText(title_txt)
 
     def set_mode(self, evt):
         pass
 
-    def setup_dash(self):
-        grid = self.dash_panel.layout()
+    def setup_interface(self):
+        if not self.system:
+            # if no system, set up a placeholder panel
+            layout = QHBoxLayout()
+            label = ColorLabel('System to be specified ...', element='h3')
+            layout.addWidget(label)
+            self.dash_panel.setLayout(layout)
+            return
+        grid = QGridLayout()
+        self.dash_panel.setLayout(grid)
         # column titles
         grid.addWidget(ColorLabel('System', element='h3'), 0, 0)
         grid.addWidget(ColorLabel('Component', element='h3'), 0, 1)
         for i, name in enumerate(self.fields):
             grid.addWidget(
                     ColorLabel(self.fields[name], element='h3'), 0, i+2)
-        # col names
+        # set col names
         grid.addWidget(ButtonLabel(self.sys_name), 1, 0)
         self.set_row_fields(self.system, 1)
-        # data fields
         acus = self.system.components
+        if not acus:
+            # TODO: pop up notification that there are no components ...
+            return
         TBD = orb.get('pgefobjects:TBD')
-        j = 1
+        grid = self.dash_panel.layout()
+        row = 1
+        # create a dict that maps component.oid to row ...
+        self.comp_to_row = {}
+        # ... and a dict that maps component.oid to power level selector ...
         for acu in acus:
             comp = acu.component
             if comp and comp is not TBD:
                 name = get_link_name(acu)
-                j += 1
-                grid.addWidget(ButtonLabel(name), j, 1)
-                self.set_row_fields(comp, j)
+                row += 1
+                grid.addWidget(ButtonLabel(name), row, 1)
+                self.set_row_fields(comp, row)
 
     def set_row_fields(self, item, row):
         # fields: power_level, p_cbe, p_mev, notes
         grid = self.dash_panel.layout()
         # power_level (col 2)
         if row == 1:
+            # TODO: enable to switch from "[computed]" to a specified level
             label = ButtonLabel('[computed]')
             grid.addWidget(label, row, 2)
         else:
-            states = get_power_contexts(item) or DEFAULT_STATES
-            p_level_select = QComboBox(self)
-            p_level_select.addItems(states)
-            p_level_select.setCurrentIndex(0)
-            p_level_select.currentIndexChanged[str].connect(self.set_p_level)
-            grid.addWidget(p_level_select, row, 2)
+            if self.editable_state:
+                states = get_power_contexts(item) or DEFAULT_STATES
+                p_level_select = QComboBox(self)
+                p_level_select.addItems(states)
+                p_level_select.setCurrentIndex(0)
+                p_level_select.currentIndexChanged[str].connect(self.set_p_level)
+                grid.addWidget(p_level_select, row, 2)
         # p_cbe (col 3)
-        txt = f'{item.name} p_cbe'
-        label = ButtonLabel(txt)
-        grid.addWidget(label, row, 3)
+        if row == 1:
+            label = ButtonLabel('[computed]')
+            grid.addWidget(label, row, 2)
+        else:
+            txt = f'{item.name} p_cbe'
+            label = ButtonLabel(txt)
+            grid.addWidget(label, row, 3)
         # p_mev (col 4)
-        txt = f'{item.name} p_mev'
-        label = ButtonLabel(txt)
-        grid.addWidget(label, row, 4)
+        if row == 1:
+            label = ButtonLabel('[computed]')
+            grid.addWidget(label, row, 2)
+        else:
+            txt = f'{item.name} p_mev'
+            label = ButtonLabel(txt)
+            grid.addWidget(label, row, 4)
         # notes (col 5)
         txt = f'{item.name} notes'
         label = ButtonLabel(txt)
