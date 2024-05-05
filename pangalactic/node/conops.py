@@ -732,6 +732,7 @@ class ConOpsModeler(QMainWindow):
     GUI structure of the ConOpsModeler is:
 
     ConOpsModeler (QMainWindow)
+      * CentralWidget contains:
         - activity_table (ActivityWidget)
         - main_timeline (TimelineWidget(QWidget))
           + scene (TimelineScene(QGraphicsScene))
@@ -739,16 +740,10 @@ class ConOpsModeler(QMainWindow):
             * activity blocks (EventBlock(QGraphicsPolygonItem)
             * timelinebars (TimelineBar(QGraphicsPolygonItem))
               for each subsystem usage that is the "of_system"
-              in the main_timeline:
-
-    Then if a subsystem TimelineBar gets focus, the following are added for
-    that subsystem:
-        - activity_table (ActivityWidget)
-        - sub_timeline (TimelineWidget(QWidget))
-          + scene (TimelineScene(QGraphicsScene))
-            * timeline (Timeline(QGraphicsPathItem))
-            * activity blocks (EventBlock(QGraphicsPolygonItem)
-        - sub_activity_table (ActivityWidget)
+              in the main_timeline
+      * BottomDock contains:
+        - sys_select_tree (SystemSelectionView)
+        - mode_dash (ModeDefinitionDashboard)
     """
 
     def __init__(self, subject=None, parent=None):
@@ -813,13 +808,6 @@ class ConOpsModeler(QMainWindow):
         self.init_toolbar()
         self.set_widgets(init=True)
         self.setWindowTitle('Concept of Operations (Con Ops) Modeler')
-        # NOTE:  bottom dock area is not currently being used but may be used
-        # for graphs in the future ...
-        # self.bottom_dock = QDockWidget()
-        # self.bottom_dock.setObjectName('BottomDock')
-        # self.bottom_dock.setFeatures(QDockWidget.DockWidgetFloatable)
-        # self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
-        # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
         dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
         dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
@@ -881,23 +869,13 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.subject, position='main')
         self.main_timeline.setMinimumSize(1000, 300)
-        self.sub_timeline = TimelineWidget(
-                                        self.main_timeline.scene.current_focus,
-                                        position='sub')
-        self.sub_timeline.setEnabled(False)
-        self.sub_timeline.setMinimumSize(1000, 300)
         self.outer_layout = QGridLayout()
         self.create_activity_table()
         self.outer_layout.addWidget(self.activity_table, 0, 0,
                                     alignment=Qt.AlignTop)
         self.outer_layout.addWidget(self.main_timeline, 0, 1)
-        self.create_sub_activity_table()
-        self.sub_activity_table.setEnabled(False)
-        self.outer_layout.addWidget(self.sub_activity_table, 1, 0,
-                                    alignment=Qt.AlignTop)
-        self.outer_layout.addWidget(self.sub_timeline, 1, 1)
         self.widget = QWidget()
-        self.widget.setMinimumSize(1500, 700)
+        self.widget.setMinimumSize(1500, 350)
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         if init:
@@ -957,26 +935,12 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
         self.activity_table = ActivityWidget(self.subject, parent=self,
                                              position='main')
-        # self.activity_table.setSizePolicy(QSizePolicy.Fixed,
-                                          # QSizePolicy.Fixed)
         self.activity_table.setSizePolicy(QSizePolicy.Minimum,
                                           QSizePolicy.MinimumExpanding)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
 
-    def create_sub_activity_table(self):
-        orb.log.debug("* ConOpsModeler.create_sub_activity_table()")
-        act = getattr(self.main_timeline.scene.current_focus, 'activity', None)
-        self.sub_activity_table = ActivityWidget(act, parent=self,
-                                                 position='sub')
-        # self.sub_activity_table.setSizePolicy(QSizePolicy.Fixed,
-                                              # QSizePolicy.Fixed)
-        self.sub_activity_table.setSizePolicy(QSizePolicy.Minimum,
-                                              QSizePolicy.MinimumExpanding)
-        self.sub_activity_table.setAttribute(Qt.WA_DeleteOnClose)
-
     def rebuild_tables(self):
         self.rebuild_activity_table()
-        self.rebuild_sub_activity_table()
         self.resize(self.layout().sizeHint())
 
     def rebuild_activity_table(self):
@@ -988,16 +952,6 @@ class ConOpsModeler(QMainWindow):
             self.activity_table = None
         self.create_activity_table()
         self.outer_layout.addWidget(self.activity_table, 0, 0)
-
-    def rebuild_sub_activity_table(self):
-        orb.log.debug("* ConOpsModeler.rebuild_sub_activity_table()")
-        if getattr(self, 'sub_activity_table', None):
-            self.outer_layout.removeWidget(self.sub_activity_table)
-            self.sub_activity_table.parent = None
-            self.sub_activity_table.close()
-            self.sub_activity_table = None
-        self.create_sub_activity_table()
-        self.outer_layout.addWidget(self.sub_activity_table, 1, 0)
 
     def on_select_system(self, index):
         """
@@ -1142,7 +1096,8 @@ class ConOpsModeler(QMainWindow):
 
     def on_double_click(self, act):
         """
-        Handler for double-click on an activity block.
+        Handler for double-click on an activity block -- drill-down to view
+        and/or create sub_activities timeline.
 
         Args:
             act (Activity): the Activity instance that was double-clicked
@@ -1159,16 +1114,12 @@ class ConOpsModeler(QMainWindow):
 
     def on_activity_got_focus(self, act):
         """
-        Set sub_timeline to show all sub_activities of the focused activity.
+        Do something when an activity gets focus ...
 
         Args:
             act (Activity): the Activity instance that got focus
         """
-        self.sub_timeline.subject = act
-        self.sub_timeline.set_new_scene()
-        self.sub_timeline.setEnabled(True)
-        self.sub_activity_table.setEnabled(True)
-        self.rebuild_tables()
+        pass
 
     def on_new_activity(self, act):
         """
@@ -1202,7 +1153,6 @@ class ConOpsModeler(QMainWindow):
             title = f'<font color="red">{txt}</font>'
             sub_tl.title_widget.setText(title)
             self.rebuild_tables()
-            self.sub_activity_table.setEnabled(False)
 
     def on_remote_mod_acts(self, oids=None):
         """
