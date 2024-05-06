@@ -1286,16 +1286,20 @@ class Main(QMainWindow):
             state['deleted_oids'] = deleted
             local_objs_to_del = orb.get(oids=server_deleted_oids)
             if local_objs_to_del:
-                deleted_oids = {o.oid : o.__class__.__name__
-                                for o in local_objs_to_del}
+                # deleted_oids = {o.oid : o.__class__.__name__
+                                # for o in local_objs_to_del}
                 n = len(local_objs_to_del)
-                orb.log.debug(f'        {n} object(s) found in local db ...')
-                for oid, cname in deleted_oids.items():
-                    orb.log.debug(f'         {oid} ({cname})')
-                # delete the objects using "remote_deleted_object" signal so
-                # all widgets get refreshed properly
-                for oid, cname in deleted_oids.items():
-                    self.remote_deleted_object.emit(oid, cname)
+                orb.log.debug(f'  - {n} object(s) found in local db ...')
+                for obj in local_objs_to_del:
+                    cname = obj.__class__.__name__
+                    obj_id = getattr(obj, 'id', 'unknown id')
+                    orb.log.debug(f'    {obj_id} ({cname})')
+                # NOTE:  doing the remote_deleted_object thing here is way too
+                # cumbersome ... just delete the local objects!
+                orb.log.debug('  - deleting them ...')
+                orb.delete(local_objs_to_del)
+                # for oid, cname in deleted_oids.items():
+                    # self.remote_deleted_object.emit(oid, cname)
             else:
                 orb.log.debug('        none were found in local db.')
         if user_objs_sync:
