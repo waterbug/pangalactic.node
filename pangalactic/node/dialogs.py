@@ -34,7 +34,8 @@ from pangalactic.core.meta        import (M2M, NUMERIC_FORMATS, ONE2M,
                                           SELECTION_FILTERS, SELECTION_VIEWS,
                                           TEXT_PROPERTIES)
 from pangalactic.core.names       import (get_attr_ext_name,
-                                          get_external_name_plural)
+                                          get_external_name_plural,
+                                          get_link_name)
 from pangalactic.core.parametrics import (componentz, de_defz, parm_defz,
                                           parmz_by_dimz, get_dval, mode_defz,
                                           set_dval)
@@ -138,6 +139,38 @@ class FullSyncDialog(QDialog):
         self.setWindowTitle("Danger, Will Robinson!")
         msg = '<b><font color="red">Full Re-sync will overwrite '
         msg += 'all local data -- continue?</font></b>'
+        msg_label = QLabel(msg, self)
+        form = QFormLayout(self)
+        form.addRow(msg_label)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        self.buttons.button(QDialogButtonBox.Ok).setText('Yes')
+        self.buttons.button(QDialogButtonBox.Cancel).setText('No')
+        form.addRow(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+
+class DefineModesDialog(QDialog):
+    """
+    Dialog for confirming that the user wants to define power modes for the
+    specified product usage.
+    """
+    def __init__(self, usage=None, parent=None):
+        """
+        Initializer.
+
+        Keyword Args:
+            usage (Modelable):  the usage -- either a ProjectSystemUsage or an
+                Acu (both are subclasses of Modelable)
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        self.setWindowTitle("Define Power Modes for System?")
+        name = get_link_name(usage)
+        msg = f'<b><font color="blue">The {name} system does not yet have<br>'
+        msg += 'power modes defined for it -- define them now?</font></b>'
         msg_label = QLabel(msg, self)
         form = QFormLayout(self)
         form.addRow(msg_label)
@@ -2654,6 +2687,72 @@ class DirectionalityDialog(QDialog):
         dispatcher.send(signal='modified object', obj=self.port)
         dispatcher.send(signal='modified object', obj=product)
         self.accept()
+
+
+class AddActivityDialog(QDialog):
+    """
+    Dialog for adding a new activity to an activity timeline.
+
+    Keyword Args:
+        defaults (list of str):  default activity names
+        parent (TimelineWidget):  parent widget
+    """
+    DEFAULTS = ['Launch', 'Calibration', 'Propulsion', 'Slew',
+                'Science Mode, Transmitting',
+                'Science Mode, Acquisition',
+                'Safe Mode']
+
+    def __init__(self, defaults=None, parent=None):
+        super().__init__(parent)
+        orb.log.debug('* AddActivityDialog')
+        self.setWindowTitle("Add a new Activity")
+        parent_act = parent.subject
+        orb.log.debug(f'  - parent activity is "{parent_act.id}"')
+        layout = QVBoxLayout(self)
+        name_label = ColorLabel('<h3>Activity</h3>', parent=self)
+        layout.addWidget(name_label)
+        default_names = defaults or self.DEFAULTS
+        if not parent_act.sub_activities:
+            names = default_names
+        else:
+            cur_names = [getattr(a, 'name', 'unknown')
+                         for a in parent_act.sub_activities]
+            names = [name for name in default_names if name not in cur_names]
+        names.append('Activity To Be Named')
+        self.name_buttons = QButtonGroup()
+        for name in names:
+            button = QRadioButton(name)
+            self.name_buttons.addButton(button)
+            layout.addWidget(button)
+        separator = HLine()
+        layout.addWidget(separator)
+        type_label = ColorLabel('<h3>Activity Type</h3>', parent=self)
+        layout.addWidget(type_label)
+        self.type_name_buttons = QButtonGroup()
+        for type_name in ['Op', 'Cycle']:
+            button = QRadioButton(type_name)
+            self.type_name_buttons.addButton(button)
+            layout.addWidget(button)
+        self.type_name_buttons.buttonClicked.connect(self.set_type_name)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        layout.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+    def set_name(self, clicked_index):
+        self.name = 'Activity To Be Named'
+        b = self.name_buttons.checkedButton()
+        if b:
+            self.name = b.text()
+
+    def set_type_name(self, clicked_index):
+        t = self.type_name_buttons.checkedButton()
+        self.act_type = "Op"
+        if t:
+            self.act_type = t.text()
+        orb.log.debug(f'  activity type: {self.act_type}')
 
 
 class NewDashboardDialog(QDialog):

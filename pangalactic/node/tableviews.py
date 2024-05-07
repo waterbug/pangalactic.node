@@ -388,11 +388,12 @@ class ActivityInfoTable(QTableWidget):
         self.resizeColumnsToContents()
 
     def sizeHint(self):
-        horizontal = self.horizontalHeader()
-        vertical = self.verticalHeader()
-        frame = self.frameWidth() * 2
-        return QSize(horizontal.width() * .8,
-                     vertical.length() + horizontal.height() + frame)
+        # horizontal = self.horizontalHeader()
+        # vertical = self.verticalHeader()
+        # frame = self.frameWidth() * 2
+        # return QSize(horizontal.width() * .8,
+                     # vertical.length() + horizontal.height() + frame)
+        return QSize(400, 400)
 
     def on_item_mod(self, item=None):
         orb.log.debug('  - ActivityInfoTable.on_item_mod()')
