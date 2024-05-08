@@ -3,6 +3,7 @@
 
 import sys
 from copy import deepcopy
+from functools import partial
 # from pprint import pprint
 from textwrap import wrap
 # from textwrap import fill
@@ -25,14 +26,16 @@ from pangalactic.core             import state, write_state
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 # from pangalactic.core.parametrics import get_pval_as_str,
-from pangalactic.core.parametrics import (get_variable_and_context,
-                                          mode_defz, parameterz)
+from pangalactic.core.parametrics import (get_pval, get_variable_and_context,
+                                          get_usage_mode_val,
+                                          get_usage_mode_val_as_str,
+                                          mode_defz, parameterz, round_to)
 from pangalactic.core.validation  import get_assembly
-from pangalactic.node.buttons     import ButtonLabel, SizedButton
+from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.dialogs     import DeleteModesDialog, EditModesDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.tableviews  import ActivityInfoTable
-from pangalactic.node.widgets     import ColorLabel, NameLabel
+from pangalactic.node.widgets     import ColorLabel, NameLabel, ValueLabel
 
 
 DEFAULT_CONTEXTS = ['Nominal', 'Peak', 'Standby', 'Survival', 'Off']
@@ -1007,6 +1010,7 @@ class ModeDefinitionDashboard(QWidget):
         self.edit_button = SizedButton('Edit')
         self.edit_button.clicked.connect(self.on_edit)
         self.view_button = SizedButton('View')
+        self.view_button.setVisible(False)
         self.view_button.clicked.connect(self.on_view)
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.edit_button)
@@ -1044,7 +1048,7 @@ class ModeDefinitionDashboard(QWidget):
     def on_activity_focused(self, act=None):
         orb.log.debug('* MDD: received signal "activity focused"')
         self.act = act
-        self.setup_dash_data()
+        self.on_view(None)
 
     def on_set_of_system(self, usage=None):
         if usage:
@@ -1052,6 +1056,7 @@ class ModeDefinitionDashboard(QWidget):
                 # 'of_system' cannot be set for a Mission -- or equivalently,
                 # system modes cannot be set at Mission level; must be for a
                 # specified activity
+                self.on_view(None)
                 return
             act = orb.select('Activity', name=self.act.name, of_system=usage)
             if act and act is not self.act:
@@ -1065,7 +1070,7 @@ class ModeDefinitionDashboard(QWidget):
                 self.act = clone('Activity', id=act_id, name=act_name,
                                  activity_type=act_type, of_system=usage,
                                  owner=act_owner)
-            self.setup_dash_data()
+        self.on_view(None)
 
     def setup_title_widget(self):
         blue_text = '<font color="blue">{}</font>'
@@ -1098,25 +1103,42 @@ class ModeDefinitionDashboard(QWidget):
         Set the dash title and the header labels, which don't change.
         """
         grid = self.dash_panel.layout()
-        self.system_title = ColorLabel('System', element='h3')
+        self.system_title = ColorLabel('System', color='blue', element='h3')
         grid.addWidget(self.system_title, 0, 0)
         # column titles
         grid.addWidget(self.system_title, 0, 0)
-        self.component_title = ColorLabel('Component', element='h3')
+        self.component_title = ColorLabel('Component', color='blue',
+                                          element='h3')
         grid.addWidget(self.component_title, 0, 1)
         self.field_titles = {}
         # set col names
         for i, name in enumerate(self.fields):
             self.field_titles[name] = ColorLabel(self.fields[name],
-                                                 element='h3')
+                                                 color='blue', element='h3')
             grid.addWidget(self.field_titles[name], 0, i+2)
 
     def on_edit(self, evt):
         self.edit_state = True
+        self.edit_button.setVisible(False)
+        self.view_button.setVisible(True)
+        # clear the grid layout
+        grid = self.dash_panel.layout()
+        for i in reversed(range(grid.count()-1)):
+            grid.takeAt(i).widget().deleteLater()
+        # repopulate it
+        self.setup_dash_interface()
         self.setup_dash_data()
 
     def on_view(self, evt):
         self.edit_state = False
+        self.edit_button.setVisible(True)
+        self.view_button.setVisible(False)
+        # clear the grid layout
+        grid = self.dash_panel.layout()
+        for i in reversed(range(grid.count()-1)):
+            grid.takeAt(i).widget().deleteLater()
+        # repopulate it
+        self.setup_dash_interface()
         self.setup_dash_data()
 
     def setup_dash_data(self):
@@ -1124,16 +1146,16 @@ class ModeDefinitionDashboard(QWidget):
         Add the data.
         """
         self.setup_title_widget()
+        self.sys_dict = mode_defz[self.project.oid]['systems']
+        self.comp_dict = mode_defz[self.project.oid]['components']
         # set row labels
         # ---------------------------------------------------------------------
         # TODO: row labels should be removed / re-added when self.usage changes
         # ---------------------------------------------------------------------
         grid = self.dash_panel.layout()
-        if getattr(self, 'sys_name_label', None):
-            self.sys_name_label.setText(self.sys_name)
-        else:
-            self.sys_name_label = ColorLabel(self.sys_name, element='b')
-            grid.addWidget(self.sys_name_label, 1, 0)
+        self.sys_name_label = ColorLabel(self.sys_name, color='black',
+                                         element='b')
+        grid.addWidget(self.sys_name_label, 1, 0)
         if self.sys_name in ['TBD', '[unknown]']:
             # TODO: remove all previous data from dash, if any ...
             return
@@ -1149,19 +1171,25 @@ class ModeDefinitionDashboard(QWidget):
                 return
             TBD = orb.get('pgefobjects:TBD')
             row = 1
-            # create a dict that maps acu.oid to row ...
-            self.acu_to_row = {}
-            # ... and a dict that maps component.oid to power level selector
-            self.acu_to_l_select = {}
+            # create a dict that maps usage.oid to row ...
+            self.usage_to_row = {}
+            # a dict that maps component.oid to power level selector
+            self.usage_to_l_select = {}
+            # and a dict that maps component.oid to power level setter
+            self.usage_to_l_setter = {}
             for acu in acus:
                 comp = acu.component
                 if comp and comp is not TBD:
-                    name = get_link_name(acu)
                     row += 1
-                    grid.addWidget(ColorLabel(name, element='b'), row, 1)
-                    self.acu_to_row[acu.oid] = row
-                    self.acu_to_l_select[acu.oid] = self.get_l_select(comp)
-                    p_level_select.currentIndexChanged[str].connect(self.set_level)
+                    name = get_link_name(acu)
+                    label = ColorLabel(name, color='black', element='b')
+                    grid.addWidget(label, row, 1)
+                    self.usage_to_row[acu.oid] = row
+                    l_select = self.get_l_select(comp)
+                    self.usage_to_l_select[acu.oid] = l_select
+                    set_l = partial(self.set_level, oid=acu.oid)
+                    self.usage_to_l_setter[acu.oid] = set_l
+                    l_select.currentIndexChanged[str].connect(set_l)
                     self.set_row_fields(acu, row)
 
     def get_l_select(self, comp):
@@ -1171,37 +1199,58 @@ class ModeDefinitionDashboard(QWidget):
         l_select.setCurrentIndex(0)
         return l_select
 
-    def set_row_fields(self, acu, row):
+    def set_level(self, level, oid=None):
+        self.comp_dict[self.usage.oid][oid][self.act.name] = level
+
+    def set_row_fields(self, usage, row):
         # fields: power_level, p_cbe, p_mev, notes
         grid = self.dash_panel.layout()
-        comp = acu.component
+        if isinstance(usage, orb.classes['ProjectSystemUsage']):
+            comp = usage.system
+        elif isinstance(usage, orb.classes['Acu']):
+            comp = usage.component
+        # -------------------
         # power_level (col 2)
+        # -------------------
         if row == 1:
             # TODO: enable to switch from "[computed]" to a specified level
-            label = ButtonLabel('[computed]')
+            val = '[computed]'
+            label = ValueLabel(val, w=80)
             grid.addWidget(label, row, 2)
         else:
             if self.edit_state:
-                grid.addWidget(p_level_select, row, 2)
+                grid.addWidget(self.usage_to_l_select[usage.oid], row, 2)
+            else:
+                val = self.comp_dict[self.usage.oid][usage.oid][self.act.name]
+                label = ValueLabel(val, w=80)
+                grid.addWidget(label, row, 2)
+        # -------------------
         # p_cbe (col 3)
-        if row == 1:
-            label = ButtonLabel('[computed]')
-            grid.addWidget(label, row, 2)
-        else:
-            txt = f'{comp.name} p_cbe'
-            label = ButtonLabel(txt)
-            grid.addWidget(label, row, 3)
+        # -------------------
+        p_cbe_val_str = get_usage_mode_val_as_str(self.project.oid,
+                                                  usage.oid,
+                                                  comp.oid,
+                                                  self.act.name)
+        p_cbe_val = get_usage_mode_val(self.project.oid, usage.oid,
+                                       comp.oid, self.act.name)
+        p_cbe_field = ValueLabel(p_cbe_val_str, w=40)
+        grid.addWidget(p_cbe_field, row, 3)
+        # -------------------
         # p_mev (col 4)
-        if row == 1:
-            label = ButtonLabel('[computed]')
-            grid.addWidget(label, row, 2)
-        else:
-            txt = f'{comp.name} p_mev'
-            label = ButtonLabel(txt)
-            grid.addWidget(label, row, 4)
+        # -------------------
+        ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
+        factor = 1.0 + ctgcy
+        p_mev_val = round_to(p_cbe_val * factor, n=3)
+        p_mev_field = ValueLabel(str(p_mev_val), w=40)
+        grid.addWidget(p_mev_field, row, 4)
+        # -------------------
         # notes (col 5)
-        txt = f'{comp.name} notes'
-        label = ButtonLabel(txt)
+        # -------------------
+        name = get_link_name(usage)
+        # if self.edit_state:
+        # else:
+        txt = f'{name} notes'
+        label = ValueLabel(txt)
         grid.addWidget(label, row, 5)
 
     def set_p_level(self, p_level):
