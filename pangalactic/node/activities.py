@@ -38,7 +38,7 @@ from pangalactic.node.tableviews  import ActivityInfoTable
 from pangalactic.node.widgets     import ColorLabel, NameLabel, ValueLabel
 
 
-DEFAULT_CONTEXTS = ['Nominal', 'Peak', 'Standby', 'Survival', 'Off']
+DEFAULT_CONTEXTS = ['Off', 'Nominal', 'Peak', 'Standby', 'Survival']
 DEFAULT_ACTIVITIES = ['Launch', 'Calibration', 'Propulsion', 'Slew',
                       'Science Mode, Transmitting',
                       'Science Mode, Acquisition',
@@ -388,7 +388,7 @@ class ModesTool(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
         self.sys_tree_panel = QWidget(self)
         self.sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
-                                     QSizePolicy.MinimumExpanding)
+                                          QSizePolicy.MinimumExpanding)
         self.sys_tree_panel.setMinimumWidth(400)
         self.sys_tree_panel.setMaximumWidth(500)
         sys_tree_layout = QVBoxLayout(self.sys_tree_panel)
@@ -982,7 +982,7 @@ class ModeDefinitionDashboard(QWidget):
     Main interface for defining power modes related to an activity.
     """
 
-    def __init__(self, activity=None, user=None, parent=None):
+    def __init__(self, activity=None, usage=None, user=None, parent=None):
         """
         Initialize.
 
@@ -994,6 +994,7 @@ class ModeDefinitionDashboard(QWidget):
         super().__init__(parent=parent)
         self.act = activity
         self.user = user
+        self.usage = getattr(self.act, 'of_system', None) or usage
         self.edit_state = False
         # named fields
         self.fields = dict(power_level='Power\nLevel',
@@ -1024,72 +1025,117 @@ class ModeDefinitionDashboard(QWidget):
         self.setup_dash_interface()
         self.setup_dash_data()
         dispatcher.connect(self.on_activity_focused, "activity focused")
-        dispatcher.connect(self.on_set_of_system, "set of_system")
+        dispatcher.connect(self.on_set_mode_usage, "set mode usage")
+        # dispatcher.connect(self.on_modes_edited, 'modes edited')
+        dispatcher.connect(self.on_modes_published, 'modes published')
+        dispatcher.connect(self.on_remote_sys_mode_datum,
+                           'remote sys mode datum')
+        dispatcher.connect(self.on_remote_comp_mode_datum,
+                           'remote comp mode datum')
 
     @property
     def project(self):
-        self._project = getattr(self.act, 'owner', None)
+        self._project = (getattr(self.act, 'owner', None)
+                         or orb.get(state.get('project'))
+                         or orb.get('pgefobjects:SANDBOX'))
         return self._project
 
     @property
-    def usage(self):
-        self._usage = getattr(self.act, 'of_system', None)
-        if not isinstance(self._usage, (orb.classes['ProjectSystemUsage'],
-                                        orb.classes['Acu'])):
-            self._usage = None
-        return self._usage
+    def sys_name(self):
+        if getattr(self, 'usage', None):
+            self._sys_name = get_link_name(self.usage)
+        else:
+            self._sys_name = 'TBD'
+        return self._sys_name
 
     @property
-    def sys_name(self):
-        self._sys_name = get_link_name(self.usage)
-        self._sys_name = self._sys_name or 'TBD'
-        return self._sys_name
+    def sys_dict(self):
+        return mode_defz[self.project.oid]['systems']
+
+    @property
+    def comp_dict(self):
+        return mode_defz[self.project.oid]['components']
 
     def on_activity_focused(self, act=None):
         orb.log.debug('* MDD: received signal "activity focused"')
         self.act = act
         self.on_view(None)
 
-    def on_set_of_system(self, usage=None):
+    def on_modes_edited(self, oid):
+        orb.log.debug('* MDD: "modes edited" signal received ...')
+        self.on_view(None)
+
+    def on_modes_published(self):
+        orb.log.debug('* MDD: "modes published" signal received ...')
+        self.on_view(None)
+
+    def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
+                                 mode=None, value=None):
+        """
+        Handle remote setting of a sys mode datum.
+
+        Args:
+            project_oid (str): oid of the project object
+            link_oid (str): oid of the link (Acu or PSU)
+            mode (str): name of the mode
+            value (polymorphic): a context name or ...
+        """
+        # TODO: NEW SIGNATURE: instead of "value" -- elements to construct a
+        # PowerState namedtuple:
+        # value_type (str): whether there is a numeric value or a "context"
+        # value (float): value (if any)
+        # context (str): name of a context
+        # contingency (int): interpreted as a percentage
+        if ((link_oid is not None)
+            and (project_oid == self.project.oid)
+            and link_oid in self.sys_dict):
+            self.sys_dict[link_oid][mode] = value
+            self.on_view(None)
+
+    def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
+                                  comp_oid=None, mode=None, value=None):
+        if (link_oid is not None
+            and project_oid == self.project.oid
+            and link_oid in self.comp_dict
+            and comp_oid in self.comp_dict[link_oid]):
+            self.comp_dict[link_oid][comp_oid][mode] = value
+            self.on_view(None)
+            if state.get('mode') == "system":
+                orb.log.debug('  - sending "power modes updated" signal')
+                dispatcher.send("power modes updated")
+
+    def on_set_mode_usage(self, usage=None):
         if usage:
-            if isinstance(self.act, orb.classes['Mission']):
-                # 'of_system' cannot be set for a Mission -- or equivalently,
-                # system modes cannot be set at Mission level; must be for a
-                # specified activity
-                self.on_view(None)
-                return
-            act = orb.select('Activity', name=self.act.name, of_system=usage)
-            if act and act is not self.act:
-                self.act = act
-            elif not act:
-                # should also replicate parms? (start, duration, etc.)
-                act_id = self.act.id + '-' + usage.id
-                act_name = self.act.name
-                act_owner = self.act.owner
-                act_type = self.act.activity_type
-                self.act = clone('Activity', id=act_id, name=act_name,
-                                 activity_type=act_type, of_system=usage,
-                                 owner=act_owner)
+            self.usage = usage
         self.on_view(None)
 
     def setup_title_widget(self):
         blue_text = '<font color="blue">{}</font>'
         title_txt = ''
         if isinstance(self.act, orb.classes['Mission']):
-            title_txt += 'To specify '
-            title_txt += blue_text.format('Power Modes')
-            title_txt += ', select an '
-            title_txt += blue_text.format('Activity')
-            title_txt += ' in the timeline and a '
-            title_txt += blue_text.format('System')
-            title_txt += ' from the assembly ...'
-        elif not self.act.of_system:
+            if self.usage:
+                title_txt += 'To specify a '
+                title_txt += blue_text.format('Power Mode')
+                title_txt += ' for the '
+                title_txt += blue_text.format(self.sys_name)
+                title_txt += ', system select an '
+                title_txt += blue_text.format('Activity')
+                title_txt += ' in the timeline ... '
+            else:
+                title_txt += 'To specify '
+                title_txt += blue_text.format('Power Modes')
+                title_txt += ', select an '
+                title_txt += blue_text.format('Activity')
+                title_txt += ' in the timeline and a '
+                title_txt += blue_text.format('System')
+                title_txt += ' from the assembly ...'
+        elif self.act and not self.usage:
             title_txt += 'To specify '
             title_txt += blue_text.format(self.act.name)
             title_txt += ' Power Modes, select a '
             title_txt += blue_text.format('System')
             title_txt += ' ...'
-        else:
+        elif self.act and self.usage:
             title_txt += blue_text.format(self.act.name)
             title_txt += ' Power Mode for '
             title_txt += blue_text.format(self.sys_name)
@@ -1123,7 +1169,7 @@ class ModeDefinitionDashboard(QWidget):
         self.view_button.setVisible(True)
         # clear the grid layout
         grid = self.dash_panel.layout()
-        for i in reversed(range(grid.count()-1)):
+        for i in reversed(range(grid.count())):
             grid.takeAt(i).widget().deleteLater()
         # repopulate it
         self.setup_dash_interface()
@@ -1135,7 +1181,7 @@ class ModeDefinitionDashboard(QWidget):
         self.view_button.setVisible(False)
         # clear the grid layout
         grid = self.dash_panel.layout()
-        for i in reversed(range(grid.count()-1)):
+        for i in reversed(range(grid.count())):
             grid.takeAt(i).widget().deleteLater()
         # repopulate it
         self.setup_dash_interface()
@@ -1146,8 +1192,6 @@ class ModeDefinitionDashboard(QWidget):
         Add the data.
         """
         self.setup_title_widget()
-        self.sys_dict = mode_defz[self.project.oid]['systems']
-        self.comp_dict = mode_defz[self.project.oid]['components']
         # set row labels
         # ---------------------------------------------------------------------
         # TODO: row labels should be removed / re-added when self.usage changes
@@ -1189,7 +1233,7 @@ class ModeDefinitionDashboard(QWidget):
                     self.usage_to_l_select[acu.oid] = l_select
                     set_l = partial(self.set_level, oid=acu.oid)
                     self.usage_to_l_setter[acu.oid] = set_l
-                    l_select.currentIndexChanged[str].connect(set_l)
+                    l_select.activated[str].connect(set_l)
                     self.set_row_fields(acu, row)
 
     def get_l_select(self, comp):
@@ -1200,7 +1244,29 @@ class ModeDefinitionDashboard(QWidget):
         return l_select
 
     def set_level(self, level, oid=None):
+        """
+        Set power level (context) for the acu whose oid is specified for the
+        mode whose name is self.act.name.
+        """
         self.comp_dict[self.usage.oid][oid][self.act.name] = level
+        orb.log.debug(' - mode datum set:')
+        orb.log.debug(f'   level = {level}')
+        orb.log.debug(f'   acu oid = {oid}')
+        # NOTE: "system" dict settings can be handled later ...
+        # (i.e. items in the "system" dict that either have no components or
+        # whose components power specs are being ignored ...)
+        # if oid in self.sys_dict:
+            # orb.log.debug(' - sending "sys mode datum set" signal')
+            # dispatcher.send(signal='sys mode datum set',
+                            # datum=(self.project.oid, oid, mode,
+                                   # value))
+        # else:
+        sys_oid = self.usage.oid
+        mode = self.act.name
+        value = level
+        orb.log.debug(' - sending "comp mode datum set" signal')
+        dispatcher.send(signal='comp mode datum set',
+                        datum=(self.project.oid, sys_oid, oid, mode, value))
 
     def set_row_fields(self, usage, row):
         # fields: power_level, p_cbe, p_mev, notes

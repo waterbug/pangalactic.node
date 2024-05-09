@@ -26,7 +26,7 @@ Initially, ConOps shows a blank timeline for the current project
 # import numpy as np
 
 import os
-from functools import reduce
+# from functools import reduce
 
 # Louie
 from louie import dispatcher
@@ -1004,21 +1004,17 @@ class ConOpsModeler(QMainWindow):
             # sys_dict (i.e. if it is of interest in defining modes ...)
             project_mode_defz = mode_defz[self.project.oid]
             sys_dict = project_mode_defz['systems']
-            all_comp_acu_oids = reduce(lambda x,y: x+y,
-                [list(project_mode_defz['components'].get(sys_oid, {}).keys())
-                 for sys_oid in sys_dict], [])
+            # all_comp_acu_oids = reduce(lambda x,y: x+y,
+                # [list(project_mode_defz['components'].get(sys_oid, {}).keys())
+                 # for sys_oid in sys_dict], [])
             if link.oid in sys_dict:
                 # set as subject's usage
                 self.set_usage(link)
-                # signal to mode_dash to set it as usage ...
-                dispatcher.send(signal='set of_system', usage=link)
-            elif link.oid in all_comp_acu_oids:
-                # signal to mode_dash to set an activity that has
-                # an of_system for whose product this usage is a component ...
-                dispatcher.send(signal='set of_system with comp', usage=link)
+                # signal to mode_dash to set this link as its usage ...
+                dispatcher.send(signal='set mode usage', usage=link)
             else:
-                # the item does not yet exist in mode_defz as either a system
-                # or a component -- notify the user and ask if they want to
+                # the item does not yet exist in mode_defz as a system
+                # -- notify the user and ask if they want to
                 # define modes for it ...
                 dlg = DefineModesDialog(usage=link)
                 if dlg.exec_() == QDialog.Accepted:
@@ -1049,6 +1045,7 @@ class ConOpsModeler(QMainWindow):
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
         mode_dict = project_mode_defz['modes']
+        in_comp_dict = False
         if link.oid in sys_dict:
             # if selected link is in sys_dict, remove it
             orb.log.debug(f' - removing "{name}" from systems ...')
@@ -1093,7 +1090,6 @@ class ConOpsModeler(QMainWindow):
                 (hasattr(link, 'component')
                  and link.component.components)):
                 has_components = True
-            in_comp_dict = False
             for syslink_oid in comp_dict:
                 if link.oid in comp_dict[syslink_oid]:
                     in_comp_dict = True
@@ -1157,9 +1153,9 @@ class ConOpsModeler(QMainWindow):
             # now been added to the sys_dict -- make it the subject usage ...
             # otherwise, ignore it
             self.set_usage(link)
-        dispatcher.send(signal='modes edited', oid=self.project.oid)
+        # dispatcher.send(signal='modes edited', oid=self.project.oid)
         # signal to the mode_dash to set this link as its usage
-        dispatcher.send(signal='set of_system', usage=link)
+        dispatcher.send(signal='set mode usage', usage=link)
 
     def set_usage(self, usage):
         orb.log.debug("* ConOpsModeler.set_usage()")
