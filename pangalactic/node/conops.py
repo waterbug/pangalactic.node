@@ -346,7 +346,7 @@ class TimelineScene(QGraphicsScene):
                   getattr(getattr(self.act_of, 'owner', None), 'id', '') or
                   'Mission')
         act_id = '-'.join([prefix, name, str(seq)])
-        act_name = ' '.join([prefix, name, str(seq)])
+        act_name = ' '.join([name, str(seq)])
         activity = clone("Activity", id=act_id, name=act_name,
                          activity_type=activity_type,
                          owner=self.subject.owner,
@@ -795,9 +795,10 @@ class ConOpsModeler(QMainWindow):
                 mission_id = '_'.join([self.project.id, 'mission'])
                 mission = clone('Mission', id=mission_id, name=mission_name,
                                 owner=self.project)
-                orb.save([mission])
+                # orb.save([mission])
+                orb.db.commit()
                 orb.log.debug('* [ConOps] creating default activities ...')
-                acts = []
+                acts = [mission]
                 seq = 0
                 for name in DEFAULT_ACTIVITIES:
                     activity_type = orb.get(
@@ -813,9 +814,8 @@ class ConOpsModeler(QMainWindow):
                     orb.db.commit()
                     acts.append(activity)
                     seq += 1
-                new_objs = [mission] + acts
                 orb.log.debug('* [ConOps] sending "new objects" signal')
-                dispatcher.send("new objects", objs=new_objs)
+                dispatcher.send("new objects", objs=acts)
             self.subject = mission
         # first make sure that mode_defz[self.project.oid] is initialized ...
         names = []
