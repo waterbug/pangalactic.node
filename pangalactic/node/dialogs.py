@@ -2705,6 +2705,7 @@ class AddActivityDialog(QDialog):
     def __init__(self, defaults=None, parent=None):
         super().__init__(parent)
         orb.log.debug('* AddActivityDialog')
+        self.name = 'Activity To Be Named'
         self.setWindowTitle("Add a new Activity")
         parent_act = parent.subject
         orb.log.debug(f'  - parent activity is "{parent_act.id}"')
@@ -2742,7 +2743,6 @@ class AddActivityDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
 
     def set_name(self, clicked_index):
-        self.name = 'Activity To Be Named'
         b = self.name_buttons.checkedButton()
         if b:
             self.name = b.text()

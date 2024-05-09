@@ -1049,6 +1049,10 @@ class ModeDefinitionDashboard(QWidget):
         return self._sys_name
 
     @property
+    def mode_dict(self):
+        return mode_defz[self.project.oid]['modes']
+
+    @property
     def sys_dict(self):
         return mode_defz[self.project.oid]['systems']
 
@@ -1059,6 +1063,9 @@ class ModeDefinitionDashboard(QWidget):
     def on_activity_focused(self, act=None):
         orb.log.debug('* MDD: received signal "activity focused"')
         self.act = act
+        # make sure mode_defz has this activity name as a mode
+        if act.name not in self.mode_dict:
+            self.mode_dict[act.name] = "Off"
         self.on_view(None)
 
     def on_modes_edited(self, oid):
@@ -1284,10 +1291,15 @@ class ModeDefinitionDashboard(QWidget):
             label = ValueLabel(val, w=80)
             grid.addWidget(label, row, 2)
         else:
+            val = self.comp_dict[self.usage.oid][usage.oid].get(
+                                            self.act.name) or "Off"
             if self.edit_state:
+                i = self.usage_to_l_select[usage.oid].findText(val)
+                if i == -1:
+                    i = 0
+                self.usage_to_l_select[usage.oid].setCurrentIndex(i)
                 grid.addWidget(self.usage_to_l_select[usage.oid], row, 2)
             else:
-                val = self.comp_dict[self.usage.oid][usage.oid][self.act.name]
                 label = ValueLabel(val, w=80)
                 grid.addWidget(label, row, 2)
         # -------------------
@@ -1299,6 +1311,8 @@ class ModeDefinitionDashboard(QWidget):
                                                   self.act.name)
         p_cbe_val = get_usage_mode_val(self.project.oid, usage.oid,
                                        comp.oid, self.act.name)
+        # TODO: possible to get None -- possible bug in get_pval ...
+        p_cbe_val = p_cbe_val or 0.0
         p_cbe_field = ValueLabel(p_cbe_val_str, w=40)
         grid.addWidget(p_cbe_field, row, 3)
         # -------------------

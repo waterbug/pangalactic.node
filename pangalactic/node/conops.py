@@ -348,7 +348,8 @@ class TimelineScene(QGraphicsScene):
         act_id = '-'.join([prefix, name, str(seq)])
         act_name = ' '.join([prefix, name, str(seq)])
         activity = clone("Activity", id=act_id, name=act_name,
-                         activity_type=activity_type, owner=self.project,
+                         activity_type=activity_type,
+                         owner=self.subject.owner,
                          of_system=self.act_of,
                          sub_activity_of=self.subject,
                          sub_activity_sequence=seq)
