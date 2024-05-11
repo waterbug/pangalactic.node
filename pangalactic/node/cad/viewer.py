@@ -159,7 +159,12 @@ class QtViewer3DColor(QtBaseViewer):
         Keyword Args:
             model_type (str):  "step", "stl", or "brep"
         """
-        self._display = OCCViewer.Viewer3d(self.GetHandle())
+        try:
+            # for pythonocc-core 7.4.0
+            self._display = OCCViewer.Viewer3d(self.GetHandle())
+        except:
+            # for pythonocc-core 7.7.0
+            self._display = OCCViewer.Viewer3d()
         self._display.Create()
         self._display.set_bg_gradient_color([206, 215, 222],
                                             [128, 128, 128])

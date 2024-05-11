@@ -83,7 +83,6 @@ from pangalactic.core.test.utils       import (create_test_project,
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
-# from pangalactic.node.activities       import ModeDefinitionTool, ModesTool
 from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
@@ -363,8 +362,9 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
-        dispatcher.connect(self.on_power_modes_updated, 'power modes updated')
-        # NOTE: Entity apparatus is not currently being used
+        # NOTE: "power modes udpated" signal can be ignored here because
+        # currently there is no "System Power Modes" dashboard in pgxn ...
+        # dispatcher.connect(self.on_power_modes_updated, 'power modes updated')
         dispatcher.connect(self.on_new_project_signal, 'new project')
         dispatcher.connect(self.mod_dashboard, 'dashboard mod')
         dispatcher.connect(self.on_parm_recompute, 'parameters recomputed')
@@ -2158,22 +2158,6 @@ class Main(QMainWindow):
                                 icon='lander',
                                 tip="Manage Requirements for the Current Project",
                                 modes=['system', 'component', 'db'])
-        # modes_def_action_tip = "Define Operational Power Modes"
-        # self.modes_def_action = self.create_action(
-                                    # "Define Operational Modes",
-                                    # slot=self.define_op_modes,
-                                    # icon='lander',
-                                    # tip=modes_def_action_tip,
-                                    # modes=['system'])
-        # default:  modes_def_action is not visible if not authorized
-        # self.modes_def_action.setEnabled(False)
-        # self.modes_def_action.setVisible(False)
-        # new modes tool ...
-        # self.mode_def_tool_action = self.create_action(
-                                    # "Mode Definition Tool",
-                                    # slot=self.mode_def_tool,
-                                    # icon='lander',
-                                    # modes=['system', 'component'])
         conops_tip_text = "Model a Concept of Operations"
         self.conops_modeler_action = self.create_action(
                                 "ConOps Modeler",
@@ -3578,7 +3562,7 @@ class Main(QMainWindow):
 
     def on_mode_defs_edited(self, oid=None):
         """
-        Handle local ModesTool "modes edited" signal.
+        Handle local "modes edited" signal.
         """
         orb.log.debug('* signal: "modes edited"')
         proj_mode_defs = mode_defz.get(oid) or {}
@@ -5664,14 +5648,6 @@ class Main(QMainWindow):
         win = ConOpsModeler(parent=self)
         win.move(50, 50)
         win.show()
-
-    # def define_op_modes(self):
-        # win = ModesTool(self.project, parent=self)
-        # win.show()
-
-    # def mode_def_tool(self):
-        # win = ModeDefinitionTool(self.project, parent=self)
-        # win.show()
 
     def sc_42_modeler(self):
         w = 4 * self.geometry().width() / 5

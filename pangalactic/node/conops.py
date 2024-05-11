@@ -939,8 +939,7 @@ class ConOpsModeler(QMainWindow):
             sys_tree_layout.addWidget(self.sys_select_tree,
                                       alignment=Qt.AlignTop)
             sys_modes_layout.addLayout(sys_tree_layout)
-            self.mode_dash = ModeDefinitionDashboard(activity=self.subject,
-                                                     parent=self)
+            self.mode_dash = ModeDefinitionDashboard(parent=self)
             self.mode_dash.setObjectName('Mode Dash')
             mode_dash_layout = QVBoxLayout()
             mode_dash_layout.setObjectName('Mode Dash Layout')
