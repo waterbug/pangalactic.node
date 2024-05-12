@@ -377,7 +377,7 @@ class ModeDefinitionDashboard(QWidget):
         self.setup_dash_data()
         dispatcher.connect(self.on_activity_focused, "activity focused")
         dispatcher.connect(self.on_set_mode_usage, "set mode usage")
-        # dispatcher.connect(self.on_modes_edited, 'modes edited')
+        dispatcher.connect(self.on_modes_edited, 'modes edited')
         dispatcher.connect(self.on_modes_published, 'modes published')
         dispatcher.connect(self.on_remote_sys_mode_datum,
                            'remote sys mode datum')
@@ -430,11 +430,17 @@ class ModeDefinitionDashboard(QWidget):
 
     def on_modes_edited(self, oid):
         orb.log.debug('* MDD: "modes edited" signal received ...')
-        self.on_view(None)
+        if self.edit_state:
+            self.on_edit(None)
+        else:
+            self.on_view(None)
 
     def on_modes_published(self):
         orb.log.debug('* MDD: "modes published" signal received ...')
-        self.on_view(None)
+        if self.edit_state:
+            self.on_edit(None)
+        else:
+            self.on_view(None)
 
     def on_remote_sys_mode_datum(self, project_oid=None, link_oid=None,
                                  mode=None, value=None):
@@ -453,29 +459,42 @@ class ModeDefinitionDashboard(QWidget):
         # value (float): value (if any)
         # context (str): name of a context
         # contingency (int): interpreted as a percentage
+        orb.log.debug('* MDD: "remote sys mode datum" signal received ...')
         if ((link_oid is not None)
             and (project_oid == self.project.oid)
             and link_oid in self.sys_dict):
             self.sys_dict[link_oid][mode] = value
-            self.on_view(None)
+            if self.edit_state:
+                self.on_edit(None)
+            else:
+                self.on_view(None)
 
     def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
                                   comp_oid=None, mode=None, value=None):
+        orb.log.debug('* MDD: "remote sys mode datum" signal received ...')
         if (link_oid is not None
             and project_oid == self.project.oid
             and link_oid in self.comp_dict
             and comp_oid in self.comp_dict[link_oid]):
+            orb.log.debug('  updating comp_dict ...')
             self.comp_dict[link_oid][comp_oid][mode] = value
-            self.on_view(None)
-            if state.get('mode') == "system":
-                orb.log.debug('  - sending "power modes updated" signal')
-                dispatcher.send("power modes updated")
+            if self.edit_state:
+                orb.log.debug('  calling on_edit() ...')
+                self.on_edit(None)
+            else:
+                orb.log.debug('  calling on_view() ...')
+                self.on_view(None)
+            orb.log.debug('  - sending "power modes updated" signal')
+            dispatcher.send("power modes updated")
 
     def on_set_mode_usage(self, usage=None):
         if usage:
             self.usage = usage
             state['mdd usage'] = usage.oid
-        self.on_view(None)
+            if self.edit_state:
+                self.on_edit(None)
+            else:
+                self.on_view(None)
 
     def setup_title_widget(self):
         blue_text = '<font color="blue">{}</font>'
@@ -618,7 +637,7 @@ class ModeDefinitionDashboard(QWidget):
         mode whose name is self.act.name.
         """
         self.comp_dict[self.usage.oid][oid][self.act.name] = level
-        orb.log.debug(' - mode datum set:')
+        orb.log.debug(' - comp mode datum set:')
         orb.log.debug(f'   level = {level}')
         orb.log.debug(f'   acu oid = {oid}')
         # NOTE: "system" dict settings can be handled later ...
@@ -636,10 +655,13 @@ class ModeDefinitionDashboard(QWidget):
         orb.log.debug(' - sending "comp mode datum set" signal')
         dispatcher.send(signal='comp mode datum set',
                         datum=(self.project.oid, sys_oid, oid, mode, value))
+        self.on_edit(None)
 
     def set_row_fields(self, usage, row):
         # fields: power_level, p_cbe, p_mev, notes
         grid = self.dash_panel.layout()
+        self.p_cbe_fields = {}
+        self.p_mev_fields = {}
         if isinstance(usage, orb.classes['ProjectSystemUsage']):
             comp = usage.system
         elif isinstance(usage, orb.classes['Acu']):
@@ -675,16 +697,27 @@ class ModeDefinitionDashboard(QWidget):
                                        comp.oid, self.act.name)
         # TODO: possible to get None -- possible bug in get_pval ...
         p_cbe_val = p_cbe_val or 0.0
-        p_cbe_field = ValueLabel(p_cbe_val_str, w=40)
-        grid.addWidget(p_cbe_field, row, 2)
+        p_cbe_field = self.p_cbe_fields.get(comp.oid)
+        if p_cbe_field:
+            p_cbe_field.setText(p_cbe_val_str)
+        else:
+            p_cbe_field = ValueLabel(p_cbe_val_str, w=40)
+            self.p_cbe_fields[comp.oid] = p_cbe_field
+            grid.addWidget(p_cbe_field, row, 2)
         # -------------------
         # p_mev (col 3)
         # -------------------
         ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
         factor = 1.0 + ctgcy
         p_mev_val = round_to(p_cbe_val * factor, n=3)
-        p_mev_field = ValueLabel(str(p_mev_val), w=40)
-        grid.addWidget(p_mev_field, row, 3)
+        p_mev_val_str = str(p_mev_val)
+        p_mev_field = self.p_mev_fields.get(comp.oid)
+        if p_mev_field:
+            p_mev_field.setText(p_mev_val_str)
+        else:
+            p_mev_field = ValueLabel(p_mev_val_str, w=40)
+            self.p_mev_fields[comp.oid] = p_mev_field
+            grid.addWidget(p_mev_field, row, 3)
         # -------------------
         # notes (col 4)
         # -------------------
