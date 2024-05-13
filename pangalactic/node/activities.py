@@ -424,9 +424,9 @@ class ModeDefinitionDashboard(QWidget):
     def on_activity_focused(self, act=None):
         orb.log.debug('* MDD: received signal "activity focused"')
         self.act = act
-        # make sure mode_defz has this activity name as a mode
-        if act and act.name not in self.mode_dict:
-            self.mode_dict[act.name] = "Off"
+        # make sure mode_defz has this activity oid as a mode
+        if act and act.oid not in self.mode_dict:
+            self.mode_dict[act.oid] = act.name
 
     def on_modes_edited(self, oid):
         orb.log.debug('* MDD: "modes edited" signal received ...')
@@ -634,9 +634,9 @@ class ModeDefinitionDashboard(QWidget):
     def set_level(self, level, oid=None):
         """
         Set power level (context) for the acu whose oid is specified for the
-        mode whose name is self.act.name.
+        mode self.act.oid.
         """
-        self.comp_dict[self.usage.oid][oid][self.act.name] = level
+        self.comp_dict[self.usage.oid][oid][self.act.oid] = level
         orb.log.debug(' - comp mode datum set:')
         orb.log.debug(f'   level = {level}')
         orb.log.debug(f'   acu oid = {oid}')
@@ -650,7 +650,7 @@ class ModeDefinitionDashboard(QWidget):
                                    # value))
         # else:
         sys_oid = self.usage.oid
-        mode = self.act.name
+        mode = self.act.oid
         value = level
         orb.log.debug(' - sending "comp mode datum set" signal')
         dispatcher.send(signal='comp mode datum set',
@@ -676,7 +676,7 @@ class ModeDefinitionDashboard(QWidget):
             grid.addWidget(label, row, 1)
         else:
             val = self.comp_dict[self.usage.oid][usage.oid].get(
-                                            self.act.name) or "Off"
+                                            self.act.oid) or "Off"
             if self.edit_state:
                 i = self.usage_to_l_select[usage.oid].findText(val)
                 if i == -1:
@@ -692,9 +692,9 @@ class ModeDefinitionDashboard(QWidget):
         p_cbe_val_str = get_usage_mode_val_as_str(self.project.oid,
                                                   usage.oid,
                                                   comp.oid,
-                                                  self.act.name)
+                                                  self.act.oid)
         p_cbe_val = get_usage_mode_val(self.project.oid, usage.oid,
-                                       comp.oid, self.act.name)
+                                       comp.oid, self.act.oid)
         # TODO: possible to get None -- possible bug in get_pval ...
         p_cbe_val = p_cbe_val or 0.0
         p_cbe_field = self.p_cbe_fields.get(comp.oid)
