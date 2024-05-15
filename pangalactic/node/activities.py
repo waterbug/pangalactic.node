@@ -23,6 +23,7 @@ from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 # from pangalactic.core.parametrics import get_pval_as_str,
 from pangalactic.core.parametrics import (get_pval, get_power_contexts,
+                                          get_modal_context,
                                           get_usage_mode_val,
                                           get_usage_mode_val_as_str,
                                           mode_defz, round_to)
@@ -411,15 +412,32 @@ class ModeDefinitionDashboard(QWidget):
 
     @property
     def mode_dict(self):
-        return mode_defz[self.project.oid]['modes']
+        # maps act.oid to act.name (aka "mode") for sub_activities of the
+        # project's Mission
+        md = {}
+        mission = orb.select('Mission', owner=self.project)
+        if mission:
+            acts = mission.sub_activities
+            if acts:
+                md = {act.oid: act.name for act in acts}
+        mode_defz[self.project.oid]['modes'] = md
+        return md
 
     @property
     def sys_dict(self):
-        return mode_defz[self.project.oid]['systems']
+        sd = mode_defz[self.project.oid].get('systems')
+        if sd is None:
+            mode_defz[self.project.oid]['systems'] = {}
+            sd = mode_defz[self.project.oid]['systems']
+        return sd
 
     @property
     def comp_dict(self):
-        return mode_defz[self.project.oid]['components']
+        cd = mode_defz[self.project.oid].get('components')
+        if cd is None:
+            mode_defz[self.project.oid]['components'] = {}
+            cd = mode_defz[self.project.oid]['components']
+        return cd
 
     def on_activity_focused(self, act=None):
         orb.log.debug('* MDD: received signal "activity focused"')
@@ -669,22 +687,23 @@ class ModeDefinitionDashboard(QWidget):
         # -------------------
         # power_level (col 1)
         # -------------------
+        modal_context = ''  # a.k.a. power level
         if row == 1:
             # TODO: enable to switch from "[computed]" to a specified level
-            val = '[computed]'
-            label = ValueLabel(val, w=80)
+            modal_context = '[computed]'
+            label = ValueLabel(modal_context, w=80)
             grid.addWidget(label, row, 1)
         else:
-            val = self.comp_dict[self.usage.oid][usage.oid].get(
-                                            self.act.oid) or "Off"
+            modal_context = get_modal_context(self.project.oid, usage.oid,
+                                              self.act.oid)
             if self.edit_state:
-                i = self.usage_to_l_select[usage.oid].findText(val)
+                i = self.usage_to_l_select[usage.oid].findText(modal_context)
                 if i == -1:
                     i = 0
                 self.usage_to_l_select[usage.oid].setCurrentIndex(i)
                 grid.addWidget(self.usage_to_l_select[usage.oid], row, 1)
             else:
-                label = ValueLabel(val, w=80)
+                label = ValueLabel(modal_context, w=80)
                 grid.addWidget(label, row, 1)
         # -------------------
         # p_cbe (col 2)
@@ -695,6 +714,8 @@ class ModeDefinitionDashboard(QWidget):
                                                   self.act.oid)
         p_cbe_val = get_usage_mode_val(self.project.oid, usage.oid,
                                        comp.oid, self.act.oid)
+        # p_cbe_val = get_modal_power(self.project.oid, usage.oid, comp.oid,
+                                    # self.act.oid, modal_context)
         # TODO: possible to get None -- possible bug in get_pval ...
         p_cbe_val = p_cbe_val or 0.0
         p_cbe_field = self.p_cbe_fields.get(comp.oid)
