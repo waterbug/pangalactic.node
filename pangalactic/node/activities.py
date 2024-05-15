@@ -31,6 +31,7 @@ from pangalactic.core.validation  import get_assembly
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.tableviews  import ActivityInfoTable
+from pangalactic.node.utils       import get_all_project_usages
 from pangalactic.node.widgets     import ColorLabel, NameLabel, ValueLabel
 
 
@@ -346,7 +347,17 @@ class ModeDefinitionDashboard(QWidget):
         self.user = user
         self.usage = getattr(self.act, 'of_system', None) or usage
         if not self.usage:
-            self.usage = orb.get(state.get('mdd usage'))
+            valid_usage = False
+            usage = orb.get(state.get('mdd usage'))
+            if hasattr(usage, 'component'):
+                projects = get_all_project_usages(usage.component)
+                if self.project in projects:
+                    valid_usage = True
+            elif hasattr(usage, 'project'):
+                if self.project is usage.project:
+                    valid_usage = True
+            if valid_usage:
+                self.usage = usage
         self.edit_state = False
         # named fields
         self.fields = dict(power_level='Power\nLevel',
@@ -387,18 +398,22 @@ class ModeDefinitionDashboard(QWidget):
 
     @property
     def act(self):
-        return orb.get(state.get('mdd act'))
+        a = orb.get(state.get('mdd act'))
+        if a.owner is self.project:
+            return a
+        else:
+            return None
 
     @act.setter
     def act(self, v):
         if v and isinstance(v, orb.classes['Activity']):
-            state['mdd act'] = v.oid
+            if v.owner is self.project:
+                state['mdd act'] = v.oid
         self.on_view(None)
 
     @property
     def project(self):
-        self._project = (getattr(self.act, 'owner', None)
-                         or orb.get(state.get('project'))
+        self._project = (orb.get(state.get('project'))
                          or orb.get('pgefobjects:SANDBOX'))
         return self._project
 
