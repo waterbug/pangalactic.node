@@ -109,8 +109,12 @@ class EventBlock(QGraphicsPolygonItem):
                                       self, point_size=8)
 
     def update_block_label(self):
-        self.block_label.set_text(getattr(self.activity, 'name', 'No Name')
-                                          or 'No Name')
+        try:
+            self.block_label.set_text(getattr(self.activity, 'name', 'No Name')
+                                      or 'No Name')
+        except:
+            # our C++ object probably got deleted ...
+            pass
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
