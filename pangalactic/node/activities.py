@@ -341,7 +341,7 @@ class ModeDefinitionDashboard(QWidget):
         """
         super().__init__(parent=parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.act = activity
+        self.act = activity or orb.get(state.get('mdd act'))
         act_name = getattr(self.act, 'name', '(not set)')
         orb.log.debug(f'* MDD: activity is "{act_name}"')
         self.user = user
@@ -364,27 +364,17 @@ class ModeDefinitionDashboard(QWidget):
                            p_cbe='Power\nCBE\n(Watts)',
                            p_mev='Power\nMEV\n(Watts)',
                            notes='Notes')
-        main_layout = QVBoxLayout()
-        self.setLayout(main_layout)
+        self.main_layout = QVBoxLayout()
+        self.setLayout(self.main_layout)
         title_layout = QHBoxLayout()
         self.setup_title_widget()
         title_layout.addWidget(self.title_widget)
         title_layout.addStretch(1)
-        main_layout.addLayout(title_layout)
-        self.edit_button = SizedButton('Edit')
-        self.edit_button.clicked.connect(self.on_edit)
-        self.view_button = SizedButton('View')
-        self.view_button.setVisible(False)
-        self.view_button.clicked.connect(self.on_view)
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.edit_button)
-        button_layout.addWidget(self.view_button)
-        button_layout.addStretch()
-        main_layout.addLayout(button_layout)
+        self.main_layout.addLayout(title_layout)
         self.dash_panel = QWidget(parent=self)
         grid = QGridLayout()
         self.dash_panel.setLayout(grid)
-        main_layout.addWidget(self.dash_panel)
+        self.main_layout.addWidget(self.dash_panel)
         self.setup_dash_interface()
         self.setup_dash_data()
         dispatcher.connect(self.on_activity_focused, "activity focused")
@@ -523,12 +513,17 @@ class ModeDefinitionDashboard(QWidget):
             dispatcher.send("power modes updated")
 
     def on_set_mode_usage(self, usage=None):
+        orb.log.debug('* MDD: received signal "set mode usage"')
+        name = get_link_name(usage) or '[none]'
+        orb.log.debug(f'  usage: {name}')
         if usage:
             self.usage = usage
             state['mdd usage'] = usage.oid
             if self.edit_state:
+                orb.log.debug('  in edit state: calling on_edit()')
                 self.on_edit(None)
             else:
+                orb.log.debug('  in view state: calling on_view()')
                 self.on_view(None)
 
     def setup_title_widget(self):
@@ -583,24 +578,32 @@ class ModeDefinitionDashboard(QWidget):
 
     def on_edit(self, evt):
         self.edit_state = True
-        self.edit_button.setVisible(False)
-        self.view_button.setVisible(True)
         # clear the grid layout
-        grid = self.dash_panel.layout()
-        for i in reversed(range(grid.count())):
-            grid.takeAt(i).widget().deleteLater()
+        try:
+            grid = self.dash_panel.layout()
+            for i in reversed(range(grid.count())):
+                grid.takeAt(i).widget().deleteLater()
+        except:
+            self.dash_panel = QWidget(parent=self)
+            grid = QGridLayout()
+            self.dash_panel.setLayout(grid)
+            self.main_layout.addWidget(self.dash_panel)
         # repopulate it
         self.setup_dash_interface()
         self.setup_dash_data()
 
     def on_view(self, evt):
         self.edit_state = False
-        self.edit_button.setVisible(True)
-        self.view_button.setVisible(False)
         # clear the grid layout
-        grid = self.dash_panel.layout()
-        for i in reversed(range(grid.count())):
-            grid.takeAt(i).widget().deleteLater()
+        try:
+            grid = self.dash_panel.layout()
+            for i in reversed(range(grid.count())):
+                grid.takeAt(i).widget().deleteLater()
+        except:
+            self.dash_panel = QWidget(parent=self)
+            grid = QGridLayout()
+            self.dash_panel.setLayout(grid)
+            self.main_layout.addWidget(self.dash_panel)
         # repopulate it
         self.setup_dash_interface()
         self.setup_dash_data()
@@ -657,6 +660,15 @@ class ModeDefinitionDashboard(QWidget):
                         self.usage_to_l_setter[acu.oid] = set_l
                         l_select.activated[str].connect(set_l)
                     self.set_row_fields(acu, row)
+            row += 1
+            if self.edit_state:
+                self.view_button = SizedButton('View')
+                self.view_button.clicked.connect(self.on_view)
+                grid.addWidget(self.view_button, row, 0)
+            else:
+                self.edit_button = SizedButton('Edit')
+                self.edit_button.clicked.connect(self.on_edit)
+                grid.addWidget(self.edit_button, row, 0)
 
     def get_l_select(self, comp):
         contexts = get_power_contexts(comp) or DEFAULT_CONTEXTS
