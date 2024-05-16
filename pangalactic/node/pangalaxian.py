@@ -155,7 +155,15 @@ class Main(QMainWindow):
 
     # compatible release versions -- used to determine compatibility of the
     # "home" directory
-    compat_versions = [Version('4.1.dev7')]
+    compat_versions = [
+                       Version('4.1.dev2'),
+                       Version('4.1.dev3'),
+                       Version('4.1.dev4'),
+                       Version('4.1.dev5'),
+                       Version('4.1.dev6'),
+                       Version('4.1.dev7'),
+                       Version('4.1.dev8')
+                       ]
 
     # signals
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
