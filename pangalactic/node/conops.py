@@ -64,7 +64,7 @@ from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (AddActivityDialog, DefineModesDialog,
                                           NotificationDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.widgets     import NameLabel
+from pangalactic.node.widgets     import ColorLabel, NameLabel
 
 
 
@@ -783,44 +783,44 @@ class ConOpsModeler(QMainWindow):
         orb.log.info('* ConOpsModeler initializing')
         proj_id = self.project.id
         mission_name = ' '.join([proj_id, 'Mission'])
-        mission = None
+        self.mission = orb.select('Mission', name=mission_name,
+                                  owner=self.project)
+        if not self.mission:
+            orb.log.debug('* [ConOps] creating a new Mission ...')
+            message = f"{proj_id} had no Mission object; creating one ..."
+            popup = QMessageBox(
+                        QMessageBox.Information,
+                        "Creating Mission Object", message,
+                        QMessageBox.Ok, self)
+            popup.show()
+            mission_id = '_'.join([self.project.id, 'mission'])
+            self.mission = clone('Mission', id=mission_id, name=mission_name,
+                                 owner=self.project)
+            # orb.save([self.mission])
+            orb.db.commit()
+            orb.log.debug('* [ConOps] creating default activities ...')
+            acts = [self.mission]
+            seq = 0
+            for name in DEFAULT_ACTIVITIES:
+                activity_type = orb.get(
+                                "pgefobjects:ActivityType.Operation")
+                prefix = self.project.id
+                act_id = '-'.join([prefix, name])
+                act_name = name
+                activity = clone("Activity", id=act_id, name=act_name,
+                                 activity_type=activity_type,
+                                 owner=self.project,
+                                 sub_activity_of=self.mission,
+                                 sub_activity_sequence=seq)
+                orb.db.commit()
+                acts.append(activity)
+                seq += 1
+            orb.log.debug('* [ConOps] sending "new objects" signal')
+            dispatcher.send("new objects", objs=acts)
         if subject:
             self.subject = subject
         else:
-            mission = orb.select('Mission', name=mission_name)
-            if not mission:
-                orb.log.debug('* [ConOps] creating a new Mission ...')
-                message = f"{proj_id} had no Mission object; creating one ..."
-                popup = QMessageBox(
-                            QMessageBox.Information,
-                            "Creating Mission Object", message,
-                            QMessageBox.Ok, self)
-                popup.show()
-                mission_id = '_'.join([self.project.id, 'mission'])
-                mission = clone('Mission', id=mission_id, name=mission_name,
-                                owner=self.project)
-                # orb.save([mission])
-                orb.db.commit()
-                orb.log.debug('* [ConOps] creating default activities ...')
-                acts = [mission]
-                seq = 0
-                for name in DEFAULT_ACTIVITIES:
-                    activity_type = orb.get(
-                                    "pgefobjects:ActivityType.Operation")
-                    prefix = self.project.id
-                    act_id = '-'.join([prefix, name])
-                    act_name = name
-                    activity = clone("Activity", id=act_id, name=act_name,
-                                     activity_type=activity_type,
-                                     owner=self.project,
-                                     sub_activity_of=mission,
-                                     sub_activity_sequence=seq)
-                    orb.db.commit()
-                    acts.append(activity)
-                    seq += 1
-                orb.log.debug('* [ConOps] sending "new objects" signal')
-                dispatcher.send("new objects", objs=acts)
-            self.subject = mission
+            self.subject = self.mission
         # first make sure that mode_defz[self.project.oid] is initialized ...
         names = []
         if not mode_defz.get(self.project.oid):
@@ -903,7 +903,8 @@ class ConOpsModeler(QMainWindow):
         self.create_activity_table()
         self.outer_layout.addWidget(self.activity_table, 0, 0,
                                     alignment=Qt.AlignTop)
-        self.outer_layout.addWidget(self.main_timeline, 0, 1)
+        self.outer_layout.addWidget(self.main_timeline, 0, 1,
+                                    alignment=Qt.AlignTop)
         self.widget = QWidget()
         self.widget.setMinimumSize(1500, 350)
         self.widget.setLayout(self.outer_layout)
@@ -924,13 +925,23 @@ class ConOpsModeler(QMainWindow):
             # Bottom dock contains sys_modes_panel, which has
             # sys_select_tree and mode_dash ...
             # ----------------------------------------------------------------
-            self.sys_modes_panel = QWidget(self)
-            self.sys_modes_panel.setSizePolicy(QSizePolicy.Preferred,
-                                               QSizePolicy.MinimumExpanding)
-            self.sys_modes_panel.setMinimumWidth(1200)
-            sys_modes_layout = QHBoxLayout(self.sys_modes_panel)
+            # ----------------------------------------------------------------
+            # NOTE: trying to use the outer_layout (grid) instead of the bottom
+            # dock and sys_modes_panel, sys_modes_layout etc. ...
+            # ----------------------------------------------------------------
+            # self.sys_modes_panel = QWidget(self)
+            # self.sys_modes_panel.setSizePolicy(QSizePolicy.Preferred,
+                                               # QSizePolicy.MinimumExpanding)
+            # self.sys_modes_panel.setMinimumWidth(1200)
+            # sys_modes_layout = QHBoxLayout(self.sys_modes_panel)
+            # ----------------------------------------------------------------
+
+            sys_tree_title = f'{self.project.id} Mission Systems'
+            sys_tree_title_widget = ColorLabel(sys_tree_title, element='h2')
             self.sys_select_tree = SystemSelectionView(self.project,
                                                        refdes=True)
+            self.sys_select_tree.setSizePolicy(QSizePolicy.Preferred,
+                                               QSizePolicy.MinimumExpanding)
             self.sys_select_tree.setObjectName('Sys Select Tree')
             self.sys_select_tree.setMinimumWidth(500)
             self.sys_select_tree.expandToDepth(1)
@@ -940,21 +951,28 @@ class ConOpsModeler(QMainWindow):
             # self.sys_tree_panel = QWidget(self)
             sys_tree_layout = QVBoxLayout()
             sys_tree_layout.setObjectName('Sys Tree Layout')
-            sys_tree_layout.addWidget(self.sys_select_tree,
+            sys_tree_layout.addWidget(sys_tree_title_widget,
                                       alignment=Qt.AlignTop)
-            sys_modes_layout.addLayout(sys_tree_layout)
-            self.mode_dash = ModeDefinitionDashboard(parent=self)
+            sys_tree_layout.addWidget(self.sys_select_tree,
+                                      stretch=1)
+            self.outer_layout.addLayout(sys_tree_layout, 1, 0)
+            # sys_modes_layout.addLayout(sys_tree_layout)
+            self.mode_dash = ModeDefinitionDashboard(parent=self,
+                                                     activity=self.mission)
             self.mode_dash.setObjectName('Mode Dash')
             mode_dash_layout = QVBoxLayout()
             mode_dash_layout.setObjectName('Mode Dash Layout')
             mode_dash_layout.addWidget(self.mode_dash, alignment=Qt.AlignTop)
-            sys_modes_layout.addLayout(mode_dash_layout)
-            self.bottom_dock = QDockWidget()
-            self.bottom_dock.setObjectName('BottomDock')
-            self.bottom_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-            self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
-            self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
-            self.bottom_dock.setWidget(self.sys_modes_panel)
+            self.outer_layout.addLayout(mode_dash_layout, 1, 1)
+            # ----------------------------------------------------------------
+            # sys_modes_layout.addLayout(mode_dash_layout)
+            # self.bottom_dock = QDockWidget()
+            # self.bottom_dock.setObjectName('BottomDock')
+            # self.bottom_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            # self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
+            # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
+            # self.bottom_dock.setWidget(self.sys_modes_panel)
+            # ----------------------------------------------------------------
         dispatcher.connect(self.rebuild_tables, "order changed")
         dispatcher.connect(self.on_new_activity, "new activity")
         dispatcher.connect(self.on_delete_activity, "delete activity")

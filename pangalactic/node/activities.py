@@ -334,16 +334,16 @@ class ModeDefinitionDashboard(QWidget):
         Initialize.
 
         Keyword Args:
-            activity (Activity): the activity for which modes are to be defined
+            activity (Activity): the activity in the context of which modes are
+                to be defined -- initially, this should be the project mission
             user (Person): the user of the tool
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        if isinstance(activity, orb.classes['Activity']):
-            state['mdd act'] = activity.oid
+        self.act = activity
         act_name = getattr(self.act, 'name', '(not set)')
-        orb.log.debug(f'* MDD: self.act is "{act_name}"')
+        orb.log.debug(f'* MDD: activity is "{act_name}"')
         self.user = user
         self.usage = getattr(self.act, 'of_system', None) or usage
         if not self.usage:
@@ -398,18 +398,16 @@ class ModeDefinitionDashboard(QWidget):
 
     @property
     def act(self):
-        a = orb.get(state.get('mdd act'))
-        if a.owner is self.project:
-            return a
-        else:
-            return None
+        return getattr(self, '_act', None)
 
     @act.setter
     def act(self, v):
-        if v and isinstance(v, orb.classes['Activity']):
-            if v.owner is self.project:
-                state['mdd act'] = v.oid
-        self.on_view(None)
+        if (isinstance(v, orb.classes['Activity'])
+            and v.owner is self.project):
+            self._act = v
+            state['mdd act'] = v.oid
+        else:
+            self._act = None
 
     @property
     def project(self):
@@ -460,6 +458,10 @@ class ModeDefinitionDashboard(QWidget):
         # make sure mode_defz has this activity oid as a mode
         if act and act.oid not in self.mode_dict:
             self.mode_dict[act.oid] = act.name
+        if self.edit_state:
+            self.on_edit(None)
+        else:
+            self.on_view(None)
 
     def on_modes_edited(self, oid):
         orb.log.debug('* MDD: "modes edited" signal received ...')
@@ -546,9 +548,9 @@ class ModeDefinitionDashboard(QWidget):
                 title_txt += blue_text.format('Power Modes')
                 title_txt += ', select an '
                 title_txt += blue_text.format('Activity')
-                title_txt += ' in the timeline and a '
+                title_txt += ' in the Timeline and a '
                 title_txt += blue_text.format('System')
-                title_txt += ' from the assembly ...'
+                title_txt += ' from the Mission Systems ...'
         elif self.act and not self.usage:
             title_txt += 'To specify '
             title_txt += blue_text.format(self.act.name)
