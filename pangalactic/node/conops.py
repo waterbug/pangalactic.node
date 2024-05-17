@@ -33,14 +33,14 @@ from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QPointF, QPoint, QRectF, QSize
 from PyQt5.QtGui import (QColor, QIcon, QCursor, QPainter, QPainterPath,
-                         QPolygonF, QTransform)
+                         QPixmap, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
-from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
-                             QMainWindow, QSizePolicy, QWidget, QGraphicsItem,
-                             QGraphicsPolygonItem, QGraphicsScene,
-                             QGraphicsView, QGridLayout, QMenu,
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
+                             QDialog, QMainWindow, QSizePolicy, QWidget,
+                             QGraphicsItem, QGraphicsPolygonItem,
+                             QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
                              QGraphicsPathItem, QVBoxLayout, QToolBar,
-                             QWidgetAction, QMessageBox)
+                             QToolBox, QWidgetAction, QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
 
 # pangalactic
@@ -60,8 +60,9 @@ from pangalactic.node.activities  import (DEFAULT_ACTIVITIES,
                                           ActivityWidget,
                                           ModeDefinitionDashboard,
                                           SystemSelectionView)
+from pangalactic.node.buttons     import ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
-from pangalactic.node.dialogs     import (AddActivityDialog, DefineModesDialog,
+from pangalactic.node.dialogs     import (DefineModesDialog,
                                           NotificationDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.widgets     import ColorLabel, NameLabel
@@ -198,8 +199,8 @@ class TimelineBar(QGraphicsPolygonItem):
         # color.setNamedColor('#d5aaff')
         self.setBrush(color)
         self.polygon = QPolygonF([
-                QPointF(x_start, 480), QPointF(x_end, 480),
-                QPointF(x_end, 460), QPointF(x_start, 460)])
+                QPointF(x_start, 380), QPointF(x_end, 380),
+                QPointF(x_end, 360), QPointF(x_start, 360)])
         self.setPolygon(self.polygon)
         self.block_label = BlockLabel(getattr(self.subject, 'name', '') or '',
                                       self, point_size=8)
@@ -303,8 +304,6 @@ class TimelineScene(QGraphicsScene):
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
         self.grabbed_item = None
-        # connect to "add act" event from timeline "add activity" dialog
-        dispatcher.connect(self.on_add_act, "add act")
         dispatcher.connect(self.on_act_mod, "act mod")
 
     def sizeHint(self):
@@ -339,27 +338,29 @@ class TimelineScene(QGraphicsScene):
             self.timeline.arrange()
         self.grabbed_item == None
 
-    def on_add_act(self, name=None, activity_type_name=None):
-        orb.log.debug('* scene: received local "add act" signal')
+    def dropEvent(self, event):
+        orb.log.debug('* scene.dropEvent()')
         seq = len(self.subject.sub_activities) + 1
-        # activity_type_name is one of "Cycle", "Op", "Event"
+        # activity type is one of "Cycle", "Op", "Event"
+        activity_type_name = event.mimeData().text()
         activity_type = orb.select("ActivityType", name=activity_type_name)
         prefix = (getattr(self.act_of, 'reference_designator', '') or
                   getattr(self.act_of, 'system_role', '') or
                   # for Mission ...
                   getattr(getattr(self.act_of, 'owner', None), 'id', '') or
                   'Mission')
-        act_id = '-'.join([prefix, name, str(seq)])
-        act_name = ' '.join([name, str(seq)])
+        act_id = '-'.join([prefix, activity_type_name, str(seq)])
+        act_name = ' '.join([prefix, activity_type_name, str(seq)])
+        project = orb.get(state.get('project'))
         activity = clone("Activity", id=act_id, name=act_name,
-                         activity_type=activity_type,
-                         owner=self.subject.owner,
+                         activity_type=activity_type, owner=project,
                          of_system=self.act_of,
                          sub_activity_of=self.subject,
                          sub_activity_sequence=seq)
         orb.db.commit()
         evt_block = EventBlock(activity=activity,
                                scene=self)
+        evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.add_evt_block(evt_block)
         self.timeline.arrange()
@@ -519,12 +520,6 @@ class TimelineWidget(QWidget):
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
         self.toolbar.setObjectName('ActionsToolBar')
-        self.add_activity_action = self.create_action(
-                                    "add activity",
-                                    slot=self.add_activity,
-                                    icon="lander",
-                                    tip="Add a new activity")
-        self.toolbar.addAction(self.add_activity_action)
         self.plot_action = self.create_action(
                                     "graph",
                                     slot=self.plot,
@@ -539,17 +534,6 @@ class TimelineWidget(QWidget):
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
-
-    def add_activity(self):
-        """
-        Bring up a dialog to add a new activity to the timeline.
-        """
-        dlg = AddActivityDialog(parent=self)
-        if dlg.exec_() == QDialog.Accepted:
-            name = dlg.name
-            act_type = dlg.act_type
-            orb.log.debug('* adding activity "{name}" {act_type}')
-            dispatcher.send("add act", name=name, activity_type_name=act_type)
 
     def delete_activity(self, oid=None, cname=None, remote=False):
         """
@@ -846,6 +830,7 @@ class ConOpsModeler(QMainWindow):
             # orb.log.debug(f'   {pprint(mode_defz)}')
         else:
             orb.log.debug('  - no systems specified yet.')
+        self.create_toolbox()
         self.init_toolbar()
         self.set_widgets(init=True)
         self.setWindowTitle('Concept of Operations (ConOps) Modeler')
@@ -883,6 +868,41 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(' - ConOpsModeler.init_toolbar() ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
+
+    def create_toolbox(self):
+        """
+        Create the toolbox for activities and modes.
+        """
+        orb.log.debug(' - ConOpsModeler.create_toolbox() ...')
+        acts_layout = QGridLayout()
+        square = QPixmap(os.path.join( orb.home, 'images', 'square.png'))
+        triangle = QPixmap(os.path.join(orb.home, 'images', 'triangle.png'))
+        circle = QPixmap(os.path.join(orb.home, 'images', 'circle.png'))
+        op_button = ToolButton(square, "")
+        op_button.setData("Op")
+        ev_button = ToolButton(triangle, "")
+        ev_button.setData("Event")
+        cyc_button = ToolButton(circle, "")
+        cyc_button.setData("Cycle")
+        acts_layout.addWidget(op_button, 0, 0)
+        acts_layout.addWidget(NameLabel("Op"), 0, 1)
+        acts_layout.addWidget(ev_button, 1, 0)
+        acts_layout.addWidget(NameLabel("Event"), 1, 1)
+        acts_layout.addWidget(cyc_button, 2, 0)
+        acts_layout.addWidget(NameLabel("Cycle"), 2, 1)
+        toolbox_widget = QWidget()
+        toolbox_widget.setLayout(acts_layout)
+        toolbox_widget.setStyleSheet('background-color: #dbffd6;')
+        self.toolbox = QToolBox()
+        self.toolbox.addItem(toolbox_widget, "Activities")
+        # set an icon for Activities item ...
+        act_icon_file = 'tools' + state.get('icon_type', '.png')
+        act_icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+        act_icon_path = os.path.join(act_icon_dir, act_icon_file)
+        self.toolbox.setItemIcon(0, QIcon(act_icon_path))
+        self.toolbox.setMinimumWidth(250)
+        self.toolbox.setSizePolicy(QSizePolicy.Minimum,
+                                   QSizePolicy.Fixed)
 
     def set_widgets(self, init=False):
         """
@@ -964,6 +984,12 @@ class ConOpsModeler(QMainWindow):
         if init:
             self.mode_dash = ModeDefinitionDashboard(parent=self,
                                                      activity=self.mission)
+            self.right_dock = QDockWidget()
+            self.right_dock.setObjectName('RightDock')
+            self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+            self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
+            self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
+            self.right_dock.setWidget(self.toolbox)
         else:
             self.mode_dash = ModeDefinitionDashboard(parent=self)
         self.mode_dash.setObjectName('Mode Dash')
