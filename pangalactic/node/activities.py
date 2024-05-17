@@ -78,10 +78,10 @@ class ActivityWidget(QWidget):
         self.main_layout.addWidget(self.title_widget)
         self.set_title_text()
         self.set_table()
-        # self.setSizePolicy(QSizePolicy.Minimum,
-                           # QSizePolicy.Minimum)
-        self.setSizePolicy(QSizePolicy.Maximum,
-                           QSizePolicy.Maximum)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.Fixed)
+        # self.setSizePolicy(QSizePolicy.Maximum,
+                           # QSizePolicy.Maximum)
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
@@ -136,7 +136,7 @@ class ActivityWidget(QWidget):
         project = orb.get(state.get('project'))
         table = ActivityInfoTable(self.subject, project=project)
         table.setSizePolicy(QSizePolicy.MinimumExpanding,
-                            QSizePolicy.MinimumExpanding)
+                            QSizePolicy.Fixed)
         table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         table.resizeColumnsToContents()
@@ -442,6 +442,9 @@ class ModeDefinitionDashboard(QWidget):
             cd = mode_defz[self.project.oid]['components']
         return cd
 
+    def minimumSize(self):
+        return QSize(800, 300)
+
     def on_activity_focused(self, act=None):
         orb.log.debug('* MDD: received signal "activity focused"')
         self.act = act
@@ -535,7 +538,7 @@ class ModeDefinitionDashboard(QWidget):
                 title_txt += blue_text.format('Power Mode')
                 title_txt += ' for the '
                 title_txt += blue_text.format(self.sys_name)
-                title_txt += ', system select an '
+                title_txt += ',<br>select an '
                 title_txt += blue_text.format('Activity')
                 title_txt += ' in the timeline ... '
             else:
@@ -543,13 +546,13 @@ class ModeDefinitionDashboard(QWidget):
                 title_txt += blue_text.format('Power Modes')
                 title_txt += ', select an '
                 title_txt += blue_text.format('Activity')
-                title_txt += ' in the Timeline and a '
+                title_txt += ' in the Timeline<br>and a '
                 title_txt += blue_text.format('System')
                 title_txt += ' from the Mission Systems ...'
         elif self.act and not self.usage:
             title_txt += 'To specify '
             title_txt += blue_text.format(self.act.name)
-            title_txt += ' Power Modes, select a '
+            title_txt += ' Power Modes,<br>select a '
             title_txt += blue_text.format('System')
             title_txt += ' ...'
         elif self.act and self.usage:

@@ -38,8 +38,8 @@ from PyQt5.QtGui import (QColor, QIcon, QCursor, QPainter, QPainterPath,
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QDialog, QMainWindow, QSizePolicy, QWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
-                             QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
-                             QGraphicsPathItem, QVBoxLayout, QToolBar,
+                             QGraphicsScene, QGraphicsView, QGridLayout,
+                             QMenu, QGraphicsPathItem, QVBoxLayout, QToolBar,
                              QToolBox, QWidgetAction, QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
 
@@ -210,6 +210,9 @@ class TimelineView(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setRenderHint(QPainter.Antialiasing)
+
+    def minimumSize(self):
+        return QSize(800, 300)
 
     def dragEnterEvent(self, event):
         try:
@@ -384,12 +387,12 @@ class TimelineScene(QGraphicsScene):
         super().mouseDoubleClickEvent(event)
 
 
-# TODO:  the TimelineWidget should display the timelines of either
+# TODO:  the TimelineWidget should display the timeline of either
 # (1) if TimelineWidget activity is the Mission, a selected project system or
 # group of systems (e.g. a selected SC, all SC's, ground system, all of the
 # above, etc.), or
-# (2) if TimelineWidget activity is a non-Mission activity instance, all
-# subsystems of the current activity's "of_system" usage.
+# (2) if TimelineWidget activity is a non-Mission activity instance, all of
+# its sub-activities
 
 # TODO: implement "back" based on history
 
@@ -437,6 +440,9 @@ class TimelineWidget(QWidget):
     def system(self):
         return getattr(self.subject, 'of_system', None) or None
 
+    def minimumSize(self):
+        return QSize(800, 300)
+
     def set_new_scene(self):
         """
         Return a new scene with new subject activity or an empty scene if no
@@ -469,7 +475,7 @@ class TimelineWidget(QWidget):
         if not getattr(self, 'title_widget', None):
             self.title_widget = NameLabel('')
             self.title_widget.setStyleSheet(
-                'font-weight: bold; font-size: 16px')
+                'font-weight: bold; font-size: 14px')
         red_text = '<font color="red">{}</font>'
         blue_text = '<font color="blue">{}</font>'
         title = ''
@@ -906,8 +912,9 @@ class ConOpsModeler(QMainWindow):
 
     def set_widgets(self, init=False):
         """
-        Add TimelineWidgets and ActivityInfoTables containing all activities of
-        the current usage.
+        Add a TimelineWidget and ActivityInfoTable containing all
+        sub-activities of the "subject" (current activity), and the Mission
+        Systems selection tree and ModeDefinitionDashboard.
 
         Note that focusing (mouse click) on an activity in the timeline will
         make that activity the "current_activity" and restrict the graph
@@ -918,46 +925,28 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.subject, position='main')
-        self.main_timeline.setMinimumSize(1000, 300)
-        self.outer_layout = QGridLayout()
-        self.create_activity_table()
-        self.outer_layout.addWidget(self.activity_table, 0, 0,
-                                    alignment=Qt.AlignTop)
-        self.outer_layout.addWidget(self.main_timeline, 0, 1,
-                                    alignment=Qt.AlignTop)
+        self.main_timeline.setSizePolicy(QSizePolicy.MinimumExpanding,
+                                         QSizePolicy.Fixed)
+        central_layout = QVBoxLayout()
+        central_layout.addWidget(self.main_timeline, alignment=Qt.AlignTop)
+
         self.widget = QWidget()
-        self.widget.setMinimumSize(1200, 700)
-        self.widget.setLayout(self.outer_layout)
+        self.widget.setMinimumSize(1000, 700)
+        self.widget.setLayout(central_layout)
         self.setCentralWidget(self.widget)
-        # if init:
-        # ====================================================================
-        # <BEGIN> previous "if init:" section
-        # ====================================================================
-        # ----------------------------------------------------------------
-        # NOTE: right dock only had "toolbox" with event types -- not
-        # really needed (use context menu to add activities to the
-        # timeline) so eliminated to save real estate
-        # ----------------------------------------------------------------
-        # self.right_dock = QDockWidget()
-        # self.right_dock.setObjectName('RightDock')
-        # self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        # self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
-        # self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
-        # self.right_dock.setWidget(self.toolbox)
-        # ----------------------------------------------------------------
-        # Bottom dock contains sys_modes_panel, which has
-        # sys_select_tree and mode_dash ...
-        # ----------------------------------------------------------------
-        # ----------------------------------------------------------------
-        # NOTE: trying to use the outer_layout (grid) instead of the bottom
-        # dock and sys_modes_panel, sys_modes_layout etc. ...
-        # ----------------------------------------------------------------
-        # self.sys_modes_panel = QWidget(self)
-        # self.sys_modes_panel.setSizePolicy(QSizePolicy.Preferred,
-                                           # QSizePolicy.MinimumExpanding)
-        # self.sys_modes_panel.setMinimumWidth(1200)
-        # sys_modes_layout = QHBoxLayout(self.sys_modes_panel)
-        # ----------------------------------------------------------------
+
+        self.left_dock = QDockWidget()
+        self.left_dock.setObjectName('LeftDock')
+        self.left_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
+
+        self.left_dock_panel = QWidget()
+        self.left_dock_layout = QVBoxLayout(self.left_dock_panel)
+
+        self.create_activity_table()
+        self.left_dock_layout.addWidget(self.activity_table,
+                                        alignment=Qt.AlignTop)
 
         sys_tree_title = f'{self.project.id} Mission Systems'
         sys_tree_title_widget = ColorLabel(sys_tree_title, element='h2')
@@ -966,7 +955,7 @@ class ConOpsModeler(QMainWindow):
         self.sys_select_tree.setSizePolicy(QSizePolicy.Preferred,
                                            QSizePolicy.MinimumExpanding)
         self.sys_select_tree.setObjectName('Sys Select Tree')
-        self.sys_select_tree.setMinimumWidth(500)
+        self.sys_select_tree.setMinimumWidth(400)
         self.sys_select_tree.expandToDepth(1)
         self.sys_select_tree.setExpandsOnDoubleClick(True)
         self.sys_select_tree.clicked.connect(self.on_item_clicked)
@@ -978,8 +967,9 @@ class ConOpsModeler(QMainWindow):
                                   alignment=Qt.AlignTop)
         sys_tree_layout.addWidget(self.sys_select_tree,
                                   stretch=1)
-        self.outer_layout.addLayout(sys_tree_layout, 1, 0)
-        # sys_modes_layout.addLayout(sys_tree_layout)
+        self.left_dock_layout.addLayout(sys_tree_layout, stretch=1)
+
+        self.left_dock.setWidget(self.left_dock_panel)
 
         if init:
             self.mode_dash = ModeDefinitionDashboard(parent=self,
@@ -996,7 +986,7 @@ class ConOpsModeler(QMainWindow):
         mode_dash_layout = QVBoxLayout()
         mode_dash_layout.setObjectName('Mode Dash Layout')
         mode_dash_layout.addWidget(self.mode_dash, alignment=Qt.AlignTop)
-        self.outer_layout.addLayout(mode_dash_layout, 1, 1)
+        central_layout.addLayout(mode_dash_layout, stretch=1)
         # ----------------------------------------------------------------
         # sys_modes_layout.addLayout(mode_dash_layout)
         # self.bottom_dock = QDockWidget()
@@ -1014,14 +1004,12 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.on_delete_activity, "delete activity")
         dispatcher.connect(self.on_delete_activity, "remove activity")
         dispatcher.connect(self.on_delete_activity, "deleted object")
-        self.resize(self.layout().sizeHint())
+        # self.resize(self.layout().sizeHint())
 
     def create_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
         self.activity_table = ActivityWidget(self.subject, parent=self,
                                              position='main')
-        self.activity_table.setSizePolicy(QSizePolicy.Fixed,
-                                          QSizePolicy.MinimumExpanding)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
 
     def rebuild_tables(self):
@@ -1031,12 +1019,13 @@ class ConOpsModeler(QMainWindow):
     def rebuild_activity_table(self):
         orb.log.debug("* ConOpsModeler.rebuild_activity_table()")
         if getattr(self, 'activity_table', None):
-            self.outer_layout.removeWidget(self.activity_table)
+            self.left_dock_layout.removeWidget(self.activity_table)
             self.activity_table.parent = None
             self.activity_table.close()
             self.activity_table = None
         self.create_activity_table()
-        self.outer_layout.addWidget(self.activity_table, 0, 0)
+        self.left_dock_layout.insertWidget(0, self.activity_table,
+                                           alignment=Qt.AlignTop)
 
     def on_item_clicked(self, index):
         orb.log.debug("* ConOpsModeler.on_item_clicked()")
