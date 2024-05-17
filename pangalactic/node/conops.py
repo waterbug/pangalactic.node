@@ -926,7 +926,7 @@ class ConOpsModeler(QMainWindow):
         self.outer_layout.addWidget(self.main_timeline, 0, 1,
                                     alignment=Qt.AlignTop)
         self.widget = QWidget()
-        self.widget.setMinimumSize(1500, 700)
+        self.widget.setMinimumSize(1200, 700)
         self.widget.setLayout(self.outer_layout)
         self.setCentralWidget(self.widget)
         # if init:
