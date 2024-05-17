@@ -423,7 +423,7 @@ class TimelineWidget(QWidget):
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
         self.history = []
-        self.sceneScaleChanged("80%")
+        self.sceneScaleChanged("70%")
         self.current_subsystem_index = 0
         self.deleted_acts = []
         dispatcher.connect(self.delete_activity, "remove activity")
@@ -530,7 +530,7 @@ class TimelineWidget(QWidget):
         self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(self.scene_scales)
-        self.scene_scale_select.setCurrentIndex(6)
+        self.scene_scale_select.setCurrentIndex(5)
         self.scene_scale_select.currentIndexChanged[str].connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
