@@ -378,6 +378,7 @@ class ModeDefinitionDashboard(QWidget):
         self.setup_dash_interface()
         self.setup_dash_data()
         dispatcher.connect(self.on_activity_focused, "activity focused")
+        dispatcher.connect(self.on_activity_deleted, "delete activity")
         dispatcher.connect(self.on_set_mode_usage, "set mode usage")
         dispatcher.connect(self.on_modes_edited, 'modes edited')
         dispatcher.connect(self.on_modes_published, 'modes published')
@@ -451,6 +452,18 @@ class ModeDefinitionDashboard(QWidget):
         # make sure mode_defz has this activity oid as a mode
         if act and act.oid not in self.mode_dict:
             self.mode_dict[act.oid] = act.name
+        if self.edit_state:
+            self.on_edit(None)
+        else:
+            self.on_view(None)
+
+    def on_activity_deleted(self, act=None):
+        orb.log.debug('* MDD: received signal "delete activity')
+        mission = orb.select('Mission', owner=self.project)
+        if mission:
+            self.act = mission
+        if mission and mission.oid not in self.mode_dict:
+            self.mode_dict[mission.oid] = mission.name
         if self.edit_state:
             self.on_edit(None)
         else:

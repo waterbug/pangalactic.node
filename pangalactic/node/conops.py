@@ -142,6 +142,7 @@ class EventBlock(QGraphicsPolygonItem):
         orb.log.debug(' - dipatching "delete activity" signal')
         self.scene.removeItem(self)
         dispatcher.send(signal='delete activity', oid=self.activity.oid)
+        self.deleteLater()
 
     def itemChange(self, change, value):
         return value
@@ -212,7 +213,7 @@ class TimelineView(QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
 
     def minimumSize(self):
-        return QSize(800, 300)
+        return QSize(800, 500)
 
     def dragEnterEvent(self, event):
         try:
@@ -299,7 +300,7 @@ class TimelineScene(QGraphicsScene):
         if activity:
             self.act_of = activity.of_system
             name = getattr(self.act_of, 'name', None) or 'None'
-            orb.log.debug(f'  act_of: {name}')
+            orb.log.debug(f'* TimelineScene act_of: {name}')
         self.timeline = Timeline()
         self.addItem(self.timeline)
         self.timelinebar = TimelineBar()
@@ -307,10 +308,11 @@ class TimelineScene(QGraphicsScene):
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
         self.grabbed_item = None
+        self.setSceneRect(QRectF(150.0, 150.0, 1200.0, 250.0))
+        width = self.sceneRect().width()
+        height = self.sceneRect().height()
+        orb.log.debug(f'* TimelineScene size: ({width}, {height}).')
         dispatcher.connect(self.on_act_mod, "act mod")
-
-    def sizeHint(self):
-        return QSize(1200, 400)
 
     def focus_changed_handler(self, new_item, old_item):
         if getattr(self, "right_button_pressed", False):
@@ -441,7 +443,7 @@ class TimelineWidget(QWidget):
         return getattr(self.subject, 'of_system', None) or None
 
     def minimumSize(self):
-        return QSize(800, 300)
+        return QSize(800, 500)
 
     def set_new_scene(self):
         """
@@ -556,25 +558,32 @@ class TimelineWidget(QWidget):
         if not obj:
             orb.log.debug(f'  - obj with oid "{oid}" not found.')
             return
-        current_subacts = getattr(self.subject, 'sub_activities', [])
         subj_oid = getattr(self.subject, 'oid', '')
-        if obj in current_subacts:
-            orb.log.debug(f'  - obj "{obj.id}" in sub-activities --')
-            orb.log.debug('    removing ...')
+        name = getattr(obj, 'name', None) or '[no name]'
+        if remote:
+            if oid == subj_oid:
+                project = orb.get(state.get('project'))
+                mission = orb.select('Mission', owner=project)
+                self.subject = mission
+            else:
+                current_act_oids = [getattr(act, 'oid', '') for act in
+                                    self.subject.sub_activities]
+                if oid in current_act_oids:
+                    # TODO: what?
+                    pass
+        else:
+            # locally originated action ...
+            orb.log.debug(f'  - deleting activity {name}')
             objs_to_delete = [obj] + obj.sub_activities
+            # TODO: check whether any sub_activities have event blocks ...
             oids = [o.oid for o in objs_to_delete]
             orb.delete(objs_to_delete)
-            if not remote:
-                for oid in oids:
-                    dispatcher.send("deleted object", oid=oid,
-                                    cname='Activity')
+            for oid in oids:
+                dispatcher.send("deleted object", oid=oid,
+                                cname='Activity')
             if oid == subj_oid:
                 self.subject = None
-                self.setEnabled(False)
             self.set_new_scene()
-        else:
-            # if activity is not in the current diagram, ignore
-            return
 
     def sceneScaleChanged(self, percentscale):
         newscale = float(percentscale[:-1]) / 100.0
@@ -747,18 +756,19 @@ class ConOpsModeler(QMainWindow):
     GUI structure of the ConOpsModeler is:
 
     ConOpsModeler (QMainWindow)
+    ---------------------------
       * CentralWidget contains:
-        - activity_table (ActivityWidget)
         - main_timeline (TimelineWidget(QWidget))
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
-            * activity blocks (EventBlock(QGraphicsPolygonItem)
-            * timelinebars (TimelineBar(QGraphicsPolygonItem))
-              for each subsystem usage that is the "of_system"
-              for the subject activity of the main_timeline
-      * BottomDock contains:
+            * activity blocks (EventBlock(QGraphicsPolygonItem))
+            * timelinebar (TimelineBar(QGraphicsPolygonItem))
+        - mode_dash (ModeDefinitionDashboard(QWidget))
+      * Left Dock contains:
         - sys_select_tree (SystemSelectionView)
-        - mode_dash (ModeDefinitionDashboard)
+        - activity_table (ActivityWidget)
+      * Right Dock contains:
+        - Op blocks palette (QToolBox)
     """
 
     def __init__(self, subject=None, parent=None):
@@ -929,25 +939,22 @@ class ConOpsModeler(QMainWindow):
                                          QSizePolicy.Fixed)
         central_layout = QVBoxLayout()
         central_layout.addWidget(self.main_timeline, alignment=Qt.AlignTop)
-
         self.widget = QWidget()
         self.widget.setMinimumSize(1000, 700)
         self.widget.setLayout(central_layout)
         self.setCentralWidget(self.widget)
-
+        # ====================================================================
         self.left_dock = QDockWidget()
         self.left_dock.setObjectName('LeftDock')
         self.left_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
-
         self.left_dock_panel = QWidget()
         self.left_dock_layout = QVBoxLayout(self.left_dock_panel)
-
         self.create_activity_table()
         self.left_dock_layout.addWidget(self.activity_table,
                                         alignment=Qt.AlignTop)
-
+        # ====================================================================
         sys_tree_title = f'{self.project.id} Mission Systems'
         sys_tree_title_widget = ColorLabel(sys_tree_title, element='h2')
         self.sys_select_tree = SystemSelectionView(self.project,
@@ -959,8 +966,6 @@ class ConOpsModeler(QMainWindow):
         self.sys_select_tree.expandToDepth(1)
         self.sys_select_tree.setExpandsOnDoubleClick(True)
         self.sys_select_tree.clicked.connect(self.on_item_clicked)
-        # self.sys_select_tree.doubleClicked.connect(self.on_add_usage)
-        # self.sys_tree_panel = QWidget(self)
         sys_tree_layout = QVBoxLayout()
         sys_tree_layout.setObjectName('Sys Tree Layout')
         sys_tree_layout.addWidget(sys_tree_title_widget,
@@ -968,9 +973,8 @@ class ConOpsModeler(QMainWindow):
         sys_tree_layout.addWidget(self.sys_select_tree,
                                   stretch=1)
         self.left_dock_layout.addLayout(sys_tree_layout, stretch=1)
-
         self.left_dock.setWidget(self.left_dock_panel)
-
+        # ====================================================================
         if init:
             self.mode_dash = ModeDefinitionDashboard(parent=self,
                                                      activity=self.mission)
@@ -982,29 +986,18 @@ class ConOpsModeler(QMainWindow):
             self.right_dock.setWidget(self.toolbox)
         else:
             self.mode_dash = ModeDefinitionDashboard(parent=self)
+        # ====================================================================
         self.mode_dash.setObjectName('Mode Dash')
         mode_dash_layout = QVBoxLayout()
         mode_dash_layout.setObjectName('Mode Dash Layout')
         mode_dash_layout.addWidget(self.mode_dash, alignment=Qt.AlignTop)
         central_layout.addLayout(mode_dash_layout, stretch=1)
-        # ----------------------------------------------------------------
-        # sys_modes_layout.addLayout(mode_dash_layout)
-        # self.bottom_dock = QDockWidget()
-        # self.bottom_dock.setObjectName('BottomDock')
-        # self.bottom_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        # self.bottom_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
-        # self.addDockWidget(Qt.BottomDockWidgetArea, self.bottom_dock)
-        # self.bottom_dock.setWidget(self.sys_modes_panel)
-        # ----------------------------------------------------------------
-        # ====================================================================
-        # <END> previous "if init:" section
         # ====================================================================
         dispatcher.connect(self.rebuild_tables, "order changed")
         dispatcher.connect(self.on_new_activity, "new activity")
         dispatcher.connect(self.on_delete_activity, "delete activity")
         dispatcher.connect(self.on_delete_activity, "remove activity")
         dispatcher.connect(self.on_delete_activity, "deleted object")
-        # self.resize(self.layout().sizeHint())
 
     def create_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
@@ -1272,23 +1265,15 @@ class ConOpsModeler(QMainWindow):
     def on_delete_activity(self, oid=None, cname=None, remote=False):
         """
         Handler for dispatcher signals "delete activity", "remove activity",
-        and "deleted object", refreshes the sub-timeline if the deleted object
-        was the focused activity.
+        and "deleted object", refreshes the activity tables. The signals are
+        also handled by the TimelineWidget.
 
         Keyword Args:
             oid (str): oid of the deleted activity
             cname (str): class name of the deleted object
             remote (bool): True if the operation was initiated remotely
         """
-        sub_tl = getattr(self, 'sub_timeline', None)
-        if (sub_tl and
-            oid == getattr(sub_tl.subject, 'oid', None)):
-            sub_tl.set_new_scene()
-            sub_tl.setEnabled(False)
-            txt = 'No Activity Selected'
-            title = f'<font color="red">{txt}</font>'
-            sub_tl.title_widget.setText(title)
-            self.rebuild_tables()
+        self.rebuild_tables()
 
     def on_remote_mod_acts(self, oids=None):
         """
