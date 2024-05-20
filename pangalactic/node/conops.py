@@ -31,7 +31,7 @@ import os
 # Louie
 from louie import dispatcher
 
-from PyQt5.QtCore import Qt, QPointF, QPoint, QRectF, QSize
+from PyQt5.QtCore import Qt, QPointF, QPoint, QRectF, QSize, QVariant
 from PyQt5.QtGui import (QColor, QIcon, QCursor, QPainter, QPainterPath,
                          QPixmap, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
@@ -1033,6 +1033,24 @@ class ConOpsModeler(QMainWindow):
         self.left_dock_layout.addWidget(self.activity_table,
                                         alignment=Qt.AlignTop)
         # ====================================================================
+        self.expansion_select = QComboBox()
+        self.expansion_select.setStyleSheet(
+                                        'font-weight: bold; font-size: 14px')
+        self.expansion_select.addItem('2 levels', QVariant())
+        self.expansion_select.addItem('3 levels', QVariant())
+        self.expansion_select.addItem('4 levels', QVariant())
+        self.expansion_select.addItem('5 levels', QVariant())
+        self.expansion_select.currentIndexChanged.connect(
+                                                self.set_select_tree_expansion)
+        # -- set initial value of tree expansion level select -----------------
+        if 'conops_tree_expansion' not in state:
+            state['conops_tree_expansion'] = {}
+        if self.project.oid in state['conops_tree_expansion']:
+            self.expansion_select.setCurrentIndex(
+                state['conops_tree_expansion'][self.project.oid])
+        else:
+            state['conops_tree_expansion'][self.project.oid] = 0
+        # ---------------------------------------------------------------------
         sys_tree_title = f'{self.project.id} Mission Systems'
         sys_tree_title_widget = ColorLabel(sys_tree_title, element='h2')
         self.sys_select_tree = SystemSelectionView(self.project,
@@ -1041,13 +1059,19 @@ class ConOpsModeler(QMainWindow):
                                            QSizePolicy.MinimumExpanding)
         self.sys_select_tree.setObjectName('Sys Select Tree')
         self.sys_select_tree.setMinimumWidth(400)
-        self.sys_select_tree.expandToDepth(1)
-        self.sys_select_tree.setExpandsOnDoubleClick(True)
+        # -- set initial tree expansion level ---------------------------------
+        expand_level = 1
+        idx = state['conops_tree_expansion'][self.project.oid]
+        expand_level = idx + 1
+        self.sys_select_tree.expandToDepth(expand_level)
+        # ---------------------------------------------------------------------
+        self.sys_select_tree.setExpandsOnDoubleClick(False)
         self.sys_select_tree.clicked.connect(self.on_item_clicked)
         sys_tree_layout = QVBoxLayout()
         sys_tree_layout.setObjectName('Sys Tree Layout')
         sys_tree_layout.addWidget(sys_tree_title_widget,
                                   alignment=Qt.AlignTop)
+        sys_tree_layout.addWidget(self.expansion_select)
         sys_tree_layout.addWidget(self.sys_select_tree,
                                   stretch=1)
         self.left_dock_layout.addLayout(sys_tree_layout, stretch=1)
@@ -1073,6 +1097,25 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.on_delete_activity, "delete activity")
         dispatcher.connect(self.on_delete_activity, "remove activity")
         dispatcher.connect(self.on_delete_activity, "deleted object")
+
+    def set_select_tree_expansion(self, index=None):
+        if index is None:
+            index = state.get('conops_tree_expansion', {}).get(
+                                                self.project.oid) or 0
+        # NOTE:  levels are 2 to 5, so level = index + 2
+        #        expandToDepth(n) actually means level n + 1
+        try:
+            level = index + 2
+            self.sys_select_tree.expandToDepth(level - 1)
+            state['conops_tree_expansion'][self.project.oid] = index
+            # orb.log.debug(f'* tree expanded to level {level}')
+        except:
+            orb.log.debug('* conops tree expansion failed.')
+            pass
+        finally:
+            # orb.log.debug('* setting selected conops system ...')
+            # after expanding, set the selected system
+            dispatcher.send(signal='set selected conops system')
 
     def create_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
