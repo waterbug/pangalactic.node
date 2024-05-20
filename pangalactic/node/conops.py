@@ -929,7 +929,7 @@ class ConOpsModeler(QMainWindow):
             orb.log.debug('  - no systems specified yet.')
         self.create_toolbox()
         self.init_toolbar()
-        self.set_widgets(init=True)
+        self.set_widgets()
         self.setWindowTitle('Concept of Operations (ConOps) Modeler')
         dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
@@ -1001,7 +1001,7 @@ class ConOpsModeler(QMainWindow):
         self.toolbox.setSizePolicy(QSizePolicy.Minimum,
                                    QSizePolicy.Fixed)
 
-    def set_widgets(self, init=False):
+    def set_widgets(self):
         """
         Add a TimelineWidget and ActivityInfoTable containing all
         sub-activities of the "subject" (current activity), and the Mission
@@ -1010,9 +1010,6 @@ class ConOpsModeler(QMainWindow):
         Note that focusing (mouse click) on an activity in the timeline will
         make that activity the "current_activity" and restrict the graph
         display to that activity's power graph.
-
-        Keyword Args:
-            init (bool): initial instantiation
         """
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         self.main_timeline = TimelineWidget(self.subject, position='main')
@@ -1056,17 +1053,14 @@ class ConOpsModeler(QMainWindow):
         self.left_dock_layout.addLayout(sys_tree_layout, stretch=1)
         self.left_dock.setWidget(self.left_dock_panel)
         # ====================================================================
-        if init:
-            self.mode_dash = ModeDefinitionDashboard(parent=self,
-                                                     activity=self.mission)
-            self.right_dock = QDockWidget()
-            self.right_dock.setObjectName('RightDock')
-            self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
-            self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
-            self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
-            self.right_dock.setWidget(self.toolbox)
-        else:
-            self.mode_dash = ModeDefinitionDashboard(parent=self)
+        self.mode_dash = ModeDefinitionDashboard(parent=self,
+                                                 activity=self.mission)
+        self.right_dock = QDockWidget()
+        self.right_dock.setObjectName('RightDock')
+        self.right_dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        self.right_dock.setAllowedAreas(Qt.RightDockWidgetArea)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.right_dock)
+        self.right_dock.setWidget(self.toolbox)
         # ====================================================================
         self.mode_dash.setObjectName('Mode Dash')
         mode_dash_layout = QVBoxLayout()
@@ -1292,7 +1286,6 @@ class ConOpsModeler(QMainWindow):
     def set_usage(self, usage):
         orb.log.debug("* ConOpsModeler.set_usage()")
         self.usage = usage
-        self.set_widgets()
 
     def resizeEvent(self, event):
         """
