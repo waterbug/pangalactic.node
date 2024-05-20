@@ -743,15 +743,20 @@ class ModeDefinitionDashboard(QWidget):
         else:
             modal_context = get_modal_context(self.project.oid, usage.oid,
                                               self.act.oid)
-            if self.edit_state:
-                i = self.usage_to_l_select[usage.oid].findText(modal_context)
-                if i == -1:
-                    i = 0
-                self.usage_to_l_select[usage.oid].setCurrentIndex(i)
-                grid.addWidget(self.usage_to_l_select[usage.oid], row, 1)
-            else:
+            if modal_context == '[computed]':
                 label = ValueLabel(modal_context, w=80)
                 grid.addWidget(label, row, 1)
+            else:
+                if self.edit_state:
+                    i = self.usage_to_l_select[usage.oid].findText(
+                                                            modal_context)
+                    if i == -1:
+                        i = 0
+                    self.usage_to_l_select[usage.oid].setCurrentIndex(i)
+                    grid.addWidget(self.usage_to_l_select[usage.oid], row, 1)
+                else:
+                    label = ValueLabel(modal_context, w=80)
+                    grid.addWidget(label, row, 1)
         # -------------------
         # p_cbe (col 2)
         # -------------------
