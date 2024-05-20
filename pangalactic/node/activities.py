@@ -21,12 +21,12 @@ except:
 from pangalactic.core             import state, write_state
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
-# from pangalactic.core.parametrics import get_pval_as_str,
 from pangalactic.core.parametrics import (get_pval, get_power_contexts,
                                           get_modal_context,
                                           get_usage_mode_val,
                                           get_usage_mode_val_as_str,
-                                          mode_defz, round_to)
+                                          mode_defz, round_to,
+                                          set_comp_modal_context)
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
@@ -699,7 +699,9 @@ class ModeDefinitionDashboard(QWidget):
         Set power level (context) for the acu whose oid is specified for the
         mode self.act.oid.
         """
-        self.comp_dict[self.usage.oid][oid][self.act.oid] = level
+        # self.comp_dict[self.usage.oid][oid][self.act.oid] = level
+        set_comp_modal_context(self.project.oid, self.usage.oid, oid,
+                               self.act.oid, level)
         orb.log.debug(' - comp mode datum set:')
         orb.log.debug(f'   level = {level}')
         orb.log.debug(f'   acu oid = {oid}')

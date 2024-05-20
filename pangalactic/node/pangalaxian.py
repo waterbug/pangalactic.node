@@ -3411,8 +3411,10 @@ class Main(QMainWindow):
                     # refresh the admin tool
                     self.refresh_admin_tool.emit()
                 elif cname == 'Activity':
-                    # TODO:
-                    # may need to remove activity block in conops diagram ...
+                    # conops will handle the deletion -- DO NOT delete here
+                    # because the activity oid is used to get the local
+                    # activity, which is used to find the event block that
+                    # needs to be removed from the timeline ...
                     pass
                 elif ((self.mode == 'system') and
                     cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
@@ -3928,9 +3930,11 @@ class Main(QMainWindow):
                 orb.delete([deleted_obj])
                 orb.log.debug('  deleted.')
             elif cname == 'Activity':
-                # TODO:  special case for "Mission"
-                orb.delete([deleted_obj])
-                orb.log.debug('  deleted.')
+                # DO NOT delete here -- conops will handle the deletion because
+                # the activity oid is used to get the local activity instance,
+                # which is used to find the event block that needs to be
+                # removed from the timeline ...
+                pass
             else:
                 orb.delete([deleted_obj])
                 orb.log.debug('  deleted.')

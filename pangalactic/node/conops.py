@@ -103,7 +103,7 @@ class EventBlock(QGraphicsPolygonItem):
                      QPointF(50, 80)])
         else:
             # "Cycle"
-            path.addEllipse(-100, 0, 200, 200)
+            path.addEllipse(-50, 0, 100, 100)
             self.myPolygon = path.toFillPolygon(QTransform())
         self.setPolygon(self.myPolygon)
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
@@ -131,9 +131,6 @@ class EventBlock(QGraphicsPolygonItem):
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
                                      triggered=self.delete_block_activity)
-        # self.edit_action = QAction("Edit", self.scene,
-                                   # statusTip="Edit activity",
-                                   # triggered=self.edit_activity)
 
     def edit_activity(self):
         self.scene.edit_scene_activity(self.activity)
@@ -142,7 +139,6 @@ class EventBlock(QGraphicsPolygonItem):
         orb.log.debug(' - dipatching "delete activity" signal')
         self.scene.removeItem(self)
         dispatcher.send(signal='delete activity', oid=self.activity.oid)
-        self.deleteLater()
 
     def itemChange(self, change, value):
         return value
@@ -178,8 +174,8 @@ class TimelineBar(QGraphicsPolygonItem):
     subactivities of the subject activity.
     """
 
-    def __init__(self, subject=None, scene=None, style=None, x_start=100, 
-                 x_end=1000, color=Qt.cyan, parent=None):
+    def __init__(self, subject=None, scene=None, style=None, x_start=10, 
+                 x_end=1000, color=Qt.cyan, timeline_length=None, parent=None):
         """
         Initialize TimelineBar.
 
@@ -199,9 +195,12 @@ class TimelineBar(QGraphicsPolygonItem):
         color = QColor('#ffccf9')
         # color.setNamedColor('#d5aaff')
         self.setBrush(color)
+        if timeline_length is not None:
+            x_end = timeline_length
+        tb_start = x_start + 90
         self.polygon = QPolygonF([
-                QPointF(x_start, 380), QPointF(x_end, 380),
-                QPointF(x_end, 360), QPointF(x_start, 360)])
+                QPointF(tb_start, 400), QPointF(x_end, 400),
+                QPointF(x_end, 380), QPointF(tb_start, 380)])
         self.setPolygon(self.polygon)
         self.block_label = BlockLabel(getattr(self.subject, 'name', '') or '',
                                       self, point_size=8)
@@ -211,6 +210,7 @@ class TimelineView(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setRenderHint(QPainter.Antialiasing)
+        self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
 
     def minimumSize(self):
         return QSize(800, 500)
@@ -243,26 +243,34 @@ class Timeline(QGraphicsPathItem):
         self.circle_length = self.path.length()
         self.path.arcTo(QRectF(self.path_length, 200, 100, 100), 180, 360)
         self.setPath(self.path)
-        self.length = round(self.path.length() - 2 * self.circle_length)
-        factor = self.length // (len(self.evt_blocks) + 1)
+        length = round(self.path.length() - 2 * self.circle_length)
+        factor = length // (len(self.evt_blocks) + 1)
         self.list_of_pos = [(n+1) * factor + 100
                             for n in range(0, len(self.evt_blocks))]
 
     def update_timeline(self):
+        orb.log.debug('* timeline.update_timeline()')
         self.calc_length()
         self.make_path()
         self.arrange()
 
     def calc_length(self):
+        orb.log.debug('* timeline.calc_length()')
         if len(self.evt_blocks) <= 6:
+            orb.log.debug('  <= 6 event blocks ... no rescale.')
             self.path_length = 1000
         else:
+            n = len(self.evt_blocks)
+            orb.log.debug(f'  {n} event blocks -- rescaling ...')
             # adjust timeline length and rescale scene
-            delta = len(self.evt_blocks) - 6
+            delta = n - 6
             self.path_length = 1000 + (delta // 2) * 300
-            scale = 70 - (delta // 2) * 10
+            scale = 70 - (delta // 3) * 10
             pscale = str(scale) + "%"
-            dispatcher.send("rescale timeline", percentscale=pscale)
+            orb.log.debug(f'  new scale is {pscale}')
+            orb.log.debug('  sending "rescale timeline" signal ...')
+            dispatcher.send("rescale timeline", percentscale=pscale,
+                            length=self.path_length)
 
     def add_evt_block(self, evt_block):
         self.evt_blocks.append(evt_block)
@@ -287,7 +295,7 @@ class Timeline(QGraphicsPathItem):
                 act.mod_datetime = NOW
                 orb.save([act])
                 dispatcher.send("modified object", obj=act)
-        dispatcher.send("order changed", act=act)
+        dispatcher.send("order changed")
         self.update()
 
 
@@ -295,6 +303,7 @@ class TimelineScene(QGraphicsScene):
 
     def __init__(self, parent, activity, position=None):
         super().__init__(parent)
+        orb.log.debug('* TimelineScene()')
         self.position = position
         self.subject = activity
         if activity:
@@ -303,12 +312,10 @@ class TimelineScene(QGraphicsScene):
             orb.log.debug(f'* TimelineScene act_of: {name}')
         self.timeline = Timeline()
         self.addItem(self.timeline)
-        self.timelinebar = TimelineBar()
-        self.addItem(self.timelinebar)
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
         self.grabbed_item = None
-        self.setSceneRect(QRectF(150.0, 150.0, 1200.0, 250.0))
+        self.setSceneRect(QRectF(150.0, 150.0, 1200.0, 300.0))
         width = self.sceneRect().width()
         height = self.sceneRect().height()
         orb.log.debug(f'* TimelineScene size: ({width}, {height}).')
@@ -428,11 +435,10 @@ class TimelineWidget(QWidget):
         self.layout.addWidget(self.view)
         self.setLayout(self.layout)
         self.history = []
-        self.sceneScaleChanged("70%")
         self.current_subsystem_index = 0
         self.deleted_acts = []
-        dispatcher.connect(self.delete_activity, "remove activity")
         dispatcher.connect(self.delete_activity, "deleted object")
+        # "delete activity" is sent by event block when it is removed ...
         dispatcher.connect(self.delete_activity, "delete activity")
         dispatcher.connect(self.on_rescale_timeline, "rescale timeline")
         dispatcher.connect(self.on_act_mod, "act mod")
@@ -466,11 +472,60 @@ class TimelineWidget(QWidget):
                 scene.update()
             scene.timeline.populate(evt_blocks)
         self.set_title()
-        self.scene = scene
         if not getattr(self, 'view', None):
             self.view = TimelineView(self)
+        self.scene = scene
+        # ---------------------------------------------------------------------
+        # add the timelinebar here -- it needs timeline.path_length
+        # ... also do update_timeline to rescale if necessary ...
+        # which has to be done *after* the TimelineView is created, because
+        # TimelineView controls the scaling of the scene, which is done in the
+        # update_timeline() ...
+        scene.timeline.update_timeline()
+        length = scene.timeline.path_length
+        orb.log.debug(f'  creating timelinebar with length {length}')
+        scene.timelinebar = TimelineBar(timeline_length=length)
+        scene.addItem(scene.timelinebar)
+        # ---------------------------------------------------------------------
         self.view.setScene(self.scene)
+        self.set_initial_scale()
+        self.get_scene_coords()
         self.view.show()
+        self.view.centerOn(scene.timeline)
+
+    def get_scene_coords(self):
+        br = self.scene.itemsBoundingRect()
+        br_parms = (br.x(), br.y(), br.width(), br.height())
+        orb.log.debug(f'  scene items bounding rect: ({br_parms})')
+        view_polygon = self.view.mapFromScene(
+                                    br.x(), br.y(), br.width(), br.height())
+        vbr = view_polygon.boundingRect()
+        vbr_parms = (vbr.x(), vbr.y(), vbr.width(), vbr.height())
+        orb.log.debug(f'  view coords of bounding rect: ({vbr_parms})')
+        # find the view origin (0, 0) in scene coordinates ...
+        v_origin = self.view.mapToScene(0, 0)
+        vo_coords = (v_origin.x(), v_origin.y())
+        orb.log.debug(f'  scene coords of view origin: ({vo_coords})')
+
+    def set_initial_scale(self):
+        """
+        Calculate what the initial scale should be from the number of event
+        blocks in the timeline and set it.
+        """
+        orb.log.debug('* set_initial_scale()')
+        n = len(self.scene.timeline.evt_blocks)
+        if n <= 6:
+            orb.log.debug('  <= 6 event blocks ... no rescale.')
+        else:
+            orb.log.debug(f'  {n} event blocks -- rescaling ...')
+            delta = n - 6
+            scale = 70 - (delta // 3) * 10
+            pscale = str(scale) + "%"
+            orb.log.debug(f'  new scale is {pscale}')
+            self.scene.timeline.update_timeline()
+            pl = self.scene.timeline.path_length
+            self.on_rescale_timeline(percentscale=pscale, length=pl)
+            self.sceneScaleChanged(pscale)
 
     def set_title(self):
         # try:
@@ -565,12 +620,22 @@ class TimelineWidget(QWidget):
                 project = orb.get(state.get('project'))
                 mission = orb.select('Mission', owner=project)
                 self.subject = mission
+                self.set_new_scene()
             else:
                 current_act_oids = [getattr(act, 'oid', '') for act in
                                     self.subject.sub_activities]
                 if oid in current_act_oids:
-                    # TODO: what?
-                    pass
+                    # find event block and remove it
+                    for item in self.scene.items():
+                        if (hasattr(item, 'activity') and
+                            item.activity and item.activity.oid == oid):
+                            act = item.activity
+                            self.scene.remove(item)
+                            item.deleteLater()
+                            orb.delete([act])
+                            dispatcher.send("deleted object", oid=oid,
+                                            cname='Activity')
+                self.set_new_scene()
         else:
             # locally originated action ...
             orb.log.debug(f'  - deleting activity {name}')
@@ -586,15 +651,31 @@ class TimelineWidget(QWidget):
             self.set_new_scene()
 
     def sceneScaleChanged(self, percentscale):
+        orb.log.debug(f'* rescaling to {percentscale}')
         newscale = float(percentscale[:-1]) / 100.0
+        # self.view.resetTransform()
         self.view.setTransform(QTransform().scale(newscale, newscale))
 
-    def on_rescale_timeline(self, percentscale=None):
+    def on_rescale_timeline(self, percentscale=None, length=None):
+        orb.log.debug('* TimelineWidget.on_rescale_timeline()')
         if percentscale in self.scene_scales:
+            orb.log.debug('  rescaling timeline ...')
+            # adjust size of timelinebar, if there is one ...
+            tlb = getattr(self.scene, 'timelinebar', None)
+            if tlb:
+                # TODO: in future, more adjustments may be needed!
+                orb.log.debug(f'  adjusting timelinebar to length {length}')
+                tlb_start = 100
+                x_end = length
+                polygon = QPolygonF([
+                                QPointF(tlb_start, 400), QPointF(x_end, 400),
+                                QPointF(x_end, 380), QPointF(tlb_start, 380)])
+                tlb.setPolygon(polygon)
             new_index = self.scene_scales.index(percentscale)
             self.scene_scale_select.setCurrentIndex(new_index)
+            self.scene.update()
         else:
-            orb.log.debug(f'* rescale factor {percentscale} unavailable')
+            orb.log.debug(f'  rescale factor {percentscale} unavailable')
 
     def on_act_mod(self, act):
         if act is self.subject:
@@ -916,7 +997,7 @@ class ConOpsModeler(QMainWindow):
         act_icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
         act_icon_path = os.path.join(act_icon_dir, act_icon_file)
         self.toolbox.setItemIcon(0, QIcon(act_icon_path))
-        self.toolbox.setMinimumWidth(250)
+        self.toolbox.setMinimumWidth(150)
         self.toolbox.setSizePolicy(QSizePolicy.Minimum,
                                    QSizePolicy.Fixed)
 
@@ -1259,14 +1340,16 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug("* ConOpsModeler.on_new_activity()")
         orb.log.debug(f'  sending "new object" signal on {act.id}')
+        self.main_timeline.get_scene_coords()
         dispatcher.send("new object", obj=act)
         self.rebuild_tables()
 
     def on_delete_activity(self, oid=None, cname=None, remote=False):
         """
-        Handler for dispatcher signals "delete activity", "remove activity",
-        and "deleted object", refreshes the activity tables. The signals are
-        also handled by the TimelineWidget.
+        Handler for dispatcher signals "delete activity" (sent by an event
+        block when it is removed) and "deleted object" (sent by pangalaxian).
+        Refreshes the activity tables. The signals are also handled by the
+        TimelineWidget.
 
         Keyword Args:
             oid (str): oid of the deleted activity
