@@ -883,29 +883,14 @@ class ConOpsModeler(QMainWindow):
                         QMessageBox.Ok, self)
             popup.show()
             mission_id = '_'.join([self.project.id, 'mission'])
+            now = dtstamp()
+            user = orb.get(state.get('local_user_oid') or 'me')
             self.mission = clone('Mission', id=mission_id, name=mission_name,
-                                 owner=self.project)
-            # orb.save([self.mission])
-            orb.db.commit()
-            orb.log.debug('* [ConOps] creating default activities ...')
-            acts = [self.mission]
-            seq = 0
-            for name in DEFAULT_ACTIVITIES:
-                activity_type = orb.get(
-                                "pgefobjects:ActivityType.Operation")
-                prefix = self.project.id
-                act_id = '-'.join([prefix, name])
-                act_name = name
-                activity = clone("Activity", id=act_id, name=act_name,
-                                 activity_type=activity_type,
                                  owner=self.project,
-                                 sub_activity_of=self.mission,
-                                 sub_activity_sequence=seq)
-                orb.db.commit()
-                acts.append(activity)
-                seq += 1
-            orb.log.debug('* [ConOps] sending "new objects" signal')
-            dispatcher.send("new objects", objs=acts)
+                                 create_datetime=now, mod_datetime=now,
+                                 creator=user, modifier=user)
+            orb.save([self.mission])
+            dispatcher.send("new object", obj=self.mission)
         if subject:
             self.subject = subject
         else:
@@ -968,11 +953,34 @@ class ConOpsModeler(QMainWindow):
                             orb.classes['Acu'])):
             self._usage = val
 
+    def create_action(self, text, slot=None, icon=None, tip=None,
+                      checkable=False):
+        action = QWidgetAction(self)
+        if icon is not None:
+            icon_file = icon + state.get('icon_type', '.png')
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
+            action.setIcon(QIcon(icon_path))
+        if tip is not None:
+            action.setToolTip(tip)
+            # action.setStatusTip(tip)
+        if slot is not None:
+            action.triggered.connect(slot)
+        if checkable:
+            action.setCheckable(True)
+        return action
+
     def init_toolbar(self):
         # NOTE: toolbar is currently empty but may have a role later ...
         orb.log.debug(' - ConOpsModeler.init_toolbar() ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
+        self.add_defaults_action = self.create_action(
+                                    "add default activities",
+                                    slot=self.add_default_activities,
+                                    icon="tools",
+                                    tip="add default activities")
+        self.toolbar.addAction(self.add_defaults_action)
 
     def create_toolbox(self):
         """
@@ -1337,6 +1345,32 @@ class ConOpsModeler(QMainWindow):
     def set_usage(self, usage):
         orb.log.debug("* ConOpsModeler.set_usage()")
         self.usage = usage
+
+    def add_default_activities(self):
+        orb.log.debug('* [ConOps] creating default activities ...')
+        acts = []
+        seq = 0
+        for name in DEFAULT_ACTIVITIES:
+            activity_type = orb.get(
+                            "pgefobjects:ActivityType.Operation")
+            prefix = self.project.id
+            act_id = '-'.join([prefix, name])
+            act_name = name
+            now = dtstamp()
+            user = orb.get(state.get('local_user_oid') or 'me')
+            activity = clone("Activity", id=act_id, name=act_name,
+                             activity_type=activity_type,
+                             owner=self.project,
+                             sub_activity_of=self.mission,
+                             sub_activity_sequence=seq,
+                             create_datetime=now, mod_datetime=now,
+                             creator=user, modifier=user)
+            orb.db.commit()
+            acts.append(activity)
+            seq += 1
+        orb.save(acts)
+        orb.log.debug('* [ConOps] sending "new objects" signal')
+        dispatcher.send("new objects", objs=acts)
 
     def resizeEvent(self, event):
         """
