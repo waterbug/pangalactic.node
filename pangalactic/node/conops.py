@@ -65,6 +65,7 @@ from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (DefineModesDialog,
                                           NotificationDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
+from pangalactic.node.utils       import pct_to_decimal
 from pangalactic.node.widgets     import ColorLabel, NameLabel
 
 
@@ -233,9 +234,26 @@ class Timeline(QGraphicsPathItem):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.evt_blocks = []
-        self.path_length = 1000
+        self.path_length = 1200
         self.make_path()
-        self.current_positions = []
+
+    def update_timeline(self):
+        orb.log.debug('* timeline.update_timeline()')
+        self.calc_length()
+        self.make_path()
+        self.arrange()
+
+    def calc_length(self):
+        orb.log.debug('* timeline.calc_length()')
+        self.path_length = 1200
+        if len(self.evt_blocks) <= 8:
+            orb.log.debug('  <= 8 event blocks ... no length re-calc.')
+        else:
+            n = len(self.evt_blocks)
+            orb.log.debug(f'  {n} event blocks -- calculating length ...')
+            # adjust timeline length
+            delta = n - 7
+            self.path_length = 1200 + (delta // 2) * 300
 
     def make_path(self):
         self.path = QPainterPath(QPointF(100, 250))
@@ -247,38 +265,6 @@ class Timeline(QGraphicsPathItem):
         factor = length // (len(self.evt_blocks) + 1)
         self.list_of_pos = [(n+1) * factor + 100
                             for n in range(0, len(self.evt_blocks))]
-
-    def update_timeline(self):
-        orb.log.debug('* timeline.update_timeline()')
-        self.calc_length()
-        self.make_path()
-        self.arrange()
-
-    def calc_length(self):
-        orb.log.debug('* timeline.calc_length()')
-        if len(self.evt_blocks) <= 6:
-            orb.log.debug('  <= 6 event blocks ... no rescale.')
-            self.path_length = 1000
-        else:
-            n = len(self.evt_blocks)
-            orb.log.debug(f'  {n} event blocks -- rescaling ...')
-            # adjust timeline length and rescale scene
-            delta = n - 6
-            self.path_length = 1000 + (delta // 2) * 300
-            scale = 70 - (delta // 3) * 10
-            pscale = str(scale) + "%"
-            orb.log.debug(f'  new scale is {pscale}')
-            orb.log.debug('  sending "rescale timeline" signal ...')
-            dispatcher.send("rescale timeline", percentscale=pscale,
-                            length=self.path_length)
-
-    def add_evt_block(self, evt_block):
-        self.evt_blocks.append(evt_block)
-        self.update_timeline()
-
-    def populate(self, evt_blocks):
-        self.evt_blocks = evt_blocks
-        self.update_timeline()
 
     def arrange(self):
         orb.log.debug('* timeline.arrange()')
@@ -297,6 +283,14 @@ class Timeline(QGraphicsPathItem):
                 dispatcher.send("modified object", obj=act)
         dispatcher.send("order changed")
         self.update()
+
+    def add_evt_block(self, evt_block):
+        self.evt_blocks.append(evt_block)
+        self.update_timeline()
+
+    def populate(self, evt_blocks):
+        self.evt_blocks = evt_blocks
+        self.update_timeline()
 
 
 class TimelineScene(QGraphicsScene):
@@ -375,7 +369,7 @@ class TimelineScene(QGraphicsScene):
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.add_evt_block(evt_block)
-        self.timeline.arrange()
+        self.timeline.update_timeline()
         orb.log.debug('* scene: sending "new activity" signal')
         dispatcher.send(signal="new activity", act=activity)
         self.update()
@@ -427,20 +421,21 @@ class TimelineWidget(QWidget):
         self.subject = subject
         self.position = position
         self.init_toolbar()
+        self.scale = 70
         # set_new_scene() calls self.set_title(), which sets a title_widget
         self.set_new_scene()
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(self.title_widget)
-        self.layout.addWidget(self.toolbar)
-        self.layout.addWidget(self.view)
-        self.setLayout(self.layout)
+        self.br = self.scene.itemsBoundingRect()
+        layout = QVBoxLayout()
+        layout.addWidget(self.title_widget)
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.view)
+        self.setLayout(layout)
         self.history = []
         self.current_subsystem_index = 0
         self.deleted_acts = []
         dispatcher.connect(self.delete_activity, "deleted object")
         # "delete activity" is sent by event block when it is removed ...
         dispatcher.connect(self.delete_activity, "delete activity")
-        dispatcher.connect(self.on_rescale_timeline, "rescale timeline")
         dispatcher.connect(self.on_act_mod, "act mod")
         self.setUpdatesEnabled(True)
 
@@ -488,15 +483,18 @@ class TimelineWidget(QWidget):
         scene.addItem(scene.timelinebar)
         # ---------------------------------------------------------------------
         self.view.setScene(self.scene)
-        self.set_initial_scale()
+        self.auto_rescale_timeline()
         self.get_scene_coords()
         self.view.show()
-        self.view.centerOn(scene.timeline)
 
     def get_scene_coords(self):
         br = self.scene.itemsBoundingRect()
+        self.br = br
         br_parms = (br.x(), br.y(), br.width(), br.height())
         orb.log.debug(f'  scene items bounding rect: ({br_parms})')
+        tlb_br = self.scene.timelinebar.boundingRect()
+        tlb_parms = (tlb_br.x(), tlb_br.y(), tlb_br.width(), tlb_br.height())
+        orb.log.debug(f'  scene coords of timelinebar: ({tlb_parms})')
         view_polygon = self.view.mapFromScene(
                                     br.x(), br.y(), br.width(), br.height())
         vbr = view_polygon.boundingRect()
@@ -506,26 +504,6 @@ class TimelineWidget(QWidget):
         v_origin = self.view.mapToScene(0, 0)
         vo_coords = (v_origin.x(), v_origin.y())
         orb.log.debug(f'  scene coords of view origin: ({vo_coords})')
-
-    def set_initial_scale(self):
-        """
-        Calculate what the initial scale should be from the number of event
-        blocks in the timeline and set it.
-        """
-        orb.log.debug('* set_initial_scale()')
-        n = len(self.scene.timeline.evt_blocks)
-        if n <= 6:
-            orb.log.debug('  <= 6 event blocks ... no rescale.')
-        else:
-            orb.log.debug(f'  {n} event blocks -- rescaling ...')
-            delta = n - 6
-            scale = 70 - (delta // 3) * 10
-            pscale = str(scale) + "%"
-            orb.log.debug(f'  new scale is {pscale}')
-            self.scene.timeline.update_timeline()
-            pl = self.scene.timeline.path_length
-            self.on_rescale_timeline(percentscale=pscale, length=pl)
-            self.sceneScaleChanged(pscale)
 
     def set_title(self):
         # try:
@@ -589,12 +567,18 @@ class TimelineWidget(QWidget):
                                     icon="graph",
                                     tip="graph")
         self.toolbar.addAction(self.plot_action)
+        self.center_action = self.create_action(
+                                    "tools",
+                                    slot=self.center,
+                                    icon="center",
+                                    tip="center")
+        self.toolbar.addAction(self.center_action)
         #create and add scene scale menu
         self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
         self.scene_scale_select = QComboBox()
         self.scene_scale_select.addItems(self.scene_scales)
         self.scene_scale_select.setCurrentIndex(5)
-        self.scene_scale_select.currentIndexChanged[str].connect(
+        self.scene_scale_select.currentIndexChanged.connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
 
@@ -650,32 +634,56 @@ class TimelineWidget(QWidget):
                 self.subject = None
             self.set_new_scene()
 
-    def sceneScaleChanged(self, percentscale):
+    def sceneScaleChanged(self, index):
+        percentscale = self.scene_scales[index]
         orb.log.debug(f'* rescaling to {percentscale}')
-        newscale = float(percentscale[:-1]) / 100.0
-        # self.view.resetTransform()
+        newscale = pct_to_decimal(percentscale)
         self.view.setTransform(QTransform().scale(newscale, newscale))
 
-    def on_rescale_timeline(self, percentscale=None, length=None):
-        orb.log.debug('* TimelineWidget.on_rescale_timeline()')
-        if percentscale in self.scene_scales:
-            orb.log.debug('  rescaling timeline ...')
-            # adjust size of timelinebar, if there is one ...
-            tlb = getattr(self.scene, 'timelinebar', None)
-            if tlb:
-                # TODO: in future, more adjustments may be needed!
-                orb.log.debug(f'  adjusting timelinebar to length {length}')
-                tlb_start = 100
-                x_end = length
-                polygon = QPolygonF([
-                                QPointF(tlb_start, 400), QPointF(x_end, 400),
-                                QPointF(x_end, 380), QPointF(tlb_start, 380)])
-                tlb.setPolygon(polygon)
-            new_index = self.scene_scales.index(percentscale)
-            self.scene_scale_select.setCurrentIndex(new_index)
-            self.scene.update()
+    def auto_rescale_timeline(self):
+        orb.log.debug('* auto_rescale_timeline()')
+        n = len(self.scene.timeline.evt_blocks)
+        if n <= 8:
+            orb.log.debug('  <= 8 event blocks ... no rescale.')
+            self.scale = 70
         else:
-            orb.log.debug(f'  rescale factor {percentscale} unavailable')
+            orb.log.debug(f'  {n} event blocks -- rescaling ...')
+            delta = n - 7
+            self.scale = 70 - (delta // 2) * 10
+        pscale = str(self.scale) + "%"
+        orb.log.debug(f'  new scale is {pscale}')
+        length = self.scene.timeline.path_length
+        # adjust size of timelinebar, if there is one ...
+        tlb = getattr(self.scene, 'timelinebar', None)
+        if tlb:
+            # TODO: in future, more adjustments may be needed!
+            orb.log.debug(f'  adjusting timelinebar to path length {length}')
+            tlb_start = 100
+            x_end = length
+            polygon = QPolygonF([
+                            QPointF(tlb_start, 400), QPointF(x_end, 400),
+                            QPointF(x_end, 380), QPointF(tlb_start, 380)])
+            tlb.setPolygon(polygon)
+        new_index = self.scene_scales.index(pscale)
+        self.scene_scale_select.setCurrentIndex(new_index)
+        self.sceneScaleChanged(new_index)
+        self.scene.update()
+        self.center()
+
+    def center(self):
+        """
+        Center the timeline in the viewport.
+        """
+        # self.view.ensureVisible(self.scene.itemsBoundingRect())
+        # self.view.centerOn(self.scene.timeline)
+        br = self.scene.itemsBoundingRect()
+        new_x = -50.0
+        new_y = br.y() - 20
+        new_width = br.width() + 100.0
+        new_height = br.height() + 50.0
+        new_rect = QRectF(new_x, new_y, new_width, new_height)
+        self.view.setSceneRect(new_rect)
+        self.get_scene_coords()
 
     def on_act_mod(self, act):
         if act is self.subject:

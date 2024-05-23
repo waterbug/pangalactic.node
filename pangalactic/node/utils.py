@@ -122,6 +122,15 @@ class InfoTableHeaderItem(QTableWidgetItem):
         self.isResolving = False
 
 
+def pct_to_decimal(percent):
+    """
+    Convert a string percentage representation into a decimal number.
+    """
+    if isinstance(percent, str):
+        return float(percent[:-1]) / 100.0
+    else:
+        return 0.0
+
 def get_all_usages(usage):
     """
     For the specified product usage, trace back to all usages that appear in
