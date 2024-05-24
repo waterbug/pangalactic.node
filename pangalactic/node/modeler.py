@@ -729,12 +729,16 @@ class ProductInfoPanel(QWidget):
         self.clear_hist_button.setToolTip('Clear the modeler history')
         self.clear_hist_button.clicked.connect(self.clear_history)
         product_info_layout.addWidget(self.clear_hist_button)
-        if state.get('component_modeler_history'):
-            self.back_button.setEnabled(True)
+        cmh = state.get('component_modeler_history') or []
+        if len(cmh) > 0:
             self.clear_hist_button.setEnabled(True)
+            if len(cmh) > 1:
+                self.back_button.setEnabled(True)
+            else:
+                self.back_button.setEnabled(False)
         else:
-            self.back_button.setEnabled(False)
             self.clear_hist_button.setEnabled(False)
+            self.back_button.setEnabled(False)
         product_id_label = NameLabel('id:')
         product_id_label.setStyleSheet('font-weight: bold')
         product_info_layout.addWidget(product_id_label)
