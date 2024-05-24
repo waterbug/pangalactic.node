@@ -484,26 +484,7 @@ class TimelineWidget(QWidget):
         # ---------------------------------------------------------------------
         self.view.setScene(self.scene)
         self.auto_rescale_timeline()
-        self.get_scene_coords()
         self.view.show()
-
-    def get_scene_coords(self):
-        br = self.scene.itemsBoundingRect()
-        self.br = br
-        br_parms = (br.x(), br.y(), br.width(), br.height())
-        orb.log.debug(f'  scene items bounding rect: ({br_parms})')
-        tlb_br = self.scene.timelinebar.boundingRect()
-        tlb_parms = (tlb_br.x(), tlb_br.y(), tlb_br.width(), tlb_br.height())
-        orb.log.debug(f'  scene coords of timelinebar: ({tlb_parms})')
-        view_polygon = self.view.mapFromScene(
-                                    br.x(), br.y(), br.width(), br.height())
-        vbr = view_polygon.boundingRect()
-        vbr_parms = (vbr.x(), vbr.y(), vbr.width(), vbr.height())
-        orb.log.debug(f'  view coords of bounding rect: ({vbr_parms})')
-        # find the view origin (0, 0) in scene coordinates ...
-        v_origin = self.view.mapToScene(0, 0)
-        vo_coords = (v_origin.x(), v_origin.y())
-        orb.log.debug(f'  scene coords of view origin: ({vo_coords})')
 
     def set_title(self):
         # try:
@@ -567,12 +548,6 @@ class TimelineWidget(QWidget):
                                     icon="graph",
                                     tip="graph")
         self.toolbar.addAction(self.plot_action)
-        self.center_action = self.create_action(
-                                    "tools",
-                                    slot=self.center,
-                                    icon="center",
-                                    tip="center")
-        self.toolbar.addAction(self.center_action)
         #create and add scene scale menu
         self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
         self.scene_scale_select = QComboBox()
@@ -615,6 +590,8 @@ class TimelineWidget(QWidget):
                             item.activity and item.activity.oid == oid):
                             act = item.activity
                             self.scene.remove(item)
+                            if item in self.scene.timeline.evt_blocks:
+                                self.scene.timeline.evt_blocks.remove(item)
                             item.deleteLater()
                             orb.delete([act])
                             dispatcher.send("deleted object", oid=oid,
@@ -668,14 +645,12 @@ class TimelineWidget(QWidget):
         self.scene_scale_select.setCurrentIndex(new_index)
         self.sceneScaleChanged(new_index)
         self.scene.update()
-        self.center()
+        self.center_timeline()
 
-    def center(self):
+    def center_timeline(self):
         """
         Center the timeline in the viewport.
         """
-        # self.view.ensureVisible(self.scene.itemsBoundingRect())
-        # self.view.centerOn(self.scene.timeline)
         br = self.scene.itemsBoundingRect()
         new_x = -50.0
         new_y = br.y() - 20
@@ -684,6 +659,24 @@ class TimelineWidget(QWidget):
         new_rect = QRectF(new_x, new_y, new_width, new_height)
         self.view.setSceneRect(new_rect)
         self.get_scene_coords()
+
+    def get_scene_coords(self):
+        br = self.scene.itemsBoundingRect()
+        self.br = br
+        br_parms = (br.x(), br.y(), br.width(), br.height())
+        orb.log.debug(f'  scene items bounding rect: ({br_parms})')
+        tlb_br = self.scene.timelinebar.boundingRect()
+        tlb_parms = (tlb_br.x(), tlb_br.y(), tlb_br.width(), tlb_br.height())
+        orb.log.debug(f'  scene coords of timelinebar: ({tlb_parms})')
+        view_polygon = self.view.mapFromScene(
+                                    br.x(), br.y(), br.width(), br.height())
+        vbr = view_polygon.boundingRect()
+        vbr_parms = (vbr.x(), vbr.y(), vbr.width(), vbr.height())
+        orb.log.debug(f'  view coords of bounding rect: ({vbr_parms})')
+        # find the view origin (0, 0) in scene coordinates ...
+        v_origin = self.view.mapToScene(0, 0)
+        vo_coords = (v_origin.x(), v_origin.y())
+        orb.log.debug(f'  scene coords of view origin: ({vo_coords})')
 
     def on_act_mod(self, act):
         if act is self.subject:
@@ -1418,7 +1411,7 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug("* ConOpsModeler.on_new_activity()")
         orb.log.debug(f'  sending "new object" signal on {act.id}')
-        self.main_timeline.get_scene_coords()
+        self.main_timeline.auto_rescale_timeline()
         dispatcher.send("new object", obj=act)
         self.rebuild_tables()
 

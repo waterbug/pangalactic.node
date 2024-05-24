@@ -430,8 +430,8 @@ class Main(QMainWindow):
         # detect whether we have logged into the repository ...
         if not (state.get('local_user_oid', 'me') == 'me'):
             # if still "me", then either it is initial startup or we have not
-            # yet logged into the repo -- in which case don't worry about the
-            # parameter or data element caches as they are not meaningful
+            # yet logged into the repo -- in either case don't worry about the
+            # parameter or data element caches as they are not yet meaningful
             if parm_des_unavail:
                 # parameters or data elements for non-reference data are
                 # unavailable until next repo sync
