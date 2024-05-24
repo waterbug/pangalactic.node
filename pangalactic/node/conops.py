@@ -883,11 +883,11 @@ class ConOpsModeler(QMainWindow):
                         QMessageBox.Ok, self)
             popup.show()
             mission_id = '_'.join([self.project.id, 'mission'])
-            now = dtstamp()
+            NOW = dtstamp()
             user = orb.get(state.get('local_user_oid') or 'me')
             self.mission = clone('Mission', id=mission_id, name=mission_name,
                                  owner=self.project,
-                                 create_datetime=now, mod_datetime=now,
+                                 create_datetime=NOW, mod_datetime=NOW,
                                  creator=user, modifier=user)
             orb.save([self.mission])
             dispatcher.send("new object", obj=self.mission)
@@ -1356,14 +1356,14 @@ class ConOpsModeler(QMainWindow):
             prefix = self.project.id
             act_id = '-'.join([prefix, name])
             act_name = name
-            now = dtstamp()
+            NOW = dtstamp()
             user = orb.get(state.get('local_user_oid') or 'me')
             activity = clone("Activity", id=act_id, name=act_name,
                              activity_type=activity_type,
                              owner=self.project,
                              sub_activity_of=self.mission,
                              sub_activity_sequence=seq,
-                             create_datetime=now, mod_datetime=now,
+                             create_datetime=NOW, mod_datetime=NOW,
                              creator=user, modifier=user)
             orb.db.commit()
             acts.append(activity)
