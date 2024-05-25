@@ -423,6 +423,7 @@ class ActivityInfoTable(QTableWidget):
             # act.mod_datetime = dtstamp()
             # orb.save([act])
             # dispatcher.send(signal="act mod", act=act)
+            self.resizeColumnsToContents()
         else:
             loc = f'({row}, {col})'
             orb.log.debug(f'    item {loc} is not current item; ignoring.')
