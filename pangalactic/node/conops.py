@@ -731,16 +731,21 @@ class TimelineWidget(QWidget):
 
     def center_timeline(self):
         """
-        Center the timeline in the viewport.
+        Adjust the viewport dimensions and center the timeline in it.
         """
+        orb.log.debug('* center_timeline()')
         br = self.scene.itemsBoundingRect()
-        new_x = -50.0
-        new_y = br.y() - 20
-        new_width = br.width() + 100.0
-        new_height = br.height() + 50.0
-        new_rect = QRectF(new_x, new_y, new_width, new_height)
-        self.view.setSceneRect(new_rect)
-        self.get_scene_coords()
+        br_parms = (br.x(), br.y(), br.width(), br.height())
+        orb.log.debug(f'  scene items bounding rect: ({br_parms})')
+        vp_x = -50.0
+        vp_y = br.y() - 20
+        vp_width = br.width() + 50.0
+        vp_height = br.height() + 50.0
+        vp_rect = QRectF(vp_x, vp_y, vp_width, vp_height)
+        self.view.setSceneRect(vp_rect)
+        vp_parms = (vp_x, vp_y, vp_width, vp_height)
+        orb.log.debug(f'  viewport: ({vp_parms})')
+        # self.get_scene_coords()
 
     def get_scene_coords(self):
         br = self.scene.itemsBoundingRect()
