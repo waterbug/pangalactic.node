@@ -39,8 +39,9 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QDialog, QMainWindow, QSizePolicy, QWidget,
                              QGraphicsItem, QGraphicsPolygonItem,
                              QGraphicsScene, QGraphicsView, QGridLayout,
-                             QMenu, QGraphicsPathItem, QVBoxLayout, QToolBar,
-                             QToolBox, QWidgetAction, QMessageBox)
+                             QMenu, QGraphicsPathItem, QPushButton,
+                             QVBoxLayout, QToolBar, QToolBox, QWidgetAction,
+                             QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
 
 # pangalactic
@@ -295,10 +296,9 @@ class Timeline(QGraphicsPathItem):
 
 class TimelineScene(QGraphicsScene):
 
-    def __init__(self, parent, activity, position=None):
+    def __init__(self, parent, activity):
         super().__init__(parent)
         orb.log.debug('* TimelineScene()')
-        self.position = position
         self.subject = activity
         if activity:
             self.act_of = activity.of_system
@@ -320,9 +320,8 @@ class TimelineScene(QGraphicsScene):
             # ignore: context menu event
             self.right_button_pressed = False
             return
-        elif (self.position == "main" and
-            new_item is not None and
-            new_item != self.current_focus):
+        elif (new_item is not None and
+              new_item != self.current_focus):
             self.current_focus = new_item
             if hasattr(self.focusItem(), 'activity'):
                 dispatcher.send("activity focused",
@@ -407,19 +406,18 @@ class TimelineWidget(QWidget):
         history (list):  list of previous parent Activity instances
     """
 
-    def __init__(self, subject, position=None, parent=None):
+    def __init__(self, subject, parent=None):
         """
         Initialize TimelineWidget.
 
         Keyword Args:
             subject (Activity):  the activity the timeline represents
-            position (str):  "main" or "sub"
             parent (QGraphicsItem): parent of this item
         """
         super().__init__(parent=parent)
         orb.log.debug(' - initializing TimelineWidget ...')
         self.subject = subject
-        self.position = position
+        state['timeline history'] = [subject.oid]
         self.init_toolbar()
         self.scale = 70
         # set_new_scene() calls self.set_title(), which sets a title_widget
@@ -430,7 +428,6 @@ class TimelineWidget(QWidget):
         layout.addWidget(self.toolbar)
         layout.addWidget(self.view)
         self.setLayout(layout)
-        self.history = []
         self.current_subsystem_index = 0
         self.deleted_acts = []
         dispatcher.connect(self.delete_activity, "deleted object")
@@ -452,7 +449,7 @@ class TimelineWidget(QWidget):
         subject activity.
         """
         orb.log.debug(' - set_new_scene ...')
-        scene = TimelineScene(self, self.subject, position=self.position)
+        scene = TimelineScene(self, self.subject)
         if (self.subject != None and
             len(self.subject.sub_activities) > 0):
             evt_blocks=[]
@@ -466,6 +463,10 @@ class TimelineWidget(QWidget):
                     scene.addItem(item)
                 scene.update()
             scene.timeline.populate(evt_blocks)
+        elif len(self.subject.sub_activities) == 0:
+            ada = getattr(self, 'add_defaults_action', None)
+            if ada:
+                self.add_defaults_action.setEnabled(True)
         self.set_title()
         if not getattr(self, 'view', None):
             self.view = TimelineView(self)
@@ -519,17 +520,22 @@ class TimelineWidget(QWidget):
     def widget_drill_down(self, act):
         """
         Handle a double-click event on an eventblock, creating and
-        displaying a new view.
+        displaying a new timeline for its sub-activities.
 
         Args:
             obj (EventBlock):  the block that received the double-click
         """
-        dispatcher.send("drill down", obj=act, act_of=self.system,
-                        position=self.position)
-        previous = self.subject
+        dispatcher.send("drill down", obj=act, act_of=self.system)
+        previous_oid = self.subject.oid
         self.subject = act
         self.set_new_scene()
-        self.history.append(previous)
+        self.back_action.setEnabled(True)
+        self.clear_history_action.setEnabled(True)
+        if state.get('timeline history'):
+            state['timeline history'].append(previous_oid)
+        else:
+            state['timeline history'] = [previous_oid]
+        dispatcher.send("new timeline", subject=act)
 
     def show_empty_scene(self):
         """
@@ -542,12 +548,35 @@ class TimelineWidget(QWidget):
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
         self.toolbar.setObjectName('ActionsToolBar')
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.back_action = self.create_action(
+                                    text="back",
+                                    slot=self.load_last_timeline,
+                                    icon="back",
+                                    tip="Back to last timeline")
+        self.back_action.setEnabled(False)
+        self.toolbar.addAction(self.back_action)
+        self.clear_history_action = self.create_action(
+                                    text="clear history",
+                                    slot=self.clear_history,
+                                    tip="Clear timeline history")
+        self.clear_history_action.setEnabled(False)
+        self.add_defaults_action = self.create_action(
+                                    "add default activities",
+                                    slot=self.add_default_activities,
+                                    icon="tools",
+                                    tip="add default activities")
+        self.toolbar.addAction(self.clear_history_action)
         self.plot_action = self.create_action(
-                                    "graph",
+                                    text="graph",
                                     slot=self.plot,
                                     icon="graph",
                                     tip="graph")
         self.toolbar.addAction(self.plot_action)
+        spacer = QWidget(parent=self)
+        spacer.setSizePolicy(QSizePolicy.Expanding,
+                             QSizePolicy.Expanding)
+        self.toolbar.addWidget(spacer)
         #create and add scene scale menu
         self.scene_scales = ["25%", "30%", "40%", "50%", "60%", "70%", "80%"]
         self.scene_scale_select = QComboBox()
@@ -556,6 +585,59 @@ class TimelineWidget(QWidget):
         self.scene_scale_select.currentIndexChanged.connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
+
+    def load_last_timeline(self):
+        """
+        Handle dispatcher signal for "comp modeler back" (sent by
+        ProductInfoPanel): load the last product from history and remove it
+        from the stack.
+        """
+        orb.log.debug('* load last timeline')
+        if state.get('timeline history'):
+            oid = state['timeline history'].pop() or ''
+            self.subject = orb.get(oid)
+            self.set_new_scene()
+            if state.get('timeline history'):
+                if len(state['timeline history']) > 1:
+                    self.back_action.setEnabled(True)
+                    self.clear_history_action.setEnabled(True)
+                else:
+                    self.back_action.setEnabled(False)
+                    self.clear_history_action.setEnabled(False)
+            dispatcher.send("new timeline", subject=self.subject)
+
+    def clear_history(self):
+        orb.log.debug('* clear timeline history')
+        state['timeline history'] = [self.subject.oid]
+        self.back_action.setEnabled(False)
+        self.clear_history_action.setEnabled(False)
+
+    def add_default_activities(self):
+        orb.log.debug('* creating default activities ...')
+        acts = []
+        seq = 0
+        for name in DEFAULT_ACTIVITIES:
+            activity_type = orb.get(
+                            "pgefobjects:ActivityType.Operation")
+            project = orb.get(state.get('project'))
+            prefix = project.id
+            act_id = '-'.join([prefix, name])
+            act_name = name
+            NOW = dtstamp()
+            user = orb.get(state.get('local_user_oid') or 'me')
+            activity = clone("Activity", id=act_id, name=act_name,
+                             activity_type=activity_type,
+                             owner=project,
+                             sub_activity_of=self.subject,
+                             sub_activity_sequence=seq,
+                             create_datetime=NOW, mod_datetime=NOW,
+                             creator=user, modifier=user)
+            orb.db.commit()
+            acts.append(activity)
+            seq += 1
+        orb.save(acts)
+        orb.log.debug('* sending "new objects" signal')
+        dispatcher.send("new objects", objs=acts)
 
     def delete_activity(self, oid=None, cname=None, remote=False):
         """
@@ -691,26 +773,29 @@ class TimelineWidget(QWidget):
         if self.system is activity.of_system:
             self.set_new_scene()
 
-    def create_action(self, text, slot=None, icon=None, tip=None,
+    def create_action(self, text=None, slot=None, icon=None, tip=None,
                       checkable=False):
         action = QWidgetAction(self)
+        button = QPushButton(self)
+        action.setDefaultWidget(button)
         if icon is not None:
             icon_file = icon + state.get('icon_type', '.png')
             icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
             icon_path = os.path.join(icon_dir, icon_file)
-            action.setIcon(QIcon(icon_path))
+            button.setIcon(QIcon(icon_path))
         if tip is not None:
-            action.setToolTip(tip)
+            button.setToolTip(tip)
             # action.setStatusTip(tip)
+        if text:
+            button.setText(text)
         if slot is not None:
-            action.triggered.connect(slot)
+            button.clicked.connect(slot)
         if checkable:
-            action.setCheckable(True)
+            button.setCheckable(True)
         return action
 
     def plot(self):
-        pass
-        # orb.log.debug('* plot()')
+        orb.log.debug('* plot()')
         # if not self.subject.sub_activities:
             # message = "No activities were found -- nothing to plot!"
             # popup = QMessageBox(
@@ -968,12 +1053,6 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(' - ConOpsModeler.init_toolbar() ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
-        self.add_defaults_action = self.create_action(
-                                    "add default activities",
-                                    slot=self.add_default_activities,
-                                    icon="tools",
-                                    tip="add default activities")
-        self.toolbar.addAction(self.add_defaults_action)
 
     def create_toolbox(self):
         """
@@ -1021,7 +1100,7 @@ class ConOpsModeler(QMainWindow):
         display to that activity's power graph.
         """
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
-        self.main_timeline = TimelineWidget(self.subject, position='main')
+        self.main_timeline = TimelineWidget(self.subject)
         self.main_timeline.setSizePolicy(QSizePolicy.MinimumExpanding,
                                          QSizePolicy.Fixed)
         central_layout = QVBoxLayout()
@@ -1101,7 +1180,8 @@ class ConOpsModeler(QMainWindow):
         mode_dash_layout.addWidget(self.mode_dash, alignment=Qt.AlignTop)
         central_layout.addLayout(mode_dash_layout, stretch=1)
         # ====================================================================
-        dispatcher.connect(self.rebuild_tables, "order changed")
+        dispatcher.connect(self.rebuild_table, "order changed")
+        dispatcher.connect(self.on_new_timeline, "new timeline")
         dispatcher.connect(self.on_new_activity, "new activity")
         dispatcher.connect(self.on_delete_activity, "delete activity")
         dispatcher.connect(self.on_delete_activity, "remove activity")
@@ -1128,11 +1208,24 @@ class ConOpsModeler(QMainWindow):
 
     def create_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
-        self.activity_table = ActivityWidget(self.subject, parent=self,
-                                             position='main')
+        self.activity_table = ActivityWidget(self.subject, parent=self)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
 
-    def rebuild_tables(self):
+    def on_new_timeline(self, subject=None):
+        """
+        Respond to a new timeline scene having been set, such as resulting from
+        an event block drill-down.
+
+        Keyword Args:
+            subject (Activity): subject of the new timeline
+        """
+        orb.log.debug("* conops: on_new_timeline()")
+        self.subject = subject
+        self.rebuild_activity_table()
+        self.resize(self.layout().sizeHint())
+
+    def rebuild_table(self):
+        orb.log.debug("* conops: rebuild_table()")
         self.rebuild_activity_table()
         self.resize(self.layout().sizeHint())
 
@@ -1339,32 +1432,6 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug("* ConOpsModeler.set_usage()")
         self.usage = usage
 
-    def add_default_activities(self):
-        orb.log.debug('* [ConOps] creating default activities ...')
-        acts = []
-        seq = 0
-        for name in DEFAULT_ACTIVITIES:
-            activity_type = orb.get(
-                            "pgefobjects:ActivityType.Operation")
-            prefix = self.project.id
-            act_id = '-'.join([prefix, name])
-            act_name = name
-            NOW = dtstamp()
-            user = orb.get(state.get('local_user_oid') or 'me')
-            activity = clone("Activity", id=act_id, name=act_name,
-                             activity_type=activity_type,
-                             owner=self.project,
-                             sub_activity_of=self.mission,
-                             sub_activity_sequence=seq,
-                             create_datetime=NOW, mod_datetime=NOW,
-                             creator=user, modifier=user)
-            orb.db.commit()
-            acts.append(activity)
-            seq += 1
-        orb.save(acts)
-        orb.log.debug('* [ConOps] sending "new objects" signal')
-        dispatcher.send("new objects", objs=acts)
-
     def resizeEvent(self, event):
         """
         Reimplementation of resizeEvent to capture width and height in a state
@@ -1386,12 +1453,11 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug("  - ConOpsModeler.on_double_click()...")
         try:
             orb.log.debug(f'     + activity: {act.id}')
-            if act.activity_type.id == 'cycle':
-                self.main_timeline.widget_drill_down(act)
+            self.main_timeline.widget_drill_down(act)
         except Exception as e:
             orb.log.debug("    exception occurred:")
             orb.log.debug(e)
-        self.rebuild_tables()
+        dispatcher.send("subject changed", obj=act)
 
     def on_activity_got_focus(self, act):
         """
@@ -1413,7 +1479,7 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(f'  sending "new object" signal on {act.id}')
         self.main_timeline.auto_rescale_timeline()
         dispatcher.send("new object", obj=act)
-        self.rebuild_tables()
+        self.rebuild_table()
 
     def on_delete_activity(self, oid=None, cname=None, remote=False):
         """
@@ -1427,7 +1493,7 @@ class ConOpsModeler(QMainWindow):
             cname (str): class name of the deleted object
             remote (bool): True if the operation was initiated remotely
         """
-        self.rebuild_tables()
+        self.rebuild_table()
 
     def on_remote_mod_acts(self, oids=None):
         """
@@ -1437,7 +1503,7 @@ class ConOpsModeler(QMainWindow):
             oids (list of str): oids of the new or modified Activity instances
         """
         self.main_timeline.set_new_scene()
-        self.rebuild_tables()
+        self.rebuild_table()
 
 
 if __name__ == '__main__':

@@ -12,7 +12,7 @@ from pangalactic.core.meta import asciify
 
 class MenuButton(QPushButton):
     """
-    A button to serve as a toolbar menu
+    A button to serve as a toolbar menu.
     """
     def __init__(self, icon, text='', tooltip='', actions=None, parent=None):
         """

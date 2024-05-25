@@ -115,19 +115,14 @@ class ActivityWidget(QWidget):
         blue_text = '<font color="blue">{}</font>'
         title_txt = ''
         if subj:
-            if self.position == "main":
-                txt = self.subject.name
-                if self.subject.activity_type:
-                    txt += ' ' + self.subject_activity.activity_type.name
-                title_txt = red_text.format(txt)
+            txt = self.subject.name
+            if self.subject.activity_type:
+                txt += ' ' + self.subject.activity_type.name
+            title_txt = red_text.format(txt)
             sys_name = (getattr(self.act_of, 'reference_designator', '') or
                         getattr(self.act_of, 'system_role', ''))
             title_txt += blue_text.format(sys_name) + ' '
-            if self.position == "main":
-                title_txt += 'Activity Details'
-            elif self.position == "sub":
-                title_txt += red_text.format(self.subject.name)
-                title_txt += ' Activity Details'
+            title_txt += 'Details'
         else:
             title_txt += red_text.format('No Activity')
         self.title_widget.setText(title_txt)
@@ -380,6 +375,7 @@ class ModeDefinitionDashboard(QWidget):
         dispatcher.connect(self.on_activity_focused, "activity focused")
         dispatcher.connect(self.on_activity_deleted, "delete activity")
         dispatcher.connect(self.on_set_mode_usage, "set mode usage")
+        dispatcher.connect(self.on_new_timeline, "new timeline")
         dispatcher.connect(self.on_modes_edited, 'modes edited')
         dispatcher.connect(self.on_modes_published, 'modes published')
         dispatcher.connect(self.on_remote_sys_mode_datum,
@@ -445,6 +441,19 @@ class ModeDefinitionDashboard(QWidget):
 
     def minimumSize(self):
         return QSize(800, 300)
+
+    def on_new_timeline(self):
+        """
+        Respond to a new timeline scene having been set, such as resulting from
+        an event block drill-down; no activity focused yet.
+        """
+        orb.log.debug('* MDD: received signal "new timeline"')
+        mission = orb.select('Mission', owner=self.project)
+        self.act = mission
+        if self.edit_state:
+            self.on_edit(None)
+        else:
+            self.on_view(None)
 
     def on_activity_focused(self, act=None):
         orb.log.debug('* MDD: received signal "activity focused"')
