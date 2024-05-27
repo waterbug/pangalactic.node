@@ -338,10 +338,9 @@ class ActivityInfoTable(QTableWidget):
         self.max_col_width = max_col_width
         default_view_conf = [
             ('name', '', 100),
-            ('t_start', 'Start\n(s)', 80),
+            ('t_start', 'Start', 80),
             ('duration', 'Duration', 100),
-            ('t_end', 'End\n(s)', 80),
-            ('description', 'Notes', 180)
+            ('t_end', 'End', 80)
             ]
         self.view_conf = view_conf or default_view_conf[:]
         self.setup()
@@ -423,7 +422,6 @@ class ActivityInfoTable(QTableWidget):
             # act.mod_datetime = dtstamp()
             # orb.save([act])
             # dispatcher.send(signal="act mod", act=act)
-            self.resizeColumnsToContents()
         else:
             loc = f'({row}, {col})'
             orb.log.debug(f'    item {loc} is not current item; ignoring.')
@@ -508,6 +506,7 @@ class ActivityInfoTable(QTableWidget):
                 t_end_str = orb.get_prop_val_as_str(other_act, 't_end')
                 self.item(r, self.view.index('t_end')).setData(Qt.EditRole,
                                                                t_end_str)
+        self.resizeColumnsToContents()
         dispatcher.send(signal="act mod", act=act)
 
 
