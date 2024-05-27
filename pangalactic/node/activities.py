@@ -45,7 +45,8 @@ DEFAULT_ACTIVITIES = ['Launch', 'Calibration', 'Propulsion', 'Slew',
 
 class ActivityWidget(QWidget):
     """
-    Table for displaying the sub-activities of an Activity and related data.
+    Container widget for the ActivityInfoTable that displays the sub-activities
+    of an Activity with their start, duration, and end parameters.
 
     Attrs:
         subject (Activity):  the Activity whose sub-activities are shown

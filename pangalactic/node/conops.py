@@ -613,7 +613,11 @@ class TimelineWidget(QWidget):
         self.clear_history_action.setEnabled(False)
 
     def add_default_activities(self):
-        orb.log.debug('* creating default activities ...')
+        orb.log.debug('* add_default_activities()')
+        sub_acts = getattr(self.subject, 'sub_activities', None)
+        if sub_acts:
+            orb.log.debug('  subject already has sub-activities, returning.')
+            return
         acts = []
         seq = 0
         for name in DEFAULT_ACTIVITIES:
