@@ -358,6 +358,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        dispatcher.connect(self.on_act_mods_signal, 'act mods')
         dispatcher.connect(self.on_new_objects_signal, 'new objects')
         dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
@@ -3153,6 +3154,17 @@ class Main(QMainWindow):
                 # ------------------------------------------------------------
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
+
+    def on_act_mods_signal(self, acts=None, prop_mods=None):
+        """
+        Handle local dispatcher signal for "act mods" -- activities in a
+        timeline have been modified -- specifically some of their parameters
+        have been modified. For efficiency and performance, the parameter mods
+        are addressed first using vger.set_parameters() (may be generalized
+        later to "set_properties"), and then a callback to
+        on_mod_objects_signal() is used to save the modified activity objects.
+        """
+        pass
 
     def on_new_objects_signal(self, objs=None):
         """
