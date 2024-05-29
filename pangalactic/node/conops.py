@@ -313,7 +313,7 @@ class TimelineScene(QGraphicsScene):
         width = self.sceneRect().width()
         height = self.sceneRect().height()
         orb.log.debug(f'* TimelineScene size: ({width}, {height}).')
-        dispatcher.connect(self.on_act_mod, "act mod")
+        dispatcher.connect(self.on_act_name_mod, "act name mod")
 
     def focus_changed_handler(self, new_item, old_item):
         if getattr(self, "right_button_pressed", False):
@@ -373,12 +373,12 @@ class TimelineScene(QGraphicsScene):
         dispatcher.send(signal="new activity", act=activity)
         self.update()
 
-    def on_act_mod(self, act=None):
+    def on_act_name_mod(self, act=None):
         """
-        Handle 'act mod' signal from ActivityInfoTable, meaning an activity was
-        modified.
+        Handle 'act name mod' signal from ActivityInfoTable, meaning an
+        activity's name was modified.
         """
-        orb.log.debug('* scene: received "act mod" signal')
+        orb.log.debug('* scene: received "act name mod" signal')
         for item in self.timeline.evt_blocks:
             # orb.log.debug(f'  checking for {item.activity.name} by oid')
             if item.activity.oid == act.oid:
@@ -390,11 +390,10 @@ class TimelineScene(QGraphicsScene):
 
 
 # TODO:  the TimelineWidget should display the timeline of either
-# (1) if TimelineWidget activity is the Mission, a selected project system or
-# group of systems (e.g. a selected SC, all SC's, ground system, all of the
-# above, etc.), or
-# (2) if TimelineWidget activity is a non-Mission activity instance, all of
-# its sub-activities
+# (1) if the subject of the timeline is the Mission, all of the Mission's
+# activities, or
+# (2) if the subject of the timeline is a non-Mission activity, all of that
+# activity's sub-activities
 
 # TODO: implement "back" based on history
 
@@ -433,7 +432,7 @@ class TimelineWidget(QWidget):
         dispatcher.connect(self.delete_activity, "deleted object")
         # "delete activity" is sent by event block when it is removed ...
         dispatcher.connect(self.delete_activity, "delete activity")
-        dispatcher.connect(self.on_act_mod, "act mod")
+        dispatcher.connect(self.on_act_name_mod, "act name mod")
         self.setUpdatesEnabled(True)
 
     @property
@@ -463,7 +462,9 @@ class TimelineWidget(QWidget):
                     scene.addItem(item)
                 scene.update()
             scene.timeline.populate(evt_blocks)
-        elif len(self.subject.sub_activities) == 0:
+        elif (isinstance(self.subject, orb.classes['Mission']) and
+              len(self.subject.sub_activities) == 0 and
+              state.get('connected')):
             ada = getattr(self, 'add_defaults_action', None)
             if ada:
                 self.add_defaults_action.setEnabled(True)
@@ -560,13 +561,15 @@ class TimelineWidget(QWidget):
                                     text="clear history",
                                     slot=self.clear_history,
                                     tip="Clear timeline history")
+        self.toolbar.addAction(self.clear_history_action)
         self.clear_history_action.setEnabled(False)
         self.add_defaults_action = self.create_action(
                                     "add default activities",
                                     slot=self.add_default_activities,
                                     icon="tools",
                                     tip="add default activities")
-        self.toolbar.addAction(self.clear_history_action)
+        self.toolbar.addAction(self.add_defaults_action)
+        self.add_defaults_action.setEnabled(False)
         self.plot_action = self.create_action(
                                     text="graph",
                                     slot=self.plot,
@@ -769,7 +772,7 @@ class TimelineWidget(QWidget):
         vo_coords = (v_origin.x(), v_origin.y())
         orb.log.debug(f'  scene coords of view origin: ({vo_coords})')
 
-    def on_act_mod(self, act):
+    def on_act_name_mod(self, act):
         if act is self.subject:
             self.set_title()
 

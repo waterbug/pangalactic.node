@@ -310,8 +310,8 @@ class ActivityInfoTable(QTableWidget):
 
     The target use case is the Concept of Operations (ConOps) for a mission.
     """
-    def __init__(self, subject, project=None, view_conf=None, min_col_width=20,
-                 max_col_width=300, parent=None):
+    def __init__(self, subject, project=None, view_conf=None, editable=False,
+                 min_col_width=20, max_col_width=300, parent=None):
         """
         Initialize
 
@@ -326,6 +326,7 @@ class ActivityInfoTable(QTableWidget):
                 (pname, colname, width), where pname is the property id,
                 colname is the column name (if empty string, pname is the
                 column name), and width is the column width
+            editable (bool): whether values in the table can be edited
             min_col_width (int): minimum column width (default: 100)
             max_col_width (int): maximum column width (default: 300)
             parent (QWidget):  parent widget
@@ -334,6 +335,7 @@ class ActivityInfoTable(QTableWidget):
         orb.log.info('* ActivityInfoTable initializing ...')
         self.project = project
         self.subject = subject
+        self.editable = editable
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         default_view_conf = [
@@ -382,8 +384,10 @@ class ActivityInfoTable(QTableWidget):
         for i, act in enumerate(self.acts):
             for j, ptuple in enumerate(self.view_conf):
                 pname, colname, width = ptuple
-                self.setItem(i, j,
-                   InfoTableItem(orb.get_prop_val_as_str(act, pname) or ''))
+                item = InfoTableItem(orb.get_prop_val_as_str(act, pname) or '')
+                if not self.editable:
+                    item.setFlags(Qt.NoItemFlags)
+                self.setItem(i, j, item)
         self.resizeColumnsToContents()
 
     def sizeHint(self):
@@ -405,23 +409,27 @@ class ActivityInfoTable(QTableWidget):
             act = self.acts[row]
             pname = self.view[col]
             str_val = item.data(Qt.EditRole)
-            try:
-                # set_prop_val() tries to cast value to correct datatype
-                orb.set_prop_val(act, pname, str_val)
-            except:
-                # TODO: pop-up notification to user ...
-                orb.log.debug(f'    val <{str_val}> datatype incompatible')
-                orb.log.debug('    operation aborted.')
-                return
-            orb.log.debug(f'    setting {act.name} {pname} to <{str_val}>')
-            self.blockSignals(True)
-            self.adjust_timeline(item)
-            self.blockSignals(False)
-            # TODO: check if item is a de or parm -- if so, no need to save the
-            # object ...
-            # act.mod_datetime = dtstamp()
-            # orb.save([act])
-            # dispatcher.send(signal="act mod", act=act)
+            # set_prop_val() tries to cast value to correct datatype and
+            # returns a status message with what happened
+            msg = f'setting {pname} of {act.name} to <{str_val}>'
+            orb.log.debug(f'    {msg} ...')
+            if pname == 'name':
+                act.name = str_val
+                act.mod_datetime = dtstamp()
+                orb.save([act])
+                dispatcher.send(signal="act name mod", act=act)
+            else:
+                # a parameter was modified ...
+                status = orb.set_prop_val(act, pname, str_val)
+                if 'failed' in status:
+                    # TODO: pop-up notification to user ...
+                    orb.log.debug(f'    {status}')
+                    orb.log.debug('    operation aborted.')
+                    return
+                orb.log.debug('    succeeded.')
+                self.blockSignals(True)
+                self.adjust_timeline(item)
+                self.blockSignals(False)
         else:
             loc = f'({row}, {col})'
             orb.log.debug(f'    item {loc} is not current item; ignoring.')
@@ -434,17 +442,26 @@ class ActivityInfoTable(QTableWidget):
         Args:
             item (InfoTableItem): item whose value was set
         """
-        # TODO: allow for different time units than seconds ...
+        orb.log.debug('    adjust_timeline()')
+        # prop_mods collects all property modifications
+        NOW = dtstamp()
+        prop_mods = {}
+        # TODO: support time units other than seconds ...
         row = item.row()
         col = item.column()
         act = self.acts[row]
+        act.mod_datetime = NOW
+        acts_modded = [act]
         pname = self.view[col]
+        prop_mods[act.oid] = {}
         if pname == 'duration':
             t_start = orb.get_prop_val(act, 't_start')
             # get new value of "duration"
             duration = orb.get_prop_val(act, 'duration')
+            prop_mods[act.oid]['duration'] = duration
             new_t_end = t_start + duration
             orb.set_prop_val(act, 't_end', new_t_end)
+            prop_mods[act.oid]['t_end'] = new_t_end
             txt = f'setting {act.name} t_end to <{new_t_end}>'
             orb.log.debug(f'    {txt}')
             # get new value of "t_end" as a str
@@ -458,8 +475,10 @@ class ActivityInfoTable(QTableWidget):
             duration = orb.get_prop_val(act, 'duration')
             # get new value of "t_start"
             t_start = orb.get_prop_val(act, 't_start')
+            prop_mods[act.oid]['t_start'] = t_start
             new_t_end = t_start + duration
             orb.set_prop_val(act, 't_end', new_t_end)
+            prop_mods[act.oid]['t_end'] = new_t_end
             txt = f'setting {act.name} t_end to <{new_t_end}>'
             orb.log.debug(f'    {txt}')
             # get new value of "t_end" as a str
@@ -473,8 +492,10 @@ class ActivityInfoTable(QTableWidget):
             t_start = orb.get_prop_val(act, 't_start')
             # get new value of "t_end"
             t_end = orb.get_prop_val(act, 't_end')
+            prop_mods[act.oid]['t_end'] = t_end
             new_duration = t_end - t_start
             orb.set_prop_val(act, 'duration', new_duration)
+            prop_mods[act.oid]['duration'] = new_duration
             txt = f'setting {act.name} duration to <{new_duration}>'
             orb.log.debug(f'    {txt}')
             # get new value of "duration" as a str
@@ -490,24 +511,31 @@ class ActivityInfoTable(QTableWidget):
         if len(self.acts) > row + 1:
             t_end = orb.get_prop_val(act, 't_end')
             for i, other_act in enumerate(self.acts[row+1:len(self.acts)]):
+                prop_mods[other_act.oid] = {}
                 r = row + 1 + i
                 txt = f'updating {other_act.name} ...'
                 orb.log.debug(f'    {txt}')
                 orb.set_prop_val(other_act, 't_start', t_end)
+                prop_mods[other_act.oid]['t_start'] = t_end
                 orb.log.debug(f'    {other_act.name} t_start set to {t_end}')
                 t_start = orb.get_prop_val(other_act, 't_start')
                 start_str = orb.get_prop_val_as_str(other_act, 't_start')
                 self.item(r, self.view.index('t_start')).setData(Qt.EditRole,
                                                                  start_str)
                 duration = orb.get_prop_val(other_act, 'duration')
-                t_end = t_start + duration
-                orb.set_prop_val(other_act, 't_end', t_end)
-                orb.log.debug(f'    {other_act.name} t_end set to {t_end}')
+                new_t_end = t_start + duration
+                orb.set_prop_val(other_act, 't_end', new_t_end)
+                prop_mods[other_act.oid]['t_end'] = new_t_end
+                orb.log.debug(f'    {other_act.name} t_end set to {new_t_end}')
                 t_end_str = orb.get_prop_val_as_str(other_act, 't_end')
                 self.item(r, self.view.index('t_end')).setData(Qt.EditRole,
                                                                t_end_str)
+                other_act.mod_datetime = NOW
+                acts_modded.append(other_act)
+        orb.save(acts_modded)
+        dispatcher.send(signal="act mods", acts=acts_modded,
+                        prop_mods=prop_mods)
         self.resizeColumnsToContents()
-        dispatcher.send(signal="act mod", act=act)
 
 
 class SystemInfoTable(QTableWidget):

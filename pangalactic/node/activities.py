@@ -19,6 +19,7 @@ except:
     import pangalactic.core.set_uberorb
     from pangalactic.core         import orb
 from pangalactic.core             import state, write_state
+from pangalactic.core.access      import is_global_admin
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 from pangalactic.core.parametrics import (get_pval, get_power_contexts,
@@ -86,7 +87,7 @@ class ActivityWidget(QWidget):
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
-        dispatcher.connect(self.on_act_mod, 'act mod')
+        dispatcher.connect(self.on_act_name_mod, 'act name mod')
 
     @property
     def act_of(self):
@@ -104,7 +105,7 @@ class ActivityWidget(QWidget):
             return []
         return subj.sub_activities
 
-    def on_act_mod(self, act):
+    def on_act_name_mod(self, act):
         if act is self.subject:
             self.set_title_text()
 
@@ -130,7 +131,21 @@ class ActivityWidget(QWidget):
 
     def set_table(self):
         project = orb.get(state.get('project'))
-        table = ActivityInfoTable(self.subject, project=project)
+        # if user has SE, LE, or admin role, table is editable
+        user = orb.get(state.get('local_user_oid', 'me'))
+        ras = orb.search_exact(cname='RoleAssignment',
+                               assigned_to=user,
+                               role_assignment_context=self.project)
+        role_names = set([ra.assigned_role.name for ra in ras])
+        allowed_roles = set(['Lead Engineer', 'Systems Engineer',
+                             'Administrator'])
+        global_admin = is_global_admin(user)
+        if global_admin or (role_names & allowed_roles):
+            table = ActivityInfoTable(self.subject, project=project,
+                                      editable=True)
+        else:
+            # default: editable=False
+            table = ActivityInfoTable(self.subject, project=project)
         table.setSizePolicy(QSizePolicy.MinimumExpanding,
                             QSizePolicy.Fixed)
         table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
