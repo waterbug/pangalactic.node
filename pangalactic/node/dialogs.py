@@ -1649,6 +1649,57 @@ class UnitPrefsDialog(QDialog):
         self.units_set.emit()
 
 
+class PrefTimeUnitsDialog(QDialog):
+    """
+    Dialog for setting preferred units for time for a specified Activity
+    object. The preferred units will be set as the data element "time_units".
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        orb.log.debug('* selecting preferred time units ...')
+        self.setWindowTitle("Preferred Time Units")
+        self.main_layout = QVBoxLayout(self)
+        instructions = 'Accepted Time Units -- select one:'
+        self.instructions_label = QLabel(instructions)
+        self.instructions_label.setAttribute(Qt.WA_DeleteOnClose)
+        self.main_layout.addWidget(self.instructions_label)
+        self.dim_buttons = {}
+        self.possible_time_units = {'seconds': 's',
+                                    'minutes': 'minute',
+                                    'hours': 'hour',
+                                    'days': 'day',
+                                    'weeks': 'week',
+                                    'fortnights': 'fortnight',
+                                    'months': 'month',
+                                    'years': 'year',
+                                    'milliseconds': 'ms',
+                                    'microseconds': 'us',
+                                    'nanoseconds': 'ns',
+                                    }
+        self.possible_units_layout = QVBoxLayout()
+        self.possible_units_buttons = QButtonGroup()
+        for unit in self.possible_time_units:
+            button = QRadioButton(unit)
+            button.clicked.connect(self.set_units)
+            self.possible_units_buttons.addButton(button)
+            self.possible_units_layout.addWidget(button)
+            self.dim_buttons[unit] = button
+            button.clicked.connect(self.set_units)
+        self.main_layout.addLayout(self.possible_units_layout)
+
+        # Ok button
+        self.bbox = QDialogButtonBox(Qt.Horizontal, self)
+        ok_btn = self.bbox.addButton(QDialogButtonBox.Ok)
+        ok_btn.clicked.connect(self.accept)
+        self.main_layout.addWidget(self.bbox)
+
+    def set_units(self, index):
+        b = self.possible_units_buttons.checkedButton()
+        self.unit = b.text()
+        orb.log.debug(f'  - selected units: {self.unit}')
+        self.unit_symbol = self.possible_time_units.get(self.unit)
+        orb.log.debug(f'  - selected unit symbol: "{self.unit_symbol}"')
+
 class PrefsDialog(QDialog):
 
     units_set = pyqtSignal()
