@@ -342,7 +342,8 @@ class ActivityInfoTable(QTableWidget):
             ('name', '', 100),
             ('t_start', 'Start', 80),
             ('duration', 'Duration', 100),
-            ('t_end', 'End', 80)
+            ('t_end', 'End', 80),
+            ('time_units', 'Units', 80)
             ]
         self.view_conf = view_conf or default_view_conf[:]
         self.setup()
@@ -417,9 +418,21 @@ class ActivityInfoTable(QTableWidget):
                 act.name = str_val
                 act.mod_datetime = dtstamp()
                 orb.save([act])
+                self.resizeColumnsToContents()
                 dispatcher.send(signal="act name mod", act=act)
+            elif pname == 'time_units':
+                status = orb.set_prop_val(act, pname, str_val)
+                if 'failed' in status:
+                    # TODO: pop-up notification to user ...
+                    orb.log.debug(f'    {status}')
+                    orb.log.debug('    operation aborted.')
+                    return
+                orb.log.debug('    succeeded.')
+                self.resizeColumnsToContents()
+                des = {act.oid : {'time_units' : str_val}}
+                dispatcher.send(signal="des set", des=des)
             else:
-                # a parameter was modified ...
+                # a time parameter was modified, propagate ...
                 status = orb.set_prop_val(act, pname, str_val)
                 if 'failed' in status:
                     # TODO: pop-up notification to user ...
