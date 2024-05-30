@@ -1233,16 +1233,10 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug("* conops: on_new_timeline()")
         self.subject = subject
-        self.rebuild_activity_table()
-        self.resize(self.layout().sizeHint())
+        self.rebuild_table()
 
     def rebuild_table(self):
         orb.log.debug("* conops: rebuild_table()")
-        self.rebuild_activity_table()
-        self.resize(self.layout().sizeHint())
-
-    def rebuild_activity_table(self):
-        orb.log.debug("* ConOpsModeler.rebuild_activity_table()")
         if getattr(self, 'activity_table', None):
             self.left_dock_layout.removeWidget(self.activity_table)
             self.activity_table.parent = None
@@ -1251,6 +1245,7 @@ class ConOpsModeler(QMainWindow):
         self.create_activity_table()
         self.left_dock_layout.insertWidget(0, self.activity_table,
                                            alignment=Qt.AlignTop)
+        self.resize(self.layout().sizeHint())
 
     def on_item_clicked(self, index):
         orb.log.debug("* ConOpsModeler.on_item_clicked()")
