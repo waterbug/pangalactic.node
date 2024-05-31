@@ -22,11 +22,13 @@ from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names       import (get_external_name_plural,
                                           pname_to_header)
 from pangalactic.core.serializers import serialize
+from pangalactic.core.units       import time_unit_names
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.node.tablemodels import (ObjectTableModel,
                                           CompareTableModel,
                                           SpecialSortModel)
-from pangalactic.node.dialogs     import NotificationDialog, SelectColsDialog
+from pangalactic.node.dialogs     import (NotificationDialog, SelectColsDialog,
+                                          TimeUnitsDialog)
 from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import InfoTableHeaderItem, InfoTableItem
 
@@ -421,7 +423,20 @@ class ActivityInfoTable(QTableWidget):
                 self.resizeColumnsToContents()
                 dispatcher.send(signal="act name mod", act=act)
             elif pname == 'time_units':
-                status = orb.set_prop_val(act, pname, str_val)
+                # TODO: when time units are set, convert existing values (if
+                # any) and do other computations as necessary ...
+                if str_val in time_unit_names:
+                    time_unit_id = time_unit_names[str_val]
+                else:
+                    dlg = TimeUnitsDialog(parent=self)
+                    if dlg.exec_() == QDialog.Accepted:
+                        str_val = dlg.time_unit_name
+                        time_unit_id = time_unit_names[str_val]
+                    else:
+                        str_val = 'seconds'
+                        time_unit_id = 's'
+                status = orb.set_prop_val(act, pname, time_unit_id)
+                item.setData(Qt.EditRole, str_val)
                 if 'failed' in status:
                     # TODO: pop-up notification to user ...
                     orb.log.debug(f'    {status}')
@@ -429,7 +444,7 @@ class ActivityInfoTable(QTableWidget):
                     return
                 orb.log.debug('    succeeded.')
                 self.resizeColumnsToContents()
-                des = {act.oid : {'time_units' : str_val}}
+                des = {act.oid : {'time_units' : time_unit_id}}
                 dispatcher.send(signal="des set", des=des)
             else:
                 # a time parameter was modified, propagate ...

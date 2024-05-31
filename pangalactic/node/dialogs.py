@@ -1657,6 +1657,9 @@ class TimeUnitsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         orb.log.debug('* selecting preferred time units ...')
+        # default time unit (mks) is seconds ...
+        self.time_unit_name = 'seconds'
+        self.time_unit_id = 's'
         self.setWindowTitle("Preferred Time Units")
         self.main_layout = QVBoxLayout(self)
         instructions = 'Accepted Time Units -- select one:'
@@ -1684,7 +1687,7 @@ class TimeUnitsDialog(QDialog):
     def set_units(self, index):
         b = self.possible_units_buttons.checkedButton()
         self.time_unit_name = b.text()
-        orb.log.debug(f'  - selected units: {self.time_unit}')
+        orb.log.debug(f'  - selected units: {self.time_unit_name}')
         self.time_unit_id = time_unit_names.get(self.time_unit_name)
         orb.log.debug(f'  - selected unit symbol: "{self.time_unit_id}"')
 

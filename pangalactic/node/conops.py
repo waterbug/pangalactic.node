@@ -126,18 +126,14 @@ class EventBlock(QGraphicsPolygonItem):
     def contextMenuEvent(self, event):
         self.menu = QMenu()
         self.menu.addAction(self.delete_action)
-        # self.menu.addAction(self.edit_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
-                                     triggered=self.delete_block_activity)
+                                     triggered=self.delete_activity_block)
 
-    def edit_activity(self):
-        self.scene.edit_scene_activity(self.activity)
-
-    def delete_block_activity(self):
+    def delete_activity_block(self):
         orb.log.debug(' - dipatching "delete activity" signal')
         self.scene.removeItem(self)
         dispatcher.send(signal='delete activity', oid=self.activity.oid)
