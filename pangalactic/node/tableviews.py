@@ -341,11 +341,11 @@ class ActivityInfoTable(QTableWidget):
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         default_view_conf = [
-            ('name', '', 100),
+            ('name', '', 200),
             ('t_start', 'Start', 80),
-            ('duration', 'Duration', 100),
+            ('duration', 'Duration', 80),
             ('t_end', 'End', 80),
-            ('time_units', 'Units', 80)
+            ('time_units', 'Units', 120)
             ]
         self.view_conf = view_conf or default_view_conf[:]
         self.setup()
@@ -391,14 +391,17 @@ class ActivityInfoTable(QTableWidget):
                 if not self.editable:
                     item.setFlags(Qt.NoItemFlags)
                 self.setItem(i, j, item)
-        self.resizeColumnsToContents()
+        for j, ptuple in enumerate(self.view_conf):
+            pname, colname, width = ptuple
+            self.setColumnWidth(j, width)
+        # self.resizeColumnsToContents()
 
     def sizeHint(self):
         # return QSize(400, 400)
         horizontal = self.horizontalHeader()
         vertical = self.verticalHeader()
         frame = self.frameWidth() * 2
-        return QSize(horizontal.width() * .8,
+        return QSize(horizontal.width(),
                      vertical.length() + horizontal.height() + frame)
 
     def on_item_mod(self, item=None):
@@ -420,7 +423,7 @@ class ActivityInfoTable(QTableWidget):
                 act.name = str_val
                 act.mod_datetime = dtstamp()
                 orb.save([act])
-                self.resizeColumnsToContents()
+                # self.resizeColumnsToContents()
                 dispatcher.send(signal="act name mod", act=act)
             elif pname == 'time_units':
                 # TODO: when time units are set, convert existing values (if
@@ -443,7 +446,7 @@ class ActivityInfoTable(QTableWidget):
                     orb.log.debug('    operation aborted.')
                     return
                 orb.log.debug('    succeeded.')
-                self.resizeColumnsToContents()
+                # self.resizeColumnsToContents()
                 des = {act.oid : {'time_units' : time_unit_id}}
                 dispatcher.send(signal="des set", des=des)
             else:
@@ -458,6 +461,9 @@ class ActivityInfoTable(QTableWidget):
                 self.blockSignals(True)
                 self.adjust_timeline(item)
                 self.blockSignals(False)
+            for j, ptuple in enumerate(self.view_conf):
+                width = ptuple[2]
+                self.setColumnWidth(j, width)
         else:
             loc = f'({row}, {col})'
             orb.log.debug(f'    item {loc} is not current item; ignoring.')
@@ -561,9 +567,12 @@ class ActivityInfoTable(QTableWidget):
                 other_act.mod_datetime = NOW
                 acts_modded.append(other_act)
         orb.save(acts_modded)
+        for j, ptuple in enumerate(self.view_conf):
+            width = ptuple[2]
+            self.setColumnWidth(j, width)
         dispatcher.send(signal="act mods", acts=acts_modded,
                         prop_mods=prop_mods)
-        self.resizeColumnsToContents()
+        # self.resizeColumnsToContents()
 
 
 class SystemInfoTable(QTableWidget):

@@ -146,11 +146,12 @@ class ActivityWidget(QWidget):
         else:
             # default: editable=False
             table = ActivityInfoTable(self.subject, project=project)
-        table.setSizePolicy(QSizePolicy.MinimumExpanding,
+        table.setSizePolicy(QSizePolicy.Fixed,
+                            # QSizePolicy.MinimumExpanding,
                             QSizePolicy.Fixed)
         table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        table.resizeColumnsToContents()
+        # table.resizeColumnsToContents()
         table.setAlternatingRowColors(True)
         self.main_layout.addWidget(table)
         self.main_layout.addStretch()
