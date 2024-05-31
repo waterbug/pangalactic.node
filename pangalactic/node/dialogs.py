@@ -39,7 +39,7 @@ from pangalactic.core.names       import (get_attr_ext_name,
 from pangalactic.core.parametrics import (componentz, de_defz, parm_defz,
                                           parmz_by_dimz, get_dval, mode_defz,
                                           set_dval)
-from pangalactic.core.units       import alt_units, in_si
+from pangalactic.core.units       import alt_units, in_si, time_unit_names
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,
                                             write_mel_to_xlsx)
@@ -1649,7 +1649,7 @@ class UnitPrefsDialog(QDialog):
         self.units_set.emit()
 
 
-class PrefTimeUnitsDialog(QDialog):
+class TimeUnitsDialog(QDialog):
     """
     Dialog for setting preferred units for time for a specified Activity
     object. The preferred units will be set as the data element "time_units".
@@ -1664,21 +1664,9 @@ class PrefTimeUnitsDialog(QDialog):
         self.instructions_label.setAttribute(Qt.WA_DeleteOnClose)
         self.main_layout.addWidget(self.instructions_label)
         self.dim_buttons = {}
-        self.possible_time_units = {'seconds': 's',
-                                    'minutes': 'minute',
-                                    'hours': 'hour',
-                                    'days': 'day',
-                                    'weeks': 'week',
-                                    'fortnights': 'fortnight',
-                                    'months': 'month',
-                                    'years': 'year',
-                                    'milliseconds': 'ms',
-                                    'microseconds': 'us',
-                                    'nanoseconds': 'ns',
-                                    }
         self.possible_units_layout = QVBoxLayout()
         self.possible_units_buttons = QButtonGroup()
-        for unit in self.possible_time_units:
+        for unit in time_unit_names:
             button = QRadioButton(unit)
             button.clicked.connect(self.set_units)
             self.possible_units_buttons.addButton(button)
@@ -1695,10 +1683,10 @@ class PrefTimeUnitsDialog(QDialog):
 
     def set_units(self, index):
         b = self.possible_units_buttons.checkedButton()
-        self.unit = b.text()
-        orb.log.debug(f'  - selected units: {self.unit}')
-        self.unit_symbol = self.possible_time_units.get(self.unit)
-        orb.log.debug(f'  - selected unit symbol: "{self.unit_symbol}"')
+        self.time_unit_name = b.text()
+        orb.log.debug(f'  - selected units: {self.time_unit}')
+        self.time_unit_id = time_unit_names.get(self.time_unit_name)
+        orb.log.debug(f'  - selected unit symbol: "{self.time_unit_id}"')
 
 class PrefsDialog(QDialog):
 
