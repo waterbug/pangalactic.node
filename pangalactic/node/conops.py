@@ -72,7 +72,7 @@ from pangalactic.node.widgets     import ColorLabel, NameLabel
 # constants
 POINT_SIZE = 8
 if sys.platform == 'win32':
-    POINT_SIZE = 7
+    POINT_SIZE = 6
     BLOCK_FACTOR = 26
 elif sys.platform == 'darwin':
     POINT_SIZE = 10
