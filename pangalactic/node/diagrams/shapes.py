@@ -2172,7 +2172,7 @@ class BlockLabel(QGraphicsTextItem):
         self.parent = parent
         self.centered = centered
         self.point_size = point_size or POINT_SIZE
-        orb.log.debug(f'* BlockLabel init; font size {self.point_size}')
+        # orb.log.debug(f'* BlockLabel init; font size {self.point_size}')
         self.text_option = QTextOption()
         self.text_option.setWrapMode(QTextOption.WordWrap)
         self.document().setDefaultTextOption(self.text_option)
@@ -2190,7 +2190,7 @@ class BlockLabel(QGraphicsTextItem):
         # self.point_size = point_size or getattr(self, 'point_size', POINT_SIZE)
         self.weight = weight or getattr(self, 'weight', 75)
         font = QFont(self.font_name, self.point_size, weight=self.weight)
-        orb.log.debug(f'* BlockLabel text set: point size {self.point_size}')
+        # orb.log.debug(f'* BlockLabel text set: point size {self.point_size}')
         self.setFont(font)
         self.document().setDefaultTextOption(self.text_option)
         self.setParentItem(self.parent)

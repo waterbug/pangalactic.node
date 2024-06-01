@@ -152,7 +152,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.setPolygon(self.myPolygon)
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
                                       self, point_size=POINT_SIZE)
-        orb.log.debug(f'* Block initialized with font size {POINT_SIZE}')
+        # orb.log.debug(f'* Block initialized with font size {POINT_SIZE}')
 
     def update_block_label(self):
         try:
