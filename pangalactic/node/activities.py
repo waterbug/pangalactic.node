@@ -484,7 +484,7 @@ class ModeDefinitionDashboard(QWidget):
             self.on_view(None)
 
     def on_activity_deleted(self, act=None):
-        orb.log.debug('* MDD: received signal "delete activity')
+        orb.log.debug('* MDD: received signal "delete activity"')
         mission = orb.select('Mission', owner=self.project)
         if mission:
             self.act = mission

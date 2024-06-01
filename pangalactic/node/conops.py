@@ -488,8 +488,9 @@ class TimelineWidget(QWidget):
         """
         orb.log.debug(' - set_new_scene ...')
         scene = TimelineScene(self, self.subject)
-        if (self.subject != None and
-            len(self.subject.sub_activities) > 0):
+        nbr_of_subacts = len(self.subject.sub_activities)
+        if (self.subject != None) and (nbr_of_subacts > 0):
+            orb.log.debug(f' - with {nbr_of_subacts} sub-acts ...')
             evt_blocks=[]
             for activity in sorted(self.subject.sub_activities,
                                    key=lambda x: getattr(x,
@@ -501,9 +502,12 @@ class TimelineWidget(QWidget):
                     scene.addItem(item)
                 scene.update()
             scene.timeline.populate(evt_blocks)
-        elif (isinstance(self.subject, orb.classes['Mission']) and
-              len(self.subject.sub_activities) == 0 and
-              state.get('connected')):
+            ada = getattr(self, 'add_defaults_action', None)
+            if ada:
+                self.add_defaults_action.setEnabled(False)
+        elif (isinstance(self.subject, orb.classes['Mission'])
+              and (nbr_of_subacts == 0)):
+            orb.log.debug(' - no sub-acts; can add default sub-acts')
             ada = getattr(self, 'add_defaults_action', None)
             if ada:
                 self.add_defaults_action.setEnabled(True)
@@ -590,27 +594,27 @@ class TimelineWidget(QWidget):
         self.toolbar.setObjectName('ActionsToolBar')
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.back_action = self.create_action(
-                                    text="back",
+                                    text="Back",
                                     slot=self.load_last_timeline,
                                     icon="back",
                                     tip="Back to last timeline")
         self.back_action.setEnabled(False)
         self.toolbar.addAction(self.back_action)
         self.clear_history_action = self.create_action(
-                                    text="clear history",
+                                    text="Clear History",
                                     slot=self.clear_history,
                                     tip="Clear timeline history")
         self.toolbar.addAction(self.clear_history_action)
         self.clear_history_action.setEnabled(False)
         self.add_defaults_action = self.create_action(
-                                    "add default activities",
+                                    "Add Default Activities",
                                     slot=self.add_default_activities,
                                     icon="tools",
                                     tip="add default activities")
         self.toolbar.addAction(self.add_defaults_action)
         self.add_defaults_action.setEnabled(False)
         self.plot_action = self.create_action(
-                                    text="graph",
+                                    text="Graph",
                                     slot=self.plot,
                                     icon="graph",
                                     tip="graph")
@@ -682,6 +686,7 @@ class TimelineWidget(QWidget):
             acts.append(activity)
             seq += 1
         orb.save(acts)
+        self.set_new_scene()
         orb.log.debug('* sending "new objects" signal')
         dispatcher.send("new objects", objs=acts)
 

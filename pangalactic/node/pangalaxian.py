@@ -2076,6 +2076,7 @@ class Main(QMainWindow):
                 else:
                     state['new_or_modified_rqts'] = [obj.oid]
             elif cname == 'Activity':
+                # orb.log.debug('  received Activity {obj.name}')
                 if state.get('new_or_modified_acts'):
                     state['new_or_modified_acts'].append(obj.oid)
                 else:
