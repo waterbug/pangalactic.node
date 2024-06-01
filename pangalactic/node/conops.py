@@ -25,7 +25,7 @@ Initially, ConOps shows a blank timeline for the current project
 
 # import numpy as np
 
-import os
+import sys, os
 # from functools import reduce
 
 # Louie
@@ -69,6 +69,48 @@ from pangalactic.node.dialogs     import (DefineModesDialog,
 from pangalactic.node.utils       import pct_to_decimal
 from pangalactic.node.widgets     import ColorLabel, NameLabel
 
+# constants
+POINT_SIZE = 8
+if sys.platform == 'win32':
+    POINT_SIZE = 7
+    BLOCK_FACTOR = 26
+elif sys.platform == 'darwin':
+    POINT_SIZE = 10
+    BLOCK_FACTOR = 20
+else:
+    # linux
+    POINT_SIZE = 8
+    BLOCK_FACTOR = 20
+SEPARATION = 10     # spacing factor between flows (connector lines)
+PORT_SIZE = 2.0 * POINT_SIZE
+QTCOLORS = ['white', 'black', 'red', 'darkRed', 'green', 'darkGreen', 'blue',
+            'darkBlue', 'cyan', 'darkCyan', 'magenta', 'darkMagenta', 'yellow',
+            'darkYellow', 'gray', 'darkGray', 'lightGray', 'transparent']
+# -----------------------------------------------------
+# Qt's predefined QColor objects:
+# -----------------------------------------------------
+# Qt::white         3 White (#ffffff)
+# Qt::black         2 Black (#000000)
+# Qt::red           7 Red (#ff0000)
+# Qt::darkRed      13 Dark red (#800000)
+# Qt::green         8 Green (#00ff00)
+# Qt::darkGreen    14 Dark green (#008000)
+# Qt::blue          9 Blue (#0000ff)
+# Qt::darkBlue     15 Dark blue (#000080)
+# Qt::cyan         10 Cyan (#00ffff)
+# Qt::darkCyan     16 Dark cyan (#008080)
+# Qt::magenta      11 Magenta (#ff00ff)
+# Qt::darkMagenta  17 Dark magenta (#800080)
+# Qt::yellow       12 Yellow (#ffff00)
+# Qt::darkYellow   18 Dark yellow (#808000)
+# Qt::gray          5 Gray (#a0a0a4)
+# Qt::darkGray      4 Dark gray (#808080)
+# Qt::lightGray     6 Light gray (#c0c0c0)
+# Qt::transparent  19 a transparent black value (i.e., QColor(0, 0, 0, 0))
+# Qt::color0        0 0 pixel value (for bitmaps)
+# Qt::color1        1 1 pixel value (for bitmaps)
+# orange (not Qt for that):  QColor(255, 140, 0)
+# -----------------------------------------------------
 
 
 class EventBlock(QGraphicsPolygonItem):
@@ -109,7 +151,7 @@ class EventBlock(QGraphicsPolygonItem):
             self.myPolygon = path.toFillPolygon(QTransform())
         self.setPolygon(self.myPolygon)
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
-                                      self, point_size=8)
+                                      self, point_size=POINT_SIZE)
 
     def update_block_label(self):
         try:
@@ -201,7 +243,7 @@ class TimelineBar(QGraphicsPolygonItem):
                 QPointF(x_end, 380), QPointF(tb_start, 380)])
         self.setPolygon(self.polygon)
         self.block_label = BlockLabel(getattr(self.subject, 'name', '') or '',
-                                      self, point_size=8)
+                                      self, point_size=POINT_SIZE)
 
 
 class TimelineView(QGraphicsView):
