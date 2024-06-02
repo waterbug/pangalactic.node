@@ -386,11 +386,15 @@ class ActivityInfoTable(QTableWidget):
             self.setHorizontalHeaderItem(i, header_label)
         # populate relevant data
         for i, act in enumerate(self.acts):
-            act_units = get_dval(act.oid, "time_units") or 's'
+            time_unit_name = get_dval(act.oid, "time_units") or 'seconds'
+            time_units = time_unit_names.get(time_unit_name) or 's'
             for j, ptuple in enumerate(self.view_conf):
                 pname, colname, width = ptuple
-                item = InfoTableItem(orb.get_prop_val_as_str(act, pname,
-                                                             units=act_units)
+                if pname == 'time_units':
+                    item = InfoTableItem(time_unit_name)
+                else:
+                    item = InfoTableItem(orb.get_prop_val_as_str(act, pname,
+                                                             units=time_units)
                                                              or '')
                 if not self.editable:
                     item.setFlags(Qt.NoItemFlags)
@@ -442,8 +446,10 @@ class ActivityInfoTable(QTableWidget):
                     else:
                         str_val = 'seconds'
                         time_unit_id = 's'
-                status = orb.set_prop_val(act, pname, time_unit_id)
+                # NOTE: "time_units" data element is a time unit *name*
+                status = orb.set_prop_val(act, "time_units", str_val)
                 item.setData(Qt.EditRole, str_val)
+                # show time parameters in the appropriate units ...
                 for pid in 't_start', 'duration', 't_end':
                     val_str = orb.get_prop_val_as_str(act, pid,
                                                       units=time_unit_id)
@@ -456,7 +462,7 @@ class ActivityInfoTable(QTableWidget):
                     return
                 orb.log.debug('    succeeded.')
                 # self.resizeColumnsToContents()
-                des = {act.oid : {'time_units' : time_unit_id}}
+                des = {act.oid : {'time_units' : str_val}}
                 dispatcher.send(signal="des set", des=des)
             else:
                 # a time parameter was modified, set and propagate ...
@@ -492,7 +498,6 @@ class ActivityInfoTable(QTableWidget):
         # prop_mods collects all property modifications
         NOW = dtstamp()
         prop_mods = {}
-        # TODO: support time units other than seconds ...
         row = item.row()
         col = item.column()
         act = self.acts[row]
@@ -581,10 +586,13 @@ class ActivityInfoTable(QTableWidget):
                                                                 conv_duration)
             self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
                                                                 conv_t_end)
-        # if there are activities following this one, adjust their properties
+            prop_mods[act.oid]['time_units'] = new_units_name
+        # if a time parameter was modified (t_start, duration, or t_end) and
+        # there are activities following this one, adjust their properties
         # accordingly ...
-        # self.align_activities()
-        if len(self.acts) > row + 1:
+        time_parms = set(['t_start', 'duration', 't_end'])
+        time_parms_modified = time_parms & set(prop_mods[act.oid])
+        if time_parms_modified and len(self.acts) > row + 1:
             # get t_end in base units
             t_end = orb.get_prop_val(act, 't_end')
             for i, other_act in enumerate(self.acts[row+1:len(self.acts)]):
@@ -618,7 +626,14 @@ class ActivityInfoTable(QTableWidget):
             self.setColumnWidth(j, width)
         dispatcher.send(signal="act mods", acts=acts_modded,
                         prop_mods=prop_mods)
-        # self.resizeColumnsToContents()
+
+    def recompute_parameters(self, begin_at_row=0):
+        """
+        Recompute t_start and t_end parameters for all timeline activities
+        beginning from the specified row.
+        """
+        # if len(self.acts) > begin_at_row + 1:
+        pass
 
 
 class SystemInfoTable(QTableWidget):
