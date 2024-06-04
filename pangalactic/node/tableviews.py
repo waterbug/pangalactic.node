@@ -404,6 +404,7 @@ class ActivityInfoTable(QTableWidget):
             pname, colname, width = ptuple
             self.setColumnWidth(j, width)
         # self.resizeColumnsToContents()
+        self.recompute_timeline()
 
     def sizeHint(self):
         # return QSize(400, 400)
@@ -595,51 +596,69 @@ class ActivityInfoTable(QTableWidget):
         # accordingly ...
         time_parms = set(['t_start', 'duration', 't_end'])
         time_parms_modified = time_parms & set(prop_mods[oid])
-        if time_parms_modified and len(self.acts) > row + 1:
-            # get t_end in base units
-            t_end = orb.get_prop_val(oid, 't_end')
-            for i, other_act in enumerate(self.acts[row+1:len(self.acts)]):
-                other_oid = other_act.oid
-                other_act_units = get_dval(other_oid, "time_units") or 's'
-                prop_mods[other_oid] = {}
-                r = row + 1 + i
-                txt = f'updating {other_act.name} ...'
-                orb.log.debug(f'    {txt}')
-                orb.set_prop_val(other_oid, 't_start', t_end)
-                prop_mods[other_oid]['t_start'] = t_end
-                orb.log.debug(f'    {other_act.name} t_start set to {t_end}')
-                t_start = orb.get_prop_val(other_oid, 't_start')
-                start_str = orb.get_prop_val_as_str(other_oid, 't_start',
-                                                    units=other_act_units)
-                self.item(r, self.view.index('t_start')).setData(Qt.EditRole,
-                                                                 start_str)
-                duration = orb.get_prop_val(other_oid, 'duration')
-                new_t_end = t_start + duration
-                orb.set_prop_val(other_oid, 't_end', new_t_end)
-                prop_mods[other_oid]['t_end'] = new_t_end
-                orb.log.debug(f'    {other_act.name} t_end set to {new_t_end}')
-                t_end_str = orb.get_prop_val_as_str(other_oid, 't_end',
-                                                    units=other_act_units)
-                self.item(r, self.view.index('t_end')).setData(Qt.EditRole,
-                                                               t_end_str)
-                other_act.mod_datetime = NOW
-                acts_modded.append(other_act)
+        if time_parms_modified:
+            # if len(self.acts) > row + 1:
+            # TODO: test!
+            mod_acts, more_prop_mods = self.recompute_timeline()
+            if mod_acts:
+                for other_act in mod_acts:
+                    other_act.mod_datetime = NOW
+                acts_modded += mod_acts
+            if more_prop_mods:
+                prop_mods.update(more_prop_mods)
+
         if not state.get('connected'):
-            # if not connected, just save locally -- if connected, the server
-            # will save and time-date-stamp them
+            # * if not connected, save locally
+            # * if connected, the server will time-date-stamp them, save, and
+            #   publish the time-date-stamp in "properties set" message.
             orb.save(acts_modded)
         for j, ptuple in enumerate(self.view_conf):
             width = ptuple[2]
             self.setColumnWidth(j, width)
         dispatcher.send(signal="act mods", prop_mods=prop_mods)
 
-    def recompute_parameters(self, begin_at_row=0):
+    def recompute_timeline(self):
         """
         Recompute t_start and t_end parameters for all timeline activities
         beginning from the specified row.
         """
-        # if len(self.acts) > begin_at_row + 1:
-        pass
+        orb.log.debug('* recompute_timeline()')
+        t_end = 0.0
+        acts_modded = []
+        prop_mods = {}
+        for row, act in enumerate(self.acts):
+            mods = False
+            oid = act.oid
+            t_units = get_dval(oid, "time_units") or 's'
+            prop_mods[oid] = {}
+            txt = f'updating {act.name} ...'
+            orb.log.debug(f'    {txt}')
+            orig_t_start = orb.get_prop_val(oid, 't_start')
+            if orig_t_start != t_end:
+                orb.set_prop_val(oid, 't_start', t_end)
+                prop_mods[oid]['t_start'] = t_end
+                orb.log.debug(f'    {act.name} t_start set to {t_end}')
+                mods = True
+            t_start = orb.get_prop_val(oid, 't_start')
+            t_start_str = orb.get_prop_val_as_str(oid, 't_start', units=t_units)
+            self.item(row, self.view.index('t_start')).setData(Qt.EditRole,
+                                                                t_start_str)
+            duration = orb.get_prop_val(oid, 'duration')
+            orig_t_end = orb.get_prop_val(oid, 't_end')
+            new_t_end = t_start + duration
+            if new_t_end != orig_t_end:
+                orb.set_prop_val(oid, 't_end', new_t_end)
+                prop_mods[oid]['t_end'] = new_t_end
+                orb.log.debug(f'    {act.name} t_end set to {new_t_end}')
+                mods = True
+            t_end_str = orb.get_prop_val_as_str(oid, 't_end', units=t_units)
+            self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
+                                                                t_end_str)
+            # set t_end (in base units, of course) for next loop ...
+            t_end = orb.get_prop_val(oid, 't_end')
+            if mods:
+                acts_modded.append(act)
+        return acts_modded, prop_mods
 
 
 class SystemInfoTable(QTableWidget):
