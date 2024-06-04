@@ -389,6 +389,7 @@ class ModeDefinitionDashboard(QWidget):
         self.main_layout.addWidget(self.dash_panel)
         self.setup_dash_interface()
         self.setup_dash_data()
+        dispatcher.connect(self.on_act_name_mod, 'act name mod')
         dispatcher.connect(self.on_activity_focused, "activity focused")
         dispatcher.connect(self.on_activity_deleted, "delete activity")
         dispatcher.connect(self.on_set_mode_usage, "set mode usage")
@@ -602,6 +603,40 @@ class ModeDefinitionDashboard(QWidget):
             self.title_widget.set_content(title_txt, element='h2')
         else:
             self.title_widget = ColorLabel(title_txt, element='h2')
+
+    def on_act_name_mod(self, act):
+        title_widget = getattr(self, 'title_widget', None)
+        if title_widget and (act is self.act):
+            blue_text = '<font color="blue">{}</font>'
+            title_txt = ''
+            if isinstance(self.act, orb.classes['Mission']):
+                if self.usage:
+                    title_txt += 'To specify a '
+                    title_txt += blue_text.format('Power Mode')
+                    title_txt += ' for the '
+                    title_txt += blue_text.format(self.sys_name)
+                    title_txt += ',<br>select an '
+                    title_txt += blue_text.format('Activity')
+                    title_txt += ' in the timeline ... '
+                else:
+                    title_txt += 'To specify '
+                    title_txt += blue_text.format('Power Modes')
+                    title_txt += ', select an '
+                    title_txt += blue_text.format('Activity')
+                    title_txt += ' in the Timeline<br>and a '
+                    title_txt += blue_text.format('System')
+                    title_txt += ' from the Mission Systems ...'
+            elif self.act and not self.usage:
+                title_txt += 'To specify '
+                title_txt += blue_text.format(self.act.name)
+                title_txt += ' Power Modes,<br>select a '
+                title_txt += blue_text.format('System')
+                title_txt += ' ...'
+            elif self.act and self.usage:
+                title_txt += blue_text.format(self.act.name)
+                title_txt += ' Power Mode for '
+                title_txt += blue_text.format(self.sys_name)
+            title_widget.set_content(title_txt, element='h2')
 
     def setup_dash_interface(self):
         """
