@@ -386,14 +386,15 @@ class ActivityInfoTable(QTableWidget):
             self.setHorizontalHeaderItem(i, header_label)
         # populate relevant data
         for i, act in enumerate(self.acts):
-            time_unit_name = get_dval(act.oid, "time_units") or 'seconds'
+            oid = act.oid
+            time_unit_name = get_dval(oid, "time_units") or 'seconds'
             time_units = time_unit_names.get(time_unit_name) or 's'
             for j, ptuple in enumerate(self.view_conf):
                 pname, colname, width = ptuple
                 if pname == 'time_units':
                     item = InfoTableItem(time_unit_name)
                 else:
-                    item = InfoTableItem(orb.get_prop_val_as_str(act, pname,
+                    item = InfoTableItem(orb.get_prop_val_as_str(oid, pname,
                                                              units=time_units)
                                                              or '')
                 if not self.editable:
@@ -421,6 +422,7 @@ class ActivityInfoTable(QTableWidget):
         cur_col = cur_item.column()
         if (row == cur_row and col == cur_col):
             act = self.acts[row]
+            oid = act.oid
             pname = self.view[col]
             str_val = item.data(Qt.EditRole)
             # set_prop_val() tries to cast value to correct datatype and
@@ -447,11 +449,11 @@ class ActivityInfoTable(QTableWidget):
                         str_val = 'seconds'
                         time_unit_id = 's'
                 # NOTE: "time_units" data element is a time unit *name*
-                status = orb.set_prop_val(act, "time_units", str_val)
+                status = orb.set_prop_val(oid, "time_units", str_val)
                 item.setData(Qt.EditRole, str_val)
                 # show time parameters in the appropriate units ...
                 for pid in 't_start', 'duration', 't_end':
-                    val_str = orb.get_prop_val_as_str(act, pid,
+                    val_str = orb.get_prop_val_as_str(oid, pid,
                                                       units=time_unit_id)
                     self.item(row, self.view.index(pid)).setData(Qt.EditRole,
                                                                  val_str)
@@ -462,14 +464,14 @@ class ActivityInfoTable(QTableWidget):
                     return
                 orb.log.debug('    succeeded.')
                 # self.resizeColumnsToContents()
-                des = {act.oid : {'time_units' : str_val}}
+                des = {oid : {'time_units' : str_val}}
                 dispatcher.send(signal="des set", des=des)
             else:
                 # a time parameter was modified, set and propagate ...
-                act_units = get_dval(act.oid, "time_units") or 's'
+                act_units = get_dval(oid, "time_units") or 's'
                 txt = f'setting {act.name} {pname} to {str_val} {act_units}'
                 orb.log.debug(f'    {txt}')
-                status = orb.set_prop_val(act, pname, str_val, units=act_units)
+                status = orb.set_prop_val(oid, pname, str_val, units=act_units)
                 if 'failed' in status:
                     # TODO: pop-up notification to user ...
                     orb.log.debug(f'    {status}')
@@ -501,69 +503,70 @@ class ActivityInfoTable(QTableWidget):
         row = item.row()
         col = item.column()
         act = self.acts[row]
-        act_units = get_dval(act.oid, "time_units") or 's'
+        oid = act.oid
+        act_units = get_dval(oid, "time_units") or 's'
         act.mod_datetime = NOW
         acts_modded = [act]
         pname = self.view[col]
         # prop_mods contains all mods in base units
-        prop_mods[act.oid] = {}
+        prop_mods[oid] = {}
         if pname == 'duration':
             # get current value of "t_start" in base units
-            t_start = orb.get_prop_val(act, 't_start')
+            t_start = orb.get_prop_val(oid, 't_start')
             # get new value of "duration" in base units
-            duration = orb.get_prop_val(act, 'duration')
-            prop_mods[act.oid]['duration'] = duration
+            duration = orb.get_prop_val(oid, 'duration')
+            prop_mods[oid]['duration'] = duration
             new_t_end = t_start + duration
             # new_t_end is also in base units
-            orb.set_prop_val(act, 't_end', new_t_end)
-            prop_mods[act.oid]['t_end'] = new_t_end
+            orb.set_prop_val(oid, 't_end', new_t_end)
+            prop_mods[oid]['t_end'] = new_t_end
             txt = f'setting {act.name} t_end to <{new_t_end}> (seconds)'
             orb.log.debug(f'    {txt}')
             # get new value of "t_end" in specified units as a str
-            t_end_str = orb.get_prop_val_as_str(act, 't_end', units=act_units)
+            t_end_str = orb.get_prop_val_as_str(oid, 't_end', units=act_units)
             self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
                                                              t_end_str)
             # also set the item value using the corrected datatype str
-            duration_str = orb.get_prop_val_as_str(act, 'duration',
+            duration_str = orb.get_prop_val_as_str(oid, 'duration',
                                                    units=act_units)
             item.setData(Qt.EditRole, duration_str)
         elif pname == 't_start':
             # get current value of "duration" in base units
-            duration = orb.get_prop_val(act, 'duration')
+            duration = orb.get_prop_val(oid, 'duration')
             # get new value of "t_start" in base units
-            t_start = orb.get_prop_val(act, 't_start')
-            prop_mods[act.oid]['t_start'] = t_start
+            t_start = orb.get_prop_val(oid, 't_start')
+            prop_mods[oid]['t_start'] = t_start
             new_t_end = t_start + duration
-            orb.set_prop_val(act, 't_end', new_t_end)
-            prop_mods[act.oid]['t_end'] = new_t_end
+            orb.set_prop_val(oid, 't_end', new_t_end)
+            prop_mods[oid]['t_end'] = new_t_end
             txt = f'setting {act.name} t_end to <{new_t_end} (seconds)>'
             orb.log.debug(f'    {txt}')
             # get new value of "t_end" as a str
-            t_end_str = orb.get_prop_val_as_str(act, 't_end', units=act_units)
+            t_end_str = orb.get_prop_val_as_str(oid, 't_end', units=act_units)
             self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
                                                              t_end_str)
             # also set the item value using the corrected datatype str
-            t_start_str = orb.get_prop_val_as_str(act, 't_start',
+            t_start_str = orb.get_prop_val_as_str(oid, 't_start',
                                                   units=act_units)
             item.setData(Qt.EditRole, t_start_str)
         elif pname == 't_end':
             # get current value of "t_start" in base units
-            t_start = orb.get_prop_val(act, 't_start')
+            t_start = orb.get_prop_val(oid, 't_start')
             # get new value of "t_end" in base units
-            t_end = orb.get_prop_val(act, 't_end')
-            prop_mods[act.oid]['t_end'] = t_end
+            t_end = orb.get_prop_val(oid, 't_end')
+            prop_mods[oid]['t_end'] = t_end
             new_duration = t_end - t_start
-            orb.set_prop_val(act, 'duration', new_duration)
-            prop_mods[act.oid]['duration'] = new_duration
+            orb.set_prop_val(oid, 'duration', new_duration)
+            prop_mods[oid]['duration'] = new_duration
             txt = f'setting {act.name} duration to <{new_duration}> (seconds)'
             orb.log.debug(f'    {txt}')
             # get new value of "duration" as a str
-            duration_str = orb.get_prop_val_as_str(act, 'duration',
+            duration_str = orb.get_prop_val_as_str(oid, 'duration',
                                                    units=act_units)
             self.item(row, self.view.index('duration')).setData(Qt.EditRole,
                                                                 duration_str)
             # also set the item value using the corrected datatype str
-            t_end_str = orb.get_prop_val_as_str(act, 't_end', units=act_units)
+            t_end_str = orb.get_prop_val_as_str(oid, 't_end', units=act_units)
             item.setData(Qt.EditRole, t_end_str)
         elif pname == 'time_units':
             # if 'time_units' is set, just set the item's t_start, duration and
@@ -575,57 +578,60 @@ class ActivityInfoTable(QTableWidget):
             if not new_units_name:
                 new_units_name = 'seconds'
             time_units = time_unit_names.get(new_units_name) or 's'
-            conv_t_start = get_pval_as_str(act.oid, 't_start',
+            conv_t_start = get_pval_as_str(oid, 't_start',
                                            units=time_units)
-            conv_duration = get_pval_as_str(act.oid, 'duration',
+            conv_duration = get_pval_as_str(oid, 'duration',
                                             units=time_units)
-            conv_t_end = get_pval_as_str(act.oid, 't_end', units=time_units)
+            conv_t_end = get_pval_as_str(oid, 't_end', units=time_units)
             self.item(row, self.view.index('t_start')).setData(Qt.EditRole,
                                                                 conv_t_start)
             self.item(row, self.view.index('duration')).setData(Qt.EditRole,
                                                                 conv_duration)
             self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
                                                                 conv_t_end)
-            prop_mods[act.oid]['time_units'] = new_units_name
+            prop_mods[oid]['time_units'] = new_units_name
         # if a time parameter was modified (t_start, duration, or t_end) and
         # there are activities following this one, adjust their properties
         # accordingly ...
         time_parms = set(['t_start', 'duration', 't_end'])
-        time_parms_modified = time_parms & set(prop_mods[act.oid])
+        time_parms_modified = time_parms & set(prop_mods[oid])
         if time_parms_modified and len(self.acts) > row + 1:
             # get t_end in base units
-            t_end = orb.get_prop_val(act, 't_end')
+            t_end = orb.get_prop_val(oid, 't_end')
             for i, other_act in enumerate(self.acts[row+1:len(self.acts)]):
-                other_act_units = get_dval(other_act.oid, "time_units") or 's'
-                prop_mods[other_act.oid] = {}
+                other_oid = other_act.oid
+                other_act_units = get_dval(other_oid, "time_units") or 's'
+                prop_mods[other_oid] = {}
                 r = row + 1 + i
                 txt = f'updating {other_act.name} ...'
                 orb.log.debug(f'    {txt}')
-                orb.set_prop_val(other_act, 't_start', t_end)
-                prop_mods[other_act.oid]['t_start'] = t_end
+                orb.set_prop_val(other_oid, 't_start', t_end)
+                prop_mods[other_oid]['t_start'] = t_end
                 orb.log.debug(f'    {other_act.name} t_start set to {t_end}')
-                t_start = orb.get_prop_val(other_act, 't_start')
-                start_str = orb.get_prop_val_as_str(other_act, 't_start',
+                t_start = orb.get_prop_val(other_oid, 't_start')
+                start_str = orb.get_prop_val_as_str(other_oid, 't_start',
                                                     units=other_act_units)
                 self.item(r, self.view.index('t_start')).setData(Qt.EditRole,
                                                                  start_str)
-                duration = orb.get_prop_val(other_act, 'duration')
+                duration = orb.get_prop_val(other_oid, 'duration')
                 new_t_end = t_start + duration
-                orb.set_prop_val(other_act, 't_end', new_t_end)
-                prop_mods[other_act.oid]['t_end'] = new_t_end
+                orb.set_prop_val(other_oid, 't_end', new_t_end)
+                prop_mods[other_oid]['t_end'] = new_t_end
                 orb.log.debug(f'    {other_act.name} t_end set to {new_t_end}')
-                t_end_str = orb.get_prop_val_as_str(other_act, 't_end',
+                t_end_str = orb.get_prop_val_as_str(other_oid, 't_end',
                                                     units=other_act_units)
                 self.item(r, self.view.index('t_end')).setData(Qt.EditRole,
                                                                t_end_str)
                 other_act.mod_datetime = NOW
                 acts_modded.append(other_act)
-        orb.save(acts_modded)
+        if not state.get('connected'):
+            # if not connected, just save locally -- if connected, the server
+            # will save and time-date-stamp them
+            orb.save(acts_modded)
         for j, ptuple in enumerate(self.view_conf):
             width = ptuple[2]
             self.setColumnWidth(j, width)
-        dispatcher.send(signal="act mods", acts=acts_modded,
-                        prop_mods=prop_mods)
+        dispatcher.send(signal="act mods", prop_mods=prop_mods)
 
     def recompute_parameters(self, begin_at_row=0):
         """

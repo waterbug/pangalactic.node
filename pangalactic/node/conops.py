@@ -1553,8 +1553,12 @@ class ConOpsModeler(QMainWindow):
         Keyword Args:
             oids (list of str): oids of the new or modified Activity instances
         """
-        self.main_timeline.set_new_scene()
-        self.rebuild_table()
+        act_oids = set([getattr(self.subject, 'oid', None)])
+        act_oids += set([act.oid for act in
+                         getattr(self.subject, 'sub_activities', []) or []])
+        if oids and (set(oids) & act_oids):
+            self.main_timeline.set_new_scene()
+            self.rebuild_table()
 
 
 if __name__ == '__main__':

@@ -1832,6 +1832,10 @@ class Main(QMainWindow):
                         self.on_remote_freeze_or_thaw(thawed_attrs, 'thaw')
                 else:
                     orb.log.info('  but it was empty!')
+            elif subject == 'properties set':
+                self.on_remote_properties_set(content)
+            elif subject == 'data elements set':
+                self.on_remote_data_elements_set(content)
             elif subject == 'de added':
                 self.on_remote_de_added(content)
             elif subject == 'de del':
@@ -3157,16 +3161,17 @@ class Main(QMainWindow):
         else:
             orb.log.debug('  *** no object provided -- ignoring! ***')
 
-    def on_act_mods_signal(self, acts=None, prop_mods=None):
+    def on_act_mods_signal(self, prop_mods=None):
         """
-        Handle local dispatcher signal for "act mods" -- activities in a
-        timeline have been modified -- specifically some of their parameters
-        have been modified. For efficiency and performance, the parameter mods
-        are addressed first using vger.set_parameters() (may be generalized
-        later to "set_properties"), and then a callback to
-        on_mod_objects_signal() is used to save the modified activity objects.
+        Handle local dispatcher signal for "act mods" -- specifically some of
+        the properties (parameters and/or data elements) of the activities in a
+        timeline have been modified.
         """
-        pass
+        if prop_mods and state.get('connected'):
+            rpc = self.mbus.session.call('vger.set_properties',
+                                         props=prop_mods)
+            rpc.addCallback(self.on_vger_set_properties_result)
+            rpc.addErrback(self.on_failure)
 
     def on_new_objects_signal(self, objs=None):
         """
@@ -3261,6 +3266,10 @@ class Main(QMainWindow):
             # END OF OFFLINE LOCAL UPDATES
             # ------------------------------------------------------------
 
+    def on_vger_set_properties_result(self, msg):
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+
     def on_parm_added(self, oid='', pid=''):
         """
         Handle local dispatcher signal "parm added".
@@ -3334,8 +3343,9 @@ class Main(QMainWindow):
 
         Keyword Args:
             des (dict): dict mapping oids to dicts of the form
-                {deid : value}
+                {oid: {deid: value}}
         """
+        orb.log.debug('* on_des_set()')
         if des and state.get('connected'):
             rpc = self.mbus.session.call('vger.set_data_elements', des=des)
             rpc.addCallback(self.on_vger_set_des_result)
@@ -3357,6 +3367,53 @@ class Main(QMainWindow):
     def on_vger_set_des_result(self, msg):
         if msg:
             orb.log.info(f'* vger: {msg}.')
+
+    def on_remote_properties_set(self, content):
+        """
+        Handle vger pubsub msg "properties set", with content in the format
+        (prop_mods, mod_datetime_string), where prop_mods has the format
+        {oid: {deid: value}}
+        """
+        orb.log.debug('* vger pubsub: "properties set"')
+        try:
+            prop_mods, mod_dt_str = content
+            success_oids = set()
+            for oid, prop_dict in prop_mods.items():
+                for prop_id, val in prop_dict.items():
+                    status = orb.set_prop_val(oid, prop_id, val)
+                    if status == 'succeeded':
+                        success_oids.add(oid)
+            if success_oids:
+                mod_dt = uncook_datetime(mod_dt_str)
+                mod_act_oids = set()
+                for oid in success_oids:
+                    obj = orb.get(oid)
+                    obj.mod_datetime = mod_dt
+                    orb.db.commit()
+                    if isinstance(obj, orb.classes['Activity']):
+                        mod_act_oids.add(oid)
+                if mod_act_oids:
+                    dispatcher.send(signal='remote new or mod acts',
+                                    oids=mod_act_oids)
+            orb.log.debug('  success: data_elementz updated.')
+        except:
+            orb.log.debug('  failed: exception encountered.')
+
+    def on_remote_data_elements_set(self, content):
+        """
+        Handle vger pubsub msg "data elements set", with content in the format
+        of the data_elementz dict -- {oid: {deid: value}}.
+        """
+        orb.log.debug('* vger pubsub: "data elements set"')
+        try:
+            for oid in content:
+                if oid in data_elementz:
+                    data_elementz[oid].update(content[oid])
+                else:
+                    data_elementz[oid] = content[oid].copy()
+            orb.log.debug('  success: data_elementz updated.')
+        except:
+            orb.log.debug('  failed: exception encountered.')
 
     def on_remote_de_added(self, content):
         """
