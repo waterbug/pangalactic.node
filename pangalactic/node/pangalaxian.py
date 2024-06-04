@@ -3165,7 +3165,9 @@ class Main(QMainWindow):
         """
         Handle local dispatcher signal for "act mods" -- specifically some of
         the properties (parameters and/or data elements) of the activities in a
-        timeline have been modified.
+        timeline have been modified. The vger.set_properties rpc will publish
+        the modified properties in "properties set" message, including the
+        time-date stamp for the related objects.
         """
         if prop_mods and state.get('connected'):
             rpc = self.mbus.session.call('vger.set_properties',
@@ -3375,29 +3377,27 @@ class Main(QMainWindow):
         {oid: {deid: value}}
         """
         orb.log.debug('* vger pubsub: "properties set"')
-        try:
-            prop_mods, mod_dt_str = content
-            success_oids = set()
-            for oid, prop_dict in prop_mods.items():
-                for prop_id, val in prop_dict.items():
-                    status = orb.set_prop_val(oid, prop_id, val)
-                    if status == 'succeeded':
-                        success_oids.add(oid)
-            if success_oids:
-                mod_dt = uncook_datetime(mod_dt_str)
-                mod_act_oids = set()
-                for oid in success_oids:
-                    obj = orb.get(oid)
-                    obj.mod_datetime = mod_dt
-                    orb.db.commit()
-                    if isinstance(obj, orb.classes['Activity']):
-                        mod_act_oids.add(oid)
-                if mod_act_oids:
-                    dispatcher.send(signal='remote new or mod acts',
-                                    oids=mod_act_oids)
-            orb.log.debug('  success: data_elementz updated.')
-        except:
-            orb.log.debug('  failed: exception encountered.')
+        prop_mods, mod_dt_str = content
+        success_oids = set()
+        for oid, prop_dict in prop_mods.items():
+            for prop_id, val in prop_dict.items():
+                status = orb.set_prop_val(oid, prop_id, val)
+                if status == 'succeeded':
+                    success_oids.add(oid)
+        if success_oids:
+            mod_dt = uncook_datetime(mod_dt_str)
+            mod_act_oids = set()
+            for oid in success_oids:
+                obj = orb.get(oid)
+                obj.mod_datetime = mod_dt
+                orb.db.commit()
+                # TODO: handle other classes ...
+                if isinstance(obj, orb.classes['Activity']):
+                    mod_act_oids.add(oid)
+            if mod_act_oids:
+                dispatcher.send(signal='remote new or mod acts',
+                                oids=mod_act_oids)
+        orb.log.debug('  success: data_elementz updated.')
 
     def on_remote_data_elements_set(self, content):
         """
