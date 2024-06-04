@@ -692,7 +692,8 @@ class ModeDefinitionDashboard(QWidget):
                     row += 1
                     link_name = get_link_name(acu)
                     name = f'---- {link_name}'
-                    label = ColorLabel(name, color='black', element='b')
+                    label = ColorLabel(name, color='black', element='b',
+                                       maxwidth=240)
                     grid.addWidget(label, row, 0)
                     self.usage_to_row[acu.oid] = row
                     if self.edit_state:

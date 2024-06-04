@@ -121,14 +121,14 @@ class ColorLabel(QLabel):
         parent (QWidget):  parent widget
     """
     def __init__(self, name, color=None, element=None, border=None,
-                 margin=0, parent=None):
+                 margin=0, maxwidth=0, parent=None):
         super().__init__(margin=margin, parent=parent)
         self.name = name
         self.set_content(name, color=color, element=element, border=border,
-                         margin=margin)
+                         margin=margin, maxwidth=maxwidth)
 
     def set_content(self, name, color=None, element=None, border=None,
-                    margin=None):
+                    margin=None, maxwidth=0):
         if border is not None:
             self.setFrameStyle(QFrame.Box | QFrame.Plain)
             try:
@@ -147,7 +147,9 @@ class ColorLabel(QLabel):
                                                                 name)
         self.setText(text)
         hint = self.sizeHint()
-        if hint.isValid():
+        if maxwidth:
+            self.setMaximumWidth(maxwidth)
+        elif hint.isValid():
             self.setMinimumSize(hint)
 
     def get_content(self):
