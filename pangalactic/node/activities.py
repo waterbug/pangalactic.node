@@ -31,7 +31,7 @@ from pangalactic.core.parametrics import (get_pval, get_power_contexts,
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
-from pangalactic.node.tableviews  import ActivityInfoTable
+from pangalactic.node.tableviews  import ActInfoTable
 from pangalactic.node.utils       import get_all_project_usages
 from pangalactic.node.widgets     import ColorLabel, NameLabel, ValueLabel
 
@@ -46,7 +46,7 @@ DEFAULT_ACTIVITIES = ['Launch', 'Calibration', 'Propulsion', 'Slew',
 
 class ActivityWidget(QWidget):
     """
-    Container widget for the ActivityInfoTable that displays the sub-activities
+    Container widget for the ActInfoTable that displays the sub-activities
     of an Activity with their start, duration, and end parameters.
 
     Attrs:
@@ -141,11 +141,11 @@ class ActivityWidget(QWidget):
                              'Administrator'])
         global_admin = is_global_admin(user)
         if global_admin or (role_names & allowed_roles):
-            table = ActivityInfoTable(self.subject, project=project,
+            table = ActInfoTable(self.subject, project=project,
                                       editable=True)
         else:
             # default: editable=False
-            table = ActivityInfoTable(self.subject, project=project)
+            table = ActInfoTable(self.subject, project=project)
         table.setSizePolicy(QSizePolicy.Fixed,
                             # QSizePolicy.MinimumExpanding,
                             QSizePolicy.Fixed)

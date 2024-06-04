@@ -414,8 +414,8 @@ class TimelineScene(QGraphicsScene):
 
     def on_act_name_mod(self, act=None):
         """
-        Handle 'act name mod' signal from ActivityInfoTable, meaning an
-        activity's name was modified.
+        Handle 'act name mod' signal from ActInfoTable, meaning an activity's
+        name was modified.
         """
         orb.log.debug('* scene: received "act name mod" signal')
         for item in self.timeline.evt_blocks:
@@ -1147,9 +1147,9 @@ class ConOpsModeler(QMainWindow):
 
     def set_widgets(self):
         """
-        Add a TimelineWidget and ActivityInfoTable containing all
-        sub-activities of the "subject" (current activity), and the Mission
-        Systems selection tree and ModeDefinitionDashboard.
+        Add a TimelineWidget and ActInfoTable containing all sub-activities of
+        the "subject" (current activity), and the Mission Systems selection
+        tree and ModeDefinitionDashboard.
 
         Note that focusing (mouse click) on an activity in the timeline will
         make that activity the "current_activity" and restrict the graph

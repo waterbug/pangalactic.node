@@ -305,7 +305,7 @@ class CompareWidget(QDialog):
 
 
 
-class ActivityInfoTable(QTableWidget):
+class ActInfoTable(QTableWidget):
     """
     Table to provide an editable view of Activity instances in the timeline of
     a parent activity. The rows of the table contain properties and parameters
@@ -335,7 +335,7 @@ class ActivityInfoTable(QTableWidget):
             parent (QWidget):  parent widget
         """
         super().__init__(parent=parent)
-        orb.log.info('* ActivityInfoTable initializing ...')
+        orb.log.info('* ActInfoTable initializing ...')
         self.project = project
         self.subject = subject
         self.editable = editable
@@ -373,7 +373,7 @@ class ActivityInfoTable(QTableWidget):
         return [x[0] for x in self.view_conf]
 
     def setup(self):
-        orb.log.debug('  - ActivityInfoTable.setup()')
+        orb.log.debug('  - ActInfoTable.setup()')
         self.setColumnCount(len(self.view))
         self.setRowCount(len(self.acts))
         for i, (pname, colname, width) in enumerate(self.view_conf):
@@ -415,7 +415,7 @@ class ActivityInfoTable(QTableWidget):
                      vertical.length() + horizontal.height() + frame)
 
     def on_item_mod(self, item=None):
-        orb.log.debug('  - ActivityInfoTable.on_item_mod()')
+        orb.log.debug('  - ActInfoTable.on_item_mod()')
         row = item.row()
         col = item.column()
         cur_item = self.currentItem()
