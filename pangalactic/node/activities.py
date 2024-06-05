@@ -774,19 +774,32 @@ class ModeDefinitionDashboard(QWidget):
             label = ValueLabel(modal_context, w=80)
             grid.addWidget(label, row, 1)
         else:
+            modal_context_has_been_set = False
             modal_context = get_modal_context(self.project.oid, usage.oid,
                                               self.act.oid)
+            if modal_context:
+                modal_context_has_been_set = True
             if modal_context == '[computed]':
                 label = ValueLabel(modal_context, w=80)
                 grid.addWidget(label, row, 1)
             else:
+                if not modal_context:
+                    # modal_context has not been set -- use default value
+                    modal_context = 'Off'   # TODO: use default "template"
                 if self.edit_state:
                     i = self.usage_to_l_select[usage.oid].findText(
                                                             modal_context)
                     if i == -1:
+                        # modal_context value was not in valid options ...
+                        modal_context_has_been_set = False
+                        modal_context = 'Off'   # TODO: use default "template"
                         i = 0
-                    self.usage_to_l_select[usage.oid].setCurrentIndex(i)
-                    grid.addWidget(self.usage_to_l_select[usage.oid], row, 1)
+                    l_sel = self.usage_to_l_select[usage.oid]
+                    l_sel.setCurrentIndex(i)
+                    grid.addWidget(l_sel, row, 1)
+                    if not modal_context_has_been_set:
+                        # set the modal_context value
+                        self.set_level(modal_context, oid=usage.oid)
                 else:
                     label = ValueLabel(modal_context, w=80)
                     grid.addWidget(label, row, 1)
