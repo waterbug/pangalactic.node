@@ -4,19 +4,13 @@
 Defines the ConOps tool for modeling a Mission Concept of Operations.
 
 NOTES:
-Initially, ConOps shows a blank timeline for the current project
-* can display timelines for all or any selected top-level project system:
+Initially, ConOps shows a blank timeline for the current project's mission
+* can display timelines for any top-level project system:
   - spacecraft (may be multiple SCs, of course)
   - ground system(s)
-* selected system timeline gets focus and can optionally display timelines
-    for its subsystems and their activities
-* subsystem timelines show sub-activities of the activities in the parent
-  system's timeline, and the sub-activities are graphically in sync with their
-  parent activities (vertical parallels), and show power levels, e.g.
-* sub-activities durations can be specified graphically (drag edges) or
-  numerically (editor from context menu), or using convenience functions (TBD)
-  -- parameters (e.g. power level) can come from the subsystem spec or be
-  specified ad hoc.
+* sub-activities durations can be specified numerically in the ActInfoTable
+  (widget on the upper left)
+  -- parameters (e.g. power level) come from the subsystem specs.
 """
 
 # import pyqtgraph as pg
@@ -175,6 +169,12 @@ class EventBlock(QGraphicsPolygonItem):
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
                                      triggered=self.delete_activity_block)
+
+    def highlight(self):
+        self.setBrush(Qt.yellow)
+
+    def unhighlight(self):
+        self.setBrush(Qt.white)
 
     def delete_activity_block(self):
         orb.log.debug(' - dipatching "delete activity" signal')
@@ -363,6 +363,9 @@ class TimelineScene(QGraphicsScene):
               new_item != self.current_focus):
             self.current_focus = new_item
             if hasattr(self.focusItem(), 'activity'):
+                new_item.highlight()
+                if hasattr(old_item, 'activity'):
+                    old_item.unhighlight()
                 dispatcher.send("activity focused",
                                 act=self.focusItem().activity)
 
@@ -1559,6 +1562,29 @@ class ConOpsModeler(QMainWindow):
         if oids and (set(oids) & act_oids):
             self.main_timeline.set_new_scene()
             self.rebuild_table()
+
+    def power_time_function(self, act=None, usage=None):
+        """
+        Return a function that computes system net power level as a function of
+        time.
+
+        Keyword Args:
+            usage (Acu or ProjectSystemUsage): restrict to the power level of
+                the specified usage, or self.usage if none is specified
+        """
+        pass
+
+    def energy_time_integral(self, act=None, usage=None):
+        """
+        Compute system net energy consumption as a function of time.
+
+        Keyword Args:
+            act (Activity): a specified activity over which to integrate, or
+                over the Mission if none is specified
+            usage (Acu or ProjectSystemUsage): restrict to energy consumption
+                of the specified usage, or self.usage if none is specified
+        """
+        pass
 
 
 if __name__ == '__main__':
