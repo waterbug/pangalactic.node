@@ -22,7 +22,8 @@ from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
                              QLineEdit, QProgressDialog, QRadioButton,
                              QScrollArea, QSizePolicy, QTableView,
-                             QTableWidget, QTextBrowser, QVBoxLayout, QWidget)
+                             QTableWidget, QTextBrowser, QTextEdit,
+                             QVBoxLayout, QWidget)
 
 from louie import dispatcher
 
@@ -1112,6 +1113,78 @@ class ModelDetailDialog(QDialog):
                                 parent=self)
         top_layout.addWidget(self.title)
         layout.addLayout(top_layout)
+
+
+class NotesDialog(QDialog):
+    """
+    A dialog to edit "description" or notes for an object.
+    Motivating use case is for notes about an Activity / mode.
+
+    Args:
+        obj (Identifiable): the object
+
+    Keyword Args:
+        parent (QWidget): parent widget of the dialog
+    """
+    def __init__(self, obj, parent=None):
+        super().__init__(parent)
+        self.obj = obj
+        self.setWindowTitle(f"{obj.name}")
+        vbox = QVBoxLayout(self)
+        title = ColorLabel(f'<h3>Notes on {obj.name}</h3>', parent=self)
+        vbox.addWidget(title)
+        self.editor = QTextEdit()
+        self.editor.setFrameStyle(QFrame.Sunken)
+        display_txt = obj.description or ''
+        self.editor.setText(display_txt)
+        vbox.addWidget(self.editor)
+        # OK and Cancel buttons
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        vbox.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.on_save)
+        self.buttons.rejected.connect(self.reject)
+        self.resize(300, 500)
+
+    def on_save(self):
+        NOW = dtstamp()
+        user = orb.get(state.get('local_user_oid'))
+        self.obj.mod_datetime = NOW
+        self.obj.modifier = user
+        # self.obj.description = self.editor.toPlainText()
+        self.obj.description = self.editor.toMarkdown()
+        orb.save([self.obj])
+        dispatcher.send(signal='modified object', obj=self.obj)
+        self.accept()
+
+
+class DisplayNotesDialog(QDialog):
+    """
+    A dialog to display "description" or notes for an object.
+    Motivating use case is for notes about an Activity / mode.
+
+    Args:
+        obj (Identifiable): the object
+
+    Keyword Args:
+        parent (QWidget): parent widget of the dialog
+    """
+    def __init__(self, obj, parent=None):
+        super().__init__(parent)
+        self.obj = obj
+        self.setWindowTitle(f"{obj.name}")
+        vbox = QVBoxLayout(self)
+        title = ColorLabel(f'<h3>Notes on {obj.name}</h3>', parent=self)
+        vbox.addWidget(title)
+        display_txt = obj.description or ''
+        self.editor = QTextEdit()
+        self.editor.setFrameStyle(QFrame.Sunken)
+        display_txt = obj.description or ''
+        self.editor.setText(display_txt)
+        self.editor.setReadOnly(True)
+        vbox.addWidget(self.editor)
+        self.resize(300, 500)
 
 
 class RqtFieldsDialog(QDialog):
