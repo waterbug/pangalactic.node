@@ -738,7 +738,7 @@ class TextFieldWidget(QTextEdit):
         if value is not None:
             self.setText(value)
         else:
-            self.setText(u'')
+            self.setText('')
 
     def get_value(self):
         # TODO:  support for rich text
