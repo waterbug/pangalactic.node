@@ -374,8 +374,8 @@ class ModeDefinitionDashboard(QWidget):
         # named fields
         self.fields = dict(power_level='Power\nLevel',
                            p_cbe='Power\nCBE\n(Watts)',
-                           p_mev='Power\nMEV\n(Watts)',
-                           notes='Notes')
+                           p_mev='Power\nMEV\n(Watts)')
+                           # notes='Notes')
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
         title_layout = QHBoxLayout()
@@ -732,7 +732,6 @@ class ModeDefinitionDashboard(QWidget):
         Set power level (context) for the acu whose oid is specified for the
         mode self.act.oid.
         """
-        # self.comp_dict[self.usage.oid][oid][self.act.oid] = level
         set_comp_modal_context(self.project.oid, self.usage.oid, oid,
                                self.act.oid, level)
         orb.log.debug(' - comp mode datum set:')
@@ -756,7 +755,7 @@ class ModeDefinitionDashboard(QWidget):
         self.on_edit(None)
 
     def set_row_fields(self, usage, row):
-        # fields: power_level, p_cbe, p_mev, notes
+        # fields: power_level, p_cbe, p_mev
         grid = self.dash_panel.layout()
         self.p_cbe_fields = {}
         self.p_mev_fields = {}
@@ -837,15 +836,6 @@ class ModeDefinitionDashboard(QWidget):
             p_mev_field = ValueLabel(p_mev_val_str, w=40)
             self.p_mev_fields[comp.oid] = p_mev_field
             grid.addWidget(p_mev_field, row, 3)
-        # -------------------
-        # notes (col 4)
-        # -------------------
-        name = get_link_name(usage)
-        # if self.edit_state:
-        # else:
-        txt = f'{name} notes'
-        label = ValueLabel(txt)
-        grid.addWidget(label, row, 4)
 
     def set_p_level(self, p_level):
         orb.log.debug(f'[MDDash] p_level set to {p_level}')
