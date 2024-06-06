@@ -58,6 +58,8 @@ from pangalactic.node.activities  import (DEFAULT_ACTIVITIES,
 from pangalactic.node.buttons     import ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (DefineModesDialog,
+                                          DisplayNotesDialog,
+                                          NotesDialog,
                                           NotificationDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import pct_to_decimal
@@ -162,10 +164,18 @@ class EventBlock(QGraphicsPolygonItem):
 
     def contextMenuEvent(self, event):
         self.menu = QMenu()
+        self.menu.addAction(self.display_notes_action)
+        self.menu.addAction(self.edit_notes_action)
         self.menu.addAction(self.delete_action)
         self.menu.exec(QCursor.pos())
 
     def create_actions(self):
+        self.display_notes_action = QAction("Display Notes", self.scene,
+                                     statusTip="Display Notes",
+                                     triggered=self.display_act_notes)
+        self.edit_notes_action = QAction("Edit Notes", self.scene,
+                                     statusTip="Edit Notes",
+                                     triggered=self.edit_act_notes)
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
                                      triggered=self.delete_activity_block)
@@ -175,6 +185,20 @@ class EventBlock(QGraphicsPolygonItem):
 
     def unhighlight(self):
         self.setBrush(Qt.white)
+
+    def display_act_notes(self):
+        """
+        Display an activity (mode) description / notes.
+        """
+        dlg = DisplayNotesDialog(self.activity, parent=self.scene.parent())
+        dlg.show()
+
+    def edit_act_notes(self):
+        """
+        Edit an activity (mode) description / notes.
+        """
+        dlg = NotesDialog(self.activity, parent=self.scene.parent())
+        dlg.show()
 
     def delete_activity_block(self):
         orb.log.debug(' - dipatching "delete activity" signal')
