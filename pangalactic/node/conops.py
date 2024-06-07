@@ -166,6 +166,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu = QMenu()
         self.menu.addAction(self.display_notes_action)
         self.menu.addAction(self.edit_notes_action)
+        self.menu.addAction(self.clone_action)
         self.menu.addAction(self.delete_action)
         self.menu.exec(QCursor.pos())
 
@@ -176,6 +177,9 @@ class EventBlock(QGraphicsPolygonItem):
         self.edit_notes_action = QAction("Edit Notes", self.scene,
                                      statusTip="Edit Notes",
                                      triggered=self.edit_act_notes)
+        self.clone_action = QAction("Clone Activity", self.scene,
+                             statusTip="Create a new Activity by cloning",
+                             triggered=self.clone_activity_block)
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
                                      triggered=self.delete_activity_block)
@@ -200,9 +204,28 @@ class EventBlock(QGraphicsPolygonItem):
         dlg = NotesDialog(self.activity, parent=self.scene.parent())
         dlg.show()
 
+    def clone_activity_block(self):
+        project = orb.get(state.get('project'))
+        seq = 0
+        parent = getattr(self.activity, 'sub_activity_of', None)
+        if parent:
+            seq = len(parent.sub_activities) + 1
+        act_type = self.activity.activity_type
+        activity = clone(self.activity, sub_activity_of=parent,
+                         activity_type=act_type, owner=project,
+                         sub_activity_sequence=seq)
+        orb.db.commit()
+        evt_block = EventBlock(activity=activity, scene=self.scene)
+        # evt_block.setPos(event.scenePos())
+        self.scene.addItem(evt_block)
+        self.scene.timeline.add_evt_block(evt_block)
+        self.scene.timeline.update_timeline()
+        orb.log.debug(' - dipatching "new activity" signal')
+        dispatcher.send(signal='new activity', act=activity)
+
     def delete_activity_block(self):
-        orb.log.debug(' - dipatching "delete activity" signal')
         self.scene.removeItem(self)
+        orb.log.debug(' - dipatching "delete activity" signal')
         dispatcher.send(signal='delete activity', oid=self.activity.oid)
 
     def itemChange(self, change, value):
@@ -429,8 +452,7 @@ class TimelineScene(QGraphicsScene):
                          sub_activity_of=self.subject,
                          sub_activity_sequence=seq)
         orb.db.commit()
-        evt_block = EventBlock(activity=activity,
-                               scene=self)
+        evt_block = EventBlock(activity=activity, scene=self)
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.add_evt_block(evt_block)
