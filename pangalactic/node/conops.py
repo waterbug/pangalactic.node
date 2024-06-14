@@ -17,7 +17,7 @@ Initially, ConOps shows a blank timeline for the current project's mission
 # from pyqtgraph.dockarea import Dock, DockArea
 # from pyqtgraph.parametertree import Parameter, ParameterTree
 
-# import numpy as np
+import numpy as np
 
 import sys, os
 # from functools import reduce
@@ -38,6 +38,9 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMessageBox)
 # from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
 
+# PythonQwt
+import qwt
+
 # pangalactic
 try:
     # if an orb has been set (uberorb or fastorb), this works
@@ -49,7 +52,9 @@ except:
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 # from pangalactic.core.parametrics import get_pval
-from pangalactic.core.parametrics import mode_defz
+from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
+                                          get_usage_mode_val,  mode_defz,
+                                          round_to)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.node.activities  import (DEFAULT_ACTIVITIES,
                                           ActivityWidget,
@@ -215,6 +220,8 @@ class EventBlock(QGraphicsPolygonItem):
                          activity_type=act_type, owner=project,
                          sub_activity_sequence=seq)
         orb.db.commit()
+        # also replicate the activity's mode definitions
+        clone_mode_defs(self.activity, activity)
         evt_block = EventBlock(activity=activity, scene=self.scene)
         # evt_block.setPos(event.scenePos())
         self.scene.addItem(evt_block)
@@ -664,7 +671,7 @@ class TimelineWidget(QWidget):
         self.add_defaults_action.setEnabled(False)
         self.plot_action = self.create_action(
                                     text="Graph",
-                                    slot=self.plot,
+                                    slot=self.graph,
                                     icon="graph",
                                     tip="graph")
         self.toolbar.addAction(self.plot_action)
@@ -899,125 +906,120 @@ class TimelineWidget(QWidget):
             button.setCheckable(True)
         return action
 
-    def plot(self):
-        orb.log.debug('* plot()')
-        # if not self.subject.sub_activities:
-            # message = "No activities were found -- nothing to plot!"
-            # popup = QMessageBox(
-                        # QMessageBox.Warning,
-                        # "No Activities Found", message,
-                        # QMessageBox.Ok, self)
-            # popup.show()
-            # return
-        # # self is TimelineWidget -- parent is ConOpsModeler
-        # win = QMainWindow(parent=self.parent())
-        # area = DockArea()
-        # win.setCentralWidget(area)
-        # win.resize(self.parent().width(), 700)
-        # win.setWindowTitle('pyqtgraph example: dockarea')
-        # sys_dock = Dock("system dock", size=(600, 400))
-        # sys_dock.hideTitleBar()
-        # sys_name = 'Spacecraft'
-        # w1 = pg.PlotWidget(title=f"{sys_name} Power Levels")
-        # w1.plot(np.random.normal(size=100))
-        # sys_dock.addWidget(w1)
-        # area.addDock(sys_dock, 'left')
-        # # Add subsystem docks ...
-        # subsystems = ['ACS', 'Comm', 'Avionics', 'Power', 'Propulsion',
-                      # 'Thermal']
-        # subsys_docks = {}
-        # previous_dock = None
-        # for n, subsys in enumerate(subsystems):
-            # # Note that size arguments are only a suggestion; docks will still
-            # # have to fill the entire dock area and obey the limits of their
-            # # internal widgets.
-            # new_dock = Dock(subsys, size=(600, 200))
-            # if n == 0:
-                # area.addDock(new_dock, 'right', sys_dock)
-            # else:
-                # area.addDock(new_dock, 'bottom', previous_dock)
-            # new_pw = pg.PlotWidget(title=subsys)
-            # new_pw.plot(np.random.normal(size=100))
-            # new_dock.addWidget(new_pw)
-            # new_lr = pg.LinearRegionItem([1, 30], bounds=[0,100], movable=True)
-            # new_pw.addItem(new_lr)
-            # subsys_docks[subsys] = new_dock
-            # previous_dock = new_dock
+    def power_time_function(self, act=None, usage=None, context="CBE",
+                            time_units="seconds", duration=100):
+        """
+        Return a function that computes system net power value as a function of
+        time. Note that the time variable "t" in the returned function can be a
+        scalar (float) or can be array-like (list, etc.).
 
-        # win.show()
+        Keyword Args:
+            act (Activity): restrict to the specified activity (default if act
+                is None: the Mission)
+            usage (Acu or ProjectSystemUsage): restrict to the power of the
+                specified usage, or self.usage if none is specified
+            context (str): "CBE" (Current Best Estimate) or "MEV" (Maximum
+                Estimated Value)
+            time_units (str): units of time to be used (default: seconds)
+        """
+        orb.log.debug("* ConOpsModeler.power_time_function()")
+        project = orb.get(state.get('project'))
+        orb.log.debug(f"  project: {project.id}")
+        usage = usage or orb.get(state.get('conops usage oid'))
+        orb.log.debug(f"  usage: {usage.id}")
+        if isinstance(usage, orb.classes['Acu']):
+            comp = usage.component
+        else:
+            # PSU
+            comp = usage.system
+        orb.log.debug(f"  system: {comp.name}")
+        mission = orb.select('Mission', owner=project)
+        act = act or mission
+        orb.log.debug(f"  activity: {act.name}")
+        if usage:
+            if isinstance(usage, orb.classes['ProjectSystemUsage']):
+                comp = usage.system
+            elif isinstance(usage, orb.classes['Acu']):
+                comp = usage.component
+        else:
+            orb.log.debug("  no usage: zero function")
+            f = (lambda t: 0.0)
+        if isinstance(act, orb.classes['Activity']):
+            subacts = act.sub_activities
+            if subacts:
+                subacts.sort(key=lambda x: x.sub_activity_sequence or 0)
+                t_seq = [get_pval(a.oid, 't_start', units=time_units)
+                         for a in subacts]
+                def f_scalar(t):
+                        a = subacts[-1]
+                        for i in range(len(subacts) - 2):
+                            if (t_seq[i] <= t) and (t < t_seq[i+1]):
+                                a = subacts[i]
+                        p_cbe_val = get_usage_mode_val(project.oid,
+                                                       usage.oid, comp.oid,
+                                                       a.oid)
+                        if context == "CBE":
+                            return p_cbe_val
+                        else:
+                            # context == "mev"
+                            ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
+                            factor = 1.0 + ctgcy
+                            p_mev_val = round_to(p_cbe_val * factor, n=3)
+                            return p_mev_val
+                def f(t):
+                    if isinstance(t, float):
+                        return f_scalar
+                    else:
+                        # t is array-like: return a list function
+                        return [f_scalar(x) for x in t]
+            else:
+                # no subactivities -> 1 mode -> constant function
+                p_cbe_val = get_usage_mode_val(project.oid, usage.oid,
+                                               comp.oid, self.act.oid)
+                if context == "cbe":
+                    f = (lambda t: p_cbe_val)
+                else:
+                    ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
+                    factor = 1.0 + ctgcy
+                    p_mev_val = round_to(p_cbe_val * factor, n=3)
+                    f = (lambda t: p_mev_val)
+        else:
+            orb.log.debug("  no activity: zero function")
+            f = (lambda t: 0.0)
+        return f
 
-        # act_durations= []
-        # start_times = []
-        # power = []
-        # d_r = []
-        # for sub_activity in self.subject.sub_activities:
-            # oid = getattr(sub_activity, "oid", None)
-            # act_durations.append(get_pval(oid, 'duration'))
-            # start_times.append(get_pval(oid, 't_start'))
-            # power.append(get_pval(oid, 'P[CBE]'))
-            # d_r.append(get_pval(oid, 'R_D[CBE]'))
+    def energy_time_integral(self, act=None, usage=None):
+        """
+        Compute system net energy consumption as a function of time.
 
-        # win = QMainWindow()
-        # combo = pg.ComboBox()
-        # combo.addItem("Data Rate")
-        # # win.addWidget(combo)
-        # # proxy = QGraphicsProxyWidget()
-        # # # tree = QTreeWidget()
-        # # # i1  = QTreeWidgetItem(["Item 1"])
-        # # # tree.addTopLevelItem(i1)
-        # # proxy.setWidget(combo)
-        # area = DockArea()
-        # win.setCentralWidget(area)
-        # win.resize(1000,1000)
-        # win.setWindowTitle('pyqtgraph example: dockarea')
-        # d4 = Dock("Power", size=(500,500))
-        # d6 = Dock("Data Rate", size=(500,500))
-        # d7 = Dock("Subsystems", size=(500,200))
-        # # p3 = win.addLayout(row=1, col=3)
-        # # p3.addItem(proxy,row=1,col=1)
-        # #layout.addItem(tree)
-        # #win.addItem(tree)
-        # area.addDock(d4, 'left')
-        # area.addDock(d6, 'above', d4)
-        # area.addDock(d7, 'right')
-        # w6 = pg.PlotWidget()
-        # w4 = pg.PlotWidget()
-        # d6.addWidget(w6)
-        # d4.addWidget(w4)
-        # win.resize(800,350)
-        # win.setWindowTitle(' ')
-        # self.plot_win = win
-        # t = ParameterTree(showHeader=False)
-        # d7.addWidget(t)
-        # #p = pg.parametertree.parameterTypes.ActionParameter("parent")
-        # lst = []
-        # for usage in self.system.components:
-            # pair = {'name': usage.component}
-            # lst.append(pair)
-        # params = [{'name': self.subject.id, 'children': lst}]
-        # p = Parameter.create(name='params', type='group', children=params)
-        # t.addParameters(p, showTop=False)
+        Keyword Args:
+            act (Activity): a specified activity over which to integrate, or
+                over the Mission if none is specified
+            usage (Acu or ProjectSystemUsage): restrict to energy consumption
+                of the specified usage, or self.usage if none is specified
+        """
+        pass
 
-        # duration = sum(act_durations)
-        # s_time = min(start_times)
-        # generated_x = []
-        # generated_power = []
-        # for count, d in enumerate(act_durations):
-            # start = start_times[count]
-            # end = start_times[count] + d
-            # generated_x.append(start)
-            # generated_x.append(end)
-        # for c, y in enumerate(act_durations):
-            # generated_power.extend([power[c], power[c]])
-            # #.extend([power[c]]*(int(act_durations[c])+1))
-        # w4.plot(generated_x, generated_power, brush=(0,0,255,150))
-
-        # #plt2 = win.addPlot(title="Data Rate")
-        # generated_dr = []
-        # for d_index, d in enumerate(act_durations):
-           # generated_dr.extend([d_r[d_index], d_r[d_index]])
-        # w6.plot(generated_x, generated_dr, brush=(0,0,255,150))
-        # win.show()
+    def graph(self):
+        context = "CBE"
+        duration = 100
+        time_units = "minutes"
+        orb.log.debug(f'* graph()')
+        plot = qwt.QwtPlot(f"Power vs. Time")
+        plot.insertLegend(qwt.QwtLegend(), qwt.QwtPlot.BottomLegend)
+        t_array = np.linspace(0, duration, 100)
+        # orb.log.debug(f'  {t_array}')
+        f_cbe = self.power_time_function(context="CBE", duration=duration,
+                                         time_units=time_units)
+        f_mev = self.power_time_function(context="MEV", duration=duration,
+                                         time_units=time_units)
+        orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
+        qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE] vs. time", plot,
+                              linecolor="blue", antialiased=True)
+        qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV] vs. time", plot,
+                              linecolor="red", antialiased=True)
+        plot.resize(600, 300)
+        plot.show()
 
 
 class ConOpsModeler(QMainWindow):
@@ -1524,12 +1526,13 @@ class ConOpsModeler(QMainWindow):
         elif link.oid in sys_dict:
             # if this usage was in the sys_dict, make it the subject usage ...
             self.set_usage(link)
-        # dispatcher.send(signal='modes edited', oid=self.project.oid)
+        dispatcher.send(signal='modes edited', oid=self.project.oid)
         # signal to the mode_dash to set this link as its usage
         dispatcher.send(signal='set mode usage', usage=link)
 
     def set_usage(self, usage):
         orb.log.debug("* ConOpsModeler.set_usage()")
+        state['conops usage oid'] = usage.oid
         self.usage = usage
 
     def resizeEvent(self, event):
@@ -1608,29 +1611,6 @@ class ConOpsModeler(QMainWindow):
         if oids and (set(oids) & act_oids):
             self.main_timeline.set_new_scene()
             self.rebuild_table()
-
-    def power_time_function(self, act=None, usage=None):
-        """
-        Return a function that computes system net power level as a function of
-        time.
-
-        Keyword Args:
-            usage (Acu or ProjectSystemUsage): restrict to the power level of
-                the specified usage, or self.usage if none is specified
-        """
-        pass
-
-    def energy_time_integral(self, act=None, usage=None):
-        """
-        Compute system net energy consumption as a function of time.
-
-        Keyword Args:
-            act (Activity): a specified activity over which to integrate, or
-                over the Mission if none is specified
-            usage (Acu or ProjectSystemUsage): restrict to energy consumption
-                of the specified usage, or self.usage if none is specified
-        """
-        pass
 
 
 if __name__ == '__main__':
