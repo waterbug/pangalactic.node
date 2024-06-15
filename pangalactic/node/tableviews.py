@@ -21,7 +21,7 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names       import (get_external_name_plural,
                                           pname_to_header)
-from pangalactic.core.parametrics import get_dval, get_pval_as_str
+from pangalactic.core.parametrics import get_dval, get_pval, get_pval_as_str
 from pangalactic.core.serializers import serialize
 from pangalactic.core.units       import time_unit_names
 from pangalactic.core.utils.datetimes import dtstamp, date2str
@@ -479,6 +479,11 @@ class ActInfoTable(QTableWidget):
                     orb.log.debug('    operation aborted.')
                     return
                 orb.log.debug('    succeeded.')
+                # NOTE: get parm val in base units before sending --
+                # vger.set_properties only takes values in base units!!
+                val = get_pval(oid, pname)
+                props = {oid : {pname : val}}
+                dispatcher.send(signal="act mods", prop_mods=props)
                 self.blockSignals(True)
                 self.adjust_timeline(item)
                 self.blockSignals(False)
