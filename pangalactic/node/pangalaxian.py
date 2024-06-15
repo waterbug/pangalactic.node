@@ -165,8 +165,7 @@ class Main(QMainWindow):
                        Version('4.1.dev8'),
                        Version('4.1.dev9'),
                        Version('4.1.dev10'),
-                       Version('4.1.dev11'),
-                       Version('4.1.dev12')
+                       Version('4.1.dev11')
                        ]
 
     # signals
@@ -1662,11 +1661,11 @@ class Main(QMainWindow):
                 # orb.log.debug(f'received {n} modified object(s)')
                 self.on_received_objects(content)
             elif subject == 'new mode defs':
-                # orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
+                orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
                 md_dts, ser_md, userid = content
                 # orb.log.debug('    content:')
                 orb.log.debug('==============================================')
-                orb.log.debug('New mode definition:')
+                orb.log.debug('New project mode definitions:')
                 orb.log.debug(f'- datetime stamp: {md_dts}')
                 orb.log.debug(f'- userid:         {userid}')
                 orb.log.debug('- <data>')
@@ -3453,7 +3452,8 @@ class Main(QMainWindow):
         Handle local dispatcher signal "get parmz".
         """
         if state.get('connected'):
-            rpc = self.mbus.session.call('vger.get_parmz')
+            dts = state.get('parmz_dts')
+            rpc = self.mbus.session.call('vger.get_parmz', dts=dts)
             rpc.addCallback(self.on_vger_get_parmz_result)
             rpc.addErrback(self.on_failure)
 
@@ -3467,8 +3467,10 @@ class Main(QMainWindow):
         # orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
         # libs_refreshed = []
         if data:
+            srv_dts, parmz_data = data
             # orb.log.info('  [ovgpr] got parmz data, updating ...')
-            parameterz.update(data)
+            parameterz.update(parmz_data)
+            state['parmz_dts'] = srv_dts
             oid, new = state.get("upd_obj_in_trees_needed", ("", ""))
             if oid:
                 obj = orb.get(oid)
@@ -3651,7 +3653,9 @@ class Main(QMainWindow):
         orb.log.debug('* signal: "modes edited"')
         proj_mode_defs = mode_defz.get(oid) or {}
         if proj_mode_defs and state['connected']:
-            data = json.dumps(proj_mode_defs)
+            # NOTE: experimenting with *unserialized* data ...
+            data = proj_mode_defs
+            # data = json.dumps(proj_mode_defs)
             # s = json.dumps(proj_mode_defs, separators=(',', ':'),
                            # indent=4)
             orb.log.debug('  - sending modes data to server ...')
@@ -5999,7 +6003,8 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     state['lib updates needed'] = True
                     # if connected, call get_parmz() ...
-                    rpc = self.mbus.session.call('vger.get_parmz')
+                    dts = state.get('parmz_dts')
+                    rpc = self.mbus.session.call('vger.get_parmz', dts=dts)
                     rpc.addCallback(self.on_vger_get_parmz_result)
                     rpc.addErrback(self.on_failure)
                 else:
@@ -6123,7 +6128,8 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     # if connected, call get_parmz() ...
                     state['lib updates needed'] = True
-                    rpc = self.mbus.session.call('vger.get_parmz')
+                    dts = state.get('parmz_dts')
+                    rpc = self.mbus.session.call('vger.get_parmz', dts=dts)
                     rpc.addCallback(self.on_vger_get_parmz_result)
                     rpc.addErrback(self.on_failure)
                 else:
