@@ -13,10 +13,6 @@ Initially, ConOps shows a blank timeline for the current project's mission
   -- parameters (e.g. power level) come from the subsystem specs.
 """
 
-# import pyqtgraph as pg
-# from pyqtgraph.dockarea import Dock, DockArea
-# from pyqtgraph.parametertree import Parameter, ParameterTree
-
 import numpy as np
 
 import sys, os
@@ -27,7 +23,7 @@ from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QPointF, QPoint, QRectF, QSize, QVariant
 from PyQt5.QtGui import (QColor, QIcon, QCursor, QPainter, QPainterPath,
-                         QPixmap, QPolygonF, QTransform)
+                         QPen, QPixmap, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QDialog, QMainWindow, QSizePolicy, QWidget,
@@ -36,10 +32,10 @@ from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QMenu, QGraphicsPathItem, QPushButton,
                              QVBoxLayout, QToolBar, QToolBox, QWidgetAction,
                              QMessageBox)
-# from PyQt5.QtWidgets import QStatusBar, QTreeWidgetItem, QTreeWidget
 
 # PythonQwt
 import qwt
+from qwt.text import QwtText
 
 # pangalactic
 try:
@@ -50,7 +46,7 @@ except:
     import pangalactic.core.set_uberorb
     from pangalactic.core             import orb, state
 from pangalactic.core.clone       import clone
-from pangalactic.core.names       import get_link_name
+from pangalactic.core.names       import get_link_name, pname_to_header
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
                                           get_duration,
@@ -1040,7 +1036,21 @@ class TimelineWidget(QWidget):
                               linecolor="blue", antialiased=True)
         qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV]", plot,
                               linecolor="red", antialiased=True)
-        plot.resize(600, 300)
+        # insert a vertical marker for t_start of each activity
+        for a in subacts:
+            t_start = get_pval(a.oid, 't_start', units=time_units)
+            name = pname_to_header(a.name, 'Activity', width=7)
+            pen = QPen(Qt.black, 1)
+            name_label = QwtText.make(text=name, weight=4, borderpen=pen)
+            qwt.QwtPlotMarker.make(
+                xvalue=t_start,
+                label=name_label,
+                align=Qt.AlignRight | Qt.AlignTop,
+                linestyle=qwt.QwtPlotMarker.VLine,
+                color="darkGreen",
+                plot=plot,
+            )
+        plot.resize(1500, 700)
         plot.show()
 
 
