@@ -53,6 +53,7 @@ from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
+                                          get_duration,
                                           get_usage_mode_val,  mode_defz,
                                           round_to)
 from pangalactic.core.utils.datetimes import dtstamp
@@ -675,6 +676,8 @@ class TimelineWidget(QWidget):
                                     icon="graph",
                                     tip="graph")
         self.toolbar.addAction(self.plot_action)
+        if not state.get('conops usage oid'):
+            self.plot_action.setEnabled(False)
         spacer = QWidget(parent=self)
         spacer.setSizePolicy(QSizePolicy.Expanding,
                              QSizePolicy.Expanding)
@@ -906,8 +909,8 @@ class TimelineWidget(QWidget):
             button.setCheckable(True)
         return action
 
-    def power_time_function(self, act=None, usage=None, context="CBE",
-                            time_units="seconds", duration=100):
+    def power_time_function(self, project=None, act=None, usage=None,
+                            context="CBE", time_units="seconds"):
         """
         Return a function that computes system net power value as a function of
         time. Note that the time variable "t" in the returned function can be a
@@ -923,19 +926,6 @@ class TimelineWidget(QWidget):
             time_units (str): units of time to be used (default: seconds)
         """
         orb.log.debug("* ConOpsModeler.power_time_function()")
-        project = orb.get(state.get('project'))
-        orb.log.debug(f"  project: {project.id}")
-        usage = usage or orb.get(state.get('conops usage oid'))
-        orb.log.debug(f"  usage: {usage.id}")
-        if isinstance(usage, orb.classes['Acu']):
-            comp = usage.component
-        else:
-            # PSU
-            comp = usage.system
-        orb.log.debug(f"  system: {comp.name}")
-        mission = orb.select('Mission', owner=project)
-        act = act or mission
-        orb.log.debug(f"  activity: {act.name}")
         if usage:
             if isinstance(usage, orb.classes['ProjectSystemUsage']):
                 comp = usage.system
@@ -1001,23 +991,50 @@ class TimelineWidget(QWidget):
         pass
 
     def graph(self):
-        context = "CBE"
-        mission_duration = 100
+        orb.log.debug('* graph()')
+        project = orb.get(state.get('project'))
+        orb.log.debug(f"  project: {project.id}")
+        usage = orb.get(state.get('conops usage oid'))
+        # TODO:  if no usage, show dialog about selecting a usage ...
+        if usage:
+            orb.log.debug(f"  usage: {usage.id}")
+        else:
+            orb.log.debug("  no usage set; returning.")
+        if isinstance(usage, orb.classes['Acu']):
+            comp = usage.component
+        else:
+            # PSU
+            comp = usage.system
+        orb.log.debug(f"  system: {comp.name}")
+        mission = orb.select('Mission', owner=project)
+        act = self.subject or mission
+        orb.log.debug(f"  activity: {act.name}")
+        subacts = act.sub_activities
+        # TODO:  allow time_units to be specified ...
         time_units = "minutes"
-        orb.log.debug(f'* graph()')
-        plot = qwt.QwtPlot(f"Power vs. Time")
+        if subacts:
+            orb.log.debug('  duration of sub_activities:')
+            for a in act.sub_activities:
+                d = get_duration(a, units=time_units)
+                orb.log.debug(f'  {a.name}: {d}')
+        duration = get_duration(act, units=time_units)
+        if time_units:
+            orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
+        else:
+            orb.log.debug(f'  duration of {act.name}: {duration} seconds')
+        plot = qwt.QwtPlot(f"{comp.name} Power vs. Time")
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
         plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
         plot.insertLegend(qwt.QwtLegend(), qwt.QwtPlot.RightLegend)
-        t_array = np.linspace(0, mission_duration, 100)
+        f_cbe = self.power_time_function(context="CBE", project=project,
+                                         act=act, usage=usage,
+                                         time_units=time_units)
+        f_mev = self.power_time_function(context="MEV", project=project,
+                                         act=act, usage=usage,
+                                         time_units=time_units)
+        t_array = np.linspace(0, duration, 100)
         # orb.log.debug(f'  {t_array}')
-        f_cbe = self.power_time_function(context="CBE",
-                                         duration=mission_duration,
-                                         time_units=time_units)
-        f_mev = self.power_time_function(context="MEV",
-                                         duration=mission_duration,
-                                         time_units=time_units)
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
         qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
                               linecolor="blue", antialiased=True)
@@ -1539,6 +1556,7 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug("* ConOpsModeler.set_usage()")
         state['conops usage oid'] = usage.oid
         self.usage = usage
+        self.plot_action.setEnabled(True)
 
     def resizeEvent(self, event):
         """
