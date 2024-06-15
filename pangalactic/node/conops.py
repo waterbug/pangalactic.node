@@ -1002,21 +1002,26 @@ class TimelineWidget(QWidget):
 
     def graph(self):
         context = "CBE"
-        duration = 100
+        mission_duration = 100
         time_units = "minutes"
         orb.log.debug(f'* graph()')
         plot = qwt.QwtPlot(f"Power vs. Time")
-        plot.insertLegend(qwt.QwtLegend(), qwt.QwtPlot.BottomLegend)
-        t_array = np.linspace(0, duration, 100)
+        plot.setFlatStyle(False)
+        plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
+        plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
+        plot.insertLegend(qwt.QwtLegend(), qwt.QwtPlot.RightLegend)
+        t_array = np.linspace(0, mission_duration, 100)
         # orb.log.debug(f'  {t_array}')
-        f_cbe = self.power_time_function(context="CBE", duration=duration,
+        f_cbe = self.power_time_function(context="CBE",
+                                         duration=mission_duration,
                                          time_units=time_units)
-        f_mev = self.power_time_function(context="MEV", duration=duration,
+        f_mev = self.power_time_function(context="MEV",
+                                         duration=mission_duration,
                                          time_units=time_units)
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
-        qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE] vs. time", plot,
+        qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
                               linecolor="blue", antialiased=True)
-        qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV] vs. time", plot,
+        qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV]", plot,
                               linecolor="red", antialiased=True)
         plot.resize(600, 300)
         plot.show()
