@@ -1029,7 +1029,7 @@ class TimelineWidget(QWidget):
         f_mev = self.power_time_function(context="MEV", project=project,
                                          act=act, usage=usage,
                                          time_units=time_units)
-        t_array = np.linspace(0, duration, 100)
+        t_array = np.linspace(0, duration, 200)
         # orb.log.debug(f'  {t_array}')
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
         qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
@@ -1566,7 +1566,7 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug("* ConOpsModeler.set_usage()")
         state['conops usage oid'] = usage.oid
         self.usage = usage
-        self.plot_action.setEnabled(True)
+        self.main_timeline.plot_action.setEnabled(True)
 
     def resizeEvent(self, event):
         """
