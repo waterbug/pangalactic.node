@@ -62,7 +62,8 @@ from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (DefineModesDialog,
                                           DisplayNotesDialog,
                                           NotesDialog,
-                                          NotificationDialog)
+                                          NotificationDialog,
+                                          PlotDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import pct_to_decimal
 from pangalactic.node.widgets     import ColorLabel, NameLabel
@@ -1022,7 +1023,7 @@ class TimelineWidget(QWidget):
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
         plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
-        plot.insertLegend(qwt.QwtLegend(), qwt.QwtPlot.RightLegend)
+        # plot.insertLegend(qwt.QwtLegend(), qwt.QwtPlot.RightLegend)
         f_cbe = self.power_time_function(context="CBE", project=project,
                                          act=act, usage=usage,
                                          time_units=time_units)
@@ -1042,16 +1043,18 @@ class TimelineWidget(QWidget):
             name = pname_to_header(a.name, 'Activity', width=7)
             pen = QPen(Qt.black, 1)
             name_label = QwtText.make(text=name, weight=4, borderpen=pen)
-            qwt.QwtPlotMarker.make(
+            marker = qwt.QwtPlotMarker.make(
                 xvalue=t_start,
-                label=name_label,
-                align=Qt.AlignRight | Qt.AlignTop,
                 linestyle=qwt.QwtPlotMarker.VLine,
                 color="darkGreen",
                 plot=plot,
             )
-        plot.resize(1500, 700)
-        plot.show()
+            marker.setLabel(name_label)
+            marker.setLabelAlignment(Qt.AlignTop | Qt.AlignRight)
+        plot.resize(1400, 650)
+        # plot.show()
+        dlg = PlotDialog(plot, title="Power vs. Time", parent=self)
+        dlg.show()
 
 
 class ConOpsModeler(QMainWindow):

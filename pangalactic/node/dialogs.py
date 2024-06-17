@@ -12,6 +12,7 @@ Various dialogs.
 # from pangalactic.node.threads     import threadpool, Worker
 
 import os, shutil, sys
+from pathlib  import Path
 from textwrap import wrap
 
 from PyQt5.QtCore import (pyqtSignal, Qt, QPoint, QRectF, QSize, QTimer,
@@ -85,6 +86,69 @@ class ParmDefsDialog(QDialog):
 
     def sizeHint(self):
         return QSize(800, 800)
+
+
+class PlotDialog(QDialog):
+    """
+    Dialog to display a QwtPlot widget.
+    """
+    def __init__(self, plot_widget, title=None, parent=None):
+        """
+        Dialog to display a QwtPlot widget.
+
+        Args:
+            plot_widget (QwtPlot): the plot widget to display
+
+        Keyword Args:
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent)
+        title = title or 'Plot'
+        self.setWindowTitle(title)
+        self.plot = plot_widget
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.plot)
+        vbox.setContentsMargins(10, 10, 10, 10)
+        self.setLayout(vbox)
+        self.export_to_file_button = SizedButton("Export to File")
+        self.export_to_file_button.clicked.connect(self.export_to_file)
+        vbox.addWidget(self.export_to_file_button)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok, Qt.Horizontal, self)
+        self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
+        vbox.addWidget(self.buttons, alignment=Qt.AlignRight)
+        self.buttons.accepted.connect(self.accept)
+        self.resize(1500, 700)
+
+    def sizeHint(self):
+        return QSize(1000, 800)
+
+    def get_user_home(self):
+        """
+        Path to the user's home directory.
+        """
+        p = Path(orb.home)
+        absp = p.resolve()
+        home = absp.parent
+        return str(home)
+
+    def export_to_file(self):
+        orb.log.debug('* export_to_file()')
+        dtstr = date2str(dtstamp())
+        user_home = self.get_user_home() or ''
+        if not state.get('last_plot_path'):
+            state['last_plot_path'] = user_home
+        file_path = os.path.join(state['last_plot_path'],
+                             self.plot.title().text() + '-' + dtstr + '.png')
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Export Plot to File',
+                                    file_path)
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            state['last_path'] = os.path.dirname(fpath)
+            self.plot.exportTo(fpath)
+        else:
+            return
 
 
 class LoginDialog(QDialog):
