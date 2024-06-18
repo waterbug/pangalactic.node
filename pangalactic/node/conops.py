@@ -939,7 +939,7 @@ class TimelineWidget(QWidget):
                          for a in subacts]
                 def f_scalar(t):
                         a = subacts[-1]
-                        for i in range(len(subacts) - 2):
+                        for i in range(len(subacts) - 1):
                             if (t_seq[i] <= t) and (t < t_seq[i+1]):
                                 a = subacts[i]
                         p_cbe_val = get_usage_mode_val(project.oid,
@@ -1040,17 +1040,22 @@ class TimelineWidget(QWidget):
         # insert a vertical marker for t_start of each activity
         for a in subacts:
             t_start = get_pval(a.oid, 't_start', units=time_units)
-            name = pname_to_header(a.name, 'Activity', width=7)
-            pen = QPen(Qt.black, 1)
-            name_label = QwtText.make(text=name, weight=4, borderpen=pen)
-            marker = qwt.QwtPlotMarker.make(
+            qwt.QwtPlotMarker.make(
                 xvalue=t_start,
                 linestyle=qwt.QwtPlotMarker.VLine,
                 color="darkGreen",
-                plot=plot,
+                plot=plot
             )
-            marker.setLabel(name_label)
-            marker.setLabelAlignment(Qt.AlignTop | Qt.AlignRight)
+            name = pname_to_header(a.name, 'Activity', width=7)
+            pen = QPen(Qt.black, 1)
+            name_label = QwtText.make(text=name, weight=4, borderpen=pen)
+            qwt.QwtPlotMarker.make(
+                xvalue=t_start + 3,
+                # TODO: make yvalue some value not on the "curve" ...
+                yvalue=10,
+                label=name_label,
+                plot=plot
+            )
         plot.resize(1400, 650)
         # plot.show()
         dlg = PlotDialog(plot, title="Power vs. Time", parent=self)

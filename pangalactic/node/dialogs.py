@@ -112,7 +112,7 @@ class PlotDialog(QDialog):
         self.setLayout(vbox)
         self.export_to_file_button = SizedButton("Export to File")
         self.export_to_file_button.clicked.connect(self.export_to_file)
-        vbox.addWidget(self.export_to_file_button)
+        vbox.addWidget(self.export_to_file_button, alignment=Qt.AlignRight)
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Ok, Qt.Horizontal, self)
         self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
