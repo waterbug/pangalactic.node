@@ -146,7 +146,7 @@ class PlotDialog(QDialog):
         if fpath:
             orb.log.debug(f'  - file selected: "{fpath}"')
             state['last_path'] = os.path.dirname(fpath)
-            self.plot.exportTo(fpath)
+            self.plot.exportTo(fpath, size=(1400, 600))
         else:
             return
 
