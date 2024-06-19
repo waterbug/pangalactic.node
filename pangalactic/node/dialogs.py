@@ -110,14 +110,15 @@ class PlotDialog(QDialog):
         vbox.addWidget(self.plot)
         vbox.setContentsMargins(10, 10, 10, 10)
         self.setLayout(vbox)
-        self.export_to_file_button = SizedButton("Export to File")
-        self.export_to_file_button.clicked.connect(self.export_to_file)
-        vbox.addWidget(self.export_to_file_button, alignment=Qt.AlignRight)
-        self.buttons = QDialogButtonBox(
-            QDialogButtonBox.Ok, Qt.Horizontal, self)
-        self.buttons.button(QDialogButtonBox.Ok).setText('Ok')
-        vbox.addWidget(self.buttons, alignment=Qt.AlignRight)
-        self.buttons.accepted.connect(self.accept)
+        button_box = QHBoxLayout()
+        button_box.addStretch(1)
+        self.export_to_image_button = SizedButton("Export to Image")
+        self.export_to_image_button.clicked.connect(self.export_to_image)
+        button_box.addWidget(self.export_to_image_button, alignment=Qt.AlignRight)
+        self.export_to_pdf_button = SizedButton("Export to PDF")
+        self.export_to_pdf_button.clicked.connect(self.export_to_pdf)
+        button_box.addWidget(self.export_to_pdf_button, alignment=Qt.AlignRight)
+        vbox.addLayout(button_box)
         self.resize(1500, 700)
 
     def sizeHint(self):
@@ -132,8 +133,8 @@ class PlotDialog(QDialog):
         home = absp.parent
         return str(home)
 
-    def export_to_file(self):
-        orb.log.debug('* export_to_file()')
+    def export_to_image(self):
+        orb.log.debug('* export_to_image()')
         dtstr = date2str(dtstamp())
         user_home = self.get_user_home() or ''
         if not state.get('last_plot_path'):
@@ -141,7 +142,25 @@ class PlotDialog(QDialog):
         file_path = os.path.join(state['last_plot_path'],
                              self.plot.title().text() + '-' + dtstr + '.png')
         fpath, filters = QFileDialog.getSaveFileName(
-                                    self, 'Export Plot to File',
+                                    self, 'Export Plot to Image',
+                                    file_path)
+        if fpath:
+            orb.log.debug(f'  - file selected: "{fpath}"')
+            state['last_path'] = os.path.dirname(fpath)
+            self.plot.exportTo(fpath, size=(1400, 600))
+        else:
+            return
+
+    def export_to_pdf(self):
+        orb.log.debug('* export_to_pdf()')
+        dtstr = date2str(dtstamp())
+        user_home = self.get_user_home() or ''
+        if not state.get('last_plot_path'):
+            state['last_plot_path'] = user_home
+        file_path = os.path.join(state['last_plot_path'],
+                             self.plot.title().text() + '-' + dtstr + '.pdf')
+        fpath, filters = QFileDialog.getSaveFileName(
+                                    self, 'Export Plot to PDF',
                                     file_path)
         if fpath:
             orb.log.debug(f'  - file selected: "{fpath}"')
