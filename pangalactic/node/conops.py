@@ -1047,15 +1047,17 @@ class TimelineWidget(QWidget):
                 plot=plot
             )
             name = pname_to_header(a.name, 'Activity', width=7)
+            name = '  ' + name + '  '
             pen = QPen(Qt.black, 1)
-            name_label = QwtText.make(text=name, weight=4, borderpen=pen)
+            name_label = QwtText.make(text=name, weight=4, borderpen=pen,
+                                      borderradius=3.0)
             p_cbe_val = get_usage_mode_val(project.oid,
                                            usage.oid, comp.oid,
                                            a.oid)
             if p_cbe_val < 100:
                 y_label = 400
             else:
-                y_label = 10
+                y_label = 20
             qwt.QwtPlotMarker.make(
                 xvalue=t_start + 2,
                 # TODO: make yvalue some value not on the "curve" ...
