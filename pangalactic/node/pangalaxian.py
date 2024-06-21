@@ -3453,8 +3453,7 @@ class Main(QMainWindow):
         Handle local dispatcher signal "get parmz".
         """
         if state.get('connected'):
-            dts = state.get('parmz_dts')
-            rpc = self.mbus.session.call('vger.get_parmz', dts=dts)
+            rpc = self.mbus.session.call('vger.get_parmz')
             rpc.addCallback(self.on_vger_get_parmz_result)
             rpc.addErrback(self.on_failure)
 
@@ -3468,10 +3467,9 @@ class Main(QMainWindow):
         # orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
         # libs_refreshed = []
         if data:
-            srv_dts, parmz_data = data
+            parmz_data = data
             # orb.log.info('  [ovgpr] got parmz data, updating ...')
             parameterz.update(parmz_data)
-            state['parmz_dts'] = srv_dts
             oid, new = state.get("upd_obj_in_trees_needed", ("", ""))
             if oid:
                 obj = orb.get(oid)
@@ -6004,8 +6002,7 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     state['lib updates needed'] = True
                     # if connected, call get_parmz() ...
-                    dts = state.get('parmz_dts')
-                    rpc = self.mbus.session.call('vger.get_parmz', dts=dts)
+                    rpc = self.mbus.session.call('vger.get_parmz')
                     rpc.addCallback(self.on_vger_get_parmz_result)
                     rpc.addErrback(self.on_failure)
                 else:
@@ -6129,8 +6126,7 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     # if connected, call get_parmz() ...
                     state['lib updates needed'] = True
-                    dts = state.get('parmz_dts')
-                    rpc = self.mbus.session.call('vger.get_parmz', dts=dts)
+                    rpc = self.mbus.session.call('vger.get_parmz')
                     rpc.addCallback(self.on_vger_get_parmz_result)
                     rpc.addErrback(self.on_failure)
                 else:
