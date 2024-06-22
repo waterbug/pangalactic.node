@@ -599,7 +599,7 @@ class FilterPanel(QWidget):
             parent (QWidget): parent widget
         """
         super().__init__(parent=parent)
-        orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
+        # orb.log.debug(f'* FilterPanel(view={view}, cname="{cname}")')
         self.as_library = as_library
         self.sized_cols = sized_cols
         self.col_moved_view = []

@@ -310,9 +310,9 @@ class Main(QMainWindow):
         if config.get('self_signed_cert'):
             self.cert_path = os.path.join(orb.home, 'server_cert.pem')
             if os.path.exists(self.cert_path):
-                orb.log.debug('    server_cert.pem found.')
+                orb.log.debug('    server cert found.')
             else:
-                orb.log.debug('    server_cert.pem not found ...')
+                orb.log.debug('    server cert not found ...')
                 orb.log.debug('    config "self_signed_cert" requires one!')
         # set "auto" for auto-connect ...
         if 'auto' in prefs:
@@ -2727,7 +2727,7 @@ class Main(QMainWindow):
         return widget
 
     def init_toolbar(self):
-        orb.log.debug('  - initializing toolbar ...')
+        # orb.log.debug('  - initializing toolbar ...')
         self.toolbar = self.addToolBar("Actions")
         self.toolbar.setObjectName('ActionsToolBar')
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
@@ -4465,7 +4465,7 @@ class Main(QMainWindow):
         self.refresh_tree_views(selected_link_oid=selected_link_oid)
 
     def refresh_tree_views(self, rebuilding=False, selected_link_oid=None):
-        orb.log.debug('* refresh_tree_views()')
+        # orb.log.debug('* refresh_tree_views()')
         # first check for cycles in the current project systems
         psus = orb.search_exact(cname='ProjectSystemUsage',
                                 project=self.project)
@@ -4484,14 +4484,14 @@ class Main(QMainWindow):
         # cache all oids and use that to determine whether the tree needs to be
         # refreshed ...
         ######################################################################
-        orb.log.debug('  refreshing system tree and rebuilding dashboard ...')
+        # orb.log.debug('* refreshing system tree and rebuilding dashboard ...')
         # use number of tree levels to set max in progress bar
         try:
-            orb.log.debug('  + self.sys_tree exists ...')
+            # orb.log.debug('  + self.sys_tree exists ...')
             # if dashboard exists, it has to be destroyed too since the tree
             # and dashboard share their model()
             if hasattr(self, 'dashboard_panel'):
-                orb.log.debug('  + destroying existing dashboard, if any ...')
+                # orb.log.debug('  + destroying existing dashboard, if any ...')
                 dashboard_layout = self.dashboard_panel.layout()
                 if getattr(self, 'dashboard', None):
                     dashboard_layout.removeWidget(self.dashboard)
@@ -4505,7 +4505,7 @@ class Main(QMainWindow):
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
         try:
-            orb.log.debug('  + destroying existing self.sys_tree, if any ...')
+            # orb.log.debug('  + destroying existing self.sys_tree, if any ...')
             # NOTE:  WA_DeleteOnClose kills the "ghost tree" bug
             self.sys_tree.setAttribute(Qt.WA_DeleteOnClose)
             self.sys_tree.parent = None
@@ -4514,10 +4514,10 @@ class Main(QMainWindow):
         except:
             # if unsuccessful, it means there wasn't one, so no harm done
             pass
-        orb.log.debug('  + destroying existing pgxn_obj panel, if any ...')
+        # orb.log.debug('  + destroying existing pgxn_obj panel, if any ...')
         self.update_pgxn_obj_panel(create_new=False)
-        orb.log.debug('    self.pgxn_obj is {}'.format(str(
-                      getattr(self, 'pgxn_obj', None))))
+        # orb.log.debug('    self.pgxn_obj is {}'.format(str(
+                      # getattr(self, 'pgxn_obj', None))))
         # destroy left dock's widget
         ld_widget = self.left_dock.widget()
         if ld_widget:
@@ -4527,7 +4527,7 @@ class Main(QMainWindow):
         self.sys_tree = SystemTreeView(self.project)
         self.sys_tree.obj_modified.connect(self.on_mod_object_qtsignal)
         self.sys_tree.delete_obj.connect(self.del_object)
-        orb.log.debug('  + new self.sys_tree created ...')
+        # orb.log.debug('  + new self.sys_tree created ...')
         # sys_id = getattr(sys, 'id', '[none]') or '[none]'
         # orb.log.debug(f'    with selected system: {sys_id}')
         # model = self.sys_tree.source_model
