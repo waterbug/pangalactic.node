@@ -444,11 +444,7 @@ class TimelineScene(QGraphicsScene):
         # activity type is one of "Cycle", "Op", "Event"
         activity_type_name = event.mimeData().text()
         activity_type = orb.select("ActivityType", name=activity_type_name)
-        prefix = (getattr(self.act_of, 'reference_designator', '') or
-                  getattr(self.act_of, 'system_role', '') or
-                  # for Mission ...
-                  getattr(getattr(self.act_of, 'owner', None), 'id', '') or
-                  'Mission')
+        prefix = self.subject.name
         act_id = '-'.join([prefix, activity_type_name, str(seq)])
         act_name = ' '.join([prefix, activity_type_name, str(seq)])
         project = orb.get(state.get('project'))
