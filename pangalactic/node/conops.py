@@ -51,7 +51,8 @@ from pangalactic.core.names       import get_link_name, pname_to_header
 from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
                                           get_duration,
                                           get_usage_mode_val,  mode_defz,
-                                          round_to)
+                                          round_to,
+                                          set_comp_modal_context)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.node.activities  import (DEFAULT_ACTIVITIES,
                                           ActivityWidget,
@@ -907,7 +908,7 @@ class TimelineWidget(QWidget):
         return action
 
     def power_time_function(self, project=None, act=None, usage=None,
-                            context="CBE", time_units="seconds"):
+                            context="CBE", time_units="minutes"):
         """
         Return a function that computes system net power value as a function of
         time. Note that the time variable "t" in the returned function can be a
@@ -920,7 +921,7 @@ class TimelineWidget(QWidget):
                 specified usage, or self.usage if none is specified
             context (str): "CBE" (Current Best Estimate) or "MEV" (Maximum
                 Estimated Value)
-            time_units (str): units of time to be used (default: seconds)
+            time_units (str): units of time to be used (default: minutes)
         """
         orb.log.debug("* ConOpsModeler.power_time_function()")
         if usage:
@@ -934,9 +935,16 @@ class TimelineWidget(QWidget):
         if isinstance(act, orb.classes['Activity']):
             subacts = act.sub_activities
             if subacts:
+                names = [a.name for a in subacts]
+                orb.log.debug(f"  domain: {names}")
                 subacts.sort(key=lambda x: x.sub_activity_sequence or 0)
                 t_seq = [get_pval(a.oid, 't_start', units=time_units)
                          for a in subacts]
+                val_dict = {a.name: get_usage_mode_val(project.oid,
+                                            usage.oid, comp.oid,
+                                            a.oid)
+                            for a in subacts}
+                orb.log.debug(f"  mapping: {val_dict}")
                 def f_scalar(t):
                         a = subacts[-1]
                         for i in range(len(subacts) - 1):
@@ -1142,9 +1150,6 @@ class ConOpsModeler(QMainWindow):
         modes = list(mode_defz[self.project.oid].get('modes') or [])
         modes = modes or DEFAULT_ACTIVITIES
         # set initial default system state for modes that don't have one ...
-        for mode in modes:
-            if not mode_defz[self.project.oid]['modes'].get(mode):
-                mode_defz[self.project.oid]['modes'][mode] = 'Off'
         if names:
             orb.log.debug('  - specified systems:')
             for name in names:
@@ -1442,15 +1447,62 @@ class ConOpsModeler(QMainWindow):
                     # TODO: maybe change focus to project node (?)
                     return
 
+    def on_ignore_components(self, index):
+        """
+        If the item (aka "link" or "node") in the assembly tree exists in the
+        "systems" table, remove it and remove its components from the
+        "components" table, and if it is a component of an item in the
+        "systems" table, add it back to the "components" table, and change its
+        "level" from "[computed]" to a specifiable level value.
+        """
+        # TODO: implement as a context menu action ...
+        mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
+        link = self.sys_select_tree.source_model.get_node(mapped_i).link
+        # link might be None -- allow for that
+        if not hasattr(link, 'oid'):
+            orb.log.debug('  - link has no oid, ignoring ...')
+            return
+        name = get_link_name(link)
+        project_mode_defz = mode_defz[self.project.oid]
+        sys_dict = project_mode_defz['systems']
+        comp_dict = project_mode_defz['components']
+        mode_dict = project_mode_defz['modes']
+        if link.oid in sys_dict:
+            # if selected link is in sys_dict, make subject (see below)
+            orb.log.debug(f' - removing "{name}" from systems ...')
+            del sys_dict[link.oid]
+            # if it is in comp_dict, remove it there too
+            if link.oid in comp_dict:
+                del comp_dict[link.oid]
+            # if it occurs as a component of an item in sys_dict, add it back
+            # to components
+            orb.log.debug(f'   checking if "{name}" is a component ...')
+            for syslink_oid in sys_dict:
+                lk = orb.get(syslink_oid)
+                clink_oids = []
+                if hasattr(lk, 'system') and lk.system.components:
+                    clink_oids = [acu.oid for acu in lk.system.components]
+                elif hasattr(lk, 'component') and lk.component.components:
+                    clink_oids = [acu.oid for acu in lk.component.components]
+                if link.oid in clink_oids:
+                    orb.log.debug(f' - "{name}" is a component, adding it')
+                    orb.log.debug('   back to components of its parent')
+                    if not comp_dict.get(syslink_oid):
+                        comp_dict[syslink_oid] = {}
+                    comp_dict[syslink_oid][link.oid] = {}
+                    for mode in mode_dict:
+                        comp_dict[syslink_oid][link.oid][
+                                                mode] = (mode_dict.get(mode)
+                                                         or '[select state]')
+
     def on_add_usage(self, index):
         """
-        If the item (aka "link" or "node") in the assembly tree does not exist
-        in the the mode definitions "systems" table, add it, and if it has
-        components, add them to the mode definitions "components" table.
+        If the item (aka "link" or "node") selected in the assembly tree does
+        not exist in the the mode definitions "systems" table, add it, and if
+        it has components, add them to the mode definitions "components" table.
 
-        If the item already exists in the "systems" table, remove it and remove
-        its components from the "components" table, and if it is a component of
-        an item in the "systems" table, add it back to the "components" table.
+        If the item already exists in the "systems" table, switch to it as the
+        current selected usage and deselect the previously selected usage.
         """
         orb.log.debug('  - updating mode_defz ...')
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
@@ -1465,34 +1517,6 @@ class ConOpsModeler(QMainWindow):
         comp_dict = project_mode_defz['components']
         mode_dict = project_mode_defz['modes']
         in_comp_dict = False
-        # if link.oid in sys_dict:
-            # # if selected link is in sys_dict, make subject (see below)
-            # orb.log.debug(f' - removing "{name}" from systems ...')
-            # del sys_dict[link.oid]
-            # # if it is in comp_dict, remove it there too
-            # if link.oid in comp_dict:
-                # del comp_dict[link.oid]
-            # # if it occurs as a component of an item in sys_dict, add it back
-            # # to components
-            # orb.log.debug(f'   checking if "{name}" is a component ...')
-            # for syslink_oid in sys_dict:
-                # lk = orb.get(syslink_oid)
-                # clink_oids = []
-                # if hasattr(lk, 'system') and lk.system.components:
-                    # clink_oids = [acu.oid for acu in lk.system.components]
-                # elif hasattr(lk, 'component') and lk.component.components:
-                    # clink_oids = [acu.oid for acu in lk.component.components]
-                # if link.oid in clink_oids:
-                    # orb.log.debug(f' - "{name}" is a component, adding it')
-                    # orb.log.debug('   back to components of its parent')
-                    # if not comp_dict.get(syslink_oid):
-                        # comp_dict[syslink_oid] = {}
-                    # comp_dict[syslink_oid][link.oid] = {}
-                    # for mode in mode_dict:
-                        # comp_dict[syslink_oid][link.oid][
-                                                # mode] = (mode_dict.get(mode)
-                                                         # or '[select state]')
-        # else:
         if link.oid not in sys_dict:
             # selected link is NOT in sys_dict:
             # [1] if it it is in comp_dict and
@@ -1533,13 +1557,13 @@ class ConOpsModeler(QMainWindow):
                 #     exists ... in degenerate case it may be None (no oid)
                 if hasattr(link, 'oid'):
                     sys_dict[link.oid] = {}
-                    for mode in mode_dict:
+                    for mode_oid in mode_dict:
                         if has_components:
                             sys_dict[link.oid][mode] = '[computed]'
                         else:
-                            context = mode_dict.get(mode)
+                            context = mode_dict.get(mode_oid)
                             context = context or '[select level]'
-                            sys_dict[link.oid][mode] = context
+                            sys_dict[link.oid][mode_oid] = context
         # ensure that all selected systems (sys_dict) that have components,
         # have those components included in comp_dict ...
         product = None
@@ -1559,10 +1583,14 @@ class ConOpsModeler(QMainWindow):
                 for name, acu in by_name:
                     if not comp_dict[link.oid].get(acu.oid):
                         comp_dict[link.oid][acu.oid] = {}
-                    for mode in mode_dict:
-                        context = mode_dict.get(mode)
-                        context = context or '[select state]'
-                        comp_dict[link.oid][acu.oid][mode] = context
+                    for mode_oid in mode_dict:
+                        # assign default modal_context
+                        modal_context = 'Off'   # TODO: use default "template"
+                        set_comp_modal_context(self.project.oid,
+                                               syslink_oid,
+                                               acu.oid, mode_oid,
+                                               modal_context)
+
         # the expandToDepth is needed to make it repaint to show the selected
         # node as highlighted
         self.sys_select_tree.expandToDepth(1)
