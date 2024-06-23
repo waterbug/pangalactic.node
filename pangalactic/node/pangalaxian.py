@@ -1664,14 +1664,14 @@ class Main(QMainWindow):
                 self.on_received_objects(content)
             elif subject == 'new mode defs':
                 orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
-                md_dts, ser_md, userid = content
+                md_dts, project_oid, md_data, userid = content
                 # orb.log.debug('    content:')
                 orb.log.debug('==============================================')
                 orb.log.debug('New project mode definitions:')
                 orb.log.debug(f'- datetime stamp: {md_dts}')
                 orb.log.debug(f'- userid:         {userid}')
                 orb.log.debug('- <data>')
-                # orb.log.debug(f'  {ser_md}')
+                # orb.log.debug(f'  {md_data}')
                 orb.log.debug('==============================================')
                 if userid == state.get('userid'):
                     # originated from me -- set dts to server's dts
@@ -1680,8 +1680,9 @@ class Main(QMainWindow):
                 else:
                     local_md_dts = state.get('mode_defz_dts')
                     if (local_md_dts is None) or (md_dts > local_md_dts):
-                        all_proj_modes = json.loads(ser_md)
-                        mode_defz.update(all_proj_modes)
+                        if project_oid in mode_defz:
+                            del mode_defz[project_oid]
+                        mode_defz[project_oid] = md_data
                         state['mode_defz_dts'] = md_dts
                         orb.log.debug('    mode_defz updated.')
                         orb.log.debug('    dispatching "modes published"')
@@ -3648,16 +3649,15 @@ class Main(QMainWindow):
 
     def on_mode_defs_edited(self, oid=None):
         """
-        Handle local "modes edited" signal.
+        Handle local "modes edited" signal, which is emitted by the ConOps
+        assembly tree (usage selection) tool when a new usage is selected for
+        addition to mode_defs.
         """
         orb.log.debug('* signal: "modes edited"')
         proj_mode_defs = mode_defz.get(oid) or {}
         if proj_mode_defs and state['connected']:
-            # NOTE: experimenting with *unserialized* data ...
+            # NOTE: mode_defz data does NOT need to be serialized
             data = proj_mode_defs
-            # data = json.dumps(proj_mode_defs)
-            # s = json.dumps(proj_mode_defs, separators=(',', ':'),
-                           # indent=4)
             orb.log.debug('  - sending modes data to server ...')
             # orb.log.debug('    =============================')
             # orb.log.debug(f'    {s}')
@@ -3670,7 +3670,7 @@ class Main(QMainWindow):
 
     def rpc_update_mode_defs_result(self, result):
         """
-        Handle callback with result of vger.update_modes.
+        Handle callback with result of vger.update_mode_defs.
 
         Args:
             result (str):  a stringified mod datetime stamp.
@@ -3775,6 +3775,8 @@ class Main(QMainWindow):
                 self.refresh_dashboard()
         orb.log.debug(f'* {msg}')
 
+    # NOT ACITVE: "System Power Modes" dashboard is not currently functioning
+    # due to bug in dashboard switching ...
     def on_power_modes_updated(self):
         """
         Update dashboard when power modes are updated.
