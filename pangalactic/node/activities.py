@@ -539,7 +539,7 @@ class ModeDefinitionDashboard(QWidget):
 
     def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
                                   comp_oid=None, mode=None, value=None):
-        orb.log.debug('* MDD: "remote sys mode datum" signal received ...')
+        orb.log.debug('* MDD: "remote comp mode datum" signal received ...')
         if (link_oid is not None
             and project_oid == self.project.oid
             and link_oid in self.comp_dict
@@ -552,8 +552,10 @@ class ModeDefinitionDashboard(QWidget):
             else:
                 orb.log.debug('  calling on_view() ...')
                 self.on_view(None)
-            orb.log.debug('  - sending "power modes updated" signal')
-            dispatcher.send("power modes updated")
+            # DEACTIVATED -- was used to signal "System Power Modes" dashboard
+            # to update, but not currently functioning due to dashboard bug ...
+            # orb.log.debug('  - sending "power modes updated" signal')
+            # dispatcher.send("power modes updated")
 
     def on_set_mode_usage(self, usage=None):
         orb.log.debug('* MDD: received signal "set mode usage"')
@@ -773,11 +775,8 @@ class ModeDefinitionDashboard(QWidget):
             label = ValueLabel(modal_context, w=80)
             grid.addWidget(label, row, 1)
         else:
-            modal_context_has_been_set = False
             modal_context = get_modal_context(self.project.oid, usage.oid,
                                               self.act.oid)
-            if modal_context:
-                modal_context_has_been_set = True
             if modal_context == '[computed]':
                 label = ValueLabel(modal_context, w=80)
                 grid.addWidget(label, row, 1)
@@ -788,17 +787,9 @@ class ModeDefinitionDashboard(QWidget):
                 if self.edit_state:
                     i = self.usage_to_l_select[usage.oid].findText(
                                                             modal_context)
-                    if i == -1:
-                        # modal_context value was not in valid options ...
-                        modal_context_has_been_set = False
-                        modal_context = 'Off'   # TODO: use default "template"
-                        i = 0
                     l_sel = self.usage_to_l_select[usage.oid]
                     l_sel.setCurrentIndex(i)
                     grid.addWidget(l_sel, row, 1)
-                    if not modal_context_has_been_set:
-                        # set the modal_context value
-                        self.set_level(modal_context, oid=usage.oid)
                 else:
                     label = ValueLabel(modal_context, w=80)
                     grid.addWidget(label, row, 1)
