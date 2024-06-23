@@ -279,6 +279,7 @@ class SystemTreeModel(QAbstractItemModel):
     BRUSH = QBrush()
     RED_BRUSH = QBrush(Qt.red)
     GRAY_BRUSH = QBrush(Qt.lightGray)
+    DARK_GRAY_BRUSH = QBrush(Qt.darkGray)
     GREEN_BRUSH = QBrush(Qt.green)
     BLUE_BRUSH = QBrush(Qt.blue)
     CYAN_BRUSH = QBrush(Qt.cyan)
@@ -653,7 +654,7 @@ class SystemTreeModel(QAbstractItemModel):
                     and mode_defz.get(self.project.oid)):
                     sys_dict = mode_defz[self.project.oid].get('systems') or {}
                     if getattr(node.link, 'oid', None) in sys_dict:
-                        return self.WHITE_BRUSH
+                        return self.YELLOW_BRUSH
                     else:
                         return self.BRUSH
             elif self.cols and len(self.cols) > index.column() > 0:
@@ -688,7 +689,7 @@ class SystemTreeModel(QAbstractItemModel):
                     and mode_defz.get(self.project.oid)):
                     sys_dict = mode_defz[self.project.oid].get('systems') or {}
                     if getattr(node.link, 'oid', None) in sys_dict:
-                        return self.WHITE_BRUSH
+                        return self.YELLOW_BRUSH
                     else:
                         return self.BRUSH
                 else:
@@ -712,7 +713,7 @@ class SystemTreeModel(QAbstractItemModel):
               and mode_defz.get(self.project.oid)):
                 sys_dict = mode_defz[self.project.oid].get('systems') or {}
                 if getattr(node.link, 'oid', None) in sys_dict:
-                    return self.BLUE_BRUSH
+                    return self.DARK_GRAY_BRUSH
                 else:
                     return self.WHITE_BRUSH
         if role == Qt.TextAlignmentRole:
