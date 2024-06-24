@@ -1168,7 +1168,6 @@ class ConOpsModeler(QMainWindow):
         proj = orb.get(state.get('project'))
         if not proj:
             proj = orb.get('pgefobjects:SANDBOX')
-        self._project = proj
         return proj
 
     @property
@@ -1281,7 +1280,6 @@ class ConOpsModeler(QMainWindow):
         self.expansion_select = QComboBox()
         self.expansion_select.setStyleSheet(
                                         'font-weight: bold; font-size: 14px')
-        self.expansion_select.addItem('2 levels', QVariant())
         self.expansion_select.addItem('3 levels', QVariant())
         self.expansion_select.addItem('4 levels', QVariant())
         self.expansion_select.addItem('5 levels', QVariant())
@@ -1294,20 +1292,22 @@ class ConOpsModeler(QMainWindow):
             self.expansion_select.setCurrentIndex(
                 state['conops_tree_expansion'][self.project.oid])
         else:
-            state['conops_tree_expansion'][self.project.oid] = 0
+            state['conops_tree_expansion'][self.project.oid] = 2
         # ---------------------------------------------------------------------
         sys_tree_title = f'{self.project.id} Mission Systems'
         sys_tree_title_widget = ColorLabel(sys_tree_title, element='h2')
+        initial_usage = orb.get(state.get('mdd usage'))
         self.sys_select_tree = SystemSelectionView(self.project,
-                                                   refdes=True)
+                                                   refdes=True,
+                                                   usage=initial_usage)
         self.sys_select_tree.setSizePolicy(QSizePolicy.Preferred,
                                            QSizePolicy.MinimumExpanding)
         self.sys_select_tree.setObjectName('Sys Select Tree')
         self.sys_select_tree.setMinimumWidth(400)
         # -- set initial tree expansion level ---------------------------------
-        expand_level = 1
+        expand_level = 3
         idx = state['conops_tree_expansion'][self.project.oid]
-        expand_level = idx + 1
+        expand_level = idx + 2
         self.sys_select_tree.expandToDepth(expand_level)
         # ---------------------------------------------------------------------
         self.sys_select_tree.setExpandsOnDoubleClick(False)
@@ -1352,7 +1352,7 @@ class ConOpsModeler(QMainWindow):
         #        expandToDepth(n) actually means level n + 1
         try:
             level = index + 2
-            self.sys_select_tree.expandToDepth(level - 1)
+            self.sys_select_tree.expandToDepth(level)
             state['conops_tree_expansion'][self.project.oid] = index
             # orb.log.debug(f'* tree expanded to level {level}')
         except:
@@ -1394,8 +1394,11 @@ class ConOpsModeler(QMainWindow):
 
     def on_item_clicked(self, index):
         orb.log.debug("* ConOpsModeler.on_item_clicked()")
+        n = len(self.sys_select_tree.selectedIndexes())
+        orb.log.debug(f"  {n} items are selected.")
+        self.sys_select_tree.expand(index)
         if isinstance(self.mode_dash.act, orb.classes['Mission']):
-            msg = 'Select an activity first ...'
+            msg = 'To define modes, select an activity ...'
             dlg = NotificationDialog(msg, news=False, parent=self)
             dlg.show()
             return
@@ -1417,7 +1420,7 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(f"  - product {attr} is {product.name}")
         if product:
             # usage should be made the subject's "of_system" if it exists in
-            # sys_dict (i.e. if it is of interest in defining modes ...)
+            # sys_dict (i.e. it is of interest in defining modes ...)
             project_mode_defz = mode_defz[self.project.oid]
             sys_dict = project_mode_defz['systems']
             # all_comp_acu_oids = reduce(lambda x,y: x+y,
@@ -1439,6 +1442,7 @@ class ConOpsModeler(QMainWindow):
                 if dlg.exec_() == QDialog.Accepted:
                     orb.log.debug('    calling on_add_usage() ..."')
                     self.on_add_usage(index)
+                    self.set_usage(link)
                 else:
                     # TODO: maybe change focus to project node (?)
                     return

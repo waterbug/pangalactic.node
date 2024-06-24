@@ -1364,6 +1364,8 @@ class SystemTreeView(QTreeView):
         if link:
             model = self.source_model
             assembly_node = model.get_node(idx)
+            if assembly_node.link is None:
+                return []
             if hasattr(assembly_node.link, 'component'):
                 assembly = assembly_node.link.component
             else:

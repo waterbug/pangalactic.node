@@ -202,7 +202,7 @@ class ActivityWidget(QWidget):
 
 
 class SystemSelectionView(QTreeView):
-    def __init__(self, obj, refdes=True, parent=None):
+    def __init__(self, obj, refdes=True, usage=None, parent=None):
         """
         Args:
             obj (Project or Product): root object of the tree
@@ -210,6 +210,7 @@ class SystemSelectionView(QTreeView):
         Keyword Args:
             refdes (bool):  flag indicating whether to display the reference
                 designator or the component name as the node name
+            usage (Acu or PSU):  initially selected usage
         """
         super().__init__(parent)
         # NOTE: this logging is only needed for deep debugging
@@ -240,12 +241,11 @@ class SystemSelectionView(QTreeView):
         self.setMaximumWidth(500)
         self.resizeColumnToContents(0)
         self.project = self.source_model.project
-        if not state.get('sys_trees'):
-            state['sys_trees'] = {}
-        if not state['sys_trees'].get(self.project.id):
-            state['sys_trees'][self.project.id] = {}
-        if not state['sys_trees'][self.project.id].get('expanded'):
-            state['sys_trees'][self.project.id]['expanded'] = []
+        if usage and isinstance(usage, (orb.classes['Acu'],
+                                        orb.classes['ProjectSystemUsage'])):
+            idxs = self.link_indexes_in_tree(usage)
+            if idxs:
+                self.setCurrentIndex(idxs[0])
 
     def link_indexes_in_assembly(self, link, idx):
         """
@@ -260,16 +260,18 @@ class SystemSelectionView(QTreeView):
         if link:
             model = self.source_model
             assembly_node = model.get_node(idx)
+            if assembly_node.link is None:
+                return []
             if hasattr(assembly_node.link, 'component'):
                 assembly = assembly_node.link.component
             else:
                 assembly = assembly_node.link.system
-            # orb.log.debug('* link_indexes_in_assembly({})'.format(link.id))
+            orb.log.debug('* link_indexes_in_assembly({})'.format(link.id))
             if link.oid == assembly_node.link.oid:
-                # orb.log.debug('  assembly node *is* the link node')
+                orb.log.debug('  assembly node *is* the link node')
                 return [idx]
             elif model.hasChildren(idx) and link in get_assembly(assembly):
-                # orb.log.debug('  link in assembly -- looking for acus ...')
+                orb.log.debug('  link in assembly -- looking for acus ...')
                 link_idxs = []
                 comp_idxs = [model.index(row, 0, idx)
                              for row in range(model.rowCount(idx))]
@@ -288,14 +290,12 @@ class SystemSelectionView(QTreeView):
         Args:
             link (Acu or ProjectSystemUsage):  specified link object
         """
-        if not link:
-            return []
         # orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
         model = self.proxy_model.sourceModel()
         project_index = model.index(0, 0, QModelIndex())
-        # project_node = model.get_node(project_index)
-        # orb.log.debug('  for project {}'.format(project_node.obj.oid))
-        # orb.log.debug('  (node cname: {})'.format(project_node.cname))
+        project_node = model.get_node(project_index)
+        orb.log.debug('  for project {}'.format(project_node.obj.oid))
+        orb.log.debug('  (node cname: {})'.format(project_node.cname))
         # first check whether link is a PSU:
         is_a_psu = [psu for psu in model.project.systems
                     if psu.oid == link.oid]
@@ -308,29 +308,29 @@ class SystemSelectionView(QTreeView):
                         for row in range(model.rowCount(project_index))]
             link_idxs = []
             if is_a_psu:
-                # orb.log.debug('  - link is a ProjectSystemUsage ...')
-                # orb.log.debug('    project has {} system(s).'.format(
-                                                            # len(systems)))
-                # orb.log.debug('    tree has {} system(s).'.format(
-                                                            # len(sys_idxs)))
+                orb.log.debug('  - link is a ProjectSystemUsage ...')
+                orb.log.debug('    project has {} system(s).'.format(
+                                                            len(systems)))
+                orb.log.debug('    tree has {} system(s).'.format(
+                                                            len(sys_idxs)))
                 for idx in sys_idxs:
                     system_node = model.get_node(idx)
                     if system_node.link.oid == link.oid:
-                        # orb.log.debug('    + {}'.format(system_node.link.id))
-                        # orb.log.debug('      system: {}'.format(
-                                                        # system_node.obj.id))
+                        orb.log.debug('    + {}'.format(system_node.link.id))
+                        orb.log.debug('      system: {}'.format(
+                                                        system_node.obj.id))
                         link_idxs.append(idx)
-                # orb.log.debug('    {} system occurrences found.'.format(
-                              # len(link_idxs)))
+                orb.log.debug('    {} system occurrences found.'.format(
+                              len(link_idxs)))
             if in_system:
-                # orb.log.debug('  - link is an Acu ...')
+                orb.log.debug('  - link is an Acu ...')
                 for sys_idx in sys_idxs:
                     link_idxs += self.link_indexes_in_assembly(link, sys_idx)
-                # orb.log.debug('    {} link occurrences found.'.format(
-                              # len(link_idxs)))
+                orb.log.debug('    {} link occurrences found.'.format(
+                              len(link_idxs)))
             return link_idxs
         else:
-            # orb.log.debug('  - link not found in tree.')
+            orb.log.debug('  - link not found in tree.')
             return []
         return []
 
