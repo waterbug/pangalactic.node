@@ -1348,20 +1348,18 @@ class ConOpsModeler(QMainWindow):
         if index is None:
             index = state.get('conops_tree_expansion', {}).get(
                                                 self.project.oid) or 0
-        # NOTE:  levels are 2 to 5, so level = index + 2
+        # NOTE:  levels are 3 to 5, so level = index + 2
         #        expandToDepth(n) actually means level n + 1
         try:
             level = index + 2
             self.sys_select_tree.expandToDepth(level)
             state['conops_tree_expansion'][self.project.oid] = index
-            # orb.log.debug(f'* tree expanded to level {level}')
+            orb.log.debug(f'* tree expanded to level {level}')
         except:
-            orb.log.debug('* conops tree expansion failed.')
+            # orb.log.debug('* conops tree expansion failed ...')
+            # orb.log.debug('  sys_select_tree C++ obj probably gone.')
+            # no big deal ...
             pass
-        finally:
-            # orb.log.debug('* setting selected conops system ...')
-            # after expanding, set the selected system
-            dispatcher.send(signal='set selected conops system')
 
     def create_activity_table(self):
         orb.log.debug("* ConOpsModeler.create_activity_table()")
