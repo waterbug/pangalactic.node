@@ -442,7 +442,7 @@ class ModeDefinitionDashboard(QWidget):
 
     @property
     def mode_dict(self):
-        # maps act.oid to act.name (aka "mode") for sub_activities of the
+        # maps act.oid to act.name for sub_activities of the
         # project's Mission
         md = {}
         mission = orb.select('Mission', owner=self.project)
@@ -530,7 +530,7 @@ class ModeDefinitionDashboard(QWidget):
         Args:
             project_oid (str): oid of the project object
             link_oid (str): oid of the link (Acu or PSU)
-            mode (str): name of the mode
+            mode (str): oid of the mode
             value (polymorphic): a context name or ...
         """
         # TODO: NEW SIGNATURE: instead of "value" -- elements to construct a
@@ -548,9 +548,23 @@ class ModeDefinitionDashboard(QWidget):
                 self.on_edit(None)
             else:
                 self.on_view(None)
+            # DEACTIVATED -- was used to signal "System Power Modes" dashboard
+            # to update, but not currently functioning due to dashboard bug ...
+            # orb.log.debug('  - sending "power modes updated" signal')
+            # dispatcher.send("power modes updated")
 
     def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
                                   comp_oid=None, mode=None, value=None):
+        """
+        Handle remote setting of a sys mode datum.
+
+        Args:
+            project_oid (str): oid of the project object
+            link_oid (str): oid of the link (Acu or PSU)
+            comp_oid (str): oid of the link component
+            mode (str): oid of the mode
+            value (polymorphic): a context name or ...
+        """
         orb.log.debug('* MDD: "remote comp mode datum" signal received ...')
         if (link_oid is not None
             and project_oid == self.project.oid
@@ -757,15 +771,15 @@ class ModeDefinitionDashboard(QWidget):
         # if oid in self.sys_dict:
             # orb.log.debug(' - sending "sys mode datum set" signal')
             # dispatcher.send(signal='sys mode datum set',
-                            # datum=(self.project.oid, oid, mode,
+                            # datum=(self.project.oid, oid, self.act.oid,
                                    # value))
         # else:
         sys_oid = self.usage.oid
-        mode = self.act.oid
+        mode_oid = self.act.oid
         value = level
         orb.log.debug(' - sending "comp mode datum set" signal')
         dispatcher.send(signal='comp mode datum set',
-                        datum=(self.project.oid, sys_oid, oid, mode, value))
+                    datum=(self.project.oid, sys_oid, oid, mode_oid, value))
         self.on_edit(None)
 
     def set_row_fields(self, usage, row):

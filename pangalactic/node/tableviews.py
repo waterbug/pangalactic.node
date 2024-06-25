@@ -387,8 +387,8 @@ class ActInfoTable(QTableWidget):
         # populate relevant data
         for i, act in enumerate(self.acts):
             oid = act.oid
-            time_unit_name = get_dval(oid, "time_units") or 'seconds'
-            time_units = time_unit_names.get(time_unit_name) or 's'
+            time_unit_name = get_dval(oid, "time_units") or 'minutes'
+            time_units = time_unit_names.get(time_unit_name) or 'minute'
             for j, ptuple in enumerate(self.view_conf):
                 pname, colname, width = ptuple
                 if pname == 'time_units':
@@ -397,13 +397,16 @@ class ActInfoTable(QTableWidget):
                     item = InfoTableItem(orb.get_prop_val_as_str(oid, pname,
                                                              units=time_units)
                                                              or '')
+                if pname in ('t_start', 't_end'):
+                    # always non-editable (computed from sequences/durations)
+                    item.setFlags(Qt.NoItemFlags)
+                    item.setForeground(Qt.darkMagenta)
                 if not self.editable:
                     item.setFlags(Qt.NoItemFlags)
                 self.setItem(i, j, item)
         for j, ptuple in enumerate(self.view_conf):
             pname, colname, width = ptuple
             self.setColumnWidth(j, width)
-        # self.resizeColumnsToContents()
         self.recompute_timeline()
 
     def sizeHint(self):
@@ -447,8 +450,8 @@ class ActInfoTable(QTableWidget):
                         str_val = dlg.time_unit_name
                         time_unit_id = time_unit_names[str_val]
                     else:
-                        str_val = 'seconds'
-                        time_unit_id = 's'
+                        str_val = 'minutes'
+                        time_unit_id = 'minute'
                 # NOTE: "time_units" data element is a time unit *name*
                 status = orb.set_prop_val(oid, "time_units", str_val)
                 item.setData(Qt.EditRole, str_val)
@@ -510,7 +513,7 @@ class ActInfoTable(QTableWidget):
         col = item.column()
         act = self.acts[row]
         oid = act.oid
-        act_units = get_dval(oid, "time_units") or 's'
+        act_units = get_dval(oid, "time_units") or 'minute'
         act.mod_datetime = NOW
         acts_modded = [act]
         pname = self.view[col]
@@ -576,14 +579,14 @@ class ActInfoTable(QTableWidget):
             item.setData(Qt.EditRole, t_end_str)
         elif pname == 'time_units':
             # if 'time_units' is set, just set the item's t_start, duration and
-            # t_end in the new units (the value is stored parameterz dict in
+            # t_end in the new units (the value is stored in parameterz dict in
             # base units)
             new_units_name = self.item(row,
                                        self.view.index('time_units')).data(
                                                                 Qt.EditRole)
             if not new_units_name:
-                new_units_name = 'seconds'
-            time_units = time_unit_names.get(new_units_name) or 's'
+                new_units_name = 'minutes'
+            time_units = time_unit_names.get(new_units_name) or 'minute'
             conv_t_start = get_pval_as_str(oid, 't_start',
                                            units=time_units)
             conv_duration = get_pval_as_str(oid, 'duration',
@@ -634,7 +637,7 @@ class ActInfoTable(QTableWidget):
         for row, act in enumerate(self.acts):
             mods = False
             oid = act.oid
-            t_units = get_dval(oid, "time_units") or 's'
+            t_units = get_dval(oid, "time_units") or 'minutes'
             prop_mods[oid] = {}
             txt = f'updating {act.name} ...'
             orb.log.debug(f'    {txt}')

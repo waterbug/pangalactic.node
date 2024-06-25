@@ -73,7 +73,8 @@ from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
                                                delete_data_element,
                                                mode_defz, parameterz,
-                                               save_data_elementz, save_parmz)
+                                               save_data_elementz, save_parmz,
+                                               set_dval)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
 from pangalactic.core.serializers      import (DESERIALIZATION_ORDER,
                                                deserialize, serialize,
@@ -3236,7 +3237,6 @@ class Main(QMainWindow):
                 orb.log.debug(f'    + "{obj.id}"')
             rpc = self.mbus.session.call('vger.save', serialized_objs)
             rpc.addCallback(self.on_vger_save_result)
-            rpc.addCallback(self.get_parmz)
             rpc.addErrback(self.on_failure)
         else:
             # if not connected, recompute parameters and do all gui updates
@@ -3568,9 +3568,20 @@ class Main(QMainWindow):
         orb.log.debug('* vger.save rpc result: {}'.format(str(stuff)))
         try:
             msg = ''
+            new_acts = []
             if stuff.get('new_obj_dts'):
                 msg = '{} new; '.format(len(stuff['new_obj_dts']))
                 orb.log.debug(f'  {msg}')
+                new_obj_oids = list(stuff['new_obj_dts'])
+                new_objs = orb.get(oids=new_obj_oids)
+                for obj in new_objs:
+                    if isinstance(obj, orb.classes['Activity']):
+                        new_acts.append(obj)
+                if new_acts:
+                    orb.log.debug('  some new activities --')
+                    orb.log.debug('  setting time_units to "minutes" ...')
+                    for act in new_acts:
+                        set_dval(act.oid, 'time_units', 'minutes')
             if stuff.get('mod_obj_dts'):
                 msg = '{} modified; '.format(len(stuff['mod_obj_dts']))
                 orb.log.debug(f'  {msg}')
@@ -3591,9 +3602,19 @@ class Main(QMainWindow):
                 # NOTE: VERY IMPORTANT: updates the project, gui, etc.
                 if state.get('modal views need update'):
                     self._update_modal_views()
+            elif new_acts:
+                orb.log.debug('  calling "vger.set_data_elements() ...')
+                # NOTE: vger.set_data_elements() will also publish message
+                # "data elements set" to update data elements ...
+                des = {act.oid: {'time_units': 'minutes'} for act in new_acts}
+                rpc = self.mbus.session.call('vger.set_data_elements', des=des)
+                rpc.addCallback(self.on_vger_set_des_result)
+                rpc.addCallback(self.get_parmz)
+                rpc.addErrback(self.on_failure)
             else:
-                msg = 'synced.'
-            orb.log.debug(f'  {msg}')
+                msg = 'getting parmz'
+                orb.log.debug(f'  {msg}')
+                self.get_parmz()
         except:
             orb.log.debug('  result format incorrect.')
 

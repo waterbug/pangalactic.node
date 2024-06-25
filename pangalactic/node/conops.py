@@ -52,7 +52,8 @@ from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
                                           get_duration,
                                           get_usage_mode_val,  mode_defz,
                                           round_to,
-                                          set_comp_modal_context)
+                                          set_comp_modal_context,
+                                          set_dval)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.node.activities  import (DEFAULT_ACTIVITIES,
                                           ActivityWidget,
@@ -63,7 +64,6 @@ from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (DefineModesDialog,
                                           DisplayNotesDialog,
                                           NotesDialog,
-                                          NotificationDialog,
                                           PlotDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import pct_to_decimal
@@ -1395,11 +1395,6 @@ class ConOpsModeler(QMainWindow):
         n = len(self.sys_select_tree.selectedIndexes())
         orb.log.debug(f"  {n} items are selected.")
         self.sys_select_tree.expand(index)
-        if isinstance(self.mode_dash.act, orb.classes['Mission']):
-            msg = 'To define modes, select an activity ...'
-            dlg = NotificationDialog(msg, news=False, parent=self)
-            dlg.show()
-            return
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
         name = get_link_name(link)
@@ -1541,8 +1536,8 @@ class ConOpsModeler(QMainWindow):
                         #     add it to sys_dict
                         del comp_dict[syslink_oid][link.oid]
                         sys_dict[link.oid] = {}
-                        for mode in mode_dict:
-                            sys_dict[link.oid][mode] = '[computed]'
+                        for mode_oid in mode_dict:
+                            sys_dict[link.oid][mode_oid] = '[computed]'
                     else:
                         # [b] if it has no components, ignore the operation
                         # since it is already included as a component and
@@ -1557,13 +1552,14 @@ class ConOpsModeler(QMainWindow):
                     sys_dict[link.oid] = {}
                     for mode_oid in mode_dict:
                         if has_components:
-                            sys_dict[link.oid][mode] = '[computed]'
+                            sys_dict[link.oid][mode_oid] = '[computed]'
                         else:
                             context = mode_dict.get(mode_oid)
                             context = context or '[select level]'
                             sys_dict[link.oid][mode_oid] = context
         # ensure that all selected systems (sys_dict) that have components,
         # have those components included in comp_dict ...
+        # * set their modal_context (level) to "Off"
         product = None
         for syslink_oid in sys_dict:
             link = orb.get(syslink_oid)
@@ -1656,6 +1652,9 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug("* ConOpsModeler.on_new_activity()")
         orb.log.debug(f'  sending "new object" signal on {act.id}')
+        # set time units locally to default: "minutes" -- if connected,
+        # this will be done in the callback after vger.save() succeeds
+        set_dval(act.oid, "time_units", "minutes")
         self.main_timeline.auto_rescale_timeline()
         dispatcher.send("new object", obj=act)
         self.rebuild_table()
