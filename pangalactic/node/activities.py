@@ -245,7 +245,8 @@ class SystemSelectionView(QTreeView):
                                         orb.classes['ProjectSystemUsage'])):
             idxs = self.link_indexes_in_tree(usage)
             if idxs:
-                self.setCurrentIndex(idxs[0])
+                proxy_idx = self.proxy_model.mapFromSource(idxs[0])
+                self.setCurrentIndex(proxy_idx)
 
     def link_indexes_in_assembly(self, link, idx):
         """
@@ -271,7 +272,7 @@ class SystemSelectionView(QTreeView):
                 orb.log.debug('  assembly node *is* the link node')
                 return [idx]
             elif model.hasChildren(idx) and link in get_assembly(assembly):
-                orb.log.debug('  link in assembly -- looking for acus ...')
+                orb.log.debug('  link in assembly -- looking for indexes ...')
                 link_idxs = []
                 comp_idxs = [model.index(row, 0, idx)
                              for row in range(model.rowCount(idx))]
@@ -293,9 +294,13 @@ class SystemSelectionView(QTreeView):
         # orb.log.debug('* link_indexes_in_tree({})'.format(link.id))
         model = self.proxy_model.sourceModel()
         project_index = model.index(0, 0, QModelIndex())
-        project_node = model.get_node(project_index)
-        orb.log.debug('  for project {}'.format(project_node.obj.oid))
-        orb.log.debug('  (node cname: {})'.format(project_node.cname))
+        # project_node = model.get_node(project_index)
+        # orb.log.debug('  for project {}'.format(project_node.obj.id))
+        # orb.log.debug('  (node cname: {})'.format(project_node.cname))
+        # ----------------------------------------------------
+        # IMPORTANT: fully populate model with child nodes ...
+        # ----------------------------------------------------
+        model.populate()
         # first check whether link is a PSU:
         is_a_psu = [psu for psu in model.project.systems
                     if psu.oid == link.oid]
@@ -304,33 +309,40 @@ class SystemSelectionView(QTreeView):
         in_system = [sys for sys in systems if link in get_assembly(sys)]
         if is_a_psu or in_system:
             # systems exist -> project_index has children, so ...
+            child_count = model.rowCount(project_index)
+            if child_count == 0:
+                # orb.log.debug('  - no child nodes found.')
+                return []
             sys_idxs = [model.index(row, 0, project_index)
-                        for row in range(model.rowCount(project_index))]
+                        for row in range(child_count)]
+            if not sys_idxs:
+                # orb.log.debug('  - no child indexes found.')
+                return []
             link_idxs = []
             if is_a_psu:
-                orb.log.debug('  - link is a ProjectSystemUsage ...')
-                orb.log.debug('    project has {} system(s).'.format(
-                                                            len(systems)))
-                orb.log.debug('    tree has {} system(s).'.format(
-                                                            len(sys_idxs)))
+                # orb.log.debug('  - link is a ProjectSystemUsage ...')
+                # orb.log.debug('    project has {} system(s).'.format(
+                                                            # len(systems)))
+                # orb.log.debug('    tree has {} system(s).'.format(
+                                                            # len(sys_idxs)))
                 for idx in sys_idxs:
                     system_node = model.get_node(idx)
                     if system_node.link.oid == link.oid:
-                        orb.log.debug('    + {}'.format(system_node.link.id))
-                        orb.log.debug('      system: {}'.format(
-                                                        system_node.obj.id))
+                        # orb.log.debug('    + {}'.format(system_node.link.id))
+                        # orb.log.debug('      system: {}'.format(
+                                                        # system_node.obj.id))
                         link_idxs.append(idx)
-                orb.log.debug('    {} system occurrences found.'.format(
-                              len(link_idxs)))
+                # orb.log.debug('    {} system occurrences found.'.format(
+                              # len(link_idxs)))
             if in_system:
-                orb.log.debug('  - link is an Acu ...')
+                # orb.log.debug('  - link is an Acu ...')
                 for sys_idx in sys_idxs:
                     link_idxs += self.link_indexes_in_assembly(link, sys_idx)
-                orb.log.debug('    {} link occurrences found.'.format(
-                              len(link_idxs)))
+                # orb.log.debug('    {} link occurrences found.'.format(
+                              # len(link_idxs)))
             return link_idxs
         else:
-            orb.log.debug('  - link not found in tree.')
+            # orb.log.debug('  - link not found in tree.')
             return []
         return []
 

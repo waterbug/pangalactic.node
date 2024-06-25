@@ -460,7 +460,6 @@ class SystemTreeModel(QAbstractItemModel):
                     comp_node = self.node_for_object(acu.component, pnode,
                                                      link=acu)
                     nodes.append(comp_node)
-                    dispatcher.send('tree node fetched')
         elif pnode.cname == 'Project':
             # -> this is a Project node
             psus = set([psu for psu in pnode.obj.systems if psu.system])
@@ -472,10 +471,27 @@ class SystemTreeModel(QAbstractItemModel):
                     sys_node = self.node_for_object(psu.system, pnode,
                                                     link=psu)
                     nodes.append(sys_node)
-                    dispatcher.send('tree node fetched')
         # only call add_nodes if nodes are found ...
         if nodes:
             self.add_nodes(nodes, index)
+
+    def populate(self, idx=None):
+        """
+        Fetch all children recursively.
+        """
+        # orb.log.debug('* populate()')
+        if idx is None:
+            idx = self.index(0, 0, QModelIndex())
+        if self.canFetchMore(idx):
+            # orb.log.debug('  fetching more ...')
+            self.fetchMore(idx)
+            next_idx = self.index(0, 0, idx)
+            while 1:
+                if self.canFetchMore(next_idx):
+                    self.populate(next_idx)
+                else:
+                    # orb.log.debug('  done with node, breaking ...')
+                    break
 
     def hasChildren(self, index):
         """
@@ -1221,6 +1237,10 @@ class SystemTreeView(QTreeView):
         # project_node = model.get_node(project_index)
         # orb.log.debug('  for project {}'.format(project_node.obj.oid))
         # orb.log.debug('  (node cname: {})'.format(project_node.cname))
+        # ----------------------------------------------------
+        # IMPORTANT: fully populate model with child nodes ...
+        # ----------------------------------------------------
+        model.populate()
         # first check whether link is a PSU:
         is_a_psu = [psu for psu in model.project.systems
                     if psu.oid == link.oid]
@@ -1229,8 +1249,15 @@ class SystemTreeView(QTreeView):
         in_system = [sys for sys in systems if link in get_assembly(sys)]
         if is_a_psu or in_system:
             # systems exist -> project_index has children, so ...
+            child_count = model.rowCount(project_index)
+            if child_count == 0:
+                # orb.log.debug('  - no child nodes found.')
+                return []
             sys_idxs = [model.index(row, 0, project_index)
-                        for row in range(model.rowCount(project_index))]
+                        for row in range(child_count)]
+            if not sys_idxs:
+                # orb.log.debug('  - no child indexes found.')
+                return []
             link_idxs = []
             if is_a_psu:
                 # orb.log.debug('  - link is a ProjectSystemUsage ...')
