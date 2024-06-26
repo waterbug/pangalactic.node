@@ -22,8 +22,8 @@ import sys, os
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QPointF, QPoint, QRectF, QSize, QVariant
-from PyQt5.QtGui import (QColor, QIcon, QCursor, QPainter, QPainterPath,
-                         QPen, QPixmap, QPolygonF, QTransform)
+from PyQt5.QtGui import (QBrush, QColor, QIcon, QCursor, QPainter,
+                         QPainterPath, QPen, QPixmap, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
                              QDialog, QMainWindow, QSizePolicy, QWidget,
@@ -1038,9 +1038,9 @@ class TimelineWidget(QWidget):
         # orb.log.debug(f'  {t_array}')
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
         qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
-                              linecolor="blue", antialiased=True)
+                              linecolor="blue", linewidth=2, antialiased=True)
         qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV]", plot,
-                              linecolor="red", antialiased=True)
+                              linecolor="red", linewidth=2, antialiased=True)
         # insert a vertical marker for t_start of each activity
         for a in subacts:
             t_start = get_pval(a.oid, 't_start', units=time_units)
@@ -1053,8 +1053,9 @@ class TimelineWidget(QWidget):
             name = pname_to_header(a.name, 'Activity', width=7)
             name = '  ' + name + '  '
             pen = QPen(Qt.black, 1)
+            white_brush = QBrush(Qt.white)
             name_label = QwtText.make(text=name, weight=4, borderpen=pen,
-                                      borderradius=3.0)
+                                      borderradius=3.0, brush=white_brush)
             p_cbe_val = get_usage_mode_val(project.oid,
                                            usage.oid, comp.oid,
                                            a.oid)
