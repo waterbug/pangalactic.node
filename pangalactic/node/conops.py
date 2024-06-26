@@ -364,18 +364,19 @@ class Timeline(QGraphicsPathItem):
         self.evt_blocks.sort(key=lambda x: x.scenePos().x())
         orb.log.debug('  - setting sub_activity_sequence(s) ...')
         NOW = dtstamp()
+        mod_objs = []
         for i, evt_block in enumerate(self.evt_blocks):
             evt_block.setPos(QPoint(self.list_of_pos[i], 250))
             act = evt_block.activity
-            # FIXME:  sequence is determined by start/end times -- they must be
-            # kept consistent ...
             if act.sub_activity_sequence != i:
                 act.sub_activity_sequence = i
                 act.mod_datetime = NOW
                 orb.save([act])
-                dispatcher.send("modified object", obj=act)
+                mod_objs.append(act)
         dispatcher.send("order changed")
         self.update()
+        if mod_objs:
+            dispatcher.send("modified objects", objs=mod_objs)
 
     def add_evt_block(self, evt_block):
         self.evt_blocks.append(evt_block)
