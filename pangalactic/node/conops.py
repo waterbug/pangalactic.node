@@ -778,7 +778,6 @@ class TimelineWidget(QWidget):
                             self.scene.removeItem(item)
                             if item in self.scene.timeline.evt_blocks:
                                 self.scene.timeline.evt_blocks.remove(item)
-                            item.deleteLater()
                             orb.delete([act])
                             dispatcher.send("deleted object", oid=oid,
                                             cname='Activity')
