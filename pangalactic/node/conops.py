@@ -775,7 +775,7 @@ class TimelineWidget(QWidget):
                         if (hasattr(item, 'activity') and
                             item.activity and item.activity.oid == oid):
                             act = item.activity
-                            self.scene.remove(item)
+                            self.scene.removeItem(item)
                             if item in self.scene.timeline.evt_blocks:
                                 self.scene.timeline.evt_blocks.remove(item)
                             item.deleteLater()
