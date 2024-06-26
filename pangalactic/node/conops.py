@@ -1684,7 +1684,11 @@ class ConOpsModeler(QMainWindow):
         act_oids = set([getattr(self.subject, 'oid', None)])
         act_oids += set([act.oid for act in
                          getattr(self.subject, 'sub_activities', []) or []])
-        if oids and (set(oids) & act_oids):
+        new_or_mod_acts = orb.get(oids=oids)
+        owners = []
+        if new_or_mod_acts:
+            owners = [a.owner for a in new_or_mod_acts]
+        if oids and ((set(oids) & act_oids) or self.project in owners):
             self.main_timeline.set_new_scene()
             self.rebuild_table()
 
