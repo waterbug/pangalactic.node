@@ -1,6 +1,6 @@
 package:
   name: pangalactic.node
-  version: "4.1.dev13"
+  version: "4.1.dev14"
 
 source:
   path: /home/waterbug/gitlab/pangalactic.node
@@ -15,7 +15,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=4.1.dev13
+    - pangalactic.core >=4.1.dev14
     - autobahn
     - binaryornot
     - packaging

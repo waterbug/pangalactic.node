@@ -168,7 +168,8 @@ class Main(QMainWindow):
                        Version('4.1.dev10'),
                        Version('4.1.dev11'),
                        Version('4.1.dev12'),
-                       Version('4.1.dev13')
+                       Version('4.1.dev13'),
+                       Version('4.1.dev14')
                        ]
 
     # signals
