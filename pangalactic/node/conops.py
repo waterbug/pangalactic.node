@@ -22,7 +22,7 @@ import sys, os
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QPointF, QPoint, QRectF, QSize, QVariant
-from PyQt5.QtGui import (QBrush, QColor, QIcon, QCursor, QPainter,
+from PyQt5.QtGui import (QBrush, QColor, QIcon, QCursor, QFont, QPainter,
                          QPainterPath, QPen, QPixmap, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
@@ -1044,28 +1044,36 @@ class TimelineWidget(QWidget):
         # insert a vertical marker for t_start of each activity
         for a in subacts:
             t_start = get_pval(a.oid, 't_start', units=time_units)
+            t_end = get_pval(a.oid, 't_end', units=time_units)
             qwt.QwtPlotMarker.make(
                 xvalue=t_start,
                 linestyle=qwt.QwtPlotMarker.VLine,
                 color="darkGreen",
                 plot=plot
             )
-            name = pname_to_header(a.name, 'Activity', width=7)
-            name = '  ' + name + '  '
-            pen = QPen(Qt.black, 1)
-            white_brush = QBrush(Qt.white)
-            name_label = QwtText.make(text=name, weight=4, borderpen=pen,
-                                      borderradius=3.0, brush=white_brush)
             p_cbe_val = get_usage_mode_val(project.oid,
                                            usage.oid, comp.oid,
                                            a.oid)
+            ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
+            factor = 1.0 + ctgcy
+            p_mev_val = round_to(p_cbe_val * factor, n=3)
+            name = pname_to_header(a.name, 'Activity', width=7)
+            label_txt = f'  {name}  '
+            label_txt += f'\n P[cbe] = {p_cbe_val} Watts '
+            label_txt += f'\n P[mev] = {p_mev_val} Watts '
+            pen = QPen(Qt.black, 1)
+            white_brush = QBrush(Qt.white)
+            name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
+                                           borderpen=pen, borderradius=3.0,
+                                           brush=white_brush)
             if p_cbe_val < 100:
-                y_label = 400
+                y_label = 300
             else:
-                y_label = 20
+                y_label = 50
             qwt.QwtPlotMarker.make(
-                xvalue=t_start + 2,
-                # TODO: make yvalue some value not on the "curve" ...
+                # xvalue=t_start + 2,
+                xvalue=(t_start + t_end) / 2,
+                # TODO: avoid collisons with other labels ...
                 yvalue=y_label,
                 label=name_label,
                 plot=plot
