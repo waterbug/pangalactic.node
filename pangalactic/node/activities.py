@@ -3,8 +3,6 @@
 
 import sys
 from functools import partial
-# from pprint import pprint
-# from textwrap import fill
 
 from louie import dispatcher
 

@@ -22,7 +22,7 @@ import sys, os
 from louie import dispatcher
 
 from PyQt5.QtCore import Qt, QPointF, QPoint, QRectF, QSize, QVariant
-from PyQt5.QtGui import (QBrush, QColor, QIcon, QCursor, QFont, QPainter,
+from PyQt5.QtGui import (QBrush, QIcon, QCursor, QFont, QPainter,
                          QPainterPath, QPen, QPixmap, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
@@ -45,6 +45,7 @@ except:
     # if an orb has not been set, uberorb is set by default
     import pangalactic.core.set_uberorb
     from pangalactic.core             import orb, state
+from pangalactic.core.access      import get_perms
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name, pname_to_header
 # from pangalactic.core.parametrics import get_pval
@@ -66,7 +67,7 @@ from pangalactic.node.dialogs     import (DefineModesDialog,
                                           NotesDialog,
                                           PlotDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.utils       import pct_to_decimal
+from pangalactic.node.utils       import pct_to_decimal, extract_mime_data
 from pangalactic.node.widgets     import ColorLabel, NameLabel
 
 # constants
@@ -145,10 +146,11 @@ class EventBlock(QGraphicsPolygonItem):
              self.myPolygon = QPolygonF([
                      QPointF(0, 0), QPointF(-50, 80),
                      QPointF(50, 80)])
-        else:
-            # "Cycle"
-            path.addEllipse(-50, 0, 100, 100)
+        elif self.activity.activity_type.name == "Cycle":
+            path.addEllipse(-70, 0, 140, 140)
             self.myPolygon = path.toFillPolygon(QTransform())
+            # only Cycles can accept drops ...
+            self.setAcceptDrops(True)
         self.setPolygon(self.myPolygon)
         self.block_label = BlockLabel(getattr(self.activity, 'name', '') or '',
                                       self, point_size=POINT_SIZE)
@@ -165,6 +167,76 @@ class EventBlock(QGraphicsPolygonItem):
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
         dispatcher.send("double clicked", act=self.activity)
+
+    def mousePressEvent(self, event):
+        if self.scene:
+            self.scene.clearSelection()
+        self.setSelected(True)
+        QGraphicsItem.mousePressEvent(self, event)
+
+    def mouseReleaseEvent(self, event):
+        # orb.log.debug("* EventBlock: mouseReleaseEvent()")
+        self.setSelected(False)
+        QGraphicsItem.mouseReleaseEvent(self, event)
+
+    def mouseMoveEvent(self, event):
+        QGraphicsItem.mouseMoveEvent(self, event)
+
+    def highlight(self):
+        self.setBrush(Qt.yellow)
+
+    def unhighlight(self):
+        self.setBrush(Qt.white)
+
+    def mimeTypes(self):
+        return ["application/x-pgef-activity"]
+
+    def dragEnterEvent(self, event):
+        if (self.activity.activity_type.name == "Cycle"
+            and event.mimeData().hasFormat("application/x-pgef-activity")):
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        """
+        Handle the drop event on a "Cycle" EventBlock.  This includes the
+        following possible cases:
+
+            00: drop target is not a "Cycle" -> ignore
+            0: user permissions prohibit operation -> abort
+            1: user has permissions and dropped item is an activity
+        """
+        orb.log.debug("* ObjectBlock: hm, something dropped on me ...")
+        # drop_target = self.activity
+        if not (self.activity.activity_type.name == "Cycle"):
+            event.ignore()
+            return
+        if not 'modify' in get_perms(self.activity):
+            # --------------------------------------------------------
+            # 0: user permissions prohibit operation -> abort
+            # --------------------------------------------------------
+            popup = QMessageBox(
+                  QMessageBox.Critical,
+                  "Unauthorized Operation",
+                  "User's roles do not permit this operation",
+                  QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            event.ignore()
+            return
+        if event.mimeData().hasFormat("application/x-pgef-activity"):
+            data = extract_mime_data(event, "application/x-pgef-activity")
+            icon, oid, _id, name, cname = data
+            dropped_item = orb.get(oid)
+            if dropped_item:
+                # do stuff
+                pass
+            else:
+                orb.log.info("  - dropped product not in db; nothing done.")
+                event.accept()
+        else:
+            orb.log.info("  - dropped object was not an Activity")
+            event.ignore()
 
     def contextMenuEvent(self, event):
         self.menu = QMenu()
@@ -187,12 +259,6 @@ class EventBlock(QGraphicsPolygonItem):
         self.delete_action = QAction("Delete", self.scene,
                                      statusTip="Delete Activity",
                                      triggered=self.delete_activity_block)
-
-    def highlight(self):
-        self.setBrush(Qt.yellow)
-
-    def unhighlight(self):
-        self.setBrush(Qt.white)
 
     def display_act_notes(self):
         """
@@ -237,12 +303,6 @@ class EventBlock(QGraphicsPolygonItem):
     def itemChange(self, change, value):
         return value
 
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-
 BAR_COLORS = ['red', 'darkRed', 'green', 'darkGreen', 'blue',
               'darkBlue', 'cyan', 'darkCyan', 'magenta', 'darkMagenta',
               'yellow', 'darkYellow', 'gray', 'darkGray', 'lightGray']
@@ -260,44 +320,6 @@ bar_colors = [getattr(Qt, color) for color in BAR_COLORS]
 #  med. yellow (#fff5ba)
 #  light gray (#c0c0c0)
 # -----------------------------------------------------
-
-
-class TimelineBar(QGraphicsPolygonItem):
-    """
-    TimelineBar is a segmented rectangle representing the durations of all the
-    subactivities of the subject activity.
-    """
-
-    def __init__(self, subject=None, scene=None, style=None, x_start=10, 
-                 x_end=1000, color=Qt.cyan, timeline_length=None, parent=None):
-        """
-        Initialize TimelineBar.
-
-        Keyword Args:
-            subject (Activity):  the activity the block represents
-            scene (QGraphicsScene):  scene containing this item
-            style (Qt.PenStyle):  style of block border
-            parent (QGraphicsItem): parent of this item
-        """
-        super().__init__(parent)
-        self.setFlags(QGraphicsItem.ItemIsSelectable |
-                      QGraphicsItem.ItemIsFocusable |
-                      QGraphicsItem.ItemSendsGeometryChanges)
-        self.style = style or Qt.SolidLine
-        self.subject = subject
-        self.scene = scene
-        color = QColor('#ffccf9')
-        # color.setNamedColor('#d5aaff')
-        self.setBrush(color)
-        if timeline_length is not None:
-            x_end = timeline_length
-        tb_start = x_start + 90
-        self.polygon = QPolygonF([
-                QPointF(tb_start, 400), QPointF(x_end, 400),
-                QPointF(x_end, 380), QPointF(tb_start, 380)])
-        self.setPolygon(self.polygon)
-        self.block_label = BlockLabel(getattr(self.subject, 'name', '') or '',
-                                      self, point_size=POINT_SIZE)
 
 
 class TimelineView(QGraphicsView):
@@ -567,17 +589,9 @@ class TimelineWidget(QWidget):
         if not getattr(self, 'view', None):
             self.view = TimelineView(self)
         self.scene = scene
-        # ---------------------------------------------------------------------
-        # add the timelinebar here -- it needs timeline.path_length
-        # ... also do update_timeline to rescale if necessary ...
-        # which has to be done *after* the TimelineView is created, because
         # TimelineView controls the scaling of the scene, which is done in the
         # update_timeline() ...
         scene.timeline.update_timeline()
-        length = scene.timeline.path_length
-        orb.log.debug(f'  creating timelinebar with length {length}')
-        scene.timelinebar = TimelineBar(timeline_length=length)
-        scene.addItem(scene.timelinebar)
         # ---------------------------------------------------------------------
         self.view.setScene(self.scene)
         self.auto_rescale_timeline()
@@ -815,18 +829,6 @@ class TimelineWidget(QWidget):
             self.scale = 70 - (delta // 2) * 10
         pscale = str(self.scale) + "%"
         orb.log.debug(f'  new scale is {pscale}')
-        length = self.scene.timeline.path_length
-        # adjust size of timelinebar, if there is one ...
-        tlb = getattr(self.scene, 'timelinebar', None)
-        if tlb:
-            # TODO: in future, more adjustments may be needed!
-            orb.log.debug(f'  adjusting timelinebar to path length {length}')
-            tlb_start = 100
-            x_end = length
-            polygon = QPolygonF([
-                            QPointF(tlb_start, 400), QPointF(x_end, 400),
-                            QPointF(x_end, 380), QPointF(tlb_start, 380)])
-            tlb.setPolygon(polygon)
         new_index = self.scene_scales.index(pscale)
         self.scene_scale_select.setCurrentIndex(new_index)
         self.sceneScaleChanged(new_index)
@@ -856,9 +858,6 @@ class TimelineWidget(QWidget):
         self.br = br
         br_parms = (br.x(), br.y(), br.width(), br.height())
         orb.log.debug(f'  scene items bounding rect: ({br_parms})')
-        tlb_br = self.scene.timelinebar.boundingRect()
-        tlb_parms = (tlb_br.x(), tlb_br.y(), tlb_br.width(), tlb_br.height())
-        orb.log.debug(f'  scene coords of timelinebar: ({tlb_parms})')
         view_polygon = self.view.mapFromScene(
                                     br.x(), br.y(), br.width(), br.height())
         vbr = view_polygon.boundingRect()
@@ -1042,6 +1041,7 @@ class TimelineWidget(QWidget):
         qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV]", plot,
                               linecolor="red", linewidth=2, antialiased=True)
         # insert a vertical marker for t_start of each activity
+        last_label_y = 0
         for a in subacts:
             t_start = get_pval(a.oid, 't_start', units=time_units)
             t_end = get_pval(a.oid, 't_end', units=time_units)
@@ -1066,10 +1066,17 @@ class TimelineWidget(QWidget):
             name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
                                            borderpen=pen, borderradius=3.0,
                                            brush=white_brush)
-            if p_cbe_val < 100:
-                y_label = 300
+            if p_cbe_val < 400:
+                if last_label_y == 600:
+                    y_label = 800
+                else:
+                    y_label = 600
             else:
-                y_label = 50
+                if last_label_y == 200:
+                    y_label = 300
+                else:
+                    y_label = 200
+            last_label_y = y_label
             qwt.QwtPlotMarker.make(
                 # xvalue=t_start + 2,
                 xvalue=(t_start + t_end) / 2,
@@ -1098,7 +1105,6 @@ class ConOpsModeler(QMainWindow):
           + scene (TimelineScene(QGraphicsScene))
             * timeline (Timeline(QGraphicsPathItem))
             * activity blocks (EventBlock(QGraphicsPolygonItem))
-            * timelinebar (TimelineBar(QGraphicsPolygonItem))
         - mode_dash (ModeDefinitionDashboard(QWidget))
       * Left Dock contains:
         - sys_select_tree (SystemSelectionView)
