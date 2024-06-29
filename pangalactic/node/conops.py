@@ -919,6 +919,11 @@ class TimelineWidget(QWidget):
             time_units (str): units of time to be used (default: minutes)
         """
         orb.log.debug("* ConOpsModeler.power_time_function()")
+        # The current assumption is that we are only considering activities in
+        # the context of a single usage ... that may change in the future but
+        # would complicate things dramatically (e.g. considering
+        # subsystem-specific timelines that may be asynchronous to the "main"
+        # timeline).
         if usage:
             if isinstance(usage, orb.classes['ProjectSystemUsage']):
                 comp = usage.system
@@ -1012,12 +1017,23 @@ class TimelineWidget(QWidget):
         subacts = act.sub_activities
         # TODO:  allow time_units to be specified ...
         time_units = "minutes"
+        p_cbe_dict = {}
+        p_mev_dict = {}
         if subacts:
             orb.log.debug('  duration of sub_activities:')
             for a in act.sub_activities:
                 d = get_duration(a, units=time_units)
                 orb.log.debug(f'  {a.name}: {d}')
+                p_cbe_val = get_usage_mode_val(project.oid,
+                                               usage.oid, comp.oid,
+                                               a.oid)
+                p_cbe_dict[a.name] = p_cbe_val
+                ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
+                factor = 1.0 + ctgcy
+                p_mev_val = round_to(p_cbe_val * factor, n=3)
+                p_mev_dict[a.name] = p_mev_val
         duration = get_duration(act, units=time_units)
+        max_val = max(list(p_mev_dict.values()))
         if time_units:
             orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
         else:
@@ -1026,7 +1042,6 @@ class TimelineWidget(QWidget):
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
         plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
-        # plot.insertLegend(qwt.QwtLegend(), qwt.QwtPlot.RightLegend)
         f_cbe = self.power_time_function(context="CBE", project=project,
                                          act=act, usage=usage,
                                          time_units=time_units)
@@ -1040,23 +1055,19 @@ class TimelineWidget(QWidget):
                               linecolor="blue", linewidth=2, antialiased=True)
         qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV]", plot,
                               linecolor="red", linewidth=2, antialiased=True)
-        # insert a vertical marker for t_start of each activity
         last_label_y = 0
         for a in subacts:
             t_start = get_pval(a.oid, 't_start', units=time_units)
             t_end = get_pval(a.oid, 't_end', units=time_units)
+            # insert a vertical marker for t_start of each activity
             qwt.QwtPlotMarker.make(
                 xvalue=t_start,
                 linestyle=qwt.QwtPlotMarker.VLine,
                 color="darkGreen",
                 plot=plot
             )
-            p_cbe_val = get_usage_mode_val(project.oid,
-                                           usage.oid, comp.oid,
-                                           a.oid)
-            ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
-            factor = 1.0 + ctgcy
-            p_mev_val = round_to(p_cbe_val * factor, n=3)
+            p_cbe_val = p_cbe_dict[a.name]
+            p_mev_val = p_mev_dict[a.name]
             name = pname_to_header(a.name, 'Activity', width=7)
             label_txt = f'  {name}  '
             label_txt += f'\n P[cbe] = {p_cbe_val} Watts '
@@ -1066,17 +1077,18 @@ class TimelineWidget(QWidget):
             name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
                                            borderpen=pen, borderradius=3.0,
                                            brush=white_brush)
-            if p_cbe_val < 400:
-                if last_label_y == 600:
-                    y_label = 800
+            if p_cbe_val < .5 * max_val:
+                if last_label_y == .7 * max_val:
+                    y_label = .8 * max_val
                 else:
-                    y_label = 600
+                    y_label = .7 * max_val
             else:
-                if last_label_y == 200:
-                    y_label = 300
+                if last_label_y == .2 * max_val:
+                    y_label = .3 * max_val
                 else:
-                    y_label = 200
+                    y_label = .2 * max_val
             last_label_y = y_label
+            # insert a label marker for each activity
             qwt.QwtPlotMarker.make(
                 # xvalue=t_start + 2,
                 xvalue=(t_start + t_end) / 2,
@@ -1086,7 +1098,6 @@ class TimelineWidget(QWidget):
                 plot=plot
             )
         plot.resize(1400, 650)
-        # plot.show()
         dlg = PlotDialog(plot, title="Power vs. Time", parent=self)
         dlg.show()
 
