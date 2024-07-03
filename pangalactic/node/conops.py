@@ -114,6 +114,57 @@ QTCOLORS = ['white', 'black', 'red', 'darkRed', 'green', 'darkGreen', 'blue',
 # -----------------------------------------------------
 
 
+def flatten_subacts(act, all_subacts=None):
+    """
+    For an activity that contains more than one level of sub-activities,
+    return all levels of sub-activities in a single list in the order of their
+    occurrance.
+
+    Args:
+        act (Activity): the specified activity
+
+    Keyword Args:
+        all_subacts (list of Activity): the flattened list of sub-activities
+    """
+    all_subacts = all_subacts or []
+    subacts = getattr(act, 'sub_activities', []) or []
+    if subacts:
+        subacts.sort(key=lambda x: x.sub_activity_sequence or 0)
+        # orb.log.debug(f"  domain: {names}")
+        # oids = [a.oid for a in subacts]
+        for i, a in enumerate(subacts):
+            a_subacts = getattr(a, 'sub_activities', []) or []
+            if a_subacts:
+                flatten_subacts(a, all_subacts=all_subacts)
+            else:
+                all_subacts.append(a)
+            if i == len(subacts) - 1:
+                return all_subacts
+    else:
+        return all_subacts
+
+
+def get_effective_duration(act, units=None):
+    """
+    Return the sum of the durations of all levels of sub-activities of the
+    specified activity, or its specified duration if it has no sub-activities.
+    (For cyclic activities or sub-activities, sum the durations of the
+    sub-activities of a single cycle).
+
+    Args:
+        act (Activity): the specified activity
+
+    Keyword Args:
+        units (str): time units
+    """
+    all_subacts = flatten_subacts(act)
+    if all_subacts:
+        return sum([get_pval(a.oid, 'duration', units=units)
+                    for a in all_subacts])
+    else:
+        return get_pval(act.oid, 'duration', units=units)
+
+
 class EventBlock(QGraphicsPolygonItem):
 
     def __init__(self, activity=None, scene=None, style=None, parent=None):
@@ -903,7 +954,8 @@ class TimelineWidget(QWidget):
         return action
 
     def power_time_function(self, project=None, act=None, usage=None,
-                            context="CBE", time_units="minutes"):
+                            context="CBE", time_units="minutes",
+                            subtimelines=True):
         """
         Return a function that computes system net power value as a function of
         time. Note that the time variable "t" in the returned function can be a
@@ -917,6 +969,9 @@ class TimelineWidget(QWidget):
             context (str): "CBE" (Current Best Estimate) or "MEV" (Maximum
                 Estimated Value)
             time_units (str): units of time to be used (default: minutes)
+            subtimelines (bool):  whether to include sub-activity timelines
+                (e.g. for cyclic activities, like orbits) explicitly in the
+                graph (default: True)
         """
         orb.log.debug("* ConOpsModeler.power_time_function()")
         # The current assumption is that we are only considering activities in
@@ -938,18 +993,26 @@ class TimelineWidget(QWidget):
                 names = [a.name for a in subacts]
                 orb.log.debug(f"  domain: {names}")
                 subacts.sort(key=lambda x: x.sub_activity_sequence or 0)
-                t_seq = [get_pval(a.oid, 't_start', units=time_units)
-                         for a in subacts]
+                if subtimelines:
+                    all_acts = flatten_subacts(act)
+                    t_seq = [0.0]
+                    for i, a in enumerate(all_acts):
+                        t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
+                                                         units=time_units))
+                else:
+                    all_acts = subacts
+                    t_seq = [get_pval(a.oid, 't_start', units=time_units)
+                             for a in subacts]
                 val_dict = {a.name: get_usage_mode_val(project.oid,
                                             usage.oid, comp.oid,
                                             a.oid)
-                            for a in subacts}
+                            for a in all_acts}
                 orb.log.debug(f"  mapping: {val_dict}")
                 def f_scalar(t):
-                        a = subacts[-1]
-                        for i in range(len(subacts) - 1):
+                        a = all_acts[-1]
+                        for i in range(len(all_acts) - 1):
                             if (t_seq[i] <= t) and (t < t_seq[i+1]):
-                                a = subacts[i]
+                                a = all_acts[i]
                         p_cbe_val = get_usage_mode_val(project.oid,
                                                        usage.oid, comp.oid,
                                                        a.oid)
@@ -1020,9 +1083,16 @@ class TimelineWidget(QWidget):
         p_cbe_dict = {}
         p_mev_dict = {}
         if subacts:
-            orb.log.debug('  duration of sub_activities:')
-            for a in act.sub_activities:
-                d = get_duration(a, units=time_units)
+            # default is to break out all sub-activity timelines -- this can be
+            # made configurable in the future ...
+            subtimelines = True
+            orb.log.debug('  durations of sub_activities:')
+            if subtimelines:
+                all_acts = flatten_subacts(act)
+            else:
+                all_acts = subacts
+            for a in all_acts:
+                d = get_effective_duration(a, units=time_units)
                 orb.log.debug(f'  {a.name}: {d}')
                 p_cbe_val = get_usage_mode_val(project.oid,
                                                usage.oid, comp.oid,
@@ -1032,7 +1102,7 @@ class TimelineWidget(QWidget):
                 factor = 1.0 + ctgcy
                 p_mev_val = round_to(p_cbe_val * factor, n=3)
                 p_mev_dict[a.name] = p_mev_val
-        duration = get_duration(act, units=time_units)
+        duration = get_effective_duration(act, units=time_units)
         max_val = max(list(p_mev_dict.values()))
         if time_units:
             orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
@@ -1042,6 +1112,8 @@ class TimelineWidget(QWidget):
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
         plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
+        # set y-axis to begin at 0 and end 10% above max
+        plot.setAxisScale(qwt.QwtPlot.yLeft, 0.0, 1.1 * max_val)
         f_cbe = self.power_time_function(context="CBE", project=project,
                                          act=act, usage=usage,
                                          time_units=time_units)
@@ -1052,18 +1124,36 @@ class TimelineWidget(QWidget):
         # orb.log.debug(f'  {t_array}')
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
         qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
-                              linecolor="blue", linewidth=2, antialiased=True)
+                              z=1.0, linecolor="blue", linewidth=2,
+                              antialiased=True)
         qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV]", plot,
-                              linecolor="red", linewidth=2, antialiased=True)
+                              z=1.0, linecolor="red", linewidth=2,
+                              antialiased=True)
         last_label_y = 0
-        for a in subacts:
-            t_start = get_pval(a.oid, 't_start', units=time_units)
-            t_end = get_pval(a.oid, 't_end', units=time_units)
-            # insert a vertical marker for t_start of each activity
+        if subtimelines:
+            t_seq = [0.0]
+            for i, a in enumerate(all_acts):
+                t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
+                                                 units=time_units))
+        super_acts = {}
+        for i, a in enumerate(all_acts):
+            if subtimelines:
+                t_start = t_seq[i]
+                t_end = t_seq[i+1]
+            else:
+                t_start = get_pval(a.oid, 't_start', units=time_units)
+                t_end = get_pval(a.oid, 't_end', units=time_units)
+            super_act = a.sub_activity_of
+            if super_act is not act and super_act not in super_acts.values():
+                orb.log.debug(f'  super act: {super_act.name}')
+                super_acts[t_start] = a.sub_activity_of
+            # insert a vertical line for t_start of each activity
             qwt.QwtPlotMarker.make(
                 xvalue=t_start,
                 linestyle=qwt.QwtPlotMarker.VLine,
-                color="darkGreen",
+                width=2.0,
+                z=0.0,
+                color="green",
                 plot=plot
             )
             p_cbe_val = p_cbe_dict[a.name]
@@ -1078,25 +1168,46 @@ class TimelineWidget(QWidget):
                                            borderpen=pen, borderradius=3.0,
                                            brush=white_brush)
             if p_cbe_val < .5 * max_val:
-                if last_label_y == .7 * max_val:
+                if last_label_y == .65 * max_val:
                     y_label = .8 * max_val
                 else:
-                    y_label = .7 * max_val
+                    y_label = .65 * max_val
             else:
-                if last_label_y == .2 * max_val:
+                if last_label_y == .15 * max_val:
                     y_label = .3 * max_val
                 else:
-                    y_label = .2 * max_val
+                    y_label = .15 * max_val
             last_label_y = y_label
             # insert a label marker for each activity
             qwt.QwtPlotMarker.make(
-                # xvalue=t_start + 2,
                 xvalue=(t_start + t_end) / 2,
                 # TODO: avoid collisons with other labels ...
                 yvalue=y_label,
+                z=3.0,
                 label=name_label,
                 plot=plot
-            )
+                )
+        # insert markers for the super-activities ...
+        j = 1
+        for t_start, super_act in super_acts.items():
+            label_txt = f'  {super_act.name}  '
+            dur = get_effective_duration(super_act, units=time_units)
+            t_end = t_start + dur
+            pen = QPen(Qt.green, 1)
+            white_brush = QBrush(Qt.white)
+            sname_label = QwtText.make(text=label_txt, weight=QFont.Bold,
+                                       borderpen=pen, borderradius=0.0,
+                                       brush=white_brush)
+            y_label = (1.05 - .05 * j) * max_val
+            qwt.QwtPlotMarker.make(
+                xvalue=(t_start + t_end) / 2,
+                # TODO: avoid collisons with other labels ...
+                yvalue=y_label,
+                z=4.0,
+                label=sname_label,
+                plot=plot
+                )
+            j += 1
         plot.resize(1400, 650)
         dlg = PlotDialog(plot, title="Power vs. Time", parent=self)
         dlg.show()
