@@ -82,11 +82,8 @@ else:
     # linux
     POINT_SIZE = 8
     BLOCK_FACTOR = 20
-SEPARATION = 10     # spacing factor between flows (connector lines)
-PORT_SIZE = 2.0 * POINT_SIZE
-QTCOLORS = ['white', 'black', 'red', 'darkRed', 'green', 'darkGreen', 'blue',
-            'darkBlue', 'cyan', 'darkCyan', 'magenta', 'darkMagenta', 'yellow',
-            'darkYellow', 'gray', 'darkGray', 'lightGray', 'transparent']
+LABEL_COLORS = [Qt.darkRed, Qt.darkGreen, Qt.blue, Qt.darkBlue, Qt.cyan,
+                Qt.darkCyan, Qt.magenta, Qt.darkMagenta]
 # -----------------------------------------------------
 # Qt's predefined QColor objects:
 # -----------------------------------------------------
@@ -1113,7 +1110,8 @@ class TimelineWidget(QWidget):
         plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
         plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
         # set y-axis to begin at 0 and end 10% above max
-        plot.setAxisScale(qwt.QwtPlot.yLeft, 0.0, 1.1 * max_val)
+        plot.setAxisScale(qwt.QwtPlot.xBottom, 0.0, duration)
+        plot.setAxisScale(qwt.QwtPlot.yLeft, 0.0, 1.4 * max_val)
         f_cbe = self.power_time_function(context="CBE", project=project,
                                          act=act, usage=usage,
                                          time_units=time_units)
@@ -1145,15 +1143,6 @@ class TimelineWidget(QWidget):
                 t_end = get_pval(a.oid, 't_end', units=time_units)
             super_act = a.sub_activity_of
             if super_act is not act and super_act not in super_acts.values():
-                orb.log.debug(f'  super act: {super_act.name}')
-                orb.log.debug(f'      begins at: {t_start} {time_units}')
-                coord = plot.transform(qwt.QwtPlot.xBottom, t_start)
-                orb.log.debug(f'                 ({coord} pixels)')
-                step_size = plot.axisStepSize(qwt.QwtPlot.xBottom)
-                orb.log.debug(f'                 (step size: {step_size})')
-                # NOTE: this crashes!
-                # interval = plot.axisInterval(qwt.QwtPlot.xBottom)
-                # orb.log.debug(f'                 (interval: {interval})')
                 super_acts[t_start] = a.sub_activity_of
             # insert a vertical line for t_start of each activity
             qwt.QwtPlotMarker.make(
@@ -1164,6 +1153,7 @@ class TimelineWidget(QWidget):
                 color="green",
                 plot=plot
             )
+            # insert a label marker for each activity
             p_cbe_val = p_cbe_dict[a.name]
             p_mev_val = p_mev_dict[a.name]
             name = pname_to_header(a.name, 'Activity', width=7)
@@ -1173,55 +1163,70 @@ class TimelineWidget(QWidget):
             pen = QPen(Qt.black, 1)
             white_brush = QBrush(Qt.white)
             name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
-                                           borderpen=pen, borderradius=3.0,
-                                           brush=white_brush)
+                                      borderpen=pen, borderradius=3.0,
+                                      brush=white_brush)
             if p_cbe_val < .5 * max_val:
-                if last_label_y == .65 * max_val:
+                if last_label_y == .6 * max_val:
                     y_label = .8 * max_val
                 else:
-                    y_label = .65 * max_val
+                    y_label = .6 * max_val
             else:
-                if last_label_y == .15 * max_val:
+                if last_label_y == .1 * max_val:
                     y_label = .3 * max_val
                 else:
-                    y_label = .15 * max_val
+                    y_label = .1 * max_val
             last_label_y = y_label
-            # insert a label marker for each activity
+            if t_start == 0:
+                x_label = 0
+                align_label = Qt.AlignRight
+            else:
+                x_label = (t_start + t_end) / 2
+                align_label = Qt.AlignCenter
             qwt.QwtPlotMarker.make(
-                xvalue=(t_start + t_end) / 2,
-                # TODO: avoid collisons with other labels ...
+                xvalue=x_label,
                 yvalue=y_label,
+                align=align_label,
                 z=3.0,
                 label=name_label,
                 plot=plot
                 )
         # insert markers for the super-activities ...
+        plot.resize(1400, 650)
         j = 1
+        plot.updateLayout()
+        canvas_map = plot.canvasMap(2)
+        canvas_map.setScaleInterval(0.0, duration)
+        canvas_map.setPaintInterval(0, 1400)
+        orb.log.debug(f'  canvas_map: {type(canvas_map)}')
         for t_start, super_act in super_acts.items():
             label_txt = f'  {super_act.name}  '
             dur = get_effective_duration(super_act, units=time_units)
             t_end = t_start + dur
-            pen = QPen(Qt.green, 1)
+            pen = QPen(LABEL_COLORS[j-1], 1)
             white_brush = QBrush(Qt.white)
-            sname_label = QwtText.make(text=label_txt, weight=QFont.Bold,
-                                       borderpen=pen, borderradius=0.0,
-                                       brush=white_brush)
-            y_label = (1.05 - .05 * j) * max_val
-            symbol_size = QSize(11.5 * dur, 10)
-            rect_symbol = qwt.QwtSymbol.make(pen=pen, brush=white_brush,
+            sa_name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
+                                         pointsize=12, borderpen=pen,
+                                         borderradius=0.0, brush=white_brush)
+            y_label = (1.4 - .1 * j) * max_val
+            orb.log.debug(f'  super act: {super_act.name}')
+            orb.log.debug(f'      begins at: {t_start} {time_units}')
+            duration_pixels = canvas_map.transform_scalar(dur)
+            orb.log.debug(f'      (duration: {duration_pixels} pixels)')
+            symbol_size = QSize(duration_pixels, 10)
+            symbol_brush = QBrush(LABEL_COLORS[j-1])
+            rect_symbol = qwt.QwtSymbol.make(pen=pen, brush=symbol_brush,
                                              style=qwt.QwtSymbol.Rect,
                                              size=symbol_size)
             qwt.QwtPlotMarker.make(
                 xvalue=(t_start + t_end) / 2,
-                # TODO: avoid collisons with other labels ...
                 yvalue=y_label,
                 z=4.0,
-                label=sname_label,
+                label=sa_name_label,
                 symbol=rect_symbol,
                 plot=plot
                 )
             j += 1
-        plot.resize(1400, 650)
+        # plot.resize(1400, 650)
         dlg = PlotDialog(plot, title="Power vs. Time", parent=self)
         dlg.show()
 
