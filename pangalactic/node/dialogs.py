@@ -145,6 +145,8 @@ class PlotDialog(QDialog):
                                     self, 'Export Plot to Image',
                                     file_path)
         if fpath:
+            if not fpath.endswith('.png'):
+                fpath += '.png'
             orb.log.debug(f'  - file selected: "{fpath}"')
             state['last_path'] = os.path.dirname(fpath)
             self.plot.exportTo(fpath, size=(1400, 600))
@@ -163,6 +165,8 @@ class PlotDialog(QDialog):
                                     self, 'Export Plot to PDF',
                                     file_path)
         if fpath:
+            if not fpath.endswith('.pdf'):
+                fpath += '.pdf'
             orb.log.debug(f'  - file selected: "{fpath}"')
             state['last_path'] = os.path.dirname(fpath)
             self.plot.exportTo(fpath, size=(1400, 600))

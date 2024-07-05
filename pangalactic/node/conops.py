@@ -1179,9 +1179,9 @@ class TimelineWidget(QWidget):
             if t_start == 0:
                 x_label = 0
                 align_label = Qt.AlignRight
-            elif t_end >= duration:
-                x_label = t_start
-                align_label = Qt.AlignRight
+            elif t_end >= duration and (t_end - t_start < .3 * duration):
+                x_label = duration
+                align_label = Qt.AlignLeft
             else:
                 x_label = (t_start + t_end) / 2
                 align_label = Qt.AlignCenter
