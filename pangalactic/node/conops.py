@@ -50,7 +50,7 @@ from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name, pname_to_header
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
-                                          get_duration,
+                                          # get_duration,
                                           get_usage_mode_val,  mode_defz,
                                           round_to,
                                           set_comp_modal_context,
@@ -1146,6 +1146,14 @@ class TimelineWidget(QWidget):
             super_act = a.sub_activity_of
             if super_act is not act and super_act not in super_acts.values():
                 orb.log.debug(f'  super act: {super_act.name}')
+                orb.log.debug(f'      begins at: {t_start} {time_units}')
+                coord = plot.transform(qwt.QwtPlot.xBottom, t_start)
+                orb.log.debug(f'                 ({coord} pixels)')
+                step_size = plot.axisStepSize(qwt.QwtPlot.xBottom)
+                orb.log.debug(f'                 (step size: {step_size})')
+                # NOTE: this crashes!
+                # interval = plot.axisInterval(qwt.QwtPlot.xBottom)
+                # orb.log.debug(f'                 (interval: {interval})')
                 super_acts[t_start] = a.sub_activity_of
             # insert a vertical line for t_start of each activity
             qwt.QwtPlotMarker.make(
@@ -1199,12 +1207,17 @@ class TimelineWidget(QWidget):
                                        borderpen=pen, borderradius=0.0,
                                        brush=white_brush)
             y_label = (1.05 - .05 * j) * max_val
+            symbol_size = QSize(11.5 * dur, 10)
+            rect_symbol = qwt.QwtSymbol.make(pen=pen, brush=white_brush,
+                                             style=qwt.QwtSymbol.Rect,
+                                             size=symbol_size)
             qwt.QwtPlotMarker.make(
                 xvalue=(t_start + t_end) / 2,
                 # TODO: avoid collisons with other labels ...
                 yvalue=y_label,
                 z=4.0,
                 label=sname_label,
+                symbol=rect_symbol,
                 plot=plot
                 )
             j += 1
