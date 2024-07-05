@@ -1118,7 +1118,7 @@ class TimelineWidget(QWidget):
         f_mev = self.power_time_function(context="MEV", project=project,
                                          act=act, usage=usage,
                                          time_units=time_units)
-        t_array = np.linspace(0, duration, 200)
+        t_array = np.linspace(0, duration, 400)
         # orb.log.debug(f'  {t_array}')
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
         qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
@@ -1156,7 +1156,7 @@ class TimelineWidget(QWidget):
             # insert a label marker for each activity
             p_cbe_val = p_cbe_dict[a.name]
             p_mev_val = p_mev_dict[a.name]
-            name = pname_to_header(a.name, 'Activity', width=7)
+            name = pname_to_header(a.name, 'Activity', width=20)
             label_txt = f'  {name}  '
             label_txt += f'\n P[cbe] = {p_cbe_val} Watts '
             label_txt += f'\n P[mev] = {p_mev_val} Watts '
@@ -1166,18 +1166,21 @@ class TimelineWidget(QWidget):
                                       borderpen=pen, borderradius=3.0,
                                       brush=white_brush)
             if p_cbe_val < .5 * max_val:
-                if last_label_y == .6 * max_val:
-                    y_label = .8 * max_val
+                if last_label_y == .65 * max_val:
+                    y_label = .9 * max_val
                 else:
-                    y_label = .6 * max_val
+                    y_label = .65 * max_val
             else:
-                if last_label_y == .1 * max_val:
-                    y_label = .3 * max_val
+                if last_label_y == .15 * max_val:
+                    y_label = .35 * max_val
                 else:
-                    y_label = .1 * max_val
+                    y_label = .15 * max_val
             last_label_y = y_label
             if t_start == 0:
                 x_label = 0
+                align_label = Qt.AlignRight
+            elif t_end >= duration:
+                x_label = t_start
                 align_label = Qt.AlignRight
             else:
                 x_label = (t_start + t_end) / 2
