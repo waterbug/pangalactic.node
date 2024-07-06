@@ -3,7 +3,7 @@ package:
   version: "4.1.dev15"
 
 source:
-  path: /home/waterbug/gitlab/pangalactic.node
+  path: /home/waterbug/clones/pangalactic.node
 
 build:
   entry_points:
@@ -21,10 +21,25 @@ requirements:
     - packaging
     - pynacl
     - pyqt
+    # pyqtgraph code removed -- was causing segfaults on win and osx
+    # - pyqtgraph
     - python {{PY_VER}}
-    - pythonocc-core
+    - pythonocc-core ==7.4.0
+    # pythonocc-core pulls in:
+    # - freeimageplus
+    # - gl2ps
+    # - jpeg >=9b
+    # - tbb
+    - pythonqwt
+    # pythonqwt pulls in
+    # - numpy
+    # - qtpy
+    # ... and some other stuff
     - qt5reactor
     - twisted
+    # twisted pulls in:
+    # - service_identity
+    # - zope.interface
     - websocket-client
 
 about:
