@@ -2024,10 +2024,6 @@ class Main(QMainWindow):
         orb.log.debug('  {}'.format(str(rep)))
         lib_updates_needed = []
         need_to_refresh_tree = False
-        # NOTE:  need_to_refresh_dashboard has become unnecessary because
-        # dashboard will be refreshed as a result of get_parmz(), called
-        # below ...
-        # need_to_refresh_dashboard = False
         need_to_refresh_diagram = False
         to_delete = []
         for obj in objs:
@@ -4490,6 +4486,17 @@ class Main(QMainWindow):
         self.refresh_tree_views(selected_link_oid=selected_link_oid)
 
     def refresh_tree_views(self, rebuilding=False, selected_link_oid=None):
+        """
+        Refresh and/or rebuild the system tree and dashboard(s).  This is used
+        both at startup when a project is initially set and whenever the
+        current project is changed or when switching to "system mode" from
+        another mode.
+
+        Keyword Args:
+            rebuilding (bool): views need to be rebuilt
+            selected_link_oid (str): oid of the link (Acu or PSU) in the tree
+                that was selected when this project was last viewed.
+        """
         # orb.log.debug('* refresh_tree_views()')
         # first check for cycles in the current project systems
         psus = orb.search_exact(cname='ProjectSystemUsage',
@@ -4517,9 +4524,9 @@ class Main(QMainWindow):
             # and dashboard share their model()
             if hasattr(self, 'dashboard_panel'):
                 # orb.log.debug('  + destroying existing dashboard, if any ...')
-                dashboard_layout = self.dashboard_panel.layout()
+                dashboard_panel_layout = self.dashboard_panel.layout()
                 if getattr(self, 'dashboard', None):
-                    dashboard_layout.removeWidget(self.dashboard)
+                    dashboard_panel_layout.removeWidget(self.dashboard)
                     self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
                     self.dashboard.hide()
                     self.dashboard.parent = None
@@ -4670,18 +4677,18 @@ class Main(QMainWindow):
         if getattr(self, 'dashboard_panel', None):
             # orb.log.debug('  + dashboard_panel exists ...')
             # orb.log.debug('    clearing out select and dashboard ...')
-            dashboard_layout = self.dashboard_panel.layout()
+            dashboard_panel_layout = self.dashboard_panel.layout()
             # ----------------------------------------------------------------
             # NOTE: dash_select temporarily deactivated -- dash switching is
             # causing segfaults [SCW 2024-02-07]
             # if getattr(self, 'dash_select', None):
-                # dashboard_layout.removeWidget(self.dash_select)
+                # dashboard_panel_layout.removeWidget(self.dash_select)
                 # self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
                 # self.dash_select.close()
                 # self.dash_select = None
             # ----------------------------------------------------------------
             if getattr(self, 'dashboard', None):
-                dashboard_layout.removeWidget(self.dashboard)
+                dashboard_panel_layout.removeWidget(self.dashboard)
                 self.dashboard.setAttribute(Qt.WA_DeleteOnClose)
                 self.dashboard.close()
                 self.dashboard = None
@@ -4695,7 +4702,7 @@ class Main(QMainWindow):
         self.dashboard_panel = QWidget(self)
         self.dashboard_panel.setContextMenuPolicy(Qt.PreventContextMenu)
         self.dashboard_panel.setMinimumSize(500, 200)
-        dashboard_layout = QVBoxLayout()
+        dashboard_panel_layout = QVBoxLayout()
         self.dashboard_title_layout = QHBoxLayout()
         self.dash_title = QLabel()
         # orb.log.debug('           adding title ...')
@@ -4722,8 +4729,8 @@ class Main(QMainWindow):
         # # orb.log.debug('           adding dashboard selector ...')
         # self.dashboard_title_layout.addWidget(self.dash_select)
         # --------------------------------------------------------------------
-        dashboard_layout.addLayout(self.dashboard_title_layout)
-        self.dashboard_panel.setLayout(dashboard_layout)
+        dashboard_panel_layout.addLayout(self.dashboard_title_layout)
+        self.dashboard_panel.setLayout(dashboard_panel_layout)
         self.top_dock_widget.setWidget(self.dashboard_panel)
         if getattr(self, 'sys_tree', None):
             # orb.log.debug('         + creating new dashboard tree ...')
@@ -4737,7 +4744,7 @@ class Main(QMainWindow):
         self.dashboard.setFrameStyle(QFrame.Panel |
                                      QFrame.Raised)
         self.dashboard.units_set.connect(self.on_units_set)
-        dashboard_layout.addWidget(self.dashboard)
+        dashboard_panel_layout.addWidget(self.dashboard)
         title = 'Systems Dashboard: <font color="purple">{}</font>'.format(
                                                                self.project.id)
         self.dash_title.setText(title)
@@ -5985,23 +5992,19 @@ class Main(QMainWindow):
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
             for cname in DESERIALIZATION_ORDER:
                 if cname in byclass:
-                    # objs += deserialize(orb, byclass[cname],
-                                        # force_no_recompute=True)
-                    # n = len(objs)
-                    # self.pb.setValue(n)
-                    # self.statusbar.showMessage(f'{n} {cname} deserialized')
-                    # DEPRECATED (was more informative but slow!)
                     for so in byclass[cname]:
                         # if objs are still owned by 'me' but user has
                         # logged in and has a local_user object ...
                         if so.get('creator') == 'me' and not user_is_me:
                             so['creator'] = self.local_user.oid
                             so['modifier'] = self.local_user.oid
-                        objs += deserialize(orb, [so], force_no_recompute=True)
-                        i += 1
-                        self.pb.setValue(i)
-                        self.statusbar.showMessage('{}: {}'.format(cname,
-                                                       so.get('id', '')))
+                    n_byclass = len(byclass[cname])
+                    objs += deserialize(orb, byclass[cname],
+                                        force_no_recompute=True)
+                    i += n_byclass
+                    self.pb.setValue(i)
+                    msg = f'{n_byclass} {cname} objects received ...'
+                    self.statusbar.showMessage(msg)
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
@@ -6012,9 +6015,11 @@ class Main(QMainWindow):
                         if so.get('creator') == 'me' and not user_is_me:
                             so['creator'] = self.local_user.oid
                             so['modifier'] = self.local_user.oid
-                        objs += deserialize(orb, [so], force_no_recompute=True)
-                        i += 1
-                        self.pb.setValue(i)
+                    n_byclass = len(byclass[cname])
+                    objs += deserialize(orb, byclass[cname],
+                                        force_no_recompute=True)
+                    i += n_byclass
+                    self.pb.setValue(i)
             self.pb.hide()
             if not msg:
                 msg = "data has been {}.".format(end)
