@@ -825,6 +825,7 @@ class TimelineWidget(QWidget):
         name = getattr(obj, 'name', None) or '[no name]'
         if remote:
             if oid == subj_oid:
+                orb.log.debug('  is current subject, removing ...')
                 project = orb.get(state.get('project'))
                 mission = orb.select('Mission', owner=project)
                 self.subject = mission
@@ -833,6 +834,7 @@ class TimelineWidget(QWidget):
                 current_act_oids = [getattr(act, 'oid', '') for act in
                                     self.subject.sub_activities]
                 if oid in current_act_oids:
+                    orb.log.debug('  found in current timeline, removing ...')
                     # find event block and remove it
                     for item in self.scene.items():
                         if (hasattr(item, 'activity') and
