@@ -333,6 +333,9 @@ class EventBlock(QGraphicsPolygonItem):
                          activity_type=act_type, owner=project,
                          sub_activity_sequence=seq)
         orb.db.commit()
+        # set time units locally to default: "minutes" -- if connected,
+        # this will be done in the callback after vger.save() succeeds
+        set_dval(activity.oid, "time_units", "minutes")
         # also replicate the activity's mode definitions
         clone_mode_defs(self.activity, activity)
         evt_block = EventBlock(activity=activity, scene=self.scene)
@@ -340,8 +343,8 @@ class EventBlock(QGraphicsPolygonItem):
         self.scene.addItem(evt_block)
         self.scene.timeline.add_evt_block(evt_block)
         self.scene.timeline.update_timeline()
-        orb.log.debug(' - dipatching "new activity" signal')
-        dispatcher.send(signal='new activity', act=activity)
+        # orb.log.debug(' - dipatching "new activity" signal')
+        # dispatcher.send(signal='new activity', act=activity)
 
     def delete_activity_block(self):
         self.scene.removeItem(self)
@@ -522,16 +525,20 @@ class TimelineScene(QGraphicsScene):
         activity = clone("Activity", id=act_id, name=act_name,
                          activity_type=activity_type, owner=project,
                          of_system=self.act_of,
-                         sub_activity_of=self.subject,
-                         sub_activity_sequence=seq)
+                         sub_activity_of=self.subject)
         orb.db.commit()
+        # set time units locally to default: "minutes" -- if connected,
+        # this will be done in the callback after vger.save() succeeds
+        set_dval(activity.oid, "time_units", "minutes")
         evt_block = EventBlock(activity=activity, scene=self)
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.add_evt_block(evt_block)
         self.timeline.update_timeline()
-        orb.log.debug('* scene: sending "new activity" signal')
-        dispatcher.send(signal="new activity", act=activity)
+        # NOTE: DO NOT send "new activity signal: timeline.update_timeline()
+        # will send a "modified objects" signal ...
+        # orb.log.debug('* scene: sending "new activity" signal')
+        # dispatcher.send(signal="new activity", act=activity)
         self.update()
 
     def on_act_name_mod(self, act=None):
@@ -1811,12 +1818,9 @@ class ConOpsModeler(QMainWindow):
             act (Activity): the new Activity instance
         """
         orb.log.debug("* ConOpsModeler.on_new_activity()")
-        orb.log.debug(f'  sending "new object" signal on {act.id}')
-        # set time units locally to default: "minutes" -- if connected,
-        # this will be done in the callback after vger.save() succeeds
-        set_dval(act.oid, "time_units", "minutes")
+        # orb.log.debug(f'  sending "new object" signal on {act.id}')
         self.main_timeline.auto_rescale_timeline()
-        dispatcher.send("new object", obj=act)
+        # dispatcher.send("new object", obj=act)
         self.rebuild_table()
 
     def on_delete_activity(self, oid=None, cname=None, remote=False):
