@@ -1089,8 +1089,8 @@ class TimelineWidget(QWidget):
         p_cbe_dict = {}
         p_mev_dict = {}
         if subacts:
-            # default is to break out all sub-activity timelines -- this can be
-            # made configurable in the future ...
+            # default is to break out all sub-activity timelines
+            # ("subtimelines") -- this can be made configurable in the future
             subtimelines = True
             orb.log.debug('  durations of sub_activities:')
             if subtimelines:
@@ -1210,10 +1210,26 @@ class TimelineWidget(QWidget):
         canvas_map.setScaleInterval(0.0, duration)
         canvas_map.setPaintInterval(0, 1400)
         orb.log.debug(f'  canvas_map: {type(canvas_map)}')
+        # label all "super activities" (most importantly, cycles)
         for t_start, super_act in super_acts.items():
-            label_txt = f'  {super_act.name}  '
+            # compute peak and average power
+            e_total = 0
+            p_peak = 0
+            for a in super_act.sub_activities:
+                a_dur = get_effective_duration(a, units=time_units)
+                # yes, this gives energy in weird units like Watt-minutes but
+                # doesn't matter because just using to calculate avg. power
+                a_p_cbe = p_cbe_dict[a.name]
+                a_p_mev = p_mev_dict[a.name]
+                e_total += a_dur * a_p_cbe
+                if a_p_mev > p_peak:
+                    p_peak = a_p_mev
             dur = get_effective_duration(super_act, units=time_units)
             t_end = t_start + dur
+            p_average = round_to(e_total / dur, n=3)
+            label_txt = f'  {super_act.name}  \n'
+            label_txt += f' Peak Power: {p_peak} Watts \n'
+            label_txt += f' Average Power: {p_average} Watts '
             pen = QPen(LABEL_COLORS[j-1], 1)
             white_brush = QBrush(Qt.white)
             sa_name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
@@ -1239,7 +1255,7 @@ class TimelineWidget(QWidget):
                 )
             j += 1
         # plot.resize(1400, 650)
-        dlg = PlotDialog(plot, title="Power vs. Time", parent=self)
+        dlg = PlotDialog(plot, title="Power vs Time", parent=self)
         dlg.show()
 
 

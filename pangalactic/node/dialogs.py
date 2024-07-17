@@ -39,8 +39,7 @@ from pangalactic.core.names       import (get_attr_ext_name,
                                           get_external_name_plural,
                                           get_link_name)
 from pangalactic.core.parametrics import (componentz, de_defz, parm_defz,
-                                          parmz_by_dimz, get_dval, mode_defz,
-                                          set_dval)
+                                          parmz_by_dimz, get_dval, set_dval)
 from pangalactic.core.units       import alt_units, in_si, time_unit_names
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,
@@ -139,8 +138,9 @@ class PlotDialog(QDialog):
         user_home = self.get_user_home() or ''
         if not state.get('last_plot_path'):
             state['last_plot_path'] = user_home
-        file_path = os.path.join(state['last_plot_path'],
-                             self.plot.title().text() + '-' + dtstr + '.png')
+        txt = '-'.join(self.plot.title().text().split(' '))
+        fname = txt + '-' + dtstr + '.png'
+        file_path = os.path.join(state['last_plot_path'], fname)
         fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Export Plot to Image',
                                     file_path)
@@ -159,8 +159,9 @@ class PlotDialog(QDialog):
         user_home = self.get_user_home() or ''
         if not state.get('last_plot_path'):
             state['last_plot_path'] = user_home
-        file_path = os.path.join(state['last_plot_path'],
-                             self.plot.title().text() + '-' + dtstr + '.pdf')
+        txt = '-'.join(self.plot.title().text().split(' '))
+        fname = txt + '-' + dtstr + '.pdf'
+        file_path = os.path.join(state['last_plot_path'], fname)
         fpath, filters = QFileDialog.getSaveFileName(
                                     self, 'Export Plot to PDF',
                                     file_path)
@@ -2242,95 +2243,6 @@ class DeleteColsDialog(QDialog):
             else:
                 col_names.append('Unknown')
         return col_names
-
-
-# DEPRECATED -- this dialog has been deprecated along with ModesTool
-# class EditModesDialog(QDialog):
-    # """
-    # A dialog to edit the name and default context of a new or existing 
-    # system power mode that is to be defined using p.node.activities.ModesTool.
-    # """
-
-    # def __init__(self, project, default_modes=None, parent=None):
-        # super().__init__(parent)
-        # self.setWindowTitle("Add or Edit a System Power Mode")
-        # self.project = project
-        # modes = default_modes or ['Off', 'Quiescent', 'Nominal', 'Peak']
-        # self.default_modes = modes
-        # vbox = QVBoxLayout(self)
-        # self.add_mode_button = SizedButton("Add a new mode")
-        # self.add_mode_button.clicked.connect(self.add_mode)
-        # vbox.addWidget(self.add_mode_button)
-        # self.form = QFormLayout()
-        # vbox.addLayout(self.form)
-        # name_label = QLabel('Name', self)
-        # default_label = QLabel('Default State', self)
-        # self.form.addRow(name_label, default_label)
-        # self.mode_fields = {}
-        # self.new_mode_fields = []
-        # if mode_defz.get(project.oid) and mode_defz[project.oid].get('modes'):
-            # for mode, context in mode_defz[project.oid]['modes'].items():
-                # self.mode_fields[mode] = {}
-                # name_field = StringFieldWidget(parent=self, value=mode)
-                # default_field = StringSelectWidget(parent=self, value=context,
-                                               # valid_values=self.default_modes)
-                # self.mode_fields[mode]['name'] = name_field
-                # self.mode_fields[mode]['default'] = default_field
-                # self.form.addRow(name_field, default_field)
-        # # OK and Cancel buttons
-        # self.buttons = QDialogButtonBox(
-            # QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
-            # Qt.Horizontal, self)
-        # vbox.addWidget(self.buttons)
-        # self.buttons.accepted.connect(self.on_save)
-        # self.buttons.rejected.connect(self.reject)
-
-    # def add_mode(self):
-        # if self.form:
-            # mode_fields = {}
-            # name_field = StringFieldWidget(parent=self, value='Undefined')
-            # default_field = StringSelectWidget(parent=self, value='Off',
-                                               # valid_values=self.default_modes)
-            # mode_fields['name'] = name_field
-            # mode_fields['default'] = default_field
-            # self.form.addRow(name_field, default_field)
-            # self.new_mode_fields.append(mode_fields)
-
-    # def on_save(self):
-        # deleteds = []
-        # adds = []
-        # modes_dict = mode_defz[self.project.oid]['modes']
-        # for name in modes_dict:
-            # if self.mode_fields[name]['name'] != name:
-                # # mode has been renamed, use the new name
-                # deleteds.append(name)
-                # new_name = self.mode_fields[name]['name'].get_value()
-                # default = self.mode_fields[name]['default'].get_value()
-                # # ignore blank names
-                # if new_name:
-                    # adds.append((new_name, default))
-            # elif name in modes_dict:
-                # # if mode by that name exists, just set the default
-                # modes_dict[name] = self.mode_fields[name]['default']
-        # if deleteds:
-            # for name in deleteds:
-                # del modes_dict[name]
-        # if adds:
-            # for new_name, default in adds:
-                # if new_name:
-                    # modes_dict[new_name] = default
-        # if self.new_mode_fields:
-            # for mode_fields in self.new_mode_fields:
-                # name = mode_fields['name'].get_value()
-                # default = mode_fields['default'].get_value()
-                # if name:
-                    # modes_dict[name] = default
-        # if not modes_dict:
-            # # in case all modes have been deleted, add "Undefined" mode
-            # modes_dict['Undefined'] = 'Off'
-        # if deleteds or adds or self.new_mode_fields:
-            # dispatcher.send(signal='modes edited', oid=self.project.oid)
-        # self.accept()
 
 
 class DeleteModesDialog(QDialog):

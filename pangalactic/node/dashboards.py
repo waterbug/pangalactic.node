@@ -8,11 +8,16 @@ import os
 from louie import dispatcher
 
 from PyQt5.QtCore    import pyqtSignal, Qt, QModelIndex, QItemSelectionModel
-from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QMessageBox,
-                             QTreeView)
+from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QHBoxLayout,
+                             QLabel, QMessageBox, QStackedWidget, QTreeView,
+                             QWidget)
 
 # pangalactic
-from pangalactic.core                 import orb, prefs, state
+try:
+    from pangalactic.core                 import orb, prefs, state
+except:
+    import pangalactic.core.set_uberorb
+    from pangalactic.core                 import orb, prefs, state
 from pangalactic.core.names           import get_link_name, get_link_object
 from pangalactic.core.parametrics     import (get_usage_mode_val_as_str,
                                               mode_defz, parm_defz)
@@ -31,7 +36,8 @@ class SystemDashboard(QTreeView):
 
     units_set = pyqtSignal()
 
-    def __init__(self, model, row_colors=True, grid_lines=False, parent=None):
+    def __init__(self, view_model, row_colors=True, grid_lines=False,
+                 parent=None):
         super().__init__(parent)
         self.setSelectionMode(self.SingleSelection)
         self.setUniformRowHeights(True)
@@ -44,7 +50,7 @@ class SystemDashboard(QTreeView):
         else:
             self.row_colors = row_colors
         self.setAlternatingRowColors(self.row_colors)
-        self.setModel(model)
+        self.setModel(view_model)
         # *********************************************************************
         # NOTE:  the following functions are HORRIBLY SENSITIVE to the order in
         # which they are called -- in particular, expandAll() will consistently
@@ -138,7 +144,8 @@ class SystemDashboard(QTreeView):
         dash_header.setStretchLastSection(False)
         # "successful_drop" refers to product drops on sys tree (for syncing)
         # *** DEPRECATED now that tree is not editable
-        # model.sourceModel().successful_drop.connect(self.on_successful_drop)
+        # view_model.sourceModel().successful_drop.connect(
+                                               # self.on_successful_drop)
         dispatcher.connect(self.dash_node_expand, 'sys node expanded')
         dispatcher.connect(self.dash_node_collapse, 'sys node collapsed')
         dispatcher.connect(self.dash_node_select, 'sys node selected')
@@ -154,7 +161,7 @@ class SystemDashboard(QTreeView):
         else:
             self.expandToDepth(1)
             # orb.log.debug('[Dashboard] expanded to default level (2)')
-        for column in range(model.sourceModel().columnCount()):
+        for column in range(view_model.sourceModel().columnCount()):
             self.resizeColumnToContents(column)
         # DO NOT use `setMinimumSize()` here -- it breaks the slider that
         # appears when window size is too small to display the full width
@@ -323,13 +330,13 @@ class SystemDashboard(QTreeView):
                     # prefs['dashboards'][state['dashboard_name']].remove(pid)
                     cols_to_delete.append(pid)
             if cols_to_delete:
-                model = self.model().sourceModel()
-                model.delete_columns(cols=cols_to_delete)
+                src_model = self.model().sourceModel()
+                src_model.delete_columns(cols=cols_to_delete)
                 indexes = [pids.index(pid) for pid in cols_to_delete]
                 if 0 in indexes:
                     dispatcher.send(signal='refresh tree and dash')
                 else:
-                    for column in range(model.columnCount()):
+                    for column in range(src_model.columnCount()):
                         self.resizeColumnToContents(column)
 
     def select_prescriptive_parms(self):
@@ -353,7 +360,7 @@ class SystemDashboard(QTreeView):
                                   selectables=prescriptive_pids,
                                   parent=self)
         if dlg.exec_() == QDialog.Accepted:
-            model = self.model().sourceModel()
+            src_model = self.model().sourceModel()
             cols_to_delete = []
             # delete any prescriptive pids that are not checked
             for pid in current_pids:
@@ -361,7 +368,7 @@ class SystemDashboard(QTreeView):
                     and not dlg.checkboxes[pid].isChecked()):
                     cols_to_delete.append(pid)
             if cols_to_delete:
-                model.delete_columns(cols=cols_to_delete)
+                src_model.delete_columns(cols=cols_to_delete)
             current_pids = prefs['dashboards'][state['dashboard_name']][:]
             # insert any prescriptive pids that are not in the current columns
             # but are checked
@@ -373,7 +380,7 @@ class SystemDashboard(QTreeView):
                     cols_to_insert.append(pid)
             if cols_to_insert:
                 for pid in cols_to_insert:
-                    model.insert_column(pid)
+                    src_model.insert_column(pid)
             if cols_to_delete or cols_to_insert:
                 dispatcher.send(signal='refresh tree and dash')
 
@@ -444,9 +451,9 @@ class SystemDashboard(QTreeView):
         """
         orb.log.debug('* export_tsv_mks()')
         proxy_model = self.model()
-        model = proxy_model.sourceModel()
-        proj_id = model.project.id
-        proj_oid = model.project.oid
+        src_model = proxy_model.sourceModel()
+        proj_id = src_model.project.id
+        proj_oid = src_model.project.oid
         dtstr = date2str(dtstamp())
         dash_name = state.get('dashboard_name') or 'unknown'
         if dash_name == 'System Power Modes':
@@ -469,8 +476,8 @@ class SystemDashboard(QTreeView):
             if dash_name == 'System Power Modes':
                 if mode_defz.get(proj_oid):
                     data = []
-                    sys_dict = mode_defz[model.project.oid]['systems']
-                    comp_dict = mode_defz[model.project.oid]['components']
+                    sys_dict = mode_defz[src_model.project.oid]['systems']
+                    comp_dict = mode_defz[src_model.project.oid]['components']
                     for link_oid in sys_dict:
                         link = orb.get(link_oid)
                         name = get_link_name(link)
@@ -497,7 +504,7 @@ class SystemDashboard(QTreeView):
                     orb.log.debug('  ... no modes defined for this project.')
                     return
             else:
-                write_mel_to_tsv(model.project, schema=data_cols,
+                write_mel_to_tsv(src_model.project, schema=data_cols,
                                  file_path=fpath)
             html = '<h3>Success!</h3>'
             msg = 'Dashboard contents exported to file:'
@@ -518,8 +525,8 @@ class SystemDashboard(QTreeView):
         """
         orb.log.debug('* export_tsv_pref()')
         proxy_model = self.model()
-        model = proxy_model.sourceModel()
-        proj_id = model.project.id
+        src_model = proxy_model.sourceModel()
+        proj_id = src_model.project.id
         dtstr = date2str(dtstamp())
         dash_name = state.get('dashboard_name') or 'unknown'
         fname = proj_id + '-' + dash_name + '-dashboard-' + dtstr + '.tsv'
@@ -536,7 +543,7 @@ class SystemDashboard(QTreeView):
             # cols() returns a list of strings
             data_cols = proxy_model.cols[1:]
             orb.log.debug(f'  - data cols: "{str(data_cols)}"')
-            write_mel_to_tsv(model.project, schema=data_cols, pref_units=True,
+            write_mel_to_tsv(src_model.project, schema=data_cols, pref_units=True,
                              file_path=fpath)
             html = '<h3>Success!</h3>'
             msg = 'Dashboard contents exported to file:'
@@ -610,35 +617,70 @@ class SystemDashboard(QTreeView):
             pass
 
 
-# NOTE: this is pretty ugly ... need better smoke testing
-# if __name__ == '__main__':
-    # import sys
-    # from PyQt5.QtWidgets import QApplication
-    # from pangalactic.test.utils4test import create_test_users
-    # from pangalactic.test.utils4test import create_test_project
-    # """
-    # Cmd line invocation for testing / prototyping
-    # """
-    # app = QApplication(sys.argv)
-    # # ***************************************
-    # # Test using test data
-    # # ***************************************
-    # if len(sys.argv) < 2:
-        # print("*** you must provide a home directory path ***")
-        # sys.exit()
-    # orb.start(home=sys.argv[1])
-    # print('* orb starting ...')
-    # test_system = orb.get('hog')
-    # if not test_system:
-        # # test objects have not been loaded yet; load them
-        # print('* loading test project H2G2 ...')
-        # test_objs = create_test_users()
-        # test_objs += create_test_project()
-        # deserialize(orb, test_objs)
-        # test_system = orb.get('hog')
-    # print('* test system created ...')
-    # window = SystemDashboard(test_system)
-    # window.setGeometry(100, 100, 750, 400)
-    # window.show()
-    # sys.exit(app.exec_())
+class MultiDashboard(QWidget):
+    """
+    Widget to contain a multiple dashboards and switch between them.
+    """
+    def __init__(self, systree=None, dashboards=None, parent=None):
+        super.__init__(parent=parent)
+        self.dashboard_widget = QStackedWidget()
+        self.setContextMenuPolicy(Qt.PreventContextMenu)
+        dashboard_panel_layout = QVBoxLayout()
+        self.dashboard_title_layout = QHBoxLayout()
+        self.dash_title = QLabel()
+        # orb.log.debug('           adding title ...')
+        self.dashboard_title_layout.addWidget(self.dash_title)
+        dashboard_panel_layout.addLayout(self.dashboard_title_layout)
+        self.setLayout(dashboard_panel_layout)
+        self.setMinimumSize(500, 200)
+
+    def add_dashboard(self, dashboard):
+        pass
+
+    def set_dashboard(self):
+        self.dashboard = SystemDashboard(self.sys_tree.model(),
+                                         parent=self)
+
+
+
+if __name__ == '__main__':
+    """
+    Cmd line invocation for testing / prototyping
+    """
+    import sys
+    from PyQt5.QtWidgets import QApplication, QVBoxLayout, QWidget
+    from pangalactic.core.serializers import deserialize
+    from pangalactic.core.test.utils import create_test_users
+    from pangalactic.core.test.utils import create_test_project
+    from pangalactic.node.systemtree import SystemTreeView
+    from pangalactic.node.startup    import setup_dirs_and_state
+    app = QApplication(sys.argv)
+    if len(sys.argv) < 2:
+        print("*** you must provide a home directory path ***")
+        sys.exit()
+    orb.start(home=sys.argv[1])
+    print('* orb starting ...')
+    setup_dirs_and_state()
+    test_system = orb.get('test:spacecraft0')
+    if test_system:
+        print('* test system found ...')
+    else:
+        # test objects have not been loaded yet; load them
+        print('* loading test project H2G2 ...')
+        test_objs = create_test_users()
+        test_objs += create_test_project()
+        deserialize(orb, test_objs)
+        test_system = orb.get('test:spacecraft0')
+        print('* test system created ...')
+    proj = test_system.owner
+    sys_tree = SystemTreeView(proj)
+    window = QWidget()
+    layout = QVBoxLayout(window)
+    dash = SystemDashboard(sys_tree.model(), parent=window)
+    layout.addWidget(dash)
+    layout.addWidget(sys_tree)
+    sys_tree.expandAll()
+    window.setGeometry(100, 100, 1200, 800)
+    window.show()
+    sys.exit(app.exec_())
 

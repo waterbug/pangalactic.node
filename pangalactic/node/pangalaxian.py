@@ -4375,8 +4375,6 @@ class Main(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
 
     def _setup_right_dock(self):
-        # NOTE:  refactored to use CompoundLibraryWidget instead of
-        # multiple instances of LibraryListView
         # orb.log.debug('  - no right dock widget -- building one now...')
         # if we don't have a right dock widget yet, create ALL the stuff
         self.right_dock = QDockWidget()
