@@ -773,9 +773,10 @@ alt="Preferred Units Dialog" />
 alt="Help Button" />
 <figcaption aria-hidden="true">Help Button</figcaption>
 </figure>
-<p>Clicking the <em>Help button</em> (a tiny <em><a
-href="#tardis">TARDIS</a></em>) displays the
-<strong>Pangalaxian</strong> release version.</p>
+<p>Clicking the <em>Help button</em> (which has a tiny <em><a
+href="#tardis">TARDIS</a></em> icon) displays a menu with 3 items: “User
+Guide”, “Reference Manual”, and “About” (which displays the
+version).</p>
 <h2 id="project-selector">Project Selector</h2>
 <figure>
 <img src="images/project_selector.png" title="Project Selector"
@@ -813,25 +814,18 @@ menu)</figcaption>
 button, a “tooltip” is displayed, as shown below, <strong>Connect to the
 message bus</strong>:</p>
 <figure>
-<img src="images/network_login.png" title="Network Login"
-alt="Network Login" />
-<figcaption aria-hidden="true">Network Login</figcaption>
+<img src="images/network_login.png" title="Repository Service"
+alt="Repository Service" />
+<figcaption aria-hidden="true">Repository Service</figcaption>
 </figure>
-<p>The <strong>Pangalaxian</strong> client is not connected to the
-network until the user logs in, which is done by clicking the
-<strong>Network Login</strong> button, which displays a login
-dialog:</p>
-<figure>
-<img src="images/network_login_dialog.png" title="Network Login Dialog"
-alt="Network Login Dialog" />
-<figcaption aria-hidden="true">Network Login Dialog</figcaption>
-</figure>
-<p>The <strong>Network Login/Logout</strong> button is a toggle, so
-clicking on it while connected will disconnect
-<strong>Pangalaxian</strong> from the <strong>Message Bus</strong>. The
-<em>connected</em> / <em>disconnected</em> status is shown by the
-<em>network status indicator</em> in the lower right corner of the main
-window:</p>
+<p>The <strong>Pangalaxian</strong> client auto-connects to the
+Repository Service by default, but the user can un-check that
+“Auto-connect at startup” option if desired.</p>
+<p>The <strong>Repository Service</strong> button is a toggle, so
+clicking on it while connected will disconnect from the <strong>Message
+Bus</strong>. The <em>connected</em> / <em>disconnected</em> status is
+shown by the <em>network status indicator</em> in the lower right corner
+of the main window:</p>
 <figure>
 <img src="images/status_connected.png" title="Network Status: Connected"
 alt="Network Status: Connected" />
@@ -843,16 +837,14 @@ title="Network Status: Disconnected"
 alt="Network Status: Disconnected" />
 <figcaption aria-hidden="true">Network Status: Disconnected</figcaption>
 </figure>
-<p>Once the user logs in to the <strong>Message Bus</strong>, the
+<p>Once the user logs in to the <strong>Repository Service</strong>, the
 <strong>Pangalaxian</strong> client begins a programmed set of network
-interactions that synchronize its local database with the
-<strong>Pangalaxian</strong> repository. The initial interactions upon
-connection include:</p>
+interactions that synchronize its local database with the repository.
+The initial interactions upon connection include:</p>
 <ol type="1">
-<li>Get the set of <strong>Projects</strong> on which the user has been
-assigned <strong>Roles</strong>. (This may result in
-<strong>Projects</strong> being added or removed in the <strong>Project
-Selector</strong>.)</li>
+<li>Get the list of <strong>Projects</strong> to which the user has
+access. (The <strong>Project Names</strong> for any such projects will
+being added to the <strong>Project Selector</strong>.)</li>
 <li>Subscribe to the channels on which those <strong>Projects</strong>
 publish events, such as the addition of new <strong>Systems</strong> and
 <strong>Components</strong> to the <strong>Project</strong>.</li>

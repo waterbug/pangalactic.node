@@ -5124,7 +5124,12 @@ class Main(QMainWindow):
             f'<html><h2>{app_name} {version}</h2></html>')
 
     def show_user_guide(self):
-        ug_path = os.path.join(orb.home, 'docs', 'user_guide.html')
+        app_name = config.get('app_name', '')
+        if app_name.startswith('CATTENS'):
+            ug_name = 'cattens_user_guide.html'
+        else:
+            ug_name = 'user_guide.html'
+        ug_path = os.path.join(orb.home, 'docs', ug_name)
         ug_url = f'file://{ug_path}'
         webbrowser.open_new(ug_url)
 

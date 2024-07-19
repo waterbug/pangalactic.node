@@ -470,8 +470,9 @@ sessions.
 
 ![Help Button](images/help_button.png "Help Button")
 
-Clicking the *Help button* (a tiny *[TARDIS](#tardis)*) displays the
-**Pangalaxian** release version.
+Clicking the *Help button* (which has a tiny *[TARDIS](#tardis)* icon) displays
+a menu with 3 items:  "User Guide", "Reference Manual", and "About" (which
+displays the version).
 
 ## Project Selector
 
@@ -498,16 +499,13 @@ itself is deleted.
 When the mouse hovers over the **Network Login/Logout** button, a "tooltip" is
 displayed, as shown below, **Connect to the message bus**:
 
-![Network Login](images/network_login.png "Network Login")
+![Repository Service](images/network_login.png "Repository Service")
 
-The **Pangalaxian** client is not connected to the network until the user logs in,
-which is done by clicking the **Network Login** button, which displays a login
-dialog:
+The **Pangalaxian** client auto-connects to the Repository Service by default,
+but the user can un-check that "Auto-connect at startup" option if desired.
 
-![Network Login Dialog](images/network_login_dialog.png "Network Login Dialog")
-
-The **Network Login/Logout** button is a toggle, so clicking on it while
-connected will disconnect **Pangalaxian** from the **Message Bus**.  The
+The **Repository Service** button is a toggle, so clicking on it while
+connected will disconnect from the **Message Bus**.  The
 *connected* / *disconnected* status is shown by the *network status indicator*
 in the lower right corner of the main window:
 
@@ -516,13 +514,14 @@ in the lower right corner of the main window:
 ![Network Status: Disconnected](images/status_disconnected.png "Network Status: Disconnected")
 
 
-Once the user logs in to the **Message Bus**, the **Pangalaxian** client begins a
-programmed set of network interactions that synchronize its local database with
-the **Pangalaxian** repository.  The initial interactions upon connection include:
+Once the user logs in to the **Repository Service**, the **Pangalaxian** client
+begins a programmed set of network interactions that synchronize its local
+database with the repository.  The initial interactions upon connection
+include:
 
-1.  Get the set of **Projects** on which the user has been assigned **Roles**.
-    (This may result in **Projects** being added or removed in the **Project
-    Selector**.)
+1.  Get the list of **Projects** to which the user has access.
+    (The **Project Names** for any such projects will being added to the
+    **Project Selector**.)
 2.  Subscribe to the channels on which those **Projects** publish events, such
     as the addition of new **Systems** and **Components** to the **Project**.
 3.  Synchronize the **Parameter Definitions** in the local database with those
