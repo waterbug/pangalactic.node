@@ -1,23 +1,20 @@
-% Pangalaxian Reference
+% Pan Galactic Engineering Framework Reference
 % Stephen Waterbury / Code 585
 % v. 1.8
 
-# Overview:  Pangalaxian Architecture
+# Overview:  The Pan Galactic Architecture
 
-**Pangalaxian** is a Collaborative Model-Based Engineering (MBE) framework,
-consisting of a **Desktop Client**, a network **Message Bus**, and a repository
-service network interface that provides access to a **Systems Database** and
-**Systems and Components Library**, as shown in the diagram below.  **Pangalaxian**
-uses the **OMB** (**Omnipotent Management Backend**) administrative service to
-manage projects, users, roles, and role assignments (which determine
-authorizations).
+**The Pangalactic Engineering Framework** (**PGEF**)is a Collaborative
+Model-Based Engineering (MBE) framework, consisting of a **Desktop Client**, a
+network **Message Bus**, and a repository service network interface that
+provides access to a **Systems Database** and **Systems and Components
+Library**, as shown in the diagram below.
 
-This user guide is primarily focused on how to use the **Pangalaxian Desktop
-Client**, including some reference documentation regarding the structure of
-the **engineering and scientific data objects (see [Glossary](#glossary))**
-that **Pangalaxian** creates (or imports) and manages.
+This reference document is primarily focused on the application structure of
+the **Pangalaxian Desktop Client** and includes a **[Glossary](#glossary))** of
+terms related to the objects that **Pangalaxian** creates and manages.
 
-![Pangalaxian Architecture](images/pangalaxian_arch.png "Pangalaxian Architecture")
+![Pan Galactic Architecture](images/pgef_arch.png "Pan Galactic Architecture")
 
 # A Word About Nomenclature ...
 
@@ -25,14 +22,14 @@ In the manufacturing domain, there are many terms for the concept of *designed
 artifact*, e.g. **System**, **Subsystem**, **Component**, **Part**.  The
 general term most widely used in engineering data standards is
 **["Product"](#product-a.k.a.-system-subsystem-component-part)** -- hence,
-**Pangalaxian** uses the term **Product** for all of those items.  The use of the
+**PGEF** uses the term **Product** for all of those items.  The use of the
 more general term **Product** is simply a convention and in no way limits the
 types of information and models that can be associated with an artifact,
 independently of whether it is referred to in some contexts as a **System** (a
 complex **Product** with internal structure and behaviors) and in others a
 **Component** (a **Product** used in the assembly of another **Product**).
 
-**Pangalaxian** generally uses the term **System** in the context of a ***white
+**PGEF** generally uses the term **System** in the context of a ***white
 box*** model of a **Product** (i.e., one in which the internal structures
 and/or interfaces of the **Product** are known) and **Component** in the
 context of a ***black box*** model (in which only the attributes and external
@@ -46,14 +43,14 @@ in various design and analysis contexts.
 
 # Main Window Elements
 
-The **Pangalaxian** **Main Window** consists of a **Tool Bar**, a central area with
-various widgets (such as a **Dashboard** and a **System Tree**), and a **Status
-Bar** at the bottom, which displays messages regarding network interactions and
-local database events.  Many of the labels and buttons shown have "tooltips"
-(brief help messages that display when the mouse hovers over them).  The figure
-below shows the elements of the user interface when it is in **Systems
-Modeler** **mode** (user interface **modes** are explained in detail in the
-[User Interface Modes](#user-interface-modes) section, below).
+The **Pangalaxian** application **Main Window** consists of a **Tool Bar**, a
+central area with various widgets (such as a **Dashboard** and a **System
+Tree**), and a **Status Bar** at the bottom, which displays messages regarding
+network interactions and local database events.  Many of the labels and buttons
+shown have "tooltips" (brief help messages that display when the mouse hovers
+over them).  The figure below shows the elements of the user interface when it
+is in **Systems Modeler** **mode** (user interface **modes** are explained in
+detail in the [User Interface Modes](#user-interface-modes) section, below).
 
 ![Main Window (Systems Modeler Mode)](images/main_window_fig.png "Main Window")
 
@@ -123,8 +120,8 @@ however, see the
 *[important note about importing data](#an-important-note-about-importing-data-from-exported-data-files)*.
 
 The format of the exported file self-describing and it therefore has some
-degree of schema-independence.  **Pangalaxian** releases will sometimes involve
-internal database schema changes, and since the exported file is
+degree of schema-independence.  **PGEF** releases will sometimes involve
+internal database schema (ontology) changes, and since the exported file is
 schema-independent, the
 [Import Project from a File](#import-project-from-a-file...)
 function can migrate the imported data to the new schema -- however, see the
@@ -142,9 +139,10 @@ function -- however, see the
 
 ### Write MEL...
 
-Generates a [Master Equipment List (MEL)](#master-equipment-list-mel) derived
-from the systems, sub-systems, and components as they are assembled for the
-currently selected **[Project](#project)**.
+Generates a Bill of Materials or [Master Equipment List
+(MEL)](#master-equipment-list-mel) derived from the systems, sub-systems, and
+components as they are assembled for the currently selected
+**[Project](#project)**.
 
 Clicking this menu item displays a file dialog so the user can select an
 appropriate name and location for the file that is created.
@@ -152,23 +150,23 @@ appropriate name and location for the file that is created.
 ### Dump Local Database to a File...
 
 Writes the complete local database to a file as a set of serialized objects,
-which are serialized in the **Pangalaxian** standard serialization format and
+which are serialized in the **PGEF** standard serialization format and
 encoded into [YAML]("https://en.wikipedia.org/wiki/YAML").  Clicking this menu
 item displays a file dialog so the user can select an appropriate name and
 location for the file that is created.
 
 ### Generate a Public/Private Key Pair...
 
-Generates a pair of encrypted keys for use in the **Pangalaxian** server login
+Generates a pair of encrypted keys for use in the **PGEF** server login
 process.  The **public key** (*public.key*) will be written into the
 *pangalaxian_home* directory, which is located in the user's home directory.  The
 **private key** (*private.key*) is written into the *.creds* subdirectory of
 *pangalaxian_home*, and it should not be moved.  The user should email the
-*public.key* file to the **Pangalaxian** administrator when requesting a user
+*public.key* file to the **PGEF** administrator when requesting a user
 account.  After that, the *public.key* file is no longer needed by **Pangalaxian**.
 When the *Network Login* icon in the **Tool Bar** is clicked, the **Pangalaxian**
 client will use the *private.key* file to do a transparent single-sign-on login
-to the **Pangalaxian** server.
+to the **PGEF** server.
 
 ## Menu: Create New Objects
 
@@ -216,15 +214,6 @@ below, the **Project Requirements Manager** function will display all
 **Project**.
 
 ![New Performance Requirement Wizard](images/new_perf_reqt_wizard.png "New Performance Requirement Wizard")
-
-### New Test
-
-Displays a dialog (see figure below) in which the user can create a new
-**[Test](#test)**.  All fields shown in the figure are required.  The
-***verifies*** field is used to reference the **[Requirement](#requirement)** that
-the **[Test](#test)** is intended to verify.
-
-![New Test Dialog](images/new_test_dlg.png "New Test Dialog")
 
 ## Menu: Tools
 

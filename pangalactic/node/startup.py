@@ -10,7 +10,8 @@ from copy import deepcopy
 from pangalactic.core         import orb
 from pangalactic.core         import config, prefs, state
 from pangalactic.core.meta    import PGXN_PARAMETERS
-from pangalactic.node         import icons, images, ref_db
+from pangalactic.node         import docs, icons, images, ref_db
+from pangalactic.node.docs    import images as doc_images
 
 
 def setup_ref_db_and_version(home, version):
@@ -140,7 +141,7 @@ def setup_dirs_and_state(app_name='Pangalaxian'):
     # icon and image paths are set relative to home dir (icon_dir is used for
     # standard PanGalactic icons; icons created at runtime are saved into the
     # 'vault' directory, along with other runtime-created files)
-    # [1] copy pangalactic image files from 'images' module to image_dir
+    # [1] copy pangalactic image files from 'images' module to orb.image_dir
     orb.image_dir = os.path.join(orb.home, 'images')
     image_files = set()
     # orb.log.debug('* checking for images in [orb.home]/images ...')
@@ -166,7 +167,7 @@ def setup_dirs_and_state(app_name='Pangalaxian'):
     else:
         # orb.log.debug('  - all images already installed.')
         pass
-    # [2] copy pangalactic icon files from 'icons' module to icon_dir
+    # [2] copy pangalactic icon files from 'icons' module to orb.icon_dir
     orb.icon_dir = os.path.join(orb.home, 'icons')
     state['icon_dir'] = os.path.join(orb.home, 'icons')
     icon_files = set()
@@ -192,5 +193,64 @@ def setup_dirs_and_state(app_name='Pangalaxian'):
         # orb.log.debug('  - new icons installed: {}'.format(str(icons_cpd)))
     else:
         # orb.log.debug('  - all icons already installed.')
+        pass
+    # [3] copy pangalactic docs files from 'docs' module to orb.docs_dir
+    orb.docs_dir = os.path.join(orb.home, 'docs')
+    state['docs_dir'] = os.path.join(orb.home, 'docs')
+    docs_files = set()
+    # orb.log.debug('* checking for docs in [orb.home]/docs ...')
+    if not os.path.exists(state['docs_dir']):
+        os.makedirs(state['docs_dir'])
+    else:
+        docs_files = set(os.listdir(state['docs_dir']))
+    # orb.log.debug('  - found %i docs' % len(docs_files))
+    docs_mod_path = docs.__path__[0]
+    docs_res_files = set([s for s in os.listdir(docs_mod_path)
+                          if (not s.startswith('__init__')
+                              and not s.startswith('__pycache__')
+                              and not s == 'images')
+                          ])
+    docs_to_copy = docs_res_files - docs_files
+    # orb.log.debug('  - docs to be installed: %i' % len(docs_to_copy))
+    if docs_to_copy:
+        # orb.log.debug('  - copying docs into docs dir ...')
+        docs_cpd = []
+        for p in docs_to_copy:
+            shutil.copy(os.path.join(docs_mod_path, p), state['docs_dir'])
+            docs_cpd.append(p)
+        # orb.log.debug('  - new docs installed: {}'.format(str(docs_cpd)))
+    else:
+        # orb.log.debug('  - all docs already installed.')
+        pass
+    # [4] copy pangalactic docs/images files from 'docs' module to
+    # orb.doc_images_dir
+    orb.doc_images_dir = os.path.join(orb.home, 'docs', 'images')
+    state['doc_images_dir'] = os.path.join(orb.home, 'docs', 'images')
+    doc_images_files = set()
+    # orb.log.debug('* checking for docs/images in [orb.home]/docs ...')
+    if not os.path.exists(state['doc_images_dir']):
+        os.makedirs(state['doc_images_dir'])
+    else:
+        doc_images_files = set(os.listdir(state['doc_images_dir']))
+    # orb.log.debug('  - found %i doc images' % len(doc_images_files))
+    doc_images_mod_path = doc_images.__path__[0]
+    doc_images_res_files = set([s for s in os.listdir(doc_images_mod_path)
+                                 if (not s.startswith('__init__')
+                                     and not s.startswith('__pycache__'))
+                                 ])
+    doc_images_to_copy = doc_images_res_files - doc_images_files
+    n = len(doc_images_to_copy)
+    orb.log.debug(f'  - doc images to be installed: {n}')
+    if doc_images_to_copy:
+        # orb.log.debug('  - copying doc images into docs/images dir ...')
+        doc_images_cpd = []
+        for p in doc_images_to_copy:
+            shutil.copy(os.path.join(doc_images_mod_path, p),
+                        state['doc_images_dir'])
+            doc_images_cpd.append(p)
+        # n_imgs = len(doc_images_cpd)
+        # orb.log.debug(f'  - {n_imgs} new doc images installed.')
+    else:
+        # orb.log.debug('  - all doc images already installed.')
         pass
 

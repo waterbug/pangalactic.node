@@ -5124,12 +5124,12 @@ class Main(QMainWindow):
             f'<html><h2>{app_name} {version}</h2></html>')
 
     def show_user_guide(self):
-        ug_path = os.path.join(orb.home, 'doc', 'user_guide.html')
+        ug_path = os.path.join(orb.home, 'docs', 'user_guide.html')
         ug_url = f'file://{ug_path}'
         webbrowser.open_new(ug_url)
 
     def show_ref_manual(self):
-        ref_path = os.path.join(orb.home, 'doc', 'reference.html')
+        ref_path = os.path.join(orb.home, 'docs', 'reference.html')
         ref_url = f'file://{ref_path}'
         webbrowser.open_new(ref_url)
 

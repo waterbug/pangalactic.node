@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Stephen Waterbury / Code 585" />
+  <title>Pangalaxian User Guide</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="pandoc.css" />
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Pangalaxian User Guide</h1>
+<p class="author">Stephen Waterbury / Code 585</p>
+<p class="date">v. 1.9</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#quick-start" id="toc-quick-start">Quick Start</a>
+<ul>
+<li><a href="#install-pangalaxian" id="toc-install-pangalaxian">Install
+Pangalaxian</a></li>
+<li><a href="#run-pangalaxian" id="toc-run-pangalaxian">Run
+Pangalaxian</a></li>
+<li><a href="#generate-a-publicprivate-key-pair"
+id="toc-generate-a-publicprivate-key-pair">Generate a Public/Private Key
+Pair…</a></li>
+<li><a href="#login-to-the-repository-service"
+id="toc-login-to-the-repository-service">Login to the Repository
+Service</a></li>
+</ul></li>
+<li><a href="#how-to" id="toc-how-to">How To</a>
+<ul>
+<li><a href="#switch-modes-in-pangalaxian"
+id="toc-switch-modes-in-pangalaxian">Switch Modes in Pangalaxian</a>
+<ul>
+<li><a href="#system-modeler" id="toc-system-modeler">System
+Modeler</a></li>
+<li><a href="#component-modeler" id="toc-component-modeler">Component
+Modeler</a></li>
+<li><a href="#local-db" id="toc-local-db">Local DB</a></li>
+</ul></li>
+<li><a href="#use-the-object-viewereditor"
+id="toc-use-the-object-viewereditor">Use the Object Viewer/Editor</a>
+<ul>
+<li><a href="#how-to-access" id="toc-how-to-access">How To
+Access</a></li>
+<li><a href="#interface-elements" id="toc-interface-elements">Interface
+Elements</a></li>
+<li><a href="#view-mode" id="toc-view-mode">View Mode</a></li>
+<li><a href="#edit-parameters-data-elements-and-other-properties"
+id="toc-edit-parameters-data-elements-and-other-properties">Edit
+Parameters, Data Elements, and Other Properties</a></li>
+<li><a href="#add-parameters-or-data-elements"
+id="toc-add-parameters-or-data-elements">Add Parameters or Data
+Elements</a></li>
+<li><a href="#delete-parameters-or-data-elements"
+id="toc-delete-parameters-or-data-elements">Delete Parameters or Data
+Elements</a></li>
+</ul></li>
+<li><a href="#use-component-modeler-to-edit-a-system-or-subsystem"
+id="toc-use-component-modeler-to-edit-a-system-or-subsystem">Use
+Component Modeler to Edit a System or Subsystem</a>
+<ul>
+<li><a href="#add-components" id="toc-add-components">Add
+Components</a></li>
+<li><a href="#modify-components" id="toc-modify-components">Modify
+Components</a></li>
+<li><a href="#remove-components-and-functions"
+id="toc-remove-components-and-functions">Remove Components and
+Functions</a></li>
+</ul></li>
+<li><a href="#create-a-new-system-or-component"
+id="toc-create-a-new-system-or-component">Create a New System or
+Component</a></li>
+<li><a href="#use-the-systemcomponent-wizard"
+id="toc-use-the-systemcomponent-wizard">Use the System/Component
+Wizard</a></li>
+<li><a href="#clone-an-object" id="toc-clone-an-object">Clone an
+Object</a>
+<ul>
+<li><a href="#options-for-creating-a-clone-from-a-white-box-object"
+id="toc-options-for-creating-a-clone-from-a-white-box-object">Options
+for Creating a Clone from a White Box Object</a></li>
+</ul></li>
+<li><a
+href="#use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv"
+id="toc-use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv">Use
+Local DB Mode to Display Tabular Views of Objects and Export them to
+TSV</a></li>
+<li><a href="#set-preferred-units" id="toc-set-preferred-units">Set
+Preferred Units</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="quick-start">Quick Start</h1>
+<h2 id="install-pangalaxian">Install Pangalaxian</h2>
+<ul>
+<li>On Windows, run <em>pangalaxian_x.x_setup.exe</em> as you would any
+Windows app installer.</li>
+<li>On Mac, follow the instructions in the
+<em>PANGALAXIAN_MAC_README.txt</em> file, which you should find in the
+same location as the Mac “installer”.</li>
+</ul>
+<h2 id="run-pangalaxian">Run Pangalaxian</h2>
+<p>The first time Pangalaxian starts up, it will create a directory
+called either <strong><em>pangalaxian_home</em></strong> (for the
+production version) or <strong><em>pangalaxian_home_dev</em></strong>
+(for the development version). In that directory it will create a local
+database and it will load some reference data, which will take a minute
+or two. Once the initial start up has loaded the reference data,
+subsequent start ups of Pangalaxian will just take a few seconds.</p>
+<h2 id="generate-a-publicprivate-key-pair">Generate a Public/Private Key
+Pair…</h2>
+<ol type="1">
+<li>In the Pangalaxian <em>Output</em> menu:</li>
+</ol>
+<figure>
+<img src="images/output_menu.png" title="Menu: Output"
+alt="Output Menu" />
+<figcaption aria-hidden="true">Output Menu</figcaption>
+</figure>
+<p>… select the menu item <em>Generate a Public/Private Key Pair</em>
+This generates a pair of encrypted keys that are used in the
+single-sign-on process that <strong>Pangalaxian</strong> uses to log in
+to its Repository Service.</p>
+<ol start="2" type="1">
+<li>Email the <em>public.key</em> file to the
+<strong>Pangalaxian</strong> admin – the <em>public.key</em> file for
+the production version of <strong>Pangalaxian</strong> on Windows is
+located here:</li>
+</ol>
+<p><strong>C:\Users\[your AUID]\pangalaxian_home\public.key</strong></p>
+<p>… and for the development version on Windows it is here:</p>
+<p><strong>C:\Users\[your
+AUID]\pangalaxian_home_dev\public.key</strong></p>
+<p>On the Mac, the locations are:</p>
+<p><strong>/Users/[your AUID]/pangalaxian_home/public.key</strong> and
+<strong>/Users/[your AUID]/pangalaxian_home_dev/public.key</strong></p>
+<figure>
+<img src="images/public_key_file.png" title="public key file"
+alt="public key file" />
+<figcaption aria-hidden="true">public key file</figcaption>
+</figure>
+<p>(After you email it to the admin, you no longer need the
+<em>public.key</em> file.)</p>
+<p>The <em>private key</em> is a file called
+<strong>pangalaxian.key</strong> which is located in your profile folder
+(a.k.a. your “home directory”). Take care not to delete it because it is
+used by <strong>Pangalaxian</strong> and will be used by any future
+version of <strong>Pangalaxian</strong> you install. The same
+<strong>pangalaxian.key</strong> file is used by both
+<strong>Pangalaxian</strong> and <strong>Pangalaxiandev</strong>.</p>
+<h2 id="login-to-the-repository-service">Login to the Repository
+Service</h2>
+<p>After you have emailed your <em>public.key</em> file to the
+Pangalaxian Admin, you can log in.</p>
+<p>When the <em>Repository Service</em> icon in the <strong>Tool
+Bar</strong> is clicked, <strong>Pangalaxian</strong> will use the
+<em>pangalaxian.key</em> file to do a transparent single-sign-on login
+to the Repository Service. <em>Note that the Repository Service icon is
+a toggle – you use it to log in or to log out.</em></p>
+<p>When you log in to the Repository Service,
+<strong>Pangalaxian</strong> will:</p>
+<ol type="1">
+<li>Get the names of <strong>Projects</strong> on which you have been
+assigned <strong>Roles</strong>. (This may result in
+<strong>Projects</strong> being added or removed in the <strong>Project
+Selector</strong>.)</li>
+<li>Subscribe to events regarding those <strong>Projects</strong>, such
+as the addition of new <strong>Systems</strong> and
+<strong>Components</strong> to a <strong>Project</strong>.</li>
+<li>Get any new (since your last login) “public” (non-proprietary)
+objects in the repository <strong>Hardware Library</strong> and save
+them to its local database.</li>
+<li>Sync the currently selected <strong>Project</strong>, fetching any
+“private” objects that have been added to the <strong>Project</strong>
+since your last login.</li>
+<li>Display your assigned <strong>Role(s)</strong> in the current
+<strong>Project</strong> in the <strong>Status Bar</strong> (the label
+next to the <em>network status indicator</em>).</li>
+</ol>
+<p>Once the initial sync is completed, <strong>Pangalaxian</strong> will
+listen for events, such as additions or modifications of objects, and
+will update in real-time.</p>
+<p>Whenever you switch to a different project using the <strong>Project
+Selector</strong>, the Project sync operation (step 4 above) is executed
+for the newly selected <strong>Project</strong>.</p>
+<h1 id="how-to">How To</h1>
+<h2 id="switch-modes-in-pangalaxian">Switch Modes in Pangalaxian</h2>
+<p>The <strong>Pangalaxian</strong> GUI has 3 interface
+<strong>modes</strong> of operation:</p>
+<ul>
+<li><strong><a href="#component-modeler">Component
+Modeler</a></strong></li>
+<li><strong><a href="#system-modeler">System Modeler</a></strong></li>
+<li><strong><a href="#local-db">Local DB</a></strong></li>
+</ul>
+<p>You can switch between these <strong>modes</strong> by clicking on
+one of the <strong>Mode Buttons</strong> in the top right corner of the
+window, as shown in the figure below. The currently selected
+<strong>mode</strong> is indicated by which button is in the
+<em>clicked</em> state (toggled <em>on</em>). The buttons are shown here
+with <strong><a href="#systems-modeler">System Modeler</a></strong>
+<strong>mode</strong> selected (that is the default mode). When you exit
+<strong>Pangalaxian</strong>, it will remember the <strong>mode</strong>
+you are in and will return you to that <strong>mode</strong> the next
+time it starts up.</p>
+<figure>
+<img src="images/mode_buttons.png" title="Mode Buttons"
+alt="Mode Buttons" />
+<figcaption aria-hidden="true">Mode Buttons</figcaption>
+</figure>
+<h3 id="system-modeler">System Modeler</h3>
+<p><strong>System Modeler</strong> mode is mainly designed to provide
+convenience for viewing the current state of an entire
+<strong>System</strong> assembly structure and its subsystem and
+component parameters, which are shown in the <strong>Systems
+Dashboard</strong>. Although it is possible to edit objects in
+<strong>Systems Modeler</strong> mode if your assigned <strong>Project
+Role(s)</strong> give you edit permissions, in general it is easier and
+more efficient to do such edits in the <strong>Component
+Modeler</strong> mode.</p>
+<p>Note that the system assembly tree structure, block diagram, and
+<strong>Systems Dashboard</strong> are automatically updated in
+real-time when any subsystem is added, modified, or deleted by anyone
+who is connected to the repository. Modified parameters are updated in
+real-time and any rolled-up parameters are recomputed and displayed in
+the <strong>Systems Dashboard</strong> in real-time.</p>
+<p>The <strong>System Modeler</strong> mode interface looks like the
+figure below:</p>
+<figure>
+<img src="images/main_window_fig.png" title="System Modeler Mode"
+alt="System Modeler Mode" />
+<figcaption aria-hidden="true">System Modeler Mode</figcaption>
+</figure>
+<h3 id="component-modeler">Component Modeler</h3>
+<p><strong>Component Modeler</strong> mode is intended to provide
+convenience for viewing and editing <strong>Systems</strong>,
+<strong>Components</strong>, or library <strong>Products</strong>. The
+<strong>Component Modeler</strong> has 2 main purposes:</p>
+<ol type="1">
+<li><p>To view the parameters and structure (components) of
+<strong>any</strong> item in the <strong>Systems &amp; Components
+Library</strong> (does not require edit privileges).</p></li>
+<li><p>To edit a <strong>System</strong> or <strong>Subsystem</strong> –
+see details in <strong>[Use Component Modeler Mode to Edit a System or
+Subsystem]</strong>, below.</p></li>
+</ol>
+<figure>
+<img src="images/component_mode_fig.png" title="Component Modeler Mode"
+alt="Component Modeler Mode" />
+<figcaption aria-hidden="true">Component Modeler Mode</figcaption>
+</figure>
+<h3 id="local-db">Local DB</h3>
+<p><strong>Local DB</strong> mode provides a view into the local
+database. The database table names (<strong>DB Tables</strong>) are
+listed on the left side; clicking on a db table name displays its
+<strong>Objects</strong> in the tablular widget on the right.</p>
+<figure>
+<img src="images/local_db_mode_fig.png" title="Local DB Mode"
+alt="Local DB Mode" />
+<figcaption aria-hidden="true">Local DB Mode</figcaption>
+</figure>
+<h2 id="use-the-object-viewereditor">Use the Object Viewer/Editor</h2>
+<p>The <strong>Object Viewer/Editor</strong> provides an interface to
+all parameters, data elements, and other properties of an object.</p>
+<h3 id="how-to-access">How To Access</h3>
+<p>The <strong>Object Viewer/Editor</strong> dialog can be displayed in
+the following ways:</p>
+<ul>
+<li><p>In <strong><a href="#component-modeler">Component
+Modeler</a></strong> mode, just <strong>click and drag</strong> any item
+from the <strong><a
+href="#systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</a></strong>, (right panel) and
+<strong>drop</strong> it onto any field in the <strong>Product</strong>
+panel (upper left) – that will load the object into the <strong>Object
+Viewer/Editor</strong> on the left and display its block
+diagram;</p></li>
+<li><p>In <strong><a href="#system-modeler">System Modeler</a></strong>
+mode, <strong>right-click</strong> on any object in either the
+<strong>Library Panel</strong> (right side of the <strong><a
+href="#main-window-elements">Main Window</a></strong>), the
+<strong>System Tree</strong> (lower left panel), or the block diagram
+(center) and select <strong><em>View this object</em></strong> in the
+context menu;</p></li>
+<li><p>In <strong><a href="#local-db">Local DB</a></strong> mode,
+<strong>double-click</strong> on any line in the
+<strong>Objects</strong> table (right side).</p></li>
+</ul>
+<p>Note that the <strong>Object Viewer/Editor</strong> always has
+exactly the same interface and functionality wherever it is invoked.</p>
+<figure>
+<img src="images/ove_panel_comp_mode.png"
+title="Object Viewer/Editor Panel in Component Modeler"
+alt="Object Viewer/Editor Panel in Component Modeler" />
+<figcaption aria-hidden="true">Object Viewer/Editor Panel in Component
+Modeler</figcaption>
+</figure>
+<h3 id="interface-elements">Interface Elements</h3>
+<figure>
+<img src="images/ove_elements_fig.png"
+title="Object Viewer/Editor Elements"
+alt="Object Viewer/Editor Elements" />
+<figcaption aria-hidden="true">Object Viewer/Editor
+Elements</figcaption>
+</figure>
+<ul>
+<li><p><strong>Parameter Tabs</strong> display the object’s parameters.
+As many parameter tabs as necessary will be created to accomodate
+parameters as they are added – typically, at least 2 parameter tabs are
+needed, to accommodate the minimum default parameters for Mass, Power,
+Data Rate and their associated variants.</p></li>
+<li><p><strong>Freeze Button</strong> freezes the object (prevents
+further editing)</p></li>
+<li><p><strong>Where-Used Button</strong> displays the names of
+next-higher systems (assemblies) that contain this object as a
+component.</p></li>
+<li><p><strong>Project Usage Button</strong> displays the names of all
+projects in which object is used as a system or component.</p></li>
+<li><p><strong>Clone Button</strong> clones the object (creates a copy
+with the same properties) – see <strong><a href="#clone-an-object">Clone
+an Object</a></strong>.</p></li>
+<li><p>The other tabs are:</p>
+<ul>
+<li><strong>data</strong> tab(s) display the object’s data elements. As
+many data tabs as necessary will be created – typically, only 1 data tab
+is needed, to accommodate the <strong>TRL</strong> and
+<strong>Vendor</strong> data elements.</li>
+<li><strong>main</strong> tab, which contains <em>id</em>,
+<em>name</em>, <em>description</em>, and other fields.</li>
+<li><strong>info</strong> tab (optional), which contains fields that
+“overflow” from the <strong>main</strong> tab.</li>
+<li><strong>narrative</strong> tab, which contains unlimited text
+fields.</li>
+<li><strong>admin</strong> tab, which contains administrative properties
+of the object such as the <em>oid</em> (unique object identifier),
+<em>creator</em>, <em>create_datetime</em>, <em>modifier</em>, and
+<em>mod_datetime</em> of the object.</li>
+</ul></li>
+</ul>
+<h3 id="view-mode">View Mode</h3>
+<p>The <strong>Object Viewer/Editor</strong> usually initializes in
+<strong>View Mode</strong> (the exceptions being in the <strong><a
+href="#clone-an-object">Cloning</a></strong> process and the <strong><a
+href="#use-the-systemcomponent-wizard">System/Component
+Wizard</a></strong>, in which the process requires <strong>Edit
+Mode</strong>). If you have edit permission for the object being viewed,
+there will be an <strong>Edit</strong> button at the bottom of the
+<strong>Object Viewer/Editor</strong> interface that will switch the
+interface to <strong>Edit Mode</strong>.</p>
+<p>In <strong>View Mode</strong> (figure below) you can explore the
+object by selecting various tabs in the interface. If an attribute of
+the object is another object, that attribute’s value will appeaar as a
+button, which if clicked will display the related object in another
+<strong>Object Viewer/Editor</strong>.</p>
+<figure>
+<img src="images/object_viewer_editor.png"
+title="Object Viewer/Editor (View Mode)"
+alt="Object Viewer/Editor (View)" />
+<figcaption aria-hidden="true">Object Viewer/Editor (View)</figcaption>
+</figure>
+<h3 id="edit-parameters-data-elements-and-other-properties">Edit
+Parameters, Data Elements, and Other Properties</h3>
+<p>In <strong>Edit Mode</strong> any fields which are displayed as
+editable can be edited. Note that some fields are intrinsically
+<em>read-only</em>, such as computed parameters – for example, the
+<strong>CBE</strong> (<strong>“Current Best Estimate”</strong>)
+parameters are always computed as a recursive sum of an object’s
+components’ parameters, so they are <em>read-only</em> and are so
+annotated.</p>
+<h3 id="add-parameters-or-data-elements">Add Parameters or Data
+Elements</h3>
+<p>If you need to assign more parameters or data elements to the
+object:</p>
+<ul>
+<li>Make sure you are in <strong>edit mode</strong></li>
+<li>Select the <strong>Parameters</strong> or <strong>Data
+Elements</strong> library (use the <strong>Library Selector</strong>
+pull down to select the library in the <strong>Libraries</strong>
+panel)</li>
+<li><strong>Drag</strong> the parameter or data element from the library
+and <strong>drop</strong> it onto either a <strong>parms</strong> panel
+(labeled <em>parms_0</em>, <em>parms_1</em>, etc.) or a
+<strong>data</strong> panel, respectively (the viewer/editor will
+automatically add more parms or data tabs if necessary).</li>
+</ul>
+<h3 id="delete-parameters-or-data-elements">Delete Parameters or Data
+Elements</h3>
+<p>Again, this will only work in <strong>edit mode</strong>: right-click
+on the label of the parameter or data element you want to delete and
+select <em>delete</em>.</p>
+<h2 id="use-component-modeler-to-edit-a-system-or-subsystem">Use
+Component Modeler to Edit a System or Subsystem</h2>
+<p>In <strong>Component Modeler</strong> mode, you can <strong>click and
+drag</strong> any item from the <strong>Systems &amp; Components
+(Hardware Products) Library</strong> and <font
+color="red"><strong>drop</strong></font> it onto the fields in the
+<strong>Product</strong> panel (see figure below) and it will become the
+subject of the <strong>Component Modeler</strong>: its
+<strong><em>id</em></strong>, <strong><em>name</em></strong>, and
+<strong><em>version</em></strong> will be displayed in the
+<strong>Product</strong> panel, its <em>name</em> and <em>id</em> will
+become the title in the <strong>Object Viewer/Editor Panel</strong>
+(left side) and its full set of <strong>Parameter</strong> values and
+other data will be accessible there. Its <strong>Internal Block
+Diagram</strong> (equivalent to a <em>SysML</em> <strong>IBD</strong>)
+will be shown in the central <strong>Block Diagram</strong> panel. (If
+you have edit permission for the product, the <strong>Block
+Diagram</strong> will be editable.)</p>
+<figure>
+<img src="images/comp_mode_drag_to_product_panel.png"
+title="Drag/Drop Library Item To Product Panel"
+alt="Drag/Drop a Library Item To View It in the Component Modeler" />
+<figcaption aria-hidden="true">Drag/Drop a Library Item To View It in
+the Component Modeler</figcaption>
+</figure>
+<p>Once a product has been brought into the <strong>Component
+Modeler</strong>, it can be viewed and (if you have edit permission for
+that product) edited in the <strong>Object Viewer/Editor</strong> panel
+– see <strong><a href="#use-the-object-viewereditor">Use the Object
+Viewer/Editor</a></strong> for more detail.</p>
+<h3 id="add-components">Add Components</h3>
+<p>To add a component, simply <strong>drag</strong> an item from the
+<strong>Systems &amp; Components (Hardware Products)</strong> library
+and <strong>drop</strong> it onto any open space within the border of
+the diagram. Note that you cannot drop an item onto another block in the
+diagram <em>unless it is a <strong>TBD</strong> block, meaning that
+block is unoccupied (it will have a dashed outline)</em>.</p>
+<h3 id="modify-components">Modify Components</h3>
+<p>If you want to modify an existing component block in a diagram
+(e.g. add sub-components), simply <strong>drill down</strong> by
+double-clicking on the component block – the <strong>drill down</strong>
+operation will make that component the new subject of the
+<strong>Component Modeler</strong>, and if you have edit privileges for
+that component you will be able to edit it. When you have finished
+editing the component, you can go back to the previous object (the
+product that contains the component) by clicking the “Back” button in
+the <strong>Product</strong> panel – that will change the subject of the
+<strong>Component Modeler</strong> back to the previous object.</p>
+<h3 id="remove-components-and-functions">Remove Components and
+Functions</h3>
+<p>To remove a component from an assembly, right-click on its block and
+select either <em>Remove this component</em> or <em>Remove this
+function</em>.</p>
+<ul>
+<li><p><em>Remove this component</em>: removes the product but leaves a
+<strong>TBD</strong> block that represents that “function” in the
+assembly – the <strong>TBD</strong> block is unoccupied but can have
+requirements allocated to it, so whatever product is placed into that
+function should satisfy any allocated requirements. Also, the
+<strong>TBD</strong> block will have an associated <strong>Product
+Type</strong> that corresponds to its function, and it will only accept
+products of that <strong>Product Type</strong>. The <strong>TBD</strong>
+block can be removed using the <em>Remove this function</em> context
+menu item.</p></li>
+<li><p><em>Remove this function</em>: removes the component block
+entirely, even if it is a <strong>TBD</strong> block.</p></li>
+</ul>
+<h2 id="create-a-new-system-or-component">Create a New System or
+Component</h2>
+<p>Pangalaxian has 2 ways to do that:</p>
+<ol type="1">
+<li><strong><a href="#use-the-systemcomponent-wizard">Use the
+System/Component Wizard</a></strong> …<br />
+In the <strong>Create</strong> menu, select the option <strong>New
+System or Component (Product)</strong><br />
+<strong><em>– or –</em></strong></li>
+<li><strong><a href="#clone-an-object">Clone</a></strong> an existing
+system or component.</li>
+</ol>
+<h2 id="use-the-systemcomponent-wizard">Use the System/Component
+Wizard</h2>
+<p>The <strong>System/Component Wizard</strong> provides a guided
+process to create a new System or Component (a.k.a. Product).</p>
+<p>Note that any new system or component that is marked
+<strong>public</strong> will automatically be added to the
+<strong>[Systems and Components (Hardware Products) Library]</strong>
+and will then be usable in the assembly of any new system.
+<strong>Non-public</strong> (sensitive or proprietary) systems or
+components (i.e. those for which the <strong>public</strong> field is
+not checked) will only be visible to users who have been assigned roles
+in their <strong>owner</strong> project or organization.</p>
+<figure>
+<img src="images/new_product_wizard.png"
+title="System/Component Wizard (First Page)"
+alt="System/Component Wizard (First Page)" />
+<figcaption aria-hidden="true">System/Component Wizard (First
+Page)</figcaption>
+</figure>
+<figure>
+<img src="images/new_product_wizard_1.png"
+title="System/Component Wizard (First Page Filled Out)"
+alt="System/Component Wizard (First Page Filled Out)" />
+<figcaption aria-hidden="true">System/Component Wizard (First Page
+Filled Out)</figcaption>
+</figure>
+<figure>
+<img src="images/new_product_wizard_2.png"
+title="System/Component Wizard (Page 2 TRL Selected)"
+alt="System/Component Wizard (Page 2 TRL Selected)" />
+<figcaption aria-hidden="true">System/Component Wizard (Page 2 TRL
+Selected)</figcaption>
+</figure>
+<figure>
+<img src="images/new_product_wizard_3.png"
+title="System/Component Wizard (Last Page: Check and Finish)"
+alt="System/Component Wizard (Last Page: Check and Finish)" />
+<figcaption aria-hidden="true">System/Component Wizard (Last Page: Check
+and Finish)</figcaption>
+</figure>
+<h2 id="clone-an-object">Clone an Object</h2>
+<p><strong>Cloning</strong> in <strong>Pangalaxian</strong> simply means
+creating a copy of an object. In general, the clone will have the same
+property values, parameter values, and data values as the original
+object.</p>
+<p>A clone is created by clicking on the <strong>Clone</strong> button
+in the <strong><a href="#use-the-object-viewereditor">Object
+Viewer/Editor</a></strong> – if the object being cloned is a
+<strong>white box</strong> (its components are specified), a dialog will
+be displayed with various options (see details below); if the object is
+a <strong>black box</strong>, <strong>Pangalaxian</strong> will
+immediately create the clone and switch to <strong><a
+href="#component-modeler">Component Modeler</a></strong> mode with the
+new clone set as the subject, and you can begin editing it as necessary.
+The clone will automatically be assigned a new <em>id</em>, but you
+should edit its <em>name</em> and <em>description</em> fields at least,
+and edit its component structure as necessary – see <strong>[Use
+Component Modeler Mode to Edit a System or Subsystem]</strong> for more
+information about how to do that.</p>
+<h3 id="options-for-creating-a-clone-from-a-white-box-object">Options
+for Creating a Clone from a White Box Object</h3>
+<p>If the object being cloned is a <strong>white box</strong> – i.e. it
+has a specified set of components – then clicking the <strong>Clone
+Button</strong> in the <strong>Object Viewer/Editor</strong> will bring
+up a dialog with options, as shown here:</p>
+<figure>
+<img src="images/clone_dlg.png" title="White Box Object Cloning Options"
+alt="White Box Object Cloning Options" />
+<figcaption aria-hidden="true">White Box Object Cloning
+Options</figcaption>
+</figure>
+<h4 id="create-a-white-box-clone">Create a White Box Clone</h4>
+<p>If you select the <strong>Create White Box Clone</strong> option, the
+following dialog will be displayed:</p>
+<figure>
+<img src="images/white_box_clone_dlg.png"
+title="Create White Box Clone Dialog"
+alt="Create White Box Clone Dialog" />
+<figcaption aria-hidden="true">Create White Box Clone
+Dialog</figcaption>
+</figure>
+<p>As the instructions say, you can select all components or any subset
+of them, and the clone will then contain references to exactly the
+components that you select. Note that the clone’s components will not be
+<em>copies</em> of the original components, they will be
+<em>indentical</em> to the components selected – in other words, the
+components of the clone will be pointers to the library objects that you
+selected from the original object’s components. If you want the new
+clone’s components to be different from those of the original object, it
+is better to select <strong>Create a Black Box Clone</strong> and then
+populate the resulting <strong>black box</strong> with any components
+you specify, making it into a <strong>white box</strong>.</p>
+<h4 id="create-a-black-box-clone">Create a Black Box Clone</h4>
+<p>If you select the <strong>Create Black Box Clone</strong> option, the
+following dialog will be displayed:</p>
+<figure>
+<img src="images/black_box_clone_dlg.png"
+title="Create Black Box Clone Dialog"
+alt="Create Black Box Clone Dialog" />
+<figcaption aria-hidden="true">Create Black Box Clone
+Dialog</figcaption>
+</figure>
+<p>As the instructions say, you can select <strong>flatten</strong>, in
+which case the <strong>CBE</strong> (<strong>Current Best
+Estimate</strong>) values of <strong>Mass[CBE]</strong>,
+<strong>Power[CBE]</strong>, and <strong>Data Rate[CBE]</strong> for the
+original object are assigned to the <strong>Mass</strong>,
+<strong>Power</strong>, and <strong>Data Rate</strong> parameters of the
+clone. Since the <strong>CBE</strong> parameters of a <strong>white
+box</strong> product are computed as the sum of the <strong>CBE</strong>
+parameters of its components, this essentially
+<strong>“flattens”</strong> them into the new <strong>black box</strong>
+object, which will have the same <strong>CBE</strong> parameters as the
+original object but without its components.</p>
+<p>If the <strong>flatten</strong> option is not selected, the clone
+will simply be assigned the original object’s specified
+<strong>Mass</strong>, <strong>Power</strong>, and <strong>Data
+Rate</strong> parameters.</p>
+<p>Note that in either case, whether a <strong>white box</strong> or
+<strong>black box</strong> clone is created, the clone will receive
+<em>all parameters</em> of the original object.</p>
+<h2
+id="use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv">Use
+Local DB Mode to Display Tabular Views of Objects and Export them to
+TSV</h2>
+<p>Any row in the <strong>Objects</strong> table can be double-clicked
+to display that object in the <strong><a
+href="#access-the-object-viewereditor">Object
+Viewer/Editor</a></strong>. The <strong>Objects</strong> table can be
+sorted on any column by clicking on that column’s heading. Columns can
+be rearranged by drag/drop, and you can select which columns you want
+displayed for a given object type by right-clicking on the headers,
+which displays a context menu, and choosing the <strong>select
+columns</strong> option, which will display all the attributes of the
+current object type and you can just check the attributes you want to
+see and uncheck the ones to hide. <strong>Pangalaxian</strong> will
+remember your choices and will use them the next time you go into
+<strong>Local DB</strong> mode.</p>
+<h2 id="set-preferred-units">Set Preferred Units</h2>
+<p>Preferred units can be set using either the <em>Edit Preferences</em>
+item in the <em>Tools</em> menu or by right-clicking on the
+<strong>Systems Dashboard</strong> headers and selecting <em>set
+preferred units</em>. When you have set the preferred units for a
+specified set of dimensions, <strong>Pangalaxian</strong> will use your
+preferred units when displaying any parameter that has those dimensions
+in both the <strong><a href="#system-modeler">Systems
+Dashboard</a></strong> and the <strong><a
+href="#use-the-object-viewereditor">Object Viewer/Editor</a></strong>,
+and your preference is saved and used in all future sessions.</p>
+</body>
+</html>

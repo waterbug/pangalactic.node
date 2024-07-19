@@ -1,6 +1,5 @@
 syntax: glob
 *.bak
-*.html
 *.swp
 *.gif
 *.jpg

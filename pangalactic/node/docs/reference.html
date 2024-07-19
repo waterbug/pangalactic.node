@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Stephen Waterbury / Code 585" />
+  <title>Pan Galactic Engineering Framework Reference</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="pandoc.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Pan Galactic Engineering Framework Reference</h1>
+<p class="author">Stephen Waterbury / Code 585</p>
+<p class="date">v. 1.8</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#overview-the-pan-galactic-architecture"
+id="toc-overview-the-pan-galactic-architecture">Overview: The Pan
+Galactic Architecture</a></li>
+<li><a href="#a-word-about-nomenclature"
+id="toc-a-word-about-nomenclature">A Word About Nomenclature …</a></li>
+<li><a href="#main-window-elements" id="toc-main-window-elements">Main
+Window Elements</a>
+<ul>
+<li><a href="#menu-input" id="toc-menu-input">Menu: Input</a>
+<ul>
+<li><a href="#import-objects-from-a-file"
+id="toc-import-objects-from-a-file">Import Objects from a File…</a></li>
+<li><a href="#import-project-requirements-from-a-file"
+id="toc-import-project-requirements-from-a-file">Import Project
+Requirements from a File…</a></li>
+</ul></li>
+<li><a href="#menu-output" id="toc-menu-output">Menu: Output</a>
+<ul>
+<li><a href="#export-project-to-a-file"
+id="toc-export-project-to-a-file">Export Project to a File…</a></li>
+<li><a href="#export-project-requirements-to-a-file"
+id="toc-export-project-requirements-to-a-file">Export Project
+Requirements to a File…</a></li>
+<li><a href="#write-mel" id="toc-write-mel">Write MEL…</a></li>
+<li><a href="#dump-local-database-to-a-file"
+id="toc-dump-local-database-to-a-file">Dump Local Database to a
+File…</a></li>
+<li><a href="#generate-a-publicprivate-key-pair"
+id="toc-generate-a-publicprivate-key-pair">Generate a Public/Private Key
+Pair…</a></li>
+</ul></li>
+<li><a href="#menu-create-new-objects"
+id="toc-menu-create-new-objects">Menu: Create New Objects</a>
+<ul>
+<li><a href="#new-system-or-component-product"
+id="toc-new-system-or-component-product">New System or Component
+(Product)</a></li>
+<li><a href="#new-functional-requirement"
+id="toc-new-functional-requirement">New Functional Requirement</a></li>
+<li><a href="#new-performance-requirement"
+id="toc-new-performance-requirement">New Performance
+Requirement</a></li>
+</ul></li>
+<li><a href="#menu-tools" id="toc-menu-tools">Menu: Tools</a>
+<ul>
+<li><a href="#project-requirements-manager"
+id="toc-project-requirements-manager">Project Requirements
+Manager</a></li>
+<li><a href="#conops-modeler" id="toc-conops-modeler">ConOps
+Modeler</a></li>
+<li><a href="#systems-and-components-hardware-products-library"
+id="toc-systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</a></li>
+<li><a href="#system-and-component-templates-library"
+id="toc-system-and-component-templates-library">System and Component
+Templates Library</a></li>
+<li><a href="#product-types-library"
+id="toc-product-types-library">Product Types Library</a></li>
+<li><a href="#port-types-library" id="toc-port-types-library">Port Types
+Library</a></li>
+<li><a href="#port-templates-library"
+id="toc-port-templates-library">Port Templates Library</a></li>
+<li><a href="#parameter-definitions-library"
+id="toc-parameter-definitions-library">Parameter Definitions
+Library</a></li>
+<li><a href="#data-element-definitions-library"
+id="toc-data-element-definitions-library">Data Element Definitions
+Library</a></li>
+<li><a href="#refresh-system-tree-and-dashboard"
+id="toc-refresh-system-tree-and-dashboard">Refresh System Tree and
+Dashboard</a></li>
+<li><a href="#re-sync-current-project"
+id="toc-re-sync-current-project">Re-Sync Current Project</a></li>
+<li><a href="#force-full-re-sync" id="toc-force-full-re-sync">Force Full
+Re-Sync</a></li>
+<li><a href="#view-a-cad-model-windows-and-linux-only"
+id="toc-view-a-cad-model-windows-and-linux-only">View a CAD Model…
+(Windows and Linux only)</a></li>
+<li><a href="#view-cad-models-osx-and-linux-only"
+id="toc-view-cad-models-osx-and-linux-only">View CAD Model(s)… (OSX and
+Linux only)</a></li>
+<li><a href="#edit-preferences" id="toc-edit-preferences">Edit
+Preferences</a></li>
+</ul></li>
+<li><a href="#help" id="toc-help">Help</a></li>
+<li><a href="#project-selector" id="toc-project-selector">Project
+Selector</a></li>
+<li><a href="#network-login-logout"
+id="toc-network-login-logout">Network Login / Logout</a></li>
+</ul></li>
+<li><a href="#user-interface-modes" id="toc-user-interface-modes">User
+Interface Modes</a>
+<ul>
+<li><a href="#component-modeler" id="toc-component-modeler">Component
+Modeler</a></li>
+<li><a href="#systems-modeler" id="toc-systems-modeler">Systems
+Modeler</a></li>
+<li><a href="#local-db" id="toc-local-db">Local DB</a></li>
+<li><a href="#data-mode" id="toc-data-mode">Data Mode</a></li>
+</ul></li>
+<li><a href="#object-viewereditor" id="toc-object-viewereditor">Object
+Viewer/Editor</a>
+<ul>
+<li><a href="#how-to-access" id="toc-how-to-access">How To
+Access</a></li>
+<li><a href="#interface-elements" id="toc-interface-elements">Interface
+Elements</a></li>
+<li><a href="#view-mode" id="toc-view-mode">View Mode</a></li>
+<li><a href="#edit-mode" id="toc-edit-mode">Edit Mode</a></li>
+<li><a href="#cloning" id="toc-cloning">Cloning</a></li>
+</ul></li>
+<li><a href="#system-component-wizard"
+id="toc-system-component-wizard">System / Component Wizard</a></li>
+<li><a href="#libraries" id="toc-libraries">Libraries</a></li>
+<li><a href="#tasks-how-do-i" id="toc-tasks-how-do-i">Tasks: How do I
+…</a>
+<ul>
+<li><a href="#create-a-new-system-or-component"
+id="toc-create-a-new-system-or-component">Create a new System or
+Component?</a></li>
+</ul></li>
+<li><a href="#glossary" id="toc-glossary">Glossary</a>
+<ul>
+<li><a href="#functional-requirement"
+id="toc-functional-requirement">Functional Requirement</a></li>
+<li><a href="#master-equipment-list-mel"
+id="toc-master-equipment-list-mel">Master Equipment List (MEL)</a></li>
+<li><a href="#model" id="toc-model">Model</a></li>
+<li><a href="#parameter" id="toc-parameter">Parameter</a></li>
+<li><a href="#parameter-definition"
+id="toc-parameter-definition">Parameter Definition</a></li>
+<li><a href="#performance-requirement"
+id="toc-performance-requirement">Performance Requirement</a></li>
+<li><a href="#product-a.k.a.-system-subsystem-component-part"
+id="toc-product-a.k.a.-system-subsystem-component-part">Product (a.k.a.
+System, Subsystem, Component, Part)</a></li>
+<li><a href="#product-type" id="toc-product-type">Product Type</a></li>
+<li><a href="#project" id="toc-project">Project</a></li>
+<li><a href="#requirement" id="toc-requirement">Requirement</a></li>
+<li><a href="#step" id="toc-step">STEP</a></li>
+<li><a href="#tardis" id="toc-tardis">TARDIS</a></li>
+<li><a href="#template" id="toc-template">Template</a></li>
+<li><a href="#test" id="toc-test">Test</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="overview-the-pan-galactic-architecture">Overview: The Pan
+Galactic Architecture</h1>
+<p><strong>The Pangalactic Engineering Framework</strong>
+(<strong>PGEF</strong>)is a Collaborative Model-Based Engineering (MBE)
+framework, consisting of a <strong>Desktop Client</strong>, a network
+<strong>Message Bus</strong>, and a repository service network interface
+that provides access to a <strong>Systems Database</strong> and
+<strong>Systems and Components Library</strong>, as shown in the diagram
+below.</p>
+<p>This reference document is primarily focused on the application
+structure of the <strong>Pangalaxian Desktop Client</strong> and
+includes a <strong><a href="#glossary">Glossary</a>)</strong> of terms
+related to the objects that <strong>Pangalaxian</strong> creates and
+manages.</p>
+<figure>
+<img src="images/pgef_arch.png" title="Pan Galactic Architecture"
+alt="Pan Galactic Architecture" />
+<figcaption aria-hidden="true">Pan Galactic Architecture</figcaption>
+</figure>
+<h1 id="a-word-about-nomenclature">A Word About Nomenclature …</h1>
+<p>In the manufacturing domain, there are many terms for the concept of
+<em>designed artifact</em>, e.g. <strong>System</strong>,
+<strong>Subsystem</strong>, <strong>Component</strong>,
+<strong>Part</strong>. The general term most widely used in engineering
+data standards is <strong><a
+href="#product-a.k.a.-system-subsystem-component-part">“Product”</a></strong>
+– hence, <strong>PGEF</strong> uses the term <strong>Product</strong>
+for all of those items. The use of the more general term
+<strong>Product</strong> is simply a convention and in no way limits the
+types of information and models that can be associated with an artifact,
+independently of whether it is referred to in some contexts as a
+<strong>System</strong> (a complex <strong>Product</strong> with
+internal structure and behaviors) and in others a
+<strong>Component</strong> (a <strong>Product</strong> used in the
+assembly of another <strong>Product</strong>).</p>
+<p><strong>PGEF</strong> generally uses the term <strong>System</strong>
+in the context of a <strong><em>white box</em></strong> model of a
+<strong>Product</strong> (i.e., one in which the internal structures
+and/or interfaces of the <strong>Product</strong> are known) and
+<strong>Component</strong> in the context of a <strong><em>black
+box</em></strong> model (in which only the attributes and external shape
+and/or interfaces are known or relevant). <strong>Pangalaxian</strong>
+is designed to support the multi-disciplinary nature of
+<strong>Product</strong> models, so for any given
+<strong>Product</strong>, <strong>Pangalaxian</strong> can maintain and
+track its relationships to multiple <strong><em>white box</em></strong>
+and <strong><em>black box</em></strong> models. Indeed, it is perfectly
+normal for a <strong>Product</strong> to have several types of models,
+some of which are <strong><em>white boxes</em></strong> and some
+<strong><em>black boxes</em></strong>, developed and used by discipline
+engineers in various design and analysis contexts.</p>
+<h1 id="main-window-elements">Main Window Elements</h1>
+<p>The <strong>Pangalaxian</strong> application <strong>Main
+Window</strong> consists of a <strong>Tool Bar</strong>, a central area
+with various widgets (such as a <strong>Dashboard</strong> and a
+<strong>System Tree</strong>), and a <strong>Status Bar</strong> at the
+bottom, which displays messages regarding network interactions and local
+database events. Many of the labels and buttons shown have “tooltips”
+(brief help messages that display when the mouse hovers over them). The
+figure below shows the elements of the user interface when it is in
+<strong>Systems Modeler</strong> <strong>mode</strong> (user interface
+<strong>modes</strong> are explained in detail in the <a
+href="#user-interface-modes">User Interface Modes</a> section,
+below).</p>
+<figure>
+<img src="images/main_window_fig.png" title="Main Window"
+alt="Main Window (Systems Modeler Mode)" />
+<figcaption aria-hidden="true">Main Window (Systems Modeler
+Mode)</figcaption>
+</figure>
+<h2 id="menu-input">Menu: Input</h2>
+<p>The <strong>Input</strong> menu provides functions to import data or
+objects.</p>
+<figure>
+<img src="images/input_menu.png" title="Input Menu" alt="Input" />
+<figcaption aria-hidden="true">Input</figcaption>
+</figure>
+<h4
+id="an-important-note-about-importing-data-from-exported-data-files">An
+Important Note about Importing Data from Exported Data Files</h4>
+<p>Note that although <strong>Pangalaxian</strong> can import data from
+a file that has been created using the export functions, importing data
+that contains objects that were created by other users should not be
+done by a non-administrative user because of data synchronization issues
+with the repository: when the user logs in after importing data, the
+repository sync process will delete any objects not created by the local
+user unless they already exist in the repository. That is because the
+repository only allows users to save objects that they create or are
+authorized to modify, so when <strong>Pangalaxian</strong> sends data to
+the repository for synchronization and the data contains an object that
+was created by another user but the object is not present in the
+repository, the repository assumes that the object was deleted either by
+its creator or by an authorized user, so the repository will instruct
+<strong>Pangalaxian</strong> to delete the object locally.</p>
+<p>For the above reasons, if a user wants to recreate all or part of a
+saved database or project that contains objects created by other users,
+the best way to do that is to send the exported file to the repository
+administrator and ask them to load it; then if the user is assigned a
+role in the project(s) or organization(s) that own(s) the data, their
+<strong>Pangalaxian</strong> client will receive that data in the sync
+process the next time the user connects to the repository.</p>
+<h3 id="import-objects-from-a-file">Import Objects from a File…</h3>
+<p>Enables the user to import a <strong><a
+href="#project">Project</a></strong> (including all its systems and
+their assemblies) from a file that was created using the <strong><a
+href="#export-project-to-a-file...">Export Project to a
+File</a></strong> function.</p>
+<p>Clicking this menu item opens a file dialog so the user can select
+the file to be imported – when the file is selected, the import process
+begins. Progress is shown by messages in the status bar.</p>
+<h3 id="import-project-requirements-from-a-file">Import Project
+Requirements from a File…</h3>
+<p>Enables the user to import all <strong><a
+href="#requirement">Requirements</a></strong> from a file that was
+created using the <strong><a
+href="#export-project-requirements-to-a-file...">Export Project
+Requirements to a File</a></strong> function.</p>
+<p>Clicking this menu item opens a file dialog so the user can select
+the file to be imported – when the file is selected, the import process
+begins. Progress is shown by messages in the status bar.</p>
+<h2 id="menu-output">Menu: Output</h2>
+<figure>
+<img src="images/output_menu.png" title="Menu: Output" alt="Output" />
+<figcaption aria-hidden="true">Output</figcaption>
+</figure>
+<p>The <strong>Output</strong> menu provides functions to export data or
+objects.</p>
+<h3 id="export-project-to-a-file">Export Project to a File…</h3>
+<p>Enables the user to export the currently selected <strong><a
+href="#project">Project</a></strong> (including all its systems and
+their assemblies) to a file, which can be saved as a backup. The
+exported file can later be imported into <strong>Pangalaxian</strong>
+using the <a href="#import-project-from-a-file...">Import Project from a
+File</a> function – however, see the <em><a
+href="#an-important-note-about-importing-data-from-exported-data-files">important
+note about importing data</a></em>.</p>
+<p>The format of the exported file self-describing and it therefore has
+some degree of schema-independence. <strong>PGEF</strong> releases will
+sometimes involve internal database schema (ontology) changes, and since
+the exported file is schema-independent, the <a
+href="#import-project-from-a-file...">Import Project from a File</a>
+function can migrate the imported data to the new schema – however, see
+the <em><a
+href="#an-important-note-about-importing-data-from-exported-data-files">important
+note about importing data</a></em>.</p>
+<h3 id="export-project-requirements-to-a-file">Export Project
+Requirements to a File…</h3>
+<p>Enables the user to export the set of <strong><a
+href="#requirement">Requirements</a></strong> applicable to the
+currently selected <strong><a href="#project">Project</a></strong> to a
+file, which can be saved as a backup. The exported file can later be
+imported into <strong>Pangalaxian</strong> using the <a
+href="#import-project-requirements-from-a-file...">Import Project
+Requirements from a File</a> function – however, see the <em><a
+href="#an-important-note-about-importing-data-from-exported-data-files">important
+note about importing data</a></em>.</p>
+<h3 id="write-mel">Write MEL…</h3>
+<p>Generates a Bill of Materials or <a
+href="#master-equipment-list-mel">Master Equipment List (MEL)</a>
+derived from the systems, sub-systems, and components as they are
+assembled for the currently selected <strong><a
+href="#project">Project</a></strong>.</p>
+<p>Clicking this menu item displays a file dialog so the user can select
+an appropriate name and location for the file that is created.</p>
+<h3 id="dump-local-database-to-a-file">Dump Local Database to a
+File…</h3>
+<p>Writes the complete local database to a file as a set of serialized
+objects, which are serialized in the <strong>PGEF</strong> standard
+serialization format and encoded into <a
+href="%22https://en.wikipedia.org/wiki/YAML%22">YAML</a>. Clicking this
+menu item displays a file dialog so the user can select an appropriate
+name and location for the file that is created.</p>
+<h3 id="generate-a-publicprivate-key-pair">Generate a Public/Private Key
+Pair…</h3>
+<p>Generates a pair of encrypted keys for use in the
+<strong>PGEF</strong> server login process. The <strong>public
+key</strong> (<em>public.key</em>) will be written into the
+<em>pangalaxian_home</em> directory, which is located in the user’s home
+directory. The <strong>private key</strong> (<em>private.key</em>) is
+written into the <em>.creds</em> subdirectory of
+<em>pangalaxian_home</em>, and it should not be moved. The user should
+email the <em>public.key</em> file to the <strong>PGEF</strong>
+administrator when requesting a user account. After that, the
+<em>public.key</em> file is no longer needed by
+<strong>Pangalaxian</strong>. When the <em>Network Login</em> icon in
+the <strong>Tool Bar</strong> is clicked, the
+<strong>Pangalaxian</strong> client will use the <em>private.key</em>
+file to do a transparent single-sign-on login to the
+<strong>PGEF</strong> server.</p>
+<h2 id="menu-create-new-objects">Menu: Create New Objects</h2>
+<p>The <strong>Create New Objects</strong> menu provides functions to
+create new <a
+href="#product-a.k.a.-system-subsystem-component-part">Products (a.k.a.
+Systems, Components)</a>, <a href="#requirement">Functional
+Requirements</a>, <a href="#requirement">Performance Requirements</a>,
+and <a href="#test">Tests</a>.</p>
+<figure>
+<img src="images/new_objects_menu.png" title="Menu: Create New Objects"
+alt="Create New Objects" />
+<figcaption aria-hidden="true">Create New Objects</figcaption>
+</figure>
+<h3 id="new-system-or-component-product">New System or Component
+(Product)</h3>
+<p>Displays the <a href="#system-component-wizard">System / Component
+Wizard</a> (follow link to that section for details.)</p>
+<figure>
+<img src="images/new_product_wizard.png"
+title="System / Component Wizard (First Page)"
+alt="System / Component Wizard (First Page)" />
+<figcaption aria-hidden="true">System / Component Wizard (First
+Page)</figcaption>
+</figure>
+<h3 id="new-functional-requirement">New Functional Requirement</h3>
+<p>Displays a wizard (see figure below) in which the user can create a
+new <strong><a href="#functional-requirement">Functional
+Requirement</a></strong>.</p>
+<figure>
+<img src="images/new_func_reqt_wizard.png"
+title="New Functional Requirement Wizard"
+alt="New Functional Requirement Wizard" />
+<figcaption aria-hidden="true">New Functional Requirement
+Wizard</figcaption>
+</figure>
+<h3 id="new-performance-requirement">New Performance Requirement</h3>
+<p>Displays a wizard (see figure below) in which the user can create a
+new <strong><a href="#performance-requirement">Performance
+Requirement</a></strong>.</p>
+<p>A <strong><a href="#requirement">Requirement</a></strong> is
+typically owned (defined and managed) by an
+<strong>Organization</strong>, and when a new
+<strong>Requirement</strong> is defined, <strong>Pangalaxian</strong>
+assigns the currently selected <strong>Project</strong> as its
+<strong><em>owner</em></strong> (the <strong><em>owner</em></strong>
+field is on the <strong>info</strong> tab of the <strong><a
+href="#object-viewer-editor">Object Editor</a></strong>) – note that
+that is just a default assignment of <strong><em>owner</em></strong>,
+and can be modified by the <strong><em>creator</em></strong> of the
+<strong>Requirement</strong> (i.e. the user who is editing it). The
+<strong><em>id</em></strong> attribute also gets a default prefix from
+the <strong>Project</strong> <strong><em>id</em></strong> – for example,
+the figure shows the <strong><em>id</em></strong> prefix as
+“<strong>SANDBOX</strong>”, since it was created while the
+<em>SANDBOX</em> <strong>Project</strong> was selected.</p>
+<p>It is also worth noting that, as explained in the <strong><a
+href="#project-requirements-manager">Project Requirements
+Manager</a></strong> section below, the <strong>Project Requirements
+Manager</strong> function will display all <strong>Requirements</strong>
+for which the <strong><em>owner</em></strong> is the currently selected
+<strong>Project</strong>.</p>
+<figure>
+<img src="images/new_perf_reqt_wizard.png"
+title="New Performance Requirement Wizard"
+alt="New Performance Requirement Wizard" />
+<figcaption aria-hidden="true">New Performance Requirement
+Wizard</figcaption>
+</figure>
+<h2 id="menu-tools">Menu: Tools</h2>
+<p>The <strong>Tools</strong> menu provides functions for various tasks
+such as editing the user’s preferences, displaying libraries in separate
+windows, and some administrative tasks such as updating
+<strong>Pangalaxian</strong>.</p>
+<figure>
+<img src="images/tools_menu.png" title="Menu: Tools" alt="Tools" />
+<figcaption aria-hidden="true">Tools</figcaption>
+</figure>
+<h3 id="project-requirements-manager">Project Requirements Manager</h3>
+<p>Displays all <strong><a href="#requirement">Requirements</a></strong>
+for the currently selected <strong><a
+href="#project">Project</a></strong> in a dialog window. The user can
+filter the displayed items by typing a string into the
+<strong>Filter</strong> field – filtering will be case-sensitive if the
+<strong>case sensitive</strong> box is checked, otherwise it will be
+case-insensitive (the default).</p>
+<p>As shown in the screen capture below, selecting a requirement on the
+left side (by left-clicking on it) will highlight in yellow the
+system/subsystem in the assembly tree on the right side to which the
+requirement has been allocated (assuming it has been allocated). The
+screen capture also shows the context menu that is displayed by
+right-clicking on a requirement, if you have edit privileges for the
+requirement based on your assigned role(s) in the project. If you do
+have such privileges, you can either edit just the performance parameter
+associated with the requirement (second screen shot below), or import
+the requirement into the <strong><a
+href="#new-performance-requirement">Requirement Wizard</a></strong> to
+edit other properties of the requirement.</p>
+<figure>
+<img src="images/requirements_manager.png"
+title="Project Requirements Manager"
+alt="Project Requirements Manager" />
+<figcaption aria-hidden="true">Project Requirements Manager</figcaption>
+</figure>
+<h3 id="conops-modeler">ConOps Modeler</h3>
+<p>The <strong>ConOps Modeler</strong> tool provides a drag and drop
+interface for the creation of mission timelines.</p>
+<h3 id="systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</h3>
+<p>The <strong>Systems and Components (Hardware Products)
+Library</strong> menu item brings up the library in a dialog window. The
+same <strong>Systems and Components (Hardware Products) Library</strong>
+is also displayed in the <strong>“Libraries”</strong> panel on the right
+side of the <strong>Main Window</strong> (see <strong><a
+href="#main-window-elements">Main Window Elements</a></strong>). Some
+reasons why you might want to display the library in a separate dialog
+window include:</p>
+<ol type="1">
+<li><p>you need a wider view, including more fields (columns) than are
+shown in the <strong>Libraries</strong> panel on the right
+side;</p></li>
+<li><p>you need to view one of the other libraries at the same time,
+such as the <strong><a href="#parameter-definitions-library">Parameter
+Definitions Library</a></strong>, the <strong><a
+href="#system-and-component-templates-library">System and Component
+Templates Library</a></strong>, or the <strong><a
+href="#port-templates-library">Port Templates
+Library</a></strong>.</p></li>
+</ol>
+<p>Note that the user can click and drag any item in the library and add
+it as a component to another system by dropping it onto either the
+system’s node in the <strong>System Assembly Tree</strong> or its block
+in the <strong>Block Model</strong>. See the <strong><a
+href="#system-assembly-via-drag-and-drop">System Assembly via Drag and
+Drop</a></strong> section for details on how the <em>drag-and-drop</em>
+assembly process works.</p>
+<h4 id="sorting-and-filtering">Sorting and Filtering</h4>
+<p>The user can <em>sort</em> the <strong>Systems and Components
+(Hardware Products) Library</strong> on any column by clicking on the
+column heading. The user can <em>filter</em> the displayed items by
+typing a string into the <strong>Text Filter</strong> field – filtering
+will be case-sensitive if the <strong>case sensitive</strong> box is
+checked; otherwise it will be case-insensitive (the default). The user
+can view details about any item in the library by right-clicking on the
+item (which displays a context menu) and then selecting <strong>“View
+this object”</strong>, which will display the item in the <strong><a
+href="#object-viewer-editor">Object Viewer/Editor</a></strong>.</p>
+<figure>
+<img src="images/hw_lib_dlg.png"
+title="Systems and Components (Hardware Products) Library Dialog"
+alt="Systems and Components (Hardware Products) Library Dialog" />
+<figcaption aria-hidden="true">Systems and Components (Hardware
+Products) Library Dialog</figcaption>
+</figure>
+<h3 id="system-and-component-templates-library">System and Component
+Templates Library</h3>
+<p>Displays all <strong><a href="#template">System and Component
+Templates</a></strong> in a dialog window.</p>
+<p>In <strong><a href="#component-modeler">Component
+Modeler</a></strong> mode, you can use <em>drag-and-drop</em> to create
+a new system from a <strong>Template</strong>: simply <em>drag</em> the
+<strong>Template</strong> from the <strong>System and Component
+Templates Library</strong> and <em>drop</em> it onto the <strong>Product
+Info Panel</strong> – this will create the new system, put its
+information into the <strong>Product Info Panel</strong> and the
+<strong>Object Viewer/Editor</strong>, and create a block for it on the
+<strong>Diagram Canvas</strong>. Since you are the creator of the new
+system, you can edit it in the <strong>Object Viewer/Editor</strong> and
+give it components by <em>drag/dropping</em> them onto its block in the
+<strong>Diagram Canvas</strong>.</p>
+<figure>
+<img src="images/template_lib.png"
+title="System and Component Templates Library"
+alt="System and Component Templates Library" />
+<figcaption aria-hidden="true">System and Component Templates
+Library</figcaption>
+</figure>
+<h3 id="product-types-library">Product Types Library</h3>
+<p>Displays all <strong><a href="#product-type">Product
+Types</a></strong> in a dialog window. This library is used in assigning
+a value to the <strong>product_type</strong> attribute of any component
+or system. It is only made accessible here as a dialog for information,
+in case you want to see the definition for any <strong>Product
+Type</strong>.</p>
+<figure>
+<img src="images/product_types_lib.png" title="Product Types Library"
+alt="Product Types Library" />
+<figcaption aria-hidden="true">Product Types Library</figcaption>
+</figure>
+<h3 id="port-types-library">Port Types Library</h3>
+<p>Displays all <strong>Port Types</strong> in a dialog window.</p>
+<p>In <strong><a href="#component-modeler">Component
+Modeler</a></strong> mode, you can use <em>drag-and-drop</em> to add a
+<strong>Port</strong> to a system or component: simply <em>drag</em> the
+<strong>Port Type</strong> from the <strong>Port Types Library</strong>,
+<em>drop</em> it onto the system or component’s block in the
+<strong>Diagram Canvas</strong>, and the new <strong>Port</strong> will
+be created.</p>
+<figure>
+<img src="images/port_types_lib.png" title="Port Types Library"
+alt="Port Types Library" />
+<figcaption aria-hidden="true">Port Types Library</figcaption>
+</figure>
+<h3 id="port-templates-library">Port Templates Library</h3>
+<p>Displays all <strong>Port Templates</strong> in a dialog window.</p>
+<p>In <strong><a href="#component-modeler">Component
+Modeler</a></strong> mode, you can use <em>drag-and-drop</em> to add a
+<strong>Port</strong> to a system or component: simply <em>drag</em> the
+<strong>Port Template</strong> from the <strong>Port Templates
+Library</strong>, <em>drop</em> it onto the system or component’s block
+in the <strong>Diagram Canvas</strong>, and the new
+<strong>Port</strong> will be created.</p>
+<p>The advantage of using a <strong>Port Template</strong> instead of a
+<strong>Port Type</strong> is that a <strong>Port Template</strong> has
+a parametric value assigned (e.g. a 28 Volt power port will have a
+Voltage parameter value of 28 assigned), whereas a <strong>Port
+Type</strong> has no specific parameter values, but rather it is
+intended to have parameters and values assigned after it is created. So
+a <strong>Port Template</strong> is more useful when a “standard” port
+with a characteristic parameter value is needed and a template with that
+value exists in the library.</p>
+<figure>
+<img src="images/port_templates_lib.png" title="Port Templates Library"
+alt="Port Templates Library" />
+<figcaption aria-hidden="true">Port Templates Library</figcaption>
+</figure>
+<h3 id="parameter-definitions-library">Parameter Definitions
+Library</h3>
+<p>Displays the <strong><a href="#parameter-definition">Parameter
+Definitions</a> Library</strong> in a dialog window. The
+<strong>Parameter Definitions Library</strong> can also be displayed in
+the <strong>“Libraries”</strong> panel on the right side of the
+<strong>Main Window</strong> (see <strong><a
+href="#main-window-elements">Main Window Elements</a></strong>). Reasons
+to want the <strong>Parameter Definitions Library</strong> displayed in
+a separate window include:</p>
+<ol type="1">
+<li><p>you need a wider view, including more fields (columns) than are
+shown in the <strong>Libraries</strong> panel on the right
+side;</p></li>
+<li><p>you need to view one of the other libraries (<strong><a
+href="#systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</a></strong> or <strong><a
+href="#system-and-component-templates-library">System and Component
+Templates Library</a></strong>) simultaneously with the
+<strong>Parameter Definitions Library</strong>.</p></li>
+</ol>
+<p>The user can <em>sort</em> the <strong>Parameter Definitions
+Library</strong> on any column by clicking on the column heading. The
+user can <em>filter</em> the displayed items by typing a string into the
+<strong>Filter</strong> field – filtering will be case-sensitive if the
+<strong>case sensitive</strong> box is checked; otherwise it will be
+case-insensitive (the default). The user can view details about any item
+in the library by right-clicking on the item (which displays a context
+menu) and then selecting <strong>“View this object”</strong>, which will
+display the item in the <strong><a href="#object-viewer-editor">Object
+Viewer/Editor</a></strong>.</p>
+<p>The <strong>Parameter Definitions Library</strong> supports
+<em>drag-and-drop</em>: the user can click and drag any item in the
+library and drop it onto the <strong>parameters panel</strong> in the
+<strong><a href="#object-viewer-editor">Object
+Viewer/Editor</a></strong> to assign a <strong>Parameter</strong> to an
+object. See the <strong><a href="#object-viewer-editor">Object
+Viewer/Editor</a></strong> section for details on how the
+<em>drag-and-drop</em> process for adding a <strong>Parameter</strong>
+works.</p>
+<figure>
+<img src="images/pd_lib_dlg.png"
+title="Parameter Definitions Library Dialog"
+alt="Parameter Definitions Library Dialog" />
+<figcaption aria-hidden="true">Parameter Definitions Library
+Dialog</figcaption>
+</figure>
+<h3 id="data-element-definitions-library">Data Element Definitions
+Library</h3>
+<p>Displays the <strong><a href="#parameter-definition">Data Element
+Definitions</a> Library</strong> in a dialog window. The <strong>Data
+Element Definitions Library</strong> can also be displayed in the
+<strong>“Libraries”</strong> panel on the right side of the <strong>Main
+Window</strong> (see <strong><a href="#main-window-elements">Main Window
+Elements</a></strong>). Reasons to want the <strong>Data Element
+Definitions Library</strong> displayed in a separate window include:</p>
+<ol type="1">
+<li><p>you need a wider view, including more fields (columns) than are
+shown in the <strong>Libraries</strong> panel on the right
+side;</p></li>
+<li><p>you need to view one of the other libraries (<strong><a
+href="#systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</a></strong> or <strong><a
+href="#system-and-component-templates-library">System and Component
+Templates Library</a></strong>) simultaneously with the <strong>Data
+Element Definitions Library</strong>.</p></li>
+</ol>
+<p>The user can <em>sort</em> the <strong>Data Element Definitions
+Library</strong> on any column by clicking on the column heading. The
+user can <em>filter</em> the displayed items by typing a string into the
+<strong>Filter</strong> field – filtering will be case-sensitive if the
+<strong>case sensitive</strong> box is checked; otherwise it will be
+case-insensitive (the default). The user can view details about any item
+in the library by right-clicking on the item (which displays a context
+menu) and then selecting <strong>“View this object”</strong>, which will
+display the item in the <strong><a href="#object-viewer-editor">Object
+Viewer/Editor</a></strong>.</p>
+<figure>
+<img src="images/de_defs_lib_dlg.png"
+title="Data Element Definitions Library Dialog"
+alt="Data Element Definitions Library Dialog" />
+<figcaption aria-hidden="true">Data Element Definitions Library
+Dialog</figcaption>
+</figure>
+<h3 id="refresh-system-tree-and-dashboard">Refresh System Tree and
+Dashboard</h3>
+<p>In <strong><a href="#systems-modeler">Systems Modeler</a></strong>
+mode, re-generates the assembly tree and dashboard from the local
+database. (Should only be needed in the rare case of an incomplete
+synchronization operation.)</p>
+<h3 id="re-sync-current-project">Re-Sync Current Project</h3>
+<h3 id="force-full-re-sync">Force Full Re-Sync</h3>
+<h3 id="view-a-cad-model-windows-and-linux-only">View a CAD Model…
+(Windows and Linux only)</h3>
+<p>Displays a file dialog in which the user can select a <strong><a
+href="#step">STEP</a></strong> file (also known as a <strong>“part 21
+file”</strong>), which should have a suffix of <em>.p21</em>,
+<em>.stp</em>, or <em>.step</em>. When a file is selected, the
+<strong>CAD Viewer</strong> attempts to read it and, if successful,
+renders and displays the model. The <strong>CAD Viewer</strong> is a
+<strong>3D Viewer</strong> with <em>rotate</em>, <em>zoom</em>, and
+<em>translate</em> functionality. The viewer can render models that
+follow either of the <strong><a href="#step">STEP</a></strong> protocols
+for <em>Mechanical CAD</em>: <strong><em>AP203</em></strong> or
+<strong><em>AP214</em></strong>. The <strong>OK</strong> and
+<strong>Cancel</strong> buttons both do the same thing: close the
+viewer.</p>
+<ul>
+<li><strong><em>rotate</em></strong>: use the left mouse button to
+rotate the model</li>
+<li><strong><em>zoom</em></strong>: use the mouse wheel
+<strong>or</strong> hold down the right mouse button and drag
+<em>diagonally</em> on the viewer canvas to zoom in and out</li>
+<li><strong><em>translate</em></strong>: hold down the middle mouse
+button and drag to move the model translationally</li>
+<li><strong><em>change rendering</em></strong>: with focus on the
+viewer,
+<ul>
+<li><strong>shift-W</strong> for <strong>wireframe</strong></li>
+<li><strong>shift-S</strong> for <strong>solid with
+shading</strong></li>
+</ul></li>
+</ul>
+<figure>
+<img src="images/cad_viewer.png" title="CAD Viewer" alt="CAD Viewer" />
+<figcaption aria-hidden="true">CAD Viewer</figcaption>
+</figure>
+<figure>
+<img src="images/cad_viewer_wireframe.png"
+title="CAD Viewer (Wireframe Mode)" alt="CAD Viewer (Wireframe Mode)" />
+<figcaption aria-hidden="true">CAD Viewer (Wireframe Mode)</figcaption>
+</figure>
+<h3 id="view-cad-models-osx-and-linux-only">View CAD Model(s)… (OSX and
+Linux only)</h3>
+<h3 id="edit-preferences">Edit Preferences</h3>
+<p>Displays a dialog in which the user can edit some settings for
+customization. Any values set in the <strong>Preferences</strong> dialog
+take effect when the dialog is accepted (i.e., the <strong>OK</strong>
+button is clicked), and they are saved between sessions.</p>
+<figure>
+<img src="images/edit_prefs.png" title="Preferences Dialog"
+alt="Preferences Dialog" />
+<figcaption aria-hidden="true">Preferences Dialog</figcaption>
+</figure>
+<p><strong>Options</strong>:</p>
+<ul>
+<li><p><strong>Delete empty rows in imported data</strong><br />
+(what it says)</p></li>
+<li><p><strong>Numeric Format</strong><br />
+Specifies the format options for numeric <strong>Parameter</strong>
+values:</p>
+<ul>
+<li>Thousands Commas (default)</li>
+<li>No Commas</li>
+<li>Scientific Notation</li>
+</ul></li>
+<li><p><strong>Numeric Precision</strong><br />
+Specifies the number of digits to be regarded as <em>significant</em> in
+<strong>Parameter</strong> values. Options are any integer value from 3
+to 9, with 3 being the default.</p></li>
+<li><p><strong>Preferred Units</strong> Specifies for each available
+dimensionality, which units will be used in displaying the
+<strong>Parameter</strong> values that have those dimensions. When the
+unit preferences have been changed and both the <strong>Preferred
+Units</strong> <em>and</em> the <strong>Edit Preferences</strong>
+dialogs have been accepted (<strong>OK</strong> has been clicked on
+both), any dashboard parameter values that have the relevant units will
+immediately be converted and displayed in the new preferred
+units.</p></li>
+</ul>
+<figure>
+<img src="images/preferred_units_dlg.png" title="Preferred Units Dialog"
+alt="Preferred Units Dialog" />
+<figcaption aria-hidden="true">Preferred Units Dialog</figcaption>
+</figure>
+<h2 id="help">Help</h2>
+<figure>
+<img src="images/help_button.png" title="Help Button"
+alt="Help Button" />
+<figcaption aria-hidden="true">Help Button</figcaption>
+</figure>
+<p>Clicking the <em>Help button</em> (a tiny <em><a
+href="#tardis">TARDIS</a></em>) displays the
+<strong>Pangalaxian</strong> release version.</p>
+<h2 id="project-selector">Project Selector</h2>
+<figure>
+<img src="images/project_selector.png" title="Project Selector"
+alt="Project Selector" />
+<figcaption aria-hidden="true">Project Selector</figcaption>
+</figure>
+<p>Clicking the <strong>Project Selector</strong> button displays a list
+of the currently known <strong><a href="#project">Projects</a></strong>
+to which the user has access.</p>
+<figure>
+<img src="images/project_selector_clicked.png"
+title="Project Selector Clicked" alt="Project Selector Clicked" />
+<figcaption aria-hidden="true">Project Selector Clicked</figcaption>
+</figure>
+<p>Right-clicking the <strong>Project Selector</strong> button displays
+a context menu (shown below). The first option in the menu will be
+<strong>New Project</strong>, which if selected will display the
+<strong>New Project Dialog</strong>, in which the user can create a new
+<strong>Local Project</strong>. If the user is the
+<strong><em>creator</em></strong> of the currently selected
+<strong>Project</strong> and it is a <strong>Local Project</strong>, the
+second menu option will be <strong>Delete Project</strong>. Note that if
+the user deletes a <strong>Project</strong>, the items created within
+that project will continue to exist – only the <strong>Project</strong>
+itself is deleted.</p>
+<figure>
+<img src="images/project_selector_menu.png"
+title="Project Selector Right-Clicked"
+alt="Project Selector Right-Clicked (context menu)" />
+<figcaption aria-hidden="true">Project Selector Right-Clicked (context
+menu)</figcaption>
+</figure>
+<h2 id="network-login-logout">Network Login / Logout</h2>
+<p>When the mouse hovers over the <strong>Network Login/Logout</strong>
+button, a “tooltip” is displayed, as shown below, <strong>Connect to the
+message bus</strong>:</p>
+<figure>
+<img src="images/network_login.png" title="Network Login"
+alt="Network Login" />
+<figcaption aria-hidden="true">Network Login</figcaption>
+</figure>
+<p>The <strong>Pangalaxian</strong> client is not connected to the
+network until the user logs in, which is done by clicking the
+<strong>Network Login</strong> button, which displays a login
+dialog:</p>
+<figure>
+<img src="images/network_login_dialog.png" title="Network Login Dialog"
+alt="Network Login Dialog" />
+<figcaption aria-hidden="true">Network Login Dialog</figcaption>
+</figure>
+<p>The <strong>Network Login/Logout</strong> button is a toggle, so
+clicking on it while connected will disconnect
+<strong>Pangalaxian</strong> from the <strong>Message Bus</strong>. The
+<em>connected</em> / <em>disconnected</em> status is shown by the
+<em>network status indicator</em> in the lower right corner of the main
+window:</p>
+<figure>
+<img src="images/status_connected.png" title="Network Status: Connected"
+alt="Network Status: Connected" />
+<figcaption aria-hidden="true">Network Status: Connected</figcaption>
+</figure>
+<figure>
+<img src="images/status_disconnected.png"
+title="Network Status: Disconnected"
+alt="Network Status: Disconnected" />
+<figcaption aria-hidden="true">Network Status: Disconnected</figcaption>
+</figure>
+<p>Once the user logs in to the <strong>Message Bus</strong>, the
+<strong>Pangalaxian</strong> client begins a programmed set of network
+interactions that synchronize its local database with the
+<strong>Pangalaxian</strong> repository. The initial interactions upon
+connection include:</p>
+<ol type="1">
+<li>Get the set of <strong>Projects</strong> on which the user has been
+assigned <strong>Roles</strong>. (This may result in
+<strong>Projects</strong> being added or removed in the <strong>Project
+Selector</strong>.)</li>
+<li>Subscribe to the channels on which those <strong>Projects</strong>
+publish events, such as the addition of new <strong>Systems</strong> and
+<strong>Components</strong> to the <strong>Project</strong>.</li>
+<li>Synchronize the <strong>Parameter Definitions</strong> in the local
+database with those in the repository (this will include both getting
+from the repository any new <strong>Parameter Definitions</strong> and
+saving to the repository any new <strong>Parameter Definitions</strong>
+created by the user).</li>
+<li>Local user-created objects are saved to the repository (or deleted,
+if they were deleted locally since the last login and are not being used
+in a <strong>Project</strong>).</li>
+<li>Any new (since last login) objects in the repository
+<strong>Hardware Library</strong> are fetched and added to the local
+database.</li>
+<li>The currently selected <strong>Project</strong> is synced: the
+current state of its assembly tree is replicated locally and any objects
+that have been added to the <strong>Project</strong> (such as
+<strong>Project Requirements</strong>) since the last login are fetched
+and added to the local database.</li>
+<li>The user’s assigned <strong>Role(s)</strong> in the current
+<strong>Project</strong> will be displayed in the <strong>Status
+Bar</strong> (in the status label next to the <em>network status
+indicator</em>) if the current project is a collaborative project – if
+it is a local project, the status label will say
+“<strong>[local]</strong>”.</li>
+</ol>
+<p>Once the initial sync is completed, the <strong>Pangalaxian</strong>
+client will listen for events on the message bus, such as additions or
+modifications of objects, and will update itself accordingly in
+real-time.</p>
+<p>Whenever the user switches to a different project using the
+<strong>Project Selector</strong>, the sync operation (step 6 above) is
+executed for the newly selected <strong>Project</strong>.</p>
+<h1 id="user-interface-modes">User Interface Modes</h1>
+<p>The <strong>Pangalaxian</strong> GUI has four interface
+<strong>modes</strong> of operation:</p>
+<ul>
+<li><strong><a href="#component-modeler">Component
+Modeler</a></strong></li>
+<li><strong><a href="#systems-modeler">Systems Modeler</a></strong></li>
+<li><strong><a href="#local-db">Local DB</a></strong></li>
+<li><strong><a href="#data-mode">Data Mode</a></strong></li>
+</ul>
+<p>A <strong>mode</strong> is entered by clicking on one of the four
+<strong>Mode Buttons</strong> in the top right corner of the user
+interface, as shown in the figure below. Just to the left of the
+<strong>Mode Buttons</strong> is the <strong>Mode Indicator</strong>,
+which shows the currently selected <strong>mode</strong>. The buttons
+are shown here with <strong><a href="#systems-modeler">Systems
+Modeler</a></strong> <strong>mode</strong> selected. When you exit
+<strong>Pangalaxian</strong>, it will remember the <strong>mode</strong>
+you are in and will return you to that <strong>mode</strong> the next
+time it starts up.</p>
+<figure>
+<img src="images/mode_buttons_fig.png" title="Mode Buttons"
+alt="Mode Buttons" />
+<figcaption aria-hidden="true">Mode Buttons</figcaption>
+</figure>
+<h2 id="component-modeler">Component Modeler</h2>
+<p><strong>Component Modeler</strong> mode is intended to provide
+convenience for the user when viewing and/or editing
+<strong>Components</strong>, <strong>Systems</strong>, or library
+<strong>Products</strong>.</p>
+<figure>
+<img src="images/component_mode_fig.png" title="Component Modeler Mode"
+alt="Component Modeler Mode" />
+<figcaption aria-hidden="true">Component Modeler Mode</figcaption>
+</figure>
+<p>When in <strong>Component Modeler</strong> mode, the user can select
+any <strong>Product</strong> from the <strong>Hardware Library</strong>,
+<font color="red"><strong>drag and drop</strong></font> it (see figure
+below) from the library onto the <strong>Product Info Panel</strong>
+(the upper panel in the Main Window), as shown below, and that
+<strong>Product</strong> will become the “subject” of the
+<strong>Component Modeler</strong>: its <strong><em>id</em></strong>,
+<strong><em>name</em></strong>, and <strong><em>version</em></strong>
+will be displayed in the <strong>Product Info Panel</strong>, its full
+set of <strong>Parameter</strong> values and metadata will be shown in
+the <strong>Object Viewer/Editor Panel</strong> in the left panel, and
+its <strong>Block Model</strong> will be shown in the central
+<strong>Diagram Canvas</strong>. (In the current version of
+<strong>Pangalaxian</strong>, the <strong>Diagram Canvas</strong> is not
+editable; in a future version it will be editable.)</p>
+<figure>
+<img src="images/comp_mode_drag_to_view.png"
+title="Drag/Drop Library Item To View"
+alt="Drag/Drop Library Item To View" />
+<figcaption aria-hidden="true">Drag/Drop Library Item To
+View</figcaption>
+</figure>
+<p>Once a product has been brought into the <strong>Component
+Modeler</strong>, it can be viewed and/or edited (if the user has edit
+permission) in the <strong>Object Viewer/Editor</strong> panel – see
+<strong><a href="#object-viewereditor"
+title="Object Viewer/Editor">Object Viewer/Editor</a></strong> for more
+detail.</p>
+<h2 id="systems-modeler">Systems Modeler</h2>
+<p><strong>Systems Modeler</strong> mode is intended to provide
+convenience for the user when viewing and/or editing
+<strong>Systems</strong>, and in particular when constructing an
+assembly structure for a system. In <strong>Systems Modeler</strong>
+mode, the main window looks like the figure below:</p>
+<figure>
+<img src="images/main_window_fig.png" title="Systems Modeler Mode"
+alt="Systems Modeler Mode" />
+<figcaption aria-hidden="true">Systems Modeler Mode</figcaption>
+</figure>
+<h4 id="system-assembly-via-drag-and-drop">System Assembly via Drag and
+Drop</h4>
+<p>The <strong>System Tree</strong> (bottom left panel) is an editable
+widget that supports <em>drag and drop</em>. The <strong>Systems
+Dashboard</strong> (top panel) is automatically synced with the
+<strong>System Tree</strong> and displays an expandable table of system
+parameters that is computed and updated in real-time, even in
+collaborative operations – i.e. when several
+<strong>Pangalaxian</strong> clients are connected via the
+<strong>message bus</strong> and are collaboratively building a system
+assembly.</p>
+<p>To add a component to a node in the <strong>System Tree</strong>, the
+user can <font
+color="red"><strong>drag</strong></font> an item from the <strong><a
+href="#systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</a></strong> (right panel) and
+<font color="red"><strong>drop</strong></font> it onto the node – being
+careful to drop the item only when the target node is highlighted, as
+shown below:</p>
+<figure>
+<img src="images/drop_on_sys_tree.png" title="Drop on System Node"
+alt="Drop on System Node" />
+<figcaption aria-hidden="true">Drop on System Node</figcaption>
+</figure>
+<p>When the mouse button is released, the item (in this case an
+<strong>Illudium Q-36 Explosive Space Modulator</strong>) will be added
+as a component (a.k.a. “subsystem”) of the node on which it was dropped
+(in this case, the <strong>Heart of Gold Spacecraft</strong>), as shown
+in the figure below:</p>
+<figure>
+<img src="images/drop_completed.png"
+title="Result of Drop on System Node"
+alt="Result of Drop on System Node" />
+<figcaption aria-hidden="true">Result of Drop on System
+Node</figcaption>
+</figure>
+<p>Note that the <strong>Systems Dashboard</strong> has automatically
+updated with the new subsystem and the cumulative parameters have been
+recomputed. In the example shown, <strong>Numeric Precision</strong>
+(see <a href="#edit-preferences">Edit Preferences</a>) has been set to
+<strong>3</strong>, so the total is rounded to 3 significant digits.</p>
+<p>Nodes in the <strong>System Tree</strong> can be right-clicked to
+display a <em>context menu</em>:</p>
+<figure>
+<img src="images/sys_tree_context_menu.png"
+title="System Node Context Menu" alt="System Node Context Menu" />
+<figcaption aria-hidden="true">System Node Context Menu</figcaption>
+</figure>
+<ul>
+<li><p><strong>View this object</strong> displays the item in the
+<strong><a href="#object-viewereditor">Object
+Viewer/Editor</a></strong></p></li>
+<li><p><strong>Remove this component</strong> removes the item from its
+position in the <strong>System Tree</strong> but leaves that position as
+an “empty bucket” in the assembly that is labelled with “<strong>TBD [<a
+href="#product-type">Product Type</a>]</strong>”, where <strong><a
+href="#product-type">Product Type</a></strong> is the <strong><a
+href="#product-type">Product Type</a></strong> of the item that was
+removed, as shown below:</p></li>
+</ul>
+<figure>
+<img src="images/component_removed.png" title="Component Removed"
+alt="Component Removed" />
+<figcaption aria-hidden="true">Component Removed</figcaption>
+</figure>
+<p>The green “bucket” indicates that there is a role for a product of
+that type in the system. Now an item can be <em>dragged and dropped</em>
+from the <strong>[Hardware Products Library]</strong> into the empty
+bucket, but its <strong><a href="#product-type">Product
+Type</a></strong> must match the one specified for that position. If the
+item dropped has the correct <strong><a href="#product-type">Product
+Type</a></strong> it will simply “fill” the bucket (i.e., assume that
+position in the assembly).</p>
+<p>The third option in the <em>context menu</em>:</p>
+<ul>
+<li><strong>Remove this assembly position</strong>, as its name implies,
+removes not just the item from the assembly but also its assembly
+position. This option can also be used to remove an “empty bucket” (see
+above) from an assembly.</li>
+</ul>
+<h2 id="local-db">Local DB</h2>
+<p><strong>Local DB</strong> mode provides a view into the local
+database. The database table names (<strong>DB Tables</strong>) are
+listed on the left side; clicking on a db table name displays its
+objects (<strong>Objects</strong>) in the tablular widget on the
+right.</p>
+<figure>
+<img src="images/local_db_mode_fig.png" title="Local DB Mode"
+alt="Local DB Mode" />
+<figcaption aria-hidden="true">Local DB Mode</figcaption>
+</figure>
+<p>Any row in the <strong>Objects</strong> table can be double-clicked
+to display it in an <strong><a href="#object-viewereditor">Object
+Viewer/Editor</a></strong>. The <strong>Objects</strong> table can be
+sorted on any column by clicking on that column’s heading. Columns can
+be rearranged by drag/drop (but the new ordering will not be
+retained).</p>
+<h2 id="data-mode">Data Mode</h2>
+<p><strong>Data Mode</strong> activates the <strong>MEL Tool</strong>.
+[Documentation in progress …]</p>
+<h1 id="object-viewereditor">Object Viewer/Editor</h1>
+<p>The <strong>Object Viewer/Editor</strong> provides an interface to
+all properties and parameters of an object. In <strong><em><a
+href="#view-mode">View Mode</a></em></strong> (shown here) any user can
+inspect any object in <strong>Pangalaxian</strong>. If the user has edit
+permission for an object, an <em>Edit</em> button will be displayed (see
+<strong><em><a href="#edit-mode">Edit Mode</a></em></strong> section,
+below).</p>
+<figure>
+<img src="images/object_viewer_editor.png"
+title="Object Viewer/Editor (View)" alt="Object Viewer/Editor (View)" />
+<figcaption aria-hidden="true">Object Viewer/Editor (View)</figcaption>
+</figure>
+<h2 id="how-to-access">How To Access</h2>
+<p>The <strong>Object Viewer/Editor</strong> dialog can be displayed in
+the following ways:</p>
+<ul>
+<li><p>In <strong><a href="#component-modeler">Component
+Modeler</a></strong> mode, by right-clicking on any object in the
+<strong>Library Panel</strong> (right side of the <strong><a
+href="#main-window-elements">Main Window</a></strong>) and selecting
+<strong><em>View this object</em></strong> in the context menu;</p></li>
+<li><p>In <strong><a href="#systems-modeler">Systems
+Modeler</a></strong> mode, by right-clicking on any object in either the
+<strong>Library Panel</strong> (right side of the <strong><a
+href="#main-window-elements">Main Window</a></strong>) or the
+<strong>System Tree</strong> (lower left panel) and selecting
+<strong><em>View this object</em></strong> in the context menu;</p></li>
+<li><p>From the <strong><a
+href="#systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</a></strong>, <strong><a
+href="#parameter-definitions-library">Parameter Definition
+Library</a></strong>, <strong><a href="#product-types-library">Product
+Types Library</a></strong>, or <strong><a
+href="#template-library">Template Library</a></strong>, by
+right-clicking on any object and selecting <strong><em>View this
+object</em></strong> in the context menu;</p></li>
+<li><p>In <strong><a href="#local-db">Local DB</a></strong> mode, by
+double-clicking on any object in the <strong>Objects</strong> panel
+(right side).</p></li>
+</ul>
+<p>Note that the <strong>Object Viewer/Editor</strong> has is exactly
+the same interface and functionality (and is indeed the same widget) as
+the <strong>Object Viewer/Editor</strong> panel in the <strong><a
+href="#component-modeler">Component Modeler</a></strong> interface:</p>
+<figure>
+<img src="images/ove_panel_comp_mode.png"
+title="Object Viewer/Editor Panel in Component Modeler"
+alt="Object Viewer/Editor Panel in Component Modeler" />
+<figcaption aria-hidden="true">Object Viewer/Editor Panel in Component
+Modeler</figcaption>
+</figure>
+<h2 id="interface-elements">Interface Elements</h2>
+<figure>
+<img src="images/ove_elements_fig.png"
+title="Object Viewer/Editor Elements"
+alt="Object Viewer/Editor Elements" />
+<figcaption aria-hidden="true">Object Viewer/Editor
+Elements</figcaption>
+</figure>
+<ul>
+<li><p><strong>Parameter Tabs</strong> display the object’s parameters.
+As many parameter tabs as necessary will be created – typically, at
+least 2 parameter tabs are needed, to accommodate the minimum default
+parameters for Mass, Power, Data Rate and their associated
+variants.</p></li>
+<li><p><strong>Clone Button</strong> displays a dialog to begin the
+process of cloning the object – see <strong><a
+href="#cloning">Cloning</a></strong>.</p></li>
+<li><p><strong>Models Button</strong> – <em>not implemented
+yet.</em><br />
+(will display a dialog that gives the user options to display <strong><a
+href="#model">Models</a></strong> associated with the object, if there
+are any, such as CAD models, block models, etc.)</p></li>
+<li><p><strong>Other Tabs</strong> include:</p>
+<ul>
+<li><strong>main</strong> tab, which contains <em>id</em>,
+<em>name</em>, <em>description</em>, and other fields.</li>
+<li><strong>info</strong> tab (optional), which contains fields that
+“overflow” from the <strong>main</strong> tab.</li>
+<li><strong>narrative</strong> tab (optional), which contains unlimited
+text fields.</li>
+<li><strong>admin</strong> tab, which contains <em>oid</em> (unique
+object identifier), <em>creator</em>, <em>create_datetime</em>,
+<em>modifier</em>, and <em>mod_datetime</em> of the object.</li>
+</ul></li>
+</ul>
+<h2 id="view-mode">View Mode</h2>
+<p>The <strong>Object Viewer/Editor</strong> usually initializes in
+<strong>View Mode</strong> (the exceptions being in the <strong><a
+href="#cloning">Cloning</a></strong> process and the <strong>[Component
+Wizard]</strong>, in which the process requires <strong><a
+href="#edit-mode">Edit Mode</a></strong>). If the user has edit
+permission for the object being viewed, there will be an
+<strong>Edit</strong> button at the bottom of the <strong>Object
+Viewer/Editor</strong> interface that will switch the interface to
+<strong>Edit Mode</strong>.</p>
+<p>In <strong>View Mode</strong>, the user can explore the object by
+selecting various tabs in the interface. If an attribute of the object
+is another object, that attribute’s value will appeaar as a button,
+which if pushed will display the related object in another
+<strong>Object Viewer/Editor</strong>. In the example below, the
+<strong>Oscillation Overthruster B</strong> object has the
+<em>create</em> attribute <em>“whorfin”</em>, which has been clicked to
+display the <em>Person</em> object <strong>John Whorfin</strong>, whose
+<em>org</em> attribute <em>yoyodyne</em> points to the
+<em>Organization</em> object <strong>Yoyodyne Propulsion
+Systems</strong>:</p>
+<figure>
+<img src="images/ove_related_objects.png"
+title="Viewing Related Objects" alt="Viewing Related Objects" />
+<figcaption aria-hidden="true">Viewing Related Objects</figcaption>
+</figure>
+<h2 id="edit-mode">Edit Mode</h2>
+<h2 id="cloning">Cloning</h2>
+<h1 id="system-component-wizard">System / Component Wizard</h1>
+<p>The <strong>System / Component Wizard</strong> provides a guided
+process to create a new <a
+href="#product-a.k.a.-system-subsystem-component-part">System or
+Component (a.k.a. Product)</a>.</p>
+<p>Note that any new system or component that is marked
+<strong>public</strong> will automatically be added to the <strong><a
+href="#systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</a></strong> and will then be
+usable in the assembly of any new system. <strong>Non-public</strong>
+(sensitive or proprietary) systems or components (i.e. those for which
+the <strong>public</strong> field is not checked) will only be visible
+to users who have been assigned roles in their <strong>owner</strong>
+project or organization.</p>
+<figure>
+<img src="images/new_product_wizard.png"
+title="System / Component Wizard (First Page)"
+alt="System / Component Wizard (First Page)" />
+<figcaption aria-hidden="true">System / Component Wizard (First
+Page)</figcaption>
+</figure>
+<figure>
+<img src="images/new_product_wizard_1.png"
+title="System / Component Wizard (First Page Filled Out)"
+alt="System / Component Wizard (First Page Filled Out)" />
+<figcaption aria-hidden="true">System / Component Wizard (First Page
+Filled Out)</figcaption>
+</figure>
+<figure>
+<img src="images/new_product_wizard_2.png"
+title="System / Component Wizard (Page 2 TRL Selected)"
+alt="System / Component Wizard (Page 2 TRL Selected)" />
+<figcaption aria-hidden="true">System / Component Wizard (Page 2 TRL
+Selected)</figcaption>
+</figure>
+<figure>
+<img src="images/new_product_wizard_3.png"
+title="System / Component Wizard (Last Page: Check and Finish)"
+alt="System / Component Wizard (Last Page: Check and Finish)" />
+<figcaption aria-hidden="true">System / Component Wizard (Last Page:
+Check and Finish)</figcaption>
+</figure>
+<h1 id="libraries">Libraries</h1>
+<ul>
+<li><p><strong><a
+href="#systems-and-components-hardware-products-library">Systems and
+Components (Hardware Products) Library</a></strong></p></li>
+<li><p><strong><a href="#system-and-component-templates-library">System
+and Component Templates Library</a></strong></p></li>
+<li><p><strong><a href="#product-types-library">Product Types
+Library</a></strong></p></li>
+<li><p><strong><a href="#port-types-library">Port Types
+Library</a></strong></p></li>
+<li><p><strong><a href="#port-templates-library">Port Templates
+Library</a></strong></p></li>
+<li><p><strong><a href="#parameter-definitions-library">Parameter
+Definitions Library</a></strong></p></li>
+<li><p><strong><a href="#data-element-definitions-library">Data Element
+Definitions Library</a></strong></p></li>
+</ul>
+<h1 id="tasks-how-do-i">Tasks: How do I …</h1>
+<h3 id="create-a-new-system-or-component">Create a new System or
+Component?</h3>
+<p>Pangalaxian has 2 ways to do that:</p>
+<ol type="1">
+<li><strong>Use the System / Component Wizard</strong> …<br />
+In the <strong>Create</strong> menu, select the option <strong><a
+href="#new-system-or-component-product">New System or Component
+(Product)</a></strong><br />
+<strong><em>– or –</em></strong></li>
+<li><strong><a href="#cloning">Clone</a></strong> an existing system or
+component.</li>
+</ol>
+<h1 id="glossary">Glossary</h1>
+<h3 id="functional-requirement">Functional Requirement</h3>
+<p>A <strong>Functional Requirement</strong> is a <strong><a
+href="#requirement">Requirement</a></strong> that specifies a feature or
+behavior that must be implemented by a system.</p>
+<h3 id="master-equipment-list-mel">Master Equipment List (MEL)</h3>
+<p>A <strong>MEL</strong> is a specialized bill of materials report,
+which takes the form of an <em>Excel</em> file in the standard format
+specified in <strong>“GSFC’s MEL Guidance for Proposals”</strong> (Nov
+2016 version). See the <strong>Pangalaxian</strong> <em><a
+href="#write-mel...">Write Mel function</a></em>.</p>
+<h3 id="model">Model</h3>
+<p>A computational representation of the properties and/or behaviors of
+a concept or a real-world thing. A <strong>Model</strong> can be used
+for analysis, simulation, description, specification, or presentation of
+some aspect(s) of an object. <strong>Model</strong> in the engineering
+domain generally maps to <strong>STEP</strong> (ISO 10303)
+<code>product_definition</code>, but there may be other mappings for
+particular <strong>STEP</strong> <em>Application Protocols</em> and
+other types of models. (Note that the characteristics of a
+<strong>Model</strong> can be the subject of a <strong>Model</strong> at
+a higher level of abstraction; the higher-level <strong>Model</strong>
+in this context is sometimes referred to as a
+<strong><em>meta-model</em></strong> relative to the
+<strong>Model</strong> whose characteristics it models.)</p>
+<h3 id="parameter">Parameter</h3>
+<p>A <strong>Parameter</strong> is a characteristic of an object that is
+being modeled. Every <strong>Parameter</strong> has an associated
+<strong>Parameter Definition</strong> that specifies its symbol, its
+<em>datatype</em> (float, integer, text, or boolean), and its
+<em>dimensions</em> (which, if applicable, constrain its
+<em>units</em>).</p>
+<h3 id="parameter-definition">Parameter Definition</h3>
+<p>A <strong>Parameter Definition</strong> specifies the <em>symbol</em>
+(a.k.a. <em>id</em>), <em>datatype</em>, <em>dimensions</em> (if
+applicable), and <em>textual description</em> of a
+<strong>Parameter</strong>.</p>
+<h3 id="performance-requirement">Performance Requirement</h3>
+<p>A <strong>Performance Requirement</strong> is a <strong><a
+href="#requirement">Requirement</a></strong> that places a constraint on
+some measurable property or behavior of a system.</p>
+<h3 id="product-a.k.a.-system-subsystem-component-part">Product (a.k.a.
+System, Subsystem, Component, Part)</h3>
+<p>The <strong>Product</strong> object in <strong>Pangalaxian</strong>
+corresponds to a <em>specification</em> or <em>data sheet</em> – i.e.,
+an “as-designed” <strong>Product</strong>. <strong>Product</strong>
+objects can be either black box entities, such as vendor parts whose
+internal components and structure are not known to the user, or white
+box entities, such as in-house systems whose internals are known.
+In-house built or customized <strong>Products</strong> may be explicitly
+versioned in <strong>Pangalaxian</strong> using the
+<strong>Product</strong> <em>version</em> attribute, but that is not
+required. For externally-specified (e.g. vendor)
+<strong>Products</strong>, whose versioning is not controlled in-house,
+the <em>version</em> attribute is not used but the item’s version may be
+inferred from its other attributes, such as its <em>specification
+number</em>, <em>drawing number</em>, <em>manufacturer part number</em>,
+or <em>specification part number</em>.</p>
+<h3 id="product-type">Product Type</h3>
+<p>A functional category or classification of a
+<strong>Product</strong>. <strong>Product Types</strong> are labels
+which are intended to be a convenience for the user in searching for,
+filtering, or grouping <strong>Products</strong>. <strong>Product
+Types</strong> can also be associated with a set of <strong>Parameter
+Definitions</strong> so that when a new <strong>Product</strong> of a
+specified <strong>Product Type</strong> is created, it will be assigned
+the appropriate <strong>Parameters</strong> by default. The relationship
+between <strong>Product Types</strong> and <strong>Parameter
+Definitions</strong> is <em>many-to-many</em> – i.e., a <strong>Product
+Type</strong> will typically have multiple <strong>Parameters</strong>,
+and a <strong>Parameter</strong> will typically be associated with
+multiple <strong>Product Types</strong>.</p>
+<h3 id="project">Project</h3>
+<p>An activity that has the purpose of producing and/or maintaining
+something, and which involves contributions from Persons and
+Organizations.</p>
+<h3 id="requirement">Requirement</h3>
+<p>A <strong>Requirement</strong> is the specification of a feature, a
+behavior, or a constraint to be satisfied by a <strong>Product</strong>
+or <strong>Activity</strong>.</p>
+<h3 id="step">STEP</h3>
+<p><strong><a href="https://en.wikipedia.org/wiki/ISO_10303">STEP (ISO
+10303)</a></strong> is an International Standard for the
+computer-interpretable representation and exchange of product data. Its
+objective is to provide a mechanism that is capable of describing
+product data throughout the life cycle of a product, independent from
+any particular system. The nature of this description makes it suitable
+not only for neutral file exchange, but also as a basis for implementing
+and sharing product databases and archiving.</p>
+<h3 id="tardis">TARDIS</h3>
+<p><a href="https://en.wikipedia.org/wiki/TARDIS"><strong>T</strong>ime
+<strong>A</strong>nd <strong>R</strong>elative
+<strong>D</strong>imension <strong>I</strong>n
+<strong>S</strong>pace</a>, a fictional time machine and spacecraft that
+appears in the British science fiction television programme <em>Doctor
+Who</em> and its various spin-offs.</p>
+<h3 id="template">Template</h3>
+<p>A <strong>Template</strong> is a pre-defined structure from which a
+<strong><a
+href="#product-a.k.a.-system-subsystem-component-part">Product</a></strong>
+can be created. A <strong>Template</strong> has a <strong><a
+href="#product-type">Product Type</a></strong> but most importantly it
+can include an internal component structure, so that when a new
+<strong><a
+href="#product-a.k.a.-system-subsystem-component-part">Product</a></strong>
+is created from the <strong>Template</strong>, the new
+<strong>Product</strong> will not only have the same <strong><a
+href="#product-type">Product Type</a></strong> (and <strong><a
+href="#parameter">Parameter</a>s</strong>) but will also replicate the
+component structure of the <strong>Template</strong>.</p>
+<h3 id="test">Test</h3>
+<p>A <strong>Test</strong> is a type of <strong>Activity</strong>
+consisting of a specified environment, specified inputs and measurable
+expected results (synonymous to <em>SysML: testCase</em>, modeled by a
+<em>SysML Interaction</em>).</p>
+</body>
+</html>
