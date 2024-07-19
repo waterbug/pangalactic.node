@@ -537,9 +537,8 @@ class TimelineScene(QGraphicsScene):
         self.timeline.update_timeline()
         # NOTE: DO NOT send "new activity signal: timeline.update_timeline()
         # will send a "modified objects" signal ...
-        # orb.log.debug('* scene: sending "new activity" signal')
-        # dispatcher.send(signal="new activity", act=activity)
-        self.update()
+        orb.log.debug('* scene: sending "set new scene" signal')
+        dispatcher.send(signal="set new scene")
 
     def on_act_name_mod(self, act=None):
         """
@@ -587,20 +586,14 @@ class TimelineWidget(QWidget):
         state['timeline history'] = [subject.oid]
         self.init_toolbar()
         self.scale = 70
-        # set_new_scene() calls self.set_title(), which sets a title_widget
-        self.set_new_scene()
-        self.br = self.scene.itemsBoundingRect()
         layout = QVBoxLayout()
-        layout.addWidget(self.title_widget)
-        layout.addWidget(self.toolbar)
-        layout.addWidget(self.view)
         self.setLayout(layout)
-        self.current_subsystem_index = 0
-        self.deleted_acts = []
+        self.set_new_scene()
         dispatcher.connect(self.delete_activity, "deleted object")
         # "delete activity" is sent by event block when it is removed ...
         dispatcher.connect(self.delete_activity, "delete activity")
         dispatcher.connect(self.on_act_name_mod, "act name mod")
+        dispatcher.connect(self.set_new_scene, "set new scene")
         self.setUpdatesEnabled(True)
 
     @property
@@ -612,16 +605,17 @@ class TimelineWidget(QWidget):
 
     def set_new_scene(self):
         """
-        Return a new scene with new subject activity or an empty scene if no
+        Create a new scene with new subject activity or an empty scene if no
         subject activity.
         """
         orb.log.debug(' - set_new_scene ...')
         scene = TimelineScene(self, self.subject)
-        nbr_of_subacts = len(self.subject.sub_activities)
+        subacts = getattr(self.subject, 'sub_activities', []) or []
+        nbr_of_subacts = len(subacts)
         if (self.subject != None) and (nbr_of_subacts > 0):
             orb.log.debug(f' - with {nbr_of_subacts} sub-acts ...')
             evt_blocks=[]
-            for activity in sorted(self.subject.sub_activities,
+            for activity in sorted(subacts,
                                    key=lambda x: getattr(x,
                                    'sub_activity_sequence', 0) or 0):
                 if (activity.of_system == self.system):
@@ -640,24 +634,44 @@ class TimelineWidget(QWidget):
             ada = getattr(self, 'add_defaults_action', None)
             if ada:
                 self.add_defaults_action.setEnabled(True)
-        self.set_title()
-        if not getattr(self, 'view', None):
-            self.view = TimelineView(self)
+
+        layout = self.layout()
+
+        if getattr(self, 'view', None):
+            try:
+                layout.removeWidget(self.view)
+                self.view.close()
+                self.view.deleteLater()
+            except:
+                # C++ object probably got deleted
+                pass
+        if getattr(self, 'title_widget', None):
+            try:
+                layout.removeWidget(self.title_widget)
+                self.title_widget.close()
+                self.title_widget.deleteLater()
+            except:
+                # C++ object probably got deleted
+                pass
+        self.title_widget = self.get_title_widget()
+        layout.addWidget(self.title_widget)
+        layout.addWidget(self.toolbar)
+        self.view = TimelineView(self)
+        layout.addWidget(self.view)
         self.scene = scene
         # TimelineView controls the scaling of the scene, which is done in the
         # update_timeline() ...
         scene.timeline.update_timeline()
         # ---------------------------------------------------------------------
         self.view.setScene(self.scene)
+        self.br = self.scene.itemsBoundingRect()
         self.auto_rescale_timeline()
         self.view.show()
 
-    def set_title(self):
-        # try:
-        if not getattr(self, 'title_widget', None):
-            self.title_widget = NameLabel('')
-            self.title_widget.setStyleSheet(
-                'font-weight: bold; font-size: 14px')
+    def get_title_widget(self):
+        title_widget = NameLabel('')
+        title_widget.setStyleSheet(
+            'font-weight: bold; font-size: 14px')
         red_text = '<font color="red">{}</font>'
         blue_text = '<font color="blue">{}</font>'
         title = ''
@@ -678,9 +692,8 @@ class TimelineWidget(QWidget):
         else:
             txt = 'No Activity Selected'
             title = red_text.format(txt)
-        self.title_widget.setText(title)
-        # except:
-            # pass
+        title_widget.setText(title)
+        return title_widget
 
     def widget_drill_down(self, act):
         """
