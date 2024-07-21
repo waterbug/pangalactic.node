@@ -417,7 +417,7 @@ class ActInfoTable(QTableWidget):
         for j, ptuple in enumerate(self.view_conf):
             pname, colname, width = ptuple
             self.setColumnWidth(j, width)
-        # self.recompute_timeline()
+        self.recompute_timeline()
 
     def sizeHint(self):
         # return QSize(400, 400)
