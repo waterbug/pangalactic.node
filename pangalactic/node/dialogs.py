@@ -457,21 +457,22 @@ class ModelImportDialog(QDialog):
     A dialog to import a model file.
 
     Keyword Args:
-        of_thing_oid (str): oid of the Model's "of_thing" attribute -- i.e.
-            oid of the thing of which the Model is a model
+        of_thing (Modelable): the Model's "of_thing" attribute -- i.e. the
+            thing of which the Model is a model
         model_type_id (str): id of ModelType to be imported
         parent (QWidget): parent widget of the dialog
     """
-    def __init__(self, of_thing_oid='', model_type_id='', parent=None):
+    def __init__(self, of_thing=None, model_type_id='', parent=None):
         super().__init__(parent)
-        self.of_thing_oid = of_thing_oid
+        self.of_thing = of_thing
+        name = of_thing.name
         vbox = QVBoxLayout(self)
         if model_type_id:
             self.model_type = orb.select("ModelType", id=model_type_id)
-            self.setWindowTitle(f"Import {model_type_id} Model")
+            self.setWindowTitle(f"Import {model_type_id} Model of {name}")
             self.build_form()
         else:
-            self.setWindowTitle("Import Model")
+            self.setWindowTitle(f"Import Model of {name}")
             self.model_type_select = QComboBox()
             self.model_type_select.setStyleSheet(
                                 'font-weight: bold; font-size: 14px')
@@ -483,9 +484,13 @@ class ModelImportDialog(QDialog):
                 self.model_type_select.addItem(mt_id, QVariant)
             self.model_type_select.setCurrentIndex(0)
             self.model_type_select.activated.connect(self.on_model_type_select)
+            model_type_layout = QHBoxLayout()
+            model_type_layout.addWidget(self.model_type_select)
+            model_type_layout.addStretch()
             label = ColorLabel("Select Model Type")
             vbox.addWidget(label)
-            vbox.addWidget(self.model_type_select)
+            vbox.addLayout(model_type_layout)
+        self.setMinimumWidth(500)
 
     def on_model_type_select(self, index):
         self.model_type = self.mts[self.mt_ids[index]]
@@ -606,7 +611,7 @@ class ModelImportDialog(QDialog):
                 dlg.show()
             else:
                 parms['project_oid'] = state.get('project') or ''
-                parms['of_thing_oid'] = self.of_thing_oid
+                parms['of_thing_oid'] = self.of_thing.oid
                 orb.log.debug(f'  - mtype_oid: {self.mtype_oid}')
                 orb.log.debug(f'  - fpath: {self.model_file_path}')
                 orb.log.debug(f'  - parms: {parms}')
@@ -625,15 +630,16 @@ class DocImportDialog(QDialog):
     A dialog to import a document file.
 
     Keyword Args:
-        rel_obj_oid (str): oid of the related object, which will be the
+        rel_obj (Modelable): the related object, which will be the
             "related_item" in a DocumentReference relationship
         parent (QWidget): parent widget of the dialog
     """
-    def __init__(self, rel_obj_oid='', parent=None):
+    def __init__(self, rel_obj=None, parent=None):
         super().__init__(parent)
-        self.rel_obj_oid = rel_obj_oid
-        self.setWindowTitle("Import Document")
+        self.rel_obj = rel_obj
+        self.setWindowTitle(f"Import Document for {rel_obj.name}")
         self.build_form()
+        self.setMinimumWidth(500)
 
     def build_form(self):
         vbox = QVBoxLayout(self)
@@ -745,7 +751,7 @@ class DocImportDialog(QDialog):
                 dlg = ValidationDialog(valid_dict, parent=self)
                 dlg.show()
             else:
-                parms['rel_obj_oid'] = self.rel_obj_oid
+                parms['rel_obj_oid'] = self.rel_obj.oid
                 parms['project_oid'] = state.get('project') or ''
                 orb.log.debug(f'  - fpath: {self.doc_file_path}')
                 orb.log.debug(f'  - parms: {parms}')
@@ -1205,8 +1211,9 @@ class ModelDetailDialog(QDialog):
 
 class NotesDialog(QDialog):
     """
-    A dialog to edit "description" or notes for an object.
-    Motivating use case is for notes about an Activity / mode.
+    A dialog to edit a "description" or notes about an object.
+    Motivating use case is for notes about an Activity in a ConOps
+    model.
 
     Args:
         obj (Identifiable): the object
@@ -1233,15 +1240,14 @@ class NotesDialog(QDialog):
         vbox.addWidget(self.buttons)
         self.buttons.accepted.connect(self.on_save)
         self.buttons.rejected.connect(self.reject)
-        self.resize(300, 500)
+        self.resize(500, 500)
 
     def on_save(self):
         NOW = dtstamp()
         user = orb.get(state.get('local_user_oid'))
         self.obj.mod_datetime = NOW
         self.obj.modifier = user
-        # self.obj.description = self.editor.toPlainText()
-        self.obj.description = self.editor.toMarkdown()
+        self.obj.description = self.editor.toPlainText()
         orb.save([self.obj])
         dispatcher.send(signal='modified object', obj=self.obj)
         self.accept()
@@ -1265,14 +1271,12 @@ class DisplayNotesDialog(QDialog):
         vbox = QVBoxLayout(self)
         title = ColorLabel(f'<h3>Notes on {obj.name}</h3>', parent=self)
         vbox.addWidget(title)
-        display_txt = obj.description or ''
-        self.editor = QTextEdit()
         self.editor.setFrameStyle(QFrame.Sunken)
         display_txt = obj.description or ''
         self.editor.setText(display_txt)
         self.editor.setReadOnly(True)
         vbox.addWidget(self.editor)
-        self.resize(300, 500)
+        self.resize(500, 500)
 
 
 class RqtFieldsDialog(QDialog):

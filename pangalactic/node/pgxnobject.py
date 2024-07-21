@@ -1443,12 +1443,12 @@ class PgxnObject(QDialog):
         return model_dict
 
     def add_model(self, model_type_id=None):
-        dlg = ModelImportDialog(of_thing_oid=self.obj.oid,
-                                model_type_id=model_type_id, parent=self)
+        dlg = ModelImportDialog(of_thing=self.obj, model_type_id=model_type_id,
+                                parent=self)
         dlg.show()
 
     def add_doc(self, model_type_id=None):
-        dlg = DocImportDialog(rel_obj_oid=self.obj.oid, parent=self)
+        dlg = DocImportDialog(rel_obj=self.obj, parent=self)
         dlg.show()
 
     def models_and_docs_info(self):
