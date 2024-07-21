@@ -341,7 +341,6 @@ class EventBlock(QGraphicsPolygonItem):
         evt_block = EventBlock(activity=activity, scene=self.scene)
         # evt_block.setPos(event.scenePos())
         self.scene.addItem(evt_block)
-        self.scene.timeline.add_evt_block(evt_block)
         self.scene.timeline.update_timeline()
         # orb.log.debug(' - dipatching "new activity" signal')
         # dispatcher.send(signal='new activity', act=activity)
@@ -397,11 +396,23 @@ class TimelineView(QGraphicsView):
 
 class Timeline(QGraphicsPathItem):
 
-    def __init__(self, parent=None):
+    def __init__(self, scene=None, parent=None):
         super().__init__(parent)
-        self.evt_blocks = []
+        if scene:
+            scene.addItem(self)
+        # self.evt_blocks = []
         self.path_length = 1200
         self.make_path()
+
+    @property
+    def evt_blocks(self):
+        if self.scene():
+            blocks = [x for x in self.scene().items()
+                      if isinstance(x, EventBlock)]
+            blocks.sort(key=lambda x: x.scenePos().x())
+            return blocks
+        else:
+            return []
 
     def update_timeline(self):
         orb.log.debug('* timeline.update_timeline()')
@@ -434,7 +445,7 @@ class Timeline(QGraphicsPathItem):
 
     def arrange(self):
         orb.log.debug('* timeline.arrange()')
-        self.evt_blocks.sort(key=lambda x: x.scenePos().x())
+        # self.evt_blocks.sort(key=lambda x: x.scenePos().x())
         orb.log.debug('  - setting sub_activity_sequence(s) ...')
         NOW = dtstamp()
         mod_objs = []
@@ -451,14 +462,6 @@ class Timeline(QGraphicsPathItem):
         if mod_objs:
             dispatcher.send("modified objects", objs=mod_objs)
 
-    def add_evt_block(self, evt_block):
-        self.evt_blocks.append(evt_block)
-        self.update_timeline()
-
-    def populate(self, evt_blocks):
-        self.evt_blocks = evt_blocks
-        self.update_timeline()
-
 
 class TimelineScene(QGraphicsScene):
 
@@ -470,8 +473,8 @@ class TimelineScene(QGraphicsScene):
             self.act_of = activity.of_system
             name = getattr(self.act_of, 'name', None) or 'None'
             orb.log.debug(f'* TimelineScene act_of: {name}')
-        self.timeline = Timeline()
-        self.addItem(self.timeline)
+        self.timeline = Timeline(scene=self)
+        # self.addItem(self.timeline)
         self.focusItemChanged.connect(self.focus_changed_handler)
         self.current_focus = None
         self.grabbed_item = None
@@ -514,7 +517,12 @@ class TimelineScene(QGraphicsScene):
 
     def dropEvent(self, event):
         orb.log.debug('* scene.dropEvent()')
-        seq = len(self.subject.sub_activities) + 1
+        position = event.scenePos()
+        seq = 0
+        for evt_block in self.timeline.evt_blocks:
+            if position.x() > evt_block.x():
+                seq = evt_block.activity.sub_activity_sequence + 1
+        # seq = len(self.subject.sub_activities) + 1
         # activity type is one of "Cycle", "Op", "Event"
         activity_type_name = event.mimeData().text()
         activity_type = orb.select("ActivityType", name=activity_type_name)
@@ -525,6 +533,7 @@ class TimelineScene(QGraphicsScene):
         activity = clone("Activity", id=act_id, name=act_name,
                          activity_type=activity_type, owner=project,
                          of_system=self.act_of,
+                         sub_activity_sequence=seq,
                          sub_activity_of=self.subject)
         orb.db.commit()
         # set time units locally to default: "minutes" -- if connected,
@@ -533,7 +542,6 @@ class TimelineScene(QGraphicsScene):
         evt_block = EventBlock(activity=activity, scene=self)
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
-        self.timeline.add_evt_block(evt_block)
         self.timeline.update_timeline()
         # NOTE: DO NOT send "new activity signal: timeline.update_timeline()
         # will send a "modified objects" signal ...
@@ -611,20 +619,20 @@ class TimelineWidget(QWidget):
         orb.log.debug(' - set_new_scene ...')
         scene = TimelineScene(self, self.subject)
         subacts = getattr(self.subject, 'sub_activities', []) or []
+        subacts.sort(key=lambda x: getattr(x,
+                                   'sub_activity_sequence', 0) or 0)
         nbr_of_subacts = len(subacts)
         if (self.subject != None) and (nbr_of_subacts > 0):
             orb.log.debug(f' - with {nbr_of_subacts} sub-acts ...')
             evt_blocks=[]
-            for activity in sorted(subacts,
-                                   key=lambda x: getattr(x,
-                                   'sub_activity_sequence', 0) or 0):
+            for activity in reversed(subacts):
                 if (activity.of_system == self.system):
                     item = EventBlock(activity=activity,
                                       scene=scene)
                     evt_blocks.append(item)
                     scene.addItem(item)
                 scene.update()
-            scene.timeline.populate(evt_blocks)
+            scene.timeline.update_timeline()
             ada = getattr(self, 'add_defaults_action', None)
             if ada:
                 self.add_defaults_action.setEnabled(False)
@@ -1469,7 +1477,7 @@ class ConOpsModeler(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
         self.left_dock_panel = QWidget()
         self.left_dock_layout = QVBoxLayout(self.left_dock_panel)
-        self.create_activity_table()
+        self.create_activity_table(timeline=self.main_timeline.scene.timeline)
         self.left_dock_layout.addWidget(self.activity_table,
                                         alignment=Qt.AlignTop)
         # ====================================================================
@@ -1557,9 +1565,17 @@ class ConOpsModeler(QMainWindow):
             # no big deal ...
             pass
 
-    def create_activity_table(self):
+    def create_activity_table(self, timeline=None):
+        """
+        Create an ActivityWidget containing an ActInfoTable.
+
+        Keyword Args:
+            timeline (Timeline): the timeline graphic item contained in the
+                TimelineScene of the main_timeline (TimelineWidget)
+        """
         orb.log.debug("* ConOpsModeler.create_activity_table()")
-        self.activity_table = ActivityWidget(self.subject, parent=self)
+        self.activity_table = ActivityWidget(self.subject, timeline=timeline,
+                                             parent=self)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
 
     def on_new_timeline(self, subject=None):
@@ -1581,7 +1597,7 @@ class ConOpsModeler(QMainWindow):
             self.activity_table.parent = None
             self.activity_table.close()
             self.activity_table = None
-        self.create_activity_table()
+        self.create_activity_table(timeline=self.main_timeline.scene.timeline)
         self.left_dock_layout.insertWidget(0, self.activity_table,
                                            alignment=Qt.AlignTop)
         self.resize(self.layout().sizeHint())

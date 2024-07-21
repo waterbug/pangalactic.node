@@ -313,8 +313,9 @@ class ActInfoTable(QTableWidget):
 
     The target use case is the Concept of Operations (ConOps) for a mission.
     """
-    def __init__(self, subject, project=None, view_conf=None, editable=False,
-                 min_col_width=20, max_col_width=300, parent=None):
+    def __init__(self, subject, project=None, timeline=None, view_conf=None,
+                 editable=False, min_col_width=20, max_col_width=300,
+                 parent=None):
         """
         Initialize
 
@@ -325,6 +326,8 @@ class ActInfoTable(QTableWidget):
         Keyword Args:
             project (Project): [required] the project whose systems' activities
                 are displayed in the table
+            timeline (Timeline): the timeline (QGraphicsPathItem) containing
+                the activity event blocks
             view_conf (list):  list in which each element is a 3-tuple
                 (pname, colname, width), where pname is the property id,
                 colname is the column name (if empty string, pname is the
@@ -338,6 +341,7 @@ class ActInfoTable(QTableWidget):
         orb.log.info('* ActInfoTable initializing ...')
         self.project = project
         self.subject = subject
+        self.timeline = timeline
         self.editable = editable
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
@@ -355,14 +359,20 @@ class ActInfoTable(QTableWidget):
     @property
     def acts(self):
         """
-        The "acts" are the sub_activities of the subject activity.
+        The "acts" are the activities corresponding to the event blocks shown
+        in the timeline.
         """
-        a = []
-        if self.subject:
-            a = getattr(self.subject, 'sub_activities', []) or []
-        if a:
-            a.sort(key=lambda x: x.sub_activity_sequence or 0)
-        return a
+        # a = []
+        # if self.subject:
+            # a = getattr(self.subject, 'sub_activities', []) or []
+        # if a:
+            # a.sort(key=lambda x: x.sub_activity_sequence or 0)
+        # return a
+        timeline = getattr(self, 'timeline', None)
+        if timeline:
+            return [block.activity for block in self.timeline.evt_blocks]
+        else:
+            return []
 
     @property
     def view(self):
@@ -407,7 +417,7 @@ class ActInfoTable(QTableWidget):
         for j, ptuple in enumerate(self.view_conf):
             pname, colname, width = ptuple
             self.setColumnWidth(j, width)
-        self.recompute_timeline()
+        # self.recompute_timeline()
 
     def sizeHint(self):
         # return QSize(400, 400)
@@ -539,44 +549,6 @@ class ActInfoTable(QTableWidget):
             duration_str = orb.get_prop_val_as_str(oid, 'duration',
                                                    units=act_units)
             item.setData(Qt.EditRole, duration_str)
-        elif pname == 't_start':
-            # get current value of "duration" in base units
-            duration = orb.get_prop_val(oid, 'duration')
-            # get new value of "t_start" in base units
-            t_start = orb.get_prop_val(oid, 't_start')
-            prop_mods[oid]['t_start'] = t_start
-            new_t_end = t_start + duration
-            orb.set_prop_val(oid, 't_end', new_t_end)
-            prop_mods[oid]['t_end'] = new_t_end
-            txt = f'setting {act.name} t_end to <{new_t_end} (seconds)>'
-            orb.log.debug(f'    {txt}')
-            # get new value of "t_end" as a str
-            t_end_str = orb.get_prop_val_as_str(oid, 't_end', units=act_units)
-            self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
-                                                             t_end_str)
-            # also set the item value using the corrected datatype str
-            t_start_str = orb.get_prop_val_as_str(oid, 't_start',
-                                                  units=act_units)
-            item.setData(Qt.EditRole, t_start_str)
-        elif pname == 't_end':
-            # get current value of "t_start" in base units
-            t_start = orb.get_prop_val(oid, 't_start')
-            # get new value of "t_end" in base units
-            t_end = orb.get_prop_val(oid, 't_end')
-            prop_mods[oid]['t_end'] = t_end
-            new_duration = t_end - t_start
-            orb.set_prop_val(oid, 'duration', new_duration)
-            prop_mods[oid]['duration'] = new_duration
-            txt = f'setting {act.name} duration to <{new_duration}> (seconds)'
-            orb.log.debug(f'    {txt}')
-            # get new value of "duration" as a str
-            duration_str = orb.get_prop_val_as_str(oid, 'duration',
-                                                   units=act_units)
-            self.item(row, self.view.index('duration')).setData(Qt.EditRole,
-                                                                duration_str)
-            # also set the item value using the corrected datatype str
-            t_end_str = orb.get_prop_val_as_str(oid, 't_end', units=act_units)
-            item.setData(Qt.EditRole, t_end_str)
         elif pname == 'time_units':
             # if 'time_units' is set, just set the item's t_start, duration and
             # t_end in the new units (the value is stored in parameterz dict in
@@ -602,7 +574,7 @@ class ActInfoTable(QTableWidget):
         # if a time parameter was modified (t_start, duration, or t_end) and
         # there are activities following this one, adjust their properties
         # accordingly ...
-        time_parms = set(['t_start', 'duration', 't_end'])
+        time_parms = set(['duration'])
         time_parms_modified = time_parms & set(prop_mods[oid])
         if time_parms_modified:
             # if len(self.acts) > row + 1:

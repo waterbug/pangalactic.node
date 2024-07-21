@@ -50,7 +50,7 @@ class ActivityWidget(QWidget):
     Attrs:
         subject (Activity):  the Activity whose sub-activities are shown
     """
-    def __init__(self, subject, position=None, parent=None):
+    def __init__(self, subject, timeline=None, position=None, parent=None):
         """
         Initialize.
 
@@ -59,6 +59,8 @@ class ActivityWidget(QWidget):
                 shown in the table
 
         Keyword Args:
+            timeline (Timeline):  the Timeline (QGraphicsPathItem) containing
+                the scene with the activity event blocks
             position (str): the table "role" of the table in the ConOps tool,
                 as the "main" or "sub" table, which will determine its
                 response to signals
@@ -67,6 +69,7 @@ class ActivityWidget(QWidget):
         super().__init__(parent=parent)
         name = getattr(subject, 'name', 'None')
         orb.log.info(f'* ActivityWidget initializing for "{name}" ...')
+        self.timeline = timeline
         self.subject = subject
         self.project = orb.get(state.get('project'))
         self.position = position
@@ -95,13 +98,13 @@ class ActivityWidget(QWidget):
     def activities(self):
         """
         The relevant sub-activities that the table will display, namely the
-        sub-activities of the "subject" activity which are activities of the
-        table's "act_of".
+        activities of the event blocks contained in the timeline scene.
         """
-        subj = getattr(self, 'subject', None)
-        if not subj:
-            return []
-        return subj.sub_activities
+        # subj = getattr(self, 'subject', None)
+        # if not subj:
+            # return []
+        # return subj.sub_activities
+        return [evt_block.activity for evt_block in self.timeline.evt_blocks]
 
     def on_act_name_mod(self, act):
         if act is self.subject:
@@ -140,10 +143,11 @@ class ActivityWidget(QWidget):
         global_admin = is_global_admin(user)
         if global_admin or (role_names & allowed_roles):
             table = ActInfoTable(self.subject, project=project,
-                                      editable=True)
+                                 timeline=self.timeline, editable=True)
         else:
             # default: editable=False
-            table = ActInfoTable(self.subject, project=project)
+            table = ActInfoTable(self.subject, project=project,
+                                 timeline=self.timeline)
         table.setSizePolicy(QSizePolicy.Fixed,
                             # QSizePolicy.MinimumExpanding,
                             QSizePolicy.Fixed)
