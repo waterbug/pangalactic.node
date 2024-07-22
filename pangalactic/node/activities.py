@@ -367,14 +367,16 @@ class ModeDefinitionDashboard(QWidget):
         """
         super().__init__(parent=parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.act = activity or orb.get(state.get('mdd act'))
+        mdd_state = state.get('mdd', {})
+        mdd_proj = mdd_state.get(self.project.oid, {})
+        self.act = activity or orb.get(mdd_proj.get("act"))
         act_name = getattr(self.act, 'name', '(not set)')
         orb.log.debug(f'* MDD: activity is "{act_name}"')
         self.user = user
         self.usage = getattr(self.act, 'of_system', None) or usage
         if not self.usage:
             valid_usage = False
-            usage = orb.get(state.get('mdd usage'))
+            usage = orb.get(mdd_proj.get('usage'))
             if hasattr(usage, 'component'):
                 projects = get_all_project_usages(usage.component)
                 if self.project in projects:
@@ -424,7 +426,11 @@ class ModeDefinitionDashboard(QWidget):
         if (isinstance(v, orb.classes['Activity'])
             and v.owner is self.project):
             self._act = v
-            state['mdd act'] = v.oid
+            if not state.get('mdd'):
+                state['mdd'] =  {}
+            if self.project.oid not in state['mdd']:
+                state['mdd'][self.project.oid] =  {}
+            state['mdd'][self.project.oid]["act"] = v.oid
         else:
             self._act = None
 
@@ -591,7 +597,11 @@ class ModeDefinitionDashboard(QWidget):
         orb.log.debug(f'  usage: {name}')
         if usage:
             self.usage = usage
-            state['mdd usage'] = usage.oid
+            if not state.get('mdd'):
+                state['mdd'] =  {}
+            if self.project.oid not in state['mdd']:
+                state['mdd'][self.project.oid] =  {}
+            state['mdd'][self.project.oid]["usage"] = usage.oid
             if self.edit_state:
                 orb.log.debug('  in edit state: calling on_edit()')
                 self.on_edit(None)

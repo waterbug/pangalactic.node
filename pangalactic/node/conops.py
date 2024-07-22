@@ -1245,7 +1245,7 @@ class TimelineWidget(QWidget):
         canvas_map = plot.canvasMap(2)
         canvas_map.setScaleInterval(0.0, duration)
         canvas_map.setPaintInterval(0, 1400)
-        orb.log.debug(f'  canvas_map: {type(canvas_map)}')
+        # orb.log.debug(f'  canvas_map: {type(canvas_map)}')
         # label all "super activities" (most importantly, cycles)
         for t_start, super_act in super_acts.items():
             # compute peak and average power
@@ -1515,7 +1515,17 @@ class ConOpsModeler(QMainWindow):
         # ---------------------------------------------------------------------
         sys_tree_title = f'{self.project.id} Mission Systems'
         sys_tree_title_widget = ColorLabel(sys_tree_title, element='h2')
-        initial_usage = orb.get(state.get('mdd usage'))
+        project = getattr(self, 'project', None)
+        proj_oid = getattr(project, 'oid', None)
+        mdd_state = state.get('mdd', {}).get(proj_oid, {})
+        initial_usage = orb.get(mdd_state.get('usage'))
+        if not initial_usage:
+            if getattr(project, 'systems', []) or []:
+                initial_usage = project.systems[0]
+        # try to set initial usage, mainly so graph works when conops first
+        # opens!
+        if initial_usage:
+            self.set_initial_usage(initial_usage)
         self.sys_select_tree = SystemSelectionView(self.project,
                                                    refdes=True,
                                                    usage=initial_usage)
@@ -1666,6 +1676,35 @@ class ConOpsModeler(QMainWindow):
                 else:
                     # TODO: maybe change focus to project node (?)
                     return
+
+    def set_initial_usage(self, link):
+        orb.log.debug("* ConOpsModeler.set_initial_usage()")
+        name = get_link_name(link)
+        orb.log.debug(f"  - initial usage is {name}")
+        TBD = orb.get('pgefobjects:TBD')
+        product = None
+        attr = '[none]'
+        if isinstance(link, orb.classes['ProjectSystemUsage']):
+            if link.system:
+                product = link.system
+                attr = '[system]'
+        elif isinstance(link, orb.classes['Acu']):
+            if link.component and link.component is not TBD:
+                product = link.component
+                attr = '[component]'
+        orb.log.debug(f"  - product {attr} is {product.name}")
+        if product:
+            project_mode_defz = mode_defz[self.project.oid]
+            sys_dict = project_mode_defz['systems']
+            if link.oid in sys_dict:
+                orb.log.debug("  - link oid is in sys_dict")
+                # set as subject's usage
+                self.set_usage(link)
+                # signal to mode_dash to set this link as its usage ...
+                orb.log.debug('    sending "set mode usage" signal ...')
+                dispatcher.send(signal='set mode usage', usage=link)
+            else:
+                orb.log.debug("  - link oid is NOT in sys_dict")
 
     def on_ignore_components(self, index):
         """
