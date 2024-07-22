@@ -64,6 +64,7 @@ from pangalactic.node.buttons     import ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (DefineModesDialog,
                                           DisplayNotesDialog,
+                                          DocImportDialog,
                                           NotesDialog,
                                           PlotDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
@@ -290,6 +291,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu = QMenu()
         self.menu.addAction(self.display_notes_action)
         self.menu.addAction(self.edit_notes_action)
+        self.menu.addAction(self.add_doc_action)
         self.menu.addAction(self.clone_action)
         self.menu.addAction(self.delete_action)
         self.menu.exec(QCursor.pos())
@@ -301,6 +303,11 @@ class EventBlock(QGraphicsPolygonItem):
         self.edit_notes_action = QAction("Edit Notes", self.scene,
                                      statusTip="Edit Notes",
                                      triggered=self.edit_act_notes)
+        # NOTE: deactivated until a function to display related documents is
+        # added ...
+        # self.add_doc_action = QAction("Add a Document", self.scene,
+                                     # statusTip="Import a Document File",
+                                     # triggered=self.add_act_doc)
         self.clone_action = QAction("Clone Activity", self.scene,
                              statusTip="Create a new Activity by cloning",
                              triggered=self.clone_activity_block)
@@ -320,6 +327,14 @@ class EventBlock(QGraphicsPolygonItem):
         Edit an activity (mode) description / notes.
         """
         dlg = NotesDialog(self.activity, parent=self.scene.parent())
+        dlg.show()
+
+    def add_act_doc(self):
+        """
+        Upload a document pertaining to an activity.
+        """
+        dlg = DocImportDialog(rel_obj=self.activity,
+                              parent=self.scene.parent())
         dlg.show()
 
     def clone_activity_block(self):

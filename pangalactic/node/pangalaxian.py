@@ -5359,6 +5359,7 @@ class Main(QMainWindow):
                                              label=f'reading "{fname}" ...',
                                              parent=self)
         self.chunk_progress.setMaximum(100)
+        self.chunk_progress.setAttribute(Qt.WA_DeleteOnClose)
         self.chunks_to_upload = []
         self.fpath_to_upload = fpath
         self.rep_file_oid_to_upload = rep_file_oid
@@ -5398,6 +5399,7 @@ class Main(QMainWindow):
         orb.log.debug('  chunking thread completed.')
         self.chunk_progress.done(0)
         self.chunk_progress.close()
+        # self.chunk_progress.deleteLater()
         self.upload_file()
 
     def upload_file(self):
