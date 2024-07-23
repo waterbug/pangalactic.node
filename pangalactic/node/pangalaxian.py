@@ -2002,12 +2002,14 @@ class Main(QMainWindow):
             # orb.log.debug('  content was empty!')
         if not serialized_objects:
             return False
+        # **************************************************************
         # NOTE:  using load_serialized_objects() here led to problematic
         # behavior due to unordered asynchronous operations
-        # objs = self.load_serialized_objects(serialized_objects)
+        # **************************************************************
         # NOTE:  ignore None or "empty" objects
         ser_objs = [so for so in serialized_objects if so]
-        objs = deserialize(orb, ser_objs, force_no_recompute=True)
+        # objs = deserialize(orb, ser_objs, force_no_recompute=True)
+        objs = self.load_serialized_objects(ser_objs)
         # if objs:
             # orb.log.debug(f'  deserialize() returned {len(objs)} object(s):')
             # txt = str([o.id for o in objs if o is not None])
@@ -6000,19 +6002,37 @@ class Main(QMainWindow):
             user_is_me = (getattr(self.local_user, 'oid', None) == 'me')
             for cname in DESERIALIZATION_ORDER:
                 if cname in byclass:
-                    for so in byclass[cname]:
-                        # if objs are still owned by 'me' but user has
-                        # logged in and has a local_user object ...
-                        if so.get('creator') == 'me' and not user_is_me:
-                            so['creator'] = self.local_user.oid
-                            so['modifier'] = self.local_user.oid
-                    n_byclass = len(byclass[cname])
-                    objs += deserialize(orb, byclass[cname],
-                                        force_no_recompute=True)
-                    i += n_byclass
-                    self.pb.setValue(i)
-                    msg = f'{n_byclass} {cname} objects received ...'
-                    self.statusbar.showMessage(msg)
+                    if cname == "Activity":
+                        # instances of Activity must all be deserialized
+                        # together so "subactivity_of" is handled properly
+                        for so in byclass[cname]:
+                            # if objs are still owned by 'me' but user has
+                            # logged in and has a local_user object ...
+                            if so.get('creator') == 'me' and not user_is_me:
+                                so['creator'] = self.local_user.oid
+                                so['modifier'] = self.local_user.oid
+                        n_byclass = len(byclass[cname])
+                        objs += deserialize(orb, byclass[cname],
+                                            force_no_recompute=True)
+                        i += n_byclass
+                        self.pb.setValue(i)
+                        msg = f'{n_byclass} Activities deserialized'
+                        self.statusbar.showMessage(msg)
+                    else:
+                        for so in byclass[cname]:
+                            # if objs are still owned by 'me' but user has
+                            # logged in and has a local_user object ...
+                            if so.get('creator') == 'me' and not user_is_me:
+                                so['creator'] = self.local_user.oid
+                                so['modifier'] = self.local_user.oid
+                            # n_byclass = len(byclass[cname])
+                            objs += deserialize(orb, [so],
+                                                force_no_recompute=True)
+                            i += 1
+                            self.pb.setValue(i)
+                            name = so.get('name', '')
+                            msg = f'{cname}:  {name}'
+                            self.statusbar.showMessage(msg)
                     byclass.pop(cname)
             # deserialize any other classes ...
             if byclass:
@@ -6023,11 +6043,11 @@ class Main(QMainWindow):
                         if so.get('creator') == 'me' and not user_is_me:
                             so['creator'] = self.local_user.oid
                             so['modifier'] = self.local_user.oid
-                    n_byclass = len(byclass[cname])
-                    objs += deserialize(orb, byclass[cname],
-                                        force_no_recompute=True)
-                    i += n_byclass
-                    self.pb.setValue(i)
+                        # n_byclass = len(byclass[cname])
+                        objs += deserialize(orb, [so],
+                                            force_no_recompute=True)
+                        i += 1
+                        self.pb.setValue(i)
             self.pb.hide()
             if not msg:
                 msg = "data has been {}.".format(end)
