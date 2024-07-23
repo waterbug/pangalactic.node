@@ -10,7 +10,8 @@ VERSION = open('VERSION').read()[:-1]
 doc_mod_path = os.path.join('pangalactic', 'node', 'docs')
 doc_paths = [os.path.join(doc_mod_path, p)
               for p in os.listdir(doc_mod_path)
-              if not p.startswith('__init__')]
+              if not p.startswith('__init__') and
+              not p.startswith('images')]
 doc_img_mod_path = os.path.join('pangalactic', 'node', 'docs', 'images')
 doc_img_paths = [os.path.join(doc_img_mod_path, p)
               for p in os.listdir(doc_img_mod_path)
