@@ -7,6 +7,14 @@ from setuptools import setup, find_packages
 
 VERSION = open('VERSION').read()[:-1]
 
+doc_mod_path = os.path.join('pangalactic', 'node', 'docs')
+doc_paths = [os.path.join(doc_mod_path, p)
+              for p in os.listdir(doc_mod_path)
+              if not p.startswith('__init__')]
+doc_img_mod_path = os.path.join('pangalactic', 'node', 'docs', 'images')
+doc_img_paths = [os.path.join(doc_img_mod_path, p)
+              for p in os.listdir(doc_img_mod_path)
+              if not p.startswith('__init__')]
 icon_mod_path = os.path.join('pangalactic', 'node', 'icons')
 icon_paths = [os.path.join(icon_mod_path, p)
               for p in os.listdir(icon_mod_path)
@@ -38,6 +46,10 @@ setup(
     license='TBD',
     packages=find_packages(),
     data_files=[
+        # doc files
+        (os.path.join(sitepkg_dir, doc_mod_path), doc_paths),
+        # doc image files
+        (os.path.join(sitepkg_dir, doc_img_mod_path), doc_img_paths),
         # icon files
         (os.path.join(sitepkg_dir, icon_mod_path), icon_paths),
         # image files
