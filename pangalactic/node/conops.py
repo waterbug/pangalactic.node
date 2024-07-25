@@ -291,7 +291,7 @@ class EventBlock(QGraphicsPolygonItem):
         self.menu = QMenu()
         self.menu.addAction(self.display_notes_action)
         self.menu.addAction(self.edit_notes_action)
-        self.menu.addAction(self.add_doc_action)
+        # self.menu.addAction(self.add_doc_action)
         self.menu.addAction(self.clone_action)
         self.menu.addAction(self.delete_action)
         self.menu.exec(QCursor.pos())
