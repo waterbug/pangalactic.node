@@ -406,6 +406,44 @@ parameters.
 Note that in either case, whether a **white box** or **black box** clone is
 created, the clone will receive *all parameters* of the original object.
 
+## Define a Concept of Operations ("ConOps") and Power Modes
+
+A **ConOps** defines the sequence of activities that constitute a **Mission**.
+The **Lead Engineer** and **Systems Engineer** for a project can use the
+**ConOps Modeler** to create a timeline on which the **Mission** **Activities**
+are defined, and each **Activity** can be assigned a *duration* and can be
+characterized by a *power mode*.
+
+To begin, select the **ConOps Modeler** item in the **Tools** menu.
+
+![Select ConOps Modeler](images/conops_modeler_menu_item.png "ConOps Modeler in menu")
+
+The first time the ConOps Modeler is opened for a new project, it will display
+an empty **Mission Timeline** scene, **Mission Details** table, and **Mission
+Systems** assembly tree.
+
+![Initial ConOps Modeler](images/conops_interface_empty.png "ConOps Modeler in menu")
+
+The first step is to begin adding activities to the **Mission Timeline**. This
+can be done either by
+
+1. Clicking the **Add Default Activities** button, which will add the
+   following activities to the **Timeline**: **Launch**, **Calibration**,
+   **Propulsion**, **Slew**, **Science Data Acquisition**, **Science Data
+   Transmission**, **Safe Hold**:
+
+![Default Activities Added](images/conops_timeline_with_default_activities.png "Default Activities")
+
+2. Dragging an Activity type icon (**Op**, **Event**, or **Cycle**) from
+   the **Activities** palette on the right side and dropping it onto the
+   **Timeline**:
+
+![One Activity Added](images/conops_timeline_after_activity_drop.png "Activity Added")
+
+Once an activity has been added to the **Timeline**, its *name*, *duration*,
+and *time units* can be edited in the **Details** table on the left side of the
+interface simply by clicking on the cell, typing a value, and hitting *Return*.
+
 ## Use Local DB Mode to Display Tabular Views of Objects and Export them to TSV
 
 Any row in the **Objects** table can be double-clicked to display that object

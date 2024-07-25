@@ -99,6 +99,9 @@ Object</a>
 id="toc-options-for-creating-a-clone-from-a-white-box-object">Options
 for Creating a Clone from a White Box Object</a></li>
 </ul></li>
+<li><a href="#define-a-concept-of-operations-conops-and-power-modes"
+id="toc-define-a-concept-of-operations-conops-and-power-modes">Define a
+Concept of Operations (“ConOps”) and Power Modes</a></li>
 <li><a
 href="#use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv"
 id="toc-use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv">Use
@@ -605,6 +608,62 @@ Rate</strong> parameters.</p>
 <p>Note that in either case, whether a <strong>white box</strong> or
 <strong>black box</strong> clone is created, the clone will receive
 <em>all parameters</em> of the original object.</p>
+<h2 id="define-a-concept-of-operations-conops-and-power-modes">Define a
+Concept of Operations (“ConOps”) and Power Modes</h2>
+<p>A <strong>ConOps</strong> defines the sequence of activities that
+constitute a <strong>Mission</strong>. The <strong>Lead
+Engineer</strong> and <strong>Systems Engineer</strong> for a project
+can use the <strong>ConOps Modeler</strong> to create a timeline on
+which the <strong>Mission</strong> <strong>Activities</strong> are
+defined, and each <strong>Activity</strong> can be assigned a
+<em>duration</em> and can be characterized by a <em>power mode</em>.</p>
+<p>To begin, select the <strong>ConOps Modeler</strong> item in the
+<strong>Tools</strong> menu.</p>
+<figure>
+<img src="images/conops_modeler_menu_item.png"
+title="ConOps Modeler in menu" alt="Select ConOps Modeler" />
+<figcaption aria-hidden="true">Select ConOps Modeler</figcaption>
+</figure>
+<p>The first time the ConOps Modeler is opened for a new project, it
+will display an empty <strong>Mission Timeline</strong> scene,
+<strong>Mission Details</strong> table, and <strong>Mission
+Systems</strong> assembly tree.</p>
+<figure>
+<img src="images/conops_interface_empty.png"
+title="ConOps Modeler in menu" alt="Initial ConOps Modeler" />
+<figcaption aria-hidden="true">Initial ConOps Modeler</figcaption>
+</figure>
+<p>The first step is to begin adding activities to the <strong>Mission
+Timeline</strong>. This can be done either by</p>
+<ol type="1">
+<li>Clicking the <strong>Add Default Activities</strong> button, which
+will add the following activities to the <strong>Timeline</strong>:
+<strong>Launch</strong>, <strong>Calibration</strong>,
+<strong>Propulsion</strong>, <strong>Slew</strong>, <strong>Science Data
+Acquisition</strong>, <strong>Science Data Transmission</strong>,
+<strong>Safe Hold</strong>:</li>
+</ol>
+<figure>
+<img src="images/conops_timeline_with_default_activities.png"
+title="Default Activities" alt="Default Activities Added" />
+<figcaption aria-hidden="true">Default Activities Added</figcaption>
+</figure>
+<ol start="2" type="1">
+<li>Dragging an Activity type icon (<strong>Op</strong>,
+<strong>Event</strong>, or <strong>Cycle</strong>) from the
+<strong>Activities</strong> palette on the right side and dropping it
+onto the <strong>Timeline</strong>:</li>
+</ol>
+<figure>
+<img src="images/conops_timeline_after_activity_drop.png"
+title="Activity Added" alt="One Activity Added" />
+<figcaption aria-hidden="true">One Activity Added</figcaption>
+</figure>
+<p>Once an activity has been added to the <strong>Timeline</strong>, its
+<em>name</em>, <em>duration</em>, and <em>time units</em> can be edited
+in the <strong>Details</strong> table on the left side of the interface
+simply by clicking on the cell, typing a value, and hitting
+<em>Return</em>.</p>
 <h2
 id="use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv">Use
 Local DB Mode to Display Tabular Views of Objects and Export them to
