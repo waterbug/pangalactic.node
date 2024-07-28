@@ -612,6 +612,8 @@ class TimelineWidget(QWidget):
         layout = QVBoxLayout()
         self.setLayout(layout)
         self.set_new_scene()
+        # "deleted object" is sent by pangalaxian when it receives a "deleted"
+        # pubsub message ...
         dispatcher.connect(self.delete_activity, "deleted object")
         # "delete activity" is sent by event block when it is removed ...
         dispatcher.connect(self.delete_activity, "delete activity")
@@ -864,14 +866,29 @@ class TimelineWidget(QWidget):
         if not obj:
             orb.log.debug(f'  - obj with oid "{oid}" not found.')
             return
+        if not isinstance(obj, orb.classes['Activity']):
+            orb.log.debug('  - obj is not an Activity or Mission.')
+            return
         subj_oid = getattr(self.subject, 'oid', '')
         name = getattr(obj, 'name', None) or '[no name]'
         if remote:
+            # NOTE: when a "deleted" pubsub message is received by pangalaxian
+            # with cname "Mission" or "Activity" it will NOT delete the object
+            # if conops is running (state["conops"] == True) but will send
+            # dispatcher "deleted object"
+            # signal ...
+            objs_to_delete = [obj]
+            if obj.sub_activities:
+                objs_to_delete += obj.sub_activities
             if oid == subj_oid:
-                orb.log.debug('  is current subject, removing ...')
+                orb.log.debug('  is current subject ...')
                 project = orb.get(state.get('project'))
                 mission = orb.select('Mission', owner=project)
-                self.subject = mission
+                if obj is mission:
+                    self.subject = None
+                else:
+                    self.subject = mission
+                orb.delete(objs_to_delete)
                 self.set_new_scene()
             else:
                 current_act_oids = [getattr(act, 'oid', '') for act in
@@ -882,14 +899,18 @@ class TimelineWidget(QWidget):
                     for item in self.scene.items():
                         if (hasattr(item, 'activity') and
                             item.activity and item.activity.oid == oid):
-                            act = item.activity
                             self.scene.removeItem(item)
                             if item in self.scene.timeline.evt_blocks:
                                 self.scene.timeline.evt_blocks.remove(item)
-                            orb.delete([act])
-                            dispatcher.send("deleted object", oid=oid,
-                                            cname='Activity')
+                    orb.delete(objs_to_delete)
+                else:
+                    orb.log.debug('  not in current timeline, deleting ...')
+                    orb.delete(objs_to_delete)
+                # set_new_scene() might not be necessary here ...
                 self.set_new_scene()
+            # not necessary for deletions originating remotely ...
+            # dispatcher.send("deleted object", oid=oid,
+                            # cname='Activity')
         else:
             # locally originated action ...
             orb.log.debug(f'  - deleting activity {name}')
@@ -1957,6 +1978,12 @@ class ConOpsModeler(QMainWindow):
         # if oids and ((set(oids) & act_oids) or self.project in owners):
         self.main_timeline.set_new_scene()
         self.rebuild_table()
+
+    def closeEvent(self, event):
+        """
+        Things to do when this window is closed.
+        """
+        state["conops"] = False
 
 
 if __name__ == '__main__':

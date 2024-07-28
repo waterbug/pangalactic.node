@@ -4032,12 +4032,18 @@ class Main(QMainWindow):
                     self.w.show()
                 orb.delete([deleted_obj])
                 orb.log.debug('  deleted.')
-            elif cname == 'Activity':
-                # DO NOT delete here -- conops will handle the deletion because
-                # the activity oid is used to get the local activity instance,
-                # which is used to find the event block that needs to be
-                # removed from the timeline ...
-                pass
+            elif cname in ['Mission', 'Activity']:
+                # DO NOT delete here if conops is running, it will handle the
+                # "deleted object" signal ...
+                if not state.get("conops"):
+                    objs_to_delete = [deleted_obj]
+                    subacts = getattr(deleted_obj, 'sub_activities', [])
+                    if subacts:
+                        # if it has sub_activities, delete them too
+                        objs_to_delete += subacts
+                    orb.delete(objs_to_delete)
+                    orb.log.debug('  ConOpsModeler is not running --')
+                    orb.log.debug(f'  "{cname}" object deleted.')
             else:
                 orb.delete([deleted_obj])
                 orb.log.debug('  deleted.')
@@ -5780,6 +5786,7 @@ class Main(QMainWindow):
     def conops_modeler(self):
         win = ConOpsModeler(parent=self)
         win.move(50, 50)
+        state['conops'] = True
         win.show()
 
     def sc_42_modeler(self):
