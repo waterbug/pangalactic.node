@@ -6086,6 +6086,7 @@ class Main(QMainWindow):
                             "Project Data Import", msg,
                             QMessageBox.Ok, self)
                 popup.show()
+            return objs
         else:
             if importing:
                 msg = "no data found."
