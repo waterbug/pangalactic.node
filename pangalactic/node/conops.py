@@ -475,6 +475,10 @@ class Timeline(QGraphicsPathItem):
         dispatcher.send("order changed")
         self.update()
         if mod_objs:
+            orb.log.debug('  - sending "modified objects" signal on:')
+            names = [o.name for o in mod_objs]
+            for name in names:
+                orb.log.debug(f'    + {name}')
             dispatcher.send("modified objects", objs=mod_objs)
 
 
@@ -563,7 +567,7 @@ class TimelineScene(QGraphicsScene):
         orb.log.debug('* scene: sending "set new scene" signal')
         dispatcher.send(signal="set new scene")
 
-    def on_act_name_mod(self, act=None):
+    def on_act_name_mod(self, act=None, remote=False):
         """
         Handle 'act name mod' signal from ActInfoTable, meaning an activity's
         name was modified.
@@ -573,7 +577,8 @@ class TimelineScene(QGraphicsScene):
             # orb.log.debug(f'  checking for {item.activity.name} by oid')
             if item.activity.oid == act.oid:
                 item.update_block_label()
-                dispatcher.send("modified object", obj=item.activity)
+                if not remote:
+                    dispatcher.send("modified object", obj=item.activity)
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
@@ -982,7 +987,7 @@ class TimelineWidget(QWidget):
         vo_coords = (v_origin.x(), v_origin.y())
         orb.log.debug(f'  scene coords of view origin: ({vo_coords})')
 
-    def on_act_name_mod(self, act):
+    def on_act_name_mod(self, act, remote=False):
         if act is self.subject:
             self.set_title()
 
@@ -1957,16 +1962,16 @@ class ConOpsModeler(QMainWindow):
         """
         self.rebuild_table()
 
-    def on_remote_mod_acts(self, oids=None):
+    def on_remote_mod_acts(self, objs=None):
         """
         Handle dispatcher "remote new or mod acts" signal.
 
         Keyword Args:
-            oids (list of str): oids of the new or modified Activity instances
+            objs (list of Activity): the new or modified Activity instances
         """
-        n_oids = len(oids or [])
+        n_objs = len(objs or [])
         orb.log.debug('* received "remote new or mod acts" signal')
-        orb.log.debug(f'  with {n_oids} oids --')
+        orb.log.debug(f'  with {n_objs} objects --')
         orb.log.debug('  setting new scene and rebuilding table ...')
         # act_oids = set([getattr(self.subject, 'oid', None)])
         # act_oids += set([act.oid for act in

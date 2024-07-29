@@ -1986,10 +1986,10 @@ class Main(QMainWindow):
 
     def on_received_objects(self, content=None):
         """
-        Handle the result of the rpc 'vger.get_object', other rpcs that
-        return lists of serialized objects, and pubsub messages "decloaked",
-        "new", and "modified", for which the content is a list of serialized
-        objects.
+        Handle the result of the rpc 'vger.get_object', pubsub messages sent
+        from 'vger.save', and other rpcs that return lists of serialized
+        objects, and pubsub messages "decloaked", "new", and "modified", for
+        which the content is a list of serialized objects.
 
         Args:
             content (list): a list of serialized objects
@@ -2030,6 +2030,7 @@ class Main(QMainWindow):
         need_to_refresh_tree = False
         need_to_refresh_diagram = False
         to_delete = []
+        new_or_modified_acts = []
         for obj in objs:
             # TODO: check whether object is actually being displayed in system
             # tree and/or diagram before rebuilding them ...
@@ -2087,11 +2088,8 @@ class Main(QMainWindow):
                 else:
                     state['new_or_modified_rqts'] = [obj.oid]
             elif cname == 'Activity':
-                # orb.log.debug('  received Activity {obj.name}')
-                if state.get('new_or_modified_acts'):
-                    state['new_or_modified_acts'].append(obj.oid)
-                else:
-                    state['new_or_modified_acts'] = [obj.oid]
+                orb.log.debug('  received Activity {obj.name}')
+                new_or_modified_acts.append(obj)
             # ================================================================
             # TODO: use add|mod|del_object in db table for cname
             # (commented for now because unwise to do GUI updates here)
@@ -2123,10 +2121,9 @@ class Main(QMainWindow):
             oids = state['new_or_modified_rqts']
             state['new_or_modified_rqts'] = []
             dispatcher.send(signal='remote new or mod rqts', oids=oids)
-        if state.get('new_or_modified_acts'):
-            oids = state['new_or_modified_acts']
-            state['new_or_modified_acts'] = []
-            dispatcher.send(signal='remote new or mod acts', oids=oids)
+        if new_or_modified_acts:
+            dispatcher.send(signal='remote new or mod acts',
+                            objs=new_or_modified_acts)
         self.get_parmz()
         return True
 
@@ -3401,8 +3398,9 @@ class Main(QMainWindow):
                 if isinstance(obj, orb.classes['Activity']):
                     mod_act_oids.add(oid)
             if mod_act_oids:
+                mod_acts = orb.get(oids=mod_act_oids)
                 dispatcher.send(signal='remote new or mod acts',
-                                oids=mod_act_oids)
+                                objs=mod_acts)
         orb.log.debug('  success: data_elementz updated.')
 
     def on_remote_data_elements_set(self, content):

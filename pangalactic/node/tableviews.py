@@ -448,7 +448,7 @@ class ActInfoTable(QTableWidget):
                 act.mod_datetime = dtstamp()
                 orb.save([act])
                 # self.resizeColumnsToContents()
-                dispatcher.send(signal="act name mod", act=act)
+                dispatcher.send(signal="act name mod", act=act, remote=False)
             elif pname == 'time_units':
                 # TODO: when time units are set, convert existing values (if
                 # any) and do other computations as necessary ...
@@ -580,6 +580,10 @@ class ActInfoTable(QTableWidget):
             # if len(self.acts) > row + 1:
             # TODO: test!
             mod_acts, more_prop_mods = self.recompute_timeline()
+            act_names = [act.name for act in mod_acts]
+            orb.log.debug('  - modified activities:')
+            for aname in act_names:
+                orb.log.debug(f'    + {aname}')
             if mod_acts:
                 for other_act in mod_acts:
                     other_act.mod_datetime = NOW

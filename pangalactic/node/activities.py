@@ -642,7 +642,7 @@ class ModeDefinitionDashboard(QWidget):
         else:
             self.title_widget = ColorLabel(title_txt, element='h2')
 
-    def on_act_name_mod(self, act):
+    def on_act_name_mod(self, act, remote=False):
         if act is self.act:
             self.setup_title_widget()
 
