@@ -646,12 +646,10 @@ class TimelineWidget(QWidget):
         nbr_of_subacts = len(subacts)
         if (self.subject != None) and (nbr_of_subacts > 0):
             orb.log.debug(f' - with {nbr_of_subacts} sub-acts ...')
-            evt_blocks=[]
             for activity in reversed(subacts):
                 if (activity.of_system == self.system):
                     item = EventBlock(activity=activity,
                                       scene=scene)
-                    evt_blocks.append(item)
                     scene.addItem(item)
                 scene.update()
             scene.timeline.update_timeline()
@@ -904,9 +902,9 @@ class TimelineWidget(QWidget):
                     for item in self.scene.items():
                         if (hasattr(item, 'activity') and
                             item.activity and item.activity.oid == oid):
+                            name = item.activity.name
+                            orb.log.debug(f'  removing block "{name}"')
                             self.scene.removeItem(item)
-                            if item in self.scene.timeline.evt_blocks:
-                                self.scene.timeline.evt_blocks.remove(item)
                     orb.delete(objs_to_delete)
                 else:
                     orb.log.debug('  not in current timeline, deleting ...')
