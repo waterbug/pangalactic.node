@@ -357,8 +357,8 @@ class EventBlock(QGraphicsPolygonItem):
         # evt_block.setPos(event.scenePos())
         self.scene.addItem(evt_block)
         self.scene.timeline.update_timeline()
-        # orb.log.debug(' - dipatching "new activity" signal')
-        # dispatcher.send(signal='new activity', act=activity)
+        orb.log.debug(' - dipatching "new object" signal')
+        dispatcher.send("new object", obj=activity)
 
     def delete_activity_block(self):
         self.scene.removeItem(self)
@@ -562,10 +562,10 @@ class TimelineScene(QGraphicsScene):
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.update_timeline()
-        # NOTE: DO NOT send "new activity signal: timeline.update_timeline()
-        # will send a "modified objects" signal ...
         orb.log.debug('* scene: sending "set new scene" signal')
         dispatcher.send(signal="set new scene")
+        orb.log.debug('* scene: sending "new object" signal')
+        dispatcher.send("new object", obj=activity)
 
     def on_act_name_mod(self, act=None, remote=False):
         """
@@ -1592,7 +1592,8 @@ class ConOpsModeler(QMainWindow):
         # ====================================================================
         dispatcher.connect(self.rebuild_table, "order changed")
         dispatcher.connect(self.on_new_timeline, "new timeline")
-        dispatcher.connect(self.on_new_activity, "new activity")
+        # NOTE: "new activity" signal is deprecated
+        # dispatcher.connect(self.on_new_activity, "new activity")
         dispatcher.connect(self.on_delete_activity, "delete activity")
         dispatcher.connect(self.on_delete_activity, "remove activity")
         dispatcher.connect(self.on_delete_activity, "deleted object")
@@ -1933,18 +1934,18 @@ class ConOpsModeler(QMainWindow):
         """
         pass
 
-    def on_new_activity(self, act):
-        """
-        Handler for "new activity" dispatcher signal.
+    # def on_new_activity(self, act):
+        # """
+        # Handler for "new activity" dispatcher signal.
 
-        Args:
-            act (Activity): the new Activity instance
-        """
-        orb.log.debug("* ConOpsModeler.on_new_activity()")
-        # orb.log.debug(f'  sending "new object" signal on {act.id}')
-        self.main_timeline.auto_rescale_timeline()
-        # dispatcher.send("new object", obj=act)
-        self.rebuild_table()
+        # Args:
+            # act (Activity): the new Activity instance
+        # """
+        # orb.log.debug("* ConOpsModeler.on_new_activity()")
+        # # orb.log.debug(f'  sending "new object" signal on {act.id}')
+        # self.main_timeline.auto_rescale_timeline()
+        # # dispatcher.send("new object", obj=act)
+        # self.rebuild_table()
 
     def on_delete_activity(self, oid=None, cname=None, remote=False):
         """
