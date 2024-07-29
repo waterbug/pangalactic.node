@@ -536,11 +536,19 @@ class TimelineScene(QGraphicsScene):
 
     def dropEvent(self, event):
         orb.log.debug('* scene.dropEvent()')
+        mod_acts = []
         position = event.scenePos()
         seq = 0
+        # find nearest x position to the left -- seq is greater by 1
         for evt_block in self.timeline.evt_blocks:
             if position.x() > evt_block.x():
                 seq = evt_block.activity.sub_activity_sequence + 1
+                break
+        # increment the sequence of all activities to the right ...
+        for evt_block in self.timeline.evt_blocks:
+            if evt_block.activity.sub_activity_sequence >= seq:
+                evt_block.activity.sub_activity_sequence += 1
+                mod_acts.append(evt_block.activity)
         # seq = len(self.subject.sub_activities) + 1
         # activity type is one of "Cycle", "Op", "Event"
         activity_type_name = event.mimeData().text()
@@ -554,7 +562,11 @@ class TimelineScene(QGraphicsScene):
                          of_system=self.act_of,
                          sub_activity_sequence=seq,
                          sub_activity_of=self.subject)
+        for act in mod_acts:
+            # use the clone's mod_datetime for all updated activities
+            act.mod_datetime = activity.mod_datetime
         orb.db.commit()
+        mod_acts.append(activity)
         # set time units locally to default: "minutes" -- if connected,
         # this will be done in the callback after vger.save() succeeds
         set_dval(activity.oid, "time_units", "minutes")
@@ -564,8 +576,8 @@ class TimelineScene(QGraphicsScene):
         self.timeline.update_timeline()
         orb.log.debug('* scene: sending "set new scene" signal')
         dispatcher.send(signal="set new scene")
-        orb.log.debug('* scene: sending "new object" signal')
-        dispatcher.send("new object", obj=activity)
+        orb.log.debug('* scene: sending "modified objects" signal')
+        dispatcher.send("modified objects", objs=mod_acts)
 
     def on_act_name_mod(self, act=None, remote=False):
         """
