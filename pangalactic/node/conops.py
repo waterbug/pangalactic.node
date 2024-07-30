@@ -429,11 +429,11 @@ class Timeline(QGraphicsPathItem):
         else:
             return []
 
-    def update_timeline(self):
+    def update_timeline(self, remote=False):
         orb.log.debug('* timeline.update_timeline()')
         self.calc_length()
         self.make_path()
-        self.arrange()
+        self.arrange(remote=remote)
 
     def calc_length(self):
         orb.log.debug('* timeline.calc_length()')
@@ -458,28 +458,36 @@ class Timeline(QGraphicsPathItem):
         self.list_of_pos = [(n+1) * factor + 100
                             for n in range(0, len(self.evt_blocks))]
 
-    def arrange(self):
-        orb.log.debug('* timeline.arrange()')
+    def arrange(self, remote=False):
+        orb.log.debug(f'* timeline.arrange(remote={remote})')
         # self.evt_blocks.sort(key=lambda x: x.scenePos().x())
         orb.log.debug('  - setting sub_activity_sequence(s) ...')
         NOW = dtstamp()
         mod_objs = []
-        for i, evt_block in enumerate(self.evt_blocks):
-            evt_block.setPos(QPoint(self.list_of_pos[i], 250))
-            act = evt_block.activity
-            if act.sub_activity_sequence != i:
-                act.sub_activity_sequence = i
-                act.mod_datetime = NOW
-                orb.save([act])
-                mod_objs.append(act)
-        dispatcher.send("order changed")
-        self.update()
-        if mod_objs:
-            orb.log.debug('  - sending "modified objects" signal on:')
-            names = [o.name for o in mod_objs]
-            for name in names:
-                orb.log.debug(f'    + {name}')
-            dispatcher.send("modified objects", objs=mod_objs)
+        if remote:
+            # activity sequence was set by the remote operation, do not change
+            evt_blocks = self.evt_blocks
+            evt_blocks.sort(key=lambda x: x.activity.sub_activity_sequence)
+            for i, evt_block in enumerate(evt_blocks):
+                evt_block.setPos(QPoint(self.list_of_pos[i], 250))
+            self.update()
+        else:
+            for i, evt_block in enumerate(self.evt_blocks):
+                evt_block.setPos(QPoint(self.list_of_pos[i], 250))
+                act = evt_block.activity
+                if act.sub_activity_sequence != i:
+                    act.sub_activity_sequence = i
+                    act.mod_datetime = NOW
+                    orb.save([act])
+                    mod_objs.append(act)
+            dispatcher.send("order changed")
+            self.update()
+            if mod_objs:
+                orb.log.debug('  - sending "modified objects" signal on:')
+                names = [o.name for o in mod_objs]
+                for name in names:
+                    orb.log.debug(f'    + {name}')
+                dispatcher.send("modified objects", objs=mod_objs)
 
 
 class TimelineScene(QGraphicsScene):
@@ -543,10 +551,13 @@ class TimelineScene(QGraphicsScene):
         for evt_block in self.timeline.evt_blocks:
             if position.x() > evt_block.x():
                 seq = evt_block.activity.sub_activity_sequence + 1
+                orb.log.debug(f'  seq of new block: {seq}.')
                 break
         # increment the sequence of all activities to the right ...
         for evt_block in self.timeline.evt_blocks:
-            if evt_block.activity.sub_activity_sequence >= seq:
+            n = evt_block.activity.sub_activity_sequence
+            if n >= seq:
+                orb.log.debug(f'  incrementing {n} to {n+1}.')
                 evt_block.activity.sub_activity_sequence += 1
                 mod_acts.append(evt_block.activity)
         # seq = len(self.subject.sub_activities) + 1
@@ -645,7 +656,7 @@ class TimelineWidget(QWidget):
     def minimumSize(self):
         return QSize(800, 500)
 
-    def set_new_scene(self):
+    def set_new_scene(self, remote=False):
         """
         Create a new scene with new subject activity or an empty scene if no
         subject activity.
@@ -664,7 +675,7 @@ class TimelineWidget(QWidget):
                                       scene=scene)
                     scene.addItem(item)
                 scene.update()
-            scene.timeline.update_timeline()
+            scene.timeline.update_timeline(remote=remote)
             ada = getattr(self, 'add_defaults_action', None)
             if ada:
                 self.add_defaults_action.setEnabled(False)
@@ -1992,7 +2003,7 @@ class ConOpsModeler(QMainWindow):
         # if new_or_mod_acts:
             # owners = [a.owner for a in new_or_mod_acts]
         # if oids and ((set(oids) & act_oids) or self.project in owners):
-        self.main_timeline.set_new_scene()
+        self.main_timeline.set_new_scene(remote=True)
         self.rebuild_table()
 
     def closeEvent(self, event):
