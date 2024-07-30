@@ -469,10 +469,14 @@ class Timeline(QGraphicsPathItem):
             evt_blocks = self.evt_blocks
             evt_blocks.sort(key=lambda x: x.activity.sub_activity_sequence)
             for i, evt_block in enumerate(evt_blocks):
+                name = evt_block.activity.name
+                orb.log.debug(f'  block {i}: "{name}"')
                 evt_block.setPos(QPoint(self.list_of_pos[i], 250))
             self.update()
         else:
             for i, evt_block in enumerate(self.evt_blocks):
+                name = evt_block.activity.name
+                orb.log.debug(f'  block {i}: "{name}"')
                 evt_block.setPos(QPoint(self.list_of_pos[i], 250))
                 act = evt_block.activity
                 if act.sub_activity_sequence != i:
