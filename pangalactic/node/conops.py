@@ -569,8 +569,8 @@ class TimelineScene(QGraphicsScene):
         activity_type_name = event.mimeData().text()
         activity_type = orb.select("ActivityType", name=activity_type_name)
         prefix = self.subject.name
-        act_id = '-'.join([prefix, activity_type_name, str(seq)])
-        act_name = ' '.join([prefix, activity_type_name, str(seq)])
+        act_id = '-'.join([prefix, activity_type_name])
+        act_name = ' '.join([prefix, activity_type_name])
         project = orb.get(state.get('project'))
         activity = clone("Activity", id=act_id, name=act_name,
                          activity_type=activity_type, owner=project,
