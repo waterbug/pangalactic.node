@@ -658,7 +658,8 @@ class ModeDefinitionDashboard(QWidget):
         # set col names
         for i, name in enumerate(self.fields):
             self.field_titles[name] = ColorLabel(self.fields[name],
-                                                 color='blue', element='h3')
+                                                 color='blue', element='h3',
+                                                 maxwidth=160)
             grid.addWidget(self.field_titles[name], 0, i+1)
 
     def on_edit(self, evt):
@@ -734,9 +735,9 @@ class ModeDefinitionDashboard(QWidget):
                 if comp and comp is not TBD:
                     row += 1
                     link_name = get_link_name(acu)
-                    name = f'---- {link_name}'
-                    label = ColorLabel(name, color='black', element='b',
-                                       maxwidth=240)
+                    qty = acu.quantity or 1
+                    name = f'---- ({qty}) {link_name}'
+                    label = ColorLabel(name, color='black', element='b')
                     label.setToolTip(link_name)
                     grid.addWidget(label, row, 0)
                     self.usage_to_row[acu.oid] = row
@@ -808,13 +809,13 @@ class ModeDefinitionDashboard(QWidget):
         if row == 1:
             # TODO: enable to switch from "[computed]" to a specified level
             modal_context = '[computed]'
-            label = ValueLabel(modal_context, w=80)
+            label = ValueLabel(modal_context, w=40)
             grid.addWidget(label, row, 1)
         else:
             modal_context = get_modal_context(self.project.oid, usage.oid,
                                               self.act.oid)
             if modal_context == '[computed]':
-                label = ValueLabel(modal_context, w=80)
+                label = ValueLabel(modal_context, w=40)
                 grid.addWidget(label, row, 1)
             else:
                 if not modal_context:
@@ -827,7 +828,7 @@ class ModeDefinitionDashboard(QWidget):
                     l_sel.setCurrentIndex(i)
                     grid.addWidget(l_sel, row, 1)
                 else:
-                    label = ValueLabel(modal_context, w=80)
+                    label = ValueLabel(modal_context, w=40)
                     grid.addWidget(label, row, 1)
         # -------------------
         # p_cbe (col 2)
@@ -846,7 +847,7 @@ class ModeDefinitionDashboard(QWidget):
         if p_cbe_field:
             p_cbe_field.setText(p_cbe_val_str)
         else:
-            p_cbe_field = ValueLabel(p_cbe_val_str, w=40)
+            p_cbe_field = ValueLabel(p_cbe_val_str, w=20)
             self.p_cbe_fields[comp.oid] = p_cbe_field
             grid.addWidget(p_cbe_field, row, 2)
         # -------------------
@@ -860,7 +861,7 @@ class ModeDefinitionDashboard(QWidget):
         if p_mev_field:
             p_mev_field.setText(p_mev_val_str)
         else:
-            p_mev_field = ValueLabel(p_mev_val_str, w=40)
+            p_mev_field = ValueLabel(p_mev_val_str, w=20)
             self.p_mev_fields[comp.oid] = p_mev_field
             grid.addWidget(p_mev_field, row, 3)
 
