@@ -536,14 +536,15 @@ class PropertyDropLabel(ColorLabel):
         # dispatcher.connect(self.adjust_parent_size, 'dedef label resized')
 
     def set_content(self, name, color=None, element=None, border=None,
-                    margin=None, parent=None):
+                    margin=None, maxwidth=0):
         self.name = name
         self.color = color or 'purple'
         self.element = getattr(self, 'element', None) or element
         self.border = getattr(self, 'border', None) or border
         self.margin = getattr(self, 'margin', None) or margin
         super().set_content(self.name, color=self.color, element=self.element,
-                            border=self.border, margin=self.margin) 
+                            border=self.border, margin=self.margin,
+                            maxwidth=maxwidth)
         if self.name:
             self.setStyleSheet('background-color: yellow')
 
