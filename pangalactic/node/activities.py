@@ -267,12 +267,12 @@ class SystemSelectionView(QTreeView):
                 assembly = assembly_node.link.component
             else:
                 assembly = assembly_node.link.system
-            orb.log.debug('* link_indexes_in_assembly({})'.format(link.id))
+            # orb.log.debug('* link_indexes_in_assembly({})'.format(link.id))
             if link.oid == assembly_node.link.oid:
-                orb.log.debug('  assembly node *is* the link node')
+                # orb.log.debug('  assembly node *is* the link node')
                 return [idx]
             elif model.hasChildren(idx) and link in get_assembly(assembly):
-                orb.log.debug('  link in assembly -- looking for indexes ...')
+                # orb.log.debug('  link in assembly -- looking for indexes ...')
                 link_idxs = []
                 comp_idxs = [model.index(row, 0, idx)
                              for row in range(model.rowCount(idx))]
