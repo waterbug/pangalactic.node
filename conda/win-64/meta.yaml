@@ -1,6 +1,6 @@
 package:
   name: pangalactic.node
-  version: "4.1.dev17"
+  version: "4.1.dev18"
 
 source:
   path: /home/waterbug/clones/pangalactic.node
@@ -15,7 +15,7 @@ requirements:
     - setuptools
 
   run:
-    - pangalactic.core >=4.1.dev17
+    - pangalactic.core >=4.1.dev18
     - autobahn
     - binaryornot
     - packaging
