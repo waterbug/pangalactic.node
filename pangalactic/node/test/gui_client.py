@@ -726,10 +726,10 @@ class MainWindow(QMainWindow):
         self.log('* no result expected.')
 
     def on_mod_dval_success(self, stuff):
-        self.log(f'* result from "vger.set_data_element":  "{stuff}"')
+        self.log(f'* result from "vger.set_data_elements":  "{stuff}"')
 
     def on_mod_dval_failure(self, f):
-        self.log('* "vger.set_data_element" failure: {}'.format(
+        self.log('* "vger.set_data_elements" failure: {}'.format(
                                                          f.getTraceback()))
 
     def on_add_psu(self):
@@ -791,16 +791,13 @@ class MainWindow(QMainWindow):
         self.log("* on_mod_dval()")
         # hard-coded for a specific generated entity for the Oscillation
         # Overthruster ...
-        oid = 'c41796b6-9da1-49b9-bfb6-8ffb948580ea'
+        oid = 'test:overthruster'
         self.log('  modifying "cold units" for Oscillation Overthruster')
         dts = str(dtstamp())
         self.cold_units_val += 1
-        set_dval(oid, 'cold_units', self.cold_units_val, mod_datetime=dts,
-                 local=True)
-        rpc = message_bus.session.call('vger.set_data_element', oid=oid,
-                                       deid='cold_units',
-                                       value=self.cold_units_val,
-                                       mod_datetime=dts)
+        set_dval(oid, 'cold_units', self.cold_units_val, local=True)
+        de_dict = {oid: {'cold_units': self.cold_units_val}}
+        rpc = message_bus.session.call('vger.set_data_elements', des=de_dict)
         rpc.addCallback(self.on_mod_dval_success)
         rpc.addErrback(self.on_mod_dval_failure)
 
