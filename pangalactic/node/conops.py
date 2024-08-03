@@ -675,18 +675,21 @@ class TimelineWidget(QWidget):
         Create a new scene with new subject activity or an empty scene if no
         subject activity.
         """
-        orb.log.debug(' - set_new_scene ...')
+        orb.log.debug('  - set_new_scene ...')
         scene = TimelineScene(self, self.subject)
         subacts = getattr(self.subject, 'sub_activities', []) or []
         subacts.sort(key=lambda x: getattr(x,
                                    'sub_activity_sequence', 0) or 0)
         nbr_of_subacts = len(subacts)
         if (self.subject != None) and (nbr_of_subacts > 0):
-            orb.log.debug(f' - with {nbr_of_subacts} sub-acts ...')
+            orb.log.debug(f'  - placing {nbr_of_subacts} sub-acts:')
             for activity in reversed(subacts):
                 if (activity.of_system == self.system):
                     item = EventBlock(activity=activity,
                                       scene=scene)
+                    n = activity.sub_activity_sequence
+                    name = activity.name
+                    orb.log.debug(f'    + [{n}] {name}')
                     scene.addItem(item)
                 scene.update()
             scene.timeline.update_timeline(remote=remote,
