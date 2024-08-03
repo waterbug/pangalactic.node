@@ -468,21 +468,25 @@ class Timeline(QGraphicsPathItem):
             # activity sequence was set by the remote operation, do not change
             acts = remote_mod_acts or []
             if acts:
-                orb.debug('  - received acts:')
+                orb.debug('  - received new or mod acts:')
                 for act in acts:
                     seq = act.sub_activity_sequence
                     orb.debug(f'    + {act.name} (seq: {seq})')
+            else:
+                orb.debug('  - received no Activity objects.')
             evt_blocks = self.evt_blocks
             evt_blocks.sort(key=lambda x: x.activity.sub_activity_sequence)
+            orb.log.debug('  - arranging activity blocks ...')
             for i, evt_block in enumerate(evt_blocks):
                 name = evt_block.activity.name
-                orb.log.debug(f'  block {i}: "{name}"')
+                orb.log.debug(f'    + block {i}: "{name}"')
                 evt_block.setPos(QPoint(self.list_of_pos[i], 250))
             self.update()
         else:
+            orb.log.debug('  - arranging activity blocks ...')
             for i, evt_block in enumerate(self.evt_blocks):
                 name = evt_block.activity.name
-                orb.log.debug(f'  block {i}: "{name}"')
+                orb.log.debug(f'    + block {i}: "{name}"')
                 evt_block.setPos(QPoint(self.list_of_pos[i], 250))
                 act = evt_block.activity
                 if act.sub_activity_sequence != i:

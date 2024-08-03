@@ -2089,7 +2089,7 @@ class Main(QMainWindow):
                 else:
                     state['new_or_modified_rqts'] = [obj.oid]
             elif cname == 'Activity':
-                orb.log.debug('  received Activity {obj.name}')
+                orb.log.debug(f'  received Activity "{obj.name}"')
                 new_or_modified_acts.append(obj)
             # ================================================================
             # TODO: use add|mod|del_object in db table for cname
