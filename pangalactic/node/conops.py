@@ -2015,7 +2015,7 @@ class ConOpsModeler(QMainWindow):
                 seqs = [act.sub_activity_sequence
                         for act in self.subject.sub_activities]
                 orb.log.debug(f'  - seqs: {seqs}')
-                if (len(seqs) < len(set(seqs)) and seq in seqs):
+                if (len(seqs) > len(set(seqs)) and seq in seqs):
                     orb.log.debug(f'  seq ({seq}) occurs > once in seqs --')
                     orb.log.debug('  bump seq of activity with same seq ...')
                     for act in self.subject.sub_activities:
