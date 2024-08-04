@@ -2033,9 +2033,9 @@ class ConOpsModeler(QMainWindow):
                             orb.db.commit()
                 if sequence_adjusted:
                     orb.log.debug('  new sequence is:')
-                        for act in self.subject.sub_activities:
-                            s = act.sub_activity_sequence
-                            orb.log.debug(f'  - {act.name}: {s}')
+                    for act in self.subject.sub_activities:
+                        s = act.sub_activity_sequence
+                        orb.log.debug(f'  - {act.name}: {s}')
         if impacts_timeline:
             orb.log.debug('  setting new scene and rebuilding table ...')
             self.main_timeline.set_new_scene(remote=True, remote_mod_acts=objs)
