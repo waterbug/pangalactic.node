@@ -357,12 +357,12 @@ class EventBlock(QGraphicsPolygonItem):
         # evt_block.setPos(event.scenePos())
         self.scene.addItem(evt_block)
         self.scene.timeline.update_timeline()
-        orb.log.debug(' - dipatching "new object" signal')
+        # orb.log.debug(' - dipatching "new object" signal')
         dispatcher.send("new object", obj=activity)
 
     def delete_activity_block(self):
         self.scene.removeItem(self)
-        orb.log.debug(' - dipatching "delete activity" signal')
+        # orb.log.debug(' - dipatching "delete activity" signal')
         dispatcher.send(signal='delete activity', oid=self.activity.oid)
 
     def itemChange(self, change, value):
@@ -430,13 +430,13 @@ class Timeline(QGraphicsPathItem):
             return []
 
     def update_timeline(self, remote=False, remote_mod_acts=None):
-        orb.log.debug('* timeline.update_timeline()')
+        # orb.log.debug('* timeline.update_timeline()')
         self.calc_length()
         self.make_path()
         self.arrange(remote=remote, remote_mod_acts=remote_mod_acts)
 
     def calc_length(self):
-        orb.log.debug('* timeline.calc_length()')
+        # orb.log.debug('* timeline.calc_length()')
         self.path_length = 1200
         if len(self.evt_blocks) <= 8:
             orb.log.debug('  <= 8 event blocks ... no length re-calc.')
@@ -459,34 +459,34 @@ class Timeline(QGraphicsPathItem):
                             for n in range(0, len(self.evt_blocks))]
 
     def arrange(self, remote=False, remote_mod_acts=None):
-        orb.log.debug(f'* timeline.arrange(remote={remote})')
+        # orb.log.debug(f'* timeline.arrange(remote={remote})')
         # self.evt_blocks.sort(key=lambda x: x.scenePos().x())
-        orb.log.debug('  - setting sub_activity_sequence(s) ...')
+        # orb.log.debug('  - setting sub_activity_sequence(s) ...')
         NOW = dtstamp()
         mod_objs = []
         if remote:
             # activity sequence was set by the remote operation, do not change
-            acts = remote_mod_acts or []
-            if acts:
-                orb.log.debug('  - received new or mod acts:')
-                for act in acts:
-                    seq = act.sub_activity_sequence
-                    orb.log.debug(f'    + {act.name} (seq: {seq})')
-            else:
-                orb.log.debug('  - received no Activity objects.')
+            # acts = remote_mod_acts or []
+            # if acts:
+                # orb.log.debug('  - received new or mod acts:')
+                # for act in acts:
+                    # seq = act.sub_activity_sequence
+                    # orb.log.debug(f'    + {act.name} (seq: {seq})')
+            # else:
+                # orb.log.debug('  - received no Activity objects.')
             evt_blocks = self.evt_blocks
             evt_blocks.sort(key=lambda x: x.activity.sub_activity_sequence)
-            orb.log.debug('  - arranging activity blocks ...')
+            # orb.log.debug('  - arranging activity blocks ...')
             for i, evt_block in enumerate(evt_blocks):
-                name = evt_block.activity.name
-                orb.log.debug(f'    + block {i}: "{name}"')
+                # name = evt_block.activity.name
+                # orb.log.debug(f'    + block {i}: "{name}"')
                 evt_block.setPos(QPoint(self.list_of_pos[i], 250))
             self.update()
         else:
-            orb.log.debug('  - arranging activity blocks ...')
+            # orb.log.debug('  - arranging activity blocks ...')
             for i, evt_block in enumerate(self.evt_blocks):
-                name = evt_block.activity.name
-                orb.log.debug(f'    + block {i}: "{name}"')
+                # name = evt_block.activity.name
+                # orb.log.debug(f'    + block {i}: "{name}"')
                 evt_block.setPos(QPoint(self.list_of_pos[i], 250))
                 act = evt_block.activity
                 if act.sub_activity_sequence != i:
@@ -497,10 +497,10 @@ class Timeline(QGraphicsPathItem):
             dispatcher.send("order changed")
             self.update()
             if mod_objs:
-                orb.log.debug('  - sending "modified objects" signal on:')
-                names = [o.name for o in mod_objs]
-                for name in names:
-                    orb.log.debug(f'    + {name}')
+                # orb.log.debug('  - sending "modified objects" signal on:')
+                # names = [o.name for o in mod_objs]
+                # for name in names:
+                    # orb.log.debug(f'    + {name}')
                 dispatcher.send("modified objects", objs=mod_objs)
 
 
@@ -512,8 +512,8 @@ class TimelineScene(QGraphicsScene):
         self.subject = activity
         if activity:
             self.act_of = activity.of_system
-            name = getattr(self.act_of, 'name', None) or 'None'
-            orb.log.debug(f'* TimelineScene act_of: {name}')
+            # name = getattr(self.act_of, 'name', None) or 'None'
+            # orb.log.debug(f'* TimelineScene act_of: {name}')
         self.timeline = Timeline(scene=self)
         # self.addItem(self.timeline)
         self.focusItemChanged.connect(self.focus_changed_handler)
@@ -565,13 +565,13 @@ class TimelineScene(QGraphicsScene):
         for evt_block in self.timeline.evt_blocks:
             if position.x() > evt_block.x():
                 seq = evt_block.activity.sub_activity_sequence + 1
-                orb.log.debug(f'  seq of new block: {seq}.')
+                # orb.log.debug(f'  seq of new block: {seq}.')
                 break
         # increment the sequence of all activities to the right ...
         for evt_block in self.timeline.evt_blocks:
             n = evt_block.activity.sub_activity_sequence
             if n >= seq:
-                orb.log.debug(f'  incrementing {n} to {n+1}.')
+                # orb.log.debug(f'  incrementing {n} to {n+1}.')
                 evt_block.activity.sub_activity_sequence += 1
                 mod_acts.append(evt_block.activity)
         # seq = len(self.subject.sub_activities) + 1
@@ -599,9 +599,9 @@ class TimelineScene(QGraphicsScene):
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.update_timeline()
-        orb.log.debug('* scene: sending "set new scene" signal')
+        # orb.log.debug('* scene: sending "set new scene" signal')
         dispatcher.send(signal="set new scene")
-        orb.log.debug('* scene: sending "modified objects" signal')
+        # orb.log.debug('* scene: sending "modified objects" signal')
         dispatcher.send("modified objects", objs=mod_acts)
 
     def on_act_name_mod(self, act=None, remote=False):
@@ -609,7 +609,7 @@ class TimelineScene(QGraphicsScene):
         Handle 'act name mod' signal from ActInfoTable, meaning an activity's
         name was modified.
         """
-        orb.log.debug('* scene: received "act name mod" signal')
+        # orb.log.debug('* scene: received "act name mod" signal')
         for item in self.timeline.evt_blocks:
             # orb.log.debug(f'  checking for {item.activity.name} by oid')
             if item.activity.oid == act.oid:
@@ -682,14 +682,14 @@ class TimelineWidget(QWidget):
                                    'sub_activity_sequence', 0) or 0)
         nbr_of_subacts = len(subacts)
         if (self.subject != None) and (nbr_of_subacts > 0):
-            orb.log.debug(f'  - placing {nbr_of_subacts} sub-acts:')
+            # orb.log.debug(f'  - placing {nbr_of_subacts} sub-acts:')
             for activity in reversed(subacts):
                 if (activity.of_system == self.system):
                     item = EventBlock(activity=activity,
                                       scene=scene)
-                    n = activity.sub_activity_sequence
-                    name = activity.name
-                    orb.log.debug(f'    + [{n}] {name}')
+                    # n = activity.sub_activity_sequence
+                    # name = activity.name
+                    # orb.log.debug(f'    + [{n}] {name}')
                     scene.addItem(item)
                 scene.update()
             scene.timeline.update_timeline(remote=remote,
@@ -699,7 +699,7 @@ class TimelineWidget(QWidget):
                 self.add_defaults_action.setEnabled(False)
         elif (isinstance(self.subject, orb.classes['Mission'])
               and (nbr_of_subacts == 0)):
-            orb.log.debug(' - no sub-acts; can add default sub-acts')
+            # orb.log.debug(' - no sub-acts; can add default sub-acts')
             ada = getattr(self, 'add_defaults_action', None)
             if ada:
                 self.add_defaults_action.setEnabled(True)
@@ -892,7 +892,7 @@ class TimelineWidget(QWidget):
             seq += 1
         orb.save(acts)
         self.set_new_scene()
-        orb.log.debug('* sending "new objects" signal')
+        # orb.log.debug('* sending "new objects" signal')
         dispatcher.send("new objects", objs=acts)
 
     def delete_activity(self, oid=None, cname=None, remote=False):
@@ -902,8 +902,8 @@ class TimelineWidget(QWidget):
         Keyword Args:
             oid (str): oid of the object to be deleted
         """
-        orb.log.debug('* TimelineWidget.delete_activity(')
-        orb.log.debug(f'      oid="{oid}", cname="{cname}", remote={remote})')
+        # orb.log.debug('* TimelineWidget.delete_activity(')
+        # orb.log.debug(f'      oid="{oid}", cname="{cname}", remote={remote})')
         if oid is None:
             return
         obj = orb.get(oid)
@@ -914,7 +914,7 @@ class TimelineWidget(QWidget):
             orb.log.debug('  - obj is not an Activity or Mission.')
             return
         subj_oid = getattr(self.subject, 'oid', '')
-        name = getattr(obj, 'name', None) or '[no name]'
+        # name = getattr(obj, 'name', None) or '[no name]'
         if remote:
             # NOTE: when a "deleted" pubsub message is received by pangalaxian
             # with cname "Mission" or "Activity" it will NOT delete the object
@@ -938,17 +938,17 @@ class TimelineWidget(QWidget):
                 current_act_oids = [getattr(act, 'oid', '') for act in
                                     self.subject.sub_activities]
                 if oid in current_act_oids:
-                    orb.log.debug('  found in current timeline, removing ...')
+                    # orb.log.debug('  found in current timeline, removing ...')
                     # find event block and remove it
                     for item in self.scene.items():
                         if (hasattr(item, 'activity') and
                             item.activity and item.activity.oid == oid):
-                            name = item.activity.name
-                            orb.log.debug(f'  removing block "{name}"')
+                            # name = item.activity.name
+                            # orb.log.debug(f'  removing block "{name}"')
                             self.scene.removeItem(item)
                     orb.delete(objs_to_delete)
                 else:
-                    orb.log.debug('  not in current timeline, deleting ...')
+                    # orb.log.debug('  not in current timeline, deleting ...')
                     orb.delete(objs_to_delete)
                 # set_new_scene() might not be necessary here ...
                 self.set_new_scene()
@@ -957,7 +957,7 @@ class TimelineWidget(QWidget):
                             # cname='Activity')
         else:
             # locally originated action ...
-            orb.log.debug(f'  - deleting activity {name}')
+            # orb.log.debug(f'  - deleting activity {name}')
             objs_to_delete = [obj] + obj.sub_activities
             # TODO: check whether any sub_activities have event blocks ...
             oids = [o.oid for o in objs_to_delete]
@@ -999,32 +999,32 @@ class TimelineWidget(QWidget):
         """
         orb.log.debug('* center_timeline()')
         br = self.scene.itemsBoundingRect()
-        br_parms = (br.x(), br.y(), br.width(), br.height())
-        orb.log.debug(f'  scene items bounding rect: ({br_parms})')
+        # br_parms = (br.x(), br.y(), br.width(), br.height())
+        # orb.log.debug(f'  scene items bounding rect: ({br_parms})')
         vp_x = -50.0
         vp_y = br.y() - 20
         vp_width = br.width() + 50.0
         vp_height = br.height() + 50.0
         vp_rect = QRectF(vp_x, vp_y, vp_width, vp_height)
         self.view.setSceneRect(vp_rect)
-        vp_parms = (vp_x, vp_y, vp_width, vp_height)
-        orb.log.debug(f'  viewport: ({vp_parms})')
+        # vp_parms = (vp_x, vp_y, vp_width, vp_height)
+        # orb.log.debug(f'  viewport: ({vp_parms})')
         # self.get_scene_coords()
 
     def get_scene_coords(self):
         br = self.scene.itemsBoundingRect()
         self.br = br
-        br_parms = (br.x(), br.y(), br.width(), br.height())
-        orb.log.debug(f'  scene items bounding rect: ({br_parms})')
-        view_polygon = self.view.mapFromScene(
-                                    br.x(), br.y(), br.width(), br.height())
-        vbr = view_polygon.boundingRect()
-        vbr_parms = (vbr.x(), vbr.y(), vbr.width(), vbr.height())
-        orb.log.debug(f'  view coords of bounding rect: ({vbr_parms})')
+        # br_parms = (br.x(), br.y(), br.width(), br.height())
+        # orb.log.debug(f'  scene items bounding rect: ({br_parms})')
+        # view_polygon = self.view.mapFromScene(
+                                    # br.x(), br.y(), br.width(), br.height())
+        # vbr = view_polygon.boundingRect()
+        # vbr_parms = (vbr.x(), vbr.y(), vbr.width(), vbr.height())
+        # orb.log.debug(f'  view coords of bounding rect: ({vbr_parms})')
         # find the view origin (0, 0) in scene coordinates ...
-        v_origin = self.view.mapToScene(0, 0)
-        vo_coords = (v_origin.x(), v_origin.y())
-        orb.log.debug(f'  scene coords of view origin: ({vo_coords})')
+        # v_origin = self.view.mapToScene(0, 0)
+        # vo_coords = (v_origin.x(), v_origin.y())
+        # orb.log.debug(f'  scene coords of view origin: ({vo_coords})')
 
     def on_act_name_mod(self, act, remote=False):
         if act is self.subject:
@@ -1110,11 +1110,11 @@ class TimelineWidget(QWidget):
                     all_acts = subacts
                     t_seq = [get_pval(a.oid, 't_start', units=time_units)
                              for a in subacts]
-                val_dict = {a.name: get_usage_mode_val(project.oid,
-                                            usage.oid, comp.oid,
-                                            a.oid)
-                            for a in all_acts}
-                orb.log.debug(f"  mapping: {val_dict}")
+                # val_dict = {a.name: get_usage_mode_val(project.oid,
+                                            # usage.oid, comp.oid,
+                                            # a.oid)
+                            # for a in all_acts}
+                # orb.log.debug(f"  mapping: {val_dict}")
                 def f_scalar(t):
                         a = all_acts[-1]
                         for i in range(len(all_acts) - 1):
@@ -1193,14 +1193,14 @@ class TimelineWidget(QWidget):
             # default is to break out all sub-activity timelines
             # ("subtimelines") -- this can be made configurable in the future
             subtimelines = True
-            orb.log.debug('  durations of sub_activities:')
+            # orb.log.debug('  durations of sub_activities:')
             if subtimelines:
                 all_acts = flatten_subacts(act)
             else:
                 all_acts = subacts
             for a in all_acts:
-                d = get_effective_duration(a, units=time_units)
-                orb.log.debug(f'  {a.name}: {d}')
+                # d = get_effective_duration(a, units=time_units)
+                # orb.log.debug(f'  {a.name}: {d}')
                 p_cbe_val = get_usage_mode_val(project.oid,
                                                usage.oid, comp.oid,
                                                a.oid)
@@ -1211,10 +1211,10 @@ class TimelineWidget(QWidget):
                 p_mev_dict[a.name] = p_mev_val
         duration = get_effective_duration(act, units=time_units)
         max_val = max(list(p_mev_dict.values()))
-        if time_units:
-            orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
-        else:
-            orb.log.debug(f'  duration of {act.name}: {duration} seconds')
+        # if time_units:
+            # orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
+        # else:
+            # orb.log.debug(f'  duration of {act.name}: {duration} seconds')
         plot = qwt.QwtPlot(f"{comp.name} Power vs. Time")
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
@@ -1230,7 +1230,7 @@ class TimelineWidget(QWidget):
                                          time_units=time_units)
         t_array = np.linspace(0, duration, 400)
         # orb.log.debug(f'  {t_array}')
-        orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
+        # orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
         qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
                               z=1.0, linecolor="blue", linewidth=2,
                               antialiased=True)
@@ -1337,10 +1337,10 @@ class TimelineWidget(QWidget):
                                          pointsize=12, borderpen=pen,
                                          borderradius=0.0, brush=white_brush)
             y_label = (1.4 - .1 * j) * max_val
-            orb.log.debug(f'  super act: {super_act.name}')
-            orb.log.debug(f'      begins at: {t_start} {time_units}')
+            # orb.log.debug(f'  super act: {super_act.name}')
+            # orb.log.debug(f'      begins at: {t_start} {time_units}')
             duration_pixels = canvas_map.transform_scalar(dur)
-            orb.log.debug(f'      (duration: {duration_pixels} pixels)')
+            # orb.log.debug(f'      (duration: {duration_pixels} pixels)')
             symbol_size = QSize(duration_pixels, 10)
             symbol_brush = QBrush(LABEL_COLORS[j-1])
             rect_symbol = qwt.QwtSymbol.make(pen=pen, brush=symbol_brush,
@@ -1663,7 +1663,7 @@ class ConOpsModeler(QMainWindow):
             timeline (Timeline): the timeline graphic item contained in the
                 TimelineScene of the main_timeline (TimelineWidget)
         """
-        orb.log.debug("* ConOpsModeler.create_activity_table()")
+        # orb.log.debug("* ConOpsModeler.create_activity_table()")
         self.activity_table = ActivityWidget(self.subject, timeline=timeline,
                                              parent=self)
         self.activity_table.setAttribute(Qt.WA_DeleteOnClose)
@@ -1676,7 +1676,7 @@ class ConOpsModeler(QMainWindow):
         Keyword Args:
             subject (Activity): subject of the new timeline
         """
-        orb.log.debug("* conops: on_new_timeline()")
+        # orb.log.debug("* conops: on_new_timeline()")
         self.subject = subject
         self.rebuild_table()
 
@@ -1693,26 +1693,26 @@ class ConOpsModeler(QMainWindow):
         self.resize(self.layout().sizeHint())
 
     def on_item_clicked(self, index):
-        orb.log.debug("* ConOpsModeler.on_item_clicked()")
-        n = len(self.sys_select_tree.selectedIndexes())
-        orb.log.debug(f"  {n} items are selected.")
+        # orb.log.debug("* ConOpsModeler.on_item_clicked()")
+        # n = len(self.sys_select_tree.selectedIndexes())
+        # orb.log.debug(f"  {n} items are selected.")
         self.sys_select_tree.expand(index)
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
-        name = get_link_name(link)
-        orb.log.debug(f"  - clicked item usage is {name}")
+        # name = get_link_name(link)
+        # orb.log.debug(f"  - clicked item usage is {name}")
         TBD = orb.get('pgefobjects:TBD')
         product = None
-        attr = '[none]'
+        # attr = '[none]'
         if isinstance(link, orb.classes['ProjectSystemUsage']):
             if link.system:
                 product = link.system
-                attr = '[system]'
+                # attr = '[system]'
         elif isinstance(link, orb.classes['Acu']):
             if link.component and link.component is not TBD:
                 product = link.component
-                attr = '[component]'
-        orb.log.debug(f"  - product {attr} is {product.name}")
+                # attr = '[component]'
+        # orb.log.debug(f"  - product {attr} is {product.name}")
         if product:
             # usage should be made the subject's "of_system" if it exists in
             # sys_dict (i.e. it is of interest in defining modes ...)
@@ -1722,20 +1722,20 @@ class ConOpsModeler(QMainWindow):
                 # [list(project_mode_defz['components'].get(sys_oid, {}).keys())
                  # for sys_oid in sys_dict], [])
             if link.oid in sys_dict:
-                orb.log.debug("  - link oid is in sys_dict")
+                # orb.log.debug("  - link oid is in sys_dict")
                 # set as subject's usage
                 self.set_usage(link)
                 # signal to mode_dash to set this link as its usage ...
-                orb.log.debug('    sending "set mode usage" signal ...')
+                # orb.log.debug('    sending "set mode usage" signal ...')
                 dispatcher.send(signal='set mode usage', usage=link)
             else:
-                orb.log.debug("  - link oid is NOT in sys_dict")
+                # orb.log.debug("  - link oid is NOT in sys_dict")
                 # the item does not yet exist in mode_defz as a system
                 # -- notify the user and ask if they want to
                 # define modes for it ...
                 dlg = DefineModesDialog(usage=link)
                 if dlg.exec_() == QDialog.Accepted:
-                    orb.log.debug('    calling on_add_usage() ..."')
+                    # orb.log.debug('    calling on_add_usage() ..."')
                     self.on_add_usage(index)
                     self.set_usage(link)
                 else:
@@ -1748,28 +1748,28 @@ class ConOpsModeler(QMainWindow):
         orb.log.debug(f"  - initial usage is {name}")
         TBD = orb.get('pgefobjects:TBD')
         product = None
-        attr = '[none]'
+        # attr = '[none]'
         if isinstance(link, orb.classes['ProjectSystemUsage']):
             if link.system:
                 product = link.system
-                attr = '[system]'
+                # attr = '[system]'
         elif isinstance(link, orb.classes['Acu']):
             if link.component and link.component is not TBD:
                 product = link.component
-                attr = '[component]'
-        orb.log.debug(f"  - product {attr} is {product.name}")
+                # attr = '[component]'
+        # orb.log.debug(f"  - product {attr} is {product.name}")
         if product:
             project_mode_defz = mode_defz[self.project.oid]
             sys_dict = project_mode_defz['systems']
             if link.oid in sys_dict:
-                orb.log.debug("  - link oid is in sys_dict")
+                # orb.log.debug("  - link oid is in sys_dict")
                 # set as subject's usage
                 self.set_usage(link)
                 # signal to mode_dash to set this link as its usage ...
-                orb.log.debug('    sending "set mode usage" signal ...')
+                # orb.log.debug('    sending "set mode usage" signal ...')
                 dispatcher.send(signal='set mode usage', usage=link)
-            else:
-                orb.log.debug("  - link oid is NOT in sys_dict")
+            # else:
+                # orb.log.debug("  - link oid is NOT in sys_dict")
 
     def on_ignore_components(self, index):
         """
@@ -1784,23 +1784,23 @@ class ConOpsModeler(QMainWindow):
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
         # link might be None -- allow for that
         if not hasattr(link, 'oid'):
-            orb.log.debug('  - link has no oid, ignoring ...')
+            # orb.log.debug('  - link has no oid, ignoring ...')
             return
-        name = get_link_name(link)
+        # name = get_link_name(link)
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
         mode_dict = project_mode_defz['modes']
         if link.oid in sys_dict:
             # if selected link is in sys_dict, make subject (see below)
-            orb.log.debug(f' - removing "{name}" from systems ...')
+            # orb.log.debug(f' - removing "{name}" from systems ...')
             del sys_dict[link.oid]
             # if it is in comp_dict, remove it there too
             if link.oid in comp_dict:
                 del comp_dict[link.oid]
             # if it occurs as a component of an item in sys_dict, add it back
             # to components
-            orb.log.debug(f'   checking if "{name}" is a component ...')
+            # orb.log.debug(f'   checking if "{name}" is a component ...')
             for syslink_oid in sys_dict:
                 lk = orb.get(syslink_oid)
                 clink_oids = []
@@ -1809,8 +1809,8 @@ class ConOpsModeler(QMainWindow):
                 elif hasattr(lk, 'component') and lk.component.components:
                     clink_oids = [acu.oid for acu in lk.component.components]
                 if link.oid in clink_oids:
-                    orb.log.debug(f' - "{name}" is a component, adding it')
-                    orb.log.debug('   back to components of its parent')
+                    # orb.log.debug(f' - "{name}" is a component, adding it')
+                    # orb.log.debug('   back to components of its parent')
                     if not comp_dict.get(syslink_oid):
                         comp_dict[syslink_oid] = {}
                     comp_dict[syslink_oid][link.oid] = {}
@@ -1997,27 +1997,27 @@ class ConOpsModeler(QMainWindow):
         """
         impacts_timeline = False
         sequence_adjusted = False
-        n_objs = len(objs or [])
-        orb.log.debug('* received "remote new or mod acts" signal')
-        orb.log.debug(f'  with {n_objs} objects:')
+        # n_objs = len(objs or [])
+        # orb.log.debug('* received "remote new or mod acts" signal')
+        # orb.log.debug(f'  with {n_objs} objects:')
         for obj in objs:
             seq = obj.sub_activity_sequence
-            orb.log.debug(f'    + {obj.name} [seq: {seq}]')
+            # orb.log.debug(f'    + {obj.name} [seq: {seq}]')
             if obj.oid == self.subject.oid:
-                orb.log.debug('     this activity is subject of timeline ...')
+                # orb.log.debug('     this activity is subject of timeline ...')
                 impacts_timeline = True
             elif obj.sub_activity_of.oid == self.subject.oid:
                 impacts_timeline = True
-                orb.log.debug('  modified act is in timeline --')
-                orb.log.debug('  checking sequence assignments ...')
+                # orb.log.debug('  modified act is in timeline --')
+                # orb.log.debug('  checking sequence assignments ...')
                 # NOTE: these local adjustments are temporary but should be in
                 # sync with the activity sequence on the server
                 seqs = [act.sub_activity_sequence
                         for act in self.subject.sub_activities]
-                orb.log.debug(f'  - seqs: {seqs}')
+                # orb.log.debug(f'  - seqs: {seqs}')
                 if (len(seqs) > len(set(seqs)) and seq in seqs):
-                    orb.log.debug(f'  seq ({seq}) occurs > once in seqs --')
-                    orb.log.debug('  bump seq of activity with same seq ...')
+                    # orb.log.debug(f'  seq ({seq}) occurs > once in seqs --')
+                    # orb.log.debug('  bump seq of activity with same seq ...')
                     bumped_act_oid = ''
                     for act in self.subject.sub_activities:
                         if (act.oid != obj.oid and 
@@ -2027,20 +2027,20 @@ class ConOpsModeler(QMainWindow):
                             bumped_act_oid = act.oid
                             sequence_adjusted = True
                             orb.db.commit()
-                    orb.log.debug('  bump seq for rest of activities ...')
+                    # orb.log.debug('  bump seq for rest of activities ...')
                     for act in self.subject.sub_activities:
                         if (act.oid != bumped_act_oid and
                             act.sub_activity_sequence >= bumped_seq):
                             act.sub_activity_sequence += 1
                             sequence_adjusted = True
                             orb.db.commit()
-                if sequence_adjusted:
-                    orb.log.debug('  new sequence is:')
-                    for act in self.subject.sub_activities:
-                        s = act.sub_activity_sequence
-                        orb.log.debug(f'  - {act.name}: {s}')
+                # if sequence_adjusted:
+                    # orb.log.debug('  new sequence is:')
+                    # for act in self.subject.sub_activities:
+                        # s = act.sub_activity_sequence
+                        # orb.log.debug(f'  - {act.name}: {s}')
         if impacts_timeline:
-            orb.log.debug('  setting new scene and rebuilding table ...')
+            # orb.log.debug('  setting new scene and rebuilding table ...')
             self.main_timeline.set_new_scene(remote=True, remote_mod_acts=objs)
             if sequence_adjusted:
                 self.rebuild_table()
