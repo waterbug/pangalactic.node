@@ -2018,16 +2018,19 @@ class ConOpsModeler(QMainWindow):
                 if (len(seqs) > len(set(seqs)) and seq in seqs):
                     orb.log.debug(f'  seq ({seq}) occurs > once in seqs --')
                     orb.log.debug('  bump seq of activity with same seq ...')
+                    bumped_act_oid = ''
                     for act in self.subject.sub_activities:
                         if (act.oid != obj.oid and 
                             act.sub_activity_sequence == seq):
                             bumped_seq = seq + 1
                             act.sub_activity_sequence = bumped_seq
+                            bumped_act_oid = act.oid
                             sequence_adjusted = True
                             orb.db.commit()
                     orb.log.debug('  bump seq for rest of activities ...')
                     for act in self.subject.sub_activities:
-                        if act.sub_activity_sequence >= bumped_seq:
+                        if (act.oid != bumped_act_oid and
+                            act.sub_activity_sequence >= bumped_seq):
                             act.sub_activity_sequence += 1
                             sequence_adjusted = True
                             orb.db.commit()
