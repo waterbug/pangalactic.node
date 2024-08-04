@@ -1996,29 +1996,45 @@ class ConOpsModeler(QMainWindow):
             objs (list of Activity): the new or modified Activity instances
         """
         impacts_timeline = False
+        sequence_adjusted = False
         n_objs = len(objs or [])
         orb.log.debug('* received "remote new or mod acts" signal')
         orb.log.debug(f'  with {n_objs} objects:')
         for obj in objs:
             seq = obj.sub_activity_sequence
-            orb.log.debug(f'    + {obj} [seq: {seq}]')
+            orb.log.debug(f'    + {obj.name} [seq: {seq}]')
             if obj.oid == self.subject.oid:
                 orb.log.debug('     this activity is subject of timeline ...')
                 impacts_timeline = True
             elif obj.sub_activity_of.oid == self.subject.oid:
                 impacts_timeline = True
                 orb.log.debug('  modified act is in timeline --')
-                orb.log.debug('  adjusting sequence assignments ...')
+                orb.log.debug('  checking sequence assignments ...')
                 # NOTE: these local adjustments are temporary but should be in
                 # sync with the activity sequence on the server
-                for act in self.subject.sub_activities:
-                    if act.sub_activity_sequence >= seq:
-                        act.sub_activity_sequence += 1
-                        orb.db.commit()
+                seqs = [act.sub_activity_sequence
+                        for act in self.subject.sub_activities]
+                if (len(seqs) < len(set(seqs)) and seq in seqs):
+                    # seq occurs more than once in the sequence --
+                    # first bump the seq of the activity that has the same seq
+                    for act in self.subject.sub_activities:
+                        if (act.oid != obj.oid and 
+                            act.sub_activity_sequence == seq):
+                            bumped_seq = seq + 1
+                            act.sub_activity_sequence = bumped_seq
+                            sequence_adjusted = True
+                            orb.db.commit()
+                    # then bump the seq for the rest of the activities ...
+                    for act in self.subject.sub_activities:
+                        if act.sub_activity_sequence >= bumped_seq:
+                            act.sub_activity_sequence += 1
+                            sequence_adjusted = True
+                            orb.db.commit()
         if impacts_timeline:
             orb.log.debug('  setting new scene and rebuilding table ...')
             self.main_timeline.set_new_scene(remote=True, remote_mod_acts=objs)
-            self.rebuild_table()
+            if sequence_adjusted:
+                self.rebuild_table()
 
     def closeEvent(self, event):
         """

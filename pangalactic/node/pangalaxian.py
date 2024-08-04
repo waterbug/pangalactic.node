@@ -3236,7 +3236,7 @@ class Main(QMainWindow):
             for obj in objs:
                 if cname == "Activity":
                     n = obj.sub_activity_sequence
-                    orb.log.debug(f'    + "{obj.name}" (subact_seq: {n}')
+                    orb.log.debug(f'    + "{obj.name}" (subact_seq: {n})')
                 else:
                     orb.log.debug(f'    + "{obj.name}"')
             rpc = self.mbus.session.call('vger.save', serialized_objs)
