@@ -1634,7 +1634,6 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.rebuild_table, "order changed")
         dispatcher.connect(self.on_new_timeline, "new timeline")
         # NOTE: "new activity" signal is deprecated
-        # dispatcher.connect(self.on_new_activity, "new activity")
         dispatcher.connect(self.on_delete_activity, "delete activity")
         dispatcher.connect(self.on_delete_activity, "remove activity")
         dispatcher.connect(self.on_delete_activity, "deleted object")
@@ -1959,7 +1958,7 @@ class ConOpsModeler(QMainWindow):
         """
         orb.log.debug("  - ConOpsModeler.on_double_click()...")
         try:
-            orb.log.debug(f'     + activity: {act.id}')
+            orb.log.debug(f'     + activity: {act.name}')
             self.main_timeline.widget_drill_down(act)
         except Exception as e:
             orb.log.debug("    exception occurred:")
@@ -1974,19 +1973,6 @@ class ConOpsModeler(QMainWindow):
             act (Activity): the Activity instance that got focus
         """
         pass
-
-    # def on_new_activity(self, act):
-        # """
-        # Handler for "new activity" dispatcher signal.
-
-        # Args:
-            # act (Activity): the new Activity instance
-        # """
-        # orb.log.debug("* ConOpsModeler.on_new_activity()")
-        # # orb.log.debug(f'  sending "new object" signal on {act.id}')
-        # self.main_timeline.auto_rescale_timeline()
-        # # dispatcher.send("new object", obj=act)
-        # self.rebuild_table()
 
     def on_delete_activity(self, oid=None, cname=None, remote=False):
         """
@@ -2009,20 +1995,30 @@ class ConOpsModeler(QMainWindow):
         Keyword Args:
             objs (list of Activity): the new or modified Activity instances
         """
+        impacts_timeline = False
         n_objs = len(objs or [])
         orb.log.debug('* received "remote new or mod acts" signal')
-        orb.log.debug(f'  with {n_objs} objects --')
-        orb.log.debug('  setting new scene and rebuilding table ...')
-        # act_oids = set([getattr(self.subject, 'oid', None)])
-        # act_oids += set([act.oid for act in
-                         # getattr(self.subject, 'sub_activities', []) or []])
-        # new_or_mod_acts = orb.get(oids=oids)
-        # owners = []
-        # if new_or_mod_acts:
-            # owners = [a.owner for a in new_or_mod_acts]
-        # if oids and ((set(oids) & act_oids) or self.project in owners):
-        self.main_timeline.set_new_scene(remote=True, remote_mod_acts=objs)
-        self.rebuild_table()
+        orb.log.debug(f'  with {n_objs} objects:')
+        for obj in objs:
+            seq = obj.sub_activity_sequence
+            orb.log.debug(f'    + {obj} [seq: {seq}]')
+            if obj.oid == self.subject.oid:
+                orb.log.debug('     this activity is subject of timeline ...')
+                impacts_timeline = True
+            elif obj.sub_activity_of.oid == self.subject.oid:
+                impacts_timeline = True
+                orb.log.debug('  modified act is in timeline --')
+                orb.log.debug('  adjusting sequence assignments ...')
+                # NOTE: these local adjustments are temporary but should be in
+                # sync with the activity sequence on the server
+                for act in self.subject.sub_activities:
+                    if act.sub_activity_sequence >= seq:
+                        act.sub_activity_sequence += 1
+                        orb.db.commit()
+        if impacts_timeline:
+            orb.log.debug('  setting new scene and rebuilding table ...')
+            self.main_timeline.set_new_scene(remote=True, remote_mod_acts=objs)
+            self.rebuild_table()
 
     def closeEvent(self, event):
         """

@@ -3232,9 +3232,13 @@ class Main(QMainWindow):
                                         include_components=True)
             orb.log.debug('  calling rpc vger.save() ...')
             orb.log.debug('  [called from on_mod_objects_signal()]')
-            orb.log.debug('  - saved objs ids:')
+            orb.log.debug('  - saved objs names:')
             for obj in objs:
-                orb.log.debug(f'    + "{obj.id}"')
+                if cname == "Activity":
+                    n = obj.sub_activity_sequence
+                    orb.log.debug(f'    + "{obj.name}" (subact_seq: {n}')
+                else:
+                    orb.log.debug(f'    + "{obj.name}"')
             rpc = self.mbus.session.call('vger.save', serialized_objs)
             rpc.addCallback(self.on_vger_save_result)
             rpc.addErrback(self.on_failure)
