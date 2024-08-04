@@ -2014,9 +2014,10 @@ class ConOpsModeler(QMainWindow):
                 # sync with the activity sequence on the server
                 seqs = [act.sub_activity_sequence
                         for act in self.subject.sub_activities]
+                orb.log.debug(f'  - seqs: {seqs}')
                 if (len(seqs) < len(set(seqs)) and seq in seqs):
-                    # seq occurs more than once in the sequence --
-                    # first bump the seq of the activity that has the same seq
+                    orb.log.debug(f'  seq ({seq}) occurs > once in seqs --')
+                    orb.log.debug('  bump seq of activity with same seq ...')
                     for act in self.subject.sub_activities:
                         if (act.oid != obj.oid and 
                             act.sub_activity_sequence == seq):
@@ -2024,12 +2025,17 @@ class ConOpsModeler(QMainWindow):
                             act.sub_activity_sequence = bumped_seq
                             sequence_adjusted = True
                             orb.db.commit()
-                    # then bump the seq for the rest of the activities ...
+                    orb.log.debug('  bump seq for rest of activities ...')
                     for act in self.subject.sub_activities:
                         if act.sub_activity_sequence >= bumped_seq:
                             act.sub_activity_sequence += 1
                             sequence_adjusted = True
                             orb.db.commit()
+                if sequence_adjusted:
+                    orb.log.debug('  new sequence is:')
+                        for act in self.subject.sub_activities:
+                            s = act.sub_activity_sequence
+                            orb.log.debug(f'  - {act.name}: {s}')
         if impacts_timeline:
             orb.log.debug('  setting new scene and rebuilding table ...')
             self.main_timeline.set_new_scene(remote=True, remote_mod_acts=objs)
