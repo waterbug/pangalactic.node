@@ -712,7 +712,7 @@ class ModeDefinitionDashboard(QWidget):
             for i in reversed(range(grid.count())):
                 grid.takeAt(i).widget().deleteLater()
             return
-        if self.usage and not isinstance(self.act, orb.classes['Mission']):
+        if self.usage:
             self.set_row_fields(self.usage, 1)
             if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
                 system = self.usage.system
