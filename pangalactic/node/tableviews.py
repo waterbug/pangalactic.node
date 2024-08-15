@@ -350,7 +350,7 @@ class ActInfoTable(QTableWidget):
             ('t_start', 'Start', 80),
             ('duration', 'Duration', 80),
             ('t_end', 'End', 80),
-            ('time_units', 'Units', 120)
+            ('time_units', 'Time Units', 120)
             ]
         self.view_conf = view_conf or default_view_conf[:]
         self.setup()
