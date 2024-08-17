@@ -727,6 +727,7 @@ class ModeDefinitionDashboard(QWidget):
             self.usage_to_l_select = {}
             # and a dict that maps component.oid to power level setter
             self.usage_to_l_setter = {}
+            acus.sort(key=lambda x: get_link_name(x))
             for acu in acus:
                 comp = acu.component
                 if comp and comp is not TBD:
