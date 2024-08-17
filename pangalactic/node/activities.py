@@ -573,9 +573,7 @@ class ModeDefinitionDashboard(QWidget):
         """
         orb.log.debug('* MDD: "remote comp mode datum" signal received ...')
         if (link_oid is not None
-            and project_oid == self.project.oid
-            and link_oid in self.comp_dict
-            and comp_oid in self.comp_dict[link_oid]):
+            and project_oid == self.project.oid):
             orb.log.debug('  updating comp_dict ...')
             self.comp_dict[link_oid][comp_oid][mode] = value
             if self.edit_state:
@@ -584,8 +582,7 @@ class ModeDefinitionDashboard(QWidget):
             else:
                 orb.log.debug('  calling on_view() ...')
                 self.on_view(None)
-            # DEACTIVATED -- was used to signal "System Power Modes" dashboard
-            # to update, but not currently functioning due to dashboard bug ...
+            # DEACTIVATED because of dashboard bug ...
             # orb.log.debug('  - sending "power modes updated" signal')
             # dispatcher.send("power modes updated")
 
