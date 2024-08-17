@@ -1729,18 +1729,27 @@ class ConOpsModeler(QMainWindow):
                 # orb.log.debug('    sending "set mode usage" signal ...')
                 dispatcher.send(signal='set mode usage', usage=link)
             else:
-                # orb.log.debug("  - link oid is NOT in sys_dict")
-                # the item does not yet exist in mode_defz as a system
-                # -- notify the user and ask if they want to
-                # define modes for it ...
-                dlg = DefineModesDialog(usage=link)
-                if dlg.exec_() == QDialog.Accepted:
-                    # orb.log.debug('    calling on_add_usage() ..."')
-                    self.on_add_usage(index)
-                    self.set_usage(link)
+                if product.components:
+                    # orb.log.debug("  - link oid is NOT in sys_dict")
+                    # the item does not yet exist in mode_defz as a system
+                    # -- notify the user and ask if they want to
+                    # define modes for it ...
+                    dlg = DefineModesDialog(usage=link)
+                    if dlg.exec_() == QDialog.Accepted:
+                        # orb.log.debug('    calling on_add_usage() ..."')
+                        self.on_add_usage(index)
+                        self.set_usage(link)
+                    else:
+                        # TODO: maybe change focus to project node (?)
+                        return
                 else:
-                    # TODO: maybe change focus to project node (?)
-                    return
+                    popup = QMessageBox(
+                          QMessageBox.Critical,
+                          "No Components",
+                          "This item has no components, so it cannot be\n"
+                          "set as the context for a computed mode.",
+                          QMessageBox.Ok, self)
+                    popup.show()
 
     def set_initial_usage(self, link):
         orb.log.debug("* ConOpsModeler.set_initial_usage()")
