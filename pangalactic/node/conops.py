@@ -1637,6 +1637,7 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.on_delete_activity, "delete activity")
         dispatcher.connect(self.on_delete_activity, "remove activity")
         dispatcher.connect(self.on_delete_activity, "deleted object")
+        dispatcher.connect(self.on_set_no_compute, "set no compute")
 
     def set_select_tree_expansion(self, index=None):
         if index is None:
@@ -1780,7 +1781,7 @@ class ConOpsModeler(QMainWindow):
             # else:
                 # orb.log.debug("  - link oid is NOT in sys_dict")
 
-    def on_ignore_components(self, index):
+    def on_set_no_compute(self, link_oid=None):
         """
         If the item (aka "link" or "node") in the assembly tree exists in the
         "systems" table, remove it and remove its components from the
@@ -1789,8 +1790,7 @@ class ConOpsModeler(QMainWindow):
         "level" from "[computed]" to a specifiable level value.
         """
         # TODO: implement as a context menu action ...
-        mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
-        link = self.sys_select_tree.source_model.get_node(mapped_i).link
+        link = orb.get(link_oid)
         # link might be None -- allow for that
         if not hasattr(link, 'oid'):
             # orb.log.debug('  - link has no oid, ignoring ...')
@@ -1827,6 +1827,7 @@ class ConOpsModeler(QMainWindow):
                         comp_dict[syslink_oid][link.oid][
                                                 mode] = (mode_dict.get(mode)
                                                          or '[select state]')
+            dispatcher.send(signal='modes edited', oid=self.project.oid)
 
     def on_add_usage(self, index):
         """

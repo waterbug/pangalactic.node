@@ -7,9 +7,10 @@ from functools import partial
 from louie import dispatcher
 
 from PyQt5.QtCore    import QSize, Qt, QModelIndex
-from PyQt5.QtWidgets import (QApplication, QComboBox, QGridLayout, QSizePolicy,
-                             QStatusBar, QTreeView, QHBoxLayout, QVBoxLayout,
-                             QWidget)
+from PyQt5.QtGui     import QCursor
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QGridLayout,
+                             QMenu, QSizePolicy, QStatusBar, QTreeView,
+                             QHBoxLayout, QVBoxLayout, QWidget)
 
 try:
     from pangalactic.core         import orb
@@ -230,6 +231,7 @@ class SystemSelectionView(QTreeView):
             for i in range(1, len(cols)):
                 self.hideColumn(i)
         self.setSelectionMode(self.SingleSelection)
+        self.create_actions()
         # only use dispatcher messages for assembly tree and dashboard tree
         # (i.e., a shared model); ignore them when instantiated in req
         # allocation mode (different models -> the indexes are not valid
@@ -247,6 +249,37 @@ class SystemSelectionView(QTreeView):
             if idxs:
                 proxy_idx = self.proxy_model.mapFromSource(idxs[0])
                 self.setCurrentIndex(proxy_idx)
+
+    def create_actions(self):
+        self.set_no_compute_action = QAction('Remove from computed item modes',
+                                             self)
+        self.set_no_compute_action.triggered.connect(self.set_no_compute)
+
+    def contextMenuEvent(self, event):
+        orb.log.debug('* contextMenuEvent()')
+        menu = QMenu()
+        if len(self.selectedIndexes()) == 1:
+            i = self.selectedIndexes()[0]
+            mapped_i = self.proxy_model.mapToSource(i)
+            link = self.source_model.get_node(mapped_i).link
+            project_mode_defz = mode_defz[self.project.oid]
+            sys_dict = project_mode_defz['systems']
+            # NOTE: root node (project) has a link of None ...
+            if link and link.oid in sys_dict:
+                orb.log.debug(f'  usage: {link.id}')
+                menu.addAction(self.set_no_compute_action)
+                menu.exec_(QCursor().pos())
+
+    def set_no_compute(self):
+        if len(self.selectedIndexes()) == 1:
+            i = self.selectedIndexes()[0]
+            mapped_i = self.proxy_model.mapToSource(i)
+            self.clearSelection()
+            link = self.source_model.get_node(mapped_i).link
+            project_mode_defz = mode_defz[self.project.oid]
+            sys_dict = project_mode_defz['systems']
+            if link.oid in sys_dict:
+                dispatcher.send(signal='set no compute', link_oid=link.oid)
 
     def link_indexes_in_assembly(self, link, idx):
         """
