@@ -1827,6 +1827,14 @@ class ConOpsModeler(QMainWindow):
                         comp_dict[syslink_oid][link.oid][
                                                 mode] = (mode_dict.get(mode)
                                                          or '[select state]')
+            # make sure link is not current usage and if so, unset it ...
+            cur_usage_oid = getattr(self.usage, 'oid', '') or ''
+            if cur_usage_oid == link.oid:
+                if sys_dict:
+                    new_usage_oid = list(sys_dict)[0]
+                    self.usage = orb.get(new_usage_oid)
+                elif self.project.systems:
+                    self.usage = self.project.systems[0]
             dispatcher.send(signal='modes edited', oid=self.project.oid)
 
     def on_add_usage(self, index):
