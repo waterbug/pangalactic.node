@@ -412,37 +412,65 @@ A **ConOps** defines the sequence of activities that constitute a **Mission**.
 The **Lead Engineer** and **Systems Engineer** for a project can use the
 **ConOps Modeler** to create a timeline on which the **Mission** **Activities**
 are defined, and each **Activity** can be assigned a *duration* and can be
-characterized by a *power mode*.
+characterized by a *power mode*. The features of the **ConOps Modeler**
+interface are shown here:
+
+![ConOps Modeler Interface](images/conops_modeler_annotated.png "ConOps Modeler Interface")
 
 To begin, select the **ConOps Modeler** item in the **Tools** menu.
 
-![Select ConOps Modeler](images/conops_modeler_menu_item.png "ConOps Modeler in menu")
+![Select the ConOps Modeler menu item](images/conops_modeler_menu_item.png "ConOps Modeler in menu")
 
 The first time the ConOps Modeler is opened for a new project, it will display
-an empty **Mission Timeline** scene, **Mission Details** table, and **Mission
-Systems** assembly tree.
+an empty **Mission Timeline** scene, a **Mission Details** table, and the
+**Mission Systems** assembly tree, as shown here:
 
-![Initial ConOps Modeler](images/conops_interface_empty.png "ConOps Modeler in menu")
+![Initial ConOps Modeler Interface](images/conops_interface_empty.png "ConOps Modeler in menu")
 
 The first step is to begin adding activities to the **Mission Timeline**. This
-can be done either by
+can be done by either of 2 methods:
 
-1. Clicking the **Add Default Activities** button, which will add the
+1. Click the **Add Default Activities** button, which will add the
    following activities to the **Timeline**: **Launch**, **Calibration**,
    **Propulsion**, **Slew**, **Science Data Acquisition**, **Science Data
-   Transmission**, **Safe Hold**:
+   Transmission**, **Safe Hold** -- note that **any** of these activities can
+   easily be **renamed or deleted** if not applicable to your mission:
 
 ![Default Activities Added](images/conops_timeline_with_default_activities.png "Default Activities")
 
-2. Dragging an Activity type icon (**Op**, **Event**, or **Cycle**) from
-   the **Activities** palette on the right side and dropping it onto the
-   **Timeline**:
+**-- OR --**
 
-![One Activity Added](images/conops_timeline_after_activity_drop.png "Activity Added")
+2. Drag an **Activity Type** (**Op**, **Event**, or **Cycle**) icon from the
+   **Activities** palette on the right side and drop it onto the **Timeline**,
+   which creates a new **Activity block** of that type in the **Timeline** and
+   a new row in the **Details** table on the left:
 
-Once an activity has been added to the **Timeline**, its *name*, *duration*,
-and *time units* can be edited in the **Details** table on the left side of the
+![Drag / Drop to Timeline ...](images/conops_drag_drop_block_from_palette.png "Drag / Drop onto Timeline")
+
+![... creates an Activity Block](images/conops_timeline_after_activity_drop.png "Activity Added")
+
+Once an activity has been added to the **Timeline**, its *Name*, *Duration*,
+and *Time Units* can be edited in the **Details** table on the left side of the
 interface simply by clicking on the cell, typing a value, and hitting *Return*.
+Note that the *Start* and *End* times are computed from the *Duration* values,
+so they cannot be edited.
+
+After one or more **Activities** have been added to the **Timeline**, power
+modes can be defined -- to do that:
+
+1.  Select an **Activity** block by clicking on it -- it will be highlighted in
+    yellow.
+
+2.  Select a system by clicking on an item in the **System Tree** (left panel).
+    Typically either an Observatory or a Spacecraft will be selected first, as
+    the highest-level system for which power modes will be defined; in the case
+    of a Spacecraft, its subsystems may each in turn be selected for more
+    detailed power mode definitions. When a system is first selected, you will
+    see the dialog shown here:
+
+![Dialog for a New Selected System](images/conops_add_modes_for_new_system.png "New System Modes Dialog")
+
+3.  When an **Activity** and a system have been selected, 
 
 ## Use Local DB Mode to Display Tables and Export to Files
 

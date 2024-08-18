@@ -8,7 +8,7 @@
 
 * On Windows, run *cattens_x.x_setup.exe* as you would any Windows app
   installer.
-* On Mac, follow the instructions in the *PANGALAXIAN_MAC_README.txt* file,
+* On Mac, follow the instructions in the *CATTENS_MAC_README.txt* file,
   which you should find in the same location as the Mac "installer".
 
 ## Run CATTENS
@@ -412,17 +412,20 @@ A **ConOps** defines the sequence of activities that constitute a **Mission**.
 The **Lead Engineer** and **Systems Engineer** for a project can use the
 **ConOps Modeler** to create a timeline on which the **Mission** **Activities**
 are defined, and each **Activity** can be assigned a *duration* and can be
-characterized by a *power mode*.
+characterized by a *power mode*. The features of the **ConOps Modeler**
+interface are shown here:
+
+![ConOps Modeler Interface](images/conops_modeler_annotated.png "ConOps Modeler Interface")
 
 To begin, select the **ConOps Modeler** item in the **Tools** menu.
 
-![Select ConOps Modeler](images/conops_modeler_menu_item.png "ConOps Modeler in menu")
+![Select the ConOps Modeler menu item](images/conops_modeler_menu_item.png "ConOps Modeler in menu")
 
 The first time the ConOps Modeler is opened for a new project, it will display
-an empty **Mission Timeline** scene, **Mission Details** table, and **Mission
-Systems** assembly tree.
+an empty **Mission Timeline** scene, a **Mission Details** table, and the
+**Mission Systems** assembly tree, as shown here:
 
-![Initial ConOps Modeler](images/conops_interface_empty.png "ConOps Modeler in menu")
+![Initial ConOps Modeler Interface](images/conops_interface_empty.png "ConOps Modeler in menu")
 
 The first step is to begin adding activities to the **Mission Timeline**. This
 can be done either by
@@ -444,18 +447,18 @@ Once an activity has been added to the **Timeline**, its *name*, *duration*,
 and *time units* can be edited in the **Details** table on the left side of the
 interface simply by clicking on the cell, typing a value, and hitting *Return*.
 
-## Use Local DB Mode to Display Tabular Views of Objects and Export them to TSV
+## Use Local DB Mode to Display Tables and Export to Files
 
 Any row in the **Objects** table can be double-clicked to display that object
 in the **[Object Viewer/Editor](#access-the-object-viewereditor)**.
-The **Objects** table can be sorted on any
-column by clicking on that column's heading.  Columns can be rearranged by
-drag/drop, and you can select which columns you want displayed for a given
-object type by right-clicking on the headers, which displays a context menu,
-and choosing the **select columns** option, which will display all the
-attributes of the current object type and you can just check the attributes you
-want to see and uncheck the ones to hide.  **CATTENS** will remember your
-choices and will use them the next time you go into **Local DB** mode.
+The **Objects** table can be sorted on any column by clicking on that column's
+heading.  Columns can be rearranged by drag/drop, and you can select which
+columns you want displayed for a given object type by right-clicking on the
+headers, which displays a context menu, and choosing the **select columns**
+option, which will display all the attributes of the current object type and
+you can just check the attributes you want to see and uncheck the ones to hide.
+**CATTENS** will remember your choices and will use them the next time you
+go into **Local DB** mode.
 
 ## Set Preferred Units
 

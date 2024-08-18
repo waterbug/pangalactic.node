@@ -102,11 +102,9 @@ for Creating a Clone from a White Box Object</a></li>
 <li><a href="#define-a-concept-of-operations-conops-and-power-modes"
 id="toc-define-a-concept-of-operations-conops-and-power-modes">Define a
 Concept of Operations (“ConOps”) and Power Modes</a></li>
-<li><a
-href="#use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv"
-id="toc-use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv">Use
-Local DB Mode to Display Tabular Views of Objects and Export them to
-TSV</a></li>
+<li><a href="#use-local-db-mode-to-display-tables-and-export-to-files"
+id="toc-use-local-db-mode-to-display-tables-and-export-to-files">Use
+Local DB Mode to Display Tables and Export to Files</a></li>
 <li><a href="#set-preferred-units" id="toc-set-preferred-units">Set
 Preferred Units</a></li>
 </ul></li>
@@ -118,8 +116,8 @@ Preferred Units</a></li>
 <li>On Windows, run <em>cattens_x.x_setup.exe</em> as you would any
 Windows app installer.</li>
 <li>On Mac, follow the instructions in the
-<em>PANGALAXIAN_MAC_README.txt</em> file, which you should find in the
-same location as the Mac “installer”.</li>
+<em>CATTENS_MAC_README.txt</em> file, which you should find in the same
+location as the Mac “installer”.</li>
 </ul>
 <h2 id="run-cattens">Run CATTENS</h2>
 <p>The first time CATTENS starts up, it will create a directory called
@@ -616,22 +614,32 @@ Engineer</strong> and <strong>Systems Engineer</strong> for a project
 can use the <strong>ConOps Modeler</strong> to create a timeline on
 which the <strong>Mission</strong> <strong>Activities</strong> are
 defined, and each <strong>Activity</strong> can be assigned a
-<em>duration</em> and can be characterized by a <em>power mode</em>.</p>
+<em>duration</em> and can be characterized by a <em>power mode</em>. The
+features of the <strong>ConOps Modeler</strong> interface are shown
+here:</p>
+<figure>
+<img src="images/conops_modeler_annotated.png"
+title="ConOps Modeler Interface" alt="ConOps Modeler Interface" />
+<figcaption aria-hidden="true">ConOps Modeler Interface</figcaption>
+</figure>
 <p>To begin, select the <strong>ConOps Modeler</strong> item in the
 <strong>Tools</strong> menu.</p>
 <figure>
 <img src="images/conops_modeler_menu_item.png"
-title="ConOps Modeler in menu" alt="Select ConOps Modeler" />
-<figcaption aria-hidden="true">Select ConOps Modeler</figcaption>
+title="ConOps Modeler in menu"
+alt="Select the ConOps Modeler menu item" />
+<figcaption aria-hidden="true">Select the ConOps Modeler menu
+item</figcaption>
 </figure>
 <p>The first time the ConOps Modeler is opened for a new project, it
-will display an empty <strong>Mission Timeline</strong> scene,
-<strong>Mission Details</strong> table, and <strong>Mission
-Systems</strong> assembly tree.</p>
+will display an empty <strong>Mission Timeline</strong> scene, a
+<strong>Mission Details</strong> table, and the <strong>Mission
+Systems</strong> assembly tree, as shown here:</p>
 <figure>
 <img src="images/conops_interface_empty.png"
-title="ConOps Modeler in menu" alt="Initial ConOps Modeler" />
-<figcaption aria-hidden="true">Initial ConOps Modeler</figcaption>
+title="ConOps Modeler in menu" alt="Initial ConOps Modeler Interface" />
+<figcaption aria-hidden="true">Initial ConOps Modeler
+Interface</figcaption>
 </figure>
 <p>The first step is to begin adding activities to the <strong>Mission
 Timeline</strong>. This can be done either by</p>
@@ -664,10 +672,8 @@ title="Activity Added" alt="One Activity Added" />
 in the <strong>Details</strong> table on the left side of the interface
 simply by clicking on the cell, typing a value, and hitting
 <em>Return</em>.</p>
-<h2
-id="use-local-db-mode-to-display-tabular-views-of-objects-and-export-them-to-tsv">Use
-Local DB Mode to Display Tabular Views of Objects and Export them to
-TSV</h2>
+<h2 id="use-local-db-mode-to-display-tables-and-export-to-files">Use
+Local DB Mode to Display Tables and Export to Files</h2>
 <p>Any row in the <strong>Objects</strong> table can be double-clicked
 to display that object in the <strong><a
 href="#access-the-object-viewereditor">Object
