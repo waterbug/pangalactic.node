@@ -1446,6 +1446,7 @@ class ConOpsModeler(QMainWindow):
         dispatcher.connect(self.on_double_click, "double clicked")
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
         dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
+        dispatcher.connect(self.on_remote_mode_defs, "modes published")
 
     @property
     def project(self):
@@ -2062,6 +2063,19 @@ class ConOpsModeler(QMainWindow):
             self.main_timeline.set_new_scene(remote=True, remote_mod_acts=objs)
             if sequence_adjusted:
                 self.rebuild_table()
+
+    def on_remote_mode_defs(self):
+        """
+        Handle dispatcher "modes published" signal.
+        """
+        orb.log.debug('* received "modes published" signal')
+        self.rebuild_table()
+        # collapse and re-expand tree to refresh it
+        tree_expansion_index = state.get('conops_tree_expansion', {}).get(
+                                            self.project.oid) or 0
+        level = tree_expansion_index + 2
+        self.sys_select_tree.collapseAll()
+        self.sys_select_tree.expandToDepth(level)
 
     def closeEvent(self, event):
         """
