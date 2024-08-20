@@ -737,10 +737,13 @@ class ModeDefinitionDashboard(QWidget):
         self.sys_name_label = ColorLabel(self.sys_name, color='black',
                                          element='b')
         grid.addWidget(self.sys_name_label, 1, 0)
-        if self.sys_name in ['TBD', '[unknown]']:
+        if ((self.sys_name in ['TBD', '[unknown]']) or
+             (not self.act) or isinstance(self.act, orb.classes['Mission'])):
             # TODO: remove all previous data from dash, if any ...
             for i in reversed(range(grid.count())):
                 grid.takeAt(i).widget().deleteLater()
+            return
+        if (not self.act) or isinstance(self.act, orb.classes['Mission']):
             return
         if self.usage:
             self.set_row_fields(self.usage, 1)
