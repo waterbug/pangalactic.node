@@ -703,14 +703,77 @@ here:</p></li>
 <figure>
 <img src="images/conops_add_modes_for_new_system.png"
 title="New System Modes Dialog"
-alt="Dialog for a New Selected System" />
-<figcaption aria-hidden="true">Dialog for a New Selected
+alt="Dialog for a Newly Selected System" />
+<figcaption aria-hidden="true">Dialog for a Newly Selected
 System</figcaption>
 </figure>
 <ol start="3" type="1">
-<li>When an <strong>Activity</strong> and a system have been
-selected,</li>
+<li>When an <strong>Activity</strong> and a system have been selected,
+the <strong>Modes Dashboard</strong> will be displayed, as shown
+here:</li>
 </ol>
+<figure>
+<img src="images/conops_initial_modes_dashboard.png"
+title="Initial Modes Dashboard" alt="Initial Modes Dashboard View" />
+<figcaption aria-hidden="true">Initial Modes Dashboard View</figcaption>
+</figure>
+<ol start="4" type="1">
+<li>To begin defining a mode, click on the <strong>Edit</strong> button
+(circled in green in the diagram above) and the dashboard will show
+selectable pull-down lists of named power levels for each component or
+subsystem of the system that has been selected in the system tree:</li>
+</ol>
+<figure>
+<img src="images/conops_editable_modes_dashboard.png"
+title="Editable Modes Dashboard" alt="Editable Modes Dashboard" />
+<figcaption aria-hidden="true">Editable Modes Dashboard</figcaption>
+</figure>
+<p>When a power level is specified, the <strong>ConOps Modeler</strong>
+looks up the component or subsystem’s specified value for that power
+level and immediately uses it to populate the corresponding
+<strong>Power CBE</strong> and <strong>Power MEV</strong> columns for
+that component or subsystem.</p>
+<p>The definition of power modes will typically begin at either the
+<strong>Observatory</strong> or <strong>Spacecraft</strong> level, but a
+power mode can be defined in terms of subsystem component power
+characteristics – this is done by clicking on the corresponding
+subsystem in the <strong>System Tree</strong> in the left panel, where
+the initial system was selected … a dialog will be displayed asking for
+confirmation that you wish to define power modes for that subsystem – as
+shown:</p>
+<figure>
+<img src="images/conops_subsystem_initial_selection.png"
+title="New Subsystem Modes Dialog"
+alt="Dialog for a Newly Selected Subsystem" />
+<figcaption aria-hidden="true">Dialog for a Newly Selected
+Subsystem</figcaption>
+</figure>
+<p>In the example shown above, the <strong>Avionics</strong> subsystem
+has been selected. When you have clicked <strong>Yes</strong> in the
+dialog, the dashboard will immediately display the components of the
+selected subsystem and you can select the modal power levels for each of
+the subsystem’s components. Note that the subsystem’s mode level will
+now be shown as <em>[computed]</em>, both in its own dashboard view and
+in the mode dashboard of its parent system (in this case, the
+<strong>Spacecraft</strong>).</p>
+<figure>
+<img src="images/conops_subsystem_mode_editing.png"
+title="Subsystem Mode Editing" alt="Subsystem Mode Editing" />
+<figcaption aria-hidden="true">Subsystem Mode Editing</figcaption>
+</figure>
+<p>If you have mistakenly selected a subsystem or have later decided
+<em>not</em> to define the mode in terms of the power levels of that
+subsystem’s components, go to the <strong>System Tree</strong>,
+right-click on that subsystem, and select <em>“Remove from computed item
+modes”</em> – that will immediately remove the subsystem’s mode
+definition from the “computed” modes.</p>
+<figure>
+<img src="images/conops_remove_subsystem_mode_definition.png"
+title="Remove Subsystem Mode Definition"
+alt="Remove Subsystem Mode Definition" />
+<figcaption aria-hidden="true">Remove Subsystem Mode
+Definition</figcaption>
+</figure>
 <h2 id="use-local-db-mode-to-display-tables-and-export-to-files">Use
 Local DB Mode to Display Tables and Export to Files</h2>
 <p>Any row in the <strong>Objects</strong> table can be double-clicked

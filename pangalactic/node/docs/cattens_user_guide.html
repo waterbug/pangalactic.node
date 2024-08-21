@@ -642,36 +642,135 @@ title="ConOps Modeler in menu" alt="Initial ConOps Modeler Interface" />
 Interface</figcaption>
 </figure>
 <p>The first step is to begin adding activities to the <strong>Mission
-Timeline</strong>. This can be done either by</p>
+Timeline</strong>. This can be done by either of 2 methods:</p>
 <ol type="1">
-<li>Clicking the <strong>Add Default Activities</strong> button, which
-will add the following activities to the <strong>Timeline</strong>:
+<li>Click the <strong>Add Default Activities</strong> button, which will
+add the following activities to the <strong>Timeline</strong>:
 <strong>Launch</strong>, <strong>Calibration</strong>,
 <strong>Propulsion</strong>, <strong>Slew</strong>, <strong>Science Data
 Acquisition</strong>, <strong>Science Data Transmission</strong>,
-<strong>Safe Hold</strong>:</li>
+<strong>Safe Hold</strong> – note that <strong>any</strong> of these
+activities can easily be <strong>renamed or deleted</strong> if not
+applicable to your mission:</li>
 </ol>
 <figure>
 <img src="images/conops_timeline_with_default_activities.png"
 title="Default Activities" alt="Default Activities Added" />
 <figcaption aria-hidden="true">Default Activities Added</figcaption>
 </figure>
+<p><strong>– OR –</strong></p>
 <ol start="2" type="1">
-<li>Dragging an Activity type icon (<strong>Op</strong>,
-<strong>Event</strong>, or <strong>Cycle</strong>) from the
-<strong>Activities</strong> palette on the right side and dropping it
-onto the <strong>Timeline</strong>:</li>
+<li>Drag an <strong>Activity Type</strong> (<strong>Op</strong>,
+<strong>Event</strong>, or <strong>Cycle</strong>) icon from the
+<strong>Activities</strong> palette on the right side and drop it onto
+the <strong>Timeline</strong>, which creates a new <strong>Activity
+block</strong> of that type in the <strong>Timeline</strong> and a new
+row in the <strong>Details</strong> table on the left:</li>
 </ol>
 <figure>
+<img src="images/conops_drag_drop_block_from_palette.png"
+title="Drag / Drop onto Timeline" alt="Drag / Drop to Timeline …" />
+<figcaption aria-hidden="true">Drag / Drop to Timeline …</figcaption>
+</figure>
+<figure>
 <img src="images/conops_timeline_after_activity_drop.png"
-title="Activity Added" alt="One Activity Added" />
-<figcaption aria-hidden="true">One Activity Added</figcaption>
+title="Activity Added" alt="… creates an Activity Block" />
+<figcaption aria-hidden="true">… creates an Activity Block</figcaption>
 </figure>
 <p>Once an activity has been added to the <strong>Timeline</strong>, its
-<em>name</em>, <em>duration</em>, and <em>time units</em> can be edited
+<em>Name</em>, <em>Duration</em>, and <em>Time Units</em> can be edited
 in the <strong>Details</strong> table on the left side of the interface
 simply by clicking on the cell, typing a value, and hitting
-<em>Return</em>.</p>
+<em>Return</em>. Note that the <em>Start</em> and <em>End</em> times are
+computed from the <em>Duration</em> values, so they cannot be
+edited.</p>
+<p>After one or more <strong>Activities</strong> have been added to the
+<strong>Timeline</strong>, power modes can be defined – to do that:</p>
+<ol type="1">
+<li><p>Select an <strong>Activity</strong> block by clicking on it – it
+will be highlighted in yellow.</p></li>
+<li><p>Select a system by clicking on an item in the <strong>System
+Tree</strong> (left panel). Typically either an Observatory or a
+Spacecraft will be selected first, as the highest-level system for which
+power modes will be defined; in the case of a Spacecraft, its subsystems
+may each in turn be selected for more detailed power mode definitions.
+When a system is first selected, you will see the dialog shown
+here:</p></li>
+</ol>
+<figure>
+<img src="images/conops_add_modes_for_new_system.png"
+title="New System Modes Dialog"
+alt="Dialog for a Newly Selected System" />
+<figcaption aria-hidden="true">Dialog for a Newly Selected
+System</figcaption>
+</figure>
+<ol start="3" type="1">
+<li>When an <strong>Activity</strong> and a system have been selected,
+the <strong>Modes Dashboard</strong> will be displayed, as shown
+here:</li>
+</ol>
+<figure>
+<img src="images/conops_initial_modes_dashboard.png"
+title="Initial Modes Dashboard" alt="Initial Modes Dashboard View" />
+<figcaption aria-hidden="true">Initial Modes Dashboard View</figcaption>
+</figure>
+<ol start="4" type="1">
+<li>To begin defining a mode, click on the <strong>Edit</strong> button
+(circled in green in the diagram above) and the dashboard will show
+selectable pull-down lists of named power levels for each component or
+subsystem of the system that has been selected in the system tree:</li>
+</ol>
+<figure>
+<img src="images/conops_editable_modes_dashboard.png"
+title="Editable Modes Dashboard" alt="Editable Modes Dashboard" />
+<figcaption aria-hidden="true">Editable Modes Dashboard</figcaption>
+</figure>
+<p>When a power level is specified, the <strong>ConOps Modeler</strong>
+looks up the component or subsystem’s specified value for that power
+level and immediately uses it to populate the corresponding
+<strong>Power CBE</strong> and <strong>Power MEV</strong> columns for
+that component or subsystem.</p>
+<p>The definition of power modes will typically begin at either the
+<strong>Observatory</strong> or <strong>Spacecraft</strong> level, but a
+power mode can be defined in terms of subsystem component power
+characteristics – this is done by clicking on the corresponding
+subsystem in the <strong>System Tree</strong> in the left panel, where
+the initial system was selected … a dialog will be displayed asking for
+confirmation that you wish to define power modes for that subsystem – as
+shown:</p>
+<figure>
+<img src="images/conops_subsystem_initial_selection.png"
+title="New Subsystem Modes Dialog"
+alt="Dialog for a Newly Selected Subsystem" />
+<figcaption aria-hidden="true">Dialog for a Newly Selected
+Subsystem</figcaption>
+</figure>
+<p>In the example shown above, the <strong>Avionics</strong> subsystem
+has been selected. When you have clicked <strong>Yes</strong> in the
+dialog, the dashboard will immediately display the components of the
+selected subsystem and you can select the modal power levels for each of
+the subsystem’s components. Note that the subsystem’s mode level will
+now be shown as <em>[computed]</em>, both in its own dashboard view and
+in the mode dashboard of its parent system (in this case, the
+<strong>Spacecraft</strong>).</p>
+<figure>
+<img src="images/conops_subsystem_mode_editing.png"
+title="Subsystem Mode Editing" alt="Subsystem Mode Editing" />
+<figcaption aria-hidden="true">Subsystem Mode Editing</figcaption>
+</figure>
+<p>If you have mistakenly selected a subsystem or have later decided
+<em>not</em> to define the mode in terms of the power levels of that
+subsystem’s components, go to the <strong>System Tree</strong>,
+right-click on that subsystem, and select <em>“Remove from computed item
+modes”</em> – that will immediately remove the subsystem’s mode
+definition from the “computed” modes.</p>
+<figure>
+<img src="images/conops_remove_subsystem_mode_definition.png"
+title="Remove Subsystem Mode Definition"
+alt="Remove Subsystem Mode Definition" />
+<figcaption aria-hidden="true">Remove Subsystem Mode
+Definition</figcaption>
+</figure>
 <h2 id="use-local-db-mode-to-display-tables-and-export-to-files">Use
 Local DB Mode to Display Tables and Export to Files</h2>
 <p>Any row in the <strong>Objects</strong> table can be double-clicked

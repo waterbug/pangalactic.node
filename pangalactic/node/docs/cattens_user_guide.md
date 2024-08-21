@@ -428,24 +428,91 @@ an empty **Mission Timeline** scene, a **Mission Details** table, and the
 ![Initial ConOps Modeler Interface](images/conops_interface_empty.png "ConOps Modeler in menu")
 
 The first step is to begin adding activities to the **Mission Timeline**. This
-can be done either by
+can be done by either of 2 methods:
 
-1. Clicking the **Add Default Activities** button, which will add the
+1. Click the **Add Default Activities** button, which will add the
    following activities to the **Timeline**: **Launch**, **Calibration**,
    **Propulsion**, **Slew**, **Science Data Acquisition**, **Science Data
-   Transmission**, **Safe Hold**:
+   Transmission**, **Safe Hold** -- note that **any** of these activities can
+   easily be **renamed or deleted** if not applicable to your mission:
 
 ![Default Activities Added](images/conops_timeline_with_default_activities.png "Default Activities")
 
-2. Dragging an Activity type icon (**Op**, **Event**, or **Cycle**) from
-   the **Activities** palette on the right side and dropping it onto the
-   **Timeline**:
+**-- OR --**
 
-![One Activity Added](images/conops_timeline_after_activity_drop.png "Activity Added")
+2. Drag an **Activity Type** (**Op**, **Event**, or **Cycle**) icon from the
+   **Activities** palette on the right side and drop it onto the **Timeline**,
+   which creates a new **Activity block** of that type in the **Timeline** and
+   a new row in the **Details** table on the left:
 
-Once an activity has been added to the **Timeline**, its *name*, *duration*,
-and *time units* can be edited in the **Details** table on the left side of the
+![Drag / Drop to Timeline ...](images/conops_drag_drop_block_from_palette.png "Drag / Drop onto Timeline")
+
+![... creates an Activity Block](images/conops_timeline_after_activity_drop.png "Activity Added")
+
+Once an activity has been added to the **Timeline**, its *Name*, *Duration*,
+and *Time Units* can be edited in the **Details** table on the left side of the
 interface simply by clicking on the cell, typing a value, and hitting *Return*.
+Note that the *Start* and *End* times are computed from the *Duration* values,
+so they cannot be edited.
+
+After one or more **Activities** have been added to the **Timeline**, power
+modes can be defined -- to do that:
+
+1.  Select an **Activity** block by clicking on it -- it will be highlighted in
+    yellow.
+
+2.  Select a system by clicking on an item in the **System Tree** (left panel).
+    Typically either an Observatory or a Spacecraft will be selected first, as
+    the highest-level system for which power modes will be defined; in the case
+    of a Spacecraft, its subsystems may each in turn be selected for more
+    detailed power mode definitions. When a system is first selected, you will
+    see the dialog shown here:
+
+![Dialog for a Newly Selected System](images/conops_add_modes_for_new_system.png "New System Modes Dialog")
+
+3.  When an **Activity** and a system have been selected, the **Modes
+Dashboard** will be displayed, as shown here:
+
+![Initial Modes Dashboard View](images/conops_initial_modes_dashboard.png "Initial Modes Dashboard")
+
+4.  To begin defining a mode, click on the **Edit** button (circled in green
+in the diagram above) and the dashboard will show selectable pull-down lists
+of named power levels for each component or subsystem of the system that has
+been selected in the system tree:
+
+![Editable Modes Dashboard](images/conops_editable_modes_dashboard.png "Editable Modes Dashboard")
+
+When a power level is specified, the **ConOps Modeler** looks up the component
+or subsystem's specified value for that power level and immediately uses it to
+populate the corresponding **Power CBE** and **Power MEV** columns for that
+component or subsystem.
+
+The definition of power modes will typically begin at either the
+**Observatory** or **Spacecraft** level, but a power mode can be defined in
+terms of subsystem component power characteristics -- this is done by clicking
+on the corresponding subsystem in the **System Tree** in the left panel, where
+the initial system was selected ... a dialog will be displayed asking for
+confirmation that you wish to define power modes for that subsystem -- as
+shown:
+
+![Dialog for a Newly Selected Subsystem](images/conops_subsystem_initial_selection.png "New Subsystem Modes Dialog")
+
+In the example shown above, the **Avionics** subsystem has been selected.  When
+you have clicked **Yes** in the dialog, the dashboard will immediately display
+the components of the selected subsystem and you can select the modal power
+levels for each of the subsystem's components.  Note that the subsystem's mode
+level will now be shown as *[computed]*, both in its own dashboard view and in
+the mode dashboard of its parent system (in this case, the **Spacecraft**).
+
+![Subsystem Mode Editing](images/conops_subsystem_mode_editing.png "Subsystem Mode Editing")
+
+If you have mistakenly selected a subsystem or have later decided *not* to
+define the mode in terms of the power levels of that subsystem's components, go
+to the **System Tree**, right-click on that subsystem, and select *"Remove from
+computed item modes"* -- that will immediately remove the subsystem's mode
+definition from the "computed" modes.
+
+![Remove Subsystem Mode Definition](images/conops_remove_subsystem_mode_definition.png "Remove Subsystem Mode Definition")
 
 ## Use Local DB Mode to Display Tables and Export to Files
 
