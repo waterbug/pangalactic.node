@@ -443,6 +443,7 @@ class ModeDefinitionDashboard(QWidget):
         dispatcher.connect(self.on_new_timeline, "new timeline")
         dispatcher.connect(self.on_modes_edited, 'modes edited')
         dispatcher.connect(self.on_modes_published, 'modes published')
+        dispatcher.connect(self.on_set_no_compute, 'set no compute')
         dispatcher.connect(self.on_remote_sys_mode_datum,
                            'remote sys mode datum')
         dispatcher.connect(self.on_remote_comp_mode_datum,
@@ -546,6 +547,21 @@ class ModeDefinitionDashboard(QWidget):
             self.on_edit(None)
         else:
             self.on_view(None)
+
+    def on_set_no_compute(self, oid=None):
+        """
+        When a usage is removed from computed modes, if it was the selected
+        usage, reset the selected usage.
+        """
+        if self.sys_dict:
+            all_usage_oids = list(self.sys_dict)
+            if oid in all_usage_oids:
+                all_usage_oids.remove(oid)
+            if all_usage_oids:
+                new_usage = orb.get(all_usage_oids[0])
+                self.on_set_mode_usage(new_usage)
+            else:
+                self.on_set_mode_usage(None)
 
     def on_modes_edited(self, oid):
         orb.log.debug('* MDD: "modes edited" signal received ...')

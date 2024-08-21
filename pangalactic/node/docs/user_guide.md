@@ -510,7 +510,7 @@ If you have mistakenly selected a subsystem or have later decided *not* to
 define the mode in terms of the power levels of that subsystem's components, go
 to the **System Tree**, right-click on that subsystem, and select *"Remove from
 computed item modes"* -- that will immediately remove the subsystem's mode
-definition from the "computed" modes.
+definition from the computed modes.
 
 ![Remove Subsystem Mode Definition](images/conops_remove_subsystem_mode_definition.png "Remove Subsystem Mode Definition")
 
