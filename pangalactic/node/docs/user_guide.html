@@ -102,7 +102,25 @@ for Creating a Clone from a White Box Object</a></li>
 </ul></li>
 <li><a href="#define-a-concept-of-operations-conops-and-power-modes"
 id="toc-define-a-concept-of-operations-conops-and-power-modes">Define a
-Concept of Operations (“ConOps”) and Power Modes</a></li>
+Concept of Operations (“ConOps”) and Power Modes</a>
+<ul>
+<li><a href="#add-activities-to-a-timeline"
+id="toc-add-activities-to-a-timeline">Add Activities to a
+Timeline</a></li>
+<li><a href="#define-system-power-modes"
+id="toc-define-system-power-modes">Define System Power Modes</a></li>
+<li><a href="#define-computed-subsystem-power-modes"
+id="toc-define-computed-subsystem-power-modes">Define Computed Subsystem
+Power Modes</a></li>
+<li><a href="#add-cyclic-activities" id="toc-add-cyclic-activities">Add
+Cyclic Activities</a></li>
+<li><a href="#define-sub-activities-in-a-cycle-timeline"
+id="toc-define-sub-activities-in-a-cycle-timeline">Define Sub-Activities
+in a Cycle Timeline</a></li>
+<li><a href="#graph-system-power-modes-vs.-time"
+id="toc-graph-system-power-modes-vs.-time">Graph System Power Modes
+vs. Time</a></li>
+</ul></li>
 <li><a href="#use-local-db-mode-to-display-tables-and-export-to-files"
 id="toc-use-local-db-mode-to-display-tables-and-export-to-files">Use
 Local DB Mode to Display Tables and Export to Files</a></li>
@@ -644,6 +662,7 @@ title="ConOps Modeler in menu" alt="Initial ConOps Modeler Interface" />
 <figcaption aria-hidden="true">Initial ConOps Modeler
 Interface</figcaption>
 </figure>
+<h3 id="add-activities-to-a-timeline">Add Activities to a Timeline</h3>
 <p>The first step is to begin adding activities to the <strong>Mission
 Timeline</strong>. This can be done by either of 2 methods:</p>
 <ol type="1">
@@ -687,6 +706,7 @@ simply by clicking on the cell, typing a value, and hitting
 <em>Return</em>. Note that the <em>Start</em> and <em>End</em> times are
 computed from the <em>Duration</em> values, so they cannot be
 edited.</p>
+<h3 id="define-system-power-modes">Define System Power Modes</h3>
 <p>After one or more <strong>Activities</strong> have been added to the
 <strong>Timeline</strong>, power modes can be defined – to do that:</p>
 <ol type="1">
@@ -733,14 +753,16 @@ looks up the component or subsystem’s specified value for that power
 level and immediately uses it to populate the corresponding
 <strong>Power CBE</strong> and <strong>Power MEV</strong> columns for
 that component or subsystem.</p>
+<h3 id="define-computed-subsystem-power-modes">Define Computed Subsystem
+Power Modes</h3>
 <p>The definition of power modes will typically begin at either the
 <strong>Observatory</strong> or <strong>Spacecraft</strong> level, but a
-power mode can be defined in terms of subsystem component power
-characteristics – this is done by clicking on the corresponding
-subsystem in the <strong>System Tree</strong> in the left panel, where
-the initial system was selected … a dialog will be displayed asking for
-confirmation that you wish to define power modes for that subsystem – as
-shown:</p>
+subsystem power mode can be defined in terms of the power
+characteristics of its components – this is done by clicking on the
+corresponding subsystem in the <strong>System Tree</strong> in the left
+panel, where the initial system was selected … a dialog will be
+displayed asking for confirmation that you wish to define power modes
+for that subsystem – as shown:</p>
 <figure>
 <img src="images/conops_subsystem_initial_selection.png"
 title="New Subsystem Modes Dialog"
@@ -762,11 +784,12 @@ title="Subsystem Mode Editing" alt="Subsystem Mode Editing" />
 <figcaption aria-hidden="true">Subsystem Mode Editing</figcaption>
 </figure>
 <p>If you have mistakenly selected a subsystem or have later decided
-<em>not</em> to define the mode in terms of the power levels of that
-subsystem’s components, go to the <strong>System Tree</strong>,
+<em>not</em> to define the subsystem’s power modes in terms of the power
+levels of its components, go to the <strong>System Tree</strong>,
 right-click on that subsystem, and select <em>“Remove from computed item
 modes”</em> – that will immediately remove the subsystem’s mode
-definition from the “computed” modes.</p>
+definition from the computed modes, so its power modes can be specified
+directly by selecting power levels.</p>
 <figure>
 <img src="images/conops_remove_subsystem_mode_definition.png"
 title="Remove Subsystem Mode Definition"
@@ -774,6 +797,81 @@ alt="Remove Subsystem Mode Definition" />
 <figcaption aria-hidden="true">Remove Subsystem Mode
 Definition</figcaption>
 </figure>
+<h3 id="add-cyclic-activities">Add Cyclic Activities</h3>
+<p>A <strong>Cyclic Activity</strong> can be added by dragging the
+“Cycle” icon from the <strong>Activity Palette</strong> and dropping it
+onto the <strong>Timeline</strong>, as shown:</p>
+<figure>
+<img src="images/conops_drag_drop_cycle.png"
+title="Drag/Drop a Cyclic Activity"
+alt="Drag/Drop to Create a Cyclic Activity" />
+<figcaption aria-hidden="true">Drag/Drop to Create a Cyclic
+Activity</figcaption>
+</figure>
+<p>When the drop action has completed, the resulting <strong>Cyclic
+Activity</strong> will be displayed:</p>
+<figure>
+<img src="images/conops_cyclic_activity_added.png"
+title="A Cyclic Activity" alt="A Cyclic Activity" />
+<figcaption aria-hidden="true">A Cyclic Activity</figcaption>
+</figure>
+<h3 id="define-sub-activities-in-a-cycle-timeline">Define Sub-Activities
+in a Cycle Timeline</h3>
+<p>A <strong>Cyclic Activity</strong> has its own associated
+<strong>Timeline</strong> that represents one of its cycles. The
+<strong>Timeline</strong> for the <strong>Cyclic Activity</strong> can
+be defined as follows:</p>
+<ol type="1">
+<li><p>Select the <strong>Cyclic Activity</strong> by clicking on it –
+it will turn yellow.</p></li>
+<li><p>Double-click on the <strong>Cyclic Activity</strong> and an empty
+<strong>Timeline</strong> will be displayed:</p></li>
+</ol>
+<figure>
+<img src="images/conops_cycle_timeline.png"
+title="A Cyclic Activity Timeline" alt="A Cyclic Activity Timeline" />
+<figcaption aria-hidden="true">A Cyclic Activity Timeline</figcaption>
+</figure>
+<ol start="3" type="1">
+<li><p>Add <strong>Activity</strong> blocks by drag / dropping them, as
+in the system <strong>Timeline</strong>.</p></li>
+<li><p>Edit the names, durations, and time units of the
+<strong>Activity</strong> blocks as before, by clicking on a cell in the
+<strong>Activity Details</strong> table on the left and hit
+<em>Enter</em> or simply click on another cell when done.</p></li>
+</ol>
+<figure>
+<img src="images/conops_cycle_timeline_defined.png"
+title="A Cyclic Activity Timeline with Power Modes"
+alt="A Cyclic Activity Timeline with Power Modes" />
+<figcaption aria-hidden="true">A Cyclic Activity Timeline with Power
+Modes</figcaption>
+</figure>
+<ol start="5" type="1">
+<li>When finished defining the <strong>Sub-Activities</strong> and
+associated <strong>Power Modes</strong> for each system and subsystem
+during the <strong>Cycle</strong>, return to the <strong>System
+Timeline</strong> by clicking the <strong>Back</strong> button above the
+<strong>Timeline</strong>:</li>
+</ol>
+<h3 id="graph-system-power-modes-vs.-time">Graph System Power Modes
+vs. Time</h3>
+<p>To display a graph of the <strong>System Power Modes
+vs. Time</strong>, simply click on the <strong>Graph</strong> button
+above the <strong>Timeline</strong>:</p>
+<figure>
+<img src="images/example_power_vs_time_graph.png"
+title="Example Power vs. Time Graph"
+alt="Example Power vs. Time Graph" />
+<figcaption aria-hidden="true">Example Power vs. Time Graph</figcaption>
+</figure>
+<p>The graph can be saved as either a “.png” or “.pdf” file.</p>
+<p>Note that when one of the activities in the <strong>Timeline</strong>
+is a <strong>Cyclic Activity</strong>, only one cycle will be shown in
+the graph. The graph will show the <strong>Peak Power</strong> and
+<strong>Average Power</strong> values for the cycle. The <strong>ConOps
+Tool</strong> is also capable of defining cycles within cycles and
+graphing them, if a mission <strong>Timeline</strong> contains them.</p>
 <h2 id="use-local-db-mode-to-display-tables-and-export-to-files">Use
 Local DB Mode to Display Tables and Export to Files</h2>
 <p>Any row in the <strong>Objects</strong> table can be double-clicked

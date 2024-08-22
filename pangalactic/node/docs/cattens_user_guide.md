@@ -427,6 +427,8 @@ an empty **Mission Timeline** scene, a **Mission Details** table, and the
 
 ![Initial ConOps Modeler Interface](images/conops_interface_empty.png "ConOps Modeler in menu")
 
+### Add Activities to a Timeline
+
 The first step is to begin adding activities to the **Mission Timeline**. This
 can be done by either of 2 methods:
 
@@ -454,6 +456,8 @@ and *Time Units* can be edited in the **Details** table on the left side of the
 interface simply by clicking on the cell, typing a value, and hitting *Return*.
 Note that the *Start* and *End* times are computed from the *Duration* values,
 so they cannot be edited.
+
+### Define System Power Modes
 
 After one or more **Activities** have been added to the **Timeline**, power
 modes can be defined -- to do that:
@@ -487,13 +491,15 @@ or subsystem's specified value for that power level and immediately uses it to
 populate the corresponding **Power CBE** and **Power MEV** columns for that
 component or subsystem.
 
+### Define Computed Subsystem Power Modes
+
 The definition of power modes will typically begin at either the
-**Observatory** or **Spacecraft** level, but a power mode can be defined in
-terms of subsystem component power characteristics -- this is done by clicking
-on the corresponding subsystem in the **System Tree** in the left panel, where
-the initial system was selected ... a dialog will be displayed asking for
-confirmation that you wish to define power modes for that subsystem -- as
-shown:
+**Observatory** or **Spacecraft** level, but a subsystem power mode can be
+defined in terms of the power characteristics of its components -- this is done
+by clicking on the corresponding subsystem in the **System Tree** in the left
+panel, where the initial system was selected ... a dialog will be displayed
+asking for confirmation that you wish to define power modes for that subsystem
+-- as shown:
 
 ![Dialog for a Newly Selected Subsystem](images/conops_subsystem_initial_selection.png "New Subsystem Modes Dialog")
 
@@ -507,12 +513,67 @@ the mode dashboard of its parent system (in this case, the **Spacecraft**).
 ![Subsystem Mode Editing](images/conops_subsystem_mode_editing.png "Subsystem Mode Editing")
 
 If you have mistakenly selected a subsystem or have later decided *not* to
-define the mode in terms of the power levels of that subsystem's components, go
-to the **System Tree**, right-click on that subsystem, and select *"Remove from
-computed item modes"* -- that will immediately remove the subsystem's mode
-definition from the "computed" modes.
+define the subsystem's power modes in terms of the power levels of its
+components, go to the **System Tree**, right-click on that subsystem, and
+select *"Remove from computed item modes"* -- that will immediately remove the
+subsystem's mode definition from the computed modes, so its power modes can be
+specified directly by selecting power levels.
 
 ![Remove Subsystem Mode Definition](images/conops_remove_subsystem_mode_definition.png "Remove Subsystem Mode Definition")
+
+### Add Cyclic Activities
+
+A **Cyclic Activity** can be added by dragging the "Cycle" icon from the
+**Activity Palette** and dropping it onto the **Timeline**, as shown:
+
+![Drag/Drop to Create a Cyclic Activity](images/conops_drag_drop_cycle.png "Drag/Drop a Cyclic Activity")
+
+When the drop action has completed, the resulting **Cyclic Activity** will be
+displayed:
+
+![A Cyclic Activity](images/conops_cyclic_activity_added.png "A Cyclic Activity")
+
+### Define Sub-Activities in a Cycle Timeline
+
+A **Cyclic Activity** has its own associated **Timeline** that represents one
+of its cycles.  The **Timeline** for the **Cyclic Activity** can be defined as
+follows:
+
+1.  Select the **Cyclic Activity** by clicking on it -- it will turn yellow.
+
+2.  Double-click on the **Cyclic Activity** and an empty **Timeline** will be
+    displayed:
+
+![A Cyclic Activity Timeline](images/conops_cycle_timeline.png "A Cyclic Activity Timeline")
+
+3.  Add **Activity** blocks by drag / dropping them, as in the system **Timeline**.
+
+4.  Edit the names, durations, and time units of the **Activity** blocks as
+    before, by clicking on a cell in the **Activity Details** table on the left
+    and hit *Enter* or simply click on another cell when done.
+
+![A Cyclic Activity Timeline with Power Modes](images/conops_cycle_timeline_defined.png "A Cyclic Activity Timeline with Power Modes")
+
+5.  When finished defining the **Sub-Activities** and associated **Power Modes**
+    for each system and subsystem during the **Cycle**, return to
+    the **System Timeline** by clicking the **Back** button above the
+    **Timeline**:
+
+### Graph System Power Modes vs. Time
+
+To display a graph of the **System Power Modes vs. Time**, simply click on the
+**Graph** button above the **Timeline**:
+
+![Example Power vs. Time Graph](images/example_power_vs_time_graph.png "Example Power vs. Time Graph")
+
+The graph can be saved as either a ".png" or ".pdf" file.
+
+Note that when one of the activities in the **Timeline** is a **Cyclic
+Activity**, only one cycle will be shown in the graph.  The graph will show the
+**Peak Power** and **Average Power** values for the cycle.  The **ConOps Tool**
+is also capable of defining cycles within cycles and graphing them, if a
+mission **Timeline** contains them.
+
 
 ## Use Local DB Mode to Display Tables and Export to Files
 
