@@ -23,8 +23,7 @@ from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 from pangalactic.core.parametrics import (get_pval, get_power_contexts,
                                           get_modal_context,
-                                          get_usage_mode_val,
-                                          get_usage_mode_val_as_str,
+                                          get_modal_power,
                                           mode_defz, round_to,
                                           set_comp_modal_context)
 from pangalactic.core.validation  import get_assembly
@@ -844,6 +843,8 @@ class ModeDefinitionDashboard(QWidget):
         self.on_edit(None)
 
     def set_row_fields(self, usage, row):
+        # name = usage.id
+        # orb.log.debug(f' - set_row_fields({name}, row {row})')
         # fields: power_level, p_cbe, p_mev
         grid = self.dash_panel.layout()
         self.p_cbe_fields = {}
@@ -857,7 +858,6 @@ class ModeDefinitionDashboard(QWidget):
         # -------------------
         modal_context = ''  # a.k.a. power level
         if row == 1:
-            # TODO: enable to switch from "[computed]" to a specified level
             modal_context = '[computed]'
             label = ValueLabel(modal_context, w=40)
             grid.addWidget(label, row, 1)
@@ -883,16 +883,12 @@ class ModeDefinitionDashboard(QWidget):
         # -------------------
         # p_cbe (col 2)
         # -------------------
-        p_cbe_val_str = get_usage_mode_val_as_str(self.project.oid,
-                                                  usage.oid,
-                                                  comp.oid,
-                                                  self.act.oid)
-        p_cbe_val = get_usage_mode_val(self.project.oid, usage.oid,
-                                       comp.oid, self.act.oid)
-        # p_cbe_val = get_modal_power(self.project.oid, usage.oid, comp.oid,
-                                    # self.act.oid, modal_context)
+        p_cbe_val = get_modal_power(self.project.oid, usage.oid, comp.oid,
+                                    self.act.oid, modal_context)
         # TODO: possible to get None -- possible bug in get_pval ...
         p_cbe_val = p_cbe_val or 0.0
+        p_cbe_val_str = str(p_cbe_val)
+        # orb.log.debug(f'   p_cbe_val_str: {p_cbe_val_str}')
         p_cbe_field = self.p_cbe_fields.get(comp.oid)
         if p_cbe_field:
             p_cbe_field.setText(p_cbe_val_str)
@@ -907,6 +903,7 @@ class ModeDefinitionDashboard(QWidget):
         factor = 1.0 + ctgcy
         p_mev_val = round_to(p_cbe_val * factor, n=3)
         p_mev_val_str = str(p_mev_val)
+        # orb.log.debug(f'   p_mev_val_str: {p_mev_val_str}')
         p_mev_field = self.p_mev_fields.get(comp.oid)
         if p_mev_field:
             p_mev_field.setText(p_mev_val_str)
@@ -914,9 +911,6 @@ class ModeDefinitionDashboard(QWidget):
             p_mev_field = ValueLabel(p_mev_val_str, w=20)
             self.p_mev_fields[comp.oid] = p_mev_field
             grid.addWidget(p_mev_field, row, 3)
-
-    def set_p_level(self, p_level):
-        orb.log.debug(f'[MDDash] p_level set to {p_level}')
 
 
 if __name__ == '__main__':

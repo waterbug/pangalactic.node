@@ -50,8 +50,9 @@ from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name, pname_to_header
 # from pangalactic.core.parametrics import get_pval
 from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
-                                          # get_duration,
-                                          get_usage_mode_val,  mode_defz,
+                                          mode_defz,
+                                          get_modal_context,
+                                          get_modal_power,
                                           round_to,
                                           set_comp_modal_context,
                                           set_dval)
@@ -1110,19 +1111,17 @@ class TimelineWidget(QWidget):
                     all_acts = subacts
                     t_seq = [get_pval(a.oid, 't_start', units=time_units)
                              for a in subacts]
-                # val_dict = {a.name: get_usage_mode_val(project.oid,
-                                            # usage.oid, comp.oid,
-                                            # a.oid)
-                            # for a in all_acts}
-                # orb.log.debug(f"  mapping: {val_dict}")
                 def f_scalar(t):
                         a = all_acts[-1]
                         for i in range(len(all_acts) - 1):
                             if (t_seq[i] <= t) and (t < t_seq[i+1]):
                                 a = all_acts[i]
-                        p_cbe_val = get_usage_mode_val(project.oid,
-                                                       usage.oid, comp.oid,
-                                                       a.oid)
+                        modal_context = get_modal_context(project.oid,
+                                                          usage.oid,
+                                                          a.oid)
+                        p_cbe_val = get_modal_power(project.oid,
+                                                    usage.oid, comp.oid,
+                                                    a.oid, modal_context)
                         if context == "CBE":
                             return p_cbe_val
                         else:
@@ -1139,8 +1138,12 @@ class TimelineWidget(QWidget):
                         return [f_scalar(x) for x in t]
             else:
                 # no subactivities -> 1 mode -> constant function
-                p_cbe_val = get_usage_mode_val(project.oid, usage.oid,
-                                               comp.oid, self.act.oid)
+                modal_context = get_modal_context(project.oid,
+                                                  usage.oid,
+                                                  a.oid)
+                p_cbe_val = get_modal_power(project.oid, usage.oid,
+                                            comp.oid, self.act.oid,
+                                            modal_context)
                 if context == "cbe":
                     f = (lambda t: p_cbe_val)
                 else:
@@ -1201,9 +1204,10 @@ class TimelineWidget(QWidget):
             for a in all_acts:
                 # d = get_effective_duration(a, units=time_units)
                 # orb.log.debug(f'  {a.name}: {d}')
-                p_cbe_val = get_usage_mode_val(project.oid,
-                                               usage.oid, comp.oid,
-                                               a.oid)
+                modal_context = get_modal_context(project.oid, usage.oid,
+                                                  a.oid)
+                p_cbe_val = get_modal_power(project.oid, usage.oid, comp.oid,
+                                            a.oid, modal_context)
                 p_cbe_dict[a.name] = p_cbe_val
                 ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
                 factor = 1.0 + ctgcy
