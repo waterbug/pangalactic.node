@@ -18,8 +18,7 @@ from pangalactic.core             import orb
 from pangalactic.core             import prefs, state
 from pangalactic.core.names       import get_display_name, pname_to_header
 from pangalactic.core.parametrics import (de_defz, get_dval, get_dval_as_str,
-                                          get_usage_mode_val_as_str, get_pval,
-                                          get_pval_as_str, parm_defz,
+                                          get_pval, get_pval_as_str, parm_defz,
                                           mode_defz)
 from pangalactic.core.utils.datetimes import dtstamp
 from pangalactic.core.validation  import get_assembly, get_bom_oids
@@ -621,8 +620,6 @@ class SystemTreeModel(QAbstractItemModel):
                         col_id = self.cols[index.column()]
                         pd = parm_defz.get(col_id)
                         de_def = de_defz.get(col_id)
-                        modes = (mode_defz.get(
-                                        self.project.oid) or {}).get('modes')
                         if pd:
                             units = prefs['units'].get(pd['dimensions'])
                             # it's a parameter
@@ -655,10 +652,6 @@ class SystemTreeModel(QAbstractItemModel):
                                                 de_def.get('dimensions')) or ''
                             return get_dval_as_str(node.obj.oid, col_id,
                                                    units=units)
-                        elif (modes and (col_id in modes) and node.link and
-                              node.obj):
-                            return get_usage_mode_val_as_str(self.project.oid,
-                                           node.link.oid, node.obj.oid, col_id)
                     else:
                         return ''
             else:
