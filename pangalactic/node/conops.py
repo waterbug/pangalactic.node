@@ -1196,14 +1196,14 @@ class TimelineWidget(QWidget):
             # default is to break out all sub-activity timelines
             # ("subtimelines") -- this can be made configurable in the future
             subtimelines = True
-            # orb.log.debug('  durations of sub_activities:')
+            orb.log.debug('  durations of sub_activities:')
             if subtimelines:
                 all_acts = flatten_subacts(act)
             else:
                 all_acts = subacts
             for a in all_acts:
-                # d = get_effective_duration(a, units=time_units)
-                # orb.log.debug(f'  {a.name}: {d}')
+                d = get_effective_duration(a, units=time_units)
+                orb.log.debug(f'  {a.name}: {d}')
                 modal_context = get_modal_context(project.oid, usage.oid,
                                                   a.oid)
                 p_cbe_val = get_modal_power(project.oid, usage.oid, comp.oid,
@@ -1215,10 +1215,10 @@ class TimelineWidget(QWidget):
                 p_mev_dict[a.name] = p_mev_val
         duration = get_effective_duration(act, units=time_units)
         max_val = max(list(p_mev_dict.values()))
-        # if time_units:
-            # orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
-        # else:
-            # orb.log.debug(f'  duration of {act.name}: {duration} seconds')
+        if time_units:
+            orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
+        else:
+            orb.log.debug(f'  duration of {act.name}: {duration} seconds')
         plot = qwt.QwtPlot(f"{comp.name} Power vs. Time")
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
@@ -1234,7 +1234,7 @@ class TimelineWidget(QWidget):
                                          time_units=time_units)
         t_array = np.linspace(0, duration, 400)
         # orb.log.debug(f'  {t_array}')
-        # orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
+        orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
         qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
                               z=1.0, linecolor="blue", linewidth=2,
                               antialiased=True)
@@ -1341,10 +1341,10 @@ class TimelineWidget(QWidget):
                                          pointsize=12, borderpen=pen,
                                          borderradius=0.0, brush=white_brush)
             y_label = (1.4 - .1 * j) * max_val
-            # orb.log.debug(f'  super act: {super_act.name}')
-            # orb.log.debug(f'      begins at: {t_start} {time_units}')
+            orb.log.debug(f'  super act: {super_act.name}')
+            orb.log.debug(f'      begins at: {t_start} {time_units}')
             duration_pixels = canvas_map.transform_scalar(dur)
-            # orb.log.debug(f'      (duration: {duration_pixels} pixels)')
+            orb.log.debug(f'      (duration: {duration_pixels} pixels)')
             symbol_size = QSize(duration_pixels, 10)
             symbol_brush = QBrush(LABEL_COLORS[j-1])
             rect_symbol = qwt.QwtSymbol.make(pen=pen, brush=symbol_brush,
