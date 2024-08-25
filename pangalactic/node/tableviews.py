@@ -346,11 +346,11 @@ class ActInfoTable(QTableWidget):
         self.min_col_width = min_col_width
         self.max_col_width = max_col_width
         default_view_conf = [
-            ('name', '', 200),
-            ('t_start', 'Start', 80),
-            ('duration', 'Duration', 80),
-            ('t_end', 'End', 80),
-            ('time_units', 'Time Units', 120)
+            ('name', '', 150),
+            ('t_start', 'Start', 60),
+            ('duration', 'Duration', 60),
+            ('t_end', 'End', 60),
+            ('time_units', 'Time Units', 100)
             ]
         self.view_conf = view_conf or default_view_conf[:]
         self.setup()

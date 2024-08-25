@@ -1380,8 +1380,8 @@ class ConOpsModeler(QMainWindow):
             * activity blocks (EventBlock(QGraphicsPolygonItem))
         - mode_dash (ModeDefinitionDashboard(QWidget))
       * Left Dock contains:
-        - sys_select_tree (SystemSelectionView)
         - activity_table (ActivityWidget)
+        - sys_select_tree (SystemSelectionView)
       * Right Dock contains:
         - Op blocks palette (QToolBox)
     """
@@ -1561,6 +1561,8 @@ class ConOpsModeler(QMainWindow):
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
         self.left_dock_panel = QWidget()
+        # NOTE: this width setting is important to contain left dock size
+        self.left_dock_panel.setMaximumWidth(500)
         self.left_dock_layout = QVBoxLayout(self.left_dock_panel)
         self.create_activity_table(timeline=self.main_timeline.scene.timeline)
         self.left_dock_layout.addWidget(self.activity_table,
@@ -1602,7 +1604,7 @@ class ConOpsModeler(QMainWindow):
         self.sys_select_tree.setSizePolicy(QSizePolicy.Preferred,
                                            QSizePolicy.MinimumExpanding)
         self.sys_select_tree.setObjectName('Sys Select Tree')
-        self.sys_select_tree.setMinimumWidth(400)
+        self.sys_select_tree.setMinimumWidth(350)
         # -- set initial tree expansion level ---------------------------------
         expand_level = 3
         idx = state['conops_tree_expansion'][self.project.oid]
@@ -1696,7 +1698,7 @@ class ConOpsModeler(QMainWindow):
         self.create_activity_table(timeline=self.main_timeline.scene.timeline)
         self.left_dock_layout.insertWidget(0, self.activity_table,
                                            alignment=Qt.AlignTop)
-        self.resize(self.layout().sizeHint())
+        # self.resize(self.layout().sizeHint())
 
     def on_item_clicked(self, index):
         # orb.log.debug("* ConOpsModeler.on_item_clicked()")

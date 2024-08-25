@@ -81,8 +81,6 @@ class ActivityWidget(QWidget):
         self.set_table()
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.Fixed)
-        # self.setSizePolicy(QSizePolicy.Maximum,
-                           # QSizePolicy.Maximum)
         dispatcher.connect(self.on_drill_down, 'drill down')
         dispatcher.connect(self.on_drill_up, 'go back')
         dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
