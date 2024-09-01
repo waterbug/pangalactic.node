@@ -220,6 +220,8 @@ class Main(QMainWindow):
         """
         super().__init__(parent=None)
         ###################################################
+        # this enables tooltips for inactive child windows ...
+        self.setAttribute(Qt.WA_AlwaysShowToolTips)
         self.splash_msg = ''
         self.add_splash_msg('Starting ...')
         self.channels = []
