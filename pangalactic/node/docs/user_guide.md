@@ -1,6 +1,6 @@
 % Pangalaxian User Guide
 % Stephen Waterbury / Code 585
-% v. 1.9
+% v. 3.0
 
 # Quick Start
 
