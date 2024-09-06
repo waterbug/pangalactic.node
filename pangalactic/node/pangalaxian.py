@@ -1212,7 +1212,7 @@ class Main(QMainWindow):
             - `vger.sync_project` -- which is called by:
                 + self.sync_current_project()
 
-        The server response is a list of lists:
+        The server response (data parameter) is a list of lists:
 
             [0]:  server objects with later mod_datetime(s) or whose oids were
                   not in the submitted list of oids
@@ -1449,9 +1449,12 @@ class Main(QMainWindow):
             orb.log.debug(f'  will get in {n_chunks} {c} ...')
             chunk = chunks.pop(0)
             state['chunks_to_get'] = chunks
-            rpc = self.mbus.session.call('vger.get_objects', chunk)
-            rpc.addCallback(self.on_get_library_objects_result)
-            rpc.addErrback(self.on_failure)
+            if state.get('connected'):
+                rpc = self.mbus.session.call('vger.get_objects', chunk)
+                rpc.addCallback(self.on_get_library_objects_result)
+                rpc.addErrback(self.on_failure)
+            else:
+                pass
         else:
             # if no newer objects but objects have been deleted, resync the
             # current project ... which will also update views ...
@@ -2964,7 +2967,7 @@ class Main(QMainWindow):
                 rpc.addCallback(self.on_vger_save_result)
                 rpc.addErrback(self.on_failure)
             else:
-                orb.log.debug('  not connected -- cannot save to repo.')
+                orb.log.debug('  not connected -- not saving to repo.')
 
     def on_collaborate(self):
         pass   # to be implemented ...
@@ -3117,8 +3120,7 @@ class Main(QMainWindow):
             if self.mode == 'db' and cname == state.get('current_cname'):
                 # if object is in the current db table ...
                 state['update db table'] = True
-            if (state.get('connected')
-                and not getattr(obj, 'project', None) is self.sandbox):
+            if state.get('connected'):
                 # SANDBOX PSUs are not saved to the server
                 serialized_objs = serialize(orb, [obj],
                                             include_components=True)
