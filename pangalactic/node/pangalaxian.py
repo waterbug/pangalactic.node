@@ -2280,22 +2280,32 @@ class Main(QMainWindow):
                                     # icon="new_doc",
                                     # tip="Create a New Data Element",
                                     # modes=['system', 'component', 'db'])
+        #######################################################################
+        # DOES NOT WORK AT ALL WITH pythonocc-core 7.7.x or higher ...
         # the cad viewer runs in the same process (which does not work on Mac!)
-        if not sys.platform == 'darwin':
-            self.view_cad_action = self.create_action(
-                                    "View a CAD Model...",
-                                    slot=self.view_cad,
-                                    icon="box",
-                                    tip="View a CAD model",
-                                    modes=['system', 'component'])
+        # if not sys.platform == 'darwin':
+            # self.view_cad_action = self.create_action(
+                                    # "View a CAD Model...",
+                                    # slot=self.view_cad,
+                                    # icon="box",
+                                    # tip="View a CAD model",
+                                    # modes=['system', 'component'])
+        #######################################################################
         # "open_step_file" opens an external viewer in a separate process ...
         # *required* on Mac, an option on Linux, and *does not work* on Windows
-        if not sys.platform == 'win32':
-            self.view_multi_cad_action = self.create_action(
-                                    "View CAD Model(s)...",
-                                    slot=self.open_step_file,
+        # if not sys.platform == 'win32':
+        self.view_multi_cad_action = self.create_action(
+                                "View CAD Model(s)...",
+                                slot=self.open_step_file,
+                                icon="box",
+                                tip="View CAD model(s) from STEP file(s)",
+                                modes=['system', 'component'])
+        # "open_model_file" opens an external viewer ...
+        self.view_3d_model_action = self.create_action(
+                                    "View 3D Model...",
+                                    slot=self.open_3d_model_file,
                                     icon="box",
-                                    tip="View CAD model(s) from STEP file(s)",
+                                    tip="View 3D model",
                                     modes=['system', 'component'])
         self.export_project_to_file_action = self.create_action(
                                 "Export Project to a File...",
@@ -2811,10 +2821,11 @@ class Main(QMainWindow):
                                 self.sync_project_action,
                                 self.sync_all_projects_action,
                                 self.full_resync_action]
-        if not sys.platform == 'darwin':
-            system_tools_actions.append(self.view_cad_action)
-        if not sys.platform == 'win32':
-            system_tools_actions.append(self.view_multi_cad_action)
+        # if not sys.platform == 'darwin':
+            # system_tools_actions.append(self.view_cad_action)
+        # if not sys.platform == 'win32':
+        system_tools_actions.append(self.view_multi_cad_action)
+        system_tools_actions.append(self.view_3d_model_action)
         system_tools_actions.append(self.edit_prefs_action)
         system_tools_actions.append(self.del_test_objs_action)
         # disable sync project action until we are online
@@ -5166,6 +5177,9 @@ class Main(QMainWindow):
         viewer = Model3DViewer(step_file=file_path, parent=self)
         viewer.show()
 
+    def run_viewer(self, file_path):
+        run_ext_3dviewer(file_path)
+
     def run_external_viewer(self, file_path):
         if getattr(self, 'proc_pool', None):
             self.proc_pool.apply_async(run_ext_3dviewer,
@@ -6370,6 +6384,25 @@ class Main(QMainWindow):
         else:
             return
 
+    def open_3d_model_file(self):
+        orb.log.debug('* opening a 3D Model file')
+        # NOTE: for demo purposes ... actual function TBD
+        if not state.get('last_model_path'):
+            state['last_model_path'] = orb.test_data_dir
+        fpath, filters = QFileDialog.getOpenFileName(
+                            self, 'Open STEP, STL, or brep File',
+                            state['last_model_path'],
+                            'Model Files (*.stp *.step *.p21 *.stl *.brep)')
+        if fpath:
+            # TODO: exception handling in case data import fails ...
+            # TODO: add an "index" column for sorting, or else figure out how
+            # to sort on the left header column ...
+            state['last_model_path'] = os.path.dirname(fpath)
+            orb.log.info('  - running external viewer ...')
+            self.run_viewer(file_path=fpath)
+        else:
+            return
+
     def set_current_project(self):
         orb.log.debug('* set_current_project')
         # this is a good time to save data elements and parameters ...
@@ -6676,11 +6709,11 @@ if __name__ == "__main__":
     # NOTE: if running from an app "run" module, the process pool needs to be
     # started in that module, since this __name__ == "__main__" clause is not
     # called in that case!
-    if sys.platform == 'win32':
-        # the multiprocessing pool cannot be used on Windows
-        proc_pool = None
-    else:
-        proc_pool = multiprocessing.Pool(5)
+    # if sys.platform == 'win32':
+        # # the multiprocessing pool cannot be used on Windows
+        # proc_pool = None
+    # else:
+    proc_pool = multiprocessing.Pool(5)
     run(console=options.test, debug=options.debug, use_tls=tls,
         auth_method=options.auth, pool=proc_pool)
 

@@ -19,7 +19,12 @@
 
 import os, platform, sys
 
-from pangalactic.core         import orb, state
+try:
+    from pangalactic.core         import orb
+except:
+    import pangalactic.core.set_uberorb
+    from pangalactic.core         import orb
+from pangalactic.core         import state
 from pangalactic.node.buttons import MenuButton
 
 from OCC.Display import OCCViewer
@@ -750,15 +755,16 @@ class Model3DViewer(QtWidgets.QMainWindow):
 
 if __name__ == "__main__":
     # Test file:  cubical electronic package
-    # fpath = '../../../test/data/cad/a7959_asm.p21'
+    # fpath = '../test/data/a7959_asm.p21'
     # CAX-IF test file "wheel"
-    # fpath = '../../../test/data/io1-pe-203.stp'
+    # fpath = '../test/data/io1-pe-203.stp'
     # CAX-IF test file "rocket"
-    # fpath = '../../../test/data/s1-ug-203.stp'
-    # CAX-IF test file "bracket" copied into current dir.
-    fpath = 'as1-oc-214.stp'
-    app = QtWidgets.QApplication(sys.argv)
-    frame = Model3DViewer(step_file=fpath)
-    frame.show()
-    sys.exit(app.exec_())
+    # fpath = '../test/data/s1-ug-203.stp'
+    # CAX-IF test file "bracket"
+    fpath = '../test/data/as1-oc-214.stp'
+    # app = QtWidgets.QApplication(sys.argv)
+    # frame = Model3DViewer(step_file=fpath)
+    # frame.show()
+    # sys.exit(app.exec_())
+    run_ext_3dviewer(fpath)
 
