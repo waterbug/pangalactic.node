@@ -3,8 +3,8 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, json, math, multiprocessing, os, shutil, sys
-import time, webbrowser
+import argparse, atexit, json, math, os, shutil, subprocess
+import sys, time, webbrowser
 # import traceback
 import urllib.parse, urllib.request, urllib.error
 from datetime import timedelta
@@ -86,7 +86,6 @@ from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
-from pangalactic.node.cad.viewer       import run_ext_3dviewer, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.dialogs          import (FullSyncDialog,
@@ -194,8 +193,7 @@ class Main(QMainWindow):
 
     def __init__(self, home='', test_data=None, width=None, height=None,
                  use_tls=True, auth_method='cryptosign', auto=True,
-                 reactor=None, app_version=None, pool=None, console=False,
-                 debug=False):
+                 reactor=None, app_version=None, console=False, debug=False):
         """
         Initialize main window.
 
@@ -211,7 +209,6 @@ class Main(QMainWindow):
             height (int):      height of main window
                                (default: max of (screen h - 200) or 600)
             home (str):        path to home directory
-            pool (Pool):       python multiprocessing Pool instance
             reactor (Reactor): twisted Reactor instance
             test_data (list):  list of serialized test objects (dicts)
             use_tls (bool):    use tls to connect to message bus
@@ -231,7 +228,6 @@ class Main(QMainWindow):
         self.app_version = app_version
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
-        self.proc_pool = pool
         self.project_oids = []
         # the "client" state is needed to enable the 'access' module to
         # differentiate permissions between client and server
@@ -2280,27 +2276,7 @@ class Main(QMainWindow):
                                     # icon="new_doc",
                                     # tip="Create a New Data Element",
                                     # modes=['system', 'component', 'db'])
-        #######################################################################
-        # DOES NOT WORK AT ALL WITH pythonocc-core 7.7.x or higher ...
-        # the cad viewer runs in the same process (which does not work on Mac!)
-        # if not sys.platform == 'darwin':
-            # self.view_cad_action = self.create_action(
-                                    # "View a CAD Model...",
-                                    # slot=self.view_cad,
-                                    # icon="box",
-                                    # tip="View a CAD model",
-                                    # modes=['system', 'component'])
-        #######################################################################
-        # "open_step_file" opens an external viewer in a separate process ...
-        # *required* on Mac, an option on Linux, and *does not work* on Windows
-        # if not sys.platform == 'win32':
-        self.view_multi_cad_action = self.create_action(
-                                "View CAD Model(s)...",
-                                slot=self.open_step_file,
-                                icon="box",
-                                tip="View CAD model(s) from STEP file(s)",
-                                modes=['system', 'component'])
-        # "open_model_file" opens an external viewer ...
+        # "open_3d_model_file" opens an external viewer ...
         self.view_3d_model_action = self.create_action(
                                     "View 3D Model...",
                                     slot=self.open_3d_model_file,
@@ -2821,10 +2797,6 @@ class Main(QMainWindow):
                                 self.sync_project_action,
                                 self.sync_all_projects_action,
                                 self.full_resync_action]
-        # if not sys.platform == 'darwin':
-            # system_tools_actions.append(self.view_cad_action)
-        # if not sys.platform == 'win32':
-        system_tools_actions.append(self.view_multi_cad_action)
         system_tools_actions.append(self.view_3d_model_action)
         system_tools_actions.append(self.edit_prefs_action)
         system_tools_actions.append(self.del_test_objs_action)
@@ -5172,20 +5144,9 @@ class Main(QMainWindow):
         ref_url = f'file://{ref_path}'
         webbrowser.open_new(ref_url)
 
-    def view_cad(self, file_path=None):
-        orb.log.info('* view_cad()')
-        viewer = Model3DViewer(step_file=file_path, parent=self)
-        viewer.show()
-
     def run_viewer(self, file_path):
-        run_ext_3dviewer(file_path)
-
-    def run_external_viewer(self, file_path):
-        if getattr(self, 'proc_pool', None):
-            self.proc_pool.apply_async(run_ext_3dviewer,
-                                       (file_path,), {},
-                                       self.view_cad_success,
-                                       self.view_cad_error)
+        subprocess.Popen((sys.executable, '-m', 'pangalactic.node.cad.viewer',
+                          '-f', file_path,))
 
     def view_cad_success(self, result):
         orb.log.info('  - view_cad_success; res: "{}"'.format(result))
@@ -6365,25 +6326,6 @@ class Main(QMainWindow):
         else:
             return
 
-    def open_step_file(self):
-        orb.log.debug('* opening a CAD Model file')
-        # NOTE: for demo purposes ... actual function TBD
-        if not state.get('last_model_path'):
-            state['last_model_path'] = orb.test_data_dir
-        fpath, filters = QFileDialog.getOpenFileName(
-                            self, 'Open STEP, STL, or brep File',
-                            state['last_model_path'],
-                            'Model Files (*.stp *.step *.p21 *.stl *.brep)')
-        if fpath:
-            # TODO: exception handling in case data import fails ...
-            # TODO: add an "index" column for sorting, or else figure out how
-            # to sort on the left header column ...
-            state['last_model_path'] = os.path.dirname(fpath)
-            orb.log.info('  - running external viewer ...')
-            self.run_external_viewer(file_path=fpath)
-        else:
-            return
-
     def open_3d_model_file(self):
         orb.log.debug('* opening a 3D Model file')
         # NOTE: for demo purposes ... actual function TBD
@@ -6399,7 +6341,7 @@ class Main(QMainWindow):
             # to sort on the left header column ...
             state['last_model_path'] = os.path.dirname(fpath)
             orb.log.info('  - running external viewer ...')
-            self.run_viewer(file_path=fpath)
+            self.run_viewer(fpath)
         else:
             return
 
@@ -6618,7 +6560,7 @@ def cleanup_and_save():
     write_trash(os.path.join(orb.home, 'trash'))
 
 def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
-        console=True, debug=False, app_version=None, pool=None):
+        console=True, debug=False, app_version=None):
     app = QApplication(sys.argv)
     # app.setStyleSheet('QToolTip { border: 2px solid;}')
     app.setStyleSheet("QToolTip { color: #ffffff; "
@@ -6651,12 +6593,12 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
         app.processEvents()
         # TODO:  updates to showMessage() using thread/slot+signal
         main = Main(home=home, use_tls=use_tls, auth_method=auth_method,
-                    reactor=reactor, pool=pool, app_version=app_version,
+                    reactor=reactor, app_version=app_version,
                     console=console, debug=debug)
         splash.finish(main)
     else:
         main = Main(home=home, use_tls=use_tls, auth_method=auth_method,
-                    reactor=reactor, pool=pool, app_version=app_version,
+                    reactor=reactor, app_version=app_version,
                     console=console, debug=debug)
     main.setContextMenuPolicy(Qt.PreventContextMenu)
     main.show()
@@ -6689,11 +6631,6 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
 
 
 if __name__ == "__main__":
-    if sys.platform == 'darwin':
-        # required for PyInstaller to create osx app
-        # (2021-09-09 [SCW]: but since PyInstaller handling of PyQt on macOS is
-        # currently broken, this is moot for now ...)
-        multiprocessing.freeze_support()
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--test', action='store_true',
                         help='test mode (send log output to console)')
@@ -6706,14 +6643,6 @@ if __name__ == "__main__":
                              '[default: "cryptosign" (pubkey auth)]')
     options = parser.parse_args()
     tls = not options.unencrypted
-    # NOTE: if running from an app "run" module, the process pool needs to be
-    # started in that module, since this __name__ == "__main__" clause is not
-    # called in that case!
-    # if sys.platform == 'win32':
-        # # the multiprocessing pool cannot be used on Windows
-        # proc_pool = None
-    # else:
-    proc_pool = multiprocessing.Pool(5)
     run(console=options.test, debug=options.debug, use_tls=tls,
-        auth_method=options.auth, pool=proc_pool)
+        auth_method=options.auth)
 

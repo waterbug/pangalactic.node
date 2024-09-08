@@ -17,7 +17,7 @@
 ##You should have received a copy of the GNU Lesser General Public License
 ##along with pythonOCC.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, platform, sys
+import argparse, os, platform, sys
 
 try:
     from pangalactic.core         import orb
@@ -754,14 +754,20 @@ class Model3DViewer(QtWidgets.QMainWindow):
 
 
 if __name__ == "__main__":
-    # Test file:  cubical electronic package
-    # fpath = '../test/data/a7959_asm.p21'
-    # CAX-IF test file "wheel"
-    # fpath = '../test/data/io1-pe-203.stp'
-    # CAX-IF test file "rocket"
-    # fpath = '../test/data/s1-ug-203.stp'
-    # CAX-IF test file "bracket"
-    fpath = '../test/data/as1-oc-214.stp'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', type=str, help='file to load')
+    options = parser.parse_args()
+    if options.file:
+        fpath = options.file
+    else:
+        # CAX-IF test file "bracket"
+        fpath = '../test/data/as1-oc-214.stp'
+        # Test file:  cubical electronic package
+        # fpath = '../test/data/a7959_asm.p21'
+        # CAX-IF test file "wheel"
+        # fpath = '../test/data/io1-pe-203.stp'
+        # CAX-IF test file "rocket"
+        # fpath = '../test/data/s1-ug-203.stp'
     # app = QtWidgets.QApplication(sys.argv)
     # frame = Model3DViewer(step_file=fpath)
     # frame.show()
