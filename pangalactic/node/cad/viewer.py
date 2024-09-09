@@ -91,12 +91,35 @@ def run_ext_3dviewer(fpath):
     elif suffix == 'stl':
         stl_shape = read_stl_file(fpath)
         display.DisplayShape(stl_shape, update=True)
-
     elif suffix == 'brep':
         brep_shape = TopoDS_Shape()
         builder = BRep_Builder()
         breptools_Read(brep_shape, fpath, builder)
         display.DisplayShape(brep_shape, update=True)
+    add_menu("snapshot")
+    def export_to_png(event=None):
+        fname = 'snapshot.png'
+        fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
+                                    None, 'Export to Image File',
+                                    fname)
+        if fpath:
+            display.View.Dump(fpath)
+        else:
+            return
+    add_function_to_menu("snapshot", export_to_png)
+    def export_to_jpg(event=None):
+        fname = 'snapshot.jpg'
+        fpath, filters = QtWidgets.QFileDialog.getSaveFileName(
+                                    None, 'Export to Image File',
+                                    fname)
+        if fpath:
+            display.View.Dump(fpath)
+        else:
+            return
+    add_function_to_menu("snapshot", export_to_jpg)
+    def exit(event=None):
+        sys.exit()
+    add_function_to_menu("snapshot", exit)
     display.FitAll()
     start_display()
 
