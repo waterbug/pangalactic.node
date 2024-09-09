@@ -1060,8 +1060,11 @@ class Main(QMainWindow):
         data = {pd_oid : mod_dt for pd_oid, mod_dt in pd_mod_dts.items()
                 if pd_oid not in ref_pd_oids}
         orb.log.debug('  -> rpc: vger.sync_parameter_definitions')
-        return self.mbus.session.call('vger.sync_parameter_definitions',
-                                        data)
+        try:
+            return self.mbus.session.call('vger.sync_parameter_definitions',
+                                          data)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
 
     def sync_user_created_objs_to_repo(self, data):
         """
@@ -1088,7 +1091,10 @@ class Main(QMainWindow):
                         and o.project.oid == 'pgefobjects:SANDBOX')]
         data = orb.get_mod_dts(oids=oids)
         orb.log.debug('       -> rpc: vger.sync_objects()')
-        return self.mbus.session.call('vger.sync_objects', data)
+        try:
+            return self.mbus.session.call('vger.sync_objects', data)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
 
     def sync_library_objs(self, data):
         """
