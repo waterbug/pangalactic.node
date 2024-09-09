@@ -523,9 +523,8 @@ class Main(QMainWindow):
 
     def set_bus_state(self):
         """
-        Handler for checkable "Connect to the message bus" button in the
-        toolbar: connect to or disconnect from the message bus (crossbar
-        server).
+        Handler for checkable "Repository Service" button in the toolbar:
+        connect to or disconnect from the message bus (crossbar server).
         """
         orb.log.debug('* setting message bus state ...')
         if self.connect_to_bus_action.isChecked():
@@ -1065,6 +1064,8 @@ class Main(QMainWindow):
                                           data)
         except:
             orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def sync_user_created_objs_to_repo(self, data):
         """
@@ -1095,6 +1096,8 @@ class Main(QMainWindow):
             return self.mbus.session.call('vger.sync_objects', data)
         except:
             orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def sync_library_objs(self, data):
         """
@@ -1116,8 +1119,13 @@ class Main(QMainWindow):
                                        'Document', 'RepresentationFile'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
-        return self.mbus.session.call('vger.sync_library_objects',
-                                      non_ref_data)
+        try:
+            return self.mbus.session.call('vger.sync_library_objects',
+                                          non_ref_data)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def force_sync_managed_objs(self, data):
         """
@@ -1133,8 +1141,13 @@ class Main(QMainWindow):
                                        'DataElementDefinition', 'Model'])
         # exclude reference data (ref_oids)
         non_ref_data = {oid: data[oid] for oid in (data.keys() - ref_oids)}
-        return self.mbus.session.call('vger.force_sync_managed_objects',
-                                      non_ref_data)
+        try:
+            return self.mbus.session.call('vger.force_sync_managed_objects',
+                                          non_ref_data)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def sync_current_project(self, data, msg=''):
         """
@@ -1195,7 +1208,13 @@ class Main(QMainWindow):
             QApplication.processEvents()
         # NOTE: callback to on_project_sync_result() to handle result is added
         # by on_set_current_project()
-        return self.mbus.session.call('vger.sync_project', proj_oid, oid_dts)
+        try:
+            return self.mbus.session.call('vger.sync_project', proj_oid,
+                                          oid_dts)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def on_user_objs_sync_result(self, data):
         self.on_sync_result(data, user_objs_sync=True)
@@ -1259,10 +1278,16 @@ class Main(QMainWindow):
              parm_data, de_data) = data
         except:
             orb.log.info('  unable to unpack "{}"'.format(data))
-            rpc = self.mbus.session.call('vger.save', [])
-            rpc.addCallback(self.on_vger_save_result)
-            rpc.addErrback(self.on_failure)
-            return rpc
+            try:
+                rpc = self.mbus.session.call('vger.save', [])
+                rpc.addCallback(self.on_vger_save_result)
+                rpc.addErrback(self.on_failure)
+                return rpc
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         # [2022-11-09] "project_oids" attr used in updating parms of proj objs
         if project_sync:
             self.project_oids = list(parm_data)
@@ -1349,15 +1374,32 @@ class Main(QMainWindow):
             orb.log.debug('  calling rpc vger.save() ...')
             orb.log.debug('  [called from on_sync_result()]')
             orb.log.debug('  - saved objs ids:')
-            rpc = self.mbus.session.call('vger.save', sobjs_to_save)
-            rpc.addCallback(self.on_vger_save_result)
-            rpc.addCallback(self.get_parmz)
+            try:
+                rpc = self.mbus.session.call('vger.save', sobjs_to_save)
+                rpc.addCallback(self.on_vger_save_result)
+                rpc.addCallback(self.get_parmz)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         else:
             # don't need the final "get_parmz" here because we're done
-            rpc = self.mbus.session.call('vger.save', [])
-            rpc.addCallback(self.on_vger_save_result)
-        rpc.addErrback(self.on_failure)
-        return rpc
+            try:
+                rpc = self.mbus.session.call('vger.save', [])
+                rpc.addCallback(self.on_vger_save_result)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
+        try:
+            rpc.addErrback(self.on_failure)
+            return rpc
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def on_sync_library_result(self, data, project_sync=False):
         """
@@ -1452,9 +1494,15 @@ class Main(QMainWindow):
             chunk = chunks.pop(0)
             state['chunks_to_get'] = chunks
             if state.get('connected'):
-                rpc = self.mbus.session.call('vger.get_objects', chunk)
-                rpc.addCallback(self.on_get_library_objects_result)
-                rpc.addErrback(self.on_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.get_objects', chunk)
+                    rpc.addCallback(self.on_get_library_objects_result)
+                    rpc.addErrback(self.on_failure)
+                except:
+                    orb.log.debug('  ** rpc failed (possible loss of transport)')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
+                    return
             else:
                 pass
         else:
@@ -1487,9 +1535,15 @@ class Main(QMainWindow):
         if state.get('chunks_to_get'):
             chunk = state['chunks_to_get'].pop(0)
             orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
-            rpc = self.mbus.session.call('vger.get_objects', chunk)
-            rpc.addCallback(self.on_get_library_objects_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.get_objects', chunk)
+                rpc.addCallback(self.on_get_library_objects_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         else:
             orb.log.debug('  - done getting library objects ...')
             orb.log.debug('    now resyncing current project ...')
@@ -1562,9 +1616,15 @@ class Main(QMainWindow):
             orb.log.debug(f'  will get in {n_chunks} {c} ...')
             chunk = chunks.pop(0)
             state['chunks_to_get'] = chunks
-            rpc = self.mbus.session.call('vger.get_objects', chunk)
-            rpc.addCallback(self.on_force_get_managed_objects_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.get_objects', chunk)
+                rpc.addCallback(self.on_force_get_managed_objects_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         else:
             # if no newer objects but objects have been deleted, update views
             self._update_modal_views()
@@ -1587,9 +1647,15 @@ class Main(QMainWindow):
         if state.get('chunks_to_get'):
             chunk = state['chunks_to_get'].pop(0)
             orb.log.debug('  - next chunk to get: {}'.format(str(chunk)))
-            rpc = self.mbus.session.call('vger.get_objects', chunk)
-            rpc.addCallback(self.on_force_get_managed_objects_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.get_objects', chunk)
+                rpc.addCallback(self.on_force_get_managed_objects_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         else:
             # if this was the last chunk, sync current project
             self.resync_current_project()
@@ -1912,9 +1978,14 @@ class Main(QMainWindow):
         """
         orb.log.info("* on_add_person()")
         if state['connected']:
-            rpc = self.mbus.session.call('vger.add_person', data)
-            rpc.addCallback(self.on_rpc_add_person_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.add_person', data)
+                rpc.addCallback(self.on_rpc_add_person_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
         else:
             orb.log.info('  not connected, cannot call "add_person()" rpc.')
 
@@ -1963,9 +2034,14 @@ class Main(QMainWindow):
         """
         orb.log.info("* on_get_people()")
         if state['connected']:
-            rpc = self.mbus.session.call('vger.get_people')
-            rpc.addCallback(self.on_rpc_get_people_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.get_people')
+                rpc.addCallback(self.on_rpc_get_people_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
         else:
             orb.log.info("  not connected -- cannot get people from repo.")
 
@@ -2951,10 +3027,15 @@ class Main(QMainWindow):
             if state['connected']:
                 orb.log.debug('  calling vger.save() for project id: {}'.format(
                                                                        obj.id))
-                rpc = self.mbus.session.call('vger.save',
-                                             serialize(orb, [obj]))
-                rpc.addCallback(self.on_vger_save_result)
-                rpc.addErrback(self.on_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.save',
+                                                 serialize(orb, [obj]))
+                    rpc.addCallback(self.on_vger_save_result)
+                    rpc.addErrback(self.on_failure)
+                except:
+                    orb.log.debug('  ** rpc failed (possible loss of transport)')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
             else:
                 orb.log.debug('  not connected -- not saving to repo.')
 
@@ -2997,15 +3078,25 @@ class Main(QMainWindow):
             self.freeze_progress.setMinimumDuration(2000)
             QApplication.processEvents()
             state['remote_frozens'] = 0
-            rpc = self.mbus.session.call('vger.freeze', oids)
-            rpc.addCallback(self.on_freeze_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.freeze', oids)
+                rpc.addCallback(self.on_freeze_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_thaw_signal(self, oids=None):
         if state.get('connected') and oids:
-            rpc = self.mbus.session.call('vger.thaw', oids)
-            rpc.addCallback(self.on_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.thaw', oids)
+                rpc.addCallback(self.on_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     # NOTE: the pyqtSignal "new_or_modified_objects" is only used in the optics
     # module currently [SCW 2024-02-28]
@@ -3026,10 +3117,16 @@ class Main(QMainWindow):
                 orb.log.debug('  calling rpc vger.save() ...')
                 ids = [obj.id for obj in objs]
                 orb.log.debug(f'  - saved obj ids: {ids}')
-                rpc = self.mbus.session.call('vger.save', serialized_objs)
-                rpc.addCallback(self.on_vger_save_result)
-                rpc.addCallback(self.get_parmz)
-                rpc.addErrback(self.on_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.save', serialized_objs)
+                    rpc.addCallback(self.on_vger_save_result)
+                    rpc.addCallback(self.get_parmz)
+                    rpc.addErrback(self.on_failure)
+                except:
+                    orb.log.debug('  ** rpc failed (possible loss of transport)')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
+                    return
             else:
                 hw = [obj for obj in objs
                       if isinstance(obj,
@@ -3116,17 +3213,29 @@ class Main(QMainWindow):
                 if isinstance(obj, orb.classes['RoleAssignment']):
                     orb.log.debug('  calling rpc vger.assign_role() ...')
                     orb.log.debug('  - role assignment: {}'.format(obj.id))
-                    rpc = self.mbus.session.call('vger.assign_role',
-                                                 serialized_objs)
-                    rpc.addCallback(self.on_result)
+                    try:
+                        rpc = self.mbus.session.call('vger.assign_role',
+                                                     serialized_objs)
+                        rpc.addCallback(self.on_result)
+                    except:
+                        orb.log.debug('  ** rpc failed (possible loss of transport)')
+                        orb.log.debug('     trying to reconnect ...')
+                        self.set_bus_state()
+                        return
                 else:
                     orb.log.debug('  calling rpc vger.save() ...')
                     orb.log.debug('  [called by on_mod_object_signal()]')
                     orb.log.debug('  - saved obj id: {} | oid: {}'.format(
                                                           obj.id, obj.oid))
-                    rpc = self.mbus.session.call('vger.save', serialized_objs)
-                    rpc.addCallback(self.on_vger_save_result)
-                    rpc.addCallback(self.get_parmz)
+                    try:
+                        rpc = self.mbus.session.call('vger.save', serialized_objs)
+                        rpc.addCallback(self.on_vger_save_result)
+                        rpc.addCallback(self.get_parmz)
+                    except:
+                        orb.log.debug('  ** rpc failed (possible loss of transport)')
+                        orb.log.debug('     trying to reconnect ...')
+                        self.set_bus_state()
+                        return
                 rpc.addErrback(self.on_failure)
             else:
                 # if not connected, recompute parameters and do all gui updates
@@ -3174,10 +3283,15 @@ class Main(QMainWindow):
         time-date stamp for the related objects.
         """
         if prop_mods and state.get('connected'):
-            rpc = self.mbus.session.call('vger.set_properties',
-                                         props=prop_mods)
-            rpc.addCallback(self.on_vger_set_properties_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.set_properties',
+                                             props=prop_mods)
+                rpc.addCallback(self.on_vger_set_properties_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_new_objects_signal(self, objs=None):
         """
@@ -3238,9 +3352,15 @@ class Main(QMainWindow):
                     orb.log.debug(f'    + "{obj.name}" (subact_seq: {n})')
                 else:
                     orb.log.debug(f'    + "{obj.name}"')
-            rpc = self.mbus.session.call('vger.save', serialized_objs)
-            rpc.addCallback(self.on_vger_save_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.save', serialized_objs)
+                rpc.addCallback(self.on_vger_save_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         else:
             # if not connected, recompute parameters and do all gui updates
             # -------------------------------------------------------------
@@ -3284,10 +3404,15 @@ class Main(QMainWindow):
         Handle local dispatcher signal "parm added".
         """
         if oid and pid and state.get('connected'):
-            rpc = self.mbus.session.call('vger.add_parm', oid=oid,
-                                         pid=pid)
-            rpc.addCallback(self.on_vger_add_parm_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.add_parm', oid=oid,
+                                             pid=pid)
+                rpc.addCallback(self.on_vger_add_parm_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_vger_add_parm_result(self, msg):
         if msg:
@@ -3298,10 +3423,15 @@ class Main(QMainWindow):
         Handle local dispatcher signal "parm del".
         """
         if oid and pid and state.get('connected'):
-            rpc = self.mbus.session.call('vger.del_parm', oid=oid,
-                                         pid=pid)
-            rpc.addCallback(self.on_vger_del_parm_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.del_parm', oid=oid,
+                                             pid=pid)
+                rpc.addCallback(self.on_vger_del_parm_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_vger_del_parm_result(self, msg):
         if msg:
@@ -3338,9 +3468,14 @@ class Main(QMainWindow):
         Handle local dispatcher signal "de del".
         """
         if oid and deid and state.get('connected'):
-            rpc = self.mbus.session.call('vger.del_de', oid=oid, deid=deid)
-            rpc.addCallback(self.on_vger_del_de_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.del_de', oid=oid, deid=deid)
+                rpc.addCallback(self.on_vger_del_de_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_vger_del_de_result(self, msg):
         if msg:
@@ -3356,9 +3491,14 @@ class Main(QMainWindow):
         """
         orb.log.debug('* on_des_set()')
         if des and state.get('connected'):
-            rpc = self.mbus.session.call('vger.set_data_elements', des=des)
-            rpc.addCallback(self.on_vger_set_des_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.set_data_elements', des=des)
+                rpc.addCallback(self.on_vger_set_des_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_des_set_qtsignal(self, des):
         """
@@ -3369,9 +3509,14 @@ class Main(QMainWindow):
                 {deid : value}
         """
         if des and state.get('connected'):
-            rpc = self.mbus.session.call('vger.set_data_elements', des=des)
-            rpc.addCallback(self.on_vger_set_des_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.set_data_elements', des=des)
+                rpc.addCallback(self.on_vger_set_des_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_vger_set_des_result(self, msg):
         if msg:
@@ -3459,9 +3604,14 @@ class Main(QMainWindow):
         Handle local dispatcher signal "get parmz".
         """
         if state.get('connected'):
-            rpc = self.mbus.session.call('vger.get_parmz')
-            rpc.addCallback(self.on_vger_get_parmz_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.get_parmz')
+                rpc.addCallback(self.on_vger_get_parmz_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_vger_get_parmz_result(self, data):
         """
@@ -3611,10 +3761,18 @@ class Main(QMainWindow):
                 # NOTE: vger.set_data_elements() will also publish message
                 # "data elements set" to update data elements ...
                 des = {act.oid: {'time_units': 'minutes'} for act in new_acts}
-                rpc = self.mbus.session.call('vger.set_data_elements', des=des)
-                rpc.addCallback(self.on_vger_set_des_result)
-                rpc.addCallback(self.get_parmz)
-                rpc.addErrback(self.on_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.set_data_elements',
+                                                 des=des)
+                    rpc.addCallback(self.on_vger_set_des_result)
+                    rpc.addCallback(self.get_parmz)
+                    rpc.addErrback(self.on_failure)
+                except:
+                    txt = 'rpc failed (possible loss of transport)'
+                    orb.log.debug(f'  ** {txt}')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
+                    return
             else:
                 msg = 'getting parmz'
                 orb.log.debug(f'  {msg}')
@@ -3687,11 +3845,16 @@ class Main(QMainWindow):
             # orb.log.debug('    =============================')
             # orb.log.debug(f'    {s}')
             # orb.log.debug('    =============================')
-            rpc = self.mbus.session.call('vger.update_mode_defs',
-                                         project_oid=oid,
-                                         data=data)
-            rpc.addCallback(self.rpc_update_mode_defs_result)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.update_mode_defs',
+                                             project_oid=oid,
+                                             data=data)
+                rpc.addCallback(self.rpc_update_mode_defs_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def rpc_update_mode_defs_result(self, result):
         """
@@ -3724,13 +3887,19 @@ class Main(QMainWindow):
             orb.log.debug('    =============================')
             if state.get('connected'):
                 orb.log.debug('  - calling vger.set_sys_mode_datum()')
-                rpc = self.mbus.session.call('vger.set_sys_mode_datum',
-                                             project_oid=project_oid,
-                                             link_oid=link_oid,
-                                             mode=mode,
-                                             value=value)
-                rpc.addCallback(self.rpc_set_sys_mode_datum_result)
-                rpc.addErrback(self.on_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.set_sys_mode_datum',
+                                                 project_oid=project_oid,
+                                                 link_oid=link_oid,
+                                                 mode=mode,
+                                                 value=value)
+                    rpc.addCallback(self.rpc_set_sys_mode_datum_result)
+                    rpc.addErrback(self.on_failure)
+                except:
+                    txt = 'rpc failed (possible loss of transport)'
+                    orb.log.debug(f'  ** {txt}')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
             else:
                 orb.log.debug('  - not connected, no rpc call.')
         else:
@@ -3769,14 +3938,20 @@ class Main(QMainWindow):
             orb.log.debug('    =============================')
             if state.get('connected'):
                 orb.log.debug('  - calling vger.set_comp_mode_datum()')
-                rpc = self.mbus.session.call('vger.set_comp_mode_datum',
-                                             project_oid=project_oid,
-                                             link_oid=link_oid,
-                                             comp_oid=comp_oid,
-                                             mode=mode,
-                                             value=value)
-                rpc.addCallback(self.rpc_set_comp_mode_datum_result)
-                rpc.addErrback(self.on_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.set_comp_mode_datum',
+                                                 project_oid=project_oid,
+                                                 link_oid=link_oid,
+                                                 comp_oid=comp_oid,
+                                                 mode=mode,
+                                                 value=value)
+                    rpc.addCallback(self.rpc_set_comp_mode_datum_result)
+                    rpc.addErrback(self.on_failure)
+                except:
+                    txt = 'rpc failed (possible loss of transport)'
+                    orb.log.debug(f'  ** {txt}')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
             else:
                 orb.log.debug('  - not connected, no rpc call.')
         else:
@@ -3954,10 +4129,15 @@ class Main(QMainWindow):
                 if getattr(self, 'system_model_window', None):
                     self.system_model_window.on_signal_to_refresh()
             orb.log.info('  - calling "vger.delete"')
-            rpc = self.mbus.session.call('vger.delete', [oid])
-            rpc.addCallback(self.on_rpc_vger_delete_result)
-            rpc.addCallback(self.get_parmz)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.delete', [oid])
+                rpc.addCallback(self.on_rpc_vger_delete_result)
+                rpc.addCallback(self.get_parmz)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def on_remote_deleted_object(self, oid, cname):
         """
@@ -4128,10 +4308,15 @@ class Main(QMainWindow):
                 self.system_model_window.on_signal_to_refresh()
         if state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
-            rpc = self.mbus.session.call('vger.delete', [oid])
-            rpc.addCallback(self.on_rpc_vger_delete_result)
-            rpc.addCallback(self.get_parmz)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.delete', [oid])
+                rpc.addCallback(self.on_rpc_vger_delete_result)
+                rpc.addCallback(self.get_parmz)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def resync_current_project(self, msg=''):
         """
@@ -5221,11 +5406,16 @@ class Main(QMainWindow):
             self.delete_project_action.setVisible(False)
         if state.get('connected'):
             orb.log.info('  - calling "vger.delete"')
-            rpc = self.mbus.session.call('vger.delete', [project_oid])
-            rpc.addCallback(self.on_rpc_vger_delete_result)
-            rpc.addErrback(self.on_failure)
-            if project_oid in state.get('synced_oids', []):
-                state['synced_oids'].remove(project_oid)
+            try:
+                rpc = self.mbus.session.call('vger.delete', [project_oid])
+                rpc.addCallback(self.on_rpc_vger_delete_result)
+                rpc.addErrback(self.on_failure)
+                if project_oid in state.get('synced_oids', []):
+                    state['synced_oids'].remove(project_oid)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def delete_test_objects(self):
         orb.log.info('* delete_test_objects()')
@@ -5236,9 +5426,16 @@ class Main(QMainWindow):
             orb.log.info('  test objects deleted.')
             if state.get('connected'):
                 orb.log.info('  - calling "vger.delete"')
-                rpc = self.mbus.session.call('vger.delete', test_obj_oids)
-                rpc.addCallback(self.on_rpc_vger_delete_result)
-                rpc.addErrback(self.on_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.delete', test_obj_oids)
+                    rpc.addCallback(self.on_rpc_vger_delete_result)
+                    rpc.addErrback(self.on_failure)
+                except:
+                    txt = 'rpc failed (possible loss of transport)'
+                    orb.log.debug(f'  ** {txt}')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
+                    return
         else:
             orb.log.info('  no test objects found.')
 
@@ -5270,12 +5467,18 @@ class Main(QMainWindow):
         orb.log.debug('* "add update model" signal received ...')
         if mtype_oid and fpath and parms:
             orb.log.info('  - calling "vger.add_update_model"')
-            rpc = self.mbus.session.call('vger.add_update_model',
-                                         mtype_oid=mtype_oid,
-                                         fpath=fpath,
-                                         parms=parms)
-            rpc.addCallback(self.on_model_added)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.add_update_model',
+                                             mtype_oid=mtype_oid,
+                                             fpath=fpath,
+                                             parms=parms)
+                rpc.addCallback(self.on_model_added)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         else:
             orb.log.debug('  incomplete signature, rpc not called')
             return
@@ -5315,11 +5518,17 @@ class Main(QMainWindow):
         orb.log.debug('* "add update doc" signal received ...')
         if fpath and parms:
             orb.log.info('  - calling "vger.add_update_doc"')
-            rpc = self.mbus.session.call('vger.add_update_doc',
-                                         fpath=fpath,
-                                         parms=parms)
-            rpc.addCallback(self.on_doc_added)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.add_update_doc',
+                                             fpath=fpath,
+                                             parms=parms)
+                rpc.addCallback(self.on_doc_added)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         else:
             orb.log.debug('  incomplete signature, rpc not called')
             return
@@ -5437,12 +5646,19 @@ class Main(QMainWindow):
                 self.upload_progress.setValue(0)
                 self.upload_progress.setMinimumDuration(2000)
                 orb.log.info(f'  using {numchunks} chunks ...')
-                rpc = self.mbus.session.call('vger.upload_chunk',
-                                             fname=self.vault_fname,
-                                             seq=0,
-                                             data=self.chunks_to_upload[0])
-                rpc.addCallback(self.on_chunk_upload_success)
-                rpc.addErrback(self.on_chunk_upload_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.upload_chunk',
+                                                 fname=self.vault_fname,
+                                                 seq=0,
+                                                 data=self.chunks_to_upload[0])
+                    rpc.addCallback(self.on_chunk_upload_success)
+                    rpc.addErrback(self.on_chunk_upload_failure)
+                except:
+                    txt = 'rpc failed (possible loss of transport)'
+                    orb.log.debug(f'  ** {txt}')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
+                    return
             except:
                 message = f'File "{fpath}" could not be uploaded.'
                 popup = QMessageBox(QMessageBox.Warning,
@@ -5459,13 +5675,19 @@ class Main(QMainWindow):
         self.uploaded_chunks += 1
         self.upload_progress.setValue(self.uploaded_chunks)
         if self.uploaded_chunks < len(self.chunks_to_upload):
-            rpc = self.mbus.session.call('vger.upload_chunk',
-                                     fname=self.vault_fname,
-                                     seq=self.uploaded_chunks,
-                                     data=self.chunks_to_upload[
-                                                    self.uploaded_chunks])
-            rpc.addCallback(self.on_chunk_upload_success)
-            rpc.addErrback(self.on_chunk_upload_failure)
+            try:
+                rpc = self.mbus.session.call('vger.upload_chunk',
+                                         fname=self.vault_fname,
+                                         seq=self.uploaded_chunks,
+                                         data=self.chunks_to_upload[
+                                                        self.uploaded_chunks])
+                rpc.addCallback(self.on_chunk_upload_success)
+                rpc.addErrback(self.on_chunk_upload_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+                return
         else:
             self.on_file_upload_success()
 
@@ -5588,16 +5810,23 @@ class Main(QMainWindow):
                 self.download_progress.setMinimumDuration(2000)
                 orb.log.info(f'  using {numchunks} chunks ...')
                 for i in range(numchunks):
-                    rpc = self.mbus.session.call('vger.download_chunk',
-                                                 digital_file_oid=oid,
-                                                 seq=i)
-                    rpc.addCallback(self.on_chunk_download_success)
-                    rpc.addErrback(self.on_chunk_download_failure)
-                    if i == numchunks - 1:
-                        if open_file:
-                            rpc.addCallback(self.on_download_open_success)
-                        else:
-                            rpc.addCallback(self.on_file_download_success)
+                    try:
+                        rpc = self.mbus.session.call('vger.download_chunk',
+                                                     digital_file_oid=oid,
+                                                     seq=i)
+                        rpc.addCallback(self.on_chunk_download_success)
+                        rpc.addErrback(self.on_chunk_download_failure)
+                        if i == numchunks - 1:
+                            if open_file:
+                                rpc.addCallback(self.on_download_open_success)
+                            else:
+                                rpc.addCallback(self.on_file_download_success)
+                    except:
+                        txt = 'rpc failed (possible loss of transport)'
+                        orb.log.debug(f'  ** {txt}')
+                        orb.log.debug('     trying to reconnect ...')
+                        self.set_bus_state()
+                        return
             except:
                 message = f'File "{fname}" could not be downloaded.'
                 popup = QMessageBox(QMessageBox.Warning,
@@ -5650,10 +5879,15 @@ class Main(QMainWindow):
             orb.log.debug('  [called from on_new_hardware_clone()]')
             orb.log.debug('  - saved objs ids:')
             sobjs = serialize(orb, [product] + objs)
-            rpc = self.mbus.session.call('vger.save', sobjs)
-            rpc.addCallback(self.on_vger_save_result)
-            rpc.addCallback(self.get_parmz)
-            rpc.addErrback(self.on_failure)
+            try:
+                rpc = self.mbus.session.call('vger.save', sobjs)
+                rpc.addCallback(self.on_vger_save_result)
+                rpc.addCallback(self.get_parmz)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
 
     def new_product_wizard(self):
         """
@@ -5799,10 +6033,16 @@ class Main(QMainWindow):
         window.show()
 
     def get_lom_surf_names(self, lom_oid=None):
-        rpc = self.mbus.session.call('vger.get_lom_surface_names',
-                                     lom_oid=lom_oid)
-        rpc.addCallback(self.on_vger_glsn_success)
-        rpc.addErrback(self.on_vger_glsn_failure)
+        orb.log.debug('* calling vger.get_lom_surface_names ...')
+        try:
+            rpc = self.mbus.session.call('vger.get_lom_surface_names',
+                                         lom_oid=lom_oid)
+            rpc.addCallback(self.on_vger_glsn_success)
+            rpc.addErrback(self.on_vger_glsn_failure)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def on_vger_glsn_success(self, result):
         orb.log.debug('* on_vger_glsn_success()')
@@ -5813,10 +6053,16 @@ class Main(QMainWindow):
         orb.log.debug('* on_vger_glsn_failure()')
 
     def get_lom_structure(self, lom_oid=None):
-        rpc = self.mbus.session.call('vger.get_lom_structure',
-                                     lom_oid=lom_oid)
-        rpc.addCallback(self.on_vger_gls_success)
-        rpc.addErrback(self.on_vger_gls_failure)
+        orb.log.debug('* calling vger.get_lom_structure ...')
+        try:
+            rpc = self.mbus.session.call('vger.get_lom_structure',
+                                         lom_oid=lom_oid)
+            rpc.addCallback(self.on_vger_gls_success)
+            rpc.addErrback(self.on_vger_gls_failure)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def on_vger_gls_success(self, result):
         orb.log.debug('* on_vger_gls_success()')
@@ -5831,10 +6077,16 @@ class Main(QMainWindow):
         orb.log.debug(f'  {f.get_traceback()}')
 
     def get_lom_parms(self, lom_oid=None):
-        rpc = self.mbus.session.call('vger.get_lom_parms',
-                                     lom_oid=lom_oid)
-        rpc.addCallback(self.on_vger_glp_success)
-        rpc.addErrback(self.on_vger_glp_failure)
+        orb.log.debug('* calling vger.get_lom_parms ...')
+        try:
+            rpc = self.mbus.session.call('vger.get_lom_parms',
+                                         lom_oid=lom_oid)
+            rpc.addCallback(self.on_vger_glp_success)
+            rpc.addErrback(self.on_vger_glp_failure)
+        except:
+            orb.log.debug('  ** rpc failed (possible loss of transport)')
+            orb.log.debug('     trying to reconnect ...')
+            self.set_bus_state()
 
     def on_vger_glp_success(self, result):
         orb.log.debug('* vger.get_lom_parms succeeded ...')
@@ -6063,9 +6315,16 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     state['lib updates needed'] = True
                     # if connected, call get_parmz() ...
-                    rpc = self.mbus.session.call('vger.get_parmz')
-                    rpc.addCallback(self.on_vger_get_parmz_result)
-                    rpc.addErrback(self.on_failure)
+                    try:
+                        rpc = self.mbus.session.call('vger.get_parmz')
+                        rpc.addCallback(self.on_vger_get_parmz_result)
+                        rpc.addErrback(self.on_failure)
+                    except:
+                        txt = 'rpc failed (possible loss of transport)'
+                        orb.log.debug(f'  ** {txt}')
+                        orb.log.debug('     trying to reconnect ...')
+                        self.set_bus_state()
+                        return
                 else:
                     # if not connected, work in synchronous mode ...
                     orb.recompute_parmz()
@@ -6188,9 +6447,16 @@ class Main(QMainWindow):
                 if state.get('connected'):
                     # if connected, call get_parmz() ...
                     state['lib updates needed'] = True
-                    rpc = self.mbus.session.call('vger.get_parmz')
-                    rpc.addCallback(self.on_vger_get_parmz_result)
-                    rpc.addErrback(self.on_failure)
+                    try:
+                        rpc = self.mbus.session.call('vger.get_parmz')
+                        rpc.addCallback(self.on_vger_get_parmz_result)
+                        rpc.addErrback(self.on_failure)
+                    except:
+                        txt = 'rpc failed (possible loss of transport)'
+                        orb.log.debug(f'  ** {txt}')
+                        orb.log.debug('     trying to reconnect ...')
+                        self.set_bus_state()
+                        return
                 else:
                     # if not connected, work in synchronous mode ...
                     orb.recompute_parmz()
@@ -6411,9 +6677,16 @@ class Main(QMainWindow):
             orb.log.info('  query: {}'.format(str(q)))
             # dispatcher.send('ldap search', query=q)
             if state['connected']:
-                rpc = self.mbus.session.call('vger.search_ldap', **q)
-                rpc.addCallback(self.on_rpc_ldap_result)
-                rpc.addErrback(self.on_failure)
+                try:
+                    rpc = self.mbus.session.call('vger.search_ldap', **q)
+                    rpc.addCallback(self.on_rpc_ldap_result)
+                    rpc.addErrback(self.on_failure)
+                except:
+                    txt = 'rpc failed (possible loss of transport)'
+                    orb.log.debug(f'  ** {txt}')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
+                    return
         else:
             orb.log.info('  bad query: must have Last Name, AUID, or UUPIC')
             message = "Query must include Last Name, AUID, or UUPIC"
