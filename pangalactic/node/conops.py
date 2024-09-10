@@ -1345,7 +1345,7 @@ class TimelineWidget(QWidget):
             orb.log.debug(f'      begins at: {t_start} {time_units}')
             duration_pixels = canvas_map.transform_scalar(dur)
             orb.log.debug(f'      (duration: {duration_pixels} pixels)')
-            symbol_size = QSize(duration_pixels, 10)
+            symbol_size = QSize(int(duration_pixels), 10)
             symbol_brush = QBrush(LABEL_COLORS[j-1])
             rect_symbol = qwt.QwtSymbol.make(pen=pen, brush=symbol_brush,
                                              style=qwt.QwtSymbol.Rect,
