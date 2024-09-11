@@ -998,11 +998,6 @@ class ObjectCreationPage(QWizardPage):
                     self.progress_dialog.setValue(i+1)
                     continue
                 ID = kw.get('id')
-                if re.match('\s', ID):
-                    # if "id" field only contains whitespace, ignore
-                    orb.log.debug(f'  - row {i} has id "{ID}", skipping ...')
-                    self.progress_dialog.setValue(i+1)
-                    continue
                 if ID in cur_ids:
                     # update the existing rqt ...
                     orb.log.debug(f'* {ID} is existing rqt, updating it ...')
