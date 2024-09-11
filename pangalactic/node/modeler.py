@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, sys
+import os, subprocess, sys
 from collections import namedtuple
 
 from louie import dispatcher
@@ -17,7 +17,6 @@ from pangalactic.core.access      import get_perms
 # from pangalactic.core.names       import (get_block_model_id,
                                           # get_block_model_name,
                                           # get_block_model_file_name)
-from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.dialogs     import (DocImportDialog,
                                           MiniMelDialog,
@@ -459,8 +458,8 @@ class ModelWindow(QMainWindow):
         """
         Display the STEP models associated with the current self.subject (a
         Modelable instance, which may or may not have a STEP model). If there
-        is only one, simply open a Model3DViewer with that one; if more than
-        one, open a dialog with information about all and offer to display a
+        is only one, simply open a viewer with that one; if more than one,
+        open a dialog with information about all and offer to display a
         selected one.
         """
         # TODO: display a dialog if multiple STEP models ...
@@ -489,8 +488,9 @@ class ModelWindow(QMainWindow):
             # orb.log.debug(f'  step file: "{fpath}"')
         try:
             if fpath:
-                viewer = Model3DViewer(step_file=fpath, parent=self)
-                viewer.show()
+                subprocess.Popen(
+                    (sys.executable, '-m', 'pangalactic.node.cad.viewer',
+                     '-f', fpath,))
         except:
             orb.log.debug('  CAD model not found or not in STEP format.')
             pass
