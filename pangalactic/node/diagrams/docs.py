@@ -159,8 +159,8 @@ class DocForm(QtWidgets.QDialog):
         fm = QtGui.QFontMetrics(self.font())
         screen_res = QtWidgets.QApplication.desktop().screenGeometry()
         height = min(screen_res.height() - 100, self.scene.height() + 50)
-        self.resize(self.scene.width() + fm.width(" Delete... ") + 100,
-                    height)
+        width = self.scene.width() + fm.width(" Delete... ") + 100
+        self.resize(int(width), int(height))
         self.move(0, 0)
         self.setWindowTitle("Page Designer")
 
