@@ -21,10 +21,8 @@ requirements:
     - packaging
     - pynacl
     - pyqt
-    # pyqtgraph code removed -- was causing segfaults on win and osx
-    # - pyqtgraph
     - python {{PY_VER}}
-    - pythonocc-core ==7.4.0
+    - pythonocc-core
     # pythonocc-core pulls in:
     # - freeimageplus
     # - gl2ps
