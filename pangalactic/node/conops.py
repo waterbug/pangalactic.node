@@ -1095,6 +1095,7 @@ class TimelineWidget(QWidget):
         else:
             orb.log.debug("  no usage: zero function")
             f = (lambda t: 0.0)
+            return f
         if isinstance(act, orb.classes['Activity']):
             subacts = act.sub_activities
             if subacts:
@@ -1119,16 +1120,21 @@ class TimelineWidget(QWidget):
                         modal_context = get_modal_context(project.oid,
                                                           usage.oid,
                                                           a.oid)
+                        # orb.log.debug(f'  modal context: {modal_context}')
                         p_cbe_val = get_modal_power(project.oid,
                                                     usage.oid, comp.oid,
                                                     a.oid, modal_context)
                         if context == "CBE":
+                            # orb.log.debug('  context: CBE')
+                            # orb.log.debug(f'  P[cbe]: {p_cbe_val}')
                             return p_cbe_val
                         else:
-                            # context == "mev"
+                            # context == "MEV"
+                            # orb.log.debug('  context: MEV')
                             ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
                             factor = 1.0 + ctgcy
                             p_mev_val = round_to(p_cbe_val * factor, n=3)
+                            # orb.log.debug(f'  P[mev]: {p_mev_val}')
                             return p_mev_val
                 def f(t):
                     if isinstance(t, float):
@@ -1138,18 +1144,24 @@ class TimelineWidget(QWidget):
                         return [f_scalar(x) for x in t]
             else:
                 # no subactivities -> 1 mode -> constant function
+                # orb.log.debug('  no subactivities ...')
                 modal_context = get_modal_context(project.oid,
                                                   usage.oid,
                                                   a.oid)
+                # orb.log.debug(f'  modal context: {modal_context}')
                 p_cbe_val = get_modal_power(project.oid, usage.oid,
                                             comp.oid, self.act.oid,
                                             modal_context)
-                if context == "cbe":
+                if context == "CBE":
+                    # orb.log.debug('  context: CBE')
+                    # orb.log.debug(f'  P[cbe]: {p_cbe_val}')
                     f = (lambda t: p_cbe_val)
                 else:
+                    # orb.log.debug('  context: MEV')
                     ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
                     factor = 1.0 + ctgcy
                     p_mev_val = round_to(p_cbe_val * factor, n=3)
+                    # orb.log.debug(f'  P[mev]: {p_mev_val}')
                     f = (lambda t: p_mev_val)
         else:
             orb.log.debug("  no activity: zero function")
@@ -1169,6 +1181,9 @@ class TimelineWidget(QWidget):
         pass
 
     def graph(self):
+        """
+        Output a graph of power vs. time for the current system.
+        """
         orb.log.debug('* graph()')
         project = orb.get(state.get('project'))
         orb.log.debug(f"  project: {project.id}")
@@ -1206,12 +1221,15 @@ class TimelineWidget(QWidget):
                 orb.log.debug(f'  {a.name}: {d}')
                 modal_context = get_modal_context(project.oid, usage.oid,
                                                   a.oid)
+                orb.log.debug(f'  modal context: {modal_context}')
                 p_cbe_val = get_modal_power(project.oid, usage.oid, comp.oid,
                                             a.oid, modal_context)
+                orb.log.debug(f'  P[cbe]: {p_cbe_val}')
                 p_cbe_dict[a.name] = p_cbe_val
                 ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
                 factor = 1.0 + ctgcy
                 p_mev_val = round_to(p_cbe_val * factor, n=3)
+                orb.log.debug(f'  P[mev]: {p_mev_val}')
                 p_mev_dict[a.name] = p_mev_val
         duration = get_effective_duration(act, units=time_units)
         max_val = max(list(p_mev_dict.values()))
@@ -1235,10 +1253,10 @@ class TimelineWidget(QWidget):
         t_array = np.linspace(0, duration, 400)
         # orb.log.debug(f'  {t_array}')
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
-        qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[CBE]", plot,
+        qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[cbe]", plot,
                               z=1.0, linecolor="blue", linewidth=2,
                               antialiased=True)
-        qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[MEV]", plot,
+        qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[mev]", plot,
                               z=1.0, linecolor="red", linewidth=2,
                               antialiased=True)
         last_label_y = 0
