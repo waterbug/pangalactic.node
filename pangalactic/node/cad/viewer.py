@@ -113,7 +113,6 @@ class Model3DViewer(QMainWindow):
             self.viewer3d.close()
             self.viewer3d = None
         self.viewer3d = qtDisplay.qtViewer3d(self)
-        self.viewer_in_use = False
         if not getattr(self, 'vbox', None):
             self.vbox = QVBoxLayout()
         self.vbox.addWidget(self.viewer3d)

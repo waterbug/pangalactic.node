@@ -2911,8 +2911,8 @@ class Main(QMainWindow):
                                     self.project.id,
                                     actions=[
                                              self.admin_action,
-                                             self.delete_project_action,
-                                             self.new_project_action],
+                                             self.new_project_action,
+                                             self.delete_project_action],
                                     w=120)
         self.delete_project_action.setVisible(False)
         self.delete_project_action.setEnabled(False)
@@ -5382,42 +5382,53 @@ class Main(QMainWindow):
         # perhaps refuse to remove it if it has them?
         # TODO:  and remove it from the repository
         orb.log.info('* delete_project()')
-        # first delete any ProjectSystemUsage relationships
-        project_oid = self.project.oid
-        orb.delete(self.project.systems)
-        # if the project owns things, change the owner to 'PGANA'
-        pgana = orb.get('pgefobjects:PGANA')
-        things = orb.search_exact(owner=self.project)
-        if things:
-            for thing in things:
-                thing.owner = pgana
-            orb.db.commit()
-            for thing in things:
-                dispatcher.send('modified object', obj=thing)
-        orb.delete([self.project])
-        if len(self.projects) > 1:
-            self.project = self.projects[-1]
-            if self.project is self.sandbox:
+        # IMPORTANT: confirm deletion -- there is no "undelete"!
+        txt = ('This will permanently delete the project\n'
+               '(there is no "undelete", if you want it back\n'
+               'you will have to re-create it ...)\n'
+               'are you really really sure?')
+        confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete?', txt,
+                                  QMessageBox.Yes | QMessageBox.No)
+        response = confirm_dlg.exec_()
+        if response == QMessageBox.Yes:
+            # first delete any ProjectSystemUsage relationships
+            project_oid = self.project.oid
+            orb.delete(self.project.systems)
+            # if the project owns things, change the owner to 'PGANA'
+            pgana = orb.get('pgefobjects:PGANA')
+            things = orb.search_exact(owner=self.project)
+            if things:
+                for thing in things:
+                    thing.owner = pgana
+                orb.db.commit()
+                for thing in things:
+                    dispatcher.send('modified object', obj=thing)
+            orb.delete([self.project])
+            if len(self.projects) > 1:
+                self.project = self.projects[-1]
+                if self.project is self.sandbox:
+                    self.delete_project_action.setEnabled(False)
+                    self.delete_project_action.setVisible(False)
+                # else:
+                    # self.delete_project_action.setVisible(True)
+            else:
+                self.project = self.sandbox
                 self.delete_project_action.setEnabled(False)
                 self.delete_project_action.setVisible(False)
-            # else:
-                # self.delete_project_action.setVisible(True)
+            if state.get('connected'):
+                orb.log.info('  - calling "vger.delete"')
+                try:
+                    rpc = self.mbus.session.call('vger.delete', [project_oid])
+                    rpc.addCallback(self.on_rpc_vger_delete_result)
+                    rpc.addErrback(self.on_failure)
+                    if project_oid in state.get('synced_oids', []):
+                        state['synced_oids'].remove(project_oid)
+                except:
+                    orb.log.debug('  ** rpc failed (possible loss of transport)')
+                    orb.log.debug('     trying to reconnect ...')
+                    self.set_bus_state()
         else:
-            self.project = self.sandbox
-            self.delete_project_action.setEnabled(False)
-            self.delete_project_action.setVisible(False)
-        if state.get('connected'):
-            orb.log.info('  - calling "vger.delete"')
-            try:
-                rpc = self.mbus.session.call('vger.delete', [project_oid])
-                rpc.addCallback(self.on_rpc_vger_delete_result)
-                rpc.addErrback(self.on_failure)
-                if project_oid in state.get('synced_oids', []):
-                    state['synced_oids'].remove(project_oid)
-            except:
-                orb.log.debug('  ** rpc failed (possible loss of transport)')
-                orb.log.debug('     trying to reconnect ...')
-                self.set_bus_state()
+            return
 
     def delete_test_objects(self):
         orb.log.info('* delete_test_objects()')
