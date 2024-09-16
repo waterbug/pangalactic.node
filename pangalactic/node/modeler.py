@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, subprocess, sys
+import os, sys
 from collections import namedtuple
 
 from louie import dispatcher
@@ -17,12 +17,12 @@ from pangalactic.core.access      import get_perms
 # from pangalactic.core.names       import (get_block_model_id,
                                           # get_block_model_name,
                                           # get_block_model_file_name)
+from pangalactic.node.cad.viewer  import Model3DViewer
 from pangalactic.node.diagrams    import DiagramView, DocForm
 from pangalactic.node.dialogs     import (DocImportDialog,
                                           MiniMelDialog,
                                           ModelImportDialog,
                                           ModelsAndDocsInfoDialog)
-# from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.utils       import (extract_mime_data,
                                           create_product_from_template)
 from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
@@ -30,8 +30,6 @@ from pangalactic.node.widgets     import NameLabel, PlaceHolder, ValueLabel
 # a named tuple used in managing the "history" of the ModelWindow so that it
 # can be navigated
 ModelerState = namedtuple('ModelerState', 'obj idx')
-
-
 
 
 class ModelWindow(QMainWindow):
@@ -488,9 +486,8 @@ class ModelWindow(QMainWindow):
             # orb.log.debug(f'  step file: "{fpath}"')
         try:
             if fpath:
-                subprocess.Popen(
-                    (sys.executable, '-m', 'pangalactic.node.cad.viewer',
-                     '-f', fpath,))
+                self.cad_viewer = Model3DViewer(fpath=fpath)
+                self.cad_viewer.show()
         except:
             orb.log.debug('  CAD model not found or not in STEP format.')
             pass

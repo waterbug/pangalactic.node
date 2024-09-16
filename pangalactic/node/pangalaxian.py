@@ -3,7 +3,7 @@
 """
 Pangalaxian (the PanGalactic GUI client) main window
 """
-import argparse, atexit, json, math, os, shutil, subprocess
+import argparse, atexit, json, math, os, shutil
 import sys, time, webbrowser
 # import traceback
 import urllib.parse, urllib.request, urllib.error
@@ -86,6 +86,7 @@ from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
+from pangalactic.node.cad.viewer       import Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.dialogs          import (FullSyncDialog,
@@ -5336,9 +5337,9 @@ class Main(QMainWindow):
         ref_url = f'file://{ref_path}'
         webbrowser.open_new(ref_url)
 
-    def run_viewer(self, file_path):
-        subprocess.Popen((sys.executable, '-m', 'pangalactic.node.cad.viewer',
-                          '-f', file_path,))
+    def open_viewer(self, file_path):
+        self.cad_viewer = Model3DViewer(file_path)
+        self.cad_viewer.show()
 
     def view_cad_success(self, result):
         orb.log.info('  - view_cad_success; res: "{}"'.format(result))
@@ -6614,7 +6615,7 @@ class Main(QMainWindow):
             # to sort on the left header column ...
             state['last_model_path'] = os.path.dirname(fpath)
             orb.log.info('  - running external viewer ...')
-            self.run_viewer(fpath)
+            self.open_viewer(fpath)
         else:
             return
 

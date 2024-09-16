@@ -1499,7 +1499,7 @@ class PgxnObject(QDialog):
             # orb.log.debug(f'  step file: "{fpath}"')
         try:
             if fpath:
-                viewer = Model3DViewer(step_file=fpath, parent=self)
+                viewer = Model3DViewer(fpath=fpath, parent=self)
                 viewer.show()
         except:
             orb.log.debug('  CAD model not found or not in STEP format.')
