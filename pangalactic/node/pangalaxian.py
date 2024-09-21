@@ -3552,7 +3552,7 @@ class Main(QMainWindow):
                 mod_acts = orb.get(oids=mod_act_oids)
                 dispatcher.send(signal='remote new or mod acts',
                                 objs=mod_acts)
-        orb.log.debug('  success: data_elementz updated.')
+        orb.log.debug('  success: properties updated.')
 
     def on_remote_data_elements_set(self, content):
         """
@@ -5383,9 +5383,9 @@ class Main(QMainWindow):
         # TODO:  and remove it from the repository
         orb.log.info('* delete_project()')
         # IMPORTANT: confirm deletion -- there is no "undelete"!
-        txt = ('This will permanently delete the project\n'
-               '(there is no "undelete", if you want it back\n'
-               'you will have to re-create it ...)\n'
+        txt = ('This will permanently delete the project:\n'
+               'there is no "undelete"; if you want it back\n'
+               'you will have to re-create it ...\n'
                'are you really really sure?')
         confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete?', txt,
                                   QMessageBox.Yes | QMessageBox.No)

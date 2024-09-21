@@ -1716,7 +1716,6 @@ class ConOpsModeler(QMainWindow):
         self.create_activity_table(timeline=self.main_timeline.scene.timeline)
         self.left_dock_layout.insertWidget(0, self.activity_table,
                                            alignment=Qt.AlignTop)
-        # self.resize(self.layout().sizeHint())
 
     def on_item_clicked(self, index):
         # orb.log.debug("* ConOpsModeler.on_item_clicked()")

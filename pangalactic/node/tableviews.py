@@ -478,11 +478,15 @@ class ActInfoTable(QTableWidget):
                     return
                 orb.log.debug('    succeeded.')
                 # self.resizeColumnsToContents()
-                des = {oid : {'time_units' : str_val}}
-                dispatcher.send(signal="des set", des=des)
-            else:
-                # a time parameter was modified, set and propagate ...
-                act_units = get_dval(oid, "time_units") or 's'
+                props = {oid : {'time_units' : str_val}}
+                dispatcher.send(signal="act mods", prop_mods=props)
+            else:   # pname == "duration"
+                # duration was modified, set and propagate ...
+                # act_units = get_dval(oid, "time_units") or 'minute'
+                act_units = self.item(row, self.view.index('time_units')
+                                      ).data(Qt.EditRole)
+                # in case time_units cell is empty ...
+                act_units = act_units or 'minute'
                 txt = f'setting {act.name} {pname} to {str_val} {act_units}'
                 orb.log.debug(f'    {txt}')
                 status = orb.set_prop_val(oid, pname, str_val, units=act_units)
@@ -493,7 +497,7 @@ class ActInfoTable(QTableWidget):
                     return
                 orb.log.debug('    succeeded.')
                 # NOTE: get parm val in base units before sending --
-                # vger.set_properties only takes values in base units!!
+                # vger.set_properties only takes values in mks units!!
                 val = get_pval(oid, pname)
                 props = {oid : {pname : val}}
                 dispatcher.send(signal="act mods", prop_mods=props)
