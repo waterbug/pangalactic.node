@@ -1133,7 +1133,9 @@ class TimelineWidget(QWidget):
                             # orb.log.debug('  context: MEV')
                             ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
                             factor = 1.0 + ctgcy
-                            p_mev_val = round_to(p_cbe_val * factor, n=3)
+                            # NOTE: round_to automatically uses user pref for
+                            # numeric precision
+                            p_mev_val = round_to(p_cbe_val * factor)
                             # orb.log.debug(f'  P[mev]: {p_mev_val}')
                             return p_mev_val
                 def f(t):
@@ -1160,7 +1162,9 @@ class TimelineWidget(QWidget):
                     # orb.log.debug('  context: MEV')
                     ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
                     factor = 1.0 + ctgcy
-                    p_mev_val = round_to(p_cbe_val * factor, n=3)
+                    # NOTE: round_to automatically uses user pref for numeric
+                    # precision; no need to specify "n" keyword arg ...
+                    p_mev_val = round_to(p_cbe_val * factor)
                     # orb.log.debug(f'  P[mev]: {p_mev_val}')
                     f = (lambda t: p_mev_val)
         else:
@@ -1228,7 +1232,9 @@ class TimelineWidget(QWidget):
                 p_cbe_dict[a.name] = p_cbe_val
                 ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
                 factor = 1.0 + ctgcy
-                p_mev_val = round_to(p_cbe_val * factor, n=3)
+                # NOTE: round_to automatically uses user pref for numeric
+                # precision; no need to specify "n" keyword arg ...
+                p_mev_val = round_to(p_cbe_val * factor)
                 orb.log.debug(f'  P[mev]: {p_mev_val}')
                 p_mev_dict[a.name] = p_mev_val
         duration = get_effective_duration(act, units=time_units)
@@ -1349,7 +1355,9 @@ class TimelineWidget(QWidget):
                     p_peak = a_p_mev
             dur = get_effective_duration(super_act, units=time_units)
             t_end = t_start + dur
-            p_average = round_to(e_total / dur, n=3)
+            # NOTE: round_to automatically uses user pref for numeric
+            # precision; no need to specify "n" keyword arg ...
+            p_average = round_to(e_total / dur)
             label_txt = f'  {super_act.name}  \n'
             label_txt += f' Peak Power: {p_peak} Watts \n'
             label_txt += f' Average Power: {p_average} Watts '
