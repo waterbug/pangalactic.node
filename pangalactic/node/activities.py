@@ -899,7 +899,8 @@ class ModeDefinitionDashboard(QWidget):
         # -------------------
         ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
         factor = 1.0 + ctgcy
-        p_mev_val = round_to(p_cbe_val * factor, n=3)
+        # NOTE: round_to automatically uses user pref for numeric precision
+        p_mev_val = round_to(p_cbe_val * factor)
         p_mev_val_str = str(p_mev_val)
         # orb.log.debug(f'   p_mev_val_str: {p_mev_val_str}')
         p_mev_field = self.p_mev_fields.get(comp.oid)
