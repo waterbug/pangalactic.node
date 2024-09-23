@@ -1424,7 +1424,7 @@ class TimelineWidget(QWidget):
             if state.get('last_path'):
                 state['last_power_modes_excel_path'] = state['last_path']
             else:
-                state['last_power_modes_excel_path'] = self.user_home
+                state['last_power_modes_excel_path'] = orb.home
         suggest_fname = os.path.join(
                           state['last_power_modes_excel_path'],
                           project.id + '-Power-Modes-' + dtstr + '.xlsx')
