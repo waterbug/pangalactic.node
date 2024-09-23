@@ -26,12 +26,11 @@ from PyQt5.QtGui import (QBrush, QIcon, QCursor, QFont, QPainter,
                          QPainterPath, QPen, QPixmap, QPolygonF, QTransform)
 # from PyQt5.QtGui import QGraphicsProxyWidget
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,
-                             QDialog, QMainWindow, QSizePolicy, QWidget,
-                             QGraphicsItem, QGraphicsPolygonItem,
-                             QGraphicsScene, QGraphicsView, QGridLayout,
-                             QMenu, QGraphicsPathItem, QPushButton,
-                             QVBoxLayout, QToolBar, QToolBox, QWidgetAction,
-                             QMessageBox)
+                             QDialog, QFileDialog, QMainWindow, QSizePolicy,
+                             QWidget, QGraphicsItem, QGraphicsPolygonItem,
+                             QGraphicsScene, QGraphicsView, QGridLayout, QMenu,
+                             QGraphicsPathItem, QPushButton, QVBoxLayout,
+                             QToolBar, QToolBox, QWidgetAction, QMessageBox)
 
 # PythonQwt
 import qwt
@@ -56,7 +55,8 @@ from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
                                           round_to,
                                           set_comp_modal_context,
                                           set_dval)
-from pangalactic.core.utils.datetimes import dtstamp
+from pangalactic.core.utils.datetimes import dtstamp, date2str
+from pangalactic.core.utils.reports import write_power_modes_to_xlsx
 from pangalactic.node.activities  import (DEFAULT_ACTIVITIES,
                                           ActivityWidget,
                                           ModeDefinitionDashboard,
@@ -823,8 +823,15 @@ class TimelineWidget(QWidget):
                                     icon="graph",
                                     tip="graph")
         self.toolbar.addAction(self.plot_action)
+        self.output_excel_action = self.create_action(
+                                    text="Output Excel",
+                                    slot=self.output_excel,
+                                    icon="tools",
+                                    tip="write to excel")
+        self.toolbar.addAction(self.output_excel_action)
         if not state.get('conops usage oid'):
             self.plot_action.setEnabled(False)
+            self.output_excel_action.setEnabled(False)
         spacer = QWidget(parent=self)
         spacer.setSizePolicy(QSizePolicy.Expanding,
                              QSizePolicy.Expanding)
@@ -1317,6 +1324,9 @@ class TimelineWidget(QWidget):
             if t_start == 0:
                 x_label = 0
                 align_label = Qt.AlignRight
+            elif t_start < .1 * duration and (t_end - t_start < .3 * duration):
+                x_label = (t_start + t_end) / 2
+                align_label = Qt.AlignRight
             elif t_end >= duration and (t_end - t_start < .3 * duration):
                 x_label = duration
                 align_label = Qt.AlignLeft
@@ -1388,6 +1398,55 @@ class TimelineWidget(QWidget):
         # plot.resize(1400, 650)
         dlg = PlotDialog(plot, title="Power vs Time", parent=self)
         dlg.show()
+
+    def output_excel(self):
+        orb.log.debug('* output_excel()')
+        project = orb.get(state.get('project'))
+        orb.log.debug(f"  project: {project.id}")
+        usage = orb.get(state.get('conops usage oid'))
+        # TODO:  if no usage, show dialog about selecting a usage ...
+        if usage:
+            orb.log.debug(f"  usage: {usage.id}")
+        else:
+            orb.log.debug("  no usage set; returning.")
+            return
+        if isinstance(usage, orb.classes['Acu']):
+            comp = usage.component
+        else:
+            # PSU
+            comp = usage.system
+        orb.log.debug(f"  system: {comp.name}")
+        mission = orb.select('Mission', owner=project)
+        activity = self.subject or mission
+        orb.log.debug(f"  activity: {activity.name}")
+        dtstr = date2str(dtstamp())
+        if not state.get('last_power_modes_excel_path'):
+            if state.get('last_path'):
+                state['last_power_modes_excel_path'] = state['last_path']
+            else:
+                state['last_power_modes_excel_path'] = self.user_home
+        suggest_fname = os.path.join(
+                          state['last_power_modes_excel_path'],
+                          project.id + '-Power-Modes-' + dtstr + '.xlsx')
+        fpath, _ = QFileDialog.getSaveFileName(
+                        self, 'Open File', suggest_fname,
+                        "Excel Files (*.xlsx)")
+        if fpath:
+            state['last_power_modes_excel_path'] = os.path.dirname(fpath)
+            write_power_modes_to_xlsx(activity, usage, file_path=fpath)
+            orb.log.debug('  file written.')
+            # try to start Excel with file if on Win or Mac ...
+            if sys.platform == 'win32':
+                try:
+                    os.system(f'start excel.exe "{fpath}"')
+                except:
+                    orb.log.debug('  could not start Excel')
+            elif sys.platform == 'darwin':
+                try:
+                    cmd = f'open -a "Microsoft Excel.app" "{fpath}"'
+                    os.system(cmd)
+                except:
+                    orb.log.debug('  unable to start Excel')
 
 
 class ConOpsModeler(QMainWindow):
@@ -1987,6 +2046,7 @@ class ConOpsModeler(QMainWindow):
         state['conops usage oid'] = usage.oid
         self.usage = usage
         self.main_timeline.plot_action.setEnabled(True)
+        self.main_timeline.output_excel_action.setEnabled(True)
 
     def resizeEvent(self, event):
         """
