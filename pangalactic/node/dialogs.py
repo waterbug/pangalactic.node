@@ -2102,12 +2102,12 @@ class SelectHWColsDialog(QDialog):
         de_label = QLabel(
             '<h3><font color="purple">Data Elements</font></h3>')
         vbox.addWidget(de_label)
-        plen = len(data_elements)
-        m = plen // 10
-        if plen % 10:
-            forms = {i : QFormLayout() for i in range(m + 1)}
+        dlen = len(data_elements)
+        d = dlen // 10
+        if dlen % 10:
+            forms = {i : QFormLayout() for i in range(d + 1)}
         else:
-            forms = {i : QFormLayout() for i in range(m)}
+            forms = {i : QFormLayout() for i in range(d)}
         de_hbox = QHBoxLayout()
         for form in forms.values():
             de_hbox.addLayout(form)

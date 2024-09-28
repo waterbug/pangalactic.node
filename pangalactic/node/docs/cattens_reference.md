@@ -1,20 +1,20 @@
-% Pan Galactic Engineering Framework Reference
+% CATTENS Engineering Framework Reference
 % Stephen Waterbury / Code 585
 % v. 1.8
 
-# Overview:  The Pan Galactic Architecture
+# Overview:  The CATTENS Architecture
 
-**The Pan Galactic Engineering Framework** (**PGEF**) is a Collaborative
+**CATTENS**  is a Collaborative
 Model-Based Engineering (MBE) framework, consisting of a **Desktop Client**, a
 network **Message Bus**, and a repository service network interface that
 provides access to a **Systems Database** and **Systems and Components
 Library**, as shown in the diagram below.
 
 This reference document is primarily focused on the application structure of
-the **Pangalaxian Desktop Client** and includes a **[Glossary](#glossary))** of
-terms related to the objects that **Pangalaxian** creates and manages.
+the **CATTENS Desktop Client** and includes a **[Glossary](#glossary))** of
+terms related to the objects that **CATTENS** creates and manages.
 
-![Pan Galactic Architecture](images/pgef_arch.png "Pan Galactic Architecture")
+![CATTENS Architecture](images/cattens_arch.png "CATTENS Architecture")
 
 # A Word About Nomenclature ...
 
@@ -33,9 +33,9 @@ complex **Product** with internal structure and behaviors) and in others a
 box*** model of a **Product** (i.e., one in which the internal structures
 and/or interfaces of the **Product** are known) and **Component** in the
 context of a ***black box*** model (in which only the attributes and external
-shape and/or interfaces are known or relevant).  **Pangalaxian** is designed to
+shape and/or interfaces are known or relevant).  **CATTENS** is designed to
 support the multi-disciplinary nature of **Product** models, so for any given
-**Product**, **Pangalaxian** can maintain and track its relationships to multiple
+**Product**, **CATTENS** can maintain and track its relationships to multiple
 ***white box*** and ***black box*** models.  Indeed, it is perfectly normal for
 a **Product** to have several types of models, some of which are ***white
 boxes*** and some ***black boxes***, developed and used by discipline engineers
@@ -43,7 +43,7 @@ in various design and analysis contexts.
 
 # Main Window Elements
 
-The **Pangalaxian** application **Main Window** consists of a **Tool Bar**, a
+The **CATTENS** application **Main Window** consists of a **Tool Bar**, a
 central area with various widgets (such as a **Dashboard** and a **System
 Tree**), and a **Status Bar** at the bottom, which displays messages regarding
 network interactions and local database events.  Many of the labels and buttons
@@ -62,24 +62,24 @@ The **Input** menu provides functions to import data or objects.
 
 #### An Important Note about Importing Data from Exported Data Files
 
-Note that although **Pangalaxian** can import data from a file that has been
+Note that although **CATTENS** can import data from a file that has been
 created using the export functions, importing data that contains objects that
 were created by other users should not be done by a non-administrative user
 because of data synchronization issues with the repository:  when the user logs
 in after importing data, the repository sync process will delete any objects
 not created by the local user unless they already exist in the repository.
 That is because the repository only allows users to save objects that they
-create or are authorized to modify, so when **Pangalaxian** sends data to the
+create or are authorized to modify, so when **CATTENS** sends data to the
 repository for synchronization and the data contains an object that was created
 by another user but the object is not present in the repository, the repository
 assumes that the object was deleted either by its creator or by an authorized
-user, so the repository will instruct **Pangalaxian** to delete the object locally.
+user, so the repository will instruct **CATTENS** to delete the object locally.
 
 For the above reasons, if a user wants to recreate all or part of a saved
 database or project that contains objects created by other users, the best way
 to do that is to send the exported file to the repository administrator and ask
 them to load it; then if the user is assigned a role in the project(s) or
-organization(s) that own(s) the data, their **Pangalaxian** client will receive
+organization(s) that own(s) the data, their **CATTENS** client will receive
 that data in the sync process the next time the user connects to the
 repository.
 
@@ -114,13 +114,13 @@ The **Output** menu provides functions to export data or objects.
 
 Enables the user to export the currently selected **[Project](#project)**
 (including all its systems and their assemblies) to a file, which can be saved
-as a backup.  The exported file can later be imported into **Pangalaxian** using
+as a backup.  The exported file can later be imported into **CATTENS** using
 the [Import Project from a File](#import-project-from-a-file...) function --
 however, see the
 *[important note about importing data](#an-important-note-about-importing-data-from-exported-data-files)*.
 
 The format of the exported file self-describing and it therefore has some
-degree of schema-independence.  **PGEF** releases will sometimes involve
+degree of schema-independence. releases will sometimes involve
 internal database schema (ontology) changes, and since the exported file is
 schema-independent, the
 [Import Project from a File](#import-project-from-a-file...)
@@ -132,7 +132,7 @@ function can migrate the imported data to the new schema -- however, see the
 Enables the user to export the set of **[Requirements](#requirement)**
 applicable to the currently selected **[Project](#project)** to a file, which
 can be saved as a backup.  The exported file can later be imported into
-**Pangalaxian** using the
+**CATTENS** using the
 [Import Project Requirements from a File](#import-project-requirements-from-a-file...)
 function -- however, see the
 *[important note about importing data](#an-important-note-about-importing-data-from-exported-data-files)*.
@@ -150,23 +150,23 @@ appropriate name and location for the file that is created.
 ### Dump Local Database to a File...
 
 Writes the complete local database to a file as a set of serialized objects,
-which are serialized in the **PGEF** standard serialization format and
+which are serialized in thestandard serialization format and
 encoded into [YAML]("https://en.wikipedia.org/wiki/YAML").  Clicking this menu
 item displays a file dialog so the user can select an appropriate name and
 location for the file that is created.
 
 ### Generate a Public/Private Key Pair...
 
-Generates a pair of encrypted keys for use in the **PGEF** server login
+Generates a pair of encrypted keys for use in theserver login
 process.  The **public key** (*public.key*) will be written into the
-*pangalaxian_home* directory, which is located in the user's home directory.  The
+*cattens_home* directory, which is located in the user's home directory.  The
 **private key** (*private.key*) is written into the *.creds* subdirectory of
-*pangalaxian_home*, and it should not be moved.  The user should email the
-*public.key* file to the **PGEF** administrator when requesting a user
-account.  After that, the *public.key* file is no longer needed by **Pangalaxian**.
-When the *Network Login* icon in the **Tool Bar** is clicked, the **Pangalaxian**
+*cattens_home*, and it should not be moved.  The user should email the
+*public.key* file to theadministrator when requesting a user
+account.  After that, the *public.key* file is no longer needed by **CATTENS**.
+When the *Network Login* icon in the **Tool Bar** is clicked, the **CATTENS**
 client will use the *private.key* file to do a transparent single-sign-on login
-to the **PGEF** server.
+to theserver.
 
 ## Menu: Create New Objects
 
@@ -197,7 +197,7 @@ Displays a wizard (see figure below) in which the user can create a new
 **[Performance Requirement](#performance-requirement)**.
 
 A **[Requirement](#requirement)** is typically owned (defined and managed) by
-an **Organization**, and when a new **Requirement** is defined, **Pangalaxian**
+an **Organization**, and when a new **Requirement** is defined, **CATTENS**
 assigns the currently selected **Project** as its ***owner*** (the ***owner***
 field is on the **info** tab of the **[Object Editor](#object-viewer-editor)**)
 -- note that that is just a default assignment of ***owner***, and can be
@@ -219,7 +219,7 @@ below, the **Project Requirements Manager** function will display all
 
 The **Tools** menu provides functions for various tasks such as editing the
 user's preferences, displaying libraries in separate windows, and some
-administrative tasks such as updating **Pangalaxian**.
+administrative tasks such as updating **CATTENS**.
 
 ![Tools](images/tools_menu.png "Menu: Tools")
 
@@ -501,7 +501,7 @@ displayed, as shown below, **Connect to the message bus**:
 
 ![Repository Service](images/network_login.png "Repository Service")
 
-The **Pangalaxian** client auto-connects to the Repository Service by default,
+The **CATTENS** client auto-connects to the Repository Service by default,
 but the user can un-check that "Auto-connect at startup" option if desired.
 
 The **Repository Service** button is a toggle, so clicking on it while
@@ -514,7 +514,7 @@ in the lower right corner of the main window:
 ![Network Status: Disconnected](images/status_disconnected.png "Network Status: Disconnected")
 
 
-Once the user logs in to the **Repository Service**, the **Pangalaxian** client
+Once the user logs in to the **Repository Service**, the **CATTENS** client
 begins a programmed set of network interactions that synchronize its local
 database with the repository.  The initial interactions upon connection
 include:
@@ -542,7 +542,7 @@ include:
     status indicator*) if the current project is a collaborative project -- if
     it is a local project, the status label will say "**[local]**".
 
-Once the initial sync is completed, the **Pangalaxian** client will listen for
+Once the initial sync is completed, the **CATTENS** client will listen for
 events on the message bus, such as additions or modifications of objects, and
 will update itself accordingly in real-time.
 
@@ -552,7 +552,7 @@ selected **Project**.
 
 # User Interface Modes
 
-The **Pangalaxian** GUI has four interface **modes** of operation:
+The **CATTENS** GUI has four interface **modes** of operation:
 
 * **[Component Modeler]**
 * **[Systems Modeler]**
@@ -563,7 +563,7 @@ A **mode** is entered by clicking on one of the four **Mode Buttons** in the
 top right corner of the user interface, as shown in the figure below.  Just to
 the left of the **Mode Buttons** is the **Mode Indicator**, which shows the
 currently selected **mode**.  The buttons are shown here with **[Systems
-Modeler](#systems-modeler)** **mode** selected.  When you exit **Pangalaxian**, it
+Modeler](#systems-modeler)** **mode** selected.  When you exit **CATTENS**, it
 will remember the **mode** you are in and will return you to that **mode** the
 next time it starts up.
 
@@ -584,7 +584,7 @@ in the Main Window), as shown below, and that **Product** will become the
 ***version*** will be displayed in the **Product Info Panel**, its full set of
 **Parameter** values and metadata will be shown in the **Object Viewer/Editor
 Panel** in the left panel, and its **Block Model** will be shown in the central
-**Diagram Canvas**. (In the current version of **Pangalaxian**, the **Diagram
+**Diagram Canvas**. (In the current version of **CATTENS**, the **Diagram
 Canvas** is not editable; in a future version it will be editable.)
 
 ![Drag/Drop Library Item To View](images/comp_mode_drag_to_view.png "Drag/Drop Library Item To View")
@@ -610,7 +610,7 @@ The **System Tree** (bottom left panel) is an editable widget that supports
 *drag and drop*.  The **Systems Dashboard** (top panel) is automatically synced
 with the **System Tree** and displays an expandable table of system parameters
 that is computed and updated in real-time, even in collaborative operations --
-i.e. when several **Pangalaxian** clients are connected via the **message bus** and
+i.e. when several **CATTENS** clients are connected via the **message bus** and
 are collaboratively building a system assembly.
 
 To add a component to a node in the **System Tree**, the user can <font
@@ -683,7 +683,7 @@ by clicking on that column's heading.  Columns can be rearranged by drag/drop
 
 The **Object Viewer/Editor** provides an interface to all properties and
 parameters of an object.  In ***[View Mode]*** (shown here) any user can
-inspect any object in **Pangalaxian**.  If the user has edit permission for an
+inspect any object in **CATTENS**.  If the user has edit permission for an
 object, an *Edit* button will be displayed (see ***[Edit Mode]*** section,
 below).
 
@@ -809,7 +809,7 @@ their **owner** project or organization.
 # Tasks: How do I ...
 
 ### Create a new System or Component?
-Pangalaxian has 2 ways to do that:
+CATTENS has 2 ways to do that:
 
 1. **Use the System / Component Wizard** ...  
    In the **Create** menu, select the option
@@ -828,7 +828,7 @@ behavior that must be implemented by a system.
 
 A **MEL** is a specialized bill of materials report, which takes the form of an
 *Excel* file in the standard format specified in **"GSFC's MEL Guidance for
-Proposals"** (Nov 2016 version).  See the **Pangalaxian**
+Proposals"** (Nov 2016 version).  See the **CATTENS**
 *[Write Mel function](#write-mel...)*.
 
 ### Model
@@ -863,12 +863,12 @@ some measurable property or behavior of a system.
 
 ### Product (a.k.a. System, Subsystem, Component, Part)
 
-The **Product** object in **Pangalaxian** corresponds to a *specification* or *data
+The **Product** object in **CATTENS** corresponds to a *specification* or *data
 sheet* -- i.e., an "as-designed" **Product**.  **Product** objects can be
 either black box entities, such as vendor parts whose internal components and
 structure are not known to the user, or white box entities, such as in-house
 systems whose internals are known.  In-house built or customized **Products**
-may be explicitly versioned in **Pangalaxian** using the **Product** *version*
+may be explicitly versioned in **CATTENS** using the **Product** *version*
 attribute, but that is not required.  For externally-specified (e.g. vendor)
 **Products**, whose versioning is not controlled in-house, the *version*
 attribute is not used but the item's version may be inferred from its other
