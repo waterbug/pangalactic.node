@@ -5310,7 +5310,12 @@ class Main(QMainWindow):
         webbrowser.open_new(ug_url)
 
     def show_ref_manual(self):
-        ref_path = os.path.join(orb.home, 'docs', 'reference.html')
+        app_name = config.get('app_name', '')
+        if app_name.startswith('CATTENS'):
+            ref_name = 'cattens_reference.html'
+        else:
+            ref_name = 'reference.html'
+        ref_path = os.path.join(orb.home, 'docs', ref_name)
         ref_url = f'file://{ref_path}'
         webbrowser.open_new(ref_url)
 
