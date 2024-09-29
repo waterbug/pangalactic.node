@@ -3,7 +3,7 @@
 Wizards
 """
 import os, re
-# import pprint
+import pprint
 from collections import OrderedDict as OD
 from datetime import datetime
 from textwrap import wrap
@@ -142,17 +142,18 @@ class DataImportWizard(QWizard):
         sheet_names = list(datasets.keys())
         dataset = datasets[sheet_names[0]]
         first_col_names = dataset.pop(0)
-        # orb.log.debug(f'  - col names: {first_col_names}')
+        orb.log.debug(f'  - col names: {first_col_names}')
         first_col_lowered = []
         blank_col = False
         for n in first_col_names:
             if n and isinstance(n, str):
+                n = ' '.join(n.split('\n'))  # in case multi-line
                 first_col_lowered.append(n.casefold())
             else:
                 blank_col = True
-        # orb.log.debug(f'    lowered: {first_col_lowered}')
+        orb.log.debug(f'    lowered: {first_col_lowered}')
         aliases = STD_ALIASES.get(object_type, []) or []
-        # orb.log.debug(f'    aliases: {aliases}')
+        orb.log.debug(f'    aliases: {aliases}')
         if (not blank_col and object_type in STD_ALIASES and
             all([(a in aliases) for a in first_col_lowered])):
             # all match -- only add ObjectCreationPage ...
@@ -320,7 +321,7 @@ class DataHeaderPage(QWizardPage):
         self.hbox.addLayout(self.vbox)
 
     def initializePage(self):
-        # orb.log.debug('* DataHeaderPage')
+        orb.log.debug('* DataHeaderPage')
         # TODO:  check self.vbox for a column listing from a previous
         # instantiation -- if one is found, remove it ...
         ds_name = data_wizard_state["dataset_name"]
@@ -675,7 +676,7 @@ class MappingPage(QWizardPage):
         dispatcher.connect(self.on_dedef_drop, 'dedef drop')
 
     def initializePage(self):
-        # orb.log.debug('* MappingPage.initializePage()')
+        orb.log.debug('* MappingPage.initializePage()')
         if not self.widgets_added:
             self.add_widgets()
         # after adding all widgets, redo the mapping area for proper sizing
@@ -733,7 +734,7 @@ class MappingPage(QWizardPage):
         self.updateGeometry()
 
     def add_widgets(self):
-        # orb.log.debug('* MappingPage.add_widgets()')
+        orb.log.debug('* MappingPage.add_widgets()')
         # button to pop up instructions
         instructions_button = QPushButton('View Instructions')
         instructions_button.clicked.connect(self.instructions)
@@ -846,8 +847,8 @@ class MappingPage(QWizardPage):
         for i, row in enumerate(new_dataset):
             dictified.append({col_name : new_dataset[i][j] for j, col_name
                               in enumerate(data_wizard_state['column_names'])})
-        # orb.log.debug('  dictified:')
-        # orb.log.debug(pprint.pformat(dictified))
+        orb.log.debug('  dictified:')
+        orb.log.debug(pprint.pformat(dictified))
         # tablemodel = ListTableModel(new_dataset, parent=self)
         tablemodel = MappingTableModel(dictified, parent=self)
         if hasattr(self, 'tableview'):
@@ -937,7 +938,7 @@ class ObjectCreationPage(QWizardPage):
             orb.delete(self.objs)
             self.objs = []
         col_map = data_wizard_state['col_map']
-        # orb.log.debug(f'* column mapping: {col_map}')
+        orb.log.debug(f'* column mapping: {col_map}')
 
         self.dataset = data_wizard_state['selected_dataset']
         text = f'Creating {self.object_type} objects from Excel data ...'
@@ -1014,9 +1015,10 @@ class ObjectCreationPage(QWizardPage):
                         except:
                             # if cast fails, ignore that field
                             orb.log.info(f'  - update of field "{a}" failed.')
+                    obj.owner = self.project
                     obj.modifier = user
                     obj.mod_datetime = NOW
-                elif ID:
+                else:
                     orb.log.debug(f'  - creating rqt for row {i} ...')
                     if 'level' not in kw:
                         kw['level'] = 1
@@ -1031,6 +1033,8 @@ class ObjectCreationPage(QWizardPage):
                                 kw['id'] = next_id
                                 cur_ids.append(next_id)
                                 break
+                    new_id = kw['id']
+                    orb.log.debug(f'    with id {new_id}')
                     obj = clone('Requirement', **kw)
                     obj.creator = user
                     obj.modifier = user
