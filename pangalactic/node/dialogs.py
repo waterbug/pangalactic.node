@@ -2035,12 +2035,15 @@ class SelectHWColsDialog(QDialog):
         fields = [name for name in schema['field_names']
                   if (name not in M2M and name not in ONE2M)]
         fields.sort(key=lambda x: x.lower())
-        n = len(fields) // 2
-        form = QFormLayout()
-        r_form = QFormLayout()
-        hbox = QHBoxLayout()
-        hbox.addLayout(form)
-        hbox.addLayout(r_form)
+        flen = len(fields)
+        f = flen // 5
+        if flen % 5:
+            field_forms = {i : QFormLayout() for i in range(f + 1)}
+        else:
+            field_forms = {i : QFormLayout() for i in range(f)}
+        fields_hbox = QHBoxLayout()
+        for form in field_forms.values():
+            fields_hbox.addLayout(form)
         self.checkboxes = {}
         for i, col in enumerate(fields):
             label = QLabel(get_attr_ext_name('HardwareProduct', col), self)
@@ -2052,11 +2055,9 @@ class SelectHWColsDialog(QDialog):
                 self.checkboxes[col].setChecked(True)
             else:
                 self.checkboxes[col].setChecked(False)
-            if i < n:
-                form.addRow(self.checkboxes[col], label)
-            else:
-                r_form.addRow(self.checkboxes[col], label)
-        vbox.addLayout(hbox)
+            idx = i // 5
+            field_forms[idx].addRow(self.checkboxes[col], label)
+        vbox.addLayout(fields_hbox)
 
         # Parameters
         parm_sep = HLine()
@@ -2067,11 +2068,11 @@ class SelectHWColsDialog(QDialog):
         plen = len(parameters)
         m = plen // 10
         if plen % 10:
-            forms = {i : QFormLayout() for i in range(m + 1)}
+            parm_forms = {i : QFormLayout() for i in range(m + 1)}
         else:
-            forms = {i : QFormLayout() for i in range(m)}
+            parm_forms = {i : QFormLayout() for i in range(m)}
         parm_hbox = QHBoxLayout()
-        for form in forms.values():
+        for form in parm_forms.values():
             parm_hbox.addLayout(form)
         parameters.sort(key=lambda x: (parm_defz.get(x, {}).get('name')
                                        or x).lower())
@@ -2093,7 +2094,7 @@ class SelectHWColsDialog(QDialog):
             else:
                 self.checkboxes[col].setChecked(False)
             idx = i // 10
-            forms[idx].addRow(self.checkboxes[col], label)
+            parm_forms[idx].addRow(self.checkboxes[col], label)
         vbox.addLayout(parm_hbox)
 
         # Data Elements
@@ -2103,13 +2104,13 @@ class SelectHWColsDialog(QDialog):
             '<h3><font color="purple">Data Elements</font></h3>')
         vbox.addWidget(de_label)
         dlen = len(data_elements)
-        d = dlen // 10
-        if dlen % 10:
-            forms = {i : QFormLayout() for i in range(d + 1)}
+        d = dlen // 5
+        if dlen % 5:
+            de_forms = {i : QFormLayout() for i in range(d + 1)}
         else:
-            forms = {i : QFormLayout() for i in range(d)}
+            de_forms = {i : QFormLayout() for i in range(d)}
         de_hbox = QHBoxLayout()
-        for form in forms.values():
+        for form in de_forms.values():
             de_hbox.addLayout(form)
         data_elements.sort(key=lambda x: (de_defz.get(x, {}).get('name')
                                        or de_defz.get(x, {}).get('name')
@@ -2131,8 +2132,8 @@ class SelectHWColsDialog(QDialog):
                 self.checkboxes[col].setChecked(True)
             else:
                 self.checkboxes[col].setChecked(False)
-            idx = i // 10
-            forms[idx].addRow(self.checkboxes[col], label)
+            idx = i // 5
+            de_forms[idx].addRow(self.checkboxes[col], label)
         vbox.addLayout(de_hbox)
 
         button_sep = HLine()
