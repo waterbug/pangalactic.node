@@ -1271,6 +1271,7 @@ class DisplayNotesDialog(QDialog):
         vbox = QVBoxLayout(self)
         title = ColorLabel(f'<h3>Notes on {obj.name}</h3>', parent=self)
         vbox.addWidget(title)
+        self.editor = QTextEdit()
         self.editor.setFrameStyle(QFrame.Sunken)
         display_txt = obj.description or ''
         self.editor.setText(display_txt)
