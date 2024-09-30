@@ -1120,31 +1120,31 @@ class TimelineWidget(QWidget):
                     t_seq = [get_pval(a.oid, 't_start', units=time_units)
                              for a in subacts]
                 def f_scalar(t):
-                        a = all_acts[-1]
-                        for i in range(len(all_acts) - 1):
-                            if (t_seq[i] <= t) and (t < t_seq[i+1]):
-                                a = all_acts[i]
-                        modal_context = get_modal_context(project.oid,
-                                                          usage.oid,
-                                                          a.oid)
-                        # orb.log.debug(f'  modal context: {modal_context}')
-                        p_cbe_val = get_modal_power(project.oid,
-                                                    usage.oid, comp.oid,
-                                                    a.oid, modal_context)
-                        if context == "CBE":
-                            # orb.log.debug('  context: CBE')
-                            # orb.log.debug(f'  P[cbe]: {p_cbe_val}')
-                            return p_cbe_val
-                        else:
-                            # context == "MEV"
-                            # orb.log.debug('  context: MEV')
-                            ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
-                            factor = 1.0 + ctgcy
-                            # NOTE: round_to automatically uses user pref for
-                            # numeric precision
-                            p_mev_val = round_to(p_cbe_val * factor)
-                            # orb.log.debug(f'  P[mev]: {p_mev_val}')
-                            return p_mev_val
+                    a = all_acts[-1]
+                    for i in range(len(all_acts) - 1):
+                        if (t_seq[i] <= t) and (t < t_seq[i+1]):
+                            a = all_acts[i]
+                    modal_context = get_modal_context(project.oid,
+                                                      usage.oid,
+                                                      a.oid)
+                    # orb.log.debug(f'  modal context: {modal_context}')
+                    p_cbe_val = get_modal_power(project.oid,
+                                                usage.oid, comp.oid,
+                                                a.oid, modal_context)
+                    if context == "CBE":
+                        # orb.log.debug('  context: CBE')
+                        # orb.log.debug(f'  P[cbe]: {p_cbe_val}')
+                        return p_cbe_val
+                    else:
+                        # context == "MEV"
+                        # orb.log.debug('  context: MEV')
+                        ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
+                        factor = 1.0 + ctgcy
+                        # NOTE: round_to automatically uses user pref for
+                        # numeric precision
+                        p_mev_val = round_to(p_cbe_val * factor)
+                        # orb.log.debug(f'  P[mev]: {p_mev_val}')
+                        return p_mev_val
                 def f(t):
                     if isinstance(t, float):
                         return f_scalar
