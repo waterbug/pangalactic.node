@@ -316,11 +316,11 @@ class CompoundLibraryWidget(QWidget):
 
     Attributes:
         libraries (dict):  a dictionary that maps the name of the class
-            displayed in a library view widget (LibraryListView instance) to
-            the widget
+            displayed in a library view widget (FilterPanel or LibraryListView)
+            to the widget
         library_indexes (dict):  a dictionary that maps the name of the class
-            displayed in a library view (LibraryListView instance) to the index
-            of the library view in the QStackedLayout
+            displayed in a library view (FilterPanel or LibraryListView) to the
+            index of the library view in the QStackedLayout
     """
 
     obj_modified = pyqtSignal(str)          # arg: oid
@@ -381,7 +381,7 @@ class CompoundLibraryWidget(QWidget):
     def create_lib_widget(self, cname, include_subtypes=True, icon_size=None,
                           min_width=None):
         """
-        Creates an instance of 'FilterPanel' or 'LibraryListView' for the
+        Creates an instance of FilterPanel or LibraryListView for the
         specified class name (cname), sets it as the self.libraries dict entry
         for the cname, adds it to the stacked widgets, and adds the cname's
         display name to the 'library_select' combo box.
@@ -494,18 +494,25 @@ class CompoundLibraryWidget(QWidget):
         if cname:
             cnames = [cname]
         for cname in cnames:
-            lib_widget = self.libraries.get(cname)
-            if hasattr(lib_widget, 'refresh'):
-                # orb.log.debug(f"  lib_widget.refresh() for {cname}")
-                lib_widget.refresh()
-            elif (hasattr(lib_widget, 'model') and
-                  hasattr(lib_widget.model(), 'refresh')):
-                # orb.log.debug("  lib_widget.model().refresh()")
-                # orb.log.debug(f"  for {cname}")
-                lib_widget.model().refresh()
-            # call on_only_mine_toggled() to ensure filtering is consistent
-            # with state after a refresh
-            self.on_only_mine_toggled()
+            if cname == "HardwareProduct":
+                # select_product_types is effective in updating HW lib
+                hw_lib = self.libraries.get('HardwareProduct')
+                if hw_lib:
+                    msg = getattr(self, 'msg', '')
+                    product_types = getattr(self, 'product_types', None)
+                    select_product_types(hw_lib, msg=msg,
+                                         only_mine=state.get('only_mine'),
+                                         product_types=product_types)
+            else:
+                lib_widget = self.libraries.get(cname)
+                if hasattr(lib_widget, 'refresh'):
+                    # orb.log.debug(f"  lib_widget.refresh() for {cname}")
+                    lib_widget.refresh()
+                elif (hasattr(lib_widget, 'model') and
+                      hasattr(lib_widget.model(), 'refresh')):
+                    # orb.log.debug("  lib_widget.model().refresh()")
+                    # orb.log.debug(f"  for {cname}")
+                    lib_widget.model().refresh()
 
     def on_hw_lib_dlg_closed(self):
         self.refresh(cname='HardwareProduct')
