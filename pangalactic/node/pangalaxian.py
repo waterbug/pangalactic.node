@@ -2112,13 +2112,13 @@ class Main(QMainWindow):
             # TODO: set up state as a dict {cname : [list of oids]} so adds /
             # mods can be done using orb.get() then add|mod|del_object()
             # ================================================================
+            oid = obj.oid
+            cname = obj.__class__.__name__
             # ================================================================
             if self.mode == 'db' and cname == state.get('current_cname'):
                 # object is in the current db table ...
                 state['update db table'] = True
             # ================================================================
-            oid = obj.oid
-            cname = obj.__class__.__name__
             if cname in ['ParameterDefinition',
                          'DataElementDefinition',
                          'HardwareProduct',
