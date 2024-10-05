@@ -798,7 +798,12 @@ class FilterPanel(QWidget):
         if self.cname == 'Requirement':
             # for Reqt Manager, show grid
             self.proxy_view.setShowGrid(True)
-        self.filter_pattern_line_edit.textChanged.connect(
+        # NOTE:  filtering as you type gets very laggy when the contents of the
+        # filter table are large -- use editingFinished (i.e., Enter) to
+        # trigger filtering
+        # self.filter_pattern_line_edit.textChanged.connect(
+                                                        # self.textFilterChanged)
+        self.filter_pattern_line_edit.editingFinished.connect(
                                                         self.textFilterChanged)
         self.filter_case_checkbox.toggled.connect(self.textFilterChanged)
         self.textFilterChanged()
@@ -968,6 +973,7 @@ class FilterPanel(QWidget):
 
     def clear_text(self):
         self.filter_pattern_line_edit.setText("")
+        self.filter_pattern_line_edit.editingFinished.emit()
 
     def textFilterChanged(self):
         if self.filter_case_checkbox.isChecked():
