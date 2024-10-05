@@ -1325,20 +1325,18 @@ class Main(QMainWindow):
             state['deleted_oids'] = deleted
             local_objs_to_del = orb.get(oids=server_deleted_oids)
             if local_objs_to_del:
-                # deleted_oids = {o.oid : o.__class__.__name__
-                                # for o in local_objs_to_del}
                 n = len(local_objs_to_del)
                 orb.log.debug(f'  - {n} object(s) found in local db ...')
                 for obj in local_objs_to_del:
                     cname = obj.__class__.__name__
                     obj_id = getattr(obj, 'id', 'unknown id')
                     orb.log.debug(f'    {obj_id} ({cname})')
-                # NOTE:  doing the remote_deleted_object thing here is way too
-                # cumbersome ... just delete the local objects!
                 orb.log.debug('  - deleting them ...')
                 orb.delete(local_objs_to_del)
-                # for oid, cname in deleted_oids.items():
-                    # self.remote_deleted_object.emit(oid, cname)
+                if cname:
+                    # if multiple deletes, they will need to be looked up from
+                    # state['deleted_oids']
+                    state['updates_needed_for_remote_obj_deletion'] = cname
             else:
                 orb.log.debug('        none were found in local db.')
         if user_objs_sync:
@@ -4030,7 +4028,10 @@ class Main(QMainWindow):
                     # block in the current diagram
                     self.system_model_window.on_signal_to_refresh()
             elif self.mode == 'db':
-                self.set_db_interface()
+                filter_panel = getattr(self, 'object_tableview', None)
+                if filter_panel:
+                    # if the oid is not in the table, it will be ignored
+                    filter_panel.remove_object(oid)
             elif (self.mode == 'component' and
                 cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
                           'Port', 'Flow']):
@@ -4121,8 +4122,7 @@ class Main(QMainWindow):
 
     def on_remote_deleted_object(self, oid, cname):
         """
-        Handle remote object deletions (and handle pyqtSignal
-        "remote_deleted_object").
+        Handle pyqtSignal "remote_deleted_object".
         """
         orb.log.info('* pgxn.on_remote_deleted_object()')
         obj_oid = oid
@@ -5207,10 +5207,9 @@ class Main(QMainWindow):
             # very important to set None: its C++ object is gone now ...
             self.cname_list = None
         # set current left dock widget to 'cname_list'
-        # ********************************************************
-        # db view:  class selection list (tables)
-        # ********************************************************
-        # cname_list (for selecting class names -> db tables)
+        # *********************************************************
+        # db view (cname_list corresponds to db tables)
+        # *********************************************************
         if not getattr(self, 'cname_list', None):
             self.cname_list = AutosizingListWidget(parent=self)
             self.cname_list.setSizePolicy(QSizePolicy.Fixed,

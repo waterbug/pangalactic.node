@@ -60,30 +60,22 @@ The **Input** menu provides functions to import data or objects.
 
 ![Input](images/input_menu.png "Input Menu")
 
-#### An Important Note about Importing Data from Exported Data Files
+### Import Requirements from Excel...
 
-Note that although **Pangalaxian** can import data from a file that has been
-created using the export functions, importing data that contains objects that
-were created by other users should not be done by a non-administrative user
-because of data synchronization issues with the repository:  when the user logs
-in after importing data, the repository sync process will delete any objects
-not created by the local user unless they already exist in the repository.
-That is because the repository only allows users to save objects that they
-create or are authorized to modify, so when **Pangalaxian** sends data to the
-repository for synchronization and the data contains an object that was created
-by another user but the object is not present in the repository, the repository
-assumes that the object was deleted either by its creator or by an authorized
-user, so the repository will instruct **Pangalaxian** to delete the object locally.
+Enables the user to import all **[Requirements](#requirement)** from an
+Excel file that was created using the
 
-For the above reasons, if a user wants to recreate all or part of a saved
-database or project that contains objects created by other users, the best way
-to do that is to send the exported file to the repository administrator and ask
-them to load it; then if the user is assigned a role in the project(s) or
-organization(s) that own(s) the data, their **Pangalaxian** client will receive
-that data in the sync process the next time the user connects to the
-repository.
+Clicking this menu item opens a file dialog so the user can select the file to
+be imported -- when the file is selected, the import process begins.  Progress
+is shown by messages in the status bar.
 
-### Import Objects from a File...
+### Import Products from Excel...
+
+Enables the user to import selected **[Products](#product)** from an Excel
+file. Clicking this menu item opens a file dialog so the user can select the
+file to be imported.
+
+### Import Serialized Objects...
 
 Enables the user to import a **[Project](#project)** (including all its systems
 and their assemblies) from a file that was created using the
@@ -93,16 +85,30 @@ Clicking this menu item opens a file dialog so the user can select the file to
 be imported -- when the file is selected, the import process begins.  Progress
 is shown by messages in the status bar.
 
-### Import Project Requirements from a File...
+#### An Important Note about Importing Data from Exported Data Files
 
-Enables the user to import all **[Requirements](#requirement)** from a
-file that was created using the
-**[Export Project Requirements to a File](#export-project-requirements-to-a-file...)**
-function.
+Note that although **Pangalaxian** can import data from a file that has been
+created using the **Export Project to a File...** function (which uses a
+Pangalaxian-specific serialization), importing data that contains objects that
+were created by other users should not be done by a non-administrative user
+because of data synchronization issues with the repository:  when the user logs
+in after importing data, the repository sync process will delete any objects
+not created by the local user unless they already exist in the repository.
+That is because the repository only allows users to save objects that they
+create or are authorized to modify, so when **Pangalaxian** sends data to the
+repository for synchronization and the data contains an object that was created
+by another user but the object is not present in the repository, the repository
+assumes that the object was deleted either by its creator or by an authorized
+user, so the repository will not save the object and will instruct
+**Pangalaxian** to delete the object from its local database.
 
-Clicking this menu item opens a file dialog so the user can select the file to
-be imported -- when the file is selected, the import process begins.  Progress
-is shown by messages in the status bar.
+For the above reasons, if a user wants to recreate all or part of a saved
+database or project that contains objects created by other users, the best way
+to do that is to send the exported file to the repository administrator and ask
+them to load it; then if the user is assigned a role in the project(s) or
+organization(s) that own(s) the data, their **Pangalaxian** client will receive
+that data in the sync process the next time the user connects to the
+repository.
 
 ## Menu: Output
 
@@ -861,14 +867,15 @@ A **Parameter Definition** specifies the *symbol* (a.k.a. *id*), *datatype*,
 A **Performance Requirement** is a **[Requirement](#requirement)** that places a constraint on
 some measurable property or behavior of a system.
 
-### Product (a.k.a. System, Subsystem, Component, Part)
+### Product
 
-The **Product** object in **Pangalaxian** corresponds to a *specification* or *data
-sheet* -- i.e., an "as-designed" **Product**.  **Product** objects can be
-either black box entities, such as vendor parts whose internal components and
-structure are not known to the user, or white box entities, such as in-house
-systems whose internals are known.  In-house built or customized **Products**
-may be explicitly versioned in **Pangalaxian** using the **Product** *version*
+The **Product** object (a.k.a. System, Subsystem, Component, Part) in
+**Pangalaxian** corresponds to a *specification* or *data sheet* -- i.e., an
+"as-designed" **Product**.  **Product** objects can be either black box
+entities, such as vendor parts whose internal components and structure are not
+known to the user, or white box entities, such as in-house systems whose
+internals are known.  In-house built or customized **Products** may be
+explicitly versioned in **Pangalaxian** using the **Product** *version*
 attribute, but that is not required.  For externally-specified (e.g. vendor)
 **Products**, whose versioning is not controlled in-house, the *version*
 attribute is not used but the item's version may be inferred from its other

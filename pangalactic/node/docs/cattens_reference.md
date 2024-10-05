@@ -1,10 +1,10 @@
-% CATTENS Engineering Framework Reference
+% CATTENS Reference
 % Stephen Waterbury / Code 585
 % v. 1.8
 
 # Overview:  The CATTENS Architecture
 
-**CATTENS**  is a Collaborative
+**The CATTENS**  is a Collaborative
 Model-Based Engineering (MBE) framework, consisting of a **Desktop Client**, a
 network **Message Bus**, and a repository service network interface that
 provides access to a **Systems Database** and **Systems and Components
