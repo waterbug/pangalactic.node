@@ -393,8 +393,13 @@ class Main(QMainWindow):
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
+        ##################################################################
+        # NOTE:  the "remote: decloaked" and "remote: new" signals are NOT
+        # CURRENTLY BEING USED!  on_received_objects is being called directly
+        # by on_pubsub_msg() ...
         dispatcher.connect(self.on_received_objects, 'remote: decloaked')
         dispatcher.connect(self.on_received_objects, 'remote: new')
+        ##################################################################
         dispatcher.connect(self.on_drop_product, 'drop on product info')
         dispatcher.connect(self.on_drill_down, 'diagram object drill down')
         dispatcher.connect(self.on_comp_back, 'comp modeler back')
@@ -2107,7 +2112,11 @@ class Main(QMainWindow):
             # TODO: set up state as a dict {cname : [list of oids]} so adds /
             # mods can be done using orb.get() then add|mod|del_object()
             # ================================================================
-            # cname = obj.__class__.__name__
+            # ================================================================
+            if self.mode == 'db' and cname == state.get('current_cname'):
+                # object is in the current db table ...
+                state['update db table'] = True
+            # ================================================================
             oid = obj.oid
             cname = obj.__class__.__name__
             if cname in ['ParameterDefinition',
@@ -2159,14 +2168,6 @@ class Main(QMainWindow):
             elif cname == 'Activity':
                 orb.log.debug(f'  received Activity "{obj.name}"')
                 new_or_modified_acts.append(obj)
-            # ================================================================
-            # TODO: use add|mod|del_object in db table for cname
-            # (commented for now because unwise to do GUI updates here)
-            # ================================================================
-            # if self.mode == 'db':
-                # orb.log.debug('  updating db views with: "{}"'.format(obj.id))
-                # self.refresh_cname_list()
-                # self.set_object_table_for(cname)
         if to_delete:
             # delete any SANDBOX PSUs that were received
             orb.delete(to_delete)
@@ -3183,7 +3184,7 @@ class Main(QMainWindow):
                              'PortType']:
                     state["lib updates needed"] = True
             if self.mode == 'db' and cname == state.get('current_cname'):
-                # if object is in the current db table ...
+                # object is in the current db table ...
                 state['update db table'] = True
             if state.get('connected'):
                 # SANDBOX PSUs are not saved to the server
@@ -4140,6 +4141,9 @@ class Main(QMainWindow):
             # and diagram subject to the project and refresh the diagram
             selected_sys_oid = state['system'].get(state.get('project'))
             orb.log.debug(f'  deleted {cname} exists in local db ...')
+            if self.mode == 'db' and cname == state.get('current_cname'):
+                # object is in the current db table ...
+                state['update db table'] = True
             if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
                 relevant_obj_oid = None
                 if cname == 'HardwareProduct':
