@@ -5247,7 +5247,7 @@ class Main(QMainWindow):
             cname = state.get('current_cname', 'HardwareProduct')
         else:
             cname = self.cnames[idx]
-        if not cname == cur_cname:
+        if not (cname == cur_cname):
             state['current_cname'] = str(cname)
             # orb.log.debug('  - class: "%s"' % cname)
             self.set_object_table_for(cname)
