@@ -306,7 +306,11 @@ def select_product_types(lib_view, msg='', only_mine=False,
         if local_user:
             hw = [h for h in hw if h.creator == local_user]
     if hasattr(lib_view, 'cur_filter_label') and label_text:
-        lib_view.cur_filter_label.setText(label_text)
+        try:
+            lib_view.cur_filter_label.setText(label_text)
+        except:
+            # label's C++ object got deleted
+            pass
     lib_view.set_source_model(lib_view.create_model(hw))
 
 
@@ -519,8 +523,10 @@ class CompoundLibraryWidget(QWidget):
 
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
-        self.filter_dlg.product_types_selected.connect(
-                                self.on_product_types_selected_signal)
+        # self.filter_dlg.product_types_selected.connect(
+                                # self.on_product_types_selected_signal)
+        dispatcher.connect(self.on_product_types_selected,
+                           "product types selected")
         self.filter_dlg.show()
 
     def clear_product_filters(self):
@@ -645,8 +651,10 @@ class LibraryDialog(QDialog):
 
     def show_ext_filters(self):
         self.filter_dlg = ProductFilterDialog(self)
-        self.filter_dlg.product_types_selected.connect(
-                                self.on_product_types_selected_signal)
+        # self.filter_dlg.product_types_selected.connect(
+                                # self.on_product_types_selected_signal)
+        dispatcher.connect(self.on_product_types_selected,
+                           "product types selected")
         self.filter_dlg.show()
 
     def clear_product_filters(self):

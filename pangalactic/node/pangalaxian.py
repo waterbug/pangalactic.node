@@ -95,10 +95,11 @@ from pangalactic.node.dialogs          import (FullSyncDialog,
                                                ObjectSelectionDialog,
                                                ParmDefsDialog, PrefsDialog,
                                                ProgressDialog, VersionDialog)
-from pangalactic.node.filters          import FilterPanel
+from pangalactic.node.filters          import FilterPanel, ProductFilterDialog
 from pangalactic.node.interface42      import SC42Window
 from pangalactic.node.libraries        import (LibraryDialog,
-                                               CompoundLibraryWidget)
+                                               CompoundLibraryWidget,
+                                               select_product_types)
 from pangalactic.node.message_bus      import PgxnMessageBus
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
 from pangalactic.node.optics           import LinearOpticalModelViewer
@@ -164,7 +165,7 @@ class Main(QMainWindow):
     deleted_object = pyqtSignal(str, str)         # args: oid, cname
     new_object = pyqtSignal(str)                  # args: oid
     mod_object = pyqtSignal(str)                  # args: oid
-    remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
+    # remote_deleted_object = pyqtSignal(str, str)  # args: oid, cname
     remote_frozen = pyqtSignal(list)              # args: list of oids
     remote_thawed = pyqtSignal(list)              # args: list of oids
     refresh_admin_tool = pyqtSignal()
@@ -339,7 +340,7 @@ class Main(QMainWindow):
         self.deleted_object.connect(self.del_object)
         self.new_object.connect(self.on_new_object_qtsignal)
         self.mod_object.connect(self.on_mod_object_qtsignal)
-        self.remote_deleted_object.connect(self.on_remote_deleted_object)
+        # self.remote_deleted_object.connect(self.on_remote_deleted_object)
         # connect dispatcher signals ...
         dispatcher.connect(self.on_log_info_msg, 'log info msg')
         dispatcher.connect(self.on_log_debug_msg, 'log debug msg')
@@ -1834,7 +1835,12 @@ class Main(QMainWindow):
                     obj_id = obj.id
                     cname = obj.__class__.__name__
                     log_msg += obj_id
-                    self.remote_deleted_object.emit(obj_oid, cname)
+                    # self.remote_deleted_object.emit(obj_oid, cname)
+                    # -----------------------------------------
+                    # NOTE: VERY IMPORTANT TO USE remote=True
+                    # -----------------------------------------
+                    dispatcher.send(signal="deleted object", oid=obj_oid,
+                                    cname=cname, remote=True)
             elif subject == 'frozen':
                 # content is a list of tuples:
                 #   (obj.oid, str(obj.mod_datetime), obj.modifier.oid) 
@@ -4120,101 +4126,105 @@ class Main(QMainWindow):
                 orb.log.debug('     trying to reconnect ...')
                 self.set_bus_state()
 
-    def on_remote_deleted_object(self, oid, cname):
-        """
-        Handle pyqtSignal "remote_deleted_object".
-        """
-        orb.log.info('* pgxn.on_remote_deleted_object()')
-        obj_oid = oid
-        orb.log.info('  oid: {}'.format(obj_oid))
-        # notify widgets looking for "deleted object" signal ...
-        # -----------------------------------------
-        # NOTE: VERY IMPORTANT TO USE remote=True
-        # -----------------------------------------
-        dispatcher.send(signal="deleted object", oid=oid, cname=cname,
-                        remote=True)
-        deleted_obj = orb.get(obj_oid or '')
-        if deleted_obj:
-            # NOTE (SCW 2023-01-14) new state key, used by get_parmz()
-            state['updates_needed_for_remote_obj_deletion'] = cname
-            # if deleted object was the selected system, set selected system
-            # and diagram subject to the project and refresh the diagram
-            selected_sys_oid = state['system'].get(state.get('project'))
-            orb.log.debug(f'  deleted {cname} exists in local db ...')
-            if self.mode == 'db' and cname == state.get('current_cname'):
-                # object is in the current db table ...
-                state['update db table'] = True
-            if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
-                relevant_obj_oid = None
-                if cname == 'HardwareProduct':
-                    relevant_obj_oid = obj_oid
-                    state['lib updates needed'] = True
-                elif cname == 'Acu':
-                    # don't crash if acu is corrupted ...
-                    try:
-                        relevant_obj_oid = deleted_obj.component.oid
-                    except:
-                        pass
-                    state['lib updates needed'] = True
-                elif cname == 'ProjectSystemUsage':
-                    # don't crash if psu is corrupted ...
-                    try:
-                        relevant_obj_oid = deleted_obj.system.oid
-                    except:
-                        pass
-                orb.delete([deleted_obj])
-                orb.log.debug('  deleted.')
-                if relevant_obj_oid and selected_sys_oid == relevant_obj_oid:
-                    if (state.get('component_modeler_history') and
-                    relevant_obj_oid in state['component_modeler_history']):
-                        state['component_modeler_history'].remove(relevant_obj_oid)
-                    orb.log.info('  deleted object was selected system')
-                    state['system'][state['project']] = state['project']
-                    # NOTE: not currently using system_model_window.history
-                    # (was broken ... fixed now?)
-                    if hasattr(self, 'system_model_window'):
-                        try:
-                            orb.log.info('  set diagram subject to project')
-                            self.system_model_window.history.pop()
-                            self.system_model_window.on_set_selected_system(
-                                                            self.project.oid)
-                        except:
-                            orb.log.info('  setting diagram subject failed')
-                            # diagram model window C++ object got deleted
-                            pass
-            elif cname == 'RoleAssignment':
-                if deleted_obj.assigned_to is self.local_user:
-                    # TODO: if removed role assignment was the last one for
-                    # this user on the project, switch to SANDBOX project
-                    html = '<h3>Your role:</h3>'
-                    html += '<p><b><font color="green">{}</font></b>'.format(
-                                                deleted_obj.assigned_role.name)
-                    html += ' in <b><font color="green">{}</font>'.format(
-                            getattr(deleted_obj.role_assignment_context, 'id',
-                                    'global context'))
-                    html += '<br> has been removed.</b></p>'
-                    self.w = NotificationDialog(html, parent=self)
-                    self.w.show()
-                orb.delete([deleted_obj])
-                orb.log.debug('  deleted.')
-            elif cname in ['Mission', 'Activity']:
-                # DO NOT delete here if conops is running, it will handle the
-                # "deleted object" signal ...
-                if not state.get("conops"):
-                    objs_to_delete = [deleted_obj]
-                    subacts = getattr(deleted_obj, 'sub_activities', [])
-                    if subacts:
-                        # if it has sub_activities, delete them too
-                        objs_to_delete += subacts
-                    orb.delete(objs_to_delete)
-                    orb.log.debug('  ConOpsModeler is not running --')
-                    orb.log.debug(f'  "{cname}" object deleted.')
-            else:
-                orb.delete([deleted_obj])
-                orb.log.debug('  deleted.')
-            self.get_parmz()
-        else:
-            orb.log.debug('  oid not found in local db; ignoring.')
+    # ------------------------------------------------------------------------
+    # NOTE: self.remote_deleted_object is DEPRECATED in favor of dispatcher
+    # "deleted object" signal
+    # ------------------------------------------------------------------------
+    # def on_remote_deleted_object(self, oid, cname):
+        # """
+        # Handle pyqtSignal "remote_deleted_object".
+        # """
+        # orb.log.info('* pgxn.on_remote_deleted_object()')
+        # obj_oid = oid
+        # orb.log.info('  oid: {}'.format(obj_oid))
+        # # notify widgets looking for "deleted object" signal ...
+        # # -----------------------------------------
+        # # NOTE: VERY IMPORTANT TO USE remote=True
+        # # -----------------------------------------
+        # dispatcher.send(signal="deleted object", oid=oid, cname=cname,
+                        # remote=True)
+        # deleted_obj = orb.get(obj_oid or '')
+        # if deleted_obj:
+            # # NOTE (SCW 2023-01-14) new state key, used by get_parmz()
+            # state['updates_needed_for_remote_obj_deletion'] = cname
+            # # if deleted object was the selected system, set selected system
+            # # and diagram subject to the project and refresh the diagram
+            # selected_sys_oid = state['system'].get(state.get('project'))
+            # orb.log.debug(f'  deleted {cname} exists in local db ...')
+            # if self.mode == 'db' and cname == state.get('current_cname'):
+                # # object is in the current db table ...
+                # state['update db table'] = True
+            # if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
+                # relevant_obj_oid = None
+                # if cname == 'HardwareProduct':
+                    # relevant_obj_oid = obj_oid
+                    # state['lib updates needed'] = True
+                # elif cname == 'Acu':
+                    # # don't crash if acu is corrupted ...
+                    # try:
+                        # relevant_obj_oid = deleted_obj.component.oid
+                    # except:
+                        # pass
+                    # state['lib updates needed'] = True
+                # elif cname == 'ProjectSystemUsage':
+                    # # don't crash if psu is corrupted ...
+                    # try:
+                        # relevant_obj_oid = deleted_obj.system.oid
+                    # except:
+                        # pass
+                # orb.delete([deleted_obj])
+                # orb.log.debug('  deleted.')
+                # if relevant_obj_oid and selected_sys_oid == relevant_obj_oid:
+                    # if (state.get('component_modeler_history') and
+                    # relevant_obj_oid in state['component_modeler_history']):
+                        # state['component_modeler_history'].remove(relevant_obj_oid)
+                    # orb.log.info('  deleted object was selected system')
+                    # state['system'][state['project']] = state['project']
+                    # # NOTE: not currently using system_model_window.history
+                    # # (was broken ... fixed now?)
+                    # if hasattr(self, 'system_model_window'):
+                        # try:
+                            # orb.log.info('  set diagram subject to project')
+                            # self.system_model_window.history.pop()
+                            # self.system_model_window.on_set_selected_system(
+                                                            # self.project.oid)
+                        # except:
+                            # orb.log.info('  setting diagram subject failed')
+                            # # diagram model window C++ object got deleted
+                            # pass
+            # elif cname == 'RoleAssignment':
+                # if deleted_obj.assigned_to is self.local_user:
+                    # # TODO: if removed role assignment was the last one for
+                    # # this user on the project, switch to SANDBOX project
+                    # html = '<h3>Your role:</h3>'
+                    # html += '<p><b><font color="green">{}</font></b>'.format(
+                                                # deleted_obj.assigned_role.name)
+                    # html += ' in <b><font color="green">{}</font>'.format(
+                            # getattr(deleted_obj.role_assignment_context, 'id',
+                                    # 'global context'))
+                    # html += '<br> has been removed.</b></p>'
+                    # self.w = NotificationDialog(html, parent=self)
+                    # self.w.show()
+                # orb.delete([deleted_obj])
+                # orb.log.debug('  deleted.')
+            # elif cname in ['Mission', 'Activity']:
+                # # DO NOT delete here if conops is running, it will handle the
+                # # "deleted object" signal ...
+                # if not state.get("conops"):
+                    # objs_to_delete = [deleted_obj]
+                    # subacts = getattr(deleted_obj, 'sub_activities', [])
+                    # if subacts:
+                        # # if it has sub_activities, delete them too
+                        # objs_to_delete += subacts
+                    # orb.delete(objs_to_delete)
+                    # orb.log.debug('  ConOpsModeler is not running --')
+                    # orb.log.debug(f'  "{cname}" object deleted.')
+            # else:
+                # orb.delete([deleted_obj])
+                # orb.log.debug('  deleted.')
+            # self.get_parmz()
+        # else:
+            # orb.log.debug('  oid not found in local db; ignoring.')
 
     def del_object(self, oid, cname):
         """
@@ -5261,8 +5271,30 @@ class Main(QMainWindow):
         # tableview = ObjectTableView(objs)
         title_text = get_external_name_plural(cname)
         tableview = FilterPanel(objs, cname=cname, title=title_text)
+        if hasattr(tableview, 'ext_filters'):
+            tableview.ext_filters.clicked.connect(self.show_ext_filters)
         self.setCentralWidget(tableview)
         self.object_tableview = tableview
+
+    def show_ext_filters(self):
+        self.filter_dlg = ProductFilterDialog(self)
+        # self.filter_dlg.product_types_selected.connect(
+                                # self.on_product_types_selected_signal)
+        dispatcher.connect(self.on_product_types_selected,
+                           "product types selected")
+        self.filter_dlg.show()
+
+    def on_product_types_selected(self, msg='', objs=None):
+        orb.log.debug('* pgxn: on_product_types_selected()')
+        orb.log.debug('  objs: {}'.format(', '.join([o.id for o in objs])))
+        orb.log.debug('  msg: {}'.format(msg))
+        obj_table = getattr(self, 'object_tableview', None)
+        if obj_table:
+            self.msg = msg
+            self.product_types = objs
+            select_product_types(obj_table, msg=msg,
+                                 only_mine=state.get('only_mine'),
+                                 product_types=objs)
 
     def set_new_object_table_view(self, cname=None):
         """
@@ -6649,9 +6681,15 @@ class Main(QMainWindow):
                                                 self.open_person_dlg)
         self.admin_dlg.new_object.connect(self.on_new_object_qtsignal)
         self.admin_dlg.deleted_object.connect(self.del_object)
-        self.deleted_object.connect(self.admin_dlg.refresh_roles)
-        self.remote_deleted_object.connect(self.admin_dlg.refresh_roles)
         self.refresh_admin_tool.connect(self.admin_dlg.refresh_roles)
+        # ---------------------------------------------------------------------
+        # NOTE: self.deleted_object and self.remote_deleted_object are
+        # DEPRECATED in favor of dispatcher signal "deleted object"
+        # ---------------------------------------------------------------------
+        # self.deleted_object.connect(self.admin_dlg.refresh_roles)
+        # self.remote_deleted_object.connect(self.admin_dlg.refresh_roles)
+        # ---------------------------------------------------------------------
+        dispatcher.connect(self.admin_dlg.refresh_roles, "deleted object")
         self.admin_dlg.show()
 
     def open_person_dlg(self):

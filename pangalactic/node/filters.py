@@ -14,6 +14,8 @@ import os, re
 from functools import reduce
 from textwrap import wrap
 
+from louie import dispatcher
+
 from pangalactic.core              import orb, prefs, state
 from pangalactic.core.meta         import PGEF_COL_WIDTHS
 from pangalactic.core.names        import (get_external_name_plural,
@@ -35,7 +37,7 @@ from pangalactic.node.widgets      import ColorLabel
 
 class ProductFilterDialog(QDialog):
 
-    product_types_selected = pyqtSignal(str, list)  # args: msg, oids
+    # product_types_selected = pyqtSignal(str, list)  # args: msg, oids
 
     """
     Dialog with selectable product types and related disciplines for filtering
@@ -178,7 +180,9 @@ class ProductFilterDialog(QDialog):
         # orb.log.debug('  ... which is "{}"'.format(pt_name))
         if pt:
             msg = pt.name
-            self.product_types_selected.emit(msg, [pt.oid])
+            # self.product_types_selected.emit(msg, [pt.oid])
+            dispatcher.send(signal="product types selected", msg=msg,
+                            objs=[pt])
 
     def select_product_types(self):
         """
@@ -213,8 +217,9 @@ class ProductFilterDialog(QDialog):
             msg = 'All Product Types'
             # 'All Product Types' msg overrides pts, so don't need any pts
             pts = []
-        oids = [pt.oid for pt in pts]
-        self.product_types_selected.emit(msg, oids)
+        # oids = [pt.oid for pt in pts]
+        # self.product_types_selected.emit(msg, oids)
+        dispatcher.send(signal="product types selected", msg=msg, objs=pts)
 
 
 class ObjectSortFilterProxyModel(QSortFilterProxyModel):
