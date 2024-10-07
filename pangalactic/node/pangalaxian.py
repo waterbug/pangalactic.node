@@ -4016,6 +4016,7 @@ class Main(QMainWindow):
                 orb.log.debug('  to empty')
                 state['product'] = ''
         if not state.get('connected'):
+            # deletion was local -- do updates ...
             orb.recompute_parmz()
             if (self.mode in ['component', 'system']
                 and cname == 'HardwareProduct'):
@@ -4055,40 +4056,133 @@ class Main(QMainWindow):
                 if getattr(self, 'system_model_window', None):
                     self.system_model_window.on_signal_to_refresh()
         if remote and state.get('connected'):
-            # update library widget if one exists ...
-            lib_widget = getattr(self, 'library_widget', None)
-            if lib_widget:
-                try:
-                    lib_widget.refresh('HardwareProduct')
-                except:
-                    pass
-            # only attempt to update tree and dashboard if in "system" mode ...
-            if (self.mode in ['component', 'system']
-                and cname == 'HardwareProduct'):
-                try:
-                    self.library_widget.refresh()
-                except:
-                    pass
-            if ((self.mode == 'system') and
-                cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                          'Port', 'Flow']):
-                self.refresh_tree_and_dashboard()
-                # DIAGRAM MAY NEED UPDATING
-                if getattr(self, 'system_model_window', None):
-                    # rebuild diagram in case an object corresponded to a
-                    # block in the current diagram
-                    self.system_model_window.on_signal_to_refresh()
-            elif self.mode == 'db':
-                self.set_db_interface()
-            elif (self.mode in ['system', 'component'] and
-                  cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
-                            'Port', 'Flow']):
-                # DIAGRAM MAY NEED UPDATING
-                # update state['product'] if needed, and regenerate diagram
-                # this will set placeholders in place of PgxnObject and diagram
-                self.set_product_modeler_interface()
-                if getattr(self, 'system_model_window', None):
-                    self.system_model_window.on_signal_to_refresh()
+            # NOTE: revised to use code from on_remote_deleted_object() ...
+            # which had originally handled dispatcher "deleted object" signal
+            # but was adapted for pyqtSignal remote_deleted_object ...  arg.
+            orb.log.info('* pgxn: "deleted object" signal originated remotely')
+            obj_oid = oid
+            orb.log.info('  oid: {}'.format(obj_oid))
+            deleted_obj = orb.get(obj_oid or '')
+            if deleted_obj:
+                # NOTE (SCW 2023-01-14) new state key, used by get_parmz()
+                state['updates_needed_for_remote_obj_deletion'] = cname
+                # if deleted object was the selected system, set selected system
+                # and diagram subject to the project and refresh the diagram
+                selected_sys_oid = state['system'].get(state.get('project'))
+                orb.log.debug(f'  deleted {cname} exists in local db ...')
+                if self.mode == 'db' and cname == state.get('current_cname'):
+                    # object is in the current db table ...
+                    state['update db table'] = True
+                if cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']:
+                    relevant_obj_oid = None
+                    if cname == 'HardwareProduct':
+                        relevant_obj_oid = obj_oid
+                        state['lib updates needed'] = True
+                    elif cname == 'Acu':
+                        # don't crash if acu is corrupted ...
+                        try:
+                            relevant_obj_oid = deleted_obj.component.oid
+                        except:
+                            pass
+                        state['lib updates needed'] = True
+                    elif cname == 'ProjectSystemUsage':
+                        # don't crash if psu is corrupted ...
+                        try:
+                            relevant_obj_oid = deleted_obj.system.oid
+                        except:
+                            pass
+                    orb.delete([deleted_obj])
+                    orb.log.debug('  deleted.')
+                    if relevant_obj_oid and selected_sys_oid == relevant_obj_oid:
+                        if (state.get('component_modeler_history') and
+                        relevant_obj_oid in state['component_modeler_history']):
+                            state['component_modeler_history'].remove(relevant_obj_oid)
+                        orb.log.info('  deleted object was selected system')
+                        state['system'][state['project']] = state['project']
+                        # NOTE: not currently using system_model_window.history
+                        # (was broken ... fixed now?)
+                        if hasattr(self, 'system_model_window'):
+                            try:
+                                orb.log.info('  set diagram subject to project')
+                                self.system_model_window.history.pop()
+                                self.system_model_window.on_set_selected_system(
+                                                                self.project.oid)
+                            except:
+                                orb.log.info('  setting diagram subject failed')
+                                # diagram model window C++ object got deleted
+                                pass
+                elif cname == 'RoleAssignment':
+                    if deleted_obj.assigned_to is self.local_user:
+                        # TODO: if removed role assignment was the last one for
+                        # this user on the project, switch to SANDBOX project
+                        html = '<h3>Your role:</h3>'
+                        html += '<p><b><font color="green">{}</font></b>'.format(
+                                                    deleted_obj.assigned_role.name)
+                        html += ' in <b><font color="green">{}</font>'.format(
+                                getattr(deleted_obj.role_assignment_context, 'id',
+                                        'global context'))
+                        html += '<br> has been removed.</b></p>'
+                        self.w = NotificationDialog(html, parent=self)
+                        self.w.show()
+                    orb.delete([deleted_obj])
+                    orb.log.debug('  deleted.')
+                elif cname in ['Mission', 'Activity']:
+                    # DO NOT delete here if conops is running, it will handle the
+                    # "deleted object" signal ...
+                    if not state.get("conops"):
+                        objs_to_delete = [deleted_obj]
+                        subacts = getattr(deleted_obj, 'sub_activities', [])
+                        if subacts:
+                            # if it has sub_activities, delete them too
+                            objs_to_delete += subacts
+                        orb.delete(objs_to_delete)
+                        orb.log.debug('  ConOpsModeler is not running --')
+                        orb.log.debug(f'  "{cname}" object deleted.')
+                else:
+                    orb.delete([deleted_obj])
+                    orb.log.debug('  deleted.')
+                self.get_parmz()
+            else:
+                orb.log.debug('  oid not found in local db; ignoring.')
+
+            # -----------------------------------------------------------------
+            # The below code assumed that on_remote_deleted_object() was called
+            # first and deleted the object, etc. ...
+            # -----------------------------------------------------------------
+            # # update library widget if one exists ...
+            # lib_widget = getattr(self, 'library_widget', None)
+            # if lib_widget:
+                # try:
+                    # lib_widget.refresh('HardwareProduct')
+                # except:
+                    # pass
+            # # only attempt to update tree and dashboard if in "system" mode ...
+            # if (self.mode in ['component', 'system']
+                # and cname == 'HardwareProduct'):
+                # try:
+                    # self.library_widget.refresh()
+                # except:
+                    # pass
+            # if ((self.mode == 'system') and
+                # cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                          # 'Port', 'Flow']):
+                # self.refresh_tree_and_dashboard()
+                # # DIAGRAM MAY NEED UPDATING
+                # if getattr(self, 'system_model_window', None):
+                    # # rebuild diagram in case an object corresponded to a
+                    # # block in the current diagram
+                    # self.system_model_window.on_signal_to_refresh()
+            # elif self.mode == 'db':
+                # self.set_db_interface()
+            # elif (self.mode in ['system', 'component'] and
+                  # cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct',
+                            # 'Port', 'Flow']):
+                # # DIAGRAM MAY NEED UPDATING
+                # # update state['product'] if needed, and regenerate diagram
+                # # this will set placeholders in place of PgxnObject and diagram
+                # self.set_product_modeler_interface()
+                # if getattr(self, 'system_model_window', None):
+                    # self.system_model_window.on_signal_to_refresh()
         if not remote and state.get('connected'):
             # the "not remote" here is *extremely* important, to prevent a cycle ...
             # only attempt to update tree and dashboard if in "system" mode ...
