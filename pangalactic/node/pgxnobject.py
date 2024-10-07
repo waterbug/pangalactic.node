@@ -856,7 +856,6 @@ class PgxnObject(QDialog):
     """
 
     activity_edited = pyqtSignal(str)  # arg: oid
-    delete_obj = pyqtSignal(str, str)  # args: oid, cname
     obj_modified = pyqtSignal(str)     # arg: oid
 
     def __init__(self, obj, component=False, embedded=False,
@@ -1175,7 +1174,12 @@ class PgxnObject(QDialog):
                         pass
                 self.save_button = self.bbox.addButton('Save',
                                                    QDialogButtonBox.ActionRole)
-                if 'delete' in perms and self.enable_delete:
+                # -------------------------------------------------------------
+                # NOTE: for now, disallow deletions when offline -- this may
+                # change in the future but implications can be complex.
+                # -------------------------------------------------------------
+                if ('delete' in perms and self.enable_delete and
+                    state.get('connected')):
                     self.delete_button = self.bbox.addButton('Delete',
                                                    QDialogButtonBox.ActionRole)
             else:
@@ -1197,7 +1201,12 @@ class PgxnObject(QDialog):
                 self.save_and_close_button = self.bbox.addButton(
                                                'Save and Close',
                                                QDialogButtonBox.ActionRole)
-                if 'delete' in perms and self.enable_delete:
+                # -------------------------------------------------------------
+                # NOTE: for now, disallow deletions when offline -- this may
+                # change in the future but implications can be complex.
+                # -------------------------------------------------------------
+                if ('delete' in perms and self.enable_delete
+                    and state.get('connected')):
                     self.delete_button = self.bbox.addButton('Delete',
                                                QDialogButtonBox.ActionRole)
             else:
@@ -1776,7 +1785,7 @@ class PgxnObject(QDialog):
                        a.name, a.id) for a in assemblies if a]))
             txt += assmb_info
         else:
-            txt = 'This product is not used in any assemblies or projects.'
+            txt = 'This product is not used in any assemblies.'
         notice = QMessageBox(QMessageBox.Information, 'Where Used',
                              txt, QMessageBox.Ok, self)
         notice.setInformativeText(info)
@@ -2117,6 +2126,13 @@ class PgxnObject(QDialog):
 
     def on_delete(self):
         orb.log.info('* [pgxo] delete action selected ...')
+        if not state.get('connected'):
+            txt = 'This Product cannot be deleted:\n'
+            txt += 'you are offline.'
+            notice = QMessageBox(QMessageBox.Warning, 'Cannot Delete', txt,
+                                 QMessageBox.Ok, self)
+            notice.show()
+            return
         if getattr(self.obj, 'where_used', None):
             txt = 'This Product cannot be deleted:\n'
             txt += 'it is a component in the following assemblies:'
@@ -2159,12 +2175,6 @@ class PgxnObject(QDialog):
         if response == QMessageBox.Yes:
             obj_oid = self.obj.oid
             cname = self.obj.__class__.__name__
-            # self.delete_obj.emit(obj_oid, cname)
-            # =================================================================
-            # NOTE: orb.delete() had been called here but should only be called
-            # after the object has been removed from GUI elements (tables etc.)
-            # Now orb.delete() is called by pangalaxian in response to the
-            # 'delete_obj' signal ...
             # -----------------------------------------------------------------
             # orb.delete will add serialized object to trash
             orb.delete([self.obj])
