@@ -4650,7 +4650,6 @@ class Main(QMainWindow):
                 self.pgxn_obj = PgxnObject(self.product, component=True,
                                            embedded=True)
                 self.pgxn_obj.obj_modified.connect(self.on_mod_object_qtsignal)
-                self.pgxn_obj.delete_obj.connect(self.del_object)
                 self.remote_frozen.connect(self.pgxn_obj.on_remote_frozen)
                 self.remote_thawed.connect(self.pgxn_obj.on_remote_thawed)
                 pgxn_panel_layout.addWidget(self.pgxn_obj)
@@ -5481,7 +5480,6 @@ class Main(QMainWindow):
         if obj:
             pxo = PgxnObject(obj)
             pxo.obj_modified.connect(self.on_mod_object_qtsignal)
-            pxo.delete_obj.connect(self.del_object)
             self.remote_frozen.connect(pxo.on_remote_frozen)
             self.remote_thawed.connect(pxo.on_remote_thawed)
             pxo.show()
