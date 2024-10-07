@@ -5407,11 +5407,18 @@ class Main(QMainWindow):
         confirm_dlg = QMessageBox(QMessageBox.Question, 'Delete?', txt,
                                   QMessageBox.Yes | QMessageBox.No)
         response = confirm_dlg.exec_()
+        to_delete_oids = [self.project.oid]
         if response == QMessageBox.Yes:
             # first delete any ProjectSystemUsage relationships
-            project_oid = self.project.oid
-            orb.delete(self.project.systems)
+            psus = self.project.systems
+            if psus:
+                to_delete_oids += [psu.oid for psu in psus]
+                orb.delete(psus)
             # if the project owns things, change the owner to 'PGANA'
+            # -----------------------------------------------------------------
+            # TODO:  create a dialog to go through things one by one and decide
+            # whether to delete or save ...
+            # -----------------------------------------------------------------
             pgana = orb.get('pgefobjects:PGANA')
             things = orb.search_exact(owner=self.project)
             if things:
@@ -5435,11 +5442,12 @@ class Main(QMainWindow):
             if state.get('connected'):
                 orb.log.info('  - calling "vger.delete"')
                 try:
-                    rpc = self.mbus.session.call('vger.delete', [project_oid])
+                    rpc = self.mbus.session.call('vger.delete', to_delete_oids)
                     rpc.addCallback(self.on_rpc_vger_delete_result)
                     rpc.addErrback(self.on_failure)
-                    if project_oid in state.get('synced_oids', []):
-                        state['synced_oids'].remove(project_oid)
+                    for oid in to_delete_oids:
+                        if oid in state.get('synced_oids', []):
+                            state['synced_oids'].remove(oid)
                 except:
                     orb.log.debug('  ** rpc failed (possible loss of transport)')
                     orb.log.debug('     trying to reconnect ...')
