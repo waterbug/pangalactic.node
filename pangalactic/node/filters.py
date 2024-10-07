@@ -1061,7 +1061,6 @@ class FilterPanel(QWidget):
                 if obj:
                     dlg = PgxnObject(obj, parent=self)
                     dlg.obj_modified.connect(self.on_pgxo_mod_object_signal)
-                    dlg.delete_obj.connect(self.on_delete_obj_signal)
                     dlg.show()
                 else:
                     orb.log.debug('  PgxnObject got a None, ignoring.')
