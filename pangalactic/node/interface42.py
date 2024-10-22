@@ -1727,7 +1727,7 @@ class SC42Window(QMainWindow):
     """
     Window containing the 42 SC (Spacecraft) Model forms.
     """
-    def __init__(self, width=None, height=None, embedded=True, parent=None):
+    def __init__(self, width=850, height=900, embedded=True, parent=None):
         super().__init__(parent=parent)
         self.setWindowTitle('"42" ACS Modeler Spacecraft Input Form')
         self.w = width or 850
@@ -1791,7 +1791,7 @@ class SC42Window(QMainWindow):
         self.toolbar.addWidget(export_button)
 
     def sizeHint(self):
-        return QSize(self.w, self.h)
+        return QSize(int(self.w), int(self.h))
 
 DUMMY_COMPS = dict(
 joint="""============================== Joint 0 ================================
