@@ -891,7 +891,6 @@ class SystemTreeModel(QAbstractItemModel):
 class SystemTreeView(QTreeView):
 
     obj_modified = pyqtSignal(str)     # arg: oid
-    delete_obj = pyqtSignal(str, str)  # args: oid, cname
 
     # MODIFIED 5/12/22:  drag/drop is disabled in the system tree -- was both
     # buggy and unnecessary, now that block diagram drag/drop works
@@ -1206,14 +1205,10 @@ class SystemTreeView(QTreeView):
             obj = self.source_model.get_node(mapped_i).obj
             dlg = PgxnObject(obj, modal_mode=True, parent=self)
             dlg.obj_modified.connect(self.on_obj_modified)
-            dlg.delete_obj.connect(self.on_delete_obj)
             dlg.show()
 
     def on_obj_modified(self, oid):
         self.obj_modified.emit(oid)
-
-    def on_delete_obj(self, oid, cname):
-        self.delete_obj.emit(oid, cname)
 
     def link_indexes_in_tree(self, link):
         """
