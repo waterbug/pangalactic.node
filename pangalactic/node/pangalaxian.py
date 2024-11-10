@@ -158,7 +158,8 @@ class Main(QMainWindow):
     # compatible release versions -- used to determine compatibility of the
     # "home" directory
     compat_versions = [
-                       Version('4.2.dev0')
+                       Version('4.2.dev0'),
+                       Version('4.2.dev1')
                        ]
 
     # signals
