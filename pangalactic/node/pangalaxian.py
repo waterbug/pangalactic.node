@@ -3587,6 +3587,7 @@ class Main(QMainWindow):
         """
         Handle local dispatcher signal "get parmz".
         """
+        # orb.log.debug('* get_parmz')
         if state.get('connected'):
             try:
                 rpc = self.mbus.session.call('vger.get_parmz')
