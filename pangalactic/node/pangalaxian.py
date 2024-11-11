@@ -395,13 +395,6 @@ class Main(QMainWindow):
         # NOTE: 'remote: decloaked' is the normal way for the repository
         # service to announce new objects -- EVEN IF CLOAKING DOES NOT APPLY TO
         # THE TYPE OF OBJECT ANNOUNCED!  (E.g., Acu, RoleAssignment)
-        ##################################################################
-        # NOTE:  the "remote: decloaked" and "remote: new" signals are NOT
-        # CURRENTLY BEING USED!  on_received_objects is being called directly
-        # by on_pubsub_msg() ...
-        dispatcher.connect(self.on_received_objects, 'remote: decloaked')
-        dispatcher.connect(self.on_received_objects, 'remote: new')
-        ##################################################################
         dispatcher.connect(self.on_drop_product, 'drop on product info')
         dispatcher.connect(self.on_drill_down, 'diagram object drill down')
         dispatcher.connect(self.on_comp_back, 'comp modeler back')
