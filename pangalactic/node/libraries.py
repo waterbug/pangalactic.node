@@ -196,6 +196,9 @@ class LibraryListView(QListView):
         self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
         self.create_actions()
         self.setup_context_menu()
+        dispatcher.connect(self.refresh, "new object")
+        dispatcher.connect(self.refresh, "modified object")
+        dispatcher.connect(self.refresh, "deleted object")
 
     def sizeHint(self):
         return QSize(400, 450)
@@ -227,7 +230,7 @@ class LibraryListView(QListView):
 
     def refresh(self, **kw):
         """
-        Handle a 'deleted object', 'new object', 'modified object' signals.
+        Handle 'deleted object', 'new object', 'modified object' signals.
 
         Keyword Args:
             oid (str):  oid of the deleted object
@@ -493,12 +496,13 @@ class CompoundLibraryWidget(QWidget):
         self.toggle_library_size.emit(expand)
 
     def refresh(self, cname=None, **kw):
-        # orb.log.debug(f"* CompoundLibraryWidget.refresh(cname={cname})")
+        orb.log.debug(f"* CompoundLibraryWidget.refresh(cname={cname})")
         cnames = list(self.libraries)
         if cname:
             cnames = [cname]
         for cname in cnames:
             if cname == "HardwareProduct":
+                orb.log.debug("* multi lib widget refreshing HW library ...")
                 # select_product_types is effective in updating HW lib
                 hw_lib = self.libraries.get('HardwareProduct')
                 if hw_lib:
@@ -629,6 +633,11 @@ class LibraryDialog(QDialog):
             # only listen for these signals if using FilterPanel, which does
             # not itself listen for them; if using LibraryListView, it already
             # listens for them
+            # =================================================================
+            # NOTE: remote updates are now handled by pangalaxian "lib updates
+            # needed" state, which is checked after get_parmz() and calls
+            # refresh() as necessary ...
+            # =================================================================
         else:
             lib_view = LibraryListView(cname, parent=parent)
         lib_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

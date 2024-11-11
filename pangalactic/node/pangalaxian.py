@@ -1830,6 +1830,7 @@ class Main(QMainWindow):
                                     mode=mode,
                                     value=value)
             elif subject == 'deleted':
+                orb.log.debug('  - pubsub msg received: "deleted" ...')
                 obj_oid = content
                 obj = orb.get(obj_oid)
                 if obj:
@@ -2088,15 +2089,15 @@ class Main(QMainWindow):
         # **************************************************************
         # NOTE:  ignore None or "empty" objects
         ser_objs = [so for so in serialized_objects if so]
-        # objs = deserialize(orb, ser_objs, force_no_recompute=True)
-        objs = self.load_serialized_objects(ser_objs)
-        # if objs:
-            # orb.log.debug(f'  deserialize() returned {len(objs)} object(s):')
-            # txt = str([o.id for o in objs if o is not None])
-            # orb.log.debug(f'  {txt}')
-        # else:
-            # orb.log.debug('  deserialize() returned no objects --')
-            # orb.log.debug('  (any received were already in the local db).')
+        objs = deserialize(orb, ser_objs, force_no_recompute=True)
+        # objs = self.load_serialized_objects(ser_objs)
+        if objs:
+            orb.log.debug(f'  deserialize() returned {len(objs)} object(s):')
+            txt = str([o.id for o in objs if o is not None])
+            orb.log.debug(f'  {txt}')
+        else:
+            orb.log.debug('  deserialize() returned no objects --')
+            orb.log.debug('  (any received were already in the local db).')
         if not objs:
             return False
         rep = '\n  '.join([(obj.name or obj.id or 'no name or id') +
@@ -3606,7 +3607,7 @@ class Main(QMainWindow):
         needed GUI updates (which would cause various problems and possibly
         crashes if attempted while rpc operations are being processed).
         """
-        # orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
+        orb.log.info('* on_vger_get_parmz_result() [ovgpr]')
         # libs_refreshed = []
         if data:
             parmz_data = data
@@ -3697,8 +3698,8 @@ class Main(QMainWindow):
         lun = "yes"
         if not state.get('lib updates needed'):
             lun = "no"
-        # lmsg = f'[ovgpr] lib updates needed: {lun}'
-        # orb.log.info(f'  {lmsg}')
+        lmsg = f'[ovgpr] lib updates needed: {lun}'
+        orb.log.info(f'  {lmsg}')
         if lun == "yes" and hasattr(self, 'library_widget'):
             self.library_widget.refresh()
             state['lib updates needed'] = []
@@ -4148,8 +4149,8 @@ class Main(QMainWindow):
                 orb.log.debug('  oid not found in local db; ignoring.')
 
             # -----------------------------------------------------------------
-            # The below code assumed that on_remote_deleted_object() was called
-            # first and deleted the object, etc. ...
+            # The commented code below assumed that on_remote_deleted_object()
+            # was called first and deleted the object, etc. ...
             # -----------------------------------------------------------------
             # # update library widget if one exists ...
             # lib_widget = getattr(self, 'library_widget', None)

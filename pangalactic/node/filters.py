@@ -1135,6 +1135,9 @@ class FilterPanel(QWidget):
         self.obj_modified.emit(oid)
 
     def on_delete_obj_signal(self, oid, cname):
+        """
+        Propagate a locally originated "delete_obj" pyqt signal.
+        """
         # orb.log.debug('  [FilterPanel] received "delete_obj" signal.')
         self.delete_obj.emit(oid, cname)
 
