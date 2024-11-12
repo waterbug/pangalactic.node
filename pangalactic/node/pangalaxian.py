@@ -688,31 +688,33 @@ class Main(QMainWindow):
             self.sync_with_services()
         else:
             now = dtstamp()
-            if (now - self.synced >= timedelta(seconds=10)
-                and not state.get('network_warning_displayed')):
-                    state['network_warning_displayed'] = True
-                    html = '<h3><font color="red">Warning: Unreliable Network'
-                    html += '</font></h3>'
-                    html += '<p><b>Connection to repository was lost '
-                    html += 'for 10 seconds or more -- <br>this can result '
-                    html += 'in out-of-sync conditions.</b></p>'
-                    html += '<p><b>Automatic re-sync is currently set '
-                    html += 'to occur when connection is lost<br>for '
-                    html += f'<font color="green">{delta}</font> seconds or '
-                    html += 'more -- this interval can be set in<br>'
-                    html += '<font color="blue">"Tools" / '
-                    html += '"Edit Preferences" /<br>'
-                    html += '"Disconnect Resync Interval [seconds]".'
-                    dlg = NotificationDialog(html, news=False, parent=self)
-                    dlg.show()
-                    self.net_status.setPixmap(self.spotty_nw_icon)
-                    self.net_status.setToolTip('unreliable network connection')
+            # if (now - self.synced >= timedelta(seconds=10)
+                # and not state.get('network_warning_displayed')):
+                    # state['network_warning_displayed'] = True
+                    # html = '<h3><font color="red">Warning: Unreliable Network'
+                    # html += '</font></h3>'
+                    # html += '<p><b>Connection to repository was lost '
+                    # html += 'for 10 seconds or more -- <br>this can result '
+                    # html += 'in out-of-sync conditions.</b></p>'
+                    # html += '<p><b>Automatic re-sync is currently set '
+                    # html += 'to occur when connection is lost<br>for '
+                    # html += f'<font color="green">{delta}</font> seconds or '
+                    # html += 'more -- this interval can be set in<br>'
+                    # html += '<font color="blue">"Tools" / '
+                    # html += '"Edit Preferences" /<br>'
+                    # html += '"Disconnect Resync Interval [seconds]".'
+                    # dlg = NotificationDialog(html, news=False, parent=self)
+                    # dlg.show()
+                    # self.net_status.setPixmap(self.spotty_nw_icon)
+                    # self.net_status.setToolTip('unreliable network connection')
             if (now - self.synced > timedelta(seconds=delta)):
                 # it's been more than [delta] seconds since we synced ...
-                self.net_status.setPixmap(self.spotty_nw_icon)
-                self.net_status.setToolTip('unreliable network connection')
                 msg = f'reconnect > {delta} seconds since last sync, re-sync'
                 orb.log.info(f'  {msg}')
+                if (now - self.synced > timedelta(seconds=5*delta)):
+                    # disconnect > 5*delta -> "unreliable"
+                    self.net_status.setPixmap(self.spotty_nw_icon)
+                    self.net_status.setToolTip('unreliable network connection')
                 if state.get('library_sync_completed'):
                     self.resync_current_project(msg='reconnect: ')
                 else:
