@@ -1221,7 +1221,7 @@ class IdentificationPage(QWizardPage):
         # TODO:  new dialog to select Template
         proj_oid = state.get('project')
         project = orb.get(proj_oid)
-        self.product = clone('HardwareProduct', owner=project, public=True)
+        self.product = clone('HardwareProduct', owner=project, public=False)
         wizard_state['product_oid'] = self.product.oid
         # include version -- but it's allowed to be empty (blank)
         view = ['id', 'name', 'product_type', 'version', 'owner',
