@@ -3701,6 +3701,20 @@ class Main(QMainWindow):
         self.statusbar.showMessage('synced.')
 
     def on_vger_save_result(self, stuff):
+        """
+        Handle the data returned by the vger.save() rpc, which is a dict in the
+        form:
+
+                  {'new_obj_dts':  {obj0.oid : str(obj0.mod_datetime),
+                                    obj1.oid : str(obj1.mod_datetime),
+                                    ...},
+                   'mod_obj_dts':  {obj2.oid : str(obj2.mod_datetime),
+                                    obj3.oid : str(obj3.mod_datetime),
+                                    ...}
+                   'unauth': [ids of objects for which save was unauthorized],
+                   'no_owners': [ids of objects that did not have owners but
+                                 should]
+        """
         orb.log.debug('* vger.save rpc result: {}'.format(str(stuff)))
         try:
             msg = ''
@@ -4595,6 +4609,7 @@ class Main(QMainWindow):
         # orb.log.debug('* _update_modal_views()')
         # orb.log.debug('  triggered by object: {}'.format(
                                         # getattr(obj, 'id', '[no object]')))
+        state['modal views need update'] = False
         if getattr(self, 'system_model_window', None):
             self.system_model_window.cache_block_model()
         # [gui refactor] creation of top dock moved to _init_ui()
@@ -4613,7 +4628,6 @@ class Main(QMainWindow):
         elif self.mode == 'system':
             orb.log.debug('* mode: system')
             self.set_system_modeler_interface()
-        state['modal views need update'] = False
 
     def _setup_top_dock_widgets(self):
         # orb.log.debug('  - no top dock widget -- building one now...')
