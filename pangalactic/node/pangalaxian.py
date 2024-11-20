@@ -159,7 +159,7 @@ class Main(QMainWindow):
     # "home" directory
     compat_versions = [
                        Version('4.2.dev1'),
-                       Version('4.2.'),
+                       Version('4.2'),
                        Version('4.3.dev0')
                        ]
 
