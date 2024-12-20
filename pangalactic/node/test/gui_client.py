@@ -11,7 +11,6 @@ Based on:
 """
 import argparse, math, os, pprint, random, sys, time
 from copy import deepcopy
-from functools import partial
 from uuid import uuid4
 
 # before importing any pyqt stuff, fix the import error ...
@@ -127,11 +126,12 @@ class CircleWidget(QWidget):
 class MainWindow(QMainWindow):
     MOD_COUNT = 0
 
-    def __init__(self, host, port, auth_method='cryptosign', reactor=None,
-                 parent=None):
+    def __init__(self, host, port, cert, auth_method='cryptosign',
+                 reactor=None, parent=None):
         super().__init__(parent)
         self.host = host
         self.port = port
+        self.cert = cert
         self.auth_method = auth_method
         self.reactor = reactor
         self.create_main_frame()
@@ -309,22 +309,26 @@ class MainWindow(QMainWindow):
         self.circle_timer.start(25)
 
     def login(self):
-        cert_fname = 'server_cert.pem'
-        cert_path = cert_fname
-        try:
-            cert = crypto.load_certificate(
-                    crypto.FILETYPE_PEM,
-                    open(cert_path, 'r').read())
-            tls_options = CertificateOptions(
-                trustRoot=OpenSSLCertificateAuthorities([cert]))
-        except:
-            message = 'Certificate not found or not readable ...\n'
-            message += 'operating in local-only mode.'
-            popup = QMessageBox(QMessageBox.Warning,
-                                "No certificate", message,
-                                QMessageBox.Ok, self)
-            popup.show()
-            return
+        if self.cert:
+            cert_fname = 'server_cert.pem'
+            cert_path = cert_fname
+            try:
+                cert = crypto.load_certificate(
+                        crypto.FILETYPE_PEM,
+                        open(cert_path, 'r').read())
+                tls_options = CertificateOptions(
+                    trustRoot=OpenSSLCertificateAuthorities([cert]))
+            except:
+                message = 'Certificate not found or not readable ...\n'
+                message += 'operating in local-only mode.'
+                popup = QMessageBox(QMessageBox.Warning,
+                                    "No certificate", message,
+                                    QMessageBox.Ok, self)
+                popup.show()
+                return
+        else:
+            orb.log.debug('  - no self-signed cert.')
+            tls_options = CertificateOptions()
         if self.auth_method == 'cryptosign':
             self.log('* logging in using cryptosign auth ...')
             key_path = 'private.key'
@@ -793,7 +797,6 @@ class MainWindow(QMainWindow):
         # Overthruster ...
         oid = 'test:overthruster'
         self.log('  modifying "cold units" for Oscillation Overthruster')
-        dts = str(dtstamp())
         self.cold_units_val += 1
         set_dval(oid, 'cold_units', self.cold_units_val, local=True)
         de_dict = {oid: {'cold_units': self.cold_units_val}}
@@ -939,6 +942,7 @@ if __name__ == "__main__":
                         help='the port to connect to [default: 8080]')
     parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
             help='authentication method [default: "cryptosign" (pubkey auth)]')
+    parser.add_argument('--cert', dest='cert', action="store_true")
     options = parser.parse_args()
     app = QApplication(sys.argv)
     home = os.path.join(os.getcwd(), 'junk_home')
@@ -977,9 +981,12 @@ if __name__ == "__main__":
     from twisted.internet import reactor
     mainwindow = MainWindow(options.host, options.port,
                             auth_method=options.auth,
+                            cert=options.cert,
                             reactor=reactor)
     print('MainWindow instantiated ...')
-    print('  configured to connect to "{}"'.format(options.host))
+    print('  connecting to "{}"'.format(options.host))
+    if options.cert:
+        print('  using self-signed cert')
     print('  on port {}'.format(options.port))
     print('  using "{}" authentication'.format(options.auth))
     mainwindow.show()
