@@ -974,6 +974,8 @@ class PgxnObject(QDialog):
         dispatcher.connect(self.on_parameters_recomputed,
                            'parameters recomputed')
         dispatcher.connect(self.on_update_pgxno, 'update pgxno')
+        # listen for "new object" in case it is a related Acu
+        dispatcher.connect(self.on_new_object, 'new object')
 
     def build_from_object(self):
         """
@@ -1993,6 +1995,16 @@ class PgxnObject(QDialog):
         except:
             # C++ obj got deleted
             pass
+
+    def on_new_object(self, obj=None, cname=''):
+        if (obj and isinstance(obj, orb.classes['Acu'])
+            and obj.assembly.oid == self.obj.oid
+            and not hasattr(self, 'mini_mel_action')):
+            self.mini_mel_action = self.create_action('Mini\nMEL',
+                                    slot=self.display_mini_mel, icon='data',
+                                    tip='Generate a mini-MEL for this object',
+                                    modes=['edit', 'view'])
+            self.toolbar.addAction(self.mini_mel_action)
 
     def on_update_pgxno(self, mod_oids=None):
         """
