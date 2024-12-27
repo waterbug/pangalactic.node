@@ -1901,8 +1901,11 @@ class PgxnObject(QDialog):
         Display a "Mini MEL" for the current object when 'Mini MEL' action is
         selected.
         """
-        dlg = MiniMelDialog(self.obj, parent=self)
-        dlg.show()
+        try:
+            dlg = MiniMelDialog(self.obj, parent=self)
+            dlg.show()
+        except:
+            orb.log.debug('* MiniMEL encounntered an exception.')
 
     def on_new_version(self):
         """
@@ -1998,6 +2001,8 @@ class PgxnObject(QDialog):
 
     def on_new_object(self, obj=None, cname=''):
         if (obj and isinstance(obj, orb.classes['Acu'])
+            # only add mini mel action if embedded -- crashes otherwise
+            and getattr(self, 'embedded', False)
             and obj.assembly.oid == self.obj.oid
             and not hasattr(self, 'mini_mel_action')):
             self.mini_mel_action = self.create_action('Mini\nMEL',
@@ -2190,21 +2195,6 @@ class PgxnObject(QDialog):
             # -----------------------------------------------------------------
             # orb.delete will add serialized object to trash
             orb.delete([self.obj])
-            # =================================================================
-            # if embedded in the component modeler and there are product oids
-            # in the "component_modeler_history", set the 'product' state
-            # (oid) to the next oid in the history ...
-            # NOTE:  this isn't working any more -- putting it into pangalaxian
-            # in "on_deleted_object_signal" and commenting here ...
-            # if self.component:
-                # if state.get('component_modeler_history'):
-                    # hist = state['component_modeler_history']
-                    # state['product'] = hist.pop()
-                # else:
-                    # # otherwise, set to empty string
-                    # state['product'] = ''
-            # the 'deleted object' signal will notify pangalaxian which will
-            # reset the 'component modeler' mode if we are in it
             dispatcher.send(signal='deleted object', oid=obj_oid, cname=cname)
             # if not in component mode, we should close ...
             if not self.component:
