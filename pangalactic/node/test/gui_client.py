@@ -906,9 +906,11 @@ class MainWindow(QMainWindow):
         self.role_label.setVisible(False)
         message_bus.session = None
 
-    def log(self, msg):
-        timestamp = '[%010.3f]' % time.process_time()
-        self.log_widget.append(timestamp + ' ' + str(msg))
+    def log(self, msg, with_tds=False):
+        timestamp = ''
+        if with_tds:
+            timestamp = '[%010.3f]' % time.process_time() + ' '
+        self.log_widget.append(timestamp + str(msg))
 
     def closeEvent(self, event):
         # things to do when window is closed
