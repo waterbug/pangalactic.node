@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                              QTableWidget, QTextBrowser, QTextEdit,
                              QVBoxLayout, QWidget)
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from pangalactic.core             import orb, prefs, state
 from pangalactic.core.access      import get_perms

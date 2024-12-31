@@ -13,7 +13,7 @@ from PyQt5.QtGui     import (QAbstractTextDocumentLayout, QBrush, QColor,
                              QFont, QIcon, QPalette, QPixmap, QTextDocument)
 
 # Louie
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from pangalactic.core             import orb
 from pangalactic.core             import state

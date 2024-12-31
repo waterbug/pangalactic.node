@@ -17,8 +17,9 @@ from autobahn.wamp import cryptosign
 # binaryornot
 from binaryornot.check import is_binary
 
-# Louie (formerly known as PyDispatcher)
-from louie import dispatcher
+from pydispatch import dispatcher
+# Louie (formerly known as PyDispatcher) is deprecated
+# from pydispatch import dispatcher
 
 # packaging
 from packaging.version import Version
@@ -403,6 +404,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_comp_back, 'comp modeler back')
         # connect dispatcher signals for message bus events
         dispatcher.connect(self.on_mbus_joined, 'onjoined')
+        dispatcher.connect(self.on_mbus_disconnect, 'ondisconnect')
         # use preferred mode, else state, else default mode (system)
         mode = prefs.get('mode') or state.get('mode') or 'system'
         # NOTE:  to set mode, use self.[mode]_action.trigger() --
@@ -735,6 +737,10 @@ class Main(QMainWindow):
                     msg = 'sync was aborted; restarting sync'
                     orb.log.info(f'  {msg}')
                     self.sync_with_services()
+
+    def on_mbus_disconnect(self):
+        orb.log.info('* on_mbus_disconnect:  message bus session disconnected.')
+        self.reactor.stop()
 
     def sync_with_services(self, force=False):
         self.force = force

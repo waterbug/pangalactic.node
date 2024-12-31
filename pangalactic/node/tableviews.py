@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
                              QTableWidget, QVBoxLayout)
 
 # Louie
-from louie import dispatcher
+from pydispatch import dispatcher
 
 # pangalactic
 from pangalactic.core             import orb

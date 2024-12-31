@@ -24,7 +24,7 @@ from pangalactic.node.widgets     import ColorLabel
 from pangalactic.node.wizards     import DataImportWizard
 
 # Louie
-from louie import dispatcher
+from pydispatch import dispatcher
 
 
 class RequirementManager(QDialog):

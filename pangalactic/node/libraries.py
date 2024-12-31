@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QLabel, QListView, QScrollArea, QSizePolicy,
                              QStackedLayout, QVBoxLayout, QWidget)
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 # pangalactic
 from pangalactic.core            import orb, prefs, state

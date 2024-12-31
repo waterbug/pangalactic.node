@@ -13,7 +13,7 @@ from PyQt5.QtGui import (QColor, QFont, QPainterPath, QPen, QPolygonF,
 from PyQt5.QtWidgets import (QDialog, QGraphicsItem, QGraphicsLineItem,
                              QGraphicsTextItem, QMenu, QMessageBox, QStyle)
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 # pangalactic
 from pangalactic.core             import orb, prefs, state

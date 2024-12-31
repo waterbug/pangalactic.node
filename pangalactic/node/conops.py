@@ -19,7 +19,7 @@ import sys, os
 # from functools import reduce
 
 # Louie
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from PyQt5.QtCore import Qt, QPointF, QPoint, QRectF, QSize, QVariant
 from PyQt5.QtGui import (QBrush, QIcon, QCursor, QFont, QPainter,

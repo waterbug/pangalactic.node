@@ -14,7 +14,7 @@ import os, re
 from functools import reduce
 from textwrap import wrap
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from pangalactic.core              import orb, prefs, state
 from pangalactic.core.meta         import PGEF_COL_WIDTHS

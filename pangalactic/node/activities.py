@@ -4,7 +4,7 @@
 import sys
 from functools import partial
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from PyQt5.QtCore    import QSize, Qt, QModelIndex
 from PyQt5.QtGui     import QCursor

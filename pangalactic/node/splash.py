@@ -1,7 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 
 class SplashScreen(QtWidgets.QSplashScreen):

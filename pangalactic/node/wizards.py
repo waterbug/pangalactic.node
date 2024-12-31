@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (QAbstractItemView, QAction, QApplication,
                              QPushButton, QScrollArea, QSizePolicy, QTableView,
                              QVBoxLayout, QWidget, QWizard, QWizardPage)
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 # pangalactic
 from pangalactic.core             import orb

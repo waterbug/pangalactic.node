@@ -3,8 +3,8 @@ System Tree view and models
 """
 import re
 from textwrap import wrap
-# louie
-from louie import dispatcher
+# pydispatch
+from pydispatch import dispatcher
 
 # PyQt
 from PyQt5.QtGui  import QBrush, QCursor

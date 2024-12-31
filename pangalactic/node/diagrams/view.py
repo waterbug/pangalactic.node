@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (QGraphicsLineItem, QGraphicsScene, QGraphicsView,
                              QMessageBox, QSizePolicy)
 from PyQt5.QtCore    import pyqtSignal, Qt, QLineF, QPoint, QPointF, QRectF
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 # pangalactic
 from pangalactic.core                 import diagramz, orb, state

@@ -6,7 +6,7 @@ Thread-related functions
 import os, time, traceback, sys
 from functools import partial
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QLabel,
                              QProgressBar, QPushButton, QWidget)

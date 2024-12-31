@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QComboBox, QDialogButtonBox,
                              QRadioButton, QScrollArea, QVBoxLayout, QWidget,
                              QWizard, QWizardPage)
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from pangalactic.core             import orb
 from pangalactic.core             import state

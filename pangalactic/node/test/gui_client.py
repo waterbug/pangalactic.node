@@ -22,7 +22,7 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QDialogButtonBox,
                              QFileDialog, QFormLayout, QHBoxLayout, QLabel,
                              QMainWindow, QMessageBox, QPushButton,
                              QSizePolicy, QVBoxLayout, QWidget)
-from louie import dispatcher
+from pydispatch import dispatcher
 # packaging
 from packaging.version import Version
 

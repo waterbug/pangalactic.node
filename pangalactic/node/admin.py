@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDialog,
                              QHBoxLayout, QLabel, QMenu, QMessageBox,
                              QSizePolicy, QTableView, QVBoxLayout, QWidget)
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from binaryornot.check import is_binary
 

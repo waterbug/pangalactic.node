@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (QAction, QComboBox, QDialog, QDialogButtonBox,
                              QSizePolicy, QSpacerItem, QTabWidget, QToolBar,
                              QVBoxLayout, QWidget)
 
-from louie import dispatcher
+from pydispatch import dispatcher
 from sqlalchemy.orm.collections import InstrumentedList
 
 # pangalactic

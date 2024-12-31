@@ -2,7 +2,7 @@
 import os, sys
 from collections import namedtuple
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from PyQt5.QtCore import pyqtSignal, Qt, QModelIndex, QSize
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QHBoxLayout,

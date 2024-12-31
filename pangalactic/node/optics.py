@@ -14,7 +14,7 @@ desktop releases.
 
 import os, sys
 
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from PyQt5.QtCore import pyqtSignal, Qt, QObject, QPointF, QPoint, QVariant
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDockWidget,

@@ -5,7 +5,7 @@ of the main window, in which columns can be added to display the current values
 and realtime updates of specified parameters of a system that is being modeled.
 """
 import os
-from louie import dispatcher
+from pydispatch import dispatcher
 
 from PyQt5.QtCore    import pyqtSignal, Qt, QModelIndex, QItemSelectionModel
 from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QHBoxLayout,
