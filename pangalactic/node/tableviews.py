@@ -21,7 +21,8 @@ from pangalactic.core             import prefs, state
 from pangalactic.core.meta        import IDENTITY, MAIN_VIEWS, PGEF_COL_WIDTHS
 from pangalactic.core.names       import (get_external_name_plural,
                                           pname_to_header)
-from pangalactic.core.parametrics import get_dval, get_pval, get_pval_as_str
+from pangalactic.core.parametrics import (get_duration, get_dval, get_pval,
+                                          get_pval_as_str)
 from pangalactic.core.serializers import serialize
 from pangalactic.core.units       import time_unit_names
 from pangalactic.core.utils.datetimes import dtstamp, date2str
@@ -397,18 +398,24 @@ class ActInfoTable(QTableWidget):
         # populate relevant data
         for i, act in enumerate(self.acts):
             oid = act.oid
+            orb.log.debug(f'    row: {act.name} ')
             time_unit_name = get_dval(oid, "time_units") or 'minutes'
             time_units = time_unit_names.get(time_unit_name) or 'minute'
             for j, ptuple in enumerate(self.view_conf):
                 pname, colname, width = ptuple
                 if pname == 'time_units':
                     item = InfoTableItem(time_unit_name)
+                    orb.log.debug(f'    - time_units: {time_unit_name}')
                 else:
-                    item = InfoTableItem(orb.get_prop_val_as_str(oid, pname,
-                                                             units=time_units)
-                                                             or '')
-                if pname in ('t_start', 't_end'):
-                    # always non-editable (computed from sequences/durations)
+                    value = orb.get_prop_val_as_str(oid, pname,
+                                                    units=time_units) or ''
+                    item = InfoTableItem(value)
+                    orb.log.debug(f'    - {pname}: {value}')
+                if (pname in ('t_start', 't_end')
+                    or (pname == 'duration' and act.sub_activities)):
+                    # always non-editable:
+                    # t_start/end is computed from sequences/durations
+                    # duration is computed from durations of sub_activities
                     item.setFlags(Qt.NoItemFlags)
                     item.setForeground(Qt.darkMagenta)
                 if not self.editable:
@@ -466,9 +473,12 @@ class ActInfoTable(QTableWidget):
                 status = orb.set_prop_val(oid, "time_units", str_val)
                 item.setData(Qt.EditRole, str_val)
                 # show time parameters in the appropriate units ...
-                for pid in 't_start', 'duration', 't_end':
-                    val_str = orb.get_prop_val_as_str(oid, pid,
-                                                      units=time_unit_id)
+                for pid in ('t_start', 'duration', 't_end'):
+                    if pid in ('t_start', 't_end'):
+                        val_str = orb.get_prop_val_as_str(oid, pid,
+                                                          units=time_unit_id)
+                    elif pid == 'duration':
+                        val_str = str(get_duration(act, units=time_unit_id))
                     self.item(row, self.view.index(pid)).setData(Qt.EditRole,
                                                                  val_str)
                 if 'failed' in status:
@@ -537,7 +547,7 @@ class ActInfoTable(QTableWidget):
             # get current value of "t_start" in base units
             t_start = orb.get_prop_val(oid, 't_start')
             # get new value of "duration" in base units
-            duration = orb.get_prop_val(oid, 'duration')
+            duration = get_duration(act)
             prop_mods[oid]['duration'] = duration
             new_t_end = t_start + duration
             # new_t_end is also in base units
@@ -550,8 +560,7 @@ class ActInfoTable(QTableWidget):
             self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
                                                              t_end_str)
             # also set the item value using the corrected datatype str
-            duration_str = orb.get_prop_val_as_str(oid, 'duration',
-                                                   units=act_units)
+            duration_str = str(get_duration(act, units=act_units))
             item.setData(Qt.EditRole, duration_str)
         elif pname == 'time_units':
             # if 'time_units' is set, just set the item's t_start, duration and
@@ -565,8 +574,7 @@ class ActInfoTable(QTableWidget):
             time_units = time_unit_names.get(new_units_name) or 'minute'
             conv_t_start = get_pval_as_str(oid, 't_start',
                                            units=time_units)
-            conv_duration = get_pval_as_str(oid, 'duration',
-                                            units=time_units)
+            conv_duration = str(get_duration(act, units=time_units))
             conv_t_end = get_pval_as_str(oid, 't_end', units=time_units)
             self.item(row, self.view.index('t_start')).setData(Qt.EditRole,
                                                                 conv_t_start)
@@ -630,8 +638,8 @@ class ActInfoTable(QTableWidget):
             t_start = orb.get_prop_val(oid, 't_start')
             t_start_str = orb.get_prop_val_as_str(oid, 't_start', units=t_units)
             self.item(row, self.view.index('t_start')).setData(Qt.EditRole,
-                                                                t_start_str)
-            duration = orb.get_prop_val(oid, 'duration')
+                                                               t_start_str)
+            duration = get_duration(act)
             orig_t_end = orb.get_prop_val(oid, 't_end')
             new_t_end = t_start + duration
             if new_t_end != orig_t_end:

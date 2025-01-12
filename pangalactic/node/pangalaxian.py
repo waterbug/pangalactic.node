@@ -3283,6 +3283,10 @@ class Main(QMainWindow):
                 orb.log.debug('     trying to reconnect ...')
                 self.set_bus_state()
 
+    def on_vger_set_properties_result(self, msg):
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+
     def on_new_objects_signal(self, objs=None):
         """
         Handle local dispatcher signal for "new objects".
@@ -3384,10 +3388,6 @@ class Main(QMainWindow):
             # ------------------------------------------------------------
             # END OF OFFLINE LOCAL UPDATES
             # ------------------------------------------------------------
-
-    def on_vger_set_properties_result(self, msg):
-        if msg:
-            orb.log.info(f'* vger: {msg}.')
 
     def on_parm_added(self, oid='', pid=''):
         """
@@ -3516,7 +3516,8 @@ class Main(QMainWindow):
         """
         Handle vger pubsub msg "properties set", with content in the format
         (prop_mods, mod_datetime_string), where prop_mods has the format
-        {oid: {deid: value}}
+        {oid: {prop_id: value}}, where prop_id is the id of a parameter of a
+        data element, and value must be in base (mks) units.
         """
         orb.log.debug('* vger pubsub: "properties set"')
         prop_mods, mod_dt_str = content

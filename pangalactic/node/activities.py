@@ -35,9 +35,9 @@ from pangalactic.node.widgets     import ColorLabel, NameLabel, ValueLabel
 
 
 DEFAULT_CONTEXTS = ['Off', 'Nominal', 'Peak', 'Standby', 'Survival']
-DEFAULT_ACTIVITIES = ['Launch', 'Calibration', 'Propulsion', 'Slew',
-                      'Science Data Acquisition', 'Science Data Transmission',
-                      'Safe Mode']
+DEFAULT_ACT_NAMES = ['Launch', 'Calibration', 'Propulsion', 'Slew',
+                     'Science Data Acquisition', 'Science Data Transmission',
+                     'Safe Mode']
 
 
 class ActivityWidget(QWidget):

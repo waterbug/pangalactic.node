@@ -48,8 +48,8 @@ from pangalactic.core.access      import get_perms
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name, pname_to_header
 # from pangalactic.core.parametrics import get_pval
-from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
-                                          mode_defz,
+from pangalactic.core.parametrics import (clone_mode_defs, get_duration,
+                                          get_pval, init_mode_defz, mode_defz,
                                           get_modal_context,
                                           get_modal_power,
                                           round_to,
@@ -57,7 +57,7 @@ from pangalactic.core.parametrics import (clone_mode_defs, get_pval,
                                           set_dval)
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_power_modes_to_xlsx
-from pangalactic.node.activities  import (DEFAULT_ACTIVITIES,
+from pangalactic.node.activities  import (DEFAULT_ACT_NAMES,
                                           ActivityWidget,
                                           ModeDefinitionDashboard,
                                           SystemSelectionView)
@@ -879,7 +879,7 @@ class TimelineWidget(QWidget):
             return
         acts = []
         seq = 0
-        for name in DEFAULT_ACTIVITIES:
+        for name in DEFAULT_ACT_NAMES:
             activity_type = orb.get(
                             "pgefobjects:ActivityType.Operation")
             project = orb.get(state.get('project'))
@@ -1113,8 +1113,10 @@ class TimelineWidget(QWidget):
                     all_acts = flatten_subacts(act)
                     t_seq = [0.0]
                     for i, a in enumerate(all_acts):
-                        t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
-                                                         units=time_units))
+                        # t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
+                                                         # units=time_units))
+                        t_seq.append(t_seq[i] + get_duration(a,
+                                                             units=time_units))
                 else:
                     all_acts = subacts
                     t_seq = [get_pval(a.oid, 't_start', units=time_units)
@@ -1228,7 +1230,7 @@ class TimelineWidget(QWidget):
             else:
                 all_acts = subacts
             for a in all_acts:
-                d = get_effective_duration(a, units=time_units)
+                d = get_duration(a, units=time_units)
                 orb.log.debug(f'  {a.name}: {d}')
                 modal_context = get_modal_context(project.oid, usage.oid,
                                                   a.oid)
@@ -1244,7 +1246,7 @@ class TimelineWidget(QWidget):
                 p_mev_val = round_to(p_cbe_val * factor)
                 orb.log.debug(f'  P[mev]: {p_mev_val}')
                 p_mev_dict[a.name] = p_mev_val
-        duration = get_effective_duration(act, units=time_units)
+        duration = get_duration(act, units=time_units)
         max_val = max(list(p_mev_dict.values()))
         if time_units:
             orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
@@ -1276,8 +1278,9 @@ class TimelineWidget(QWidget):
         if subtimelines:
             t_seq = [0.0]
             for i, a in enumerate(all_acts):
-                t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
-                                                 units=time_units))
+                # t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
+                                                 # units=time_units))
+                t_seq.append(t_seq[i] + get_duration(a, units=time_units))
         super_acts = {}
         for i, a in enumerate(all_acts):
             if subtimelines:
@@ -1355,7 +1358,7 @@ class TimelineWidget(QWidget):
             e_total = 0
             p_peak = 0
             for a in super_act.sub_activities:
-                a_dur = get_effective_duration(a, units=time_units)
+                a_dur = get_duration(a, units=time_units)
                 # yes, this gives energy in weird units like Watt-minutes but
                 # doesn't matter because just using to calculate avg. power
                 a_p_cbe = p_cbe_dict[a.name]
@@ -1363,7 +1366,7 @@ class TimelineWidget(QWidget):
                 e_total += a_dur * a_p_cbe
                 if a_p_mev > p_peak:
                     p_peak = a_p_mev
-            dur = get_effective_duration(super_act, units=time_units)
+            dur = get_duration(super_act, units=time_units)
             t_end = t_start + dur
             # NOTE: round_to automatically uses user pref for numeric
             # precision; no need to specify "n" keyword arg ...
@@ -1482,9 +1485,7 @@ class ConOpsModeler(QMainWindow):
         super().__init__(parent=parent)
         orb.log.info('* ConOpsModeler initializing')
         proj_id = self.project.id
-        mission_name = ' '.join([proj_id, 'Mission'])
-        self.mission = orb.select('Mission', name=mission_name,
-                                  owner=self.project)
+        self.mission = orb.select('Mission', owner=self.project)
         if not self.mission:
             orb.log.debug('* [ConOps] creating a new Mission ...')
             message = f"{proj_id} had no Mission object; creating one ..."
@@ -1493,6 +1494,7 @@ class ConOpsModeler(QMainWindow):
                         "Creating Mission Object", message,
                         QMessageBox.Ok, self)
             popup.show()
+            mission_name = ' '.join([proj_id, 'Mission'])
             mission_id = '_'.join([self.project.id, 'mission'])
             NOW = dtstamp()
             user = orb.get(state.get('local_user_oid') or 'me')
@@ -1508,16 +1510,13 @@ class ConOpsModeler(QMainWindow):
             self.subject = self.mission
         # first make sure that mode_defz[self.project.oid] is initialized ...
         names = []
-        if not mode_defz.get(self.project.oid):
-            mode_defz[self.project.oid] = dict(modes={},
-                                               systems={},
-                                               components={})
+        init_mode_defz(self.project.oid)
         if mode_defz[self.project.oid]['systems']:
             for link_oid in mode_defz[self.project.oid]['systems']:
                 link = orb.get(link_oid)
                 names.append(get_link_name(link))
         modes = list(mode_defz[self.project.oid].get('modes') or [])
-        modes = modes or DEFAULT_ACTIVITIES
+        modes = modes or DEFAULT_ACT_NAMES
         # set initial default system state for modes that don't have one ...
         if names:
             orb.log.debug('  - specified systems:')
