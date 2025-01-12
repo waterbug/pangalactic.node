@@ -166,11 +166,12 @@ class Block(QGraphicsItem):
         pen = QPen(self.style)
         pen.setColor(Qt.black)
         pen.setWidth(2)
-        if self.isUnderMouse() and self.has_sub_diagram:
+        # if self.isUnderMouse() and self.has_sub_diagram:
+        if self.has_sub_diagram:
             pen.setColor(Qt.green)
             pen.setWidth(6)
-        elif option.state & QStyle.State_Selected:
-            pen.setColor(Qt.blue)
+        # elif option.state & QStyle.State_Selected:
+            # pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRect(self.rect)
 
@@ -315,8 +316,9 @@ class ObjectBlock(Block):
 
     @property
     def has_sub_diagram(self):
-        return bool(hasattr(self.obj, 'components')
-                    and len(self.obj.components))
+        if hasattr(self.obj, 'components'):
+            return bool(len(self.obj.components))
+        return False
 
     def get_usage(self):
         return self._usage
@@ -411,11 +413,13 @@ class ObjectBlock(Block):
         color = self.color or Qt.black
         pen.setColor(color)
         pen.setWidth(2)
-        if self.isUnderMouse() and self.has_sub_diagram:
+        # if self.isUnderMouse() and self.has_sub_diagram:
+        if self.has_sub_diagram:
             pen.setColor(Qt.green)
             pen.setWidth(6)
-        elif option.state & QStyle.State_Selected:
-            pen.setColor(Qt.blue)
+        # elif option.state & QStyle.State_Selected:
+            # pen.setColor(Qt.blue)
+            # pen.setWidth(6)
         painter.setPen(pen)
         painter.drawRect(self.rect)
 
@@ -1661,9 +1665,6 @@ class EntityBlock(Block):
                            BLOCK_FACTOR * POINT_SIZE)
         self.style = style or Qt.SolidLine
         self.obj = obj
-        self.has_sub_diagram = False
-        if hasattr(obj, 'components') and len(obj.components):
-            self.has_sub_diagram = True
         name = getattr(obj, 'id', 'id')
         version = getattr(obj, 'version', '')
         if version:
@@ -1688,15 +1689,22 @@ class EntityBlock(Block):
     def boundingRect(self):
         return self.rect.adjusted(-2, -2, 2, 2)
 
+    @property
+    def has_sub_diagram(self):
+        if hasattr(self.obj, 'components'):
+            return bool(len(self.obj.components))
+        return False
+
     def paint(self, painter, option, widget):
         pen = QPen(self.style)
         pen.setColor(Qt.black)
         pen.setWidth(2)
-        if self.isUnderMouse() and self.has_sub_diagram:
+        # if self.isUnderMouse() and self.has_sub_diagram:
+        if self.has_sub_diagram:
             pen.setColor(Qt.green)
             pen.setWidth(6)
-        elif option.state & QStyle.State_Selected:
-            pen.setColor(Qt.blue)
+        # elif option.state & QStyle.State_Selected:
+            # pen.setColor(Qt.blue)
         painter.setPen(pen)
         painter.drawRoundedRect(self.rect, 10, 10)
 
