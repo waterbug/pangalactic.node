@@ -492,7 +492,10 @@ class MainWindow(QMainWindow):
         rpc.addErrback(self.on_failure)
 
     def on_vger_save_result(self, stuff):
-        self.log('  vger.save result: {}'.format(str(stuff)))
+        self.log('  vger.save result:')
+        self.log("  =============================================")
+        self.log(f'  {stuff}')
+        self.log("  =============================================")
         try:
             msg = ''
             if stuff.get('new_obj_dts'):
@@ -505,32 +508,6 @@ class MainWindow(QMainWindow):
                 msg += '{} no owners (not saved); '.format(
                                                     len(stuff['no_owners']))
             self.log('- vger save: {}'.format(msg))
-            new_cloaked = 0
-            newly_decloaked = 0
-            if stuff.get('new_obj_dts'):
-                self.log('  - checking for new cloaked objects ...')
-                for oid in stuff['new_obj_dts']:
-                    if not oid in self.cloaked:
-                        self.cloaked.append(oid)
-                        self.cloaked_list.addItem(oid)
-                        new_cloaked += 1
-            if stuff.get('mod_obj_dts'):
-                self.log('  - checking for newly decloaked objects ...')
-                for oid in stuff['mod_obj_dts']:
-                    if oid in self.cloaked:
-                        self.cloaked.remove(oid)
-                        obj = orb.get(oid)
-                        if obj and obj.public:
-                            self.cloaked_list.clear()
-                        newly_decloaked += 1
-            if new_cloaked:
-                self.log(f'    {new_cloaked} new cloaked object(s) added.')
-            else:
-                self.log('    no cloaked objects found.')
-            if newly_decloaked:
-                self.log(f'    {newly_decloaked} newly decloaked object(s).')
-            else:
-                self.log('    no newly decloaked objects found.')
         except:
             self.log('  result format incorrect.')
 
@@ -653,14 +630,15 @@ class MainWindow(QMainWindow):
 
     def on_save_object(self):
         """
-        Save a generated "non-public" (cloaked) test object to the repo.  NOTE:
-        this function will only succeed of the client has logged in as one of
-        the test users (steve, buckaroo, zaphod).
+        Save a generated "non-public" test object to the repo.  NOTE: this
+        function will only succeed of the client has logged in as one of the
+        test users (steve, buckaroo, zaphod).
         """
         new_oid = str(uuid4())
         self.test_oid = new_oid
         suffix = new_oid[0:5]
-        ptype = product_types[random.randint(0, len(product_types) - 1)]
+        ptype = serialize(orb, [orb.select('ProductType', name='Instrument')],
+                          include_refdata=True)[0]
         new_id = 'TEST_' + ptype['id'][0:5] + '_' + suffix
         new_name = str(ptype['name']) + ' ' + str(suffix)
         now = dtstamp()
@@ -690,9 +668,9 @@ class MainWindow(QMainWindow):
 
     def on_save_public_object(self):
         """
-        Save a generated "public" (decloaked) test object to the repo.  NOTE:
-        this function will only succeed of the client has logged in as one of
-        the test users (steve, buckaroo, zaphod).
+        Save a generated "public" test object to the repo.  NOTE: this function
+        will only succeed of the client has logged in as one of the test users
+        (steve, buckaroo, zaphod).
         """
         new_oid = str(uuid4())
         self.test_oid = new_oid
@@ -720,11 +698,8 @@ class MainWindow(QMainWindow):
         else:
             self.add_psu_button.setVisible(True)
         rpc = message_bus.session.call('vger.save', [serialized_obj])
-        rpc.addCallback(self.on_save_result)
+        rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
-
-    def on_save_result(self, stuff):
-        self.log('* result received from rpc "vger.save":  %s' % str(stuff))
 
     def on_null_result(self):
         self.log('* no result expected.')
@@ -757,7 +732,7 @@ class MainWindow(QMainWindow):
         self.cloaked_list.clear()
         self.add_psu_button.setVisible(False)
         rpc = message_bus.session.call('vger.save', [psu])
-        rpc.addCallback(self.on_save_result)
+        rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
 
     def on_add_acu(self):
@@ -781,14 +756,13 @@ class MainWindow(QMainWindow):
                    product_type_hint=self.last_saved_obj['product_type'])
         # Don't use that object again
         self.last_saved_obj = None
-        self.system_level_obj = None
         self.latest_acu = acu
         self.add_acu_button.setVisible(False)
         self.remove_comp_button.setVisible(True)
         self.cloaked = []
         self.cloaked_list.clear()
         rpc = message_bus.session.call('vger.save', [acu])
-        rpc.addCallback(self.on_save_result)
+        rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
 
     def on_mod_dval(self):
@@ -806,15 +780,30 @@ class MainWindow(QMainWindow):
 
     def on_remove_component(self):
         self.log("* on_remove_component()")
-        if self.latest_acu:
+        if self.latest_acu and self.system_level_obj:
             self.log("  acu located -- removing component ...")
             self.latest_acu['component'] = 'pgefobjects:TBD'
-            self.latest_acu['mod_datetime'] = str(dtstamp())
-            acu = self.latest_acu
-            self.latest_acu = None
+            acu_dts = self.latest_acu['mod_datetime']
+            self.log(f"  acu mod_datetime is: {acu_dts}")
+            inst_dts = self.system_level_obj['mod_datetime']
+            self.log(f"  inst mod_datetime is: {inst_dts}")
+            self.latest_acu['quantity'] = 1
+            mod_dts = str(dtstamp())
+            self.log(f"  new mod_datetime is: {mod_dts}")
+            self.latest_acu['mod_datetime'] = mod_dts
+            self.system_level_obj['mod_datetime'] = mod_dts
             self.remove_comp_button.setVisible(False)
-            rpc = message_bus.session.call('vger.save', [acu])
-            rpc.addCallback(self.on_save_result)
+            self.log("  saving acu:")
+            self.log("  =============================================")
+            self.log(f"  {self.latest_acu}")
+            self.log("  =============================================")
+            self.log("  and assembly:")
+            self.log("  =============================================")
+            self.log(f"  {self.system_level_obj}")
+            self.log("  =============================================")
+            rpc = message_bus.session.call('vger.save',
+                                [self.latest_acu, self.system_level_obj])
+            rpc.addCallback(self.on_vger_save_result)
             rpc.addErrback(self.on_failure)
         else:
             self.log("  no acu found -- can't remove.")
