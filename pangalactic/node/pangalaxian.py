@@ -129,29 +129,32 @@ from pangalactic.node.wizards          import (NewProductWizard,
 
 class Main(QMainWindow):
     """
-    Main window of the 'pangalaxian' client gui.
+    Main window of the 'Pangalaxian' client gui.
 
     Attributes:
-        app_version (str):  version of wrapper app (if any)
-        auth_method (str): authentication method ("cryptosign" or "ticket")
-        auto (bool): whether to automatically connect to the repository at
-            startup (default: True)
+        home (str):           full path of the app home directory
+        app_base_name (str):  base name of the app; default: "Pangalaxian";
+                              release_mode will be appended if "dev" or "test"
+        app_version (str):    version of the app (if any)
+        release_mode (str):   release status: production, dev, or test
+        auth_method (str):    authentication method ("cryptosign" or "ticket")
+        auto (bool):          whether to automatically connect to the
+                              repository at startup (default: True)
         library_widget (CompoundLibraryWidget):  a panel widget containing
-            library views for specified classes and a selector (combo box)
-        mode (str):  name of current mode
-            (persistent in the `state` module)
-        project (Project):  currently selected project
-            (its oid is persisted as `project` in the `state` dict)
+                              library views for specified classes and a
+                              selector (combo box)
+        project (Project):    currently selected project (its oid is persisted
+                              as `project` in the `state` dict)
         projects (list of Project):  current authorized Projects in db
-            (a read-only property linked to the local db)
+                              (a read-only property linked to the local db)
         project_oids (list of str):  oids of the current project objects, used
-            in calling vger.get_parmz() to update parameters of the current
-            project objects [added 2022-11-09]
+                              in calling vger.get_parmz() to update parameters
+                              of the current project objects [added 2022-11-09]
         sys_tree (SystemTreeView):  the system tree widget (in left dock)
-        reactor (qt5reactor):  twisted event loop
-        roles (list of dicts):  actually, role assignments -- a list of dicts
-            of the form {org oid : role name}
-        use_tls (bool): use tls to connect to message bus
+        reactor (qt5reactor): twisted event loop
+        roles (list of dicts): actually, role assignments -- a list of dicts
+                              of the form {org oid : role name}
+        use_tls (bool):       use tls to connect to message bus
     """
     # enumeration of modes
     modes = ['system', 'component', 'db', 'data']
@@ -176,14 +179,21 @@ class Main(QMainWindow):
     refresh_admin_tool = pyqtSignal()
     units_set = pyqtSignal()
 
-    def __init__(self, home='', test_data=None, width=None, height=None,
-                 use_tls=True, auth_method='cryptosign', auto=True,
-                 reactor=None, app_version=None, console=False, debug=False):
+    def __init__(self, app_base_name='Pangalaxian', app_version='',
+                 release_mode='', home='', mode= '', test_data=None,
+                 width=None, height=None, use_tls=True,
+                 auth_method='cryptosign', auto=True, reactor=None,
+                 console=False, debug=False):
         """
         Initialize main window.
 
         Keyword Args:
-            app_version (str): version string of the wrapper app (if any)
+            app_base_name (str): base name of the app; default: "Pangalaxian";
+                               the full app name will have release_mode
+                               appended if it is "dev" or "test"
+            app_version (str): version string
+            release_mode (str): release status: production, dev, or test
+            home (str):        full path of the app home directory
             auth_method (str): authentication method ("cryptosign" or "ticket")
             auto (bool):       whether to automatically connect to the
                                repository at startup (default: True)
@@ -193,7 +203,6 @@ class Main(QMainWindow):
             debug (bool):      set log level to DEBUG
             height (int):      height of main window
                                (default: max of (screen h - 200) or 600)
-            home (str):        path to home directory
             reactor (Reactor): twisted Reactor instance
             test_data (list):  list of serialized test objects (dicts)
             use_tls (bool):    use tls to connect to message bus
@@ -204,6 +213,18 @@ class Main(QMainWindow):
         ###################################################
         # this enables tooltips for inactive child windows ...
         self.setAttribute(Qt.WA_AlwaysShowToolTips)
+        self.app_name = config.get('app_name')
+        self.app_base_name = app_base_name or "Pangalaxian"
+        if not self.app_name:
+            # if app_name is not pre-configured, construct it from
+            # app_base_name
+            if release_mode in ['dev', 'test']:
+                self.app_name = self.app_base_name + '_' + release_mode
+            else:
+                # for production releases, app_name == app_base_name
+                self.app_name = self.app_base_name
+        config['app_name'] = self.app_name
+        config['app_base_name'] = self.app_base_name
         self.splash_msg = ''
         self.add_splash_msg('Starting ...')
         self.channels = []
@@ -511,6 +532,7 @@ class Main(QMainWindow):
         connect to or disconnect from the message bus (crossbar server).
         """
         orb.log.debug('* setting message bus state ...')
+        # TODO:  add a dialog for configuring host & port settings
         if self.connect_to_bus_action.isChecked():
             host = config.get('host', 'localhost')
             port = config.get('port', '443')
@@ -837,15 +859,15 @@ class Main(QMainWindow):
             self.login_label.setText('Login: ')
             self.connect_to_bus_action.setToolTip('Connect to the message bus')
             self.update_project_role_labels()
-            app_name = config.get('app_name', 'Pangalaxian')
-            html = f'<h3>{app_name} {this_version} is Not Supported</h3><hr>'
+            name = self.app_name
+            html = f'<h3>{name} {this_version} is Not Supported</h3><hr>'
             html += '<p><b>You must <font color="red">uninstall</font> '
-            html += f'{app_name} {this_version}<br>and '
+            html += f'{name} {this_version}<br>and '
             html += '<font color="red">install</font> '
-            html += f'{app_name} {min_version} or higher.</b></p>'
+            html += f'{name} {min_version} or higher.</b></p>'
             url = state.get('app_download_url')
             if url:
-                html += f'<p><b>The current version of {app_name} can be '
+                html += f'<p><b>The current version of {name} can be '
                 html += 'downloaded from its installer site --<br>'
                 html += 'use the button below to access the site ...</p>'
             dlg = VersionDialog(html, url, parent=self)
@@ -2209,11 +2231,10 @@ class Main(QMainWindow):
 
     def _create_actions(self):
         # orb.log.debug('* creating actions ...')
-        app_name = config.get('app_name', 'Pangalaxian'),
         self.about_action = self.create_action(
                                     "About",
                                     slot=self.show_about,
-                                    tip="About {}".format(app_name))
+                                    tip="About {}".format(self.app_name))
         self.user_guide_action = self.create_action(
                                     "User Guide",
                                     slot=self.show_user_guide,
@@ -2573,8 +2594,13 @@ class Main(QMainWindow):
         """
         Path to the private key used for cryptosign auth.
         """
-        # TODO:  use app_name + '.key'
-        return os.path.join(self.user_home, 'cattens.key')
+        # NOTE: the intent is that the same key pair can be used for any
+        # version of any app release mode (dev, test, or production), since
+        # they all have the same app_base_name and the private key is stored in
+        # the user's home directory, so it is not removed or altered when a new
+        # release is installed.
+        key_file_name = self.app_base_name.lower() + '.key'
+        return os.path.join(self.user_home, key_file_name)
 
     @property
     def populated(self):
@@ -3004,7 +3030,7 @@ class Main(QMainWindow):
         self.statusbar.showMessage("To infinity, and beyond! :)")
         # x and y coordinates and the screen, width, height
         self.setGeometry(100, 100, width, height)
-        self.setWindowTitle(config['app_name'])
+        self.setWindowTitle(self.app_name)
 
     def on_new_project_signal(self, obj=None):
         """
@@ -5444,13 +5470,14 @@ class Main(QMainWindow):
     def show_about(self):
         # if app version is provided, use it; otherwise use ours
         version = self.app_version or __version__
-        app_name = config.get('app_name', 'Pangalaxian')
+        # app_name = config.get('app_name', 'Pangalaxian')
         QMessageBox.about(self, "Some call me...",
-            f'<html><h2>{app_name} {version}</h2></html>')
+            f'<html><h2>{self.app_name} {version}</h2></html>')
 
     def show_user_guide(self):
-        app_name = config.get('app_name', '')
-        if app_name.startswith('CATTENS'):
+        # TODO: search/replace app_name in user guide ...
+        # app_name = config.get('app_name', '')
+        if self.app_name.startswith('CATTENS'):
             ug_name = 'cattens_user_guide.html'
         else:
             ug_name = 'user_guide.html'
@@ -5459,8 +5486,9 @@ class Main(QMainWindow):
         webbrowser.open_new(ug_url)
 
     def show_ref_manual(self):
-        app_name = config.get('app_name', '')
-        if app_name.startswith('CATTENS'):
+        # TODO: search/replace app_name in ref manual ...
+        # app_name = config.get('app_name', '')
+        if self.app_name.startswith('CATTENS'):
             ref_name = 'cattens_reference.html'
         else:
             ref_name = 'reference.html'
@@ -6995,9 +7023,25 @@ def cleanup_and_save():
     write_state(os.path.join(orb.home, 'state'))
     write_trash(os.path.join(orb.home, 'trash'))
 
-def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
-        console=True, debug=False, app_version=None):
+def run(app_base_name='', app_version='', app_home='', release_mode='',
+        splash_image=None, use_tls=True, auth_method='crypto', console=False,
+        debug=False):
+    """
+    app_base_name (str): base name of the app; default: "Pangalaxian";
+                         release_mode will be appended if "dev" or "test"
+    app_version (str):   version of the app (if any)
+    app_home (str):      specified name of app home directory
+                         default: empty str
+    release_mode (str):  release status (production, dev, or test)
+                         default: production (empty string)
+    splash_image (str):  name of the splash image file
+    use_tls (bool):      use tls to connect to message bus
+    auth_method (str):   authentication method ("cryptosign" or "ticket")
+    console (bool):      send log messages to stdout (default: False)
+    debug (bool):        set logging to debug level (default: False)
+    """
     app = QApplication(sys.argv)
+    app_base_name = app_base_name or 'Pangalaxian'
     # app.setStyleSheet('QToolTip { border: 2px solid;}')
     app.setStyleSheet("QToolTip { color: #ffffff; "
                       "background-color: #2a82da; "
@@ -7007,11 +7051,56 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
         app.setStyle(QStyleFactory.create('Fusion'))
     screen_resolution = app.desktop().screenGeometry()
     splash_image = splash_image or 'pangalactic_logo_splash.png'
+    #--------------------------------------------------------------------------
+    # set up path to "home" based on app_home and user "home" ...
+    # [1] for the dir name:
+    #     [a] use app_home if not empty + release_mode
+    #     [b] use lower case app_base_name if not empty + release_mode
+    #     [c] use "pangalaxian_home" + release_mode
+    # [2] for the dir path:
+    # determine the user home/profile dir path based on platform and append the
+    # dir name to that.
+    #--------------------------------------------------------------------------
+    app_home_path = ''
+    # if release_mode is empty str or "production", release_suffix is empty str
+    release_suffix = ''
+    if release_mode in ["dev", "test"]:
+        release_suffix = '_' + release_mode
+    if not app_home:
+        app_home = app_base_name.lower() + '_home' + release_suffix
+    user_home = ''
+    if sys.platform == 'win32':
+        user_home = os.path.join(os.environ.get('USERPROFILE'))
+        if os.path.exists(user_home):
+            app_home_path = os.path.join(user_home, app_home)
+    else:
+        # Linux or OSX
+        user_home = os.environ.get('HOME')
+        if user_home:
+            app_home_path = os.path.join(user_home, app_home)
+    # if all else fails, create app_home inside the current directory --
+    # not desirable because app_home holds user data that needs to
+    # persist when a new version of the client is installed, which may
+    # destroy the directory.
+    if not app_home_path:
+        app_home_path = os.path.join(os.getcwd(), app_home)
+    if not os.path.exists(app_home_path):
+        os.makedirs(app_home_path, mode=0o755)
+    home = app_home_path
     # Create and display the splash screen
-    # * if home is set, use image dir inside home
-    splash_path = ''
-    if home:
-        splash_path = os.path.join(home, 'images', splash_image)
+    # * if it exists, use image inside home 'images' subdir
+    images_dir = os.path.join(home, 'images')
+    std_img_path = os.path.join(images_dir, splash_image)
+    splash_path = std_img_path
+    if os.path.exists(std_img_path):
+        print("* splash image is in std path ...")
+    elif os.path.exists(splash_image):
+        # if img is in current dir, use it ...
+        splash_path = splash_image
+        print(f"* using specified splash image: {splash_image}")
+    else:
+        print("* splash image not found.")
+        splash_path = ''
     x = screen_resolution.width() // 2
     y = screen_resolution.height() // 2
     # BEGIN importing and installing the reactor
@@ -7021,21 +7110,24 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
     # from twisted.internet.defer import setDebugging
     # END importing and installing the reactor
     if splash_path:
+        print(" * splash path found, starting splash ...")
         splash_pix = QPixmap(splash_path)
         splash = SplashScreen(splash_pix, center_point=QPoint(x, y))
         splash.show()
-        # splash.showMessage('Starting ...')
+        splash.showMessage('Starting ...')
         # processEvents() is needed for image to load
-        app.processEvents()
+        QApplication.processEvents()
         # TODO:  updates to showMessage() using thread/slot+signal
-        main = Main(home=home, use_tls=use_tls, auth_method=auth_method,
-                    reactor=reactor, app_version=app_version,
-                    console=console, debug=debug)
+        main = Main(home=home, app_base_name=app_base_name,
+                    app_version=app_version, use_tls=use_tls,
+                    auth_method=auth_method, reactor=reactor, console=console,
+                    debug=debug)
         splash.finish(main)
     else:
-        main = Main(home=home, use_tls=use_tls, auth_method=auth_method,
-                    reactor=reactor, app_version=app_version,
-                    console=console, debug=debug)
+        main = Main(home=home, app_base_name=app_base_name,
+                    app_version=app_version, use_tls=use_tls,
+                    auth_method=auth_method, reactor=reactor, console=console,
+                    debug=debug)
     main.setContextMenuPolicy(Qt.PreventContextMenu)
     main.show()
     main.auto_connect()
@@ -7068,17 +7160,38 @@ def run(home='', splash_image=None, use_tls=True, auth_method='crypto',
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-t', '--test', action='store_true',
-                        help='test mode (send log output to console)')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='debug mode (verbose logging)')
+    parser.add_argument('-c', '--console', action='store_true',
+                        help='send log msgs to stdout (default: False)')
     parser.add_argument('-u', '--unencrypted', action='store_true',
                         help='use unencrypted transport (no tls)')
     parser.add_argument('--auth', dest='auth', type=str, default='cryptosign',
                         help='authentication method: "ticket" or "cryptosign" '
                              '[default: "cryptosign" (pubkey auth)]')
+    parser.add_argument('-n', '--name', dest='app_base_name', type=str,
+                        default='Pangalaxian',
+                        help='app base name, default: "Pangalaxian"')
+    parser.add_argument('-v', '--version', dest='app_version', type=str,
+                        default='',
+                        help='app version string, default: ""')
+    parser.add_argument('-a', '--app_home', dest='app_home', type=str,
+                        default='',
+                        help='specified name of app home directory '
+                             '[default: empty string)')
+    parser.add_argument('-r', '--release_mode', dest='release_mode', type=str,
+                        default='',
+                        help='release mode '
+                        '(possible values: "production", "dev", or "test") '
+                        'default: "production"')
+    parser.add_argument('-s', '--splash_image', dest='splash_image', type=str,
+                        default='',
+                        help='name of a splash image file '
+                             '[default: empty string)')
     options = parser.parse_args()
     tls = not options.unencrypted
-    run(console=options.test, debug=options.debug, use_tls=tls,
-        auth_method=options.auth)
+    run(app_base_name=options.app_base_name, app_version=options.app_version,
+        app_home=options.app_home, release_mode=options.release_mode,
+        debug=options.debug, console=options.console, use_tls=tls,
+        auth_method=options.auth, splash_image=options.splash_image)
 
