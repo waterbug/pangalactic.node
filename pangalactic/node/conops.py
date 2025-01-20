@@ -1238,14 +1238,14 @@ class TimelineWidget(QWidget):
                 p_cbe_val = get_modal_power(project.oid, usage.oid, comp.oid,
                                             a.oid, modal_context)
                 orb.log.debug(f'  P[cbe]: {p_cbe_val}')
-                p_cbe_dict[a.name] = p_cbe_val
+                p_cbe_dict[a.oid] = p_cbe_val
                 ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
                 factor = 1.0 + ctgcy
                 # NOTE: round_to automatically uses user pref for numeric
                 # precision; no need to specify "n" keyword arg ...
                 p_mev_val = round_to(p_cbe_val * factor)
                 orb.log.debug(f'  P[mev]: {p_mev_val}')
-                p_mev_dict[a.name] = p_mev_val
+                p_mev_dict[a.oid] = p_mev_val
         duration = get_duration(act, units=time_units)
         max_val = max(list(p_mev_dict.values()))
         if time_units:
@@ -1302,8 +1302,8 @@ class TimelineWidget(QWidget):
                 plot=plot
             )
             # insert a label marker for each activity
-            p_cbe_val = p_cbe_dict[a.name]
-            p_mev_val = p_mev_dict[a.name]
+            p_cbe_val = p_cbe_dict[a.oid]
+            p_mev_val = p_mev_dict[a.oid]
             name = pname_to_header(a.name, 'Activity', width=20)
             label_txt = f'  {name}  '
             label_txt += f'\n P[cbe] = {p_cbe_val} Watts '
@@ -1361,8 +1361,8 @@ class TimelineWidget(QWidget):
                 a_dur = get_duration(a, units=time_units)
                 # yes, this gives energy in weird units like Watt-minutes but
                 # doesn't matter because just using to calculate avg. power
-                a_p_cbe = p_cbe_dict[a.name]
-                a_p_mev = p_mev_dict[a.name]
+                a_p_cbe = p_cbe_dict[a.oid]
+                a_p_mev = p_mev_dict[a.oid]
                 e_total += a_dur * a_p_cbe
                 if a_p_mev > p_peak:
                     p_peak = a_p_mev
