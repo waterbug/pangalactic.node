@@ -74,6 +74,7 @@ from pangalactic.core.parametrics      import (data_elementz,
                                                delete_parameter,
                                                delete_data_element,
                                                mode_defz, parameterz,
+                                               recompute_parmz,
                                                save_data_elementz, save_parmz,
                                                set_dval)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
@@ -3258,7 +3259,7 @@ class Main(QMainWindow):
                 # -------------------------------------------------------------
                 # BEGIN OFFLINE LOCAL UPDATES
                 # -------------------------------------------------------------
-                orb.recompute_parmz()
+                recompute_parmz()
                 if ((self.mode == 'system') and
                     state.get('tree needs refresh')):
                     # orb.log.info('  [ovgpr] tree needs refresh ...')
@@ -3386,7 +3387,7 @@ class Main(QMainWindow):
             # -------------------------------------------------------------
             # BEGIN OFFLINE LOCAL UPDATES
             # -------------------------------------------------------------
-            orb.recompute_parmz()
+            recompute_parmz()
             if ((self.mode == 'system') and
                 state.get('tree needs refresh')):
                 # orb.log.info('  [ovgpr] tree needs refresh ...')
@@ -4065,7 +4066,7 @@ class Main(QMainWindow):
                 state['product'] = ''
         if not state.get('connected'):
             # deletion was local -- do updates ...
-            orb.recompute_parmz()
+            recompute_parmz()
             if (self.mode in ['component', 'system']
                 and cname == 'HardwareProduct'):
                 # if a library_widget exists, refresh it ...
@@ -4414,7 +4415,7 @@ class Main(QMainWindow):
                 state['product'] = ''
         if not state.get('connected'):
             # recompute parameters if operating unconnected to repo ...
-            orb.recompute_parmz()
+            recompute_parmz()
         # only attempt to update tree and dashboard if in "system" mode ...
         if ((self.mode == 'system') and
             cname in ['Acu', 'ProjectSystemUsage', 'HardwareProduct']):
@@ -4809,7 +4810,7 @@ class Main(QMainWindow):
         """
         # orb.log.debug('* refresh_tree_and_dashboard()')
         if not state.get('connected'):
-            orb.recompute_parmz()
+            recompute_parmz()
         self.sys_tree_rebuilt = False
         self.dashboard_rebuilt = False
         self.refresh_tree_views(selected_link_oid=selected_link_oid)
@@ -6506,7 +6507,7 @@ class Main(QMainWindow):
                         return
                 else:
                     # if not connected, work in synchronous mode ...
-                    orb.recompute_parmz()
+                    recompute_parmz()
                     if self.mode == 'system':
                         for obj in new_products_psus_or_acus:
                             self.update_object_in_trees(obj)
@@ -6638,7 +6639,7 @@ class Main(QMainWindow):
                         return
                 else:
                     # if not connected, work in synchronous mode ...
-                    orb.recompute_parmz()
+                    recompute_parmz()
                     if hasattr(self, 'library_widget'):
                         self.library_widget.refresh()
                     if self.mode == 'system':
