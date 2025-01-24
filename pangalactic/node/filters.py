@@ -1018,7 +1018,8 @@ class FilterPanel(QWidget):
             self.proxy_view.addAction(self.pgxnobj_action)
             # NOTE: disabled because templates need more work
             # self.proxy_view.addAction(self.template_action)
-        elif self.cname != "Requirement":
+        # elif self.cname != "Requirement":
+        else:
             # for all objs other than Requirements, use PgxnObject
             self.proxy_view.addAction(self.pgxnobj_action)
 

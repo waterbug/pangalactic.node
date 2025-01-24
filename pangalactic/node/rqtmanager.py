@@ -141,6 +141,14 @@ class RequirementManager(QDialog):
         prefs['rqt_mgr_view'] = v
 
     def setup_context_menu(self):
+        # FilterPanel default context menu has pgxnobj_action, which brings up
+        # the object editor, but we do not want use that to edit rqts in the
+        # requirements manager context ...
+        if hasattr(self.fpanel, 'pgxnobj_action'):
+            try:
+                self.fpanel.proxy_view.removeAction(self.fpanel.pgxnobj_action)
+            except:
+                pass
         txt = 'Edit parameters of this requirement'
         self.rqt_parms_action = QAction(txt, self)
         self.rqt_parms_action.triggered.connect(self.edit_rqt_parms)
