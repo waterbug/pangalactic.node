@@ -1115,7 +1115,7 @@ class TimelineWidget(QWidget):
                     for i, a in enumerate(all_acts):
                         # t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
                                                          # units=time_units))
-                        t_seq.append(t_seq[i] + get_duration(a,
+                        t_seq.append(t_seq[i] + get_effective_duration(a,
                                                              units=time_units))
                 else:
                     all_acts = subacts
@@ -1230,7 +1230,7 @@ class TimelineWidget(QWidget):
             else:
                 all_acts = subacts
             for a in all_acts:
-                d = get_duration(a, units=time_units)
+                d = get_effective_duration(a, units=time_units)
                 orb.log.debug(f'  {a.name}: {d}')
                 modal_context = get_modal_context(project.oid, usage.oid,
                                                   a.oid)
@@ -1246,7 +1246,7 @@ class TimelineWidget(QWidget):
                 p_mev_val = round_to(p_cbe_val * factor)
                 orb.log.debug(f'  P[mev]: {p_mev_val}')
                 p_mev_dict[a.oid] = p_mev_val
-        duration = get_duration(act, units=time_units)
+        duration = get_effective_duration(act, units=time_units)
         max_val = max(list(p_mev_dict.values()))
         if time_units:
             orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
@@ -1280,7 +1280,7 @@ class TimelineWidget(QWidget):
             for i, a in enumerate(all_acts):
                 # t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
                                                  # units=time_units))
-                t_seq.append(t_seq[i] + get_duration(a, units=time_units))
+                t_seq.append(t_seq[i] + get_effective_duration(a, units=time_units))
         super_acts = {}
         for i, a in enumerate(all_acts):
             if subtimelines:
@@ -1358,15 +1358,23 @@ class TimelineWidget(QWidget):
             e_total = 0
             p_peak = 0
             for a in super_act.sub_activities:
-                a_dur = get_duration(a, units=time_units)
+                a_dur = get_effective_duration(a, units=time_units)
                 # yes, this gives energy in weird units like Watt-minutes but
                 # doesn't matter because just using to calculate avg. power
-                a_p_cbe = p_cbe_dict[a.oid]
-                a_p_mev = p_mev_dict[a.oid]
+                a_p_cbe = p_cbe_dict.get(a.oid)
+                if a_p_cbe is None:
+                    orb.log.debug(f'  act "{a.name}" not in p_cbe_dict')
+                    # artificially set to zero for now ...
+                    a_p_cbe = 0
+                a_p_mev = p_mev_dict.get(a.oid)
+                if a_p_mev is None:
+                    orb.log.debug(f'  act "{a.name}" not in p_mev_dict')
+                    # artificially set to zero for now ...
+                    a_p_mev = 0
                 e_total += a_dur * a_p_cbe
                 if a_p_mev > p_peak:
                     p_peak = a_p_mev
-            dur = get_duration(super_act, units=time_units)
+            dur = get_effective_duration(super_act, units=time_units)
             t_end = t_start + dur
             # NOTE: round_to automatically uses user pref for numeric
             # precision; no need to specify "n" keyword arg ...
