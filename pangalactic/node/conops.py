@@ -47,11 +47,12 @@ except:
 from pangalactic.core.access      import get_perms
 from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name, pname_to_header
-# from pangalactic.core.parametrics import get_pval
-from pangalactic.core.parametrics import (clone_mode_defs, get_duration,
-                                          get_pval, init_mode_defz, mode_defz,
+from pangalactic.core.parametrics import (clone_mode_defs,
+                                          get_pval,
                                           get_modal_context,
                                           get_modal_power,
+                                          init_mode_defz,
+                                          mode_defz,
                                           round_to,
                                           set_comp_modal_context,
                                           set_dval)
@@ -1074,13 +1075,14 @@ class TimelineWidget(QWidget):
         """
         Return a function that computes system net power value as a function of
         time. Note that the time variable "t" in the returned function can be a
-        scalar (float) or can be array-like (list, etc.).
+        scalar (float) variable or can be array-like (list, etc.).
 
         Keyword Args:
-            act (Activity): restrict to the specified activity (default if act
-                is None: the Mission)
+            project (Project): restrict to the specified project
+            act (Activity): restrict to the specified activity (defaults to the
+                Mission if act is None)
             usage (Acu or ProjectSystemUsage): restrict to the power of the
-                specified usage, or self.usage if none is specified
+                specified usage, or self.usage if no usage is specified
             context (str): "CBE" (Current Best Estimate) or "MEV" (Maximum
                 Estimated Value)
             time_units (str): units of time to be used (default: minutes)
@@ -1278,8 +1280,6 @@ class TimelineWidget(QWidget):
         if subtimelines:
             t_seq = [0.0]
             for i, a in enumerate(all_acts):
-                # t_seq.append(t_seq[i] + get_pval(a.oid, 'duration',
-                                                 # units=time_units))
                 t_seq.append(t_seq[i] + get_effective_duration(a, units=time_units))
         super_acts = {}
         for i, a in enumerate(all_acts):
@@ -1523,8 +1523,6 @@ class ConOpsModeler(QMainWindow):
             for link_oid in mode_defz[self.project.oid]['systems']:
                 link = orb.get(link_oid)
                 names.append(get_link_name(link))
-        modes = list(mode_defz[self.project.oid].get('modes') or [])
-        modes = modes or DEFAULT_ACT_NAMES
         # set initial default system state for modes that don't have one ...
         if names:
             orb.log.debug('  - specified systems:')
@@ -1888,6 +1886,7 @@ class ConOpsModeler(QMainWindow):
         "level" from "[computed]" to a specifiable level value.
         """
         # TODO: implement as a context menu action ...
+        acts = getattr(self.usage, 'activities', [])
         link = orb.get(link_oid)
         # link might be None -- allow for that
         if not hasattr(link, 'oid'):
@@ -1897,7 +1896,6 @@ class ConOpsModeler(QMainWindow):
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
-        mode_dict = project_mode_defz['modes']
         if link.oid in sys_dict:
             # if selected link is in sys_dict, make subject (see below)
             # orb.log.debug(f' - removing "{name}" from systems ...')
@@ -1921,10 +1919,11 @@ class ConOpsModeler(QMainWindow):
                     if not comp_dict.get(syslink_oid):
                         comp_dict[syslink_oid] = {}
                     comp_dict[syslink_oid][link.oid] = {}
-                    for mode in mode_dict:
-                        comp_dict[syslink_oid][link.oid][
-                                                mode] = (mode_dict.get(mode)
-                                                         or '[select state]')
+                    for mode_oid in [getattr(act, 'oid', '') for act in acts
+                                     if act is not None]:
+                        if comp_dict[syslink_oid][link.oid].get(mode_oid):
+                            comp_dict[syslink_oid][link.oid][
+                                                mode_oid] = '[select state]'
             # make sure link is not current usage and if so, unset it ...
             cur_usage_oid = getattr(self.usage, 'oid', '') or ''
             if cur_usage_oid == link.oid:
@@ -1955,7 +1954,8 @@ class ConOpsModeler(QMainWindow):
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
-        mode_dict = project_mode_defz['modes']
+        acts = getattr(self.usage, 'activities', [])
+        act_oids = [act.oid for act in acts]
         in_comp_dict = False
         if link.oid not in sys_dict:
             # selected link is NOT in sys_dict:
@@ -1983,7 +1983,7 @@ class ConOpsModeler(QMainWindow):
                         #     add it to sys_dict
                         del comp_dict[syslink_oid][link.oid]
                         sys_dict[link.oid] = {}
-                        for mode_oid in mode_dict:
+                        for mode_oid in act_oids:
                             sys_dict[link.oid][mode_oid] = '[computed]'
                     else:
                         # [b] if it has no components, ignore the operation
@@ -1997,13 +1997,11 @@ class ConOpsModeler(QMainWindow):
                 #     exists ... in degenerate case it may be None (no oid)
                 if hasattr(link, 'oid'):
                     sys_dict[link.oid] = {}
-                    for mode_oid in mode_dict:
+                    for mode_oid in act_oids:
                         if has_components:
                             sys_dict[link.oid][mode_oid] = '[computed]'
                         else:
-                            context = mode_dict.get(mode_oid)
-                            context = context or '[select level]'
-                            sys_dict[link.oid][mode_oid] = context
+                            sys_dict[link.oid][mode_oid] = '[select level]'
         # ensure that all selected systems (sys_dict) that have components,
         # have those components included in comp_dict ...
         # * set their modal_context (level) to "Off"
@@ -2024,7 +2022,7 @@ class ConOpsModeler(QMainWindow):
                 for name, acu in by_name:
                     if not comp_dict[link.oid].get(acu.oid):
                         comp_dict[link.oid][acu.oid] = {}
-                    for mode_oid in mode_dict:
+                    for mode_oid in act_oids:
                         # assign default modal_context
                         modal_context = 'Off'   # TODO: use default "template"
                         set_comp_modal_context(self.project.oid,
