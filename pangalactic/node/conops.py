@@ -1409,7 +1409,10 @@ class TimelineWidget(QWidget):
             j += 1
         # plot.resize(1400, 650)
         dlg = PlotDialog(plot, title="Power vs Time", parent=self)
-        dlg.show()
+        if dlg.exec_() == QDialog.Accepted:
+            mode_defz[project.oid]['p_peak'] = p_peak
+            mode_defz[project.oid]['p_average'] = p_average
+            dispatcher.send(signal="modes edited", oid=project.oid)
 
     def output_excel(self):
         orb.log.debug('* output_excel()')
@@ -1827,8 +1830,8 @@ class ConOpsModeler(QMainWindow):
                 # orb.log.debug('    sending "set mode usage" signal ...')
                 dispatcher.send(signal='set mode usage', usage=link)
             else:
+                # orb.log.debug("  - link oid is NOT in sys_dict")
                 if product.components:
-                    # orb.log.debug("  - link oid is NOT in sys_dict")
                     # the item does not yet exist in mode_defz as a system
                     # -- notify the user and ask if they want to
                     # define modes for it ...
@@ -1955,7 +1958,7 @@ class ConOpsModeler(QMainWindow):
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
-        acts = getattr(self.usage, 'activities', [])
+        acts = getattr(link, 'activities', [])
         act_oids = [act.oid for act in acts]
         in_comp_dict = False
         if link.oid not in sys_dict:

@@ -479,15 +479,10 @@ class ModeDefinitionDashboard(QWidget):
 
     @property
     def mode_dict(self):
-        # maps act.oid to act.name for sub_activities of the
-        # project's Mission
-        md = {}
-        mission = orb.select('Mission', owner=self.project)
-        if mission:
-            acts = mission.sub_activities
-            if acts:
-                md = {act.oid: act.name for act in acts}
-        mode_defz[self.project.oid]['modes'] = md
+        md = mode_defz[self.project.oid].get('modes')
+        if md is None:
+            mode_defz[self.project.oid]['modes'] = {}
+            md = mode_defz[self.project.oid]['modes']
         return md
 
     @property
@@ -582,7 +577,7 @@ class ModeDefinitionDashboard(QWidget):
         Args:
             project_oid (str): oid of the project object
             link_oid (str): oid of the link (Acu or PSU)
-            mode (str): oid of the mode
+            mode (str): oid of the mode (Activity)
             value (polymorphic): a context name or ...
         """
         # TODO: NEW SIGNATURE: instead of "value" -- elements to construct a

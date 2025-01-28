@@ -117,6 +117,9 @@ class PlotDialog(QDialog):
         self.export_to_pdf_button = SizedButton("Export to PDF")
         self.export_to_pdf_button.clicked.connect(self.export_to_pdf)
         button_box.addWidget(self.export_to_pdf_button, alignment=Qt.AlignRight)
+        self.save_button = SizedButton("Save Peak/Avg Power Values and Close")
+        self.save_button.clicked.connect(self.save_power_values)
+        button_box.addWidget(self.save_button, alignment=Qt.AlignRight)
         vbox.addLayout(button_box)
         self.resize(1500, 700)
 
@@ -173,6 +176,9 @@ class PlotDialog(QDialog):
             self.plot.exportTo(fpath, size=(1400, 600))
         else:
             return
+
+    def save_power_values(self):
+        self.accept()
 
 
 class LoginDialog(QDialog):
