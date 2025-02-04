@@ -25,7 +25,7 @@ from pangalactic.core.parametrics import (get_pval, get_power_contexts,
                                           get_modal_context,
                                           get_modal_power,
                                           mode_defz, round_to,
-                                          set_comp_modal_context)
+                                          set_modal_context)
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
@@ -520,8 +520,9 @@ class ModeDefinitionDashboard(QWidget):
     def on_activity_focused(self, act=None):
         orb.log.debug('* MDD: received signal "activity focused"')
         self.act = act
-        # make sure mode_defz has this activity oid as a mode
-        if act and act.oid not in self.mode_dict:
+        # make sure mode_defz has this activity oid as a mode and that its
+        # name is up to date in mode_defz
+        if act:
             self.mode_dict[act.oid] = act.name
         if self.edit_state:
             self.on_edit(None)
@@ -737,6 +738,12 @@ class ModeDefinitionDashboard(QWidget):
         Add the data.
         """
         self.setup_title_widget()
+        # NOTE: identifying the data associated with the currently selected
+        # system usage can have a side-effect of requiring an update to the
+        # mode_defz data, e.g. when default power levels are set for a newly
+        # selected subsystem -- hence the need for the "mode_defs_need_update"
+        # state variable, which will be set by set_row_fields() if needed.
+        self.mode_defs_need_update = False
         # set row labels
         # ---------------------------------------------------------------------
         # TODO: row labels should be removed / re-added when self.usage changes
@@ -799,6 +806,8 @@ class ModeDefinitionDashboard(QWidget):
                 self.edit_button = SizedButton('Edit')
                 self.edit_button.clicked.connect(self.on_edit)
                 grid.addWidget(self.edit_button, row, 0)
+        if self.mode_defs_need_update:
+            dispatcher.send(signal="update mode defs", oid=self.project.oid)
 
     def get_l_select(self, comp):
         contexts = get_power_contexts(comp) or DEFAULT_CONTEXTS
@@ -813,8 +822,8 @@ class ModeDefinitionDashboard(QWidget):
         Set power level (context) for the acu whose oid is specified for the
         mode self.act.oid.
         """
-        set_comp_modal_context(self.project.oid, self.usage.oid, oid,
-                               self.act.oid, level)
+        set_modal_context(self.project.oid, self.usage.oid, oid, self.act.oid,
+                          level)
         orb.log.debug(' - comp mode datum set:')
         orb.log.debug(f'   level = {level}')
         orb.log.debug(f'   acu oid = {oid}')
@@ -842,10 +851,14 @@ class ModeDefinitionDashboard(QWidget):
         grid = self.dash_panel.layout()
         self.p_cbe_fields = {}
         self.p_mev_fields = {}
+        # is_component = False
+        # assembly = None
         if isinstance(usage, orb.classes['ProjectSystemUsage']):
             comp = usage.system
         elif isinstance(usage, orb.classes['Acu']):
             comp = usage.component
+            # is_component = True
+            # assembly = usage.assembly
         # -------------------
         # power_level (col 1)
         # -------------------
@@ -862,8 +875,29 @@ class ModeDefinitionDashboard(QWidget):
                 grid.addWidget(label, row, 1)
             else:
                 if not modal_context:
-                    # modal_context has not been set -- use default value
-                    modal_context = 'Off'   # TODO: use default "template"
+                    # modal_context has not been set
+                    modal_context = 'Off'
+                    upaths = orb.get_all_usage_paths(comp)
+                    next_usage = None
+                    for upath in upaths:
+                        # find upath within the current project ...
+                        systems = [psu.system for psu in self.project.systems]
+                        top_assembly = upath[0].assembly
+                        if top_assembly in systems:
+                            if len(upath) > 1:
+                                next_usage = upath[-2]
+                            else:
+                                next_usage = orb.select('ProjectSystemUsage',
+                                                        project=self.project,
+                                                        system=top_assembly)
+                    if next_usage:
+                        # TODO: set default value (need usage paths ...)
+                        set_modal_context(self.project.oid,
+                                          next_usage.oid,
+                                          usage.oid,
+                                          self.act.oid,
+                                          "Off")
+                        self.mode_defs_need_update = True
                 if self.edit_state:
                     i = self.usage_to_l_select[usage.oid].findText(
                                                             modal_context)
@@ -876,6 +910,11 @@ class ModeDefinitionDashboard(QWidget):
         # -------------------
         # p_cbe (col 2)
         # -------------------
+        orb.log.debug('* calling get_modal_power() for')
+        orb.log.debug(f'      usage:         "{usage.id}"')
+        orb.log.debug(f'      system:        "{comp.name}"')
+        orb.log.debug(f'      mode:          "{self.act.name}"')
+        orb.log.debug(f'      modal context: "{modal_context}"')
         p_cbe_val = get_modal_power(self.project.oid, usage.oid, comp.oid,
                                     self.act.oid, modal_context)
         # TODO: possible to get None -- possible bug in get_pval ...
