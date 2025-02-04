@@ -424,6 +424,7 @@ class Main(QMainWindow):
         dispatcher.connect(self.get_parmz, 'get parmz')
         dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
+        dispatcher.connect(self.on_mode_defs_edited, 'update mode defs')
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
         # NOTE: "power modes udpated" signal can be ignored here because
         # currently there is no "System Power Modes" dashboard in pgxn ...
@@ -3900,6 +3901,9 @@ class Main(QMainWindow):
         Handle local "modes edited" signal, which is emitted by the ConOps
         assembly tree (usage selection) tool when a new usage is selected for
         addition to mode_defs.
+
+        Keyword Args:
+            oid (str): oid of project whose mode defs are to be updated
         """
         orb.log.debug('* signal: "modes edited"')
         proj_mode_defs = mode_defz.get(oid) or {}

@@ -54,7 +54,7 @@ from pangalactic.core.parametrics import (clone_mode_defs,
                                           init_mode_defz,
                                           mode_defz,
                                           round_to,
-                                          set_comp_modal_context,
+                                          set_modal_context,
                                           set_dval)
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_power_modes_to_xlsx
@@ -1847,8 +1847,8 @@ class ConOpsModeler(QMainWindow):
                     popup = QMessageBox(
                           QMessageBox.Critical,
                           "No Components",
-                          "This item has no components, so it cannot be\n"
-                          "set as the context for a computed mode.",
+                          "This item has no components, so it cannot\n"
+                          'have a "computed" power mode.',
                           QMessageBox.Ok, self)
                     popup.show()
 
@@ -2029,10 +2029,8 @@ class ConOpsModeler(QMainWindow):
                     for mode_oid in act_oids:
                         # assign default modal_context
                         modal_context = 'Off'   # TODO: use default "template"
-                        set_comp_modal_context(self.project.oid,
-                                               syslink_oid,
-                                               acu.oid, mode_oid,
-                                               modal_context)
+                        set_modal_context(self.project.oid, syslink_oid,
+                                          acu.oid, mode_oid, modal_context)
 
         # the expandToDepth is needed to make it repaint to show the selected
         # node as highlighted

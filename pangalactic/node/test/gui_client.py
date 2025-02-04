@@ -258,6 +258,9 @@ class MainWindow(QMainWindow):
         self.get_object_button = QPushButton('Get Object')
         self.get_object_button.setVisible(False)
         self.get_object_button.clicked.connect(self.on_get_object)
+        self.get_mode_defz_button = QPushButton('Get Mode Defs')
+        self.get_mode_defz_button.setVisible(False)
+        self.get_mode_defz_button.clicked.connect(self.on_get_mode_defz)
         # self.sync_project_button = QPushButton('Sync Project')
         # self.sync_project_button.setVisible(False)
         # self.sync_project_button.clicked.connect(self.on_sync_project)
@@ -289,6 +292,7 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.mod_dval_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.remove_comp_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.get_object_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.get_mode_defz_button, alignment=Qt.AlignVCenter)
         # vbox.addWidget(self.sync_project_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.logout_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.circle_widget)
@@ -377,6 +381,7 @@ class MainWindow(QMainWindow):
         self.add_acu_button.setVisible(False)
         self.remove_comp_button.setVisible(False)
         self.get_object_button.setVisible(True)
+        self.get_mode_defz_button.setVisible(True)
         # self.sync_project_button.setVisible(True)
         self.log('  - getting roles from repo ...')
         rpc = message_bus.session.call('vger.get_user_roles',
@@ -815,6 +820,12 @@ class MainWindow(QMainWindow):
         rpc.addCallback(self.on_get_object_result)
         rpc.addErrback(self.on_failure)
 
+    def on_get_mode_defz(self):
+        self.log('* calling rpc "vger.get_mode_defs()" ...')
+        rpc = message_bus.session.call('vger.get_mode_defs')
+        rpc.addCallback(self.on_get_mode_defz_result)
+        rpc.addErrback(self.on_failure)
+
     def on_sync_project(self, data=None):
         """
         Function to call rpc 'vger.sync_project'.  Note that the "data"
@@ -865,13 +876,20 @@ class MainWindow(QMainWindow):
         orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
 
     def on_get_object_result(self, stuff):
-        self.log('* result of get_object() received:')
+        self.log('* result of vger.get_object() received:')
         self.log('  {} serialized objects:'.format(len(stuff)))
         self.log('  {}'.format(pprint.pformat(stuff)))
         for so in stuff:
             if str(so['_cname']) == 'HardwareProduct':
                 self.log('  - HardwareProduct "{}"'.format(so['oid']))
         deserialize(orb, stuff)
+
+    def on_get_mode_defz_result(self, stuff):
+        self.log('* result of vger.get_mode_defs() received:')
+        dts, mode_defz = stuff
+        self.log(f'  dts: {dts}')
+        self.log('  mode_defz:')
+        self.log(f'{mode_defz}')
 
     def logout(self):
         self.log('* logging out ...')
@@ -890,6 +908,7 @@ class MainWindow(QMainWindow):
         self.save_public_object_button.setVisible(False)
         self.add_psu_button.setVisible(False)
         self.get_object_button.setVisible(False)
+        self.get_mode_defz_button.setVisible(False)
         # self.sync_project_button.setVisible(False)
         self.role_label.setText('')
         self.role_label.setVisible(False)
