@@ -383,7 +383,7 @@ class ActInfoTable(QTableWidget):
         return [x[0] for x in self.view_conf]
 
     def setup(self):
-        orb.log.debug('  - ActInfoTable.setup()')
+        # orb.log.debug('  - ActInfoTable.setup()')
         self.setColumnCount(len(self.view))
         self.setRowCount(len(self.acts))
         for i, (pname, colname, width) in enumerate(self.view_conf):
@@ -397,19 +397,19 @@ class ActInfoTable(QTableWidget):
         # populate relevant data
         for i, act in enumerate(self.acts):
             oid = act.oid
-            orb.log.debug(f'    row: {act.name} ')
+            # orb.log.debug(f'    row: {act.name} ')
             time_unit_name = get_dval(oid, "time_units") or 'minutes'
             time_units = time_unit_names.get(time_unit_name) or 'minute'
             for j, ptuple in enumerate(self.view_conf):
                 pname, colname, width = ptuple
                 if pname == 'time_units':
                     item = InfoTableItem(time_unit_name)
-                    orb.log.debug(f'    - time_units: {time_unit_name}')
+                    # orb.log.debug(f'    - time_units: {time_unit_name}')
                 else:
                     value = orb.get_prop_val_as_str(oid, pname,
                                                     units=time_units) or ''
                     item = InfoTableItem(value)
-                    orb.log.debug(f'    - {pname}: {value}')
+                    # orb.log.debug(f'    - {pname}: {value}')
                 if (pname in ('t_start', 't_end')
                     or (pname == 'duration' and act.sub_activities)):
                     # always non-editable:
@@ -434,7 +434,7 @@ class ActInfoTable(QTableWidget):
                      vertical.length() + horizontal.height() + frame)
 
     def on_item_mod(self, item=None):
-        orb.log.debug('  - ActInfoTable.on_item_mod()')
+        # orb.log.debug('  - ActInfoTable.on_item_mod()')
         row = item.row()
         col = item.column()
         cur_item = self.currentItem()
@@ -447,8 +447,8 @@ class ActInfoTable(QTableWidget):
             str_val = item.data(Qt.EditRole)
             # set_prop_val() tries to cast value to correct datatype and
             # returns a status message with what happened
-            msg = f'setting {pname} of {act.name} to <{str_val}>'
-            orb.log.debug(f'    {msg} ...')
+            # msg = f'setting {pname} of {act.name} to <{str_val}>'
+            # orb.log.debug(f'    {msg} ...')
             if pname == 'name':
                 act.name = str_val
                 act.mod_datetime = dtstamp()
@@ -486,7 +486,7 @@ class ActInfoTable(QTableWidget):
                     orb.log.debug(f'    {status}')
                     orb.log.debug('    operation aborted.')
                     return
-                orb.log.debug('    succeeded.')
+                # orb.log.debug('    succeeded.')
                 # self.resizeColumnsToContents()
                 props = {oid : {'time_units' : str_val}}
                 dispatcher.send(signal="act mods", prop_mods=props)
@@ -497,15 +497,15 @@ class ActInfoTable(QTableWidget):
                                       ).data(Qt.EditRole)
                 # in case time_units cell is empty ...
                 act_units = act_units or 'minute'
-                txt = f'setting {act.name} {pname} to {str_val} {act_units}'
-                orb.log.debug(f'    {txt}')
+                # txt = f'setting {act.name} {pname} to {str_val} {act_units}'
+                # orb.log.debug(f'    {txt}')
                 status = orb.set_prop_val(oid, pname, str_val, units=act_units)
                 if 'failed' in status:
                     # TODO: pop-up notification to user ...
                     orb.log.debug(f'    {status}')
                     orb.log.debug('    operation aborted.')
                     return
-                orb.log.debug('    succeeded.')
+                # orb.log.debug('    succeeded.')
                 # NOTE: get parm val in base units before sending --
                 # vger.set_properties only takes values in mks units!!
                 val = get_pval(oid, pname)
@@ -517,9 +517,9 @@ class ActInfoTable(QTableWidget):
             for j, ptuple in enumerate(self.view_conf):
                 width = ptuple[2]
                 self.setColumnWidth(j, width)
-        else:
-            loc = f'({row}, {col})'
-            orb.log.debug(f'    item {loc} is not current item; ignoring.')
+        # else:
+            # loc = f'({row}, {col})'
+            # orb.log.debug(f'    item {loc} is not current item; ignoring.')
 
     def adjust_timeline(self, item):
         """
@@ -618,7 +618,7 @@ class ActInfoTable(QTableWidget):
         Recompute t_start and t_end parameters for all timeline activities
         beginning from the specified row.
         """
-        orb.log.debug('* recompute_timeline()')
+        # orb.log.debug('* recompute_timeline()')
         t_end = 0.0
         acts_modded = []
         prop_mods = {}
@@ -627,13 +627,13 @@ class ActInfoTable(QTableWidget):
             oid = act.oid
             t_units = get_dval(oid, "time_units") or 'minutes'
             prop_mods[oid] = {}
-            txt = f'updating {act.name} ...'
-            orb.log.debug(f'    {txt}')
+            # txt = f'updating {act.name} ...'
+            # orb.log.debug(f'    {txt}')
             orig_t_start = orb.get_prop_val(oid, 't_start')
             if orig_t_start != t_end:
                 orb.set_prop_val(oid, 't_start', t_end)
                 prop_mods[oid]['t_start'] = t_end
-                orb.log.debug(f'    {act.name} t_start set to {t_end}')
+                # orb.log.debug(f'    {act.name} t_start set to {t_end}')
                 mods = True
             t_start = orb.get_prop_val(oid, 't_start')
             t_start_str = orb.get_prop_val_as_str(oid, 't_start', units=t_units)
@@ -645,7 +645,7 @@ class ActInfoTable(QTableWidget):
             if new_t_end != orig_t_end:
                 orb.set_prop_val(oid, 't_end', new_t_end)
                 prop_mods[oid]['t_end'] = new_t_end
-                orb.log.debug(f'    {act.name} t_end set to {new_t_end}')
+                # orb.log.debug(f'    {act.name} t_end set to {new_t_end}')
                 mods = True
             t_end_str = orb.get_prop_val_as_str(oid, 't_end', units=t_units)
             self.item(row, self.view.index('t_end')).setData(Qt.EditRole,
