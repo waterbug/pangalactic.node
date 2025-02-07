@@ -780,7 +780,6 @@ class TimelineWidget(QWidget):
         self.subject = act
         self.set_new_scene()
         self.back_action.setEnabled(True)
-        self.clear_history_action.setEnabled(True)
         if state.get('timeline history'):
             state['timeline history'].append(previous_oid)
         else:
@@ -806,12 +805,6 @@ class TimelineWidget(QWidget):
                                     tip="Back to last timeline")
         self.back_action.setEnabled(False)
         self.toolbar.addAction(self.back_action)
-        self.clear_history_action = self.create_action(
-                                    text="Clear History",
-                                    slot=self.clear_history,
-                                    tip="Clear timeline history")
-        self.toolbar.addAction(self.clear_history_action)
-        self.clear_history_action.setEnabled(False)
         self.add_defaults_action = self.create_action(
                                     "Add Default Activities",
                                     slot=self.add_default_activities,
@@ -861,17 +854,9 @@ class TimelineWidget(QWidget):
             if state.get('timeline history'):
                 if len(state['timeline history']) > 1:
                     self.back_action.setEnabled(True)
-                    self.clear_history_action.setEnabled(True)
                 else:
                     self.back_action.setEnabled(False)
-                    self.clear_history_action.setEnabled(False)
             dispatcher.send("new timeline", subject=self.subject)
-
-    def clear_history(self):
-        orb.log.debug('* clear timeline history')
-        state['timeline history'] = [self.subject.oid]
-        self.back_action.setEnabled(False)
-        self.clear_history_action.setEnabled(False)
 
     def add_default_activities(self):
         orb.log.debug('* add_default_activities()')
