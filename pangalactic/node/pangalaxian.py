@@ -147,11 +147,6 @@ from pangalactic.node.systemtree       import SystemTreeView
 # from pangalactic.node.tableviews       import ObjectTableView
 from pangalactic.node.threads          import threadpool, Worker
 from pangalactic.node.widgets          import (AutosizingListWidget,
-                                               # NOTE: dash_select temporarily
-                                               # deactivated -- dash switching
-                                               # is causing segfaults
-                                               # [SCW 2024-02-07]
-                                               # DashSelectCombo,
                                                ModeLabel, PlaceHolder)
 from pangalactic.node.wizards          import (NewProductWizard,
                                                DataImportWizard,
@@ -3899,8 +3894,14 @@ class Main(QMainWindow):
     def on_mode_defs_edited(self, oid=None):
         """
         Handle local "modes edited" signal, which is emitted by the ConOps
-        assembly tree (usage selection) tool when a new usage is selected for
-        addition to mode_defs.
+        assembly tree (usage selection) tool when the mode_defz cache is
+        updated in certain situations, including:
+
+            [1] when a new usage is selected for addition to mode_defz;
+            [2] when a graph is computed and requires update(s) to mode_defz;
+            [3] when a usage that had been designated as "[computed]" (i.e.,
+                having its modal power values computed from those of its
+                components) has that designation removed (set_no_compute()).
 
         Keyword Args:
             oid (str): oid of project whose mode defs are to be updated
@@ -4998,7 +4999,7 @@ class Main(QMainWindow):
             # self.dash_select.close()
             # self.dash_select = None
             # # orb.log.debug('  - creating new dash selector ...')
-            # new_dash_select = DashSelectCombo()
+            # new_dash_select = QComboBox()
             # new_dash_select.setStyleSheet(
                                 # 'font-weight: bold; font-size: 14px')
             # for dash_name in prefs['dashboard_names']:
@@ -5075,7 +5076,7 @@ class Main(QMainWindow):
         # --------------------------------------------------------------------
         # NOTE: dash_select temporarily deactivated -- dash switching is
         # causing segfaults [SCW 2024-02-07]
-        # self.dash_select = DashSelectCombo()
+        # self.dash_select = QComboBox()
         # self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
         # for dash_name in prefs['dashboard_names']:
             # self.dash_select.addItem(dash_name, QVariant)

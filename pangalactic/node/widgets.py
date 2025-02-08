@@ -1,4 +1,4 @@
-from PyQt5.QtCore import Qt, QMimeData, QSize, QVariant
+from PyQt5.QtCore import Qt, QMimeData, QSize
 from PyQt5.QtGui  import (QDoubleValidator, QDrag, QIntValidator, QPainter,
                           QPixmap, QTextOption)
 from PyQt5.QtWidgets  import (QApplication, QCheckBox, QComboBox, QDateEdit,
@@ -13,8 +13,7 @@ import datetime
 # from pangalactic.core             import orb
 from pangalactic.core             import orb, state
 from pangalactic.core.meta        import TEXT_PROPERTIES, SELECTABLE_VALUES
-from pangalactic.core.parametrics import (make_de_html, make_parm_html,
-                                          mode_defz)
+from pangalactic.core.parametrics import make_de_html, make_parm_html
 from pangalactic.node.buttons     import FkButton, UrlButton
 
 if not orb.is_fastorb:
@@ -508,28 +507,6 @@ class StringSelectWidget(QComboBox):
 
     def get_value(self):
         return str(self.valid_values[self.currentIndex()])
-
-
-class DashSelectCombo(QComboBox):
-    """
-    Widget for selecting a dashboard.
-
-    Keyword Args:
-        parent (QWidget):  parent widget
-    """
-    def __init__(self, parent=None, **kw):
-        super().__init__(parent=parent)
-
-    def mousePressEvent(self, evt):
-        project_oid = state.get('project')
-        if project_oid in mode_defz:
-            if self.findText('System Power Modes') == -1:
-                self.addItem('System Power Modes', QVariant)
-        else:
-            n = self.findText('System Power Modes')
-            if n != -1:
-                self.removeItem(n)
-        super().mousePressEvent(evt)
 
 
 class UnicodeFieldWidget(QLineEdit):
