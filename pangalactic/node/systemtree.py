@@ -661,8 +661,9 @@ class SystemTreeModel(QAbstractItemModel):
                 if ((self.show_mode_systems or
                      self.dash_name == 'System Power Modes')
                     and mode_defz.get(self.project.oid)):
-                    sys_dict = mode_defz[self.project.oid].get('systems') or {}
-                    if getattr(node.link, 'oid', None) in sys_dict:
+                    computed_list = mode_defz[self.project.oid].get(
+                                                            'computed') or []
+                    if getattr(node.link, 'oid', None) in computed_list:
                         return self.YELLOW_BRUSH
                     else:
                         return self.BRUSH
@@ -696,8 +697,9 @@ class SystemTreeModel(QAbstractItemModel):
                 elif ((self.show_mode_systems or
                      self.dash_name == 'System Power Modes')
                     and mode_defz.get(self.project.oid)):
-                    sys_dict = mode_defz[self.project.oid].get('systems') or {}
-                    if getattr(node.link, 'oid', None) in sys_dict:
+                    computed_list = mode_defz[self.project.oid].get(
+                                                            'computed') or []
+                    if getattr(node.link, 'oid', None) in computed_list:
                         return self.YELLOW_BRUSH
                     else:
                         return self.BRUSH
@@ -720,8 +722,9 @@ class SystemTreeModel(QAbstractItemModel):
               and (self.show_mode_systems or
                    self.dash_name == 'System Power Modes')
               and mode_defz.get(self.project.oid)):
-                sys_dict = mode_defz[self.project.oid].get('systems') or {}
-                if getattr(node.link, 'oid', None) in sys_dict:
+                computed_list = mode_defz[self.project.oid].get(
+                                                        'computed') or []
+                if getattr(node.link, 'oid', None) in computed_list:
                     return self.DARK_GRAY_BRUSH
                 else:
                     return self.WHITE_BRUSH
