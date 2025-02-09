@@ -1779,6 +1779,12 @@ class ConOpsModeler(QMainWindow):
                                            alignment=Qt.AlignTop)
 
     def on_item_clicked(self, index):
+        """
+        Respond to selection of a tree item.
+
+        Args:
+            index (): index of the selected node.
+        """
         # orb.log.debug("* ConOpsModeler.on_item_clicked()")
         # n = len(self.sys_select_tree.selectedIndexes())
         # orb.log.debug(f"  {n} items are selected.")
@@ -1868,14 +1874,18 @@ class ConOpsModeler(QMainWindow):
 
     def on_set_no_compute(self, link_oid=None):
         """
-        If the item (aka "link" or "node") in the assembly tree exists in the
-        "systems" table, remove it and remove its components from the
-        "components" table, and if it is a component of an item in the
-        "systems" table, add it back to the "components" table, and change its
-        "level" from "[computed]" to a specifiable level value.
+        Remove the usage oid from the "computed" list in mode_defz.
         """
+        # ---------------------------------------------------------------------
+        # Old docstring:
+        # If the item (aka "link" or "node") in the assembly tree exists in the
+        # "systems" table, remove it and remove its components from the
+        # "components" table, and if it is a component of an item in the
+        # "systems" table, add it back to the "components" table, and change its
+        # "level" from "[computed]" to a specifiable level value.
+        # ---------------------------------------------------------------------
         # TODO: implement as a context menu action ...
-        acts = getattr(self.usage, 'activities', [])
+        # acts = getattr(self.usage, 'activities', [])
         link = orb.get(link_oid)
         # link might be None -- allow for that
         if not hasattr(link, 'oid'):
@@ -1884,35 +1894,42 @@ class ConOpsModeler(QMainWindow):
         # name = get_link_name(link)
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
-        comp_dict = project_mode_defz['components']
-        if link.oid in sys_dict:
-            # if selected link is in sys_dict, make subject (see below)
-            # orb.log.debug(f' - removing "{name}" from systems ...')
-            del sys_dict[link.oid]
-            # if it is in comp_dict, remove it there too
-            if link.oid in comp_dict:
-                del comp_dict[link.oid]
-            # if it occurs as a component of an item in sys_dict, add it back
-            # to components
-            # orb.log.debug(f'   checking if "{name}" is a component ...')
-            for syslink_oid in sys_dict:
-                lk = orb.get(syslink_oid)
-                clink_oids = []
-                if hasattr(lk, 'system') and lk.system.components:
-                    clink_oids = [acu.oid for acu in lk.system.components]
-                elif hasattr(lk, 'component') and lk.component.components:
-                    clink_oids = [acu.oid for acu in lk.component.components]
-                if link.oid in clink_oids:
-                    # orb.log.debug(f' - "{name}" is a component, adding it')
-                    # orb.log.debug('   back to components of its parent')
-                    if not comp_dict.get(syslink_oid):
-                        comp_dict[syslink_oid] = {}
-                    comp_dict[syslink_oid][link.oid] = {}
-                    for mode_oid in [getattr(act, 'oid', '') for act in acts
-                                     if act is not None]:
-                        if comp_dict[syslink_oid][link.oid].get(mode_oid):
-                            comp_dict[syslink_oid][link.oid][
-                                                mode_oid] = '[select state]'
+        # comp_dict = project_mode_defz['components']
+        computed_list = project_mode_defz['computed']
+        if link.oid in computed_list:
+            computed_list.remove(link.oid)
+        # ---------------------------------------------------------------------
+        # Old implementation (before "computed" list was added to mode_defz)
+        # ---------------------------------------------------------------------
+        # if link.oid in sys_dict:
+            # # if selected link is in sys_dict, make subject (see below)
+            # # orb.log.debug(f' - removing "{name}" from systems ...')
+            # del sys_dict[link.oid]
+            # # if it is in comp_dict, remove it there too
+            # if link.oid in comp_dict:
+                # del comp_dict[link.oid]
+            # # if it occurs as a component of an item in sys_dict, add it back
+            # # to components
+            # # orb.log.debug(f'   checking if "{name}" is a component ...')
+            # for syslink_oid in sys_dict:
+                # lk = orb.get(syslink_oid)
+                # clink_oids = []
+                # if hasattr(lk, 'system') and lk.system.components:
+                    # clink_oids = [acu.oid for acu in lk.system.components]
+                # elif hasattr(lk, 'component') and lk.component.components:
+                    # clink_oids = [acu.oid for acu in lk.component.components]
+                # if link.oid in clink_oids:
+                    # # orb.log.debug(f' - "{name}" is a component, adding it')
+                    # # orb.log.debug('   back to components of its parent')
+                    # if not comp_dict.get(syslink_oid):
+                        # comp_dict[syslink_oid] = {}
+                    # comp_dict[syslink_oid][link.oid] = {}
+                    # for mode_oid in [getattr(act, 'oid', '') for act in acts
+                                     # if act is not None]:
+                        # if comp_dict[syslink_oid][link.oid].get(mode_oid):
+                            # comp_dict[syslink_oid][link.oid][
+                                                # mode_oid] = '[select state]'
+            # -----------------------------------------------------------------
             # make sure link is not current usage and if so, unset it ...
             cur_usage_oid = getattr(self.usage, 'oid', '') or ''
             if cur_usage_oid == link.oid:
@@ -1926,12 +1943,14 @@ class ConOpsModeler(QMainWindow):
     def on_add_usage(self, index):
         """
         If the item (aka "link" or "node") selected in the assembly tree does
-        not exist in the the mode definitions "systems" table, add it, and if
-        it has components, add them to the mode definitions "components" table.
+        not exist in the the mode_defz "systems" table, add it, and if it has
+        components, add them to the mode_defz "components" table and add the
+        item oid to the mode_defz "computed" list.
 
         If the item already exists in the "systems" table, switch to it as the
         current selected usage and deselect the previously selected usage.
         """
+        orb.log.debug('* conops: on_add_usage()')
         orb.log.debug('  - updating mode_defz ...')
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
@@ -1943,20 +1962,22 @@ class ConOpsModeler(QMainWindow):
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
+        computed_list = project_mode_defz['computed']
         acts = getattr(link, 'activities', [])
         act_oids = [act.oid for act in acts]
         in_comp_dict = False
         if link.oid not in sys_dict:
             # selected link is NOT in sys_dict:
-            # [1] if it it is in comp_dict and
-            #     [a] it has components itself, remove its comp_dict entry and
+            # [1] if it is in comp_dict and
+            #     [a] it has components itself, remove its comp_dict entry,
             #         add it to sys_dict (also create comp_dict items for its
-            #         components)
+            #         components), and add its oid to computed_list
             #     [b] it has no components, ignore the operation because it is
             #         already included in comp_dict and adding it to sys_dict
             #         would not have any effect on modes calculations
             # [2] if it it is NOT in comp_dict, add it to sys_dict (creating
-            #     comp_dict items for any components)
+            #     comp_dict items for any components) and if it has components
+            #     add it to computed_list
             has_components = False
             if ((hasattr(link, 'system')
                  and link.system.components) or
@@ -1966,34 +1987,55 @@ class ConOpsModeler(QMainWindow):
             for syslink_oid in comp_dict:
                 if link.oid in comp_dict[syslink_oid]:
                     in_comp_dict = True
-                    # [1]
+                    # [1] link is in comp_dict ...
+                    orb.log.debug(' - item was in comp_dict ...')
                     if has_components:
-                        # [a] it has components -> remove it from comp_dict and
-                        #     add it to sys_dict
+                        orb.log.debug('   has components')
+                        # [a] it has components -> remove it from comp_dict,
+                        #     add it to sys_dict and computed_list
+                        orb.log.debug('   removing from comp_dict ...')
                         del comp_dict[syslink_oid][link.oid]
                         sys_dict[link.oid] = {}
-                        for mode_oid in act_oids:
-                            sys_dict[link.oid][mode_oid] = '[computed]'
+                        orb.log.debug('   adding to computed_list ...')
+                        computed_list.append(link.oid)
+                        # when there was no "computed_list", the mode context
+                        # was set to '[computed]' -- that is no longer
+                        # necessary
+                        # for mode_oid in act_oids:
+                            # sys_dict[link.oid][mode_oid] = '[computed]'
                     else:
                         # [b] if it has no components, ignore the operation
                         # since it is already included as a component and
                         # adding it as a system would change nothing
                         has_components = False
-                        orb.log.debug(' - item selected has no components')
+                        if link.oid in computed_list:
+                            computed_list.remove(link.oid)
+                        orb.log.debug(' - item has no components')
                         orb.log.debug('   -- operation ignored.')
             if not in_comp_dict:
                 # [2] neither in sys_dict NOR in comp_dict -- add it *if* it
                 #     exists ... in degenerate case it may be None (no oid)
+                orb.log.debug('   item is not in sys_dict or comp_dict')
                 if hasattr(link, 'oid'):
                     sys_dict[link.oid] = {}
-                    for mode_oid in act_oids:
-                        if has_components:
-                            sys_dict[link.oid][mode_oid] = '[computed]'
-                        else:
-                            sys_dict[link.oid][mode_oid] = '[select level]'
-        # ensure that all selected systems (sys_dict) that have components,
-        # have those components included in comp_dict ...
-        # * set their modal_context (level) to "Off"
+                    if has_components:
+                        orb.log.debug('   has components')
+                        orb.log.debug('   adding to computed_list ...')
+                        # its mode context will be computed ...
+                        computed_list.append(link.oid)
+                        # THIS MIGHT (SHOULD?) BE UNNECESSARY ...
+                        # for mode_oid in act_oids:
+                            # for usage in link.components:
+                                # comp_dict[link.oid][usage.oid][
+                                                # mode_oid] = 'Off'
+                    # THIS MIGHT (SHOULD?) ALSO BE UNNECESSARY ...
+                    # else:
+                        # # its mode context will be settable ...
+                        # for mode_oid in act_oids:
+                            # sys_dict[link.oid][mode_oid] = '[select level]'
+        # ensure that all mode_defz systems (sys_dict) that have components
+        # also have those components included in comp_dict ...
+        # * set their modal_context (level) to "Off" as default
         product = None
         for syslink_oid in sys_dict:
             link = orb.get(syslink_oid)

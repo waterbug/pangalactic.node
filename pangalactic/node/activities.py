@@ -543,8 +543,8 @@ class ModeDefinitionDashboard(QWidget):
 
     def on_set_no_compute(self, oid=None):
         """
-        When a usage is removed from computed modes, if it was the selected
-        usage, reset the selected usage.
+        When the "[computed]" designation is removed from a usage in mode_defz,
+        if it was the selected usage, reset the selected usage.
         """
         if self.sys_dict:
             all_usage_oids = list(self.sys_dict)
@@ -862,9 +862,11 @@ class ModeDefinitionDashboard(QWidget):
         # -------------------
         # power_level (col 1)
         # -------------------
-        modal_context = ''  # a.k.a. power level
+        # modal_context = ''  # a.k.a. power level
+        modal_context = get_modal_context(self.project.oid, usage.oid,
+                                          self.act.oid)
         if row == 1:
-            modal_context = '[computed]'
+            # modal_context = '[computed]'
             label = ValueLabel(modal_context, w=40)
             grid.addWidget(label, row, 1)
         else:
@@ -875,6 +877,7 @@ class ModeDefinitionDashboard(QWidget):
                 grid.addWidget(label, row, 1)
             else:
                 if not modal_context:
+                    # NOTE: this should never be the case ...
                     # modal_context has not been set
                     modal_context = 'Off'
                     upaths = orb.get_all_usage_paths(comp)
