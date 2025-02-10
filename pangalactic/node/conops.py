@@ -54,7 +54,7 @@ from pangalactic.core.parametrics import (clone_mode_defs,
                                           init_mode_defz,
                                           mode_defz,
                                           round_to,
-                                          set_modal_context,
+                                          # set_modal_context,
                                           set_dval)
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_power_modes_to_xlsx
@@ -1805,15 +1805,26 @@ class ConOpsModeler(QMainWindow):
                 product = link.component
                 # attr = '[component]'
         # orb.log.debug(f"  - product {attr} is {product.name}")
-        if product:
-            # usage should be made the subject's "of_system" if it exists in
-            # sys_dict (i.e. it is of interest in defining modes ...)
+        if not product.components:
+            # [1] usage's product does not have components -> notify user
+            # clear current selection
+            self.sys_select_tree.clearSelection()
+            popup = QMessageBox(
+                  QMessageBox.Critical,
+                  "No Components",
+                  'This item has no components, so it cannot\n'
+                  'be expanded or have a "computed" power mode.',
+                  QMessageBox.Ok, self)
+            popup.show()
+        else:
+            # [2] usage's product has components:
             project_mode_defz = mode_defz[self.project.oid]
-            sys_dict = project_mode_defz['systems']
+            computed_list = project_mode_defz.get('computed', [])
             # all_comp_acu_oids = reduce(lambda x,y: x+y,
                 # [list(project_mode_defz['components'].get(sys_oid, {}).keys())
                  # for sys_oid in sys_dict], [])
-            if link.oid in sys_dict:
+            if link.oid in computed_list:
+                # [a] in sys_dict -> make it the subject usage
                 # orb.log.debug("  - link oid is in sys_dict")
                 # set as subject's usage
                 self.set_usage(link)
@@ -1821,27 +1832,18 @@ class ConOpsModeler(QMainWindow):
                 # orb.log.debug('    sending "set mode usage" signal ...')
                 dispatcher.send(signal='set mode usage', usage=link)
             else:
-                # orb.log.debug("  - link oid is NOT in sys_dict")
-                if product.components:
-                    # the item does not yet exist in mode_defz as a system
-                    # -- notify the user and ask if they want to
-                    # define modes for it ...
-                    dlg = DefineModesDialog(usage=link)
-                    if dlg.exec_() == QDialog.Accepted:
-                        # orb.log.debug('    calling on_add_usage() ..."')
-                        self.on_add_usage(index)
-                        self.set_usage(link)
-                    else:
-                        # TODO: maybe change focus to project node (?)
-                        return
+                orb.log.debug('  - link oid is NOT in the "computed" list')
+                # [b] not in computed_list:
+                # -- notify the user and ask if they want to
+                # define modes for it ...
+                dlg = DefineModesDialog(usage=link)
+                if dlg.exec_() == QDialog.Accepted:
+                    orb.log.debug('    calling add_usage() ..."')
+                    self.add_usage(index)
+                    self.set_usage(link)
                 else:
-                    popup = QMessageBox(
-                          QMessageBox.Critical,
-                          "No Components",
-                          "This item has no components, so it cannot\n"
-                          'have a "computed" power mode.',
-                          QMessageBox.Ok, self)
-                    popup.show()
+                    # deselect
+                    self.sys_select_tree.clearSelection()
 
     def set_initial_usage(self, link):
         orb.log.debug("* ConOpsModeler.set_initial_usage()")
@@ -1940,7 +1942,7 @@ class ConOpsModeler(QMainWindow):
                     self.usage = self.project.systems[0]
             dispatcher.send(signal='modes edited', oid=self.project.oid)
 
-    def on_add_usage(self, index):
+    def add_usage(self, index):
         """
         If the item (aka "link" or "node") selected in the assembly tree does
         not exist in the the mode_defz "systems" table, add it, and if it has
@@ -1950,7 +1952,7 @@ class ConOpsModeler(QMainWindow):
         If the item already exists in the "systems" table, switch to it as the
         current selected usage and deselect the previously selected usage.
         """
-        orb.log.debug('* conops: on_add_usage()')
+        orb.log.debug('* conops: add_usage()')
         orb.log.debug('  - updating mode_defz ...')
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
@@ -1958,16 +1960,16 @@ class ConOpsModeler(QMainWindow):
         if not hasattr(link, 'oid'):
             orb.log.debug('  - link has no oid, ignoring ...')
             return
-        name = get_link_name(link)
+        # name = get_link_name(link)
         project_mode_defz = mode_defz[self.project.oid]
         sys_dict = project_mode_defz['systems']
         comp_dict = project_mode_defz['components']
         computed_list = project_mode_defz['computed']
-        acts = getattr(link, 'activities', [])
-        act_oids = [act.oid for act in acts]
+        # acts = getattr(link, 'activities', [])
+        # act_oids = [act.oid for act in acts]
         in_comp_dict = False
-        if link.oid not in sys_dict:
-            # selected link is NOT in sys_dict:
+        if link.oid not in computed_list:
+            # selected link is NOT in computed_list:
             # [1] if it is in comp_dict and
             #     [a] it has components itself, remove its comp_dict entry,
             #         add it to sys_dict (also create comp_dict items for its
@@ -1998,11 +2000,6 @@ class ConOpsModeler(QMainWindow):
                         sys_dict[link.oid] = {}
                         orb.log.debug('   adding to computed_list ...')
                         computed_list.append(link.oid)
-                        # when there was no "computed_list", the mode context
-                        # was set to '[computed]' -- that is no longer
-                        # necessary
-                        # for mode_oid in act_oids:
-                            # sys_dict[link.oid][mode_oid] = '[computed]'
                     else:
                         # [b] if it has no components, ignore the operation
                         # since it is already included as a component and
@@ -2023,47 +2020,6 @@ class ConOpsModeler(QMainWindow):
                         orb.log.debug('   adding to computed_list ...')
                         # its mode context will be computed ...
                         computed_list.append(link.oid)
-                        # THIS MIGHT (SHOULD?) BE UNNECESSARY ...
-                        # for mode_oid in act_oids:
-                            # for usage in link.components:
-                                # comp_dict[link.oid][usage.oid][
-                                                # mode_oid] = 'Off'
-                    # THIS MIGHT (SHOULD?) ALSO BE UNNECESSARY ...
-                    # else:
-                        # # its mode context will be settable ...
-                        # for mode_oid in act_oids:
-                            # sys_dict[link.oid][mode_oid] = '[select level]'
-        # ensure that all mode_defz systems (sys_dict) that have components
-        # also have those components included in comp_dict ...
-        # * set their modal_context (level) to "Off" as default
-        product = None
-        for syslink_oid in sys_dict:
-            link = orb.get(syslink_oid)
-            if hasattr(link, 'system'):
-                product = link.system
-            elif hasattr(link, 'component'):
-                product = link.component
-            if (product and product.components and not comp_dict.get(link.oid)):
-                comp_dict[link.oid] = {}
-                acus = [acu for acu in product.components
-                        if acu.oid not in sys_dict]
-                # sort by "name" (so order is the same as in the assembly tree)
-                by_name = [(get_link_name(acu), acu) for acu in acus]
-                by_name.sort()
-                for name, acu in by_name:
-                    if not comp_dict[link.oid].get(acu.oid):
-                        comp_dict[link.oid][acu.oid] = {}
-                    for mode_oid in act_oids:
-                        # assign default modal_context
-                        modal_context = 'Off'   # TODO: use default "template"
-                        set_modal_context(self.project.oid, syslink_oid,
-                                          acu.oid, mode_oid, modal_context)
-
-        # the expandToDepth is needed to make it repaint to show the selected
-        # node as highlighted
-        self.sys_select_tree.expandToDepth(1)
-        self.sys_select_tree.scrollTo(index)
-        self.sys_select_tree.clearSelection()
         if in_comp_dict and has_components:
             # if this usage was in the comp_dict and it has components, it has
             # now been added to the sys_dict -- make it the subject usage ...
