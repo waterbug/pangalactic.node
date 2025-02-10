@@ -1287,7 +1287,7 @@ class TimelineWidget(QWidget):
                 color="green",
                 plot=plot
             )
-            # insert a label marker for each activity
+            # insert a label for each activity (aka "mode")
             p_cbe_val = p_cbe_dict[a.oid]
             p_mev_val = p_mev_dict[a.oid]
             name = pname_to_header(a.name, 'Activity', width=20)
@@ -1310,18 +1310,26 @@ class TimelineWidget(QWidget):
                 else:
                     y_label = .15 * max_val
             last_label_y = y_label
-            if t_start == 0:
-                x_label = 0
-                align_label = Qt.AlignRight
-            elif t_start < .1 * duration and (t_end - t_start < .3 * duration):
+            # -----------------------------------------------------------------
+            # x-positioning and alignment of labels ...
+            # -----------------------------------------------------------------
+            if (t_end - t_start > .2 * duration):
+                # sufficiently long activity/mode: center-align the label and
+                # position it in the middle of the interval
                 x_label = (t_start + t_end) / 2
-                align_label = Qt.AlignRight
+                align_label = Qt.AlignCenter
             elif t_end >= duration and (t_end - t_start < .3 * duration):
+                # activity/mode near the end of the timeline: left-align the
+                # label and position its right side at the end of the timeline
                 x_label = duration
                 align_label = Qt.AlignLeft
             else:
-                x_label = (t_start + t_end) / 2
-                align_label = Qt.AlignCenter
+                # activity/mode is short and is not close to the end of the
+                # timeline: right-align the label and position its left side at
+                # the start of the activity/mode
+                x_label = t_start
+                align_label = Qt.AlignRight
+            # -----------------------------------------------------------------
             qwt.QwtPlotMarker.make(
                 xvalue=x_label,
                 yvalue=y_label,
