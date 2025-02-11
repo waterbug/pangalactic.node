@@ -108,7 +108,7 @@ class Main:
     App for mbif.
     """
     def __init__(self, host, port, cert, reactor=None, gui=None, console=False,
-                 parent=None):
+                 output=None, parent=None):
         self.gui = gui
         self.console = console
         if gui:
@@ -116,7 +116,7 @@ class Main:
                                          cert=options.cert,
                                          reactor=reactor)
             self.mainwindow.show()
-        elif console:
+        if console:
             self.log = print
         else:
             self.log = orb.log.debug
@@ -129,6 +129,7 @@ class Main:
             self.log(f'* port set to: {port}')
             if options.cert:
                 self.log('  using self-signed cert')
+            self.output = output
             dispatcher.connect(self.on_joined, 'onjoined')
             dispatcher.connect(self.on_leave, 'onleave')
             dispatcher.connect(self.on_disconnect, 'ondisconnect')
@@ -174,8 +175,13 @@ class Main:
             self.log(f'  + p_peak = {p_peak}')
             self.log(f'  + p_average = {p_average}')
             if not self.console:
-                print(f'p_peak = {p_peak}')
-                print(f'p_average = {p_average}')
+                if self.output:
+                    with open(self.output, 'w') as f:
+                        f.write(f'p_peak = {p_peak}\n'
+                                f'p_average = {p_average}')
+                else:
+                    print(f'p_peak = {p_peak}')
+                    print(f'p_average = {p_average}')
         else:
             self.log('p_peak and p_average not found in modes data.')
             if not self.console:
@@ -523,6 +529,8 @@ if __name__ == "__main__":
                         help='project id [default: "H2G2"]')
     parser.add_argument('--home', dest='home', action="store_true",
                         help='directory for storage [default: mbif_home]')
+    parser.add_argument('--out', dest='output', type=str,
+                        help='name of output file')
     parser.add_argument('--cert', dest='cert', action="store_true",
                         help='use self-signed cert [default: no]')
     parser.add_argument('--gui', dest='gui', action="store_true",
@@ -553,7 +561,8 @@ if __name__ == "__main__":
         qt5reactor.install()
     from twisted.internet import reactor
     main = Main(options.host, options.port, gui=options.gui,
-                console=options.console, cert=options.cert, reactor=reactor)
+                console=options.console, cert=options.cert,
+                output=options.output, reactor=reactor)
     if options.gui:
         reactor.runReturn()
         sys.exit(app.exec_())
