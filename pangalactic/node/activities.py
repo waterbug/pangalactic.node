@@ -913,11 +913,11 @@ class ModeDefinitionDashboard(QWidget):
         # -------------------
         # p_cbe (col 2)
         # -------------------
-        orb.log.debug('* calling get_modal_power() for')
-        orb.log.debug(f'      usage:         "{usage.id}"')
-        orb.log.debug(f'      system:        "{comp.name}"')
-        orb.log.debug(f'      mode:          "{self.act.name}"')
-        orb.log.debug(f'      modal context: "{modal_context}"')
+        # orb.log.debug('* calling get_modal_power() for')
+        # orb.log.debug(f'      usage:         "{usage.id}"')
+        # orb.log.debug(f'      system:        "{comp.name}"')
+        # orb.log.debug(f'      mode:          "{self.act.name}"')
+        # orb.log.debug(f'      modal context: "{modal_context}"')
         p_cbe_val = get_modal_power(self.project.oid, usage.oid, comp.oid,
                                     self.act.oid, modal_context)
         # TODO: possible to get None -- possible bug in get_pval ...
