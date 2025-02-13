@@ -1242,11 +1242,11 @@ class TimelineWidget(QWidget):
             orb.log.debug(f'  duration of {act.name}: {duration} seconds')
         plot = qwt.QwtPlot(f"{comp.name} Power vs. Time")
         plot.setFlatStyle(False)
-        plot.setAxisTitle(qwt.QwtPlot.xBottom, "time (minutes)")
+        plot.setAxisTitle(qwt.QwtPlot.xBottom, f"time ({time_units})")
         plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
-        # set y-axis to begin at 0 and end 10% above max
+        # set y-axis to begin at 0 and end 60% above max
         plot.setAxisScale(qwt.QwtPlot.xBottom, 0.0, duration)
-        plot.setAxisScale(qwt.QwtPlot.yLeft, 0.0, 1.4 * max_val)
+        plot.setAxisScale(qwt.QwtPlot.yLeft, 0.0, 1.6 * max_val)
         f_cbe = self.power_time_function(context="CBE", project=project,
                                          act=act, usage=usage,
                                          time_units=time_units)
@@ -1376,18 +1376,18 @@ class TimelineWidget(QWidget):
             label_txt = f'  {super_act.name}  \n'
             label_txt += f' Peak Power: {p_peak} Watts \n'
             label_txt += f' Average Power: {p_average} Watts '
-            pen = QPen(LABEL_COLORS[j-1], 1)
+            pen = QPen(LABEL_COLORS[j], 1)
             white_brush = QBrush(Qt.white)
             sa_name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
                                          pointsize=12, borderpen=pen,
                                          borderradius=0.0, brush=white_brush)
-            y_label = (1.4 - .1 * j) * max_val
+            y_label = (1.45 - .15 * j) * max_val
             orb.log.debug(f'  super act: {super_act.name}')
             orb.log.debug(f'      begins at: {t_start} {time_units}')
             duration_pixels = canvas_map.transform_scalar(dur)
             orb.log.debug(f'      (duration: {duration_pixels} pixels)')
             symbol_size = QSize(int(duration_pixels), 10)
-            symbol_brush = QBrush(LABEL_COLORS[j-1])
+            symbol_brush = QBrush(LABEL_COLORS[j])
             rect_symbol = qwt.QwtSymbol.make(pen=pen, brush=symbol_brush,
                                              style=qwt.QwtSymbol.Rect,
                                              size=symbol_size)
@@ -1400,10 +1400,28 @@ class TimelineWidget(QWidget):
                 plot=plot
                 )
             j += 1
+        title_label_txt = f'  {act.name}  \n'
+        title_label_txt += f' Peak Power: {max_val} Watts '
+        pen = QPen(Qt.darkRed, 5)
+        white_brush = QBrush(Qt.white)
+        title_label = QwtText.make(text=title_label_txt, weight=QFont.Bold,
+                                   pointsize=14, borderpen=pen,
+                                   borderradius=0.0, brush=white_brush)
+        y_label = 1.5 * max_val
+        qwt.QwtPlotMarker.make(
+            xvalue=.01 * duration,
+            align=Qt.AlignRight,
+            yvalue=y_label,
+            z=4.0,
+            label=title_label,
+            plot=plot
+            )
         # plot.resize(1400, 650)
         dlg = PlotDialog(plot, title="Power vs Time", parent=self)
         if dlg.exec_() == QDialog.Accepted:
-            mode_defz[project.oid]['p_peak'] = p_peak
+            mode_defz[project.oid]['p_peak'] = max_val
+            # TODO: re-evaluate what is wanted for average -- e.g., mission
+            # average, orbital average, etc. ...
             mode_defz[project.oid]['p_average'] = p_average
             dispatcher.send(signal="modes edited", oid=project.oid)
 
