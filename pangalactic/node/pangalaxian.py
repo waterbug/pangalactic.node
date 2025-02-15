@@ -4534,8 +4534,8 @@ class Main(QMainWindow):
         if ((project_oid and project_oid != 'pgefobjects:SANDBOX')
              and state.get('connected')):
             # =================================================================
-            # NOTE: this commented code is retained as an example of what NOT
-            # to do!
+            # NOTE: this commented code is retained as a counter-example ...
+            # DO NOT DO THIS!!!
             # =================================================================
             # NOTE: ProgressDialog stuff caused mbus to lose its transport --
             # BAD! -- so is disabled ...
