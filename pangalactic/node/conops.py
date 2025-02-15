@@ -1208,6 +1208,12 @@ class TimelineWidget(QWidget):
         time_units = "minutes"
         p_cbe_dict = {}
         p_mev_dict = {}
+        # super_acts maps start_times to activities that have sub_activities
+        # (i.e. "super acts")
+        super_acts = {}
+        p_orbital_average = 0
+        # p_averages maps "super_act" name to its p_average
+        p_averages = {}
         if subacts:
             # default is to break out all sub-activity timelines
             # ("subtimelines") -- this can be made configurable in the future
@@ -1267,7 +1273,6 @@ class TimelineWidget(QWidget):
             t_seq = [0.0]
             for i, a in enumerate(all_acts):
                 t_seq.append(t_seq[i] + orb.get_duration(a, units=time_units))
-        super_acts = {}
         for i, a in enumerate(all_acts):
             if subtimelines:
                 t_start = t_seq[i]
@@ -1373,6 +1378,7 @@ class TimelineWidget(QWidget):
             # NOTE: round_to automatically uses user pref for numeric
             # precision; no need to specify "n" keyword arg ...
             p_average = round_to(e_total / dur)
+            p_averages[super_act.name] = p_average
             label_txt = f'  {super_act.name}  \n'
             label_txt += f' Peak Power: {p_peak} Watts \n'
             label_txt += f' Average Power: {p_average} Watts '
@@ -1422,6 +1428,11 @@ class TimelineWidget(QWidget):
             mode_defz[project.oid]['p_peak'] = max_val
             # TODO: re-evaluate what is wanted for average -- e.g., mission
             # average, orbital average, etc. ...
+            # TODO:  if there is no p_average, compute the overall average
+            # meanwhile, if we have an orbital average, use it ...
+            if 'Orbit' in super_act.name:
+                p_orbital_average = p_average
+            p_average = p_orbital_average or p_average
             mode_defz[project.oid]['p_average'] = p_average
             dispatcher.send(signal="modes edited", oid=project.oid)
 
