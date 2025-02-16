@@ -591,7 +591,8 @@ class ModeDefinitionDashboard(QWidget):
         if ((link_oid is not None)
             and (project_oid == self.project.oid)
             and link_oid in self.sys_dict):
-            self.sys_dict[link_oid][mode] = value
+            # NOTE: mode_defz has already been updated in pangalaxian ...
+            # simply call on_edit() or on_view() to update the dashboard
             if self.edit_state:
                 self.on_edit(None)
             else:
@@ -604,20 +605,20 @@ class ModeDefinitionDashboard(QWidget):
     def on_remote_comp_mode_datum(self, project_oid=None, link_oid=None,
                                   comp_oid=None, mode=None, value=None):
         """
-        Handle remote setting of a sys mode datum.
+        Handle remote setting of a comp mode datum.
 
         Args:
             project_oid (str): oid of the project object
             link_oid (str): oid of the link (Acu or PSU)
             comp_oid (str): oid of the link component
             mode (str): oid of the mode
-            value (polymorphic): a context name or ...
+            value (polymorphic): a context name (spec power level)
         """
         orb.log.debug('* MDD: "remote comp mode datum" signal received ...')
         if (link_oid is not None
             and project_oid == self.project.oid):
-            orb.log.debug('  updating comp_dict ...')
-            self.comp_dict[link_oid][comp_oid][mode] = value
+            # NOTE: mode_defz has already been updated in pangalaxian ...
+            # simply call on_edit() or on_view() to update the dashboard
             if self.edit_state:
                 orb.log.debug('  calling on_edit() ...')
                 self.on_edit(None)
@@ -821,21 +822,19 @@ class ModeDefinitionDashboard(QWidget):
         """
         Set power level (context) for the acu whose oid is specified for the
         mode self.act.oid.
+
+        Args:
+            level (str): power context (e.g. "Nominal", "Peak", etc.)
+
+        Keyword Args:
+            oid (str): oid of the usage (Acu instance) for which the power
+                level is to be set.
         """
         set_modal_context(self.project.oid, self.usage.oid, oid, self.act.oid,
                           level)
         orb.log.debug(' - comp mode datum set:')
         orb.log.debug(f'   level = {level}')
         orb.log.debug(f'   acu oid = {oid}')
-        # NOTE: "system" dict settings can be handled later ...
-        # (i.e. items in the "system" dict that either have no components or
-        # whose components power specs are being ignored ...)
-        # if oid in self.sys_dict:
-            # orb.log.debug(' - sending "sys mode datum set" signal')
-            # dispatcher.send(signal='sys mode datum set',
-                            # datum=(self.project.oid, oid, self.act.oid,
-                                   # value))
-        # else:
         sys_oid = self.usage.oid
         mode_oid = self.act.oid
         value = level

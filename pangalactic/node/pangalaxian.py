@@ -105,6 +105,7 @@ from pangalactic.core.parametrics      import (data_elementz,
                                                delete_data_element,
                                                mode_defz, parameterz,
                                                recompute_parmz,
+                                               set_modal_context,
                                                save_data_elementz, save_parmz,
                                                set_dval)
 from pangalactic.core.refdata          import ref_oids, ref_pd_oids
@@ -417,7 +418,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
         dispatcher.connect(self.on_des_set, 'des set')
         dispatcher.connect(self.get_parmz, 'get parmz')
-        dispatcher.connect(self.on_sys_mode_datum_set, 'sys mode datum set')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
         dispatcher.connect(self.on_mode_defs_edited, 'update mode defs')
         dispatcher.connect(self.on_mode_defs_edited, 'modes edited')
@@ -1813,41 +1813,8 @@ class Main(QMainWindow):
                         dispatcher.send(signal='modes published')
                     else:
                         orb.log.debug('    same datetime stamp; ignored.')
-            elif subject == 'sys mode datum updated':
-                # orb.log.debug('  - vger msg: "sys mode datum updated" ...')
-                project_oid, link_oid, mode, value, md_dts, userid = content
-                project = orb.get(project_oid)
-                link = orb.get(link_oid)
-                if project and link:
-                    # orb.log.debug('    content:')
-                    orb.log.debug('=========================================')
-                    orb.log.debug('Sys Mode datum updated:')
-                    orb.log.debug(f'- project:        {project.id}')
-                    orb.log.debug(f'- link:           {link.id}')
-                    orb.log.debug(f'- mode:           {mode}')
-                    orb.log.debug(f'- value:          {value}')
-                    orb.log.debug(f'- userid:         {userid}')
-                    orb.log.debug(f'- datetime stamp: {md_dts}')
-                    orb.log.debug('=========================================')
-                else:
-                    # orb.log.debug('    unknown project or link; ignoring.')
-                    return
-                if userid == state.get('userid'):
-                    # originated from me -- set dts to server's dts
-                    state['mode_defz_dts'] = md_dts
-                    # orb.log.debug('    msg was from my action; ignoring.')
-                else:
-                    mode_defz[project_oid]['systems'][link_oid][mode] = value
-                    state['mode_defz_dts'] = md_dts
-                    orb.log.debug('    mode_defz updated.')
-                    orb.log.debug('    sending "remote sys mode datum"')
-                    dispatcher.send(signal='remote sys mode datum',
-                                    project_oid=project_oid,
-                                    link_oid=link_oid,
-                                    mode=mode,
-                                    value=value)
             elif subject == 'comp mode datum updated':
-                # orb.log.debug('  - vger msg: "comp mode datum updated" ...')
+                orb.log.debug('  - vger msg: "comp mode datum updated" ...')
                 (project_oid, link_oid, comp_oid, mode, value, md_dts,
                                                             userid) = content
                 project = orb.get(project_oid)
@@ -1866,15 +1833,17 @@ class Main(QMainWindow):
                     orb.log.debug(f'- datetime stamp: {md_dts}')
                     orb.log.debug('=========================================')
                 else:
-                    # orb.log.debug('    unknown project or link; ignoring.')
+                    orb.log.debug('    unknown project or link; ignoring.')
                     return
                 if userid == state.get('userid'):
                     # originated from me -- set dts to server's dts
                     state['mode_defz_dts'] = md_dts
-                    # orb.log.debug('    msg was from my action; ignoring.')
+                    orb.log.debug('    msg was from my action; ignoring.')
                 else:
-                    mode_defz[project_oid]['components'][link_oid][comp_oid][
-                                                                mode] = value
+                    set_modal_context(project_oid, link_oid, comp_oid, mode,
+                                      value)
+                    # mode_defz[project_oid]['components'][link_oid][comp_oid][
+                                                                # mode] = value
                     state['mode_defz_dts'] = md_dts
                     orb.log.debug('    mode_defz updated.')
                     orb.log.debug('    sending "remote comp mode datum"')
@@ -3938,55 +3907,6 @@ class Main(QMainWindow):
         else:
             state['mode_defz_dts'] = result
             msg = f'mode defs updated [dts: {result}]'
-        orb.log.debug(f'* {msg}')
-
-    def on_sys_mode_datum_set(self, datum=None):
-        """
-        Handle local dispatcher signal for "sys mode datum set".
-        """
-        orb.log.debug('* signal: "sys mode datum set"')
-        if len(datum or []) == 4:
-            project_oid, link_oid, mode, value = datum
-            project = orb.get(project_oid)
-            link = orb.get(link_oid)
-            orb.log.debug('    =============================')
-            orb.log.debug(f'   project: {project.id}')
-            orb.log.debug(f'   system:  {link.id}')
-            orb.log.debug(f'   mode:    {mode}')
-            orb.log.debug(f'   value:   {value}')
-            orb.log.debug('    =============================')
-            if state.get('connected'):
-                orb.log.debug('  - calling vger.set_sys_mode_datum()')
-                try:
-                    rpc = self.mbus.session.call('vger.set_sys_mode_datum',
-                                                 project_oid=project_oid,
-                                                 link_oid=link_oid,
-                                                 mode=mode,
-                                                 value=value)
-                    rpc.addCallback(self.rpc_set_sys_mode_datum_result)
-                    rpc.addErrback(self.on_failure)
-                except:
-                    txt = 'rpc failed (possible loss of transport)'
-                    orb.log.debug(f'  ** {txt}')
-                    orb.log.debug('     trying to reconnect ...')
-                    self.set_bus_state()
-            else:
-                orb.log.debug('  - not connected, no rpc call.')
-        else:
-            orb.log.debug('  improper sys mode datum format sent')
-
-    def rpc_set_sys_mode_datum_result(self, result):
-        """
-        Handle callback with result of vger.set_sys_mode_datum.
-
-        Args:
-            result (str):  a stringified mod datetime stamp or an error.
-        """
-        if result in ['unauthorized', 'no such project']:
-            msg = 'setting of sys mode datum failed: ' + result
-        else:
-            state['mode_defz_dts'] = result
-            msg = f'sys mode datum set successfully [dts: {result}]'
         orb.log.debug(f'* {msg}')
 
     def on_comp_mode_datum_set(self, datum=None):
