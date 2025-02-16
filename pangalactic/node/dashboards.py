@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Dashboards:  a dashboard in Pangalaxian is a dockable widget in the top section
@@ -7,10 +8,11 @@ and realtime updates of specified parameters of a system that is being modeled.
 import os
 from pydispatch import dispatcher
 
-from PyQt5.QtCore    import pyqtSignal, Qt, QModelIndex, QItemSelectionModel
-from PyQt5.QtWidgets import (QAction, QDialog, QFileDialog, QHBoxLayout,
-                             QLabel, QMessageBox, QStackedWidget, QTreeView,
-                             QWidget)
+from PyQt5.QtCore    import (pyqtSignal, Qt, QItemSelectionModel, QModelIndex,
+                             QVariant)
+from PyQt5.QtWidgets import (QAction, QComboBox, QDialog, QFileDialog,
+                             QHBoxLayout, QLabel, QMessageBox, QStackedWidget,
+                             QTreeView, QWidget)
 
 # pangalactic
 try:
@@ -18,7 +20,7 @@ try:
 except:
     import pangalactic.core.set_uberorb
     from pangalactic.core                 import orb, prefs, state
-from pangalactic.core.parametrics     import parm_defz
+from pangalactic.core.parametrics     import mode_defz, parm_defz
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports   import write_mel_to_tsv
 from pangalactic.node.utils           import extract_mime_data
@@ -584,10 +586,10 @@ class SystemDashboard(QTreeView):
 
 class MultiDashboard(QWidget):
     """
-    Widget to contain a multiple dashboards and switch between them.
+    Widget to contain multiple dashboards and switch between them.
     """
-    def __init__(self, systree=None, dashboards=None, parent=None):
-        super.__init__(parent=parent)
+    def __init__(self, sys_tree_model=None, dashboards=None, parent=None):
+        super().__init__(parent=parent)
         self.dashboard_widget = QStackedWidget()
         self.setContextMenuPolicy(Qt.PreventContextMenu)
         dashboard_panel_layout = QVBoxLayout()
@@ -595,6 +597,31 @@ class MultiDashboard(QWidget):
         self.dash_title = QLabel()
         # orb.log.debug('           adding title ...')
         self.dashboard_title_layout.addWidget(self.dash_title)
+
+        # --------------------------------------------------------------------
+        self.dash_select = QComboBox()
+        self.dash_select.setStyleSheet('font-weight: bold; font-size: 14px')
+        if not prefs.get('dashboard_names'):
+            prefs['dashboard_names'] = ['MEL', 'Mass', 'Data Rates',
+                                        'Mechanical', 'Thermal',
+                                        'System Resources']
+        if not state.get('dashboard_name'):
+            state['dashboard_name'] = prefs['dashboard_names'][0]
+        for dash_name in prefs['dashboard_names']:
+            self.dash_select.addItem(dash_name, QVariant)
+        if state.get('project', '') in mode_defz:
+            self.dash_select.addItem('System Power Modes', QVariant)
+        if (state.get('dashboard_name') == 'System Power Modes' and
+            not (state.get('project', '') in mode_defz)):
+            state['dashboard_name'] = 'MEL'
+        dash_name = state.get('dashboard_name', 'MEL')
+        state['dashboard_name'] = dash_name
+        self.dash_select.setCurrentText(dash_name)
+        self.dash_select.activated.connect(self.set_dashboard)
+        # orb.log.debug('           adding dashboard selector ...')
+        self.dashboard_title_layout.addWidget(self.dash_select)
+        # --------------------------------------------------------------------
+
         dashboard_panel_layout.addLayout(self.dashboard_title_layout)
         self.setLayout(dashboard_panel_layout)
         self.setMinimumSize(500, 200)
@@ -603,45 +630,73 @@ class MultiDashboard(QWidget):
         pass
 
     def set_dashboard(self):
-        self.dashboard = SystemDashboard(self.sys_tree.model(),
-                                         parent=self)
+        orb.log.debug('* set_dashboard()')
+        dash_name = self.dash_select.currentText()
+        orb.log.debug(f'  - dashboard set to "{dash_name}"')
 
+    def rebuild_dash_selector(self):
+        orb.log.debug('* rebuild_dash_selector()')
+        if getattr(self, 'dashboard_title_layout', None):
+            orb.log.debug('  - dashboard_title_layout exists ...')
+            orb.log.debug('  - removing old dash selector ...')
+            self.dashboard_title_layout.removeWidget(self.dash_select)
+            self.dash_select.setAttribute(Qt.WA_DeleteOnClose)
+            self.dash_select.close()
+            self.dash_select = None
+            # orb.log.debug('  - creating new dash selector ...')
+            new_dash_select = QComboBox()
+            new_dash_select.setStyleSheet(
+                                'font-weight: bold; font-size: 14px')
+            for dash_name in prefs['dashboard_names']:
+                new_dash_select.addItem(dash_name, QVariant)
+            if state.get('project', '') in mode_defz:
+                new_dash_select.addItem('System Power Modes', QVariant)
+            new_dash_select.setCurrentIndex(0)
+            new_dash_select.activated.connect(self.set_dashboard)
+            self.dash_select = new_dash_select
+            self.dashboard_title_layout.addWidget(self.dash_select)
 
 
 if __name__ == '__main__':
     """
     Cmd line invocation for testing / prototyping
     """
-    import sys
+    import argparse, sys
     from PyQt5.QtWidgets import QApplication, QVBoxLayout, QWidget
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import create_test_users
     from pangalactic.core.test.utils import create_test_project
+    from pangalactic.node.startup    import (setup_ref_db_and_version,
+                                             setup_dirs_and_state)
     from pangalactic.node.systemtree import SystemTreeView
-    from pangalactic.node.startup    import setup_dirs_and_state
     app = QApplication(sys.argv)
-    if len(sys.argv) < 2:
-        print("*** you must provide a home directory path ***")
-        sys.exit()
-    orb.start(home=sys.argv[1])
-    print('* orb starting ...')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--console', dest='console', action="store_true",
+                        help='send log msgs to stdout [default: no]')
+    options = parser.parse_args()
+    app_home = 'junk_home'
+    app_home_path = os.path.join(os.getcwd(), app_home)
+    if not os.path.exists(app_home_path):
+        os.makedirs(app_home_path, mode=0o755)
+    home = app_home_path
+    this_version = 'test'
+    setup_ref_db_and_version(home, this_version)
+    print('* starting orb ...')
+    orb.start(home=home, console=options.console)
+    print('  orb started.')
     setup_dirs_and_state()
+    print('* loading test project H2G2 ...')
+    test_objs = create_test_users()
+    test_objs += create_test_project()
+    deserialize(orb, test_objs)
     test_system = orb.get('test:spacecraft0')
-    if test_system:
-        print('* test system found ...')
-    else:
-        # test objects have not been loaded yet; load them
-        print('* loading test project H2G2 ...')
-        test_objs = create_test_users()
-        test_objs += create_test_project()
-        deserialize(orb, test_objs)
-        test_system = orb.get('test:spacecraft0')
-        print('* test system created ...')
+    print('* test system created ...')
     proj = test_system.owner
     sys_tree = SystemTreeView(proj)
     window = QWidget()
     layout = QVBoxLayout(window)
-    dash = SystemDashboard(sys_tree.model(), parent=window)
+    # dash = SystemDashboard(sys_tree.model(), parent=window)
+    dash = MultiDashboard(sys_tree_model=sys_tree.model(), parent=window)
     layout.addWidget(dash)
     layout.addWidget(sys_tree)
     sys_tree.expandAll()
