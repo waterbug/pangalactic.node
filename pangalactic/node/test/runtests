@@ -1,0 +1,34 @@
+#!/bin/sh
+
+#################################################################
+## This env var is used to test compatibility with sqlalchemy 2.0
+#################################################################
+# export SQLALCHEMY_WARN_20=1
+
+for x in \
+test_node.py
+do
+    echo
+    echo -n "run $x ? (y/n) [y]"
+    response=y
+    read response
+    if [ "$response" != 'n' ]; then
+        pytest -v $x;
+    fi
+done
+
+# clean up home directories used in tests
+
+if [ -d pangalaxian_test ]; then
+    # echo '\npreserving test home dir (pangalaxian_test) ...\n'
+    echo '\nremoving test home dir (pangalaxian_test) ...\n'
+    rm -r ./pangalaxian_test
+fi
+
+if [ -d marvin_test ]; then
+    # echo '\npreserving test home dir (marvin_test) ...\n'
+    echo '\nremoving test home dir (marvin_test) ...\n'
+    rm -r ./marvin_test
+fi
+
+# SQLALCHEMY_WARN_20=0
