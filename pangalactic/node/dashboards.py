@@ -37,6 +37,19 @@ class SystemDashboard(QTreeView):
 
     def __init__(self, view_model, row_colors=True, grid_lines=False,
                  parent=None):
+        """
+        Initialize.
+
+        Args:
+            view_model (SystemTreeModel): model of the current system tree.
+
+        Keyword Args:
+            row_colors (bool): show rows with alternating bg colors
+                (default: True)
+            grid_lines (bool): show grid lines separting rows/columns
+                (default: True)
+            parent (QWidget):  parent widget
+        """
         super().__init__(parent)
         self.setSelectionMode(self.SingleSelection)
         self.setUniformRowHeights(True)
@@ -588,7 +601,13 @@ class MultiDashboard(QWidget):
     """
     Widget to contain multiple dashboards and switch between them.
     """
-    def __init__(self, sys_tree_model=None, dashboards=None, parent=None):
+    def __init__(self, sys_tree_model, parent=None):
+        """
+        Initialize.
+
+        Args:
+            sys_tree_model (SystemTreeModel): the current system tree model
+        """
         super().__init__(parent=parent)
         self.dashboard_widget = QStackedWidget()
         self.setContextMenuPolicy(Qt.PreventContextMenu)
@@ -614,6 +633,8 @@ class MultiDashboard(QWidget):
         if (state.get('dashboard_name') == 'System Power Modes' and
             not (state.get('project', '') in mode_defz)):
             state['dashboard_name'] = 'MEL'
+        for dash_name in prefs['dashboard_names']:
+            self.add_dashboard(dash_name)
         dash_name = state.get('dashboard_name', 'MEL')
         state['dashboard_name'] = dash_name
         self.dash_select.setCurrentText(dash_name)
@@ -626,8 +647,9 @@ class MultiDashboard(QWidget):
         self.setLayout(dashboard_panel_layout)
         self.setMinimumSize(500, 200)
 
-    def add_dashboard(self, dashboard):
-        pass
+    def add_dashboard(self, dashboard_name):
+        if dashboard_name in prefs['dashboard_names']:
+            dash = SystemDashboard(self.sys_tree.model(), parent=window)
 
     def set_dashboard(self):
         orb.log.debug('* set_dashboard()')
