@@ -1240,18 +1240,17 @@ class TimelineWidget(QWidget):
                 p_mev_val = round_to(p_cbe_val * factor)
                 orb.log.debug(f'  P[mev]: {p_mev_val}')
                 p_mev_dict[a.oid] = p_mev_val
-        duration = orb.get_duration(act, units=time_units)
+        total_duration = orb.get_duration(act, units=time_units)
+        t_units = time_units or 'seconds'
+        d_text = f'  duration of {act.name}: {total_duration} {t_units}'
+        orb.log.debug(d_text)
         max_val = max(list(p_mev_dict.values()))
-        if time_units:
-            orb.log.debug(f'  duration of {act.name}: {duration} {time_units}')
-        else:
-            orb.log.debug(f'  duration of {act.name}: {duration} seconds')
         plot = qwt.QwtPlot(f"{comp.name} Power vs. Time")
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, f"time ({time_units})")
         plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
         # set y-axis to begin at 0 and end 60% above max
-        plot.setAxisScale(qwt.QwtPlot.xBottom, 0.0, duration)
+        plot.setAxisScale(qwt.QwtPlot.xBottom, 0.0, total_duration)
         plot.setAxisScale(qwt.QwtPlot.yLeft, 0.0, 1.6 * max_val)
         f_cbe = self.power_time_function(context="CBE", project=project,
                                          act=act, usage=usage,
@@ -1259,7 +1258,7 @@ class TimelineWidget(QWidget):
         f_mev = self.power_time_function(context="MEV", project=project,
                                          act=act, usage=usage,
                                          time_units=time_units)
-        t_array = np.linspace(0, duration, 400)
+        t_array = np.linspace(0, total_duration, 400)
         # orb.log.debug(f'  {t_array}')
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
         qwt.QwtPlotCurve.make(t_array, f_cbe(t_array), "P[cbe]", plot,
@@ -1318,15 +1317,16 @@ class TimelineWidget(QWidget):
             # -----------------------------------------------------------------
             # x-positioning and alignment of labels ...
             # -----------------------------------------------------------------
-            if (t_end - t_start > .2 * duration):
+            if (t_end - t_start > .2 * total_duration):
                 # sufficiently long activity/mode: center-align the label and
                 # position it in the middle of the interval
                 x_label = (t_start + t_end) / 2
                 align_label = Qt.AlignCenter
-            elif t_end >= duration and (t_end - t_start < .3 * duration):
+            elif (t_end >= total_duration
+                  and (t_end - t_start < .3 * total_duration)):
                 # activity/mode near the end of the timeline: left-align the
                 # label and position its right side at the end of the timeline
-                x_label = duration
+                x_label = total_duration
                 align_label = Qt.AlignLeft
             else:
                 # activity/mode is short and is not close to the end of the
@@ -1348,7 +1348,7 @@ class TimelineWidget(QWidget):
         j = 1
         plot.updateLayout()
         canvas_map = plot.canvasMap(2)
-        canvas_map.setScaleInterval(0.0, duration)
+        canvas_map.setScaleInterval(0.0, total_duration)
         canvas_map.setPaintInterval(0, 1400)
         # orb.log.debug(f'  canvas_map: {type(canvas_map)}')
         # label all "super activities" (most importantly, cycles)
@@ -1377,11 +1377,17 @@ class TimelineWidget(QWidget):
             t_end = t_start + dur
             # NOTE: round_to automatically uses user pref for numeric
             # precision; no need to specify "n" keyword arg ...
-            p_average = round_to(e_total / dur)
+            p_average = None
+            try:
+                p_average = round_to(e_total / dur)
+            except:
+                # dur was 0? ignore
+                pass
             p_averages[super_act.name] = p_average
             label_txt = f'  {super_act.name}  \n'
-            label_txt += f' Peak Power: {p_peak} Watts \n'
-            label_txt += f' Average Power: {p_average} Watts '
+            label_txt += f' Peak Power: {p_peak} Watts '
+            if p_average is not None:
+                label_txt += f'\n Average Power: {p_average} Watts '
             pen = QPen(LABEL_COLORS[j], 1)
             white_brush = QBrush(Qt.white)
             sa_name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
@@ -1406,16 +1412,25 @@ class TimelineWidget(QWidget):
                 plot=plot
                 )
             j += 1
+        # compute power average over all activities ...
+        overall_avg = None
+        if total_duration:
+            # only evaluate if total_duration is non-zero ...
+            overall_avg = round_to(sum([((p_cbe_dict.get(a.oid) or 0) * (
+                                      orb.get_duration(a, units=time_units)))
+                                      for a in all_acts]) / total_duration)
         title_label_txt = f'  {act.name}  \n'
         title_label_txt += f' Peak Power: {max_val} Watts '
+        if overall_avg is not None:
+            title_label_txt += f'\n Average Power: {overall_avg} Watts '
         pen = QPen(Qt.darkRed, 5)
         white_brush = QBrush(Qt.white)
         title_label = QwtText.make(text=title_label_txt, weight=QFont.Bold,
                                    pointsize=14, borderpen=pen,
                                    borderradius=0.0, brush=white_brush)
-        y_label = 1.5 * max_val
+        y_label = 1.45 * max_val
         qwt.QwtPlotMarker.make(
-            xvalue=.01 * duration,
+            xvalue=.01 * total_duration,
             align=Qt.AlignRight,
             yvalue=y_label,
             z=4.0,
