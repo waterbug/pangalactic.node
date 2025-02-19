@@ -7068,7 +7068,7 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
     # from twisted.internet.defer import setDebugging
     # END importing and installing the reactor
     if splash_path:
-        print(" * splash path found, starting splash ...")
+        print("* starting splash ...")
         splash_pix = QPixmap(splash_path)
         splash = SplashScreen(splash_pix, center_point=QPoint(x, y))
         splash.show()
@@ -7143,9 +7143,9 @@ if __name__ == "__main__":
                         '(possible values: "production", "dev", or "test") '
                         'default: "production"')
     parser.add_argument('-s', '--splash_image', dest='splash_image', type=str,
-                        default='',
+                        default='pangalactic_logo_splash.png',
                         help='name of a splash image file '
-                             '[default: empty string)')
+                             '[default: pangalactic_logo_splash.png)')
     options = parser.parse_args()
     tls = not options.unencrypted
     run(app_base_name=options.app_base_name, app_version=options.app_version,
