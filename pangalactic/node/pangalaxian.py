@@ -7050,12 +7050,24 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
     images_dir = os.path.join(home, 'images')
     std_img_path = os.path.join(images_dir, splash_image)
     splash_path = std_img_path
-    if os.path.exists(std_img_path):
-        print("* splash image is in std path ...")
-    elif os.path.exists(splash_image):
+    try:
+        images_mod_path = pangalactic.node.images.__path__[0]
+    except:
+        images_mod_path = ''
+    if os.path.exists(splash_image):
         # if img is in current dir, use it ...
         splash_path = splash_image
         print(f"* using specified splash image: {splash_image}")
+    elif os.path.exists(std_img_path):
+        print("* splash image is in std path ...")
+    elif (images_mod_path and os.path.exists(images_mod_path)
+          and os.path.exists(os.path.join(
+                            images_mod_path, 'pangalactic_logo_splash.png'))):
+        print("* using splash image from installed images module ...")
+        # if splash image not provided and not in "std" path (home), use the
+        # splash image from the installed "images" module
+        splash_path = os.path.join(images_mod_path,
+                                   'pangalactic_logo_splash.png')
     else:
         print("* splash image not found.")
         splash_path = ''
