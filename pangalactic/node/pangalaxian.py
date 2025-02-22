@@ -135,7 +135,6 @@ from pangalactic.node.libraries        import (LibraryDialog,
                                                select_product_types)
 from pangalactic.node.message_bus      import PgxnMessageBus
 from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
-from pangalactic.node.optics           import LinearOpticalModelViewer
 from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.rqtmanager       import RequirementManager
 from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
@@ -443,7 +442,6 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_add_update_doc, 'add update doc')
         dispatcher.connect(self.download_file, 'download file')
         dispatcher.connect(self.open_doc_file, 'open doc file')
-        dispatcher.connect(self.optics_modeler, 'open optics modeler')
         dispatcher.connect(self.get_lom_surf_names, 'get lom surface names')
         dispatcher.connect(self.get_lom_structure, 'get lom structure')
         dispatcher.connect(self.get_lom_parms, 'refresh lom parms')
@@ -2291,12 +2289,6 @@ class Main(QMainWindow):
                                 icon='lander',
                                 tip="42 Attitude Control System Modeler",
                                 modes=['system', 'component'])
-        self.optics_modeler_action = self.create_action(
-                                "Optics / Error Budget Modeler",
-                                slot=self.optics_modeler,
-                                icon='view_16',
-                                tip="Optical System Modeler",
-                                modes=['system', 'component'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
         self.product_lib_action = self.create_action(
                                     hw_lib_title,
@@ -2881,7 +2873,6 @@ class Main(QMainWindow):
                                 # self.mode_def_tool_action,
                                 self.conops_modeler_action,
                                 self.modeler42_action,
-                                self.optics_modeler_action,
                                 self.product_lib_action,
                                 self.template_lib_action,
                                 self.product_types_lib_action,
@@ -3113,47 +3104,10 @@ class Main(QMainWindow):
                 orb.log.debug('     trying to reconnect ...')
                 self.set_bus_state()
 
-    # NOTE: the pyqtSignal "new_or_modified_objects" is only used in the optics
-    # module currently [SCW 2024-02-28]
     # NOTE TODO: handle RoleAssignment objects separately -- need to call
     # vger.assign_role() for them ...
     # NOTE TODO: also need to update the diagram -- i.e., DiagramScene
     # (in view.py)
-    def on_new_or_modified_objects_qtsignal(self, oids):
-        """
-        Handle local pyqtSignal "new_or_modified_objects".
-        """
-        orb.log.info('* received local "new_or_modified_objects" pyqtSignal')
-        objs = [orb.get(oid) for oid in oids]
-        if objs:
-            if state.get('connected'):
-                serialized_objs = serialize(orb, objs,
-                                            include_components=True)
-                orb.log.debug('  calling rpc vger.save() ...')
-                ids = [obj.id for obj in objs]
-                orb.log.debug(f'  - saved obj ids: {ids}')
-                try:
-                    rpc = self.mbus.session.call('vger.save', serialized_objs)
-                    rpc.addCallback(self.on_vger_save_result)
-                    rpc.addCallback(self.get_parmz)
-                    rpc.addErrback(self.on_failure)
-                except:
-                    orb.log.debug('  ** rpc failed (possible loss of transport)')
-                    orb.log.debug('     trying to reconnect ...')
-                    self.set_bus_state()
-                    return
-            else:
-                hw = [obj for obj in objs
-                      if isinstance(obj,
-                                (orb.classes['HardwareProduct'],
-                                 orb.classes['Acu'],
-                                 orb.classes['ProjectSystemUsage']))]
-                if hw and (self.mode == 'system'):
-                    # update system tree and dashboard as necessary
-                    for obj in hw:
-                        self.update_object_in_trees(obj)
-        else:
-            orb.log.debug('  *** no objects found -- ignoring! ***')
 
     def on_new_object_qtsignal(self, oid):
         obj = orb.get(oid)
@@ -6159,15 +6113,6 @@ class Main(QMainWindow):
         w = 4 * self.geometry().width() / 5
         h = self.geometry().height()
         window = SC42Window(width=w, height=h, parent=self)
-        window.show()
-
-    def optics_modeler(self, system=None):
-        window = LinearOpticalModelViewer(system=system, parent=self)
-        window.new_or_modified_objects.connect(
-                                    self.on_new_or_modified_objects_qtsignal)
-        window.local_object_deleted.connect(
-                                    self.del_object)
-        window.system_widget.scene.des_set.connect(self.on_des_set_qtsignal)
         window.show()
 
     def get_lom_surf_names(self, lom_oid=None):
