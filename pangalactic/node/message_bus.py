@@ -122,6 +122,10 @@ class NullLogger(object):
     info = debug = lambda x: None
 
 
+class PgxnRunner(ApplicationRunner):
+    pass
+
+
 class PgxnMessageBus(Application):
 
     def __init__(self, prefix=None):
@@ -167,7 +171,8 @@ class PgxnMessageBus(Application):
             ssl (dict): server cert info for TLS connection
         """
         self.auth_method = auth_method
-        self.runner = ApplicationRunner(url, realm, ssl=ssl)
+        self.runner = ApplicationRunner(url, realm, ssl=ssl,
+                                websocket_options={'maxMessagePayloadSize': 0})
         return self.runner.run(self.__call__, start_reactor,
                                auto_reconnect=True)
 

@@ -5679,14 +5679,19 @@ class Main(QMainWindow):
 
     def chunk_file(self, fpath, chunk_size, progress_signal):
         orb.log.info('* chunk_file()')
-        chunk_size = chunk_size or 2**19
         fsize = os.path.getsize(fpath)
+        chunk_size = chunk_size or 2**20
+        # chunk_size = chunk_size or 2**19
+        if chunk_size > fsize // 7:
+            chunk_size = fsize // 7
+        orb.log.info(f'  using chunk_size {chunk_size}')
         with open(fpath, 'rb') as f:
             for i, chunk in enumerate(iter(partial(f.read, chunk_size), b'')):
                 self.chunks_to_upload.append(chunk)
                 p = (len(self.chunks_to_upload) * chunk_size * 100) // fsize
                 time.sleep(.01)
                 progress_signal.emit('', p)
+        orb.log.info(f'  yielding {len(self.chunks_to_upload)} chunks.')
         # return chunks
         # return "Done."
 
