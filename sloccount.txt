@@ -1,15 +1,4 @@
-Have a non-directory at the top, so creating directory top_dir
-Adding /home/waterbug/clones/pangalactic.node/./NOSA_18985_Pan_Galactic_Engineering_Framework_3.0.pdf to top_dir
-Adding /home/waterbug/clones/pangalactic.node/./PYINSTALLER_NOTES to top_dir
-Adding /home/waterbug/clones/pangalactic.node/./README to top_dir
-Adding /home/waterbug/clones/pangalactic.node/./VERSION to top_dir
-Adding /home/waterbug/clones/pangalactic.node/./bump_version.sh to top_dir
-Creating filelist for conda
 Creating filelist for pangalactic
-Creating filelist for pangalactic.node.egg-info
-Adding /home/waterbug/clones/pangalactic.node/./sedscr to top_dir
-Adding /home/waterbug/clones/pangalactic.node/./setup.py to top_dir
-Adding /home/waterbug/clones/pangalactic.node/./sloccount.txt to top_dir
 Categorizing files.
 Finding a working MD5 command....
 Found a working MD5 command.
@@ -18,25 +7,22 @@ Computing results.
 
 SLOC	Directory	SLOC-by-Language (Sorted)
 26987   pangalactic     python=26967,sh=20
-50      top_dir         python=48,sh=2
-1       conda           sh=1
-0       pangalactic.node.egg-info (none)
 
 
 Totals grouped by language (dominant language first):
-python:       27015 (99.91%)
-sh:              23 (0.09%)
+python:       26967 (99.93%)
+sh:              20 (0.07%)
 
 
 
 
-Total Physical Source Lines of Code (SLOC)                = 27,038
-Development Effort Estimate, Person-Years (Person-Months) = 6.38 (76.52)
+Total Physical Source Lines of Code (SLOC)                = 26,987
+Development Effort Estimate, Person-Years (Person-Months) = 6.36 (76.37)
  (Basic COCOMO model, Person-Months = 2.4 * (KSLOC**1.05))
-Schedule Estimate, Years (Months)                         = 1.08 (13.00)
+Schedule Estimate, Years (Months)                         = 1.08 (12.99)
  (Basic COCOMO model, Months = 2.5 * (person-months**0.38))
-Estimated Average Number of Developers (Effort/Schedule)  = 5.89
-Total Estimated Cost to Develop                           = $ 861,420
+Estimated Average Number of Developers (Effort/Schedule)  = 5.88
+Total Estimated Cost to Develop                           = $ 859,714
  (average salary = $56,286/year, overhead = 2.40).
 SLOCCount, Copyright (C) 2001-2004 David A. Wheeler
 SLOCCount is Open Source Software/Free Software, licensed under the GNU GPL.
