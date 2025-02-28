@@ -2404,9 +2404,9 @@ class Main(QMainWindow):
         # * load_test_objects
         # Load Test Objects needs more work -- make it local, or at least
         # non-polluting somehow ...
-        self.load_test_objects_action = self.create_action(
-                                    "Load Test Objects",
-                                    slot=self.load_test_objects)
+        # self.load_test_objects_action = self.create_action(
+                                    # "Load Test Objects",
+                                    # slot=self.load_test_objects)
         self.connect_to_bus_action = self.create_action(
                                     "Repository Service",
                                     slot=self.set_bus_state,
@@ -2886,7 +2886,8 @@ class Main(QMainWindow):
                                 self.full_resync_action]
         system_tools_actions.append(self.view_3d_model_action)
         system_tools_actions.append(self.edit_prefs_action)
-        system_tools_actions.append(self.del_test_objs_action)
+        if config.get('test'):
+            system_tools_actions.append(self.del_test_objs_action)
         # disable sync project action until we are online
         self.sync_project_action.setEnabled(False)
         self.sync_all_projects_action.setEnabled(False)
