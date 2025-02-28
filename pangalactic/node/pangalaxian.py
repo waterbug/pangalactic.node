@@ -209,10 +209,9 @@ class Main(QMainWindow):
     units_set = pyqtSignal()
 
     def __init__(self, app_base_name='Pangalaxian', app_version='',
-                 release_mode='', home='', mode= '', test_data=None,
-                 width=None, height=None, use_tls=True,
-                 auth_method='cryptosign', auto=True, reactor=None,
-                 console=False, debug=False):
+                 release_mode='', home='', auth_method='cryptosign', auto=True,
+                 mode= '', test_data=None, width=None, height=None,
+                 use_tls=True, reactor=None, console=False, debug=False):
         """
         Initialize main window.
 
@@ -320,7 +319,7 @@ class Main(QMainWindow):
         orb.start(home=home, console=console, debug=debug)
         self.add_splash_msg('... database initialized ...')
         # orb.start() calls load_reference_data(), which includes parameter
-        # definitions ... NOTE: load_reference_data() also loads the data from
+        # definitions ... load_reference_data() also loads the data from
         # "parameters.json" and "data_elements.json" into the "parameterz" and
         # "data_elementz" caches -- if either of the those .json files is
         # missing or unreadable, the user will be informed at startup that
@@ -563,7 +562,7 @@ class Main(QMainWindow):
         # TODO:  add a dialog for configuring host & port settings
         if self.connect_to_bus_action.isChecked():
             host = config.get('host', 'localhost')
-            port = config.get('port', '443')
+            port = config.get('port', '8080')
             url = 'wss://{}:{}/ws'.format(host, port)
             # NOTE: this only works for non-tls connections
             # if reachable(url):
@@ -7099,7 +7098,7 @@ if __name__ == "__main__":
     parser.add_argument('-a', '--app_home', dest='app_home', type=str,
                         default='',
                         help='specified name of app home directory '
-                             '[default: empty string)')
+                             '[defaults to "pangalaxian_home")')
     parser.add_argument('-r', '--release_mode', dest='release_mode', type=str,
                         default='',
                         help='release mode '
