@@ -1,9 +1,3 @@
-Creating the CATTENS version of PGEF documents is done using a sed script for
-each:
-
-    ./ug_to_cattens.sh
-    ./ref_to_cattens.sh
-
 Generating the html versions depends on the "pandoc" utility.
 
     ./htmlify user_guide.md
