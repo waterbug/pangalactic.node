@@ -358,6 +358,8 @@ class Main(QMainWindow):
             else:
                 orb.log.debug('    server cert not found ...')
                 orb.log.debug('    config "self_signed_cert" requires one!')
+        else:
+            config['self_signed_cert'] = False
         # set "auto" for auto-connect ...
         if 'auto' in prefs:
             self.auto = prefs['auto']
@@ -559,23 +561,14 @@ class Main(QMainWindow):
         connect to or disconnect from the message bus (crossbar server).
         """
         orb.log.debug('* setting message bus state ...')
-        # TODO:  add a dialog for configuring host & port settings
+        if not config.get('host'):
+            config['host'] = 'localhost'
+        host = config['host']
+        if not config.get('port'):
+            config['port'] = 8080
+        port = config['port']
+        url = f'wss://{host}:{port}/ws'
         if self.connect_to_bus_action.isChecked():
-            host = config.get('host', 'localhost')
-            port = config.get('port', '8080')
-            url = 'wss://{}:{}/ws'.format(host, port)
-            # NOTE: this only works for non-tls connections
-            # if reachable(url):
-                # orb.log.debug('* message bus is reachable.')
-            # else:
-                # self.connect_to_bus_action.setChecked(False)
-                # html = '<p><b><font color="red">The Message Bus'
-                # html += ' is not reachable ...</font></b></p>'
-                # html += '<p><b>Either the server is down or '
-                # html += 'there is a network connectivity issue.</b></p>'
-                # dlg = NotificationDialog(html, news=False, parent=self)
-                # dlg.show()
-                # return
             ###########################################################
             # Initialize message bus instance
             ###########################################################
