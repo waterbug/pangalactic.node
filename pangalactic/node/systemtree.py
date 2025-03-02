@@ -962,8 +962,9 @@ class SystemTreeView(QTreeView):
             dispatcher.connect(self.on_new_diagram_block, 'new diagram block')
         self.setStyleSheet('font-weight: normal; font-size: 12px')
         self.proxy_model.sort(0)
-        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
-        self.setMaximumWidth(500)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.MinimumExpanding)
+        self.setMaximumWidth(600)
         self.resizeColumnToContents(0)
         self.project = self.source_model.project
         if not state.get('sys_trees'):
@@ -1001,9 +1002,6 @@ class SystemTreeView(QTreeView):
     def rqt(self, r):
         self.source_model._rqt = r
         self.dataChanged(QModelIndex(), QModelIndex())
-
-    def sizeHint(self):
-        return QSize(300, 300)
 
     def on_show_allocated_to(self, item=None):
         if item:

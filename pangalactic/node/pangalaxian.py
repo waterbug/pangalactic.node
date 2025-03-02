@@ -119,7 +119,7 @@ from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
 from pangalactic.core.validation       import check_for_cycles
 from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
-from pangalactic.node.cad.viewer       import Model3DViewer
+from pangalactic.node.cad.viewer       import Model3dDialog, Model3DViewer
 from pangalactic.node.conops           import ConOpsModeler
 from pangalactic.node.dashboards       import SystemDashboard
 from pangalactic.node.dialogs          import (FullSyncDialog,
@@ -146,7 +146,7 @@ from pangalactic.node.systemtree       import SystemTreeView
 # from pangalactic.node.tableviews       import CompareWidget
 # from pangalactic.node.tableviews       import ObjectTableView
 from pangalactic.node.threads          import threadpool, Worker
-from pangalactic.node.widgets          import (AutosizingListWidget,
+from pangalactic.node.widgets          import (AutosizingListWidget, Gripper,
                                                ModeLabel, PlaceHolder)
 from pangalactic.node.wizards          import (NewProductWizard,
                                                DataImportWizard,
@@ -4808,10 +4808,11 @@ class Main(QMainWindow):
         sys_tree_panel = QWidget(self)
         sys_tree_panel.setContextMenuPolicy(Qt.PreventContextMenu)
         # set panel size policy to match the sys_tree's
-        sys_tree_panel.setSizePolicy(QSizePolicy.Preferred,
+        # sys_tree_panel.setSizePolicy(QSizePolicy.MinimumExpanding,
+        sys_tree_panel.setSizePolicy(QSizePolicy.Expanding,
                                      QSizePolicy.MinimumExpanding)
+        sys_tree_panel.setMinimumWidth(400)
         # set panel max width to match the max width set for sys_tree
-        sys_tree_panel.setMaximumWidth(450)
         sys_tree_layout = QVBoxLayout(sys_tree_panel)
         self.expansion_select = QComboBox()
         self.expansion_select.setStyleSheet(
@@ -4822,6 +4823,9 @@ class Main(QMainWindow):
         self.expansion_select.addItem('5 levels', QVariant())
         sys_tree_layout.addWidget(self.expansion_select)
         sys_tree_layout.addWidget(self.sys_tree)
+        gripper = Gripper(self.sys_tree, w=10, h=10)
+        sys_tree_layout.addWidget(gripper,
+                                  alignment=Qt.AlignRight|Qt.AlignBottom)
         self.left_dock.setWidget(sys_tree_panel)
         # set sys tree expansion level
         self.expansion_select.currentIndexChanged.connect(
@@ -4980,6 +4984,9 @@ class Main(QMainWindow):
                                      QFrame.Raised)
         self.dashboard.units_set.connect(self.on_units_set)
         dashboard_panel_layout.addWidget(self.dashboard)
+        gripper = Gripper(self.sys_tree, w=10, h=10)
+        dashboard_panel_layout.addWidget(gripper,
+                                  alignment=Qt.AlignRight|Qt.AlignBottom)
         title = 'Systems Dashboard: <font color="purple">{}</font>'.format(
                                                                self.project.id)
         self.dash_title.setText(title)
@@ -5412,6 +5419,10 @@ class Main(QMainWindow):
 
     def view_cad_error(self, e):
         orb.log.info('  - view_cad_error: {}'.format(e))
+
+    def open_viewer_dialog(self, file_path):
+        dlg = Model3dDialog(file_path, parent=self)
+        dlg.show()
 
     def new_project(self):
         """
@@ -6696,6 +6707,9 @@ class Main(QMainWindow):
             state['last_model_path'] = os.path.dirname(fpath)
             orb.log.info('  - running external viewer ...')
             self.open_viewer(fpath)
+            # this was an experiment to see if a dialog did not have the
+            # resize-disabling effect ... it was the same, alas.
+            # self.open_viewer_dialog(fpath)
         else:
             return
 

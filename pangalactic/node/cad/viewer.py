@@ -22,8 +22,8 @@ from OCC.Extend.DataExchange import (read_step_file_with_names_colors,
                                      read_stl_file)
 
 from PyQt5 import QtGui
-from PyQt5.QtWidgets import (QAction, QApplication, QFileDialog, QMainWindow,
-                             QVBoxLayout)
+from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDockWidget,
+                             QFileDialog, QMainWindow, QVBoxLayout)
 from PyQt5.QtCore import Qt
 
 
@@ -104,23 +104,27 @@ class Model3DViewer(QMainWindow):
                                                        update=True)[0]
 
     def init_viewer_3d(self):
-        if getattr(self, 'viewer3d', None):
+        if getattr(self, 'canvas', None):
             if getattr(self, 'vbox', None):
-                self.vbox.removeWidget(self.viewer3d)
+                self.vbox.removeWidget(self.canvas)
             # close existing viewer
-            self.viewer3d.setAttribute(Qt.WA_DeleteOnClose)
-            self.viewer3d.parent = None
-            self.viewer3d.close()
-            self.viewer3d = None
-        self.viewer3d = qtDisplay.qtViewer3d(self)
+            self.canvas.setAttribute(Qt.WA_DeleteOnClose)
+            self.canvas.parent = None
+            self.canvas.close()
+            self.canvas = None
+        self.canvas = qtDisplay.qtViewer3d(self)
         if not getattr(self, 'vbox', None):
             self.vbox = QVBoxLayout()
-        self.vbox.addWidget(self.viewer3d)
-        self.setCentralWidget(self.viewer3d)
+        self.vbox.addWidget(self.canvas)
+        self.top_dock_widget = QDockWidget()
+        self.top_dock_widget.setAllowedAreas(Qt.TopDockWidgetArea)
+        self.addDockWidget(Qt.TopDockWidgetArea, self.top_dock_widget)
+        # self.setCentralWidget(self.canvas)
+        self.top_dock_widget.setWidget(self.canvas)
         self.show()
-        self.viewer3d.InitDriver()
-        self.viewer3d.resize(self.w, self.h)
-        self.display = self.viewer3d._display
+        self.canvas.InitDriver()
+        self.canvas.resize(self.w, self.h)
+        self.display = self.canvas._display
 
     def create_action(self, text, icon=None, slot=None, tip=None):
         action = QAction(text, self)
@@ -281,6 +285,54 @@ class Model3DViewer(QMainWindow):
         breptools_Read(brep_shape, fpath, builder)
         self.display.DisplayShape(brep_shape, update=True)
         self.display.FitAll()
+
+
+class Model3dDialog(QDialog):
+    def __init__(self, file_path, parent=None):
+        super().__init__(parent=parent)
+        self.title = "PyQt5 / pythonOCC"
+        self.file_path = file_path
+        self.left = 300
+        self.top = 300
+        self.width = 800
+        self.height = 300
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle(self.title)
+        self.setGeometry(self.left, self.top, self.width, self.height)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.canvas = qtDisplay.qtViewer3d(self)
+        self.layout().addWidget(self.canvas)
+        self.show()
+        self.canvas.InitDriver()
+        self.canvas.resize(200, 200)
+        self.display = self.canvas._display
+        self.open_specified_step_file(self.file_path)
+
+    def open_specified_step_file(self, fpath):
+        if fpath:
+            # TODO: exception handling in case data import fails ...
+            # TODO: add an "index" column for sorting, or else figure out how
+            # to sort on the left header column ...
+            state['last_step_path'] = os.path.dirname(fpath)
+            if orb.started:
+                orb.log.debug('  - opening STEP file "{}" ...'.format(fpath))
+        else:
+            return
+        self.viewer_in_use = True
+        shapes_labels_colors = read_step_file_with_names_colors(fpath)
+        for shpt_lbl_color in shapes_labels_colors:
+            label, c = shapes_labels_colors[shpt_lbl_color]
+            self.display.display_triedron()
+            self.shape = self.display.DisplayColoredShape(shpt_lbl_color,
+                                    color=Quantity_Color(c.Red(),
+                                                         c.Green(),
+                                                         c.Blue(),
+                                                         Quantity_TOC_RGB))[0]
+        self.display.FitAll()
+
 
 
 if __name__ == "__main__":

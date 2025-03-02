@@ -79,7 +79,7 @@ class ModelWindow(QMainWindow):
         # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(creating diagram view)')
         self._init_ui()
-        self.setSizePolicy(QSizePolicy.Expanding,
+        self.setSizePolicy(QSizePolicy.Fixed,
                            QSizePolicy.Expanding)
         dispatcher.connect(self.set_subject_from_node, 'sys node selected')
         dispatcher.connect(self.set_subject_from_node, 'dash node selected')
@@ -95,6 +95,17 @@ class ModelWindow(QMainWindow):
         # orb.log.debug('  init calls set_subject() again to set system:')
         # orb.log.debug(f'  set_subject(obj={obj_id})')
         self.set_subject(obj=obj, msg='(setting to selected object)')
+
+    def sizeHint(self):
+        if self.preferred_size:
+            return QSize(*self.preferred_size)
+        return QSize(620, 800)
+
+    def maximumWidth(self):
+        return 620
+
+    def minimumWidth(self):
+        return 620
 
     def get_models(self):
         """
@@ -192,11 +203,6 @@ class ModelWindow(QMainWindow):
             except:
                 # diagram_view C++ object got deleted
                 pass
-
-    def sizeHint(self):
-        if self.preferred_size:
-            return QSize(*self.preferred_size)
-        return QSize(900, 800)
 
     def _init_ui(self):
         # orb.log.debug('  - _init_ui() ...')

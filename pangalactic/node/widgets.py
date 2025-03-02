@@ -3,7 +3,7 @@ from PyQt5.QtGui  import (QDoubleValidator, QDrag, QIntValidator, QPainter,
                           QPixmap, QTextOption)
 from PyQt5.QtWidgets  import (QApplication, QCheckBox, QComboBox, QDateEdit,
                               QDateTimeEdit, QFrame, QLabel, QLineEdit,
-                              QListView, QListWidget, QSizePolicy,
+                              QListView, QListWidget, QSizeGrip, QSizePolicy,
                               QTextBrowser, QTextEdit, QVBoxLayout)
 from textwrap import wrap
 import datetime
@@ -32,6 +32,27 @@ def VLine():
     toto.setFrameShape(QFrame.VLine)
     toto.setFrameShadow(QFrame.Sunken)
     return toto
+
+
+class Gripper(QSizeGrip):
+    """
+    A customized size grip.
+
+    Attributes:
+        w (int): width
+        h (int): height
+    """
+    def __init__(self, parent, w=None, h=None):
+        super().__init__(parent)
+        self.w = w
+        self.h = h
+        self.setStyleSheet("background-color: blue;")
+        self.setVisible(True)
+
+    def sizeHint(self):
+        w = self.w or 5
+        h = self.h or 5
+        return QSize(w, h)
 
 
 class PlaceHolder(QLabel):
