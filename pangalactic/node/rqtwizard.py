@@ -421,8 +421,7 @@ class RqtAllocPage(QWizardPage):
         proj = orb.get(project_oid)
         self.project = proj
         self.sys_tree = SystemTreeView(self.project, refdes=True,
-                                       rqt_allocs=True, show_allocs=True,
-                                       rqt=self.rqt)
+                                       rqt_allocs=True, rqt=self.rqt)
         self.sys_tree.setItemDelegate(RqtAllocDelegate())
         self.sys_tree.expandToDepth(1)
         self.sys_tree.setExpandsOnDoubleClick(False)
