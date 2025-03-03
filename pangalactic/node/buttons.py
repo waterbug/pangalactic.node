@@ -31,6 +31,7 @@ class MenuButton(QPushButton):
         if tooltip:
             self.setToolTip(tooltip)
         menu = QMenu(self)
+        menu.setToolTipsVisible(True)
         if actions and hasattr(actions, '__iter__'):
             for action in actions:
                 menu.addAction(action)
