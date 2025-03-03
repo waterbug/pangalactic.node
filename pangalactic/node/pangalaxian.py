@@ -2406,7 +2406,7 @@ class Main(QMainWindow):
                                     slot=self.set_bus_state,
                                     icon="system",
                                     checkable=True,
-                                    tip="Connect to the message bus")
+                                    tip="Connect to the Repository (database)")
         self.component_mode_action = self.create_action(
                                     "Component Modeler",
                                     slot=self._set_component_mode,
