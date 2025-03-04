@@ -473,26 +473,29 @@ class ModelWindow(QMainWindow):
         fpath = ''
         fpaths = []
         if mcad_models:
-            # orb.log.debug('  MCAD models found:')
+            orb.log.debug('  MCAD models found:')
             for m in mcad_models:
                 # orb.log.debug(f'      - model: "{m.id}"')
                 fpath = orb.get_step_file_path(m)
                 fpaths.append(fpath)
-                if fpath:
-                    orb.log.debug(f'        step file path: {fpath}')
-                else:
-                    orb.log.debug('        no step file found.')
-                orb.log.debug(f'      - {fpath}')
-            # orb.log.debug(f'  fpaths: {fpaths}')
+                # if fpath:
+                    # orb.log.debug(f'        step file path: {fpath}')
+                # else:
+                    # orb.log.debug('        no step file found.')
+                # orb.log.debug(f'      - {fpath}')
+            orb.log.debug(f'  fpaths: {fpaths}')
         else:
             orb.log.debug('  no MCAD models found.')
             return
+        non_null_fpath = None
         if fpaths:
-            fpath = fpaths[0]
-            # orb.log.debug(f'  step file: "{fpath}"')
+            for some_fpath in fpaths:
+                if some_fpath:
+                    non_null_fpath = some_fpath
+                    orb.log.debug(f'  step file: "{non_null_fpath}"')
         try:
-            if fpath:
-                self.cad_viewer = Model3DViewer(fpath=fpath)
+            if non_null_fpath:
+                self.cad_viewer = Model3DViewer(fpath=non_null_fpath)
                 self.cad_viewer.show()
         except:
             orb.log.debug('  CAD model not found or not in STEP format.')
