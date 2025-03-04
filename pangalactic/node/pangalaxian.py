@@ -6960,9 +6960,12 @@ def run(app_base_name='', app_version='', app_home='', release_mode='',
     app = QApplication(sys.argv)
     app_base_name = app_base_name or 'Pangalaxian'
     # app.setStyleSheet('QToolTip { border: 2px solid;}')
-    app.setStyleSheet("QToolTip { color: #ffffff; "
-                      "background-color: #2a82da; "
-                      "border: 1px solid white; }")
+    # app.setStyleSheet("QToolTip { color: #ffffff; "
+                      # "background-color: #2a82da; "
+                      # "border: 1px solid white; }")
+    app.setStyleSheet("QToolTip { color: blue; "
+                      "background-color: white; "
+                      "border: 1px solid black; }")
     styles = QStyleFactory.keys()
     if 'Fusion' in styles:
         app.setStyle(QStyleFactory.create('Fusion'))
