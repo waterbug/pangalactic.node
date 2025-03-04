@@ -4832,7 +4832,7 @@ class Main(QMainWindow):
         sys_tree_layout.addWidget(self.sys_tree)
         gripper = Gripper(self.sys_tree, w=10, h=10)
         sys_tree_layout.addWidget(gripper,
-                                  alignment=Qt.AlignRight|Qt.AlignBottom)
+                                  alignment=Qt.AlignLeft|Qt.AlignBottom)
         self.left_dock.setWidget(sys_tree_panel)
         # set sys tree expansion level
         self.expansion_select.currentIndexChanged.connect(
