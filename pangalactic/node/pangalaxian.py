@@ -2224,7 +2224,7 @@ class Main(QMainWindow):
         self.about_action = self.create_action(
                                     "About",
                                     slot=self.show_about,
-                                    tip="About {}".format(self.app_name))
+                                    tip=f"About {self.app_name}")
         self.user_guide_action = self.create_action(
                                     "User Guide",
                                     slot=self.show_user_guide,
@@ -2233,20 +2233,20 @@ class Main(QMainWindow):
         self.reference_action = self.create_action(
                                     "Reference Manual",
                                     slot=self.show_ref_manual,
-                                    tip="Reference Manual")
+                                    tip="Detailed Reference Information")
         self.new_project_action = self.create_action(
-                                    "Create New Project",
+                                    "New Project",
                                     slot=self.new_project,
                                     tip="Create a New Project")
         self.delete_project_action = self.create_action(
-                                    "Delete This Project",
+                                    "Delete Project",
                                     slot=self.delete_project,
                                     tip="Delete the current Project")
         # default:  delete_project_action is not visible
         self.delete_project_action.setEnabled(False)
         self.delete_project_action.setVisible(False)
         # Administer roles
-        admin_action_tip = "Administer Users and Roles"
+        admin_action_tip = "Add Users and Assign Roles"
         self.admin_action = self.create_action(
                                     "Administer Users and Roles",
                                     slot=self.do_admin_stuff,
@@ -2257,7 +2257,7 @@ class Main(QMainWindow):
         self.set_project_action = self.create_action(
                                     "Set Project",
                                     slot=self.set_current_project,
-                                    tip="Set Current Project")
+                                    tip="Switch to a selected Project")
         # self.display_disciplines_action = self.create_action(
                                     # "Display Disciplines",
                                     # slot=self.display_disciplines,
@@ -2267,9 +2267,9 @@ class Main(QMainWindow):
                                 "Project Requirements Manager",
                                 slot=self.display_rqts_manager,
                                 icon='lander',
-                                tip="Manage Requirements for the Current Project",
+                                tip="Manage Requirements for this Project",
                                 modes=['system', 'component', 'db'])
-        conops_tip_text = "Model a Concept of Operations"
+        conops_tip_text = "Define a Concept of Operations & System Power Modes"
         self.conops_modeler_action = self.create_action(
                                 "ConOps Modeler",
                                 slot=self.conops_modeler,
@@ -2283,11 +2283,12 @@ class Main(QMainWindow):
                                 tip="42 Attitude Control System Modeler",
                                 modes=['system', 'component'])
         hw_lib_title = "Systems and Components (Hardware Products) Library"
+        hw_lib_tip = "Library of Hardware Product Specifications"
         self.product_lib_action = self.create_action(
                                     hw_lib_title,
                                     slot=self.product_library,
                                     icon='part',
-                                    tip=hw_lib_title,
+                                    tip=hw_lib_tip,
                                     modes=['system', 'component', 'db'])
         template_lib_title = "System and Component Templates Library"
         self.template_lib_action = self.create_action(
@@ -2299,14 +2300,15 @@ class Main(QMainWindow):
         self.product_types_lib_action = self.create_action(
                                     "Product Types Library",
                                     slot=self.product_types_library,
-                                    tip="Product Types Library",
+                                    tip="A list of pre-defined Product Types",
                                     modes=['system', 'component', 'db'])
         port_type_lib_title = "Port Types Library"
+        port_type_lib_tip = "Types of ports available for use in diagrams"
         self.port_type_lib_action = self.create_action(
                                     port_type_lib_title,
                                     slot=self.port_type_library,
                                     icon='PortType',
-                                    tip=port_type_lib_title,
+                                    tip=port_type_lib_tip,
                                     modes=['system', 'component', 'db'])
         port_lib_title = "Port Templates Library"
         self.port_template_lib_action = self.create_action(
@@ -2323,14 +2325,15 @@ class Main(QMainWindow):
                                     tip=de_def_lib_title,
                                     modes=['system', 'component', 'db'])
         pd_lib_title = "Parameter Definitions Library"
+        pd_lib_tip = "Definitions and dimensionality of available parameters"
         self.parameter_lib_action = self.create_action(
                                     pd_lib_title,
                                     slot=self.parameter_library,
                                     icon='parameter',
-                                    tip=pd_lib_title,
+                                    tip=pd_lib_tip,
                                     modes=['system', 'component', 'db'])
         self.new_product_action = self.create_action(
-                                    "New System or Component (Product)",
+                                    "New System or Component (HW Product)",
                                     slot=self.new_product,
                                     icon='new_part',
                                     tip="Create a New System or Component",
@@ -2339,13 +2342,13 @@ class Main(QMainWindow):
                                     "New Functional Requirement",
                                     slot=self.new_functional_rqt,
                                     icon="new_doc",
-                                    tip="Create a New Functional Requirement",
+                                    tip="Define a New Functional Requirement",
                                     modes=['system'])
         self.new_performance_rqt_action=self.create_action(
                                     "New Performance Requirement",
                                     slot=self.new_performance_rqt,
                                     icon="new_doc",
-                                    tip="Create a New Performance Requirement",
+                                    tip="Define a New Performance Requirement",
                                     modes=["system"])
         # self.data_element_action = self.create_action(
                                     # "New Data Element",
@@ -2355,20 +2358,22 @@ class Main(QMainWindow):
                                     # modes=['system', 'component', 'db'])
         # "open_3d_model_file" opens an external viewer ...
         self.view_3d_model_action = self.create_action(
-                                    "View 3D Model...",
+                                    "View a 3D (CAD) Model...",
                                     slot=self.open_3d_model_file,
                                     icon="box",
-                                    tip="View 3D model",
+                                    tip="View a CAD model from a STEP file",
                                     modes=['system', 'component'])
         self.export_project_to_file_action = self.create_action(
                                 "Export Project to a File...",
                                 slot=self.export_project_to_file,
-                                tip="Export Project to a File...",
+                                tip="Export Project to an importable File...",
                                 modes=['system'])
+        mel_tip = 'Output a Master Equipment List'
+        mel_tip += ' ["MEL", aka "Bill of Materials"] to Excel'
         self.output_mel_action = self.create_action(
-                                "Write MEL...",
+                                "Write MEL (BOM) to Excel...",
                                 slot=self.output_mel,
-                                tip="Write MEL...",
+                                tip=mel_tip,
                                 modes=['system', 'component'])
         self.dump_db_action = self.create_action(
                                 "Dump Local Database to a File...",
@@ -2378,16 +2383,18 @@ class Main(QMainWindow):
         self.gen_keys_action = self.create_action(
                                 "Generate a Public/Private Key Pair...",
                                 slot=self.gen_keys,
-                                tip="Generate Key Pair...",
+                                tip="Generate credentials for authentication",
                                 modes=['system', 'component', 'data', 'db'])
         # actions accessible via the 'Import Data or Objects' toolbar menu:
         # * import_rqts_excel_action
         self.import_rqts_excel_action = self.create_action(
                                     "Import Requirements from Excel...",
+                                    tip="Use a wizard to import requirements",
                                     slot=self.import_rqts_from_excel)
         # * import_products_excel_action
         self.import_products_excel_action = self.create_action(
                                     "Import Products from Excel...",
+                                    tip="Use a wizard to import new products",
                                     slot=self.import_products_from_excel)
         # * import_objects (import project or other serialized objs)
         self.import_objects_action = self.create_action(
