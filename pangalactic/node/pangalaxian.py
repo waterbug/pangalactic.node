@@ -2361,7 +2361,7 @@ class Main(QMainWindow):
                                     "View a 3D (CAD) Model...",
                                     slot=self.open_3d_model_file,
                                     icon="box",
-                                    tip="View a CAD model from a STEP file",
+                                    tip="Import & view a STEP or STL model",
                                     modes=['system', 'component'])
         self.export_project_to_file_action = self.create_action(
                                 "Export Project to a File...",

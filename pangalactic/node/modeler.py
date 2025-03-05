@@ -172,7 +172,7 @@ class ModelWindow(QMainWindow):
                 mcad_models = models.get('MCAD')
                 if mcad_models:
                     # orb.log.debug('* ModelWindow: MCAD model(s) found ...')
-                    step_fpaths = [orb.get_step_file_path(m)
+                    step_fpaths = [orb.get_mcad_model_file_path(m)
                                    for m in mcad_models]
                     if step_fpaths and hasattr(self, 'view_cad_action'):
                         # orb.log.debug('  STEP file(s) found.')
@@ -466,7 +466,7 @@ class ModelWindow(QMainWindow):
         open a dialog with information about all and offer to display a
         selected one.
         """
-        # TODO: display a dialog if multiple STEP models ...
+        # TODO: display a dialog if multiple STEP or STL models ...
         # ... if only one, just display it in the viewer ...
         models = self.get_models()
         mcad_models = models.get("MCAD")
@@ -476,7 +476,7 @@ class ModelWindow(QMainWindow):
             orb.log.debug('  MCAD models found:')
             for m in mcad_models:
                 # orb.log.debug(f'      - model: "{m.id}"')
-                fpath = orb.get_step_file_path(m)
+                fpath = orb.get_mcad_model_file_path(m)
                 fpaths.append(fpath)
                 # if fpath:
                     # orb.log.debug(f'        step file path: {fpath}')

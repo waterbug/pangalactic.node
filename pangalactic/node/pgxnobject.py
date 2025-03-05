@@ -1383,7 +1383,7 @@ class PgxnObject(QDialog):
                 mcad_models = models.get('MCAD')
                 if mcad_models:
                     # orb.log.debug('* pgxno: MCAD model(s) found ...')
-                    step_fpaths = [orb.get_step_file_path(m)
+                    step_fpaths = [orb.get_mcad_model_file_path(m)
                                    for m in mcad_models]
                     if step_fpaths and hasattr(self, 'view_cad_action'):
                         # orb.log.debug('  STEP file(s) found.')
@@ -1494,7 +1494,7 @@ class PgxnObject(QDialog):
             # orb.log.debug('  MCAD models found:')
             for m in mcad_models:
                 # orb.log.debug(f'      - model: "{m.id}"')
-                fpath = orb.get_step_file_path(m)
+                fpath = orb.get_mcad_model_file_path(m)
                 fpaths.append(fpath)
                 if fpath:
                     orb.log.debug(f'        step file path: {fpath}')
