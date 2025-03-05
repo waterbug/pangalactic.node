@@ -249,11 +249,9 @@ class RequirementIDPage(QWizardPage):
                                    enable_delete=False, title_text=title_text)
         self.pgxn_obj.toolbar.hide()
         self.pgxn_obj.save_button.clicked.connect(self.saved)
-        self.pgxn_obj.save_button.clicked.connect(self.update_levels)
         self.pgxn_obj_cancel_button = self.pgxn_obj.bbox.button(
                                                 QDialogButtonBox.Cancel)
         self.pgxn_obj_cancel_button.clicked.connect(self.saved)
-        self.pgxn_obj_cancel_button.clicked.connect(self.update_levels)
         self.pgxn_obj.setAttribute(Qt.WA_DeleteOnClose)
         self.wizard().button(QWizard.FinishButton).clicked.connect(
                 self.close_pgxn_obj)
@@ -279,6 +277,7 @@ class RequirementIDPage(QWizardPage):
         self.level_label = QLabel('level: ')
         self.level_layout.addRow(self.level_label, self.level_cb)
         self.level_cb.currentIndexChanged.connect(self.level_select)
+        self.update_levels()
 
         id_panel_scrollarea = QScrollArea()
         id_panel_scrollarea.setWidgetResizable(True)
@@ -300,14 +299,9 @@ class RequirementIDPage(QWizardPage):
         self.rqt.rqt_level = self.level_cb.currentText()
 
     def update_levels(self):
-        # NOTE: update_levels is triggered when pgxnobject saves, so update
-        # rqt_wizard_state to sync with the saved rqt attributes ...
-        rqt_wizard_state['description'] = self.rqt.description
-        rqt_wizard_state['rationale'] = self.rqt.rationale
-        rqt_wizard_state['justification'] = self.rqt.justification
-        rqt_wizard_state['comment'] = self.rqt.comment
         self.level_cb.removeItem(1)
         self.level_cb.removeItem(0)
+        max_level = 0
         if self.rqt.parent_requirements:
             parent_levels = [pr.parent_requirement.rqt_level or 0
                              for pr in self.rqt.parent_requirements]
@@ -319,8 +313,6 @@ class RequirementIDPage(QWizardPage):
             max_level = 0
         self.level_cb.addItem(str(max_level))
         self.level_cb.addItem(str(max_level + 1))
-        self.pgxn_obj_cancel_button.clicked.connect(self.saved)
-        self.pgxn_obj.save_button.clicked.connect(self.saved)
 
     def close_pgxn_obj(self):
         if getattr(self,'pgxn_obj', None):
@@ -328,6 +320,10 @@ class RequirementIDPage(QWizardPage):
             self.pgxn_obj = None
 
     def saved(self):
+        rqt_wizard_state['description'] = self.rqt.description
+        rqt_wizard_state['rationale'] = self.rqt.rationale
+        rqt_wizard_state['justification'] = self.rqt.justification
+        rqt_wizard_state['comment'] = self.rqt.comment
         self.completeChanged.emit()
 
     def isComplete(self):
