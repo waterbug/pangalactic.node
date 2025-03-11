@@ -1,18 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Defines the ConOps tool for modeling a Mission Concept of Operations.
-
-NOTES:
-Initially, ConOps shows a blank timeline for the current project's mission
-* can display timelines for any top-level project system:
-  - spacecraft (may be multiple SCs, of course)
-  - ground system(s)
-* sub-activities durations can be specified numerically in the ActInfoTable
-  (widget on the upper left)
-  -- parameters (e.g. power level) come from the subsystem specs.
+PowerModeler tool for modeling power modes of a mission system.
 """
-
 import numpy as np
 
 import sys, os
@@ -25,8 +15,8 @@ from PyQt5.QtCore import Qt, QSize, QVariant
 from PyQt5.QtGui import QBrush, QIcon, QFont, QPen
 # from PyQt5.QtGui import QGraphicsProxyWidget
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
-                             QHBoxLayout, QSizePolicy, QWidget, QVBoxLayout,
-                             QWidgetAction, QMessageBox)
+                             QHBoxLayout, QScrollArea, QSizePolicy, QWidget,
+                             QVBoxLayout, QWidgetAction, QMessageBox)
 
 # PythonQwt
 import qwt
@@ -135,6 +125,7 @@ class PowerModeler(QWidget):
                                            QSizePolicy.MinimumExpanding)
         self.sys_select_tree.setObjectName('Sys Select Tree')
         self.sys_select_tree.setMinimumWidth(350)
+        self.sys_select_tree.setMinimumHeight(600)
         # -- set initial tree expansion level ---------------------------------
         expand_level = 3
         idx = state['conops_tree_expansion'][self.project.oid]
@@ -144,6 +135,10 @@ class PowerModeler(QWidget):
         self.sys_select_tree.setExpandsOnDoubleClick(False)
         self.sys_select_tree.clicked.connect(self.on_item_clicked)
         sys_tree_panel = QWidget()
+        sys_tree_panel_scroll_area = QScrollArea()
+        sys_tree_panel_scroll_area.setWidget(sys_tree_panel)
+        sys_tree_panel.setMinimumHeight(900)
+        sys_tree_panel.setMinimumWidth(600)
         sys_tree_layout = QVBoxLayout()
         sys_tree_panel.setLayout(sys_tree_layout)
         sys_tree_title = f'{self.project.id} Mission Systems'
@@ -173,7 +168,7 @@ class PowerModeler(QWidget):
         self.mode_dash = ModeDefinitionDashboard(parent=self,
                                                  activity=self.subject)
         self.main_splitter = CustomSplitter()
-        self.main_splitter.addWidget(sys_tree_panel)
+        self.main_splitter.addWidget(sys_tree_panel_scroll_area)
         self.main_splitter.addWidget(self.mode_dash)
         main_layout = QHBoxLayout()
         self.setLayout(main_layout)

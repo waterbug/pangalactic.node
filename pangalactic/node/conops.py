@@ -243,6 +243,8 @@ class ConOpsModeler(QWidget):
         to that activity's (and current usage) power graph.
         """
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
+        # self.setMinimumWidth(1500)
+        # self.setMinimumHeight(1200)
         main_vbox = QVBoxLayout()
         self.setLayout(main_vbox)
         self.splitter = CustomSplitter(Qt.Vertical)
@@ -267,10 +269,13 @@ class ConOpsModeler(QWidget):
         self.power_modeler = PowerModeler(self.subject,
                                           initial_usage=initial_usage,
                                           parent=self)
+        self.power_modeler.setSizePolicy(QSizePolicy.Preferred,
+                                         QSizePolicy.MinimumExpanding)
         self.splitter.addWidget(self.power_modeler)
         # ====================================================================
         main_vbox.addWidget(self.splitter)
         # ====================================================================
+        self.resize(1700, 800)
         dispatcher.connect(self.on_usage_set, "conops usage set")
 
     def on_usage_set(self, usage=None):
