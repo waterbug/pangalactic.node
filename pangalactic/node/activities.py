@@ -152,7 +152,7 @@ class ActivityWidget(QWidget):
         # table.resizeColumnsToContents()
         table.setAlternatingRowColors(True)
         self.main_layout.addWidget(table)
-        self.main_layout.addStretch()
+        # self.main_layout.addStretch()
         self.table = table
 
     def reset_table(self):

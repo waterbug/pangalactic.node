@@ -1,10 +1,14 @@
+"""
+Widgets for general use.
+"""
 from PyQt5.QtCore import Qt, QMimeData, QSize
-from PyQt5.QtGui  import (QDoubleValidator, QDrag, QIntValidator, QPainter,
-                          QPixmap, QTextOption)
+from PyQt5.QtGui  import (QBrush, QDoubleValidator, QDrag, QIntValidator,
+                          QPainter, QPixmap, QTextOption)
 from PyQt5.QtWidgets  import (QApplication, QCheckBox, QComboBox, QDateEdit,
-                              QDateTimeEdit, QFrame, QLabel, QLineEdit,
-                              QListView, QListWidget, QSizeGrip, QSizePolicy,
-                              QTextBrowser, QTextEdit, QVBoxLayout)
+                              QDateTimeEdit, QFrame, QHBoxLayout, QLabel,
+                              QLineEdit, QListView, QListWidget, QSizeGrip,
+                              QSizePolicy, QSplitter, QTextBrowser, QTextEdit,
+                              QVBoxLayout, QWidget)
 from textwrap import wrap
 import datetime
 
@@ -53,6 +57,29 @@ class Gripper(QSizeGrip):
         w = self.w or 5
         h = self.h or 5
         return QSize(w, h)
+
+
+class CustomHandle(QWidget):
+    def paintEvent(self, e=None):
+        painter = QPainter(self)
+        painter.setPen(Qt.NoPen)
+        brush = QBrush(Qt.darkCyan, Qt.Dense3Pattern)
+        # brush = QBrush(Qt.Dense3Pattern)
+        painter.setBrush(brush)
+        painter.drawRect(self.rect())
+
+
+class CustomSplitter(QSplitter):
+    def addWidget(self, wdg):
+        super().addWidget(wdg)
+        self.width = self.handleWidth()
+        l_handle = CustomHandle()
+        l_handle.setMaximumSize(self.width*2, self.width*10)
+        self.setHandleWidth(10)
+        layout = QHBoxLayout(self.handle(self.count()-1))
+        layout.setSpacing(0)
+        layout.setContentsMargins(0,0,0,0)
+        layout.addWidget(l_handle)
 
 
 class PlaceHolder(QLabel):
