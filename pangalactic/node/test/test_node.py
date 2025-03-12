@@ -2,15 +2,8 @@
 """
 Unit tests for pangalactic.node modules
 """
-from math import fsum
-import json, os, shutil
+import os
 import unittest
-
-# yaml
-import ruamel_yaml as yaml
-
-# python-dateutil
-import dateutil.parser as dtparser
 
 # set the orb
 import pangalactic.core.set_uberorb
@@ -33,12 +26,12 @@ import pangalactic.core.set_uberorb
                                           # serialize_des,
                                           # serialize_parms,
                                           # save_parmz, save_data_elementz)
-from pangalactic.core             import orb, prefs
-from pangalactic.core.serializers import deserialize
-from pangalactic.core.test.utils  import (create_test_users,
-                                          create_test_project)
-from pangalactic.node.conops      import flatten_subacts
-from pangalactic.node.startup     import setup_ref_db_and_version
+from pangalactic.core              import orb, prefs
+from pangalactic.core.serializers  import deserialize
+from pangalactic.core.test.utils   import (create_test_users,
+                                           create_test_project)
+from pangalactic.node.powermodeler import flatten_subacts
+from pangalactic.node.startup      import setup_ref_db_and_version
 
 prefs['default_data_elements'] = ['TRL', 'Vendor', 'reference_missions']
 prefs['default_parms'] = [

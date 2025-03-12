@@ -58,65 +58,6 @@ else:
     POINT_SIZE = 8
     BLOCK_FACTOR = 20
 
-# LABEL_COLORS are used in the ConOps graph ... might be useful later ...
-# LABEL_COLORS = [Qt.darkRed, Qt.darkGreen, Qt.blue, Qt.darkBlue, Qt.cyan,
-                # Qt.darkCyan, Qt.magenta, Qt.darkMagenta]
-# -----------------------------------------------------
-# Qt's predefined QColor objects:
-# -----------------------------------------------------
-# Qt::white         3 White (#ffffff)
-# Qt::black         2 Black (#000000)
-# Qt::red           7 Red (#ff0000)
-# Qt::darkRed      13 Dark red (#800000)
-# Qt::green         8 Green (#00ff00)
-# Qt::darkGreen    14 Dark green (#008000)
-# Qt::blue          9 Blue (#0000ff)
-# Qt::darkBlue     15 Dark blue (#000080)
-# Qt::cyan         10 Cyan (#00ffff)
-# Qt::darkCyan     16 Dark cyan (#008080)
-# Qt::magenta      11 Magenta (#ff00ff)
-# Qt::darkMagenta  17 Dark magenta (#800080)
-# Qt::yellow       12 Yellow (#ffff00)
-# Qt::darkYellow   18 Dark yellow (#808000)
-# Qt::gray          5 Gray (#a0a0a4)
-# Qt::darkGray      4 Dark gray (#808080)
-# Qt::lightGray     6 Light gray (#c0c0c0)
-# Qt::transparent  19 a transparent black value (i.e., QColor(0, 0, 0, 0))
-# Qt::color0        0 0 pixel value (for bitmaps)
-# Qt::color1        1 1 pixel value (for bitmaps)
-# orange (not Qt for that):  QColor(255, 140, 0)
-# -----------------------------------------------------
-
-
-def flatten_subacts(act, all_subacts=None):
-    """
-    For an activity that contains more than one level of sub-activities,
-    return all levels of sub-activities in a single list in the order of their
-    occurrance.
-
-    Args:
-        act (Activity): the specified activity
-
-    Keyword Args:
-        all_subacts (list of Activity): the flattened list of sub-activities
-    """
-    all_subacts = all_subacts or []
-    subacts = getattr(act, 'sub_activities', []) or []
-    if subacts:
-        subacts.sort(key=lambda x: x.sub_activity_sequence or 0)
-        # orb.log.debug(f"  domain: {names}")
-        # oids = [a.oid for a in subacts]
-        for i, a in enumerate(subacts):
-            a_subacts = getattr(a, 'sub_activities', []) or []
-            if a_subacts:
-                flatten_subacts(a, all_subacts=all_subacts)
-            else:
-                all_subacts.append(a)
-            if i == len(subacts) - 1:
-                return all_subacts
-    else:
-        return all_subacts
-
 
 class EventBlock(QGraphicsPolygonItem):
 
