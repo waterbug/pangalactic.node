@@ -59,7 +59,7 @@ class ConOpsModeler(QWidget):
         - [middle]     main_timeline (TimelineWidget(QWidget))
                        + scene (TimelineScene(QGraphicsScene))
                          * timeline (Timeline(QGraphicsPathItem))
-                         * activity blocks (EventBlock(QGraphicsPolygonItem))
+                         * activity blocks (ActivityBlock)
         - [right side] Op blocks palette (QToolBox)
       * Bottom:  PowerModeler
         - [left side]  sys_select_tree (SystemSelectionView)
@@ -120,8 +120,6 @@ class ConOpsModeler(QWidget):
         # self.init_toolbar()
         self.set_widgets()
         self.setWindowTitle('Concept of Operations (ConOps) Modeler')
-        dispatcher.connect(self.on_double_click, "double clicked")
-        dispatcher.connect(self.on_activity_got_focus, "activity focused")
         dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
         dispatcher.connect(self.on_remote_mode_defs, "modes published")
 
@@ -214,6 +212,8 @@ class ConOpsModeler(QWidget):
         self.power_modeler.setSizePolicy(QSizePolicy.Preferred,
                                          QSizePolicy.MinimumExpanding)
         self.splitter.addWidget(self.power_modeler)
+        # power modeler gets all the vertical stretch ...
+        self.splitter.setStretchFactor(1, 1)
         # ====================================================================
         main_vbox.addWidget(self.splitter)
         # ====================================================================
@@ -329,32 +329,6 @@ class ConOpsModeler(QWidget):
             event (Event): the Event instance
         """
         state['model_window_size'] = (self.width(), self.height())
-
-    def on_double_click(self, act):
-        """
-        Handler for double-click on an activity block -- drill-down to view
-        and/or create sub_activities timeline.
-
-        Args:
-            act (Activity): the Activity instance that was double-clicked
-        """
-        orb.log.debug("  - ConOpsModeler.on_double_click()...")
-        try:
-            orb.log.debug(f'     + activity: {act.name}')
-            self.timeline_modeler.widget_drill_down(act)
-        except Exception as e:
-            orb.log.debug("    exception occurred:")
-            orb.log.debug(e)
-        dispatcher.send("subject changed", obj=act)
-
-    def on_activity_got_focus(self, act):
-        """
-        Do something when an activity gets focus ...
-
-        Args:
-            act (Activity): the Activity instance that got focus
-        """
-        pass
 
     def on_delete_activity(self, oid=None, cname=None, remote=False):
         """

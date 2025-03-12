@@ -59,7 +59,7 @@ else:
     BLOCK_FACTOR = 20
 
 
-class EventBlock(QGraphicsPolygonItem):
+class ActivityBlock(QGraphicsPolygonItem):
 
     def __init__(self, activity=None, scene=None, style=None, parent=None):
         """
@@ -111,7 +111,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
-        dispatcher.send("double clicked", act=self.activity)
+        dispatcher.send("block double clicked", act=self.activity)
 
     def mousePressEvent(self, event):
         if self.scene:
@@ -120,7 +120,7 @@ class EventBlock(QGraphicsPolygonItem):
         QGraphicsItem.mousePressEvent(self, event)
 
     def mouseReleaseEvent(self, event):
-        # orb.log.debug("* EventBlock: mouseReleaseEvent()")
+        # orb.log.debug("* ActivityBlock: mouseReleaseEvent()")
         self.setSelected(False)
         QGraphicsItem.mouseReleaseEvent(self, event)
 
@@ -145,7 +145,7 @@ class EventBlock(QGraphicsPolygonItem):
 
     def dropEvent(self, event):
         """
-        Handle the drop event on a "Cycle" EventBlock.  This includes the
+        Handle the drop event on a "Cycle" ActivityBlock.  This includes the
         following possible cases:
 
             00: drop target is not a "Cycle" -> ignore
@@ -249,7 +249,7 @@ class EventBlock(QGraphicsPolygonItem):
         set_dval(activity.oid, "time_units", "minutes")
         # also replicate the activity's mode definitions
         clone_mode_defs(self.activity, activity)
-        evt_block = EventBlock(activity=activity, scene=self.scene)
+        evt_block = ActivityBlock(activity=activity, scene=self.scene)
         # evt_block.setPos(event.scenePos())
         self.scene.addItem(evt_block)
         self.scene.timeline.update_timeline()
@@ -320,7 +320,7 @@ class Timeline(QGraphicsPathItem):
     def evt_blocks(self):
         if self.scene():
             blocks = [x for x in self.scene().items()
-                      if isinstance(x, EventBlock)]
+                      if isinstance(x, ActivityBlock)]
             blocks.sort(key=lambda x: x.scenePos().x())
             return blocks
         else:
@@ -336,10 +336,10 @@ class Timeline(QGraphicsPathItem):
         # orb.log.debug('* timeline.calc_length()')
         self.path_length = 1200
         if len(self.evt_blocks) <= 8:
-            orb.log.debug('  <= 8 event blocks ... no length re-calc.')
+            orb.log.debug('  <= 8 activity blocks ... no length re-calc.')
         else:
             n = len(self.evt_blocks)
-            orb.log.debug(f'  {n} event blocks -- calculating length ...')
+            orb.log.debug(f'  {n} activity blocks -- calculating length ...')
             # adjust timeline length
             delta = n - 7
             self.path_length = 1200 + (delta // 2) * 300
@@ -491,7 +491,7 @@ class TimelineScene(QGraphicsScene):
         # set time units locally to default: "minutes" -- if connected,
         # this will be done in the callback after vger.save() succeeds
         set_dval(activity.oid, "time_units", "minutes")
-        evt_block = EventBlock(activity=activity, scene=self)
+        evt_block = ActivityBlock(activity=activity, scene=self)
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.update_timeline()
@@ -554,7 +554,7 @@ class TimelineWidget(QWidget):
         # "deleted object" is sent by pangalaxian when it receives a "deleted"
         # pubsub message ...
         dispatcher.connect(self.delete_activity, "deleted object")
-        # "delete activity" is sent by event block when it is removed ...
+        # "delete activity" is sent by activity block when it is removed ...
         dispatcher.connect(self.delete_activity, "delete activity")
         dispatcher.connect(self.on_act_name_mod, "act name mod")
         dispatcher.connect(self.set_new_scene, "set new scene")
@@ -582,7 +582,7 @@ class TimelineWidget(QWidget):
             # orb.log.debug(f'  - placing {nbr_of_subacts} sub-acts:')
             for activity in reversed(subacts):
                 if (activity.of_system == self.system):
-                    item = EventBlock(activity=activity,
+                    item = ActivityBlock(activity=activity,
                                       scene=scene)
                     # n = activity.sub_activity_sequence
                     # name = activity.name
@@ -661,13 +661,13 @@ class TimelineWidget(QWidget):
         title_widget.setText(title)
         return title_widget
 
-    def widget_drill_down(self, act):
+    def activity_drill_down(self, act):
         """
-        Handle a double-click event on an eventblock, creating and
+        Handle a double-click event on an activity block, creating and
         displaying a new timeline for its sub-activities.
 
         Args:
-            obj (EventBlock):  the block that received the double-click
+            obj (ActivityBlock):  the block that received the double-click
         """
         dispatcher.send("drill down", obj=act, act_of=self.system)
         previous_oid = self.subject.oid
@@ -832,7 +832,7 @@ class TimelineWidget(QWidget):
                                     self.subject.sub_activities]
                 if oid in current_act_oids:
                     # orb.log.debug('  found in current timeline, removing ...')
-                    # find event block and remove it
+                    # find activity block and remove it
                     for item in self.scene.items():
                         if (hasattr(item, 'activity') and
                             item.activity and item.activity.oid == oid):
@@ -852,7 +852,7 @@ class TimelineWidget(QWidget):
             # locally originated action ...
             # orb.log.debug(f'  - deleting activity {name}')
             objs_to_delete = [obj] + obj.sub_activities
-            # TODO: check whether any sub_activities have event blocks ...
+            # TODO: check whether any sub_activities have blocks ...
             oids = [o.oid for o in objs_to_delete]
             orb.delete(objs_to_delete)
             for oid in oids:
@@ -872,10 +872,10 @@ class TimelineWidget(QWidget):
         orb.log.debug('* auto_rescale_timeline()')
         n = len(self.scene.timeline.evt_blocks)
         if n <= 8:
-            orb.log.debug('  <= 8 event blocks ... no rescale.')
+            orb.log.debug('  <= 8 activity blocks ... no rescale.')
             self.scale = 70
         else:
-            orb.log.debug(f'  {n} event blocks -- rescaling ...')
+            orb.log.debug(f'  {n} activity blocks -- rescaling ...')
             delta = n - 7
             self.scale = 70 - (delta // 2) * 10
         pscale = str(self.scale) + "%"
@@ -966,7 +966,7 @@ class TimelineModeler(QWidget):
     - [middle]     main_timeline (TimelineWidget(QWidget))
                    + scene (TimelineScene(QGraphicsScene))
                      * timeline (Timeline(QGraphicsPathItem))
-                     * activity blocks (EventBlock(QGraphicsPolygonItem))
+                     * activity blocks (ActivityBlock(QGraphicsPolygonItem))
     - [right side] Op blocks palette (QToolBox)
     """
 
@@ -1009,7 +1009,7 @@ class TimelineModeler(QWidget):
         # self.init_toolbar()
         self.set_widgets()
         self.setWindowTitle('Timeline Modeler')
-        dispatcher.connect(self.on_double_click, "double clicked")
+        dispatcher.connect(self.act_block_drill_down, "block double clicked")
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
         dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
         dispatcher.connect(self.on_usage_set, "conops usage set")
@@ -1152,7 +1152,7 @@ class TimelineModeler(QWidget):
     def on_new_timeline(self, subject=None):
         """
         Respond to a new timeline scene having been set, such as resulting from
-        an event block drill-down.
+        an activity block drill-down.
 
         Keyword Args:
             subject (Activity): subject of the new timeline
@@ -1163,14 +1163,16 @@ class TimelineModeler(QWidget):
 
     def rebuild_table(self):
         orb.log.debug("* conops: rebuild_table()")
+        central_layout = self.layout()
         if getattr(self, 'activity_table', None):
-            self.left_dock_layout.removeWidget(self.activity_table)
+            central_layout.removeWidget(self.activity_table)
             self.activity_table.parent = None
             self.activity_table.close()
             self.activity_table = None
-        self.create_activity_table(timeline=self.main_timeline.scene.timeline)
-        self.left_dock_layout.insertWidget(0, self.activity_table,
-                                           alignment=Qt.AlignTop)
+        self.activity_table = self.create_activity_table(
+                                    timeline=self.main_timeline.scene.timeline)
+        central_layout.insertWidget(0, self.activity_table,
+                                    alignment=Qt.AlignTop)
 
     # ------------------------------------------------------------------------
     # NOTE:  usage is not currently used but may be used in the future to set
@@ -1207,7 +1209,7 @@ class TimelineModeler(QWidget):
         """
         state['model_window_size'] = (self.width(), self.height())
 
-    def on_double_click(self, act):
+    def act_block_drill_down(self, act):
         """
         Handler for double-click on an activity block -- drill-down to view
         and/or create sub_activities timeline.
@@ -1215,14 +1217,13 @@ class TimelineModeler(QWidget):
         Args:
             act (Activity): the Activity instance that was double-clicked
         """
-        orb.log.debug("  - TimelineModeler.on_double_click()...")
+        orb.log.debug("  - TimelineModeler.act_block_drill_down()...")
         try:
             orb.log.debug(f'     + activity: {act.name}')
-            self.main_timeline.widget_drill_down(act)
+            self.main_timeline.activity_drill_down(act)
         except Exception as e:
             orb.log.debug("    exception occurred:")
             orb.log.debug(e)
-        dispatcher.send("subject changed", obj=act)
 
     def on_activity_got_focus(self, act):
         """

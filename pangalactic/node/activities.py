@@ -431,6 +431,7 @@ class ModeDefinitionDashboard(QWidget):
         grid = QGridLayout()
         self.dash_panel.setLayout(grid)
         self.main_layout.addWidget(self.dash_panel)
+        self.main_layout.addStretch()
         self.setup_dash_interface()
         self.setup_dash_data()
         dispatcher.connect(self.on_act_name_mod, 'act name mod')

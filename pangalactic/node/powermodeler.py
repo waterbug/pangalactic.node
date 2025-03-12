@@ -124,7 +124,7 @@ class PowerModeler(QWidget):
         self.sys_select_tree.setSizePolicy(QSizePolicy.Preferred,
                                            QSizePolicy.MinimumExpanding)
         self.sys_select_tree.setObjectName('Sys Select Tree')
-        self.sys_select_tree.setMinimumWidth(350)
+        self.sys_select_tree.setMinimumWidth(450)
         self.sys_select_tree.setMinimumHeight(600)
         # -- set initial tree expansion level ---------------------------------
         expand_level = 3
@@ -136,9 +136,11 @@ class PowerModeler(QWidget):
         self.sys_select_tree.clicked.connect(self.on_item_clicked)
         sys_tree_panel = QWidget()
         sys_tree_panel_scroll_area = QScrollArea()
+        sys_tree_panel_scroll_area.setMaximumWidth(500)
         sys_tree_panel_scroll_area.setWidget(sys_tree_panel)
+        sys_tree_panel.setMinimumWidth(450)
+        sys_tree_panel.setMaximumWidth(500)
         sys_tree_panel.setMinimumHeight(900)
-        sys_tree_panel.setMinimumWidth(600)
         sys_tree_layout = QVBoxLayout()
         sys_tree_panel.setLayout(sys_tree_layout)
         sys_tree_title = f'{self.project.id} Mission Systems'
