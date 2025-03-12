@@ -22,8 +22,8 @@ from pydispatch import dispatcher
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 # from PyQt5.QtGui import QGraphicsProxyWidget
-from PyQt5.QtWidgets import (QApplication, QSizePolicy, QWidget, QVBoxLayout,
-                             QWidgetAction, QMessageBox)
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QMessageBox,
+                             QSizePolicy, QWidget, QVBoxLayout, QWidgetAction)
 
 # pangalactic
 try:
@@ -45,7 +45,7 @@ from pangalactic.node.powermodeler    import PowerModeler
 from pangalactic.node.widgets         import CustomSplitter
 
 
-class ConOpsModeler(QWidget):
+class ConOpsModeler(QMainWindow):
     """
     Tool for modeling a Concept of Operations for the currently selected
     project or usage (Acu or ProjectSystemUsage).
@@ -185,8 +185,9 @@ class ConOpsModeler(QWidget):
         orb.log.debug(' - ConOpsModeler.set_widgets() ...')
         # self.setMinimumWidth(1500)
         # self.setMinimumHeight(1200)
+        self.widget = QWidget()
         main_vbox = QVBoxLayout()
-        self.setLayout(main_vbox)
+        self.widget.setLayout(main_vbox)
         self.splitter = CustomSplitter(Qt.Vertical)
         # ====================================================================
         self.timeline_modeler = TimelineModeler(self.subject, parent=self)
@@ -194,7 +195,7 @@ class ConOpsModeler(QWidget):
                                             QSizePolicy.Fixed)
         self.splitter.addWidget(self.timeline_modeler)
         # ====================================================================
-        self.setMinimumSize(1000, 700)
+        self.widget.setMinimumSize(1000, 700)
         project = getattr(self, 'project', None)
         initial_usage = orb.get(state.get('conops_usage_oid'))
         if not initial_usage:
@@ -217,6 +218,7 @@ class ConOpsModeler(QWidget):
         # ====================================================================
         main_vbox.addWidget(self.splitter)
         # ====================================================================
+        self.setCentralWidget(self.widget)
         self.resize(1700, 800)
         dispatcher.connect(self.on_usage_set, "conops usage set")
 
@@ -329,6 +331,7 @@ class ConOpsModeler(QWidget):
             event (Event): the Event instance
         """
         state['model_window_size'] = (self.width(), self.height())
+        super().resizeEvent(event)
 
     def on_delete_activity(self, oid=None, cname=None, remote=False):
         """
