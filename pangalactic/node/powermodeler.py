@@ -297,7 +297,7 @@ class PowerModeler(QWidget):
                 # [a] in sys_dict -> make it the subject's usage
                 # orb.log.debug("  - link oid is in sys_dict")
                 # set as subject's usage
-                self.set_usage(link)
+                self.usage = link
                 # signal to mode_dash to set this link as its usage ...
                 # orb.log.debug('    sending "set mode usage" signal ...')
                 dispatcher.send(signal='set mode usage', usage=link)
@@ -310,7 +310,7 @@ class PowerModeler(QWidget):
                 if dlg.exec_() == QDialog.Accepted:
                     orb.log.debug('    calling add_usage() ..."')
                     self.add_usage(index)
-                    self.set_usage(link)
+                    self.usage = link
                 else:
                     # deselect
                     self.sys_select_tree.clearSelection()
@@ -396,10 +396,10 @@ class PowerModeler(QWidget):
         if in_comp_dict and has_components:
             # if this usage was in the comp_dict and it has components, it has
             # now been added to the sys_dict -- make it the subject usage ...
-            self.set_usage(link)
+            self.usage = link
         elif link.oid in sys_dict:
             # if this usage was in the sys_dict, make it the subject usage ...
-            self.set_usage(link)
+            self.usage = link
         dispatcher.send(signal='modes edited', oid=self.project.oid)
         # signal to the mode_dash to set this link as its usage
         dispatcher.send(signal='set mode usage', usage=link)
@@ -487,9 +487,8 @@ class PowerModeler(QWidget):
         self.sys_select_tree.collapseAll()
         self.sys_select_tree.expandToDepth(level)
 
-    def power_time_function(self, project=None, act=None, usage=None,
-                            context="CBE", time_units="minutes",
-                            subtimelines=True):
+    def power_time_function(self, project=None, act=None, context="CBE",
+                            time_units="minutes", subtimelines=True):
         """
         Return a function that computes system net power value as a function of
         time. Note that the time variable "t" in the returned function can be a
@@ -499,9 +498,7 @@ class PowerModeler(QWidget):
             project (Project): restrict to the specified project
             act (Activity): restrict to the specified activity (defaults to the
                 Mission if act is None)
-            usage (Acu or ProjectSystemUsage): restrict to the power of the
-                specified usage, or self.usage if no usage is specified
-            context (str): "CBE" (Current Best Estimate) or "MEV" (Maximum
+            ontext (str): "CBE" (Current Best Estimate) or "MEV" (Maximum
                 Estimated Value)
             time_units (str): units of time to be used (default: minutes)
             subtimelines (bool):  whether to include sub-activity timelines
@@ -509,16 +506,11 @@ class PowerModeler(QWidget):
                 graph (default: True)
         """
         orb.log.debug("* ConOpsModeler.power_time_function()")
-        # The current assumption is that we are only considering activities in
-        # the context of a single usage ... that may change in the future but
-        # would complicate things dramatically (e.g. considering
-        # subsystem-specific timelines that may be asynchronous to the "main"
-        # timeline).
-        if usage:
-            if isinstance(usage, orb.classes['ProjectSystemUsage']):
-                comp = usage.system
-            elif isinstance(usage, orb.classes['Acu']):
-                comp = usage.component
+        if self.usage:
+            if isinstance(self.usage, orb.classes['ProjectSystemUsage']):
+                comp = self.usage.system
+            elif isinstance(self.usage, orb.classes['Acu']):
+                comp = self.usage.component
         else:
             orb.log.debug("  no usage: zero function")
             f = (lambda t: 0.0)
@@ -547,11 +539,11 @@ class PowerModeler(QWidget):
                         if (t_seq[i] <= t) and (t < t_seq[i+1]):
                             a = all_acts[i]
                     modal_context = get_modal_context(project.oid,
-                                                      usage.oid,
+                                                      self.usage.oid,
                                                       a.oid)
                     # orb.log.debug(f'  modal context: {modal_context}')
                     p_cbe_val = get_modal_power(project.oid,
-                                                usage.oid, comp.oid,
+                                                self.usage.oid, comp.oid,
                                                 a.oid, modal_context)
                     if context == "CBE":
                         # orb.log.debug('  context: CBE')
@@ -577,10 +569,10 @@ class PowerModeler(QWidget):
                 # no subactivities -> 1 mode -> constant function
                 # orb.log.debug('  no subactivities ...')
                 modal_context = get_modal_context(project.oid,
-                                                  usage.oid,
+                                                  self.usage.oid,
                                                   a.oid)
                 # orb.log.debug(f'  modal context: {modal_context}')
-                p_cbe_val = get_modal_power(project.oid, usage.oid,
+                p_cbe_val = get_modal_power(project.oid, self.usage.oid,
                                             comp.oid, self.act.oid,
                                             modal_context)
                 if context == "CBE":
@@ -601,15 +593,13 @@ class PowerModeler(QWidget):
             f = (lambda t: 0.0)
         return f
 
-    def energy_time_integral(self, act=None, usage=None):
+    def energy_time_integral(self, act=None):
         """
         Compute system net energy consumption as a function of time.
 
         Keyword Args:
             act (Activity): a specified activity over which to integrate, or
                 over the Mission if none is specified
-            usage (Acu or ProjectSystemUsage): restrict to energy consumption
-                of the specified usage, or self.usage if none is specified
         """
         pass
 
@@ -620,17 +610,15 @@ class PowerModeler(QWidget):
         orb.log.debug('* graph()')
         project = orb.get(state.get('project'))
         orb.log.debug(f"  project: {project.id}")
-        usage = orb.get(state.get('conops usage oid'))
-        # TODO:  if no usage, show dialog about selecting a usage ...
-        if usage:
-            orb.log.debug(f"  usage: {usage.id}")
+        if self.usage:
+            orb.log.debug(f"  usage: {self.usage.id}")
         else:
             orb.log.debug("  no usage set; returning.")
-        if isinstance(usage, orb.classes['Acu']):
-            comp = usage.component
+        if isinstance(self.usage, orb.classes['Acu']):
+            comp = self.usage.component
         else:
             # PSU
-            comp = usage.system
+            comp = self.usage.system
         orb.log.debug(f"  system: {comp.name}")
         mission = orb.select('Mission', owner=project)
         act = self.subject or mission
@@ -658,11 +646,11 @@ class PowerModeler(QWidget):
             for a in all_acts:
                 d = orb.get_duration(a, units=time_units)
                 orb.log.debug(f'  {a.name}: {d}')
-                modal_context = get_modal_context(project.oid, usage.oid,
+                modal_context = get_modal_context(project.oid, self.usage.oid,
                                                   a.oid)
                 orb.log.debug(f'  modal context: {modal_context}')
-                p_cbe_val = get_modal_power(project.oid, usage.oid, comp.oid,
-                                            a.oid, modal_context)
+                p_cbe_val = get_modal_power(project.oid, self.usage.oid,
+                                            comp.oid, a.oid, modal_context)
                 orb.log.debug(f'  P[cbe]: {p_cbe_val}')
                 p_cbe_dict[a.oid] = p_cbe_val
                 ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
@@ -685,11 +673,9 @@ class PowerModeler(QWidget):
         plot.setAxisScale(qwt.QwtPlot.xBottom, 0.0, total_duration)
         plot.setAxisScale(qwt.QwtPlot.yLeft, 0.0, 1.6 * max_val)
         f_cbe = self.power_time_function(context="CBE", project=project,
-                                         act=act, usage=usage,
-                                         time_units=time_units)
+                                         act=act, time_units=time_units)
         f_mev = self.power_time_function(context="MEV", project=project,
-                                         act=act, usage=usage,
-                                         time_units=time_units)
+                                         act=act, time_units=time_units)
         t_array = np.linspace(0, total_duration, 400)
         # orb.log.debug(f'  {t_array}')
         orb.log.debug(f'  f_cbe: {f_cbe(t_array)}')
@@ -887,18 +873,16 @@ class PowerModeler(QWidget):
         orb.log.debug('* output_excel()')
         project = orb.get(state.get('project'))
         orb.log.debug(f"  project: {project.id}")
-        usage = orb.get(state.get('conops usage oid'))
-        # TODO:  if no usage, show dialog about selecting a usage ...
-        if usage:
-            orb.log.debug(f"  usage: {usage.id}")
+        if self.usage:
+            orb.log.debug(f"  usage: {self.usage.id}")
         else:
             orb.log.debug("  no usage set; returning.")
             return
-        if isinstance(usage, orb.classes['Acu']):
-            comp = usage.component
+        if isinstance(self.usage, orb.classes['Acu']):
+            comp = self.usage.component
         else:
             # PSU
-            comp = usage.system
+            comp = self.usage.system
         orb.log.debug(f"  system: {comp.name}")
         mission = orb.select('Mission', owner=project)
         activity = self.subject or mission
@@ -917,7 +901,7 @@ class PowerModeler(QWidget):
                         "Excel Files (*.xlsx)")
         if fpath:
             state['last_power_modes_excel_path'] = os.path.dirname(fpath)
-            write_power_modes_to_xlsx(activity, usage, file_path=fpath)
+            write_power_modes_to_xlsx(activity, self.usage, file_path=fpath)
             orb.log.debug('  file written.')
             # try to start Excel with file if on Win or Mac ...
             if sys.platform == 'win32':

@@ -190,7 +190,8 @@ class ConOpsModeler(QMainWindow):
         self.widget.setLayout(main_vbox)
         self.splitter = CustomSplitter(Qt.Vertical)
         # ====================================================================
-        self.timeline_modeler = TimelineModeler(self.subject, parent=self)
+        self.timeline_modeler = TimelineModeler(subject=self.subject,
+                                                parent=self)
         self.timeline_modeler.setSizePolicy(QSizePolicy.MinimumExpanding,
                                             QSizePolicy.Fixed)
         self.splitter.addWidget(self.timeline_modeler)

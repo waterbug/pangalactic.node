@@ -980,29 +980,30 @@ class TimelineModeler(QWidget):
         """
         super().__init__(parent=parent)
         orb.log.info('* TimelineModeler initializing')
-        proj_id = self.project.id
-        self.mission = orb.select('Mission', owner=self.project)
-        if not self.mission:
-            orb.log.debug('* [TimelineModeler] creating a new Mission ...')
-            message = f"{proj_id} had no Mission object; creating one ..."
-            popup = QMessageBox(
-                        QMessageBox.Information,
-                        "Creating Mission Object", message,
-                        QMessageBox.Ok, self)
-            popup.show()
-            mission_name = ' '.join([proj_id, 'Mission'])
-            mission_id = '_'.join([self.project.id, 'mission'])
-            NOW = dtstamp()
-            user = orb.get(state.get('local_user_oid') or 'me')
-            self.mission = clone('Mission', id=mission_id, name=mission_name,
-                                 owner=self.project,
-                                 create_datetime=NOW, mod_datetime=NOW,
-                                 creator=user, modifier=user)
-            orb.save([self.mission])
-            dispatcher.send("new object", obj=self.mission)
         if subject:
             self.subject = subject
         else:
+            proj_id = self.project.id
+            self.mission = orb.select('Mission', owner=self.project)
+            if not self.mission:
+                orb.log.debug('* [TimelineModeler] creating a new Mission ...')
+                message = f"{proj_id} had no Mission object; creating one ..."
+                popup = QMessageBox(
+                            QMessageBox.Information,
+                            "Creating Mission Object", message,
+                            QMessageBox.Ok, self)
+                popup.show()
+                mission_name = ' '.join([proj_id, 'Mission'])
+                mission_id = '_'.join([self.project.id, 'mission'])
+                NOW = dtstamp()
+                user = orb.get(state.get('local_user_oid') or 'me')
+                self.mission = clone('Mission', id=mission_id,
+                                     name=mission_name,
+                                     owner=self.project,
+                                     create_datetime=NOW, mod_datetime=NOW,
+                                     creator=user, modifier=user)
+                orb.save([self.mission])
+                dispatcher.send("new object", obj=self.mission)
             self.subject = self.mission
         self.create_toolbox()
         # no toolbar needed yet ...
