@@ -213,6 +213,9 @@ class PowerModeler(QWidget):
                             orb.classes['Acu'])):
             self._usage = val
             dispatcher.send(signal="conops usage set", usage=val)
+        else:
+            usage_id = getattr(val, 'id', '(no id)')
+            orb.log.debug('* powermodeler: invalid usage set, "{usage_id}".')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
