@@ -128,6 +128,14 @@ class PowerModeler(QWidget):
         self.sys_select_tree.setMinimumHeight(600)
         # -- set initial tree expansion level ---------------------------------
         expand_level = 3
+        # -- set initial value of tree expansion level select -----------------
+        if 'conops_tree_expansion' not in state:
+            state['conops_tree_expansion'] = {}
+        if self.project.oid in state['conops_tree_expansion']:
+            self.expansion_select.setCurrentIndex(
+                state['conops_tree_expansion'][self.project.oid])
+        else:
+            state['conops_tree_expansion'][self.project.oid] = 2
         idx = state['conops_tree_expansion'][self.project.oid]
         expand_level = idx + 2
         self.sys_select_tree.expandToDepth(expand_level)
@@ -155,14 +163,6 @@ class PowerModeler(QWidget):
         self.expansion_select.addItem('5 levels', QVariant())
         self.expansion_select.currentIndexChanged.connect(
                                                 self.set_select_tree_expansion)
-        # -- set initial value of tree expansion level select -----------------
-        if 'conops_tree_expansion' not in state:
-            state['conops_tree_expansion'] = {}
-        if self.project.oid in state['conops_tree_expansion']:
-            self.expansion_select.setCurrentIndex(
-                state['conops_tree_expansion'][self.project.oid])
-        else:
-            state['conops_tree_expansion'][self.project.oid] = 2
         sys_tree_layout.addWidget(self.expansion_select)
         sys_tree_layout.addWidget(self.sys_select_tree,
                                   stretch=1)
@@ -215,7 +215,7 @@ class PowerModeler(QWidget):
             dispatcher.send(signal="conops usage set", usage=val)
         else:
             usage_id = getattr(val, 'id', '(no id)')
-            orb.log.debug('* powermodeler: invalid usage set, "{usage_id}".')
+            orb.log.debug(f'* powermodeler: invalid usage set, "{usage_id}".')
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
