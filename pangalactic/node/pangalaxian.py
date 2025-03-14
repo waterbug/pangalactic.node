@@ -1752,6 +1752,7 @@ class Main(QMainWindow):
         Args:
             msg (tuple): the message, a tuple of (subject, content)
         """
+        userid = state.get('userid', '')
         for item in msg.items():
             subject, content = item
             orb.log.info("* pubsub msg received ...")
@@ -1763,21 +1764,36 @@ class Main(QMainWindow):
             if subject == 'decloaked':
                 # NOTE: content of 'decloaked' msg changed in version 2.2.dev8
                 # -- it is now a list of serialized objects
-                # n = len(content)
-                # orb.log.debug(f'received {n} "decloaked" object(s)')
-                self.on_received_objects(content)
-            elif subject == 'new':
-                # NOTE: content of 'new' msg changed in version 2.2.dev8
-                # -- it is now a list of serialized objects
                 n = len(content)
+                orb.log.debug(f'received {n} "decloaked" object(s)')
+                authid, sobjs = content
+                if authid == userid:
+                    # ignore -- result of my action
+                    orb.log.info('  "decloaked" ignored -- was my action.')
+                    return
+                self.on_received_objects(sobjs)
+            elif subject == 'new':
+                # NOTE: content of 'new' msg changed in version 4.3.dev6
+                # -- it is now a tuple: (authid, list of serialized objects)
+                authid, sobjs = content
+                if authid == userid:
+                    # ignore -- result of my action
+                    orb.log.info('  "new" ignored -- was my action.')
+                    return
+                n = len(sobjs)
                 orb.log.debug(f'received {n} "new" object(s)')
-                self.on_received_objects(content)
+                self.on_received_objects(sobjs)
             elif subject == 'modified':
-                # NOTE: content of 'modified' msg changed in version 2.2.dev8
-                # -- it is now a list of serialized objects
-                # n = len(content)
+                # NOTE: content of 'new' msg changed in version 4.3.dev6
+                # -- it is now a tuple: (userid, list of serialized objects)
+                authid, sobjs = content
+                if authid == userid:
+                    # ignore -- result of my action
+                    orb.log.info('  "modified" ignored -- was my action.')
+                    return
+                # n = len(sobjs)
                 # orb.log.debug(f'received {n} modified object(s)')
-                self.on_received_objects(content)
+                self.on_received_objects(sobjs)
             elif subject == 'new mode defs':
                 orb.log.debug('  - vger pubsub msg: "new mode defs" ...')
                 md_dts, project_oid, md_data, userid = content
