@@ -35,10 +35,12 @@ from pangalactic.core.names       import pname_to_header
 from pangalactic.core.parametrics import (get_pval,
                                           get_modal_context,
                                           get_modal_power,
+                                          init_mode_defz,
                                           mode_defz,
                                           round_to)
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import write_power_modes_to_xlsx
+from pangalactic.core.validation  import get_level_count
 from pangalactic.node.activities  import (ModeDefinitionDashboard,
                                           SystemSelectionView)
 from pangalactic.node.dialogs     import DefineModesDialog, PlotDialog
@@ -115,9 +117,15 @@ class PowerModeler(QWidget):
                 ProjectSystemUsage) context
             parent (QWidget):  parent widget
         """
+        subject_name = getattr(subject, 'name', 'no name')
+        usage_id = getattr(initial_usage, 'id', 'no id')
+        argstr = f'subject="{subject_name}", initial_usage={usage_id}'
+        orb.log.debug(f'* PowerModeler({argstr})')
         super().__init__(parent=parent)
         self.subject = subject
         self._usage = initial_usage
+        if not mode_defz.get(self.project.oid):
+            init_mode_defz(self.project.oid)
         self.sys_select_tree = SystemSelectionView(self.project,
                                                    refdes=True,
                                                    usage=self.usage)
@@ -126,19 +134,38 @@ class PowerModeler(QWidget):
         self.sys_select_tree.setObjectName('Sys Select Tree')
         self.sys_select_tree.setMinimumWidth(450)
         self.sys_select_tree.setMinimumHeight(600)
+        # -- create expansion level select -----------------
+        comp = None
+        level_count = 0
+        if self._usage:
+            if isinstance(self._usage, orb.classes['ProjectSystemUsage']):
+                comp = self._usage.system
+            elif isinstance(self._usage, orb.classes['Acu']):
+                comp = self._usage.component
+            if comp is not None:
+                level_count = get_level_count(comp)
+        else:
+            orb.log.debug("  no usage found")
+        orb.log.debug(f"* level count = {level_count}")
+        self.expansion_select = QComboBox()
+        self.expansion_select.setStyleSheet(
+                                        'font-weight: bold; font-size: 14px')
+        if level_count and level_count >= 1:
+            for n in range(2, level_count + 1):
+                self.expansion_select.addItem(f'{n} levels', QVariant())
+        self.expansion_select.currentIndexChanged.connect(
+                                                self.set_select_tree_expansion)
         # -- set initial tree expansion level ---------------------------------
-        expand_level = 3
-        # -- set initial value of tree expansion level select -----------------
+        # orb.log.debug("* setting initial tree expansion level ...")
+        # default is to show 2 levels of assembly: project/system/subsystem ...
+        # ("project" node doesn't count as it's not an "assembly level")
         if 'conops_tree_expansion' not in state:
             state['conops_tree_expansion'] = {}
-        if self.project.oid in state['conops_tree_expansion']:
-            self.expansion_select.setCurrentIndex(
-                state['conops_tree_expansion'][self.project.oid])
-        else:
+        if self.project.oid not in state['conops_tree_expansion']:
             state['conops_tree_expansion'][self.project.oid] = 2
-        idx = state['conops_tree_expansion'][self.project.oid]
-        expand_level = idx + 2
-        self.sys_select_tree.expandToDepth(expand_level)
+        levels_to_show = state['conops_tree_expansion'][self.project.oid]
+        # combo index 0 is "2 levels", so index = level - 2
+        self.set_select_tree_expansion(levels_to_show - 2)
         # ---------------------------------------------------------------------
         self.sys_select_tree.setExpandsOnDoubleClick(False)
         self.sys_select_tree.clicked.connect(self.on_item_clicked)
@@ -155,14 +182,6 @@ class PowerModeler(QWidget):
         sys_tree_title_widget = ColorLabel(sys_tree_title, element='h2')
         sys_tree_layout.addWidget(sys_tree_title_widget,
                                   alignment=Qt.AlignTop)
-        self.expansion_select = QComboBox()
-        self.expansion_select.setStyleSheet(
-                                        'font-weight: bold; font-size: 14px')
-        self.expansion_select.addItem('3 levels', QVariant())
-        self.expansion_select.addItem('4 levels', QVariant())
-        self.expansion_select.addItem('5 levels', QVariant())
-        self.expansion_select.currentIndexChanged.connect(
-                                                self.set_select_tree_expansion)
         sys_tree_layout.addWidget(self.expansion_select)
         sys_tree_layout.addWidget(self.sys_select_tree,
                                   stretch=1)
@@ -235,19 +254,19 @@ class PowerModeler(QWidget):
         return action
 
     def set_select_tree_expansion(self, index=None):
+        # orb.log.debug(f'* set_select_tree_expansion({index})')
         if index is None:
             index = state.get('conops_tree_expansion', {}).get(
                                                 self.project.oid) or 0
-        # NOTE:  levels are 3 to 5, so level = index + 2
-        #        expandToDepth(n) actually means level n + 1
         try:
+            self.expansion_select.setCurrentIndex(index)
             level = index + 2
-            self.sys_select_tree.expandToDepth(level)
-            state['conops_tree_expansion'][self.project.oid] = index
-            orb.log.debug(f'* tree expanded to level {level}')
+            self.sys_select_tree.expandToDepth(level - 1)
+            state['conops_tree_expansion'][self.project.oid] = level
+            # orb.log.debug(f'* tree expanded to level {level}')
         except:
-            # orb.log.debug('* conops tree expansion failed ...')
-            # orb.log.debug('  sys_select_tree C++ obj probably gone.')
+            orb.log.debug('* conops tree expansion failed ...')
+            orb.log.debug('  sys_select_tree C++ obj probably gone.')
             # no big deal ...
             pass
 
@@ -484,11 +503,11 @@ class PowerModeler(QWidget):
         """
         orb.log.debug('* received "modes published" signal')
         # collapse and re-expand tree to refresh it
-        tree_expansion_index = state.get('conops_tree_expansion', {}).get(
-                                            self.project.oid) or 0
-        level = tree_expansion_index + 2
+        tree_expansion_level = state.get('conops_tree_expansion', {}).get(
+                                            self.project.oid) or 2
+        depth = tree_expansion_level + 1
         self.sys_select_tree.collapseAll()
-        self.sys_select_tree.expandToDepth(level)
+        self.sys_select_tree.expandToDepth(depth)
 
     def power_time_function(self, project=None, act=None, context="CBE",
                             time_units="minutes", subtimelines=True):
