@@ -979,7 +979,7 @@ class SystemTreeView(QTreeView):
         self.pgxnobj_action.triggered.connect(self.view_object)
 
     def contextMenuEvent(self, event):
-        orb.log.debug('* contextMenuEvent()')
+        # orb.log.debug('* contextMenuEvent()')
         menu = QMenu()
         if len(self.selectedIndexes()) == 1:
             i = self.selectedIndexes()[0]
@@ -990,7 +990,7 @@ class SystemTreeView(QTreeView):
             # NOTE: root node (project) has a link of None ...
             if link and isinstance(link, (orb.classes['Acu'],
                                           orb.classes['ProjectSystemUsage'])):
-                orb.log.debug(f'  usage: {link.id}')
+                # orb.log.debug(f'  usage: {link.id}')
                 menu.addAction(self.pgxnobj_action)
                 menu.exec_(QCursor().pos())
 

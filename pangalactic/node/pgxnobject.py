@@ -991,7 +991,7 @@ class PgxnObject(QDialog):
         if not getattr(self, 'vbox', None):
             self.vbox = QVBoxLayout()
         if not getattr(self, 'title_box', None):
-            orb.log.debug('* [pgxo] no title_box layout -- adding ...')
+            # orb.log.debug('* [pgxo] no title_box layout -- adding ...')
             self.title_box = QHBoxLayout()
             need_title_box = True
         if getattr(self, 'title', None):
@@ -1009,7 +1009,7 @@ class PgxnObject(QDialog):
                 self.title_box.addWidget(self.title)
                 self.title_box.addStretch(1)
         else:
-            orb.log.debug('* [pgxo] no title label -- adding ...')
+            # orb.log.debug('* [pgxo] no title label -- adding ...')
             self.title = QLabel()
             self.title.setAttribute(Qt.WA_DeleteOnClose)
             self.title.setSizePolicy(QSizePolicy.Minimum,
@@ -1019,7 +1019,7 @@ class PgxnObject(QDialog):
             self.title_box.addWidget(self.title)
             self.title_box.addStretch(1)
         if not getattr(self, 'class_label', None):
-            orb.log.debug('* [pgxo] no class_label -- adding ...')
+            # orb.log.debug('* [pgxo] no class_label -- adding ...')
             self.class_label = SizedButton(self.cname, color='green')
             self.title_box.addWidget(self.class_label, alignment=Qt.AlignRight)
         if need_title_box:
@@ -1333,7 +1333,7 @@ class PgxnObject(QDialog):
             # can only add models or docs if the user has "modify" permissions
             # for the object
             if 'add models' in get_perms(self.obj):
-                orb.log.debug('* user has "add models" permission.')
+                # orb.log.debug('* user has "add models" permission.')
                 self.add_model_action = self.create_action(
                                 "Add\nModel",
                                 slot=self.add_model,
@@ -1344,7 +1344,7 @@ class PgxnObject(QDialog):
             else:
                 orb.log.debug('* user does not have "add models" permission.')
             if 'add docs' in get_perms(self.obj):
-                orb.log.debug('* user has "add docs" permission.')
+                # orb.log.debug('* user has "add docs" permission.')
                 self.add_doc_action = self.create_action(
                                 "Add\nDocument",
                                 slot=self.add_doc,
@@ -1369,7 +1369,7 @@ class PgxnObject(QDialog):
             # visible or not ...
             models = self.get_models()
             if models or self.obj.doc_references:
-                orb.log.debug('* pgxno: object has models or docs ...')
+                # orb.log.debug('* pgxno: object has models or docs ...')
                 if hasattr(self, 'models_and_docs_info_action'):
                     try:
                         self.models_and_docs_info_action.setVisible(True)
@@ -1396,7 +1396,7 @@ class PgxnObject(QDialog):
                         # orb.log.debug('  no STEP files found.')
                         pass
             else:
-                orb.log.debug('* pgxno: object has no models or docs ...')
+                # orb.log.debug('* pgxno: object has no models or docs ...')
                 if hasattr(self, 'models_and_docs_info_action'):
                     try:
                         self.models_and_docs_info_action.setVisible(False)
