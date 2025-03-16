@@ -455,6 +455,18 @@ class TimelineScene(QGraphicsScene):
 
     def dropEvent(self, event):
         orb.log.debug('* scene.dropEvent()')
+        if not 'modify' in get_perms(self.subject):
+            # --------------------------------------------------------
+            # 0: user permissions prohibit operation -> abort
+            # --------------------------------------------------------
+            popup = QMessageBox(
+                  QMessageBox.Critical,
+                  "Unauthorized Operation",
+                  "User's roles do not permit this operation",
+                  QMessageBox.Ok, self.parentWidget())
+            popup.show()
+            event.ignore()
+            return
         mod_acts = []
         position = event.scenePos()
         seq = 0
