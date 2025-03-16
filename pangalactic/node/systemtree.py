@@ -1015,7 +1015,7 @@ class SystemTreeView(QTreeView):
                         return
                     else:
                         level += 1
-                        if level > 5:
+                        if level > 7:
                             # we have our limits! ;)
                             return
                 except:
