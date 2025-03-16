@@ -463,7 +463,7 @@ class TimelineScene(QGraphicsScene):
                   QMessageBox.Critical,
                   "Unauthorized Operation",
                   "User's roles do not permit this operation",
-                  QMessageBox.Ok, self.parentWidget())
+                  QMessageBox.Ok, self.parent())
             popup.show()
             event.ignore()
             return
