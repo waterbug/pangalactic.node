@@ -718,7 +718,7 @@ class TimelineWidget(QWidget):
                                     icon="tools",
                                     tip="Write Excel File")
         self.toolbar.addAction(self.output_excel_action)
-        if not state.get('conops usage oid'):
+        if not state.get('conops_usage_oid').get(state.get('project')):
             self.plot_action.setEnabled(False)
             self.output_excel_action.setEnabled(False)
         spacer = QWidget(parent=self)
@@ -970,7 +970,7 @@ class TimelineModeler(QWidget):
     - [right side] Op blocks palette (QToolBox)
     """
 
-    def __init__(self, subject=None, parent=None):
+    def __init__(self, subject=None, usage=None, parent=None):
         """
         Initialize.
 
@@ -1005,6 +1005,7 @@ class TimelineModeler(QWidget):
                 orb.save([self.mission])
                 dispatcher.send("new object", obj=self.mission)
             self.subject = self.mission
+        self.usage = usage
         self.create_toolbox()
         # no toolbar needed yet ...
         # self.init_toolbar()
@@ -1013,7 +1014,7 @@ class TimelineModeler(QWidget):
         dispatcher.connect(self.act_block_drill_down, "block double clicked")
         dispatcher.connect(self.on_activity_got_focus, "activity focused")
         dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
-        dispatcher.connect(self.on_usage_set, "conops usage set")
+        dispatcher.connect(self.on_usage_set, "powermodeler set usage")
 
     @property
     def project(self):
@@ -1174,41 +1175,6 @@ class TimelineModeler(QWidget):
                                     timeline=self.main_timeline.scene.timeline)
         central_layout.insertWidget(0, self.activity_table,
                                     alignment=Qt.AlignTop)
-
-    # ------------------------------------------------------------------------
-    # NOTE:  usage is not currently used but may be used in the future to set
-    # the context of the timeline, if a per-usage timeline is implemented ...
-    # ------------------------------------------------------------------------
-    # def set_initial_usage(self, link):
-        # orb.log.debug("* TimelineModeler.set_initial_usage()")
-        # name = get_link_name(link)
-        # orb.log.debug(f"  - initial usage is {name}")
-        # TBD = orb.get('pgefobjects:TBD')
-        # product = None
-        # # attr = '[none]'
-        # if isinstance(link, orb.classes['ProjectSystemUsage']):
-            # if link.system:
-                # product = link.system
-                # # attr = '[system]'
-        # elif isinstance(link, orb.classes['Acu']):
-            # if link.component and link.component is not TBD:
-                # product = link.component
-                # # attr = '[component]'
-        # orb.log.debug(f"  - product {attr} is {product.name}")
-
-
-    # -----------------------------------------------------------------------
-    # NOTE: "model_window_size" does not appear to be used anywhere
-    # -----------------------------------------------------------------------
-    def resizeEvent(self, event):
-        """
-        Reimplementation of resizeEvent to capture width and height in a state
-        variable.
-
-        Args:
-            event (Event): the Event instance
-        """
-        state['model_window_size'] = (self.width(), self.height())
 
     def act_block_drill_down(self, act):
         """

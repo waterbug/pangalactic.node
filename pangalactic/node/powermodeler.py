@@ -31,7 +31,7 @@ except:
     import pangalactic.core.set_uberorb
     from pangalactic.core             import orb, state
 # from pangalactic.core.access      import get_perms
-from pangalactic.core.names       import pname_to_header
+from pangalactic.core.names           import get_link_name, pname_to_header
 from pangalactic.core.parametrics import (get_pval,
                                           get_modal_context,
                                           get_modal_power,
@@ -112,7 +112,8 @@ class PowerModeler(QWidget):
         Initialize the tool.
 
         Keyword Args:
-            subject (Activity): (optional) a specified Activity
+            subject (Activity): (optional) a subject Activity in the context of
+                which power modes are being modeled
             initial_usage (Acu or PSU): initial usage (Acu or
                 ProjectSystemUsage) context
             parent (QWidget):  parent widget
@@ -203,6 +204,7 @@ class PowerModeler(QWidget):
         # ===================================================================
         # dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
         # ===================================================================
+        dispatcher.connect(self.on_new_timeline, "new timeline")
         dispatcher.connect(self.on_set_no_compute, "set no compute")
         dispatcher.connect(self.on_remote_mode_defs, "modes published")
         dispatcher.connect(self.graph, "power graph")
@@ -231,7 +233,7 @@ class PowerModeler(QWidget):
         if isinstance(val, (orb.classes['ProjectSystemUsage'],
                             orb.classes['Acu'])):
             self._usage = val
-            dispatcher.send(signal="conops usage set", usage=val)
+            dispatcher.send(signal="powermodeler usage set", usage=val)
         else:
             usage_id = getattr(val, 'id', '(no id)')
             orb.log.debug(f'* powermodeler: invalid usage set, "{usage_id}".')
@@ -283,8 +285,8 @@ class PowerModeler(QWidget):
         self.sys_select_tree.expand(index)
         mapped_i = self.sys_select_tree.proxy_model.mapToSource(index)
         link = self.sys_select_tree.source_model.get_node(mapped_i).link
-        # name = get_link_name(link)
-        # orb.log.debug(f"  - clicked item usage is {name}")
+        name = get_link_name(link)
+        orb.log.debug(f"  - clicked item usage is {name}")
         TBD = orb.get('pgefobjects:TBD')
         product = None
         # attr = '[none]'
@@ -321,8 +323,8 @@ class PowerModeler(QWidget):
                 # set as subject's usage
                 self.usage = link
                 # signal to mode_dash to set this link as its usage ...
-                # orb.log.debug('    sending "set mode usage" signal ...')
-                dispatcher.send(signal='set mode usage', usage=link)
+                # orb.log.debug('    sending "powermodeler set usage" signal ...')
+                dispatcher.send(signal='powermodeler set usage', usage=link)
             else:
                 orb.log.debug('  - link oid is NOT in the "computed" list')
                 # [b] not in computed_list:
@@ -424,7 +426,7 @@ class PowerModeler(QWidget):
             self.usage = link
         dispatcher.send(signal='modes edited', oid=self.project.oid)
         # signal to the mode_dash to set this link as its usage
-        dispatcher.send(signal='set mode usage', usage=link)
+        dispatcher.send(signal='powermodeler set usage', usage=link)
 
     def on_set_no_compute(self, link_oid=None):
         """
@@ -473,6 +475,19 @@ class PowerModeler(QWidget):
         """
         state['model_window_size'] = (self.width(), self.height())
         super().resizeEvent(event)
+
+    def on_new_timeline(self, subject=None):
+        """
+        Respond to a new timeline scene having been set, such as resulting from
+        an activity block drill-down.
+
+        Keyword Args:
+            subject (Activity): the Activity that is the subject of the new
+                timeline.
+        """
+        orb.log.debug('* powermodeler: "new timeline" signal received --')
+        orb.log.debug('  setting the new subject ..."')
+        self.subject = subject
 
     def on_activity_got_focus(self, act):
         """
@@ -627,7 +642,8 @@ class PowerModeler(QWidget):
 
     def graph(self):
         """
-        Output a graph of power vs. time for the current system.
+        Output a graph of power vs. time for the current system during the
+        current subject activity.
         """
         orb.log.debug('* graph()')
         project = orb.get(state.get('project'))
@@ -883,8 +899,13 @@ class PowerModeler(QWidget):
             mode_defz[project.oid]['p_peak'] = max_val
             # TODO: re-evaluate what is wanted for average -- e.g., mission
             # average, orbital average, etc. ...
-            # TODO:  if there is no p_average, compute the overall average
-            # meanwhile, if we have an orbital average, use it ...
+            # NOTE:  to do a "true" average over the entire mission, we must
+            # have some idea of how many orbits are expected, or equivaleently
+            # some estimate of the total time to be spent in an orbit (if there
+            # is an orbital activity), since that will presumably be heavily
+            # weighted in the overall "average power" ...
+            # Thus in the meantime, if there is an orbital average use it as
+            # mission average, since it is probably the best approximation ...
             if 'Orbit' in super_act.name:
                 p_orbital_average = p_average
             p_average = p_orbital_average or p_average

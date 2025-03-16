@@ -35,9 +35,6 @@ except:
     from pangalactic.core             import orb, state
 # from pangalactic.core.access          import get_perms
 from pangalactic.core.clone           import clone
-from pangalactic.core.names           import get_link_name
-from pangalactic.core.parametrics     import (init_mode_defz,
-                                          mode_defz)
 from pangalactic.core.utils.datetimes import dtstamp
 # from pangalactic.node.pgxnobject      import PgxnObject
 from pangalactic.node.timeline        import TimelineModeler
@@ -66,7 +63,7 @@ class ConOpsModeler(QMainWindow):
         - [right side] mode_dash (ModeDefinitionDashboard(QWidget))
     """
 
-    def __init__(self, subject=None, parent=None):
+    def __init__(self, subject=None, usage=None, parent=None):
         """
         Initialize the tool.
 
@@ -76,7 +73,9 @@ class ConOpsModeler(QMainWindow):
         """
         super().__init__(parent=parent)
         orb.log.info('* ConOpsModeler initializing')
+        self.project = orb.get(state.get('project'))
         proj_id = self.project.id
+        self.usage = usage
         self.mission = orb.select('Mission', owner=self.project)
         if not self.mission:
             orb.log.debug('* [ConOps] creating a new Mission ...')
@@ -100,23 +99,6 @@ class ConOpsModeler(QMainWindow):
             self.subject = subject
         else:
             self.subject = self.mission
-        # first make sure that mode_defz[self.project.oid] is initialized ...
-        names = []
-        init_mode_defz(self.project.oid)
-        if mode_defz[self.project.oid]['systems']:
-            for link_oid in mode_defz[self.project.oid]['systems']:
-                link = orb.get(link_oid)
-                names.append(get_link_name(link))
-        # set initial default system state for modes that don't have one ...
-        if names:
-            orb.log.debug('  - specified systems:')
-            for name in names:
-                orb.log.debug(f'    {name}')
-            # NOTE: VERY verbose debugging msg ...
-            # orb.log.debug('  - mode_defz:')
-            # orb.log.debug(f'   {pprint(mode_defz)}')
-        else:
-            orb.log.debug('  - no systems specified yet.')
         # self.init_toolbar()
         self.set_widgets()
         self.setWindowTitle('Concept of Operations (ConOps) Modeler')
@@ -125,31 +107,46 @@ class ConOpsModeler(QMainWindow):
 
     @property
     def project(self):
-        proj = orb.get(state.get('project'))
-        if not proj:
-            proj = orb.get('pgefobjects:SANDBOX')
-        return proj
+        return self._project
+
+    @project.setter
+    def project(self, val):
+        if not val:
+            val = orb.get(state.get('project'))
+            if not val:
+                val = orb.get('pgefobjects:SANDBOX')
+        self._project = val
 
     @property
     def usage(self):
-        if self._usage:
-            return self._usage
+        _usage = orb.get(state.get('conops_usage_oid', {}).get(
+                                                    self.project.oid))
+        if _usage:
+            self._usage = _usage
         elif self.project.systems:
-            self._usage = self.project.systems[0]
-        else:
-            TBD = orb.get('pgefobjects:TBD')
-            self._usage = TBD
+            _usage = self.project.systems[0]
+            self._usage = _usage
         return self._usage
 
     @usage.setter
     def usage(self, val):
         orb.log.debug("* ConOpsModeler usage.setter()")
+        if not val:
+            if self.project and self.project.systems:
+                val = self.project.systems[0]
+            else:
+                orb.log.debug("  project has no systems, therefore, no usage.")
+                val = None
         if isinstance(val, (orb.classes['ProjectSystemUsage'],
                             orb.classes['Acu'])):
             self._usage = val
-            state['conops_usage_oid'] = val.oid
+            if not state.get('conops_usage_oid'):
+                state['conops_usage_oid'] = {}
+            state['conops_usage_oid'][self.project.oid] = val.oid
         else:
             orb.log.debug("  invalid usage, not Acu or PSU")
+            val = None
+        self._usage = val
 
     def create_action(self, text, slot=None, icon=None, tip=None,
                       checkable=False):
@@ -191,25 +188,16 @@ class ConOpsModeler(QMainWindow):
         self.splitter = CustomSplitter(Qt.Vertical)
         # ====================================================================
         self.timeline_modeler = TimelineModeler(subject=self.subject,
+                                                usage=self.usage,
                                                 parent=self)
         self.timeline_modeler.setSizePolicy(QSizePolicy.MinimumExpanding,
                                             QSizePolicy.Fixed)
         self.splitter.addWidget(self.timeline_modeler)
         # ====================================================================
         self.widget.setMinimumSize(1000, 700)
-        project = getattr(self, 'project', None)
-        initial_usage = orb.get(state.get('conops_usage_oid'))
-        if not initial_usage:
-            if getattr(project, 'systems', []) or []:
-                initial_usage = project.systems[0]
-        # try to set initial usage, mainly so graph works when conops first
-        # opens if power modes have already been defined ...
-        if initial_usage:
-            self.set_initial_usage(initial_usage)
-            state['conops_usage_oid'] = initial_usage.oid
         # ====================================================================
         self.power_modeler = PowerModeler(self.subject,
-                                          initial_usage=initial_usage,
+                                          initial_usage=self.usage,
                                           parent=self)
         self.power_modeler.setSizePolicy(QSizePolicy.Preferred,
                                          QSizePolicy.MinimumExpanding)
@@ -221,107 +209,10 @@ class ConOpsModeler(QMainWindow):
         # ====================================================================
         self.setCentralWidget(self.widget)
         self.resize(1700, 800)
-        dispatcher.connect(self.on_usage_set, "conops usage set")
+        dispatcher.connect(self.on_usage_set, "powermodeler usage set")
 
     def on_usage_set(self, usage=None):
         self.usage = usage
-
-    def set_initial_usage(self, link):
-        orb.log.debug("* ConOpsModeler.set_initial_usage()")
-        name = get_link_name(link)
-        orb.log.debug(f"  - initial usage is {name}")
-        TBD = orb.get('pgefobjects:TBD')
-        product = None
-        # attr = '[none]'
-        if isinstance(link, orb.classes['ProjectSystemUsage']):
-            if link.system:
-                product = link.system
-                # attr = '[system]'
-        elif isinstance(link, orb.classes['Acu']):
-            if link.component and link.component is not TBD:
-                product = link.component
-                # attr = '[component]'
-        # orb.log.debug(f"  - product {attr} is {product.name}")
-        if product:
-            project_mode_defz = mode_defz[self.project.oid]
-            sys_dict = project_mode_defz['systems']
-            if link.oid in sys_dict:
-                # orb.log.debug("  - link oid is in sys_dict")
-                # set as subject's usage
-                self.usage = link
-                # signal to mode_dash to set this link as its usage ...
-                # orb.log.debug('    sending "set mode usage" signal ...')
-                dispatcher.send(signal='set mode usage', usage=link)
-            # else:
-                # orb.log.debug("  - link oid is NOT in sys_dict")
-
-    def on_set_no_compute(self, link_oid=None):
-        """
-        Remove the usage oid from the "computed" list in mode_defz.
-        """
-        # ---------------------------------------------------------------------
-        # Old docstring:
-        # If the item (aka "link" or "node") in the assembly tree exists in the
-        # "systems" table, remove it and remove its components from the
-        # "components" table, and if it is a component of an item in the
-        # "systems" table, add it back to the "components" table, and change its
-        # "level" from "[computed]" to a specifiable level value.
-        # ---------------------------------------------------------------------
-        # TODO: implement as a context menu action ...
-        # acts = getattr(self.usage, 'activities', [])
-        link = orb.get(link_oid)
-        # link might be None -- allow for that
-        if not hasattr(link, 'oid'):
-            # orb.log.debug('  - link has no oid, ignoring ...')
-            return
-        # name = get_link_name(link)
-        project_mode_defz = mode_defz[self.project.oid]
-        sys_dict = project_mode_defz['systems']
-        # comp_dict = project_mode_defz['components']
-        computed_list = project_mode_defz['computed']
-        if link.oid in computed_list:
-            computed_list.remove(link.oid)
-        # ---------------------------------------------------------------------
-        # Old implementation (before "computed" list was added to mode_defz)
-        # ---------------------------------------------------------------------
-        # if link.oid in sys_dict:
-            # # if selected link is in sys_dict, make subject (see below)
-            # # orb.log.debug(f' - removing "{name}" from systems ...')
-            # del sys_dict[link.oid]
-            # # if it is in comp_dict, remove it there too
-            # if link.oid in comp_dict:
-                # del comp_dict[link.oid]
-            # # if it occurs as a component of an item in sys_dict, add it back
-            # # to components
-            # # orb.log.debug(f'   checking if "{name}" is a component ...')
-            # for syslink_oid in sys_dict:
-                # lk = orb.get(syslink_oid)
-                # clink_oids = []
-                # if hasattr(lk, 'system') and lk.system.components:
-                    # clink_oids = [acu.oid for acu in lk.system.components]
-                # elif hasattr(lk, 'component') and lk.component.components:
-                    # clink_oids = [acu.oid for acu in lk.component.components]
-                # if link.oid in clink_oids:
-                    # # orb.log.debug(f' - "{name}" is a component, adding it')
-                    # # orb.log.debug('   back to components of its parent')
-                    # if not comp_dict.get(syslink_oid):
-                        # comp_dict[syslink_oid] = {}
-                    # comp_dict[syslink_oid][link.oid] = {}
-                    # for mode_oid in [getattr(act, 'oid', '') for act in acts
-                                     # if act is not None]:
-                        # if comp_dict[syslink_oid][link.oid].get(mode_oid):
-                            # comp_dict[syslink_oid][link.oid][
-                                                # mode_oid] = '[select state]'
-            # -----------------------------------------------------------------
-            # make sure link is not current usage and if so, unset it ...
-            cur_usage_oid = getattr(self.usage, 'oid', '') or ''
-            if cur_usage_oid == link.oid:
-                if sys_dict:
-                    new_usage_oid = list(sys_dict)[0]
-                    self.usage = orb.get(new_usage_oid)
-                elif self.project.systems:
-                    self.usage = self.project.systems[0]
-            dispatcher.send(signal='modes edited', oid=self.project.oid)
 
     def resizeEvent(self, event):
         """
