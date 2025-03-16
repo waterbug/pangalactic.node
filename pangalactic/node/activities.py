@@ -437,7 +437,7 @@ class ModeDefinitionDashboard(QWidget):
         dispatcher.connect(self.on_act_name_mod, 'act name mod')
         dispatcher.connect(self.on_activity_focused, "activity focused")
         dispatcher.connect(self.on_activity_deleted, "delete activity")
-        dispatcher.connect(self.on_set_mode_usage, "set mode usage")
+        dispatcher.connect(self.on_set_mode_usage, "powermodeler set usage")
         dispatcher.connect(self.on_new_timeline, "new timeline")
         dispatcher.connect(self.on_modes_edited, 'modes edited')
         dispatcher.connect(self.on_modes_published, 'modes published')
@@ -505,14 +505,15 @@ class ModeDefinitionDashboard(QWidget):
     def minimumSize(self):
         return QSize(800, 300)
 
-    def on_new_timeline(self):
+    def on_new_timeline(self, subject=None):
         """
         Respond to a new timeline scene having been set, such as resulting from
-        an event block drill-down; no activity focused yet.
+        an activity block drill-down; no activity focused yet.
         """
         orb.log.debug('* MDD: received signal "new timeline"')
-        mission = orb.select('Mission', owner=self.project)
-        self.act = mission
+        # the previous activity is no longer relevant -- a new one must be
+        # selected from the new timeline ...
+        self.act = None
         if self.edit_state:
             self.on_edit(None)
         else:
@@ -631,7 +632,7 @@ class ModeDefinitionDashboard(QWidget):
             # dispatcher.send("power modes updated")
 
     def on_set_mode_usage(self, usage=None):
-        orb.log.debug('* MDD: received signal "set mode usage"')
+        orb.log.debug('* MDD: received signal "powermodeler set usage"')
         name = get_link_name(usage) or '[none]'
         orb.log.debug(f'  usage: {name}')
         if usage:
