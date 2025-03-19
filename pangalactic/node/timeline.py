@@ -507,13 +507,6 @@ class TimelineScene(QGraphicsScene):
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.update_timeline()
-        # NOTE: is "set new scene" necessary??
-        # orb.log.debug('* scene: sending "set new scene" signal')
-        # dispatcher.send(signal="set new scene")
-        # NOTE: update_timeline() SENDS "modified objects" SIGNAL, SO THIS IS
-        # REDUNDANT!
-        # orb.log.debug('* scene: sending "modified objects" signal')
-        # dispatcher.send("modified objects", objs=mod_acts)
 
     def on_act_name_mod(self, act=None, remote=False):
         """

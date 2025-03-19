@@ -808,6 +808,7 @@ class PowerModeler(QWidget):
         canvas_map.setPaintInterval(0, 1400)
         # orb.log.debug(f'  canvas_map: {type(canvas_map)}')
         # label all "super activities" (most importantly, cycles)
+        p_average = 0
         for t_start, super_act in super_acts.items():
             # compute peak and average power
             e_total = 0
@@ -833,7 +834,6 @@ class PowerModeler(QWidget):
             t_end = t_start + dur
             # NOTE: round_to automatically uses user pref for numeric
             # precision; no need to specify "n" keyword arg ...
-            p_average = None
             try:
                 p_average = round_to(e_total / dur)
             except:
@@ -842,7 +842,7 @@ class PowerModeler(QWidget):
             p_averages[super_act.name] = p_average
             label_txt = f'  {super_act.name}  \n'
             label_txt += f' Peak Power: {p_peak} Watts '
-            if p_average is not None:
+            if p_average > 0:
                 label_txt += f'\n Average Power: {p_average} Watts '
             pen = QPen(LABEL_COLORS[j], 1)
             white_brush = QBrush(Qt.white)
@@ -893,24 +893,27 @@ class PowerModeler(QWidget):
             label=title_label,
             plot=plot
             )
-        # plot.resize(1400, 650)
-        dlg = PlotDialog(plot, title="Power vs Time", parent=self)
-        if dlg.exec_() == QDialog.Accepted:
-            mode_defz[project.oid]['p_peak'] = max_val
-            # TODO: re-evaluate what is wanted for average -- e.g., mission
-            # average, orbital average, etc. ...
-            # NOTE:  to do a "true" average over the entire mission, we must
-            # have some idea of how many orbits are expected, or equivaleently
-            # some estimate of the total time to be spent in an orbit (if there
-            # is an orbital activity), since that will presumably be heavily
-            # weighted in the overall "average power" ...
-            # Thus in the meantime, if there is an orbital average use it as
-            # mission average, since it is probably the best approximation ...
-            if 'Orbit' in super_act.name:
-                p_orbital_average = p_average
-            p_average = p_orbital_average or p_average
-            mode_defz[project.oid]['p_average'] = p_average
-            dispatcher.send(signal="modes edited", oid=project.oid)
+        # TODO: re-evaluate what is wanted for average -- e.g., mission
+        # average, orbital average, etc. ...
+        # NOTE:  to do a "true" average over the entire mission, we must
+        # have some idea of how many orbits are expected, or equivaleently
+        # some estimate of the total time to be spent in an orbit (if there
+        # is an orbital activity), since that will presumably be heavily
+        # weighted in the overall "average power" ...
+        # Thus in the meantime, if there is an orbital average use it as
+        # mission average, since it is probably the best approximation ...
+        if 'Orbit' in super_act.name:
+            p_orbital_average = p_averages.get(super_act.name)
+        p_average = p_orbital_average or p_average
+        mode_defz[project.oid]['p_peak'] = max_val
+        orb.log.debug(f'* saved p_peak: {max_val}')
+        mode_defz[project.oid]['p_average'] = p_average
+        orb.log.debug(f'* saved p_average: {p_average}')
+        dispatcher.send(signal="modes edited", oid=project.oid)
+        plot_title = f'{super_act.name} Power vs. Time'
+        dlg = PlotDialog(plot, plot_title, parent=self)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg.show()
 
     def output_excel(self):
         orb.log.debug('* output_excel()')
