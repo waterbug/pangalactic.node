@@ -38,8 +38,12 @@ from pangalactic.core.meta        import (M2M, NUMERIC_FORMATS, ONE2M,
 from pangalactic.core.names       import (get_attr_ext_name,
                                           get_external_name_plural,
                                           get_link_name)
-from pangalactic.core.parametrics import (componentz, de_defz, parm_defz,
-                                          parmz_by_dimz, get_dval, set_dval)
+from pangalactic.core.parametrics import (componentz,
+                                          de_defz,
+                                          parm_defz,
+                                          parmz_by_dimz,
+                                          get_dval,
+                                          set_dval)
 from pangalactic.core.units       import alt_units, in_si, time_unit_names
 from pangalactic.core.utils.datetimes import dtstamp, date2str
 from pangalactic.core.utils.reports import (get_mel_data, write_mel_to_tsv,
@@ -91,18 +95,20 @@ class PlotDialog(QDialog):
     """
     Dialog to display a QwtPlot widget.
     """
-    def __init__(self, plot_widget, title=None, parent=None):
+    def __init__(self, plot_widget, title, parent=None):
         """
-        Dialog to display a QwtPlot widget.
+        Dialog to display a QwtPlot widget and output some parameters of the
+        plot.
 
         Args:
             plot_widget (QwtPlot): the plot widget to display
+            title (str):  title of the plot window
 
         Keyword Args:
             parent (QWidget):  parent widget
         """
         super().__init__(parent)
-        title = title or 'Plot'
+        title = title or 'Power vs. Time'
         self.setWindowTitle(title)
         self.plot = plot_widget
         vbox = QVBoxLayout()
@@ -117,9 +123,6 @@ class PlotDialog(QDialog):
         self.export_to_pdf_button = SizedButton("Export to PDF")
         self.export_to_pdf_button.clicked.connect(self.export_to_pdf)
         button_box.addWidget(self.export_to_pdf_button, alignment=Qt.AlignRight)
-        self.save_button = SizedButton("Save Peak/Avg Power Values and Close")
-        self.save_button.clicked.connect(self.save_power_values)
-        button_box.addWidget(self.save_button, alignment=Qt.AlignRight)
         vbox.addLayout(button_box)
         self.resize(1500, 700)
 
@@ -176,9 +179,6 @@ class PlotDialog(QDialog):
             self.plot.exportTo(fpath, size=(1400, 600))
         else:
             return
-
-    def save_power_values(self):
-        self.accept()
 
 
 class LoginDialog(QDialog):
