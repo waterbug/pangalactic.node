@@ -233,6 +233,9 @@ class MainWindow(QMainWindow):
         self.ldap_result_button = QPushButton('Test LDAP Result')
         self.ldap_result_button.setVisible(False)
         self.ldap_result_button.clicked.connect(self.on_test_ldap_result)
+        self.get_proj_parms_button = QPushButton('Get Project Parameters')
+        self.get_proj_parms_button.setVisible(False)
+        self.get_proj_parms_button.clicked.connect(self.on_get_proj_parms)
         self.upload_file_button = QPushButton('Upload a File')
         self.upload_file_button.setVisible(False)
         self.upload_file_button.clicked.connect(self.on_upload_file)
@@ -283,6 +286,7 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.check_version_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_search_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.ldap_result_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.get_proj_parms_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.upload_file_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.save_object_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.save_public_object_button,
@@ -374,6 +378,7 @@ class MainWindow(QMainWindow):
         self.ldap_search_button.setVisible(True)
         self.ldap_result_button.setVisible(True)
         self.mod_dval_button.setVisible(True)
+        self.get_proj_parms_button.setVisible(True)
         self.upload_file_button.setVisible(True)
         self.save_object_button.setVisible(True)
         self.save_public_object_button.setVisible(True)
@@ -569,6 +574,15 @@ class MainWindow(QMainWindow):
                     html += '</b></p>'
                     self.w = NotificationDialog(html, parent=self)
                     self.w.show()
+
+    def on_get_proj_parms(self):
+        """
+        Upload a selected file.
+        """
+        self.log('* calling rpc "vger.get_project_parameters(H2G2)" ...')
+        rpc = message_bus.session.call('vger.get_project_parameters', 'H2G2')
+        rpc.addCallback(self.on_result)
+        rpc.addErrback(self.on_failure)
 
     def on_upload_file(self, chunk_size=None):
         """
@@ -871,7 +885,8 @@ class MainWindow(QMainWindow):
         self.log('    done.')
 
     def on_result(self, stuff):
-        self.log('* result received:  %s' % str(stuff))
+        self.log('* result received:')
+        self.log(f'  {stuff}')
 
     def on_failure(self, f):
         orb.log.debug("* rpc failure: {}".format(f.getTraceback()))
@@ -904,6 +919,7 @@ class MainWindow(QMainWindow):
         self.check_version_button.setVisible(False)
         self.ldap_search_button.setVisible(False)
         self.ldap_result_button.setVisible(False)
+        self.get_proj_parms_button.setVisible(False)
         self.upload_file_button.setVisible(False)
         self.save_object_button.setVisible(False)
         self.save_public_object_button.setVisible(False)
