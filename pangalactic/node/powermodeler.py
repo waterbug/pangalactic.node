@@ -672,6 +672,7 @@ class PowerModeler(QWidget):
         p_orbital_average = 0
         # p_averages maps "super_act" name to its p_average
         p_averages = {}
+        p_peaks = {}
         if subacts:
             # default is to break out all sub-activity timelines
             # ("subtimelines") -- this can be made configurable in the future
@@ -904,7 +905,7 @@ class PowerModeler(QWidget):
         # mission average, since it is probably the best approximation ...
         if 'Orbit' in super_act.name:
             p_orbital_average = p_averages.get(super_act.name)
-        p_average = p_orbital_average or p_average
+        p_average = p_orbital_average or overall_avg
         mode_defz[project.oid]['p_peak'] = max_val
         orb.log.debug(f'* saved p_peak: {max_val}')
         mode_defz[project.oid]['p_average'] = p_average
