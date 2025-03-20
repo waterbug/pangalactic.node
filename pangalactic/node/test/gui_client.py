@@ -51,8 +51,7 @@ from pangalactic.node.dialogs         import LoginDialog, ProgressDialog
 from pangalactic.node.widgets         import LogWidget, ModeLabel
 from pangalactic.node.widgets         import AutosizingListWidget
 from pangalactic.node.message_bus     import PgxnMessageBus
-from pangalactic.node.startup         import (setup_ref_db_and_version,
-                                              setup_dirs_and_state)
+from pangalactic.node.startup         import setup_dirs_and_state
 
 message_bus = PgxnMessageBus()
 
@@ -975,8 +974,6 @@ if __name__ == "__main__":
     home = os.path.join(os.getcwd(), 'junk_home')
     if not os.path.exists(home):
         os.makedirs(home, mode=0o755)
-    this_version = __version__
-    setup_ref_db_and_version(home, this_version)
     orb.start(home, console=True, debug=True)
     setup_dirs_and_state()
     # set project to oid 'H2G2' because ConOps will look it up and use it to

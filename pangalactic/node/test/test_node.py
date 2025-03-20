@@ -31,7 +31,6 @@ from pangalactic.core.serializers  import deserialize
 from pangalactic.core.test.utils   import (create_test_users,
                                            create_test_project)
 from pangalactic.node.powermodeler import flatten_subacts
-from pangalactic.node.startup      import setup_ref_db_and_version
 
 prefs['default_data_elements'] = ['TRL', 'Vendor', 'reference_missions']
 prefs['default_parms'] = [
@@ -62,8 +61,6 @@ app_home_path = os.path.join(os.getcwd(), app_home)
 if not os.path.exists(app_home_path):
     os.makedirs(app_home_path, mode=0o755)
 home = app_home_path
-this_version = 'test'
-setup_ref_db_and_version(home, this_version)
 orb.start(home=home)
 serialized_test_objects = create_test_users()
 serialized_test_objects += create_test_project()

@@ -688,8 +688,7 @@ if __name__ == '__main__':
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import create_test_users
     from pangalactic.core.test.utils import create_test_project
-    from pangalactic.node.startup    import (setup_ref_db_and_version,
-                                             setup_dirs_and_state)
+    from pangalactic.node.startup    import setup_dirs_and_state
     from pangalactic.node.systemtree import SystemTreeView
     app = QApplication(sys.argv)
     parser = argparse.ArgumentParser()
@@ -701,8 +700,6 @@ if __name__ == '__main__':
     if not os.path.exists(app_home_path):
         os.makedirs(app_home_path, mode=0o755)
     home = app_home_path
-    this_version = 'test'
-    setup_ref_db_and_version(home, this_version)
     print('* starting orb ...')
     orb.start(home=home, console=options.console)
     print('  orb started.')

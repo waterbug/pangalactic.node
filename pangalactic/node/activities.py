@@ -953,17 +953,13 @@ class ModeDefinitionDashboard(QWidget):
 if __name__ == '__main__':
     # for testing purposes only ...
     import os
-    from pangalactic.core import __version__
     from pangalactic.core.serializers import deserialize
     from pangalactic.core.test.utils import (create_test_project,
                                              create_test_users)
-    from pangalactic.node.startup import (setup_ref_db_and_version,
-                                          setup_dirs_and_state)
+    from pangalactic.node.startup import setup_dirs_and_state
     print("* starting orb ...")
     home = 'junk_home'
     orb.start(home=home, debug=True, console=True)
-    print("* setting up ref_db and version ...")
-    setup_ref_db_and_version(home, __version__)
     print("* setting up dirs and state ...")
     setup_dirs_and_state(app_name='Pangalaxian')
     if state.get('test_project_loaded'):

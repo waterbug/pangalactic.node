@@ -317,13 +317,10 @@ class ConOpsModeler(QMainWindow):
 
 
 if __name__ == '__main__':
-    from pangalactic.node.startup import (setup_ref_db_and_version,
-                                          setup_dirs_and_state)
-    from pangalactic.core import __version__
+    from pangalactic.node.startup import setup_dirs_and_state
     # orb.start(home='junk_home', debug=True)
     home = '/home/waterbug/cattens_home_dev'
     # orb.start(home='junk_home', debug=True)
-    setup_ref_db_and_version(home, __version__)
     orb.start(home=home, console=True, debug=True)
     setup_dirs_and_state()
     app = QApplication(sys.argv)

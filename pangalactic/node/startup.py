@@ -10,33 +10,8 @@ from copy import deepcopy
 from pangalactic.core         import orb
 from pangalactic.core         import config, prefs, state
 from pangalactic.core.meta    import PGXN_PARAMETERS
-from pangalactic.node         import docs, icons, images, ref_db
+from pangalactic.node         import docs, icons, images
 from pangalactic.node.docs    import images as doc_images
-
-
-def setup_ref_db_and_version(home, version):
-    """
-    Add a local sqlite "local.db" file that is pre-populated with all data from
-    the "refdata" module, and add a "VERSION" file.
-
-    Args:
-        home (str): path to the home directory
-        version (str): current version
-    """
-    # copy sqlite `local.db` file containing pgef ref data to home
-    if not os.path.exists(os.path.join(home, 'local.db')):
-        ref_db_mod_path = ref_db.__path__[0]
-        ref_db_files = set([s for s in os.listdir(ref_db_mod_path)
-                            if (not s.startswith('__init__')
-                            and not s.startswith('__pycache__'))
-                            ])
-        if ref_db_files:
-            # print('  - copying db file into home dir ...')
-            for p in ref_db_files:
-                shutil.copy(os.path.join(ref_db_mod_path, p), home)
-                # print('  - ref db installed: {p}')
-    with open(os.path.join(home, 'VERSION'), 'w') as f:
-        f.write(version)
 
 
 def setup_dirs_and_state(app_name='Pangalaxian'):

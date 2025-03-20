@@ -139,8 +139,7 @@ from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.rqtmanager       import RequirementManager
 from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
 from pangalactic.node.splash           import SplashScreen
-from pangalactic.node.startup          import (setup_ref_db_and_version,
-                                               setup_dirs_and_state)
+from pangalactic.node.startup          import setup_dirs_and_state
 from pangalactic.node.systemtree       import SystemTreeView
 # CompareWidget is only used in compare_items(), which is temporarily removed
 # from pangalactic.node.tableviews       import CompareWidget
@@ -312,10 +311,7 @@ class Main(QMainWindow):
                 if fname.endswith('.json'):
                     os.remove(os.path.join(home, fname))
             self.add_splash_msg('... home fixed ...')
-        # add the `local.db` file from ref_db module to home and add a
-        # "VERSION" file
-        this_version = self.app_version or __version__
-        setup_ref_db_and_version(home, this_version)
+        # =====================================================================
         # start up the orb and do some orb stuff, including setting the home
         # directory and related directories (added to state)
         orb.start(home=home, console=console, debug=debug)
