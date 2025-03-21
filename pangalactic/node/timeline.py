@@ -693,6 +693,27 @@ class TimelineWidget(QWidget):
         scene = QGraphicsScene()
         return scene
 
+    def create_action(self, text=None, slot=None, icon=None, tip=None,
+                      checkable=False):
+        action = QWidgetAction(self)
+        button = QPushButton(self)
+        action.setDefaultWidget(button)
+        if icon is not None:
+            icon_file = icon + state.get('icon_type', '.png')
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
+            button.setIcon(QIcon(icon_path))
+        if tip is not None:
+            button.setToolTip(tip)
+            # action.setStatusTip(tip)
+        if text:
+            button.setText(text)
+        if slot is not None:
+            button.clicked.connect(slot)
+        if checkable:
+            button.setCheckable(True)
+        return action
+
     def init_toolbar(self):
         self.toolbar = QToolBar(parent=self)
         self.toolbar.setObjectName('ActionsToolBar')
@@ -711,21 +732,6 @@ class TimelineWidget(QWidget):
                                     tip="add default activities")
         self.toolbar.addAction(self.add_defaults_action)
         self.add_defaults_action.setEnabled(False)
-        self.plot_action = self.create_action(
-                                    text="Graph",
-                                    slot=self.graph,
-                                    icon="Graph",
-                                    tip="Graph Power Modes")
-        self.toolbar.addAction(self.plot_action)
-        self.output_excel_action = self.create_action(
-                                    text="Output Excel",
-                                    slot=self.output_excel,
-                                    icon="tools",
-                                    tip="Write Excel File")
-        self.toolbar.addAction(self.output_excel_action)
-        if not state.get('conops_usage_oid').get(state.get('project')):
-            self.plot_action.setEnabled(False)
-            self.output_excel_action.setEnabled(False)
         spacer = QWidget(parent=self)
         spacer.setSizePolicy(QSizePolicy.Expanding,
                              QSizePolicy.Expanding)
@@ -738,12 +744,6 @@ class TimelineWidget(QWidget):
         self.scene_scale_select.currentIndexChanged.connect(
                                                     self.sceneScaleChanged)
         self.toolbar.addWidget(self.scene_scale_select)
-
-    def graph(self):
-        dispatcher.send('power graph')
-
-    def output_excel(self):
-        dispatcher.send('output excel')
 
     def load_last_timeline(self):
         """
@@ -937,27 +937,6 @@ class TimelineWidget(QWidget):
         if self.system is activity.of_system:
             self.set_new_scene()
 
-    def create_action(self, text=None, slot=None, icon=None, tip=None,
-                      checkable=False):
-        action = QWidgetAction(self)
-        button = QPushButton(self)
-        action.setDefaultWidget(button)
-        if icon is not None:
-            icon_file = icon + state.get('icon_type', '.png')
-            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-            icon_path = os.path.join(icon_dir, icon_file)
-            button.setIcon(QIcon(icon_path))
-        if tip is not None:
-            button.setToolTip(tip)
-            # action.setStatusTip(tip)
-        if text:
-            button.setText(text)
-        if slot is not None:
-            button.clicked.connect(slot)
-        if checkable:
-            button.setCheckable(True)
-        return action
-
 
 class TimelineModeler(QWidget):
     """
@@ -1010,7 +989,7 @@ class TimelineModeler(QWidget):
                 orb.save([self.mission])
                 dispatcher.send("new object", obj=self.mission)
             self.subject = self.mission
-        self.usage = usage
+        self._usage = usage
         self.create_toolbox()
         # no toolbar needed yet ...
         # self.init_toolbar()
@@ -1044,13 +1023,6 @@ class TimelineModeler(QWidget):
         if isinstance(val, (orb.classes['ProjectSystemUsage'],
                             orb.classes['Acu'])):
             self._usage = val
-            if hasattr(self, 'main_timeline'):
-                self.main_timeline.plot_action.setEnabled(True)
-                self.main_timeline.output_excel_action.setEnabled(True)
-        else:
-            if not self._usage and hasattr(self, 'main_timeline'):
-                self.main_timeline.plot_action.setEnabled(False)
-                self.main_timeline.output_excel_action.setEnabled(False)
 
     def on_usage_set(self, usage=None):
         self.usage = usage

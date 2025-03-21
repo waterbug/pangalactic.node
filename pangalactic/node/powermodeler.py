@@ -14,9 +14,10 @@ from pydispatch import dispatcher
 from PyQt5.QtCore import Qt, QSize, QVariant
 from PyQt5.QtGui import QBrush, QIcon, QFont, QPen
 # from PyQt5.QtGui import QGraphicsProxyWidget
-from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
-                             QHBoxLayout, QScrollArea, QSizePolicy, QWidget,
-                             QVBoxLayout, QWidgetAction, QMessageBox)
+from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QDialog,
+                             QFileDialog, QHBoxLayout, QScrollArea,
+                             QSizePolicy, QToolBar, QWidget, QVBoxLayout,
+                             QMessageBox)
 
 # PythonQwt
 import qwt
@@ -123,6 +124,7 @@ class PowerModeler(QWidget):
         argstr = f'subject="{subject_name}", initial_usage={usage_id}'
         orb.log.debug(f'* PowerModeler({argstr})')
         super().__init__(parent=parent)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.subject = subject
         self._usage = initial_usage
         if not mode_defz.get(self.project.oid):
@@ -191,7 +193,13 @@ class PowerModeler(QWidget):
                                                  activity=self.subject)
         self.main_splitter = CustomSplitter()
         self.main_splitter.addWidget(sys_tree_panel_scroll_area)
-        self.main_splitter.addWidget(self.mode_dash)
+        self.init_toolbar()
+        mode_dash_layout = QVBoxLayout()
+        mode_dash_layout.addWidget(self.toolbar)
+        mode_dash_layout.addWidget(self.mode_dash)
+        mode_dash_panel = QWidget()
+        mode_dash_panel.setLayout(mode_dash_layout)
+        self.main_splitter.addWidget(mode_dash_panel)
         main_layout = QHBoxLayout()
         self.setLayout(main_layout)
         main_layout.addWidget(self.main_splitter, stretch=1)
@@ -207,8 +215,50 @@ class PowerModeler(QWidget):
         dispatcher.connect(self.on_new_timeline, "new timeline")
         dispatcher.connect(self.on_set_no_compute, "set no compute")
         dispatcher.connect(self.on_remote_mode_defs, "modes published")
-        dispatcher.connect(self.graph, "power graph")
-        dispatcher.connect(self.output_excel, "output excel")
+
+    def create_action(self, text, slot=None, icon=None, tip=None,
+                      checkable=False):
+        action = QAction(text, self)
+        if icon is not None:
+            icon_file = icon + state.get('icon_type', '.png')
+            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
+            icon_path = os.path.join(icon_dir, icon_file)
+            action.setIcon(QIcon(icon_path))
+        if tip is not None:
+            action.setToolTip(tip)
+            # action.setStatusTip(tip)
+        if slot is not None:
+            action.triggered.connect(slot)
+        if checkable:
+            action.setCheckable(True)
+        return action
+
+    def init_toolbar(self):
+        self.toolbar = QToolBar("Actions")
+        # self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+        self.plot_action = self.create_action(
+                                    "Power vs. Time Graph",
+                                    slot=self.graph,
+                                    icon="graph",
+                                    tip="Graph Power Modes")
+        self.toolbar.addAction(self.plot_action)
+        self.output_excel_action = self.create_action(
+                                    "Output to Excel",
+                                    slot=self.output_excel,
+                                    icon="excel_32",
+                                    tip="Write Excel File")
+        self.toolbar.addAction(self.output_excel_action)
+        if self.usage and self.subject and orb.get_duration(self.subject):
+            self.plot_action.setEnabled(True)
+            self.output_excel_action.setEnabled(True)
+        else:
+            self.plot_action.setEnabled(False)
+            self.output_excel_action.setEnabled(False)
+        spacer = QWidget(parent=self)
+        spacer.setSizePolicy(QSizePolicy.Expanding,
+                             QSizePolicy.Expanding)
+        self.toolbar.addWidget(spacer)
 
     @property
     def project(self):
@@ -233,27 +283,20 @@ class PowerModeler(QWidget):
         if isinstance(val, (orb.classes['ProjectSystemUsage'],
                             orb.classes['Acu'])):
             self._usage = val
+            if self.subject and orb.get_duration(self.subject):
+                self.plot_action.setEnabled(True)
+                self.output_excel_action.setEnabled(True)
+            else:
+                self.plot_action.setEnabled(False)
+                self.output_excel_action.setEnabled(False)
             dispatcher.send(signal="powermodeler usage set", usage=val)
         else:
             usage_id = getattr(val, 'id', '(no id)')
             orb.log.debug(f'* powermodeler: invalid usage set, "{usage_id}".')
-
-    def create_action(self, text, slot=None, icon=None, tip=None,
-                      checkable=False):
-        action = QWidgetAction(self)
-        if icon is not None:
-            icon_file = icon + state.get('icon_type', '.png')
-            icon_dir = state.get('icon_dir', os.path.join(orb.home, 'icons'))
-            icon_path = os.path.join(icon_dir, icon_file)
-            action.setIcon(QIcon(icon_path))
-        if tip is not None:
-            action.setToolTip(tip)
-            # action.setStatusTip(tip)
-        if slot is not None:
-            action.triggered.connect(slot)
-        if checkable:
-            action.setCheckable(True)
-        return action
+            if (not self._usage or not self.subject
+                or not orb.get_duration(self.subject)):
+                self.plot_action.setEnabled(False)
+                self.output_excel_action.setEnabled(False)
 
     def set_select_tree_expansion(self, index=None):
         # orb.log.debug(f'* set_select_tree_expansion({index})')
