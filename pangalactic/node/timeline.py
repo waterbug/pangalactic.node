@@ -802,8 +802,8 @@ class TimelineWidget(QWidget):
         Keyword Args:
             oid (str): oid of the object to be deleted
         """
-        # orb.log.debug('* TimelineWidget.delete_activity(')
-        # orb.log.debug(f'      oid="{oid}", cname="{cname}", remote={remote})')
+        orb.log.debug('* TimelineWidget.delete_activity(')
+        orb.log.debug(f'      oid="{oid}", cname="{cname}", remote={remote})')
         if oid is None:
             return
         obj = orb.get(oid)
