@@ -9,8 +9,8 @@ from pydispatch import dispatcher
 from PyQt5.QtCore    import QSize, Qt, QModelIndex
 from PyQt5.QtGui     import QCursor
 from PyQt5.QtWidgets import (QAction, QApplication, QComboBox, QGridLayout,
-                             QMenu, QSizePolicy, QStatusBar, QTreeView,
-                             QHBoxLayout, QVBoxLayout, QWidget)
+                             QMenu, QSizePolicy, QTreeView, QHBoxLayout,
+                             QVBoxLayout, QWidget)
 
 try:
     from pangalactic.core         import orb
@@ -18,8 +18,6 @@ except:
     import pangalactic.core.set_uberorb
     from pangalactic.core         import orb
 from pangalactic.core             import state, write_state
-from pangalactic.core.access      import is_global_admin
-from pangalactic.core.clone       import clone
 from pangalactic.core.names       import get_link_name
 from pangalactic.core.parametrics import (get_pval, get_power_contexts,
                                           get_modal_context,
@@ -29,174 +27,11 @@ from pangalactic.core.parametrics import (get_pval, get_power_contexts,
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.buttons     import SizedButton
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
-from pangalactic.node.tableviews  import ActInfoTable
 from pangalactic.node.utils       import get_all_project_usages
-from pangalactic.node.widgets     import ColorLabel, NameLabel, ValueLabel
+from pangalactic.node.widgets     import ColorLabel, ValueLabel
 
 
 DEFAULT_CONTEXTS = ['Off', 'Nominal', 'Peak', 'Standby', 'Survival']
-DEFAULT_ACT_NAMES = ['Launch', 'Calibration', 'Propulsion', 'Slew',
-                     'Science Data Acquisition', 'Science Data Transmission',
-                     'Safe Mode']
-
-
-class ActivityWidget(QWidget):
-    """
-    Container widget for the ActInfoTable that displays the sub-activities
-    of an Activity with their start, duration, and end parameters.
-
-    Attrs:
-        subject (Activity):  the Activity whose sub-activities are shown
-    """
-    def __init__(self, subject, timeline=None, position=None, parent=None):
-        """
-        Initialize.
-
-        Args:
-            subject (Activity):  Activity whose sub-activities are to be
-                shown in the table
-
-        Keyword Args:
-            timeline (Timeline):  the Timeline (QGraphicsPathItem) containing
-                the scene with the activity event blocks
-            position (str): the table "role" of the table in the ConOps tool,
-                as the "main" or "sub" table, which will determine its
-                response to signals
-            parent (QWidget):  parent widget
-        """
-        super().__init__(parent=parent)
-        name = getattr(subject, 'name', 'None')
-        orb.log.info(f'* ActivityWidget initializing for "{name}" ...')
-        self.timeline = timeline
-        self.subject = subject
-        self.project = orb.get(state.get('project'))
-        self.position = position
-        self.statusbar = QStatusBar()
-        self.main_layout = QVBoxLayout()
-        self.setLayout(self.main_layout)
-        self.title_widget = NameLabel('')
-        self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
-        self.main_layout.addWidget(self.title_widget)
-        self.set_title_text()
-        self.set_table()
-        self.setSizePolicy(QSizePolicy.MinimumExpanding,
-                           QSizePolicy.Fixed)
-        dispatcher.connect(self.on_drill_down, 'drill down')
-        dispatcher.connect(self.on_drill_up, 'go back')
-        dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
-        dispatcher.connect(self.on_act_name_mod, 'act name mod')
-
-    @property
-    def act_of(self):
-        return getattr(self.subject, 'of_system', None)
-
-    @property
-    def activities(self):
-        """
-        The relevant sub-activities that the table will display, namely the
-        activities of the event blocks contained in the timeline scene.
-        """
-        # subj = getattr(self, 'subject', None)
-        # if not subj:
-            # return []
-        # return subj.sub_activities
-        return [evt_block.activity for evt_block in self.timeline.evt_blocks]
-
-    def on_act_name_mod(self, act):
-        if act is self.subject:
-            self.set_title_text()
-
-    def set_title_text(self):
-        if not hasattr(self, 'title_widget'):
-            return
-        subj = getattr(self, 'subject', None)
-        red_text = '<font color="red">{}</font>'
-        blue_text = '<font color="blue">{}</font>'
-        title_txt = ''
-        if subj:
-            txt = self.subject.name
-            if self.subject.activity_type:
-                txt += ' ' + self.subject.activity_type.name
-            title_txt = red_text.format(txt)
-            sys_name = (getattr(self.act_of, 'reference_designator', '') or
-                        getattr(self.act_of, 'system_role', ''))
-            title_txt += blue_text.format(sys_name) + ' '
-            title_txt += 'Details'
-        else:
-            title_txt += red_text.format('No Activity')
-        self.title_widget.setText(title_txt)
-
-    def set_table(self):
-        project = orb.get(state.get('project'))
-        # if user has SE, LE, or admin role, table is editable
-        user = orb.get(state.get('local_user_oid', 'me'))
-        ras = orb.search_exact(cname='RoleAssignment',
-                               assigned_to=user,
-                               role_assignment_context=self.project)
-        role_names = set([ra.assigned_role.name for ra in ras])
-        allowed_roles = set(['Lead Engineer', 'Systems Engineer',
-                             'Administrator'])
-        global_admin = is_global_admin(user)
-        if global_admin or (role_names & allowed_roles):
-            table = ActInfoTable(self.subject, project=project,
-                                 timeline=self.timeline, editable=True)
-        else:
-            # default: editable=False
-            table = ActInfoTable(self.subject, project=project,
-                                 timeline=self.timeline)
-        table.setSizePolicy(QSizePolicy.Fixed,
-                            # QSizePolicy.MinimumExpanding,
-                            QSizePolicy.Fixed)
-        table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        # table.resizeColumnsToContents()
-        table.setAlternatingRowColors(True)
-        self.main_layout.addWidget(table)
-        # self.main_layout.addStretch()
-        self.table = table
-
-    def reset_table(self):
-        pass
-
-    def sizeHint(self):
-        w = self.table.sizeHint().width()
-        h = (self.table.sizeHint().height() +
-             self.title_widget.sizeHint().height())
-        return QSize(w, h)
-
-    def on_activity_remote_mod(self, activity=None):
-        # txt = '* {} table: on_activity_remote_mod()'
-        # orb.log.debug(txt.format(self.position))
-        if activity and activity.sub_activity_of:
-            self.on_activity_added(activity.sub_activity_of.oid)
-
-    def on_activity_added(self, oid):
-        orb.log.debug('  - ActivityWidget.on_activity_added()')
-        if oid in [act.oid for act in self.activities]:
-            self.reset_table()
-
-    def on_activity_removed(self, oid):
-        orb.log.debug('  - ActivityWidget.on_activity_removed()')
-        self.reset_table()
-
-    def on_drill_down(self, obj=None, position=None):
-        self.statusbar.showMessage("Drilled Down!")
-        self.reset_table()
-
-    def on_drill_up(self, obj=None, position=None):
-        if self.position != 'sub':
-            self.statusbar.showMessage("Drilled Up!")
-            self.reset_table()
-
-    def on_subsystem_changed(self, act=None, act_of=None, position=None):
-        if self.position == 'main':
-            self.reset_table()
-        if position == 'sub':
-            self.statusbar.showMessage("Subsystem Changed!")
-        if self.position == 'sub':
-            self.setEnabled(True)
-            self.act_of = act_of
-            self.reset_table()
 
 
 class SystemSelectionView(QTreeView):
@@ -980,16 +815,6 @@ if __name__ == '__main__':
     # NOTE:  set either test_mdt or test_act to True ...
     test_mt = False
     test_mdt = True
-    test_act = False
-    if test_act:
-        # test ActivityWidget
-        if not mission.sub_activities:
-            launch = clone('Activity', id='launch', name='Launch',
-                           owner=H2G2, sub_activity_of=mission)
-            sub_act_role = '1'
-            orb.save([launch])
-        w = ActivityWidget(subject=mission)
-        w.show()
     write_state(os.path.join(home, 'state'))
     sys.exit(app.exec_())
 

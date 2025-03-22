@@ -31,22 +31,20 @@ except:
     # if an orb has not been set, uberorb is set by default
     import pangalactic.core.set_uberorb
     from pangalactic.core             import orb, state
-# from pangalactic.core.access      import get_perms
 from pangalactic.core.names           import get_link_name, pname_to_header
-from pangalactic.core.parametrics import (get_pval,
-                                          get_modal_context,
-                                          get_modal_power,
-                                          init_mode_defz,
-                                          mode_defz,
-                                          round_to)
+from pangalactic.core.parametrics     import (get_pval,
+                                              get_modal_context,
+                                              get_modal_power,
+                                              init_mode_defz,
+                                              mode_defz,
+                                              round_to)
 from pangalactic.core.utils.datetimes import dtstamp, date2str
-from pangalactic.core.utils.reports import write_power_modes_to_xlsx
-from pangalactic.core.validation  import get_level_count
-from pangalactic.node.activities  import (ModeDefinitionDashboard,
-                                          SystemSelectionView)
-from pangalactic.node.dialogs     import DefineModesDialog, PlotDialog
-# from pangalactic.node.pgxnobject  import PgxnObject
-from pangalactic.node.widgets     import ColorLabel, CustomSplitter
+from pangalactic.core.utils.reports   import write_power_modes_to_xlsx
+from pangalactic.core.validation      import get_level_count
+from pangalactic.node.powerdashboard  import (ModeDefinitionDashboard,
+                                              SystemSelectionView)
+from pangalactic.node.dialogs         import DefineModesDialog, PlotDialog
+from pangalactic.node.widgets         import ColorLabel, CustomSplitter
 
 LABEL_COLORS = [Qt.darkRed, Qt.darkGreen, Qt.blue, Qt.darkBlue, Qt.cyan,
                 Qt.darkCyan, Qt.magenta, Qt.darkMagenta]

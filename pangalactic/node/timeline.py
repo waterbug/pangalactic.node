@@ -29,18 +29,18 @@ except:
     # if an orb has not been set, uberorb is set by default
     import pangalactic.core.set_uberorb
     from pangalactic.core             import orb, state
-from pangalactic.core.access      import get_perms
+from pangalactic.core.access      import get_perms, is_global_admin
 from pangalactic.core.clone       import clone
 from pangalactic.core.parametrics import (clone_mode_defs,
                                           set_dval)
 from pangalactic.core.utils.datetimes import dtstamp
-from pangalactic.node.activities  import DEFAULT_ACT_NAMES, ActivityWidget
 from pangalactic.node.buttons     import ToolButton
 from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (DisplayNotesDialog,
                                           DocImportDialog,
                                           NotesDialog)
 # from pangalactic.node.pgxnobject  import PgxnObject
+from pangalactic.node.tableviews  import ActInfoTable
 from pangalactic.node.utils       import pct_to_decimal, extract_mime_data
 from pangalactic.node.widgets     import NameLabel
 # from pangalactic.node.widgets     import CustomSplitter
@@ -57,6 +57,10 @@ else:
     # linux
     POINT_SIZE = 8
     BLOCK_FACTOR = 20
+
+DEFAULT_ACT_NAMES = ['Launch', 'Calibration', 'Propulsion', 'Slew',
+                     'Science Data Acquisition', 'Science Data Transmission',
+                     'Safe Mode']
 
 
 class ActivityBlock(QGraphicsPolygonItem):
@@ -587,8 +591,7 @@ class TimelineWidget(QWidget):
             # orb.log.debug(f'  - placing {nbr_of_subacts} sub-acts:')
             for activity in reversed(subacts):
                 if (activity.of_system == self.system):
-                    item = ActivityBlock(activity=activity,
-                                      scene=scene)
+                    item = ActivityBlock(activity=activity, scene=scene)
                     # n = activity.sub_activity_sequence
                     # name = activity.name
                     # orb.log.debug(f'    + [{n}] {name}')
@@ -747,9 +750,8 @@ class TimelineWidget(QWidget):
 
     def load_last_timeline(self):
         """
-        Handle dispatcher signal for "comp modeler back" (sent by
-        ProductInfoPanel): load the last product from history and remove it
-        from the stack.
+        Load the last timeline from "timeline history" and remove it from the
+        stack.
         """
         orb.log.debug('* load last timeline')
         if state.get('timeline history'):
@@ -936,6 +938,160 @@ class TimelineWidget(QWidget):
             self.set_title()
         if self.system is activity.of_system:
             self.set_new_scene()
+
+
+class ActivityWidget(QWidget):
+    """
+    Container widget for the ActInfoTable that displays the sub-activities
+    of an Activity with their start, duration, and end parameters.
+
+    Attrs:
+        subject (Activity):  the Activity whose sub-activities are shown
+    """
+    def __init__(self, subject, timeline=None, position=None, parent=None):
+        """
+        Initialize.
+
+        Args:
+            subject (Activity):  Activity whose sub-activities are to be
+                shown in the table
+
+        Keyword Args:
+            timeline (Timeline):  the Timeline (QGraphicsPathItem) containing
+                the scene with the activity event blocks
+            position (str): the table "role" of the table in the ConOps tool,
+                as the "main" or "sub" table, which will determine its
+                response to signals
+            parent (QWidget):  parent widget
+        """
+        super().__init__(parent=parent)
+        name = getattr(subject, 'name', 'None')
+        orb.log.info(f'* ActivityWidget initializing for "{name}" ...')
+        self.timeline = timeline
+        self.subject = subject
+        self.project = orb.get(state.get('project'))
+        self.position = position
+        self.main_layout = QVBoxLayout()
+        self.setLayout(self.main_layout)
+        self.title_widget = NameLabel('')
+        self.title_widget.setStyleSheet('font-weight: bold; font-size: 14px')
+        self.main_layout.addWidget(self.title_widget)
+        self.set_title_text()
+        self.set_table()
+        self.setSizePolicy(QSizePolicy.MinimumExpanding,
+                           QSizePolicy.Fixed)
+        dispatcher.connect(self.on_drill_down, 'drill down')
+        dispatcher.connect(self.on_drill_up, 'go back')
+        dispatcher.connect(self.on_subsystem_changed, 'changed subsystem')
+        dispatcher.connect(self.on_act_name_mod, 'act name mod')
+
+    @property
+    def act_of(self):
+        return getattr(self.subject, 'of_system', None)
+
+    @property
+    def activities(self):
+        """
+        The relevant sub-activities that the table will display, namely the
+        activities of the event blocks contained in the timeline scene.
+        """
+        # subj = getattr(self, 'subject', None)
+        # if not subj:
+            # return []
+        # return subj.sub_activities
+        return [evt_block.activity for evt_block in self.timeline.evt_blocks]
+
+    def on_act_name_mod(self, act):
+        if act is self.subject:
+            self.set_title_text()
+
+    def set_title_text(self):
+        if not hasattr(self, 'title_widget'):
+            return
+        subj = getattr(self, 'subject', None)
+        red_text = '<font color="red">{}</font>'
+        blue_text = '<font color="blue">{}</font>'
+        title_txt = ''
+        if subj:
+            txt = self.subject.name
+            if self.subject.activity_type:
+                txt += ' ' + self.subject.activity_type.name
+            title_txt = red_text.format(txt)
+            sys_name = (getattr(self.act_of, 'reference_designator', '') or
+                        getattr(self.act_of, 'system_role', ''))
+            title_txt += blue_text.format(sys_name) + ' '
+            title_txt += 'Details'
+        else:
+            title_txt += red_text.format('No Activity')
+        self.title_widget.setText(title_txt)
+
+    def set_table(self):
+        project = orb.get(state.get('project'))
+        # if user has SE, LE, or admin role, table is editable
+        user = orb.get(state.get('local_user_oid', 'me'))
+        ras = orb.search_exact(cname='RoleAssignment',
+                               assigned_to=user,
+                               role_assignment_context=self.project)
+        role_names = set([ra.assigned_role.name for ra in ras])
+        allowed_roles = set(['Lead Engineer', 'Systems Engineer',
+                             'Administrator'])
+        global_admin = is_global_admin(user)
+        if global_admin or (role_names & allowed_roles):
+            table = ActInfoTable(self.subject, project=project,
+                                 timeline=self.timeline, editable=True)
+        else:
+            # default: editable=False
+            table = ActInfoTable(self.subject, project=project,
+                                 timeline=self.timeline)
+        table.setSizePolicy(QSizePolicy.Fixed,
+                            # QSizePolicy.MinimumExpanding,
+                            QSizePolicy.Fixed)
+        table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # table.resizeColumnsToContents()
+        table.setAlternatingRowColors(True)
+        self.main_layout.addWidget(table)
+        # self.main_layout.addStretch()
+        self.table = table
+
+    def reset_table(self):
+        pass
+
+    def sizeHint(self):
+        w = self.table.sizeHint().width()
+        h = (self.table.sizeHint().height() +
+             self.title_widget.sizeHint().height())
+        return QSize(w, h)
+
+    def on_activity_remote_mod(self, activity=None):
+        # txt = '* {} table: on_activity_remote_mod()'
+        # orb.log.debug(txt.format(self.position))
+        if activity and activity.sub_activity_of:
+            self.on_activity_added(activity.sub_activity_of.oid)
+
+    def on_activity_added(self, oid):
+        orb.log.debug('  - ActivityWidget.on_activity_added()')
+        if oid in [act.oid for act in self.activities]:
+            self.reset_table()
+
+    def on_activity_removed(self, oid):
+        orb.log.debug('  - ActivityWidget.on_activity_removed()')
+        self.reset_table()
+
+    def on_drill_down(self, obj=None, position=None):
+        self.reset_table()
+
+    def on_drill_up(self, obj=None, position=None):
+        if self.position != 'sub':
+            self.reset_table()
+
+    def on_subsystem_changed(self, act=None, act_of=None, position=None):
+        if self.position == 'main':
+            self.reset_table()
+        if self.position == 'sub':
+            self.setEnabled(True)
+            self.act_of = act_of
+            self.reset_table()
 
 
 class TimelineModeler(QWidget):
@@ -1252,10 +1408,39 @@ class TimelineModeler(QWidget):
 
 if __name__ == '__main__':
     import sys
+    from pangalactic.core.serializers import deserialize
+    from pangalactic.core.test.utils import (create_test_project,
+                                             create_test_users)
+    from pangalactic.node.startup import setup_dirs_and_state
     # orb.start(home='junk_home', debug=True)
     orb.start(home='/home/waterbug/cattens_home_dev', debug=True)
+    setup_dirs_and_state(app_name='Pangalaxian')
+    if state.get('test_project_loaded'):
+        print('* test project H2G2 already loaded.')
+    else:
+        print('* loading test project H2G2 ...')
+        deserialize(orb, create_test_project())
+        state['test_project_loaded'] = True
+    mission = orb.get('test:Mission.H2G2')
+    H2G2 = orb.get('H2G2')
+    if state.get('test_project_loaded'):
+        print('* test users already loaded.')
+    else:
+        print('* loading test users ...')
+        deserialize(orb, create_test_users())
+        state['test_users_loaded'] = True
     app = QApplication(sys.argv)
-    mw = TimelineModeler()
+    test_act = False
+    if test_act:
+        # test ActivityWidget
+        if not mission.sub_activities:
+            launch = clone('Activity', id='launch', name='Launch',
+                           owner=H2G2, sub_activity_of=mission)
+            sub_act_role = '1'
+            orb.save([launch])
+        mw = ActivityWidget(subject=mission)
+    else:
+        mw = TimelineModeler()
     mw.show()
     sys.exit(app.exec_())
 

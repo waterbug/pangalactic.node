@@ -134,7 +134,7 @@ from pangalactic.node.libraries        import (LibraryDialog,
                                                CompoundLibraryWidget,
                                                select_product_types)
 from pangalactic.node.message_bus      import PgxnMessageBus
-from pangalactic.node.modeler          import ModelWindow, ProductInfoPanel
+from pangalactic.node.blockmodeler     import ModelWindow, ProductInfoPanel
 from pangalactic.node.pgxnobject       import PgxnObject
 from pangalactic.node.rqtmanager       import RequirementManager
 from pangalactic.node.rqtwizard        import RqtWizard, rqt_wizard_state
