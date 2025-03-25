@@ -201,8 +201,6 @@ class PowerModeler(QWidget):
         main_layout = QHBoxLayout()
         self.setLayout(main_layout)
         main_layout.addWidget(self.main_splitter, stretch=1)
-        # ====================================================================
-        dispatcher.connect(self.on_activity_got_focus, "activity focused")
         # ===================================================================
         # TODO: power modes should get a signal from TimelineModeler AFTER it
         # has processed "remote new or mod acts", and should respond to THAT
@@ -287,7 +285,7 @@ class PowerModeler(QWidget):
             else:
                 self.plot_action.setEnabled(False)
                 self.output_excel_action.setEnabled(False)
-            dispatcher.send(signal="powermodeler usage set", usage=val)
+            dispatcher.send(signal="powermodeler set usage", usage=val)
         else:
             usage_id = getattr(val, 'id', '(no id)')
             orb.log.debug(f'* powermodeler: invalid usage set, "{usage_id}".')
@@ -362,10 +360,8 @@ class PowerModeler(QWidget):
                 # [a] in sys_dict -> make it the subject's usage
                 # orb.log.debug("  - link oid is in sys_dict")
                 # set as subject's usage
+                # NOTE: usage "setter" sends signal "powermodeler set usage"
                 self.usage = link
-                # signal to mode_dash to set this link as its usage ...
-                # orb.log.debug('    sending "powermodeler set usage" signal ...')
-                dispatcher.send(signal='powermodeler set usage', usage=link)
             else:
                 orb.log.debug('  - link oid is NOT in the "computed" list')
                 # [b] not in computed_list:
@@ -461,13 +457,13 @@ class PowerModeler(QWidget):
         if in_comp_dict and has_components:
             # if this usage was in the comp_dict and it has components, it has
             # now been added to the sys_dict -- make it the subject usage ...
+            # NOTE: usage "setter" sends signal "powermodeler set usage"
             self.usage = link
         elif link.oid in sys_dict:
             # if this usage was in the sys_dict, make it the subject usage ...
+            # NOTE: usage "setter" sends signal "powermodeler set usage"
             self.usage = link
         dispatcher.send(signal='modes edited', oid=self.project.oid)
-        # signal to the mode_dash to set this link as its usage
-        dispatcher.send(signal='powermodeler set usage', usage=link)
 
     def on_set_no_compute(self, link_oid=None):
         """
@@ -529,29 +525,6 @@ class PowerModeler(QWidget):
         orb.log.debug('* powermodeler: "new timeline" signal received --')
         orb.log.debug('  setting the new subject ..."')
         self.subject = subject
-
-    def on_activity_got_focus(self, act):
-        """
-        Do something when an activity gets focus ...
-
-        Args:
-            act (Activity): the Activity instance that got focus
-        """
-        pass
-
-    def on_delete_activity(self, oid=None, cname=None, remote=False):
-        """
-        Handler for dispatcher signals "delete activity" (sent by an event
-        block when it is removed) and "deleted object" (sent by pangalaxian).
-        Refreshes the activity tables. The signals are also handled by the
-        TimelineWidget.
-
-        Keyword Args:
-            oid (str): oid of the deleted activity
-            cname (str): class name of the deleted object
-            remote (bool): True if the operation was initiated remotely
-        """
-        self.rebuild_table()
 
     def on_remote_mode_defs(self):
         """

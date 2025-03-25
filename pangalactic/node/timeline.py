@@ -39,7 +39,6 @@ from pangalactic.node.diagrams.shapes import BlockLabel
 from pangalactic.node.dialogs     import (DisplayNotesDialog,
                                           DocImportDialog,
                                           NotesDialog)
-# from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.tableviews  import ActInfoTable
 from pangalactic.node.utils       import pct_to_decimal, extract_mime_data
 from pangalactic.node.widgets     import NameLabel

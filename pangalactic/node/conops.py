@@ -36,7 +36,6 @@ except:
 # from pangalactic.core.access          import get_perms
 from pangalactic.core.clone           import clone
 from pangalactic.core.utils.datetimes import dtstamp
-# from pangalactic.node.pgxnobject      import PgxnObject
 from pangalactic.node.timeline        import TimelineModeler
 from pangalactic.node.powermodeler    import PowerModeler
 from pangalactic.node.widgets         import CustomSplitter
@@ -102,8 +101,6 @@ class ConOpsModeler(QMainWindow):
         # self.init_toolbar()
         self.set_widgets()
         self.setWindowTitle('Concept of Operations (ConOps) Modeler')
-        dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
-        dispatcher.connect(self.on_remote_mode_defs, "modes published")
 
     @property
     def project(self):
@@ -209,7 +206,7 @@ class ConOpsModeler(QMainWindow):
         # ====================================================================
         self.setCentralWidget(self.widget)
         self.resize(1700, 800)
-        dispatcher.connect(self.on_usage_set, "powermodeler usage set")
+        dispatcher.connect(self.on_usage_set, "powermodeler set usage")
 
     def on_usage_set(self, usage=None):
         self.usage = usage
@@ -224,90 +221,6 @@ class ConOpsModeler(QMainWindow):
         """
         state['model_window_size'] = (self.width(), self.height())
         super().resizeEvent(event)
-
-    def on_delete_activity(self, oid=None, cname=None, remote=False):
-        """
-        Handler for dispatcher signals "delete activity" (sent by an event
-        block when it is removed) and "deleted object" (sent by pangalaxian).
-        Refreshes the activity tables. The signals are also handled by the
-        TimelineWidget.
-
-        Keyword Args:
-            oid (str): oid of the deleted activity
-            cname (str): class name of the deleted object
-            remote (bool): True if the operation was initiated remotely
-        """
-        self.rebuild_table()
-
-    def on_remote_mod_acts(self, objs=None):
-        """
-        Handle dispatcher "remote new or mod acts" signal.
-
-        Keyword Args:
-            objs (list of Activity): the new or modified Activity instances
-        """
-        impacts_timeline = False
-        sequence_adjusted = False
-        # n_objs = len(objs or [])
-        # orb.log.debug('* received "remote new or mod acts" signal')
-        # orb.log.debug(f'  with {n_objs} objects:')
-        for obj in objs:
-            seq = obj.sub_activity_sequence
-            # orb.log.debug(f'    + {obj.name} [seq: {seq}]')
-            if obj.oid == self.subject.oid:
-                # orb.log.debug('     this activity is subject of timeline ...')
-                impacts_timeline = True
-            elif obj.sub_activity_of.oid == self.subject.oid:
-                impacts_timeline = True
-                # orb.log.debug('  modified act is in timeline --')
-                # orb.log.debug('  checking sequence assignments ...')
-                # NOTE: these local adjustments are temporary but should be in
-                # sync with the activity sequence on the server
-                seqs = [act.sub_activity_sequence
-                        for act in self.subject.sub_activities]
-                # orb.log.debug(f'  - seqs: {seqs}')
-                if (len(seqs) > len(set(seqs)) and seq in seqs):
-                    # orb.log.debug(f'  seq ({seq}) occurs > once in seqs --')
-                    # orb.log.debug('  bump seq of activity with same seq ...')
-                    bumped_act_oid = ''
-                    for act in self.subject.sub_activities:
-                        if (act.oid != obj.oid and 
-                            act.sub_activity_sequence == seq):
-                            bumped_seq = seq + 1
-                            act.sub_activity_sequence = bumped_seq
-                            bumped_act_oid = act.oid
-                            sequence_adjusted = True
-                            orb.db.commit()
-                    # orb.log.debug('  bump seq for rest of activities ...')
-                    for act in self.subject.sub_activities:
-                        if (act.oid != bumped_act_oid and
-                            act.sub_activity_sequence >= bumped_seq):
-                            act.sub_activity_sequence += 1
-                            sequence_adjusted = True
-                            orb.db.commit()
-                # if sequence_adjusted:
-                    # orb.log.debug('  new sequence is:')
-                    # for act in self.subject.sub_activities:
-                        # s = act.sub_activity_sequence
-                        # orb.log.debug(f'  - {act.name}: {s}')
-        if impacts_timeline:
-            # orb.log.debug('  setting new scene and rebuilding table ...')
-            self.timeline_modeler.set_new_scene(remote=True, remote_mod_acts=objs)
-            if sequence_adjusted:
-                self.rebuild_table()
-
-    def on_remote_mode_defs(self):
-        """
-        Handle dispatcher "modes published" signal.
-        """
-        orb.log.debug('* received "modes published" signal')
-        self.rebuild_table()
-        # collapse and re-expand tree to refresh it
-        tree_expansion_index = state.get('conops_tree_expansion', {}).get(
-                                            self.project.oid) or 0
-        level = tree_expansion_index + 2
-        self.sys_select_tree.collapseAll()
-        self.sys_select_tree.expandToDepth(level)
 
     def closeEvent(self, event):
         """
