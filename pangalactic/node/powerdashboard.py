@@ -581,7 +581,7 @@ class ModeDefinitionDashboard(QWidget):
         # mode_defz data, e.g. when default power levels are set for a newly
         # selected subsystem -- hence the need for the "mode_defs_need_update"
         # state variable, which will be set by set_row_fields() if needed.
-        self.mode_defs_need_update = False
+        # self.mode_defs_need_update = False
         # set row labels
         # ---------------------------------------------------------------------
         # TODO: row labels should be removed / re-added when self.usage changes
@@ -644,8 +644,8 @@ class ModeDefinitionDashboard(QWidget):
                 self.edit_button = SizedButton('Edit')
                 self.edit_button.clicked.connect(self.on_edit)
                 grid.addWidget(self.edit_button, row, 0)
-        if self.mode_defs_need_update:
-            dispatcher.send(signal="update mode defs", oid=self.project.oid)
+        # if self.mode_defs_need_update:
+            # dispatcher.send(signal="update mode defs", oid=self.project.oid)
 
     def get_l_select(self, comp):
         contexts = get_power_contexts(comp) or DEFAULT_CONTEXTS
@@ -736,7 +736,7 @@ class ModeDefinitionDashboard(QWidget):
                                           usage.oid,
                                           self.act.oid,
                                           "Off")
-                        self.mode_defs_need_update = True
+                        # self.mode_defs_need_update = True
                 if self.edit_state:
                     i = self.usage_to_l_select[usage.oid].findText(
                                                             modal_context)

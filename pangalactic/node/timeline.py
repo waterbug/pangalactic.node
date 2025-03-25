@@ -1297,7 +1297,7 @@ class TimelineModeler(QWidget):
         self.rebuild_table()
 
     def rebuild_table(self):
-        orb.log.debug("* conops: rebuild_table()")
+        orb.log.debug("* timeline: rebuild_table()")
         central_layout = self.layout()
         if getattr(self, 'activity_table', None):
             central_layout.removeWidget(self.activity_table)
@@ -1357,9 +1357,9 @@ class TimelineModeler(QWidget):
         """
         impacts_timeline = False
         sequence_adjusted = False
-        # n_objs = len(objs or [])
-        # orb.log.debug('* received "remote new or mod acts" signal')
-        # orb.log.debug(f'  with {n_objs} objects:')
+        n_objs = len(objs or [])
+        orb.log.debug('* received "remote new or mod acts" signal')
+        orb.log.debug(f'  with {n_objs} objects:')
         for obj in objs:
             seq = obj.sub_activity_sequence
             # orb.log.debug(f'    + {obj.name} [seq: {seq}]')
