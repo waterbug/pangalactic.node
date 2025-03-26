@@ -197,7 +197,8 @@ class Main(QMainWindow):
                        Version('4.3.dev4'),
                        Version('4.3.dev5'),
                        Version('4.3.dev6'),
-                       Version('4.3.dev7')
+                       Version('4.3.dev7'),
+                       Version('4.3.dev8')
                        ]
 
     # signals
@@ -1771,7 +1772,7 @@ class Main(QMainWindow):
                     return
                 self.on_received_objects(sobjs)
             elif subject == 'new':
-                # NOTE: content of 'new' msg changed in version 4.3.dev7
+                # NOTE: content of 'new' msg changed in version 4.3
                 # -- it is now a tuple: (authid, list of serialized objects)
                 authid, sobjs = content
                 if authid == userid:
@@ -1782,7 +1783,7 @@ class Main(QMainWindow):
                 orb.log.debug(f'received {n} "new" object(s)')
                 self.on_received_objects(sobjs)
             elif subject == 'modified':
-                # NOTE: content of 'new' msg changed in version 4.3.dev7
+                # NOTE: content of 'new' msg changed in version 4.3
                 # -- it is now a tuple: (userid, list of serialized objects)
                 authid, sobjs = content
                 if authid == userid:
