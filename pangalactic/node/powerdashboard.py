@@ -629,6 +629,8 @@ class ModeDefinitionDashboard(QWidget):
                     grid.addWidget(label, row, 0)
                     self.usage_to_row[acu.oid] = row
                     if self.edit_state:
+                        # TODO: see get_l_select -- allow l_select to be a
+                        # label, not combo box, if there is only one value
                         l_select = self.get_l_select(comp)
                         self.usage_to_l_select[acu.oid] = l_select
                         set_l = partial(self.set_level, oid=acu.oid)
@@ -648,7 +650,10 @@ class ModeDefinitionDashboard(QWidget):
             # dispatcher.send(signal="update mode defs", oid=self.project.oid)
 
     def get_l_select(self, comp):
-        contexts = get_power_contexts(comp) or DEFAULT_CONTEXTS
+        # TODO: if get_power_contexts() only returns ["Off"], return a label
+        # instead of a combo box, to indicate it is not settable (permanent
+        # "Off" value)
+        contexts = get_power_contexts(comp)
         l_select = QComboBox(self)
         l_select.setAttribute(Qt.WA_DeleteOnClose)
         l_select.addItems(contexts)
