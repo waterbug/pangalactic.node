@@ -75,7 +75,6 @@ class SystemDashboard(QTreeView):
         # NOTE: don't expand by default -- very cumbersome for big trees, and
         # anyway it is much better to use the "selected" state to determine the
         # level of expansion ...
-        # self.expandAll()
         self.setStyleSheet('font-weight: normal; '
                            'font-size: 12px; '
                            'QToolTip { font-weight: normal; '
@@ -173,10 +172,17 @@ class SystemDashboard(QTreeView):
         else:
             self.expandToDepth(1)
             # orb.log.debug('[Dashboard] expanded to default level (2)')
-        for column in range(view_model.sourceModel().columnCount()):
+        for column in range(1, view_model.sourceModel().columnCount()):
             self.resizeColumnToContents(column)
+        # self.header().resizeSection(0, 400)
         # DO NOT use `setMinimumSize()` here -- it breaks the slider that
         # appears when window size is too small to display the full width
+
+    def sizeHintForColumn(self, i):
+        if i == 0:
+            return 400
+        # selected to fit most numeric values with 4 significant digits
+        return 65
 
     def drawRow(self, painter, option, index):
         QTreeView.drawRow(self, painter, option, index)
@@ -348,7 +354,7 @@ class SystemDashboard(QTreeView):
                 if 0 in indexes:
                     dispatcher.send(signal='refresh tree and dash')
                 else:
-                    for column in range(src_model.columnCount()):
+                    for column in range(1, src_model.columnCount()):
                         self.resizeColumnToContents(column)
 
     def select_prescriptive_parms(self):
@@ -546,13 +552,13 @@ class SystemDashboard(QTreeView):
             mapped_sdi = self.model().mapFromSource(sdi)
             if mapped_sdi:
                 self.expand(mapped_sdi)
-        for column in range(self.model().columnCount()):
+        for column in range(1, self.model().columnCount()):
             self.resizeColumnToContents(column)
 
     def dash_node_expanded(self, index):
         if not self.model():
             return
-        for column in range(self.model().columnCount()):
+        for column in range(1, self.model().columnCount()):
             self.resizeColumnToContents(column)
         dispatcher.send(signal='dash node expanded', index=index)
 
@@ -574,7 +580,7 @@ class SystemDashboard(QTreeView):
             return
         if index and not self.isExpanded(index):
             self.expand(index)
-            for column in range(self.model().columnCount()):
+            for column in range(1, self.model().columnCount()):
                 self.resizeColumnToContents(column)
 
     def dash_node_collapse(self, index=None):
