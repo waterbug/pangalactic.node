@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 # PyQt
 from PyQt5.QtGui  import QBrush, QCursor
 from PyQt5.QtCore import (pyqtSignal, Qt, QAbstractItemModel,
-                          QItemSelectionModel, QModelIndex, QSize,
+                          QItemSelectionModel, QModelIndex,
                           QSortFilterProxyModel, QVariant)
 from PyQt5.QtWidgets import QAction, QMenu, QSizePolicy, QTreeView
 
@@ -962,9 +962,8 @@ class SystemTreeView(QTreeView):
             dispatcher.connect(self.on_new_diagram_block, 'new diagram block')
         self.setStyleSheet('font-weight: normal; font-size: 12px')
         self.proxy_model.sort(0)
-        self.setSizePolicy(QSizePolicy.MinimumExpanding,
-                           QSizePolicy.MinimumExpanding)
-        self.setMaximumWidth(600)
+        self.setSizePolicy(QSizePolicy.Expanding,
+                           QSizePolicy.Expanding)
         self.resizeColumnToContents(0)
         self.project = self.source_model.project
         if not state.get('sys_trees'):

@@ -116,7 +116,7 @@ from pangalactic.core.test.utils       import (create_test_project,
                                                create_test_users)
 from pangalactic.core.utils.datetimes  import dtstamp, date2str
 from pangalactic.core.utils.reports    import write_mel_xlsx_from_model
-from pangalactic.core.validation       import check_for_cycles
+from pangalactic.core.validation       import check_for_cycles, get_level_count
 from pangalactic.node.admin            import AdminDialog, PersonSearchDialog
 from pangalactic.node.buttons          import ButtonLabel, MenuButton
 from pangalactic.node.cad.viewer       import Model3dDialog, Model3DViewer
@@ -4761,6 +4761,7 @@ class Main(QMainWindow):
         psus = orb.search_exact(cname='ProjectSystemUsage',
                                 project=self.project)
         systems = [psu.system for psu in psus]
+        level_count = 0
         for system in systems:
             cycles = check_for_cycles(system)
             if cycles:
@@ -4769,6 +4770,12 @@ class Main(QMainWindow):
                 dlg = NotificationDialog(html, parent=self)
                 dlg.show()
                 return
+            else:
+                # determine how many levels are in the assembly ---------------
+                system_level_count = get_level_count(system)
+                if system_level_count > level_count:
+                    level_count = system_level_count
+        orb.log.debug(f"* level count = {level_count}")
         ######################################################################
         # TODO: possibly use get_bom() or get_assembly() when the current
         # project is set to get all sys tree items for the current project,
@@ -4822,7 +4829,7 @@ class Main(QMainWindow):
         # orb.log.debug(f'    with selected system: {sys_id}')
         # model = self.sys_tree.source_model
         # orb.log.debug('    with source model: {}'.format(str(model)))
-        self.sys_tree.setSizePolicy(QSizePolicy.Minimum,
+        self.sys_tree.setSizePolicy(QSizePolicy.Expanding,
                                     QSizePolicy.Expanding)
         self.sys_tree_rebuilt = True
         # NB:  rebuild dashboard before expanding sys_tree, because their
@@ -4833,17 +4840,17 @@ class Main(QMainWindow):
         # set panel size policy to match the sys_tree's
         # sys_tree_panel.setSizePolicy(QSizePolicy.MinimumExpanding,
         sys_tree_panel.setSizePolicy(QSizePolicy.Expanding,
-                                     QSizePolicy.MinimumExpanding)
+                                     QSizePolicy.Expanding)
         sys_tree_panel.setMinimumWidth(400)
         # set panel max width to match the max width set for sys_tree
         sys_tree_layout = QVBoxLayout(sys_tree_panel)
         self.expansion_select = QComboBox()
         self.expansion_select.setStyleSheet(
                                         'font-weight: bold; font-size: 14px')
-        self.expansion_select.addItem('2 levels', QVariant())
-        self.expansion_select.addItem('3 levels', QVariant())
-        self.expansion_select.addItem('4 levels', QVariant())
-        self.expansion_select.addItem('5 levels', QVariant())
+        # set available expansion levels based on computed level_count ...
+        if level_count and level_count >= 1:
+            for n in range(2, level_count + 1):
+                self.expansion_select.addItem(f'{n} levels', QVariant())
         sys_tree_layout.addWidget(self.expansion_select)
         sys_tree_layout.addWidget(self.sys_tree)
         gripper = Gripper(self.sys_tree, w=10, h=10)
