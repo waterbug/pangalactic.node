@@ -182,7 +182,7 @@ class SystemDashboard(QTreeView):
         if i == 0:
             return 400
         # selected to fit most numeric values with 4 significant digits
-        return 65
+        return 60
 
     def drawRow(self, painter, option, index):
         QTreeView.drawRow(self, painter, option, index)
