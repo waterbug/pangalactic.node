@@ -234,16 +234,22 @@ class PowerModeler(QWidget):
         # self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self.plot_action = self.create_action(
-                                    "Power vs. Time Graph",
-                                    slot=self.graph,
-                                    icon="graph",
-                                    tip="Graph Power Modes")
+                                "Power vs. Time Graph\nwith value labels",
+                                slot=self.graph,
+                                icon="graph",
+                                tip="Graph Power Modes")
         self.toolbar.addAction(self.plot_action)
+        self.plot_noval_action = self.create_action(
+                                "Power vs. Time Graph\nwithout value labels",
+                                slot=self.graph_no_val_labels,
+                                icon="graph",
+                                tip="Graph Power Modes with labels")
+        self.toolbar.addAction(self.plot_noval_action)
         self.output_excel_action = self.create_action(
-                                    "Output to Excel",
-                                    slot=self.output_excel,
-                                    icon="excel_32",
-                                    tip="Write Excel File")
+                                "Output to Excel",
+                                slot=self.output_excel,
+                                icon="excel_32",
+                                tip="Write Excel File")
         self.toolbar.addAction(self.output_excel_action)
         if self.usage and self.subject and orb.get_duration(self.subject):
             self.plot_action.setEnabled(True)
@@ -654,7 +660,10 @@ class PowerModeler(QWidget):
         """
         pass
 
-    def graph(self):
+    def graph_no_val_labels(self):
+        self.graph(without_values=True)
+
+    def graph(self, without_values=False):
         """
         Output a graph of power vs. time for the current system during the
         current subject activity.
@@ -738,7 +747,9 @@ class PowerModeler(QWidget):
         qwt.QwtPlotCurve.make(t_array, f_mev(t_array), "P[mev]", plot,
                               z=1.0, linecolor="red", linewidth=2,
                               antialiased=True)
-        last_label_y = 0
+        # last_label_y = 0
+        last_low_label_y = 0
+        last_high_label_y = 0
         if subtimelines:
             t_seq = [0.0]
             for i, a in enumerate(all_acts):
@@ -766,25 +777,34 @@ class PowerModeler(QWidget):
             p_cbe_val = p_cbe_dict[a.oid]
             p_mev_val = p_mev_dict[a.oid]
             name = pname_to_header(a.name, 'Activity', width=20)
-            label_txt = f'  {name}  '
-            label_txt += f'\n P[cbe] = {p_cbe_val} Watts '
-            label_txt += f'\n P[mev] = {p_mev_val} Watts '
+            if without_values:
+                label_txt = f'  {name}  '
+            else:
+                label_txt = f'  {name}  '
+                label_txt += f'\n P[cbe] = {p_cbe_val} W '
+                label_txt += f'\n P[mev] = {p_mev_val} W '
             pen = QPen(Qt.black, 1)
             white_brush = QBrush(Qt.white)
-            name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
-                                      borderpen=pen, borderradius=3.0,
+            name_label = QwtText.make(text=label_txt,# weight=QFont.Bold,
+                                      borderpen=pen, borderradius=2.0,
                                       brush=white_brush)
             if p_cbe_val < .5 * max_val:
-                if last_label_y == .65 * max_val:
-                    y_label = .9 * max_val
+                if last_low_label_y == .55 * max_val:
+                    y_label = .70 * max_val
+                elif last_low_label_y == .70 * max_val:
+                    y_label = .85 * max_val
                 else:
-                    y_label = .65 * max_val
+                    y_label = .55 * max_val
+                last_low_label_y = y_label
             else:
-                if last_label_y == .15 * max_val:
-                    y_label = .35 * max_val
+                if last_high_label_y == .15 * max_val:
+                    y_label = .30 * max_val
+                elif last_high_label_y == .30 * max_val:
+                    y_label = .45 * max_val
                 else:
                     y_label = .15 * max_val
-            last_label_y = y_label
+                last_high_label_y = y_label
+            # last_label_y = y_label
             # -----------------------------------------------------------------
             # x-positioning and alignment of labels ...
             # -----------------------------------------------------------------
@@ -856,9 +876,9 @@ class PowerModeler(QWidget):
                 pass
             p_averages[super_act.name] = p_average
             label_txt = f'  {super_act.name}  \n'
-            label_txt += f' Peak Power: {p_peak} Watts '
+            label_txt += f' Peak Power: {p_peak} W '
             if p_average > 0:
-                label_txt += f'\n Average Power: {p_average} Watts '
+                label_txt += f'\n Average Power: {p_average} W '
             pen = QPen(LABEL_COLORS[j], 1)
             white_brush = QBrush(Qt.white)
             sa_name_label = QwtText.make(text=label_txt, weight=QFont.Bold,
@@ -891,9 +911,9 @@ class PowerModeler(QWidget):
                                       orb.get_duration(a, units=time_units)))
                                       for a in all_acts]) / total_duration)
         title_label_txt = f'  {act.name}  \n'
-        title_label_txt += f' Peak Power: {max_val} Watts '
+        title_label_txt += f' Peak Power: {max_val} W '
         if overall_avg is not None:
-            title_label_txt += f'\n Average Power: {overall_avg} Watts '
+            title_label_txt += f'\n Average Power: {overall_avg} W '
         pen = QPen(Qt.darkRed, 5)
         white_brush = QBrush(Qt.white)
         title_label = QwtText.make(text=title_label_txt, weight=QFont.Bold,
