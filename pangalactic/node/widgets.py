@@ -9,6 +9,7 @@ from PyQt5.QtWidgets  import (QApplication, QCheckBox, QComboBox, QDateEdit,
                               QLineEdit, QListView, QListWidget, QSizeGrip,
                               QSizePolicy, QSplitter, QTextBrowser, QTextEdit,
                               QVBoxLayout, QWidget)
+import os
 from textwrap import wrap
 import datetime
 
@@ -69,13 +70,52 @@ class CustomHandle(QWidget):
         painter.drawRect(self.rect())
 
 
+class CustomSplitterHandle(QWidget):
+    def __init__(self, orientation, parent=None):
+        super().__init__(parent)
+        self.orientation = orientation
+        icon_dir = state.get('icon_dir', '')
+        if self.orientation == Qt.Horizontal:
+            img_path = os.path.join(icon_dir, 'resize_horizontal_16.png')
+        else:
+            img_path = os.path.join(icon_dir, 'resize_vertical_16.png')
+        self.pixmap = QPixmap(img_path)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        if self.orientation == Qt.Horizontal:
+            x = (self.width() - self.pixmap.width()) // 2
+            y = (self.height() - self.pixmap.height()) // 2
+        else:
+             x = (self.width() - self.pixmap.width()) // 2
+             y = (self.height() - self.pixmap.height()) // 2
+        painter.drawPixmap(x, y, self.pixmap)
+
 class CustomSplitter(QSplitter):
     def addWidget(self, wdg):
         super().addWidget(wdg)
         self.width = self.handleWidth()
-        l_handle = CustomHandle()
-        l_handle.setMaximumSize(self.width*2, self.width*10)
-        self.setHandleWidth(10)
+        # l_handle = CustomHandle()
+        l_handle = CustomSplitterHandle(self.orientation())
+        l_handle.setMaximumSize(self.width*2, self.width*20)
+        self.setHandleWidth(16)
+        self.setStyleSheet("""
+            QSplitter {
+            margin: 0;
+            padding: 0;
+            min-height: 6px;
+            border: 1px solid rgb(210, 215, 211);
+            }
+            QSplitter:hover {
+                margin: 0;
+                padding: 0;
+                min-height: 6px;
+                border: 2px solid gray;
+            }
+            QSplitter::handle:pressed {
+                background-color: gray;
+                border: 2px solid gray;
+            }""")
         layout = QHBoxLayout(self.handle(self.count()-1))
         layout.setSpacing(0)
         layout.setContentsMargins(0,0,0,0)
