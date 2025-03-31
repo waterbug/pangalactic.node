@@ -234,13 +234,13 @@ class PowerModeler(QWidget):
         # self.toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         self.toolbar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
         self.plot_action = self.create_action(
-                                "Power vs. Time Graph\nwith value labels",
+                                "Power vs Time Graph\nwith value labels",
                                 slot=self.graph,
                                 icon="graph",
                                 tip="Graph Power Modes")
         self.toolbar.addAction(self.plot_action)
         self.plot_noval_action = self.create_action(
-                                "Power vs. Time Graph\nwithout value labels",
+                                "Power vs Time Graph\nwithout value labels",
                                 slot=self.graph_no_val_labels,
                                 icon="graph",
                                 tip="Graph Power Modes with labels")
@@ -665,7 +665,7 @@ class PowerModeler(QWidget):
 
     def graph(self, without_values=False):
         """
-        Output a graph of power vs. time for the current system during the
+        Output a graph of power vs time for the current system during the
         current subject activity.
         """
         orb.log.debug('* graph()')
@@ -727,7 +727,7 @@ class PowerModeler(QWidget):
         d_text = f'  duration of {act.name}: {total_duration} {t_units}'
         orb.log.debug(d_text)
         max_val = max(list(p_mev_dict.values()))
-        plot = qwt.QwtPlot(f"{comp.name} Power vs. Time")
+        plot = qwt.QwtPlot(f"{comp.name} Power vs Time")
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, f"time ({time_units})")
         plot.setAxisTitle(qwt.QwtPlot.yLeft, "Power (Watts)")
@@ -945,7 +945,7 @@ class PowerModeler(QWidget):
         mode_defz[project.oid]['p_average'] = p_average
         orb.log.debug(f'* saved p_average: {p_average}')
         dispatcher.send(signal="modes edited", oid=project.oid)
-        plot_title = f'{super_act.name} Power vs. Time'
+        plot_title = f'{super_act.name} Power vs Time'
         dlg = PlotDialog(plot, plot_title, parent=self)
         dlg.setAttribute(Qt.WA_DeleteOnClose)
         dlg.show()
