@@ -18,6 +18,7 @@ except:
     import pangalactic.core.set_uberorb
     from pangalactic.core         import orb
 from pangalactic.core             import state, write_state
+from pangalactic.core.access      import get_perms
 from pangalactic.core.names       import get_link_name
 from pangalactic.core.parametrics import (get_pval, get_power_contexts,
                                           get_modal_context,
@@ -26,12 +27,10 @@ from pangalactic.core.parametrics import (get_pval, get_power_contexts,
                                           set_modal_context)
 from pangalactic.core.validation  import get_assembly
 from pangalactic.node.buttons     import SizedButton
+from pangalactic.node.dialogs     import PowerSpecDialog
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.utils       import get_all_project_usages
 from pangalactic.node.widgets     import ColorLabel, ValueLabel
-
-
-DEFAULT_CONTEXTS = ['Off', 'Nominal', 'Peak', 'Standby', 'Survival']
 
 
 class SystemSelectionView(QTreeView):
@@ -265,7 +264,11 @@ class ModeDefinitionDashboard(QWidget):
         self.dash_panel = QWidget(parent=self)
         grid = QGridLayout()
         self.dash_panel.setLayout(grid)
-        self.main_layout.addWidget(self.dash_panel)
+        dash_outer_layout = QHBoxLayout()
+        dash_outer_layout.addWidget(self.dash_panel)
+        dash_outer_layout.addStretch(1)
+        self.main_layout.addLayout(dash_outer_layout)
+        # self.main_layout.addWidget(self.dash_panel)
         self.main_layout.addStretch()
         self.setup_dash_interface()
         self.setup_dash_data()
@@ -537,7 +540,7 @@ class ModeDefinitionDashboard(QWidget):
             self.field_titles[name] = ColorLabel(self.fields[name],
                                                  color='blue', element='h3',
                                                  maxwidth=160)
-            grid.addWidget(self.field_titles[name], 0, i+1)
+            grid.addWidget(self.field_titles[name], 0, i+2)
 
     def on_edit(self, evt):
         self.edit_state = True
@@ -576,12 +579,6 @@ class ModeDefinitionDashboard(QWidget):
         Add the data.
         """
         self.setup_title_widget()
-        # NOTE: identifying the data associated with the currently selected
-        # system usage can have a side-effect of requiring an update to the
-        # mode_defz data, e.g. when default power levels are set for a newly
-        # selected subsystem -- hence the need for the "mode_defs_need_update"
-        # state variable, which will be set by set_row_fields() if needed.
-        # self.mode_defs_need_update = False
         # set row labels
         # ---------------------------------------------------------------------
         # TODO: row labels should be removed / re-added when self.usage changes
@@ -610,11 +607,11 @@ class ModeDefinitionDashboard(QWidget):
                 return
             TBD = orb.get('pgefobjects:TBD')
             row = 1
-            # create a dict that maps usage.oid to row ...
+            # self.usage_to_row maps usage.oid to row ...
             self.usage_to_row = {}
-            # a dict that maps component.oid to power level selector
+            # self.usage_to_l_select maps component.oid to power level selector
             self.usage_to_l_select = {}
-            # and a dict that maps component.oid to power level setter
+            # self.usage_to_l_setter maps component.oid to power level setter
             self.usage_to_l_setter = {}
             acus.sort(key=lambda x: get_link_name(x))
             for acu in acus:
@@ -629,13 +626,14 @@ class ModeDefinitionDashboard(QWidget):
                     grid.addWidget(label, row, 0)
                     self.usage_to_row[acu.oid] = row
                     if self.edit_state:
-                        # TODO: see get_l_select -- allow l_select to be a
-                        # label, not combo box, if there is only one value
+                        # NOTE: if get_power_contexts() returns ["Off"],
+                        # "l_select" will be a label, not a combo box ...
                         l_select = self.get_l_select(comp)
                         self.usage_to_l_select[acu.oid] = l_select
-                        set_l = partial(self.set_level, oid=acu.oid)
-                        self.usage_to_l_setter[acu.oid] = set_l
-                        l_select.activated[str].connect(set_l)
+                        if not isinstance(l_select, ValueLabel):
+                            set_l = partial(self.set_level, oid=acu.oid)
+                            self.usage_to_l_setter[acu.oid] = set_l
+                            l_select.activated[str].connect(set_l)
                     self.set_row_fields(acu, row)
             row += 1
             if self.edit_state:
@@ -646,18 +644,22 @@ class ModeDefinitionDashboard(QWidget):
                 self.edit_button = SizedButton('Edit')
                 self.edit_button.clicked.connect(self.on_edit)
                 grid.addWidget(self.edit_button, row, 0)
-        # if self.mode_defs_need_update:
-            # dispatcher.send(signal="update mode defs", oid=self.project.oid)
 
     def get_l_select(self, comp):
         # TODO: if get_power_contexts() only returns ["Off"], return a label
         # instead of a combo box, to indicate it is not settable (permanent
         # "Off" value)
+        # default: "unspecified"
+        l_select = ValueLabel("unspecified", w=20)
         contexts = get_power_contexts(comp)
-        l_select = QComboBox(self)
+        if len(contexts) == 1:
+            modal_context = contexts[0]
+            l_select = ValueLabel(modal_context, w=20)
+        elif len(contexts) > 1:
+            l_select = QComboBox(self)
+            l_select.addItems(contexts)
+            l_select.setCurrentIndex(0)
         l_select.setAttribute(Qt.WA_DeleteOnClose)
-        l_select.addItems(contexts)
-        l_select.setCurrentIndex(0)
         return l_select
 
     def set_level(self, level, oid=None):
@@ -685,9 +687,22 @@ class ModeDefinitionDashboard(QWidget):
                     datum=(self.project.oid, sys_oid, oid, mode_oid, value))
         self.on_edit(None)
 
+    def edit_power_spec(self, oid):
+        """
+        Activate EditPowerSpec dialog for an item.
+
+        Args:
+            oid (str): oid of the item whose power spec is to be edited
+        """
+        dlg = PowerSpecDialog(oid)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+        if dlg.exec_():
+            dispatcher.send('power spec updated', parms=dlg.parms)
+            dlg.close()
+
     def set_row_fields(self, usage, row):
-        # name = usage.id
-        # orb.log.debug(f' - set_row_fields({name}, row {row})')
+        name = usage.id
+        orb.log.debug(f' - set_row_fields({name}, row {row})')
         # fields: power_level, p_cbe, p_mev
         grid = self.dash_panel.layout()
         self.p_cbe_fields = {}
@@ -700,8 +715,24 @@ class ModeDefinitionDashboard(QWidget):
             comp = usage.component
             # is_component = True
             # assembly = usage.assembly
+        modal_context = get_modal_context(self.project.oid, usage.oid,
+                                          self.act.oid)
+        orb.log.debug(f' - modal_context = {modal_context}')
+        # --------------------
+        # edit buttons (col 1)
+        # --------------------
+        if self.edit_state and not modal_context == '[computed]':
+            edit_button = SizedButton("Edit Spec", color="green")
+            if 'modify' in get_perms(comp):
+                edit_button.clicked.connect(self.edit_power_spec)
+            else:
+                edit_button.setEnabled(False)
+            grid.addWidget(edit_button, row, 1)
+        else:
+            placeholder = QWidget()
+            grid.addWidget(placeholder, row, 1)
         # -------------------
-        # power_level (col 1)
+        # power_level (col 2)
         # -------------------
         # modal_context = ''  # a.k.a. power level
         modal_context = get_modal_context(self.project.oid, usage.oid,
@@ -709,13 +740,11 @@ class ModeDefinitionDashboard(QWidget):
         if row == 1:
             # modal_context = '[computed]'
             label = ValueLabel(modal_context, w=40)
-            grid.addWidget(label, row, 1)
+            grid.addWidget(label, row, 2)
         else:
-            modal_context = get_modal_context(self.project.oid, usage.oid,
-                                              self.act.oid)
             if modal_context == '[computed]':
                 label = ValueLabel(modal_context, w=40)
-                grid.addWidget(label, row, 1)
+                grid.addWidget(label, row, 2)
             else:
                 if not modal_context:
                     # NOTE: this should never be the case ...
@@ -741,18 +770,17 @@ class ModeDefinitionDashboard(QWidget):
                                           usage.oid,
                                           self.act.oid,
                                           "Off")
-                        # self.mode_defs_need_update = True
                 if self.edit_state:
-                    i = self.usage_to_l_select[usage.oid].findText(
-                                                            modal_context)
                     l_sel = self.usage_to_l_select[usage.oid]
-                    l_sel.setCurrentIndex(i)
-                    grid.addWidget(l_sel, row, 1)
+                    if hasattr(l_sel, 'findText'):
+                        i = l_sel.findText(modal_context)
+                        l_sel.setCurrentIndex(i)
+                    grid.addWidget(l_sel, row, 2)
                 else:
                     label = ValueLabel(modal_context, w=40)
-                    grid.addWidget(label, row, 1)
+                    grid.addWidget(label, row, 2)
         # -------------------
-        # p_cbe (col 2)
+        # p_cbe (col 3)
         # -------------------
         # orb.log.debug('* calling get_modal_power() for')
         # orb.log.debug(f'      usage:         "{usage.id}"')
@@ -771,9 +799,9 @@ class ModeDefinitionDashboard(QWidget):
         else:
             p_cbe_field = ValueLabel(p_cbe_val_str, w=20)
             self.p_cbe_fields[comp.oid] = p_cbe_field
-            grid.addWidget(p_cbe_field, row, 2)
+            grid.addWidget(p_cbe_field, row, 3)
         # -------------------
-        # p_mev (col 3)
+        # p_mev (col 4)
         # -------------------
         ctgcy = get_pval(comp.oid, 'P[Ctgcy]')
         factor = 1.0 + ctgcy
@@ -787,7 +815,7 @@ class ModeDefinitionDashboard(QWidget):
         else:
             p_mev_field = ValueLabel(p_mev_val_str, w=20)
             self.p_mev_fields[comp.oid] = p_mev_field
-            grid.addWidget(p_mev_field, row, 3)
+            grid.addWidget(p_mev_field, row, 4)
 
 
 if __name__ == '__main__':

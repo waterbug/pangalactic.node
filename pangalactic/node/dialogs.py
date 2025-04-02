@@ -40,6 +40,7 @@ from pangalactic.core.names       import (get_attr_ext_name,
                                           get_link_name)
 from pangalactic.core.parametrics import (componentz,
                                           de_defz,
+                                          get_power_contexts,
                                           parm_defz,
                                           parmz_by_dimz,
                                           get_dval,
@@ -1458,6 +1459,42 @@ class AssemblyNodeDialog(QDialog):
         self.ref_des = self.ref_des_field.get_value()
         if hasattr(self, 'quantity_field'):
             self.quantity = int(self.quantity_field.get_value())
+        self.accept()
+
+
+class PowerSpecDialog(QDialog):
+    """
+    A dialog to edit the power parameters for a HW Library item.
+
+    Args:
+        oid (str): oid of the item whose spec is to be edited
+    """
+    def __init__(self, oid, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Power Parameters")
+        item = orb.get(oid)
+        if not item:
+            # TODO: popup to say item was not found
+            return
+        contexts = get_power_contexts(item)
+        # form.addRow(ref_des_label, self.ref_des_field)
+        # if not system:
+            # quantity_label = QLabel('Quantity', self)
+            # self.quantity_field = IntegerFieldWidget(parent=self,
+                                                     # value=self.quantity)
+            # form.addRow(quantity_label, self.quantity_field)
+        # # OK and Cancel buttons
+        # self.buttons = QDialogButtonBox(
+            # QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            # Qt.Horizontal, self)
+        # form.addRow(self.buttons)
+        # self.buttons.accepted.connect(self.on_save)
+        # self.buttons.rejected.connect(self.reject)
+
+    def on_save(self):
+        # self.ref_des = self.ref_des_field.get_value()
+        # if hasattr(self, 'quantity_field'):
+            # self.quantity = int(self.quantity_field.get_value())
         self.accept()
 
 

@@ -9,7 +9,7 @@ from copy import deepcopy
 # pangalactic
 from pangalactic.core         import orb
 from pangalactic.core         import config, prefs, state
-from pangalactic.core.meta    import PGXN_PARAMETERS
+from pangalactic.core.meta    import DEFAULT_CLASS_PARAMETERS, PGXN_PARAMETERS
 from pangalactic.node         import docs, icons, images
 from pangalactic.node.docs    import images as doc_images
 
@@ -82,7 +82,8 @@ def setup_dirs_and_state(app_name='Pangalaxian'):
         state['dashboard_name'] = prefs['dashboard_names'][0]
     # app config will have been loaded -- add any missing default_parameters or
     # default_data_elements using state
-    app_parms = state.get('app_default_parms') or []
+    app_parms = state.get('app_default_parms') or DEFAULT_CLASS_PARAMETERS[
+                                                            'HardwareProduct']
     if prefs.get('default_parms'):
         # update prefs from any new default_parms in state
         if app_parms:
