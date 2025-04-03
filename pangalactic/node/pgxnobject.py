@@ -17,7 +17,13 @@ from pydispatch import dispatcher
 from sqlalchemy.orm.collections import InstrumentedList
 
 # pangalactic
-from pangalactic.core import orb
+try:
+    # if an orb has been set, this works
+    from pangalactic.core import orb
+except:
+    # if an orb has not been set, uberorb is set as default
+    import pangalactic.core.set_uberorb
+    from pangalactic.core import orb
 from pangalactic.core import prefs, state
 from pangalactic.core.access import get_perms, is_global_admin
 from pangalactic.core.clone  import clone
@@ -79,9 +85,9 @@ class PgxnForm(QWidget):
 
     obj_modified = pyqtSignal(str)     # arg: oid
 
-    def __init__(self, obj, form_type, pgxo=None, view=None, requireds=None,
-                 main_view=None, mask=None, unmask=None, noctgcy=None,
-                 seq=None, idvs=None, placeholders=None,
+    def __init__(self, obj, form_type, pgxo=None, edit_mode=False, view=None,
+                 requireds=None, main_view=None, mask=None, unmask=None,
+                 noctgcy=None, seq=None, idvs=None, placeholders=None,
                  data_panel_contents=None, parent=None):
         """
         Initialize.
@@ -93,6 +99,7 @@ class PgxnForm(QWidget):
         Keyword Args:
             pgxo (PgxnObject):  PgxnObject instance of which this is a
                 subwidget
+            edit_mode (bool):  if True, open in edit mode; otherwise, view mode
             view (list):  names of the fields to be shown (a subset of
                 self.schema['field_names'])
             requireds (list of str):  ids of required fields
@@ -119,6 +126,7 @@ class PgxnForm(QWidget):
         super().__init__(parent=parent)
         self.obj = obj
         self.pgxo = pgxo
+        self._edit_mode = edit_mode
         self.all_idvs = idvs or []
         requireds = requireds or []
         self.noctgcy = noctgcy or []
@@ -344,7 +352,8 @@ class PgxnForm(QWidget):
                             computed_note = True
                         if self.edit_mode:
                             del_action = QAction('delete', label)
-                            del_action.triggered.connect(
+                            if hasattr(parent, 'on_del_parameter'):
+                                del_action.triggered.connect(
                                     partial(parent.on_del_parameter, pid=pid))
                             label.addAction(del_action)
                             label.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -447,8 +456,9 @@ class PgxnForm(QWidget):
                                              QSizePolicy.Minimum)
                         if self.edit_mode:
                             del_action = QAction('delete', label)
-                            del_action.triggered.connect(
-                                partial(parent.on_del_de, deid=deid))
+                            if hasattr(parent, 'on_del_de'):
+                                del_action.triggered.connect(
+                                        partial(parent.on_del_de, deid=deid))
                             label.addAction(del_action)
                             label.setContextMenuPolicy(Qt.ActionsContextMenu)
                         value_layout = QHBoxLayout()
@@ -573,7 +583,10 @@ class PgxnForm(QWidget):
 
     @property
     def edit_mode(self):
-        return self.pgxo.edit_mode
+        if self.pgxo is not None:
+            return self.pgxo.edit_mode
+        else:
+            return self._edit_mode
 
     def dragEnterEvent(self, event):
         mime_formats = set(event.mimeData().formats())
@@ -723,7 +736,8 @@ class PgxnForm(QWidget):
                     set_pval_from_str(self.obj.oid, p_id, str_val,
                                       units=u_cur)
         state['current_parm_dim'] = self.parm_dims[index]
-        self.pgxo.build_from_object()
+        if hasattr(self.pgxo, 'build_from_object'):
+            self.pgxo.build_from_object()
 
 
 class ParameterForm(PgxnForm):
@@ -740,7 +754,7 @@ class ParameterForm(PgxnForm):
         mask (list of str):  list of fields to be displayed as read-only
     """
     def __init__(self, obj, pgxo=None, view=None, mask=None, noctgcy=None,
-                 seq=None, parent=None):
+                 seq=None, edit_mode=False, parent=None):
         """
         Initialize.
 
@@ -754,11 +768,14 @@ class ParameterForm(PgxnForm):
                 (default: None)
             noctgcy (list of str): list of parameter ids for which
                 contingencies should not be included in the form
+            edit_mode (bool):  if True, open in edit mode; otherwise, view mode
         """
         super().__init__(obj, 'parameters', pgxo=pgxo, view=view, mask=mask,
-                         noctgcy=noctgcy, seq=seq, parent=parent)
+                         edit_mode=edit_mode, noctgcy=noctgcy, seq=seq,
+                         parent=parent)
         self.obj = obj
         self.pgxo = pgxo
+        self._edit_mode = edit_mode
         self.noctgcy = noctgcy
         self.seq = None
         self.setAcceptDrops(True)
@@ -2485,35 +2502,34 @@ class PgxnObject(QDialog):
 # ==========================================================================
 # This would need to be modified to work with fastorb ...
 # ==========================================================================
-# if __name__ == '__main__':
-    # """
-    # Cmd line invocation for testing / prototyping
-    # """
-    # from PyQt5.QtWidgets import QApplication
-    # from pangalactic.core.serializers import deserialize
-    # from pangalactic.core.test.utils import create_test_project
-    # from pangalactic.core.test.utils import create_test_users
-    # app = QApplication(sys.argv)
-    # # ***************************************
-    # # Test using ref and test data
-    # # ***************************************
-    # if len(sys.argv) < 2:
-        # print(' * You must specify a home directory for the orb *')
-        # sys.exit()
-    # home = sys.argv[1]
-    # orb.start(home, console=True, debug=True)
-    # deserialize(orb, create_test_users() + create_test_project())
+if __name__ == '__main__':
+    """
+    Cmd line invocation for testing / prototyping
+    """
+    from PyQt5.QtWidgets import QApplication
+    from pangalactic.core.serializers import deserialize
+    from pangalactic.core.test.utils import create_test_project
+    from pangalactic.core.test.utils import create_test_users
+    app = QApplication(sys.argv)
+    # ***************************************
+    # Test using ref and test data
+    # ***************************************
+    if len(sys.argv) < 2:
+        print(' * You must specify a home directory for the orb *')
+        sys.exit()
+    home = sys.argv[1]
+    orb.start(home, console=True, debug=True)
+    test_part = orb.get('test:computer')
+    if not test_part:
+        deserialize(orb, create_test_users() + create_test_project())
+        test_part = orb.get('test:computer')
     # HardwareProduct = orb.classes['HardwareProduct']
     # test_part = HardwareProduct(oid='fusionworld:mrfusion.000',
             # id='mrfusion.000', id_ns='fusionworld', name='Mr. Fusion v.000',
             # security_mask=0, description='Fusion Power Source, MF Series',
             # comment='Omni-Fuel, Compact Semi-Portable Fusion Power Module')
-    # h2g2 = orb.get('hog0')
-    # if h2g2:
-        # test_part = h2g2
-    # admin = orb.get('pgefobjects:admin')
-    # pgana = orb.get('pgefobjects:PGANA')
     # window = PgxnObject(test_part)
-    # window.show()
-    # sys.exit(app.exec_())
+    window = ParameterForm(test_part, edit_mode=True)
+    window.show()
+    sys.exit(app.exec_())
 
