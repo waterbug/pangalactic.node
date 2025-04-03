@@ -51,8 +51,8 @@ def setup_dirs_and_state(app_name='Pangalaxian'):
             'Mass':
                 ['m[CBE]', 'm[Ctgcy]', 'm[MEV]'],
             'Power':
-                ['P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]', 'P[survival]',
-                 'Area_active', 'Area_substrate'],
+                ['P[CBE]', 'P[Ctgcy]', 'P[MEV]', 'P[peak]', 'P[standby]',
+                 'P[survival]', 'Area_active', 'Area_substrate'],
             'Data Rates':
                 ['R_D[CBE]', 'R_D[Ctgcy]', 'R_D[MEV]'],
             'Mechanical':
