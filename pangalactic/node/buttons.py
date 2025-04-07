@@ -165,6 +165,20 @@ class SizedButton(QPushButton):
         self.setMaximumWidth(width)
 
 
+class ItemButton(QPushButton):
+    """
+    Subclass of QPushButton that can be related to an item by its oid.
+    """
+    def __init__(self, text, oid=None, color="purple", parent=None):
+        super().__init__(text, parent=parent)
+        self.oid = oid
+        self.setStyleSheet(';'.join([
+            f'color: white; background-color: {color}',
+            'font-weight: bold;']))
+        width = self.fontMetrics().boundingRect(text).width() + 30
+        self.setMaximumWidth(width)
+
+
 class FkButton(QPushButton):
     """
     Button for rendering an "object" field (a.k.a. a foreign key or an
