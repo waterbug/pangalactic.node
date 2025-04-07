@@ -39,8 +39,8 @@ from pangalactic.core.parametrics import (add_data_element, add_parameter,
                                           delete_data_element,
                                           get_parameter_id,
                                           get_dval_as_str, get_pval_as_str,
-                                          get_pval_from_str, parameterz,
-                                          parm_defz, round_to,
+                                          get_pval, get_pval_from_str,
+                                          parameterz, parm_defz, round_to,
                                           set_dval_from_str,
                                           set_pval_from_str)
 from pangalactic.core.units           import alt_units, in_si, ureg
@@ -1215,8 +1215,10 @@ class PgxnObject(QDialog):
                 # orb.log.debug('  [pgxo] setting up edit mode ...')
                 # Cancel button cancels edits and switches to view mode
                 self.bbox = QDialogButtonBox(QDialogButtonBox.Cancel)
-                self.save_button = self.bbox.addButton('Save',
-                                               QDialogButtonBox.ActionRole)
+                # when not embedded, only show "Save and Close" -- a save()
+                # will often cause refreshes that force pgxnobject to close.
+                # self.save_button = self.bbox.addButton('Save',
+                                               # QDialogButtonBox.ActionRole)
                 self.save_and_close_button = self.bbox.addButton(
                                                'Save and Close',
                                                QDialogButtonBox.ActionRole)
@@ -1244,8 +1246,13 @@ class PgxnObject(QDialog):
         self.vbox.setStretch(1, 1)
         self.vbox.addWidget(self.bbox)
         self.create_connections()
-        # orb.log.debug('* [pgxo] editable_widgets: {}'.format(
-                                        # str(list(self.editable_widgets))))
+        orb.log.debug('* [pgxo] editable_widgets: {}'.format(
+                                        str(list(self.editable_widgets))))
+        orb.log.debug('* [pgxo] parameter_widgets: {}'.format(
+                                        str(list(self.p_widgets))))
+        epw = [pid for pid in self.p_widgets
+               if hasattr(self.p_widgets[pid], 'get_value')]
+        orb.log.debug(f'* [pgxo] editable parameter_widgets: {epw}')
         if ('id' in self.editable_widgets
             and self.cname == 'DataElementDefinition'):
             self.id_widget = self.editable_widgets['id']
@@ -2329,6 +2336,34 @@ class PgxnObject(QDialog):
                                          msg, QMessageBox.Ok, self)
                     notice.show()
                     return
+        epw = [pid for pid in self.p_widgets
+               if hasattr(self.p_widgets[pid], 'get_value')]
+        if (not self.editable_widgets) and epw:
+            # only editable fields are parameters -- send "parms set" signal
+            # and return ...
+            pmods = {}
+            for p_id in self.p_widgets:
+                # only non-computed parm widgets have 'get_value'
+                if hasattr(self.p_widgets[p_id], 'get_value'):
+                    str_val = self.p_widgets[p_id].get_value()
+                    set_pval_from_str(self.obj.oid, p_id, str_val)
+                    pmods[p_id] = get_pval(self.obj.oid, p_id)
+            pdict = {self.obj.oid : pmods}
+            parent = self.parent()
+            if parent:
+                parent.setFocus()
+            if getattr(self, 'closing', False):
+                orb.log.debug('  [pgxo] saving and closing ...')
+                # reset 'closing'
+                self.closing = False
+                dispatcher.send("parms set", parms=pdict)
+                self.close()
+                return
+            else:
+                # orb.log.debug('  [pgxo] saved -- rebuilding ...')
+                self.build_from_object()
+                dispatcher.send("parms set", parms=pdict)
+                return
         fields_dict = {}
         for name in self.editable_widgets:
             fields_dict[name] = self.editable_widgets[name].get_value()
@@ -2446,8 +2481,8 @@ class PgxnObject(QDialog):
         else:
             # orb.log.debug('  [pgxo] saved -- rebuilding ...')
             self.build_from_object()
-        if state.get('mode') in ['system', 'component']:
-            dispatcher.send(signal='update product modeler', obj=self.obj)
+        # if state.get('mode') in ['system', 'component']:
+            # dispatcher.send(signal='update product modeler', obj=self.obj)
 
     def on_select_related(self):
         orb.log.info('* [pgxo] selecting related object ...')
@@ -2497,6 +2532,40 @@ class PgxnObject(QDialog):
             self.new_window = PgxnObject(obj)
             # show() -> non-modal dialog
             self.new_window.show()
+
+
+class ParameterSpecDialog(QDialog):
+    """
+    A dialog to edit parameters for a HW Library item.
+
+    Args:
+        oid (str): oid of the item whose spec is to be edited
+        pid (str): base id of the parameters to be edited
+    """
+    def __init__(self, oid, pid, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Power Parameters")
+        item = orb.get(oid)
+        if not item:
+            # TODO: popup to say item was not found
+            return
+        self.parm_form = ParameterForm(item, pid=pid, edit_mode=True)
+        # OK and Cancel buttons
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.parm_form)
+        self.buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+            Qt.Horizontal, self)
+        self.buttons.accepted.connect(self.on_save)
+        self.buttons.rejected.connect(self.reject)
+        vbox.addWidget(self.buttons)
+        self.setLayout(vbox)
+
+    def on_save(self):
+        # TODO: get parms from form
+        parms = {}
+        dispatcher.send("update parameters", parms)
+        self.accept()
 
 
 # ==========================================================================

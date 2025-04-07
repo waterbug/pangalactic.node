@@ -414,11 +414,12 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
         dispatcher.connect(self.on_freeze_signal, 'freeze')
         dispatcher.connect(self.on_thaw_signal, 'thaw')
-        dispatcher.connect(self.on_parm_del, 'parm del')
-        dispatcher.connect(self.on_parm_added, 'parm added')
+        dispatcher.connect(self.on_des_set, 'des set')
         dispatcher.connect(self.on_de_del, 'de del')
         dispatcher.connect(self.on_deleted_object_signal, 'deleted object')
-        dispatcher.connect(self.on_des_set, 'des set')
+        dispatcher.connect(self.on_parms_set, 'parms set')
+        dispatcher.connect(self.on_parm_del, 'parm del')
+        dispatcher.connect(self.on_parm_added, 'parm added')
         dispatcher.connect(self.get_parmz, 'get parmz')
         dispatcher.connect(self.on_comp_mode_datum_set, 'comp mode datum set')
         dispatcher.connect(self.on_mode_defs_edited, 'update mode defs')
@@ -1945,6 +1946,8 @@ class Main(QMainWindow):
                     orb.log.info('  but it was empty!')
             elif subject == 'properties set':
                 self.on_remote_properties_set(content)
+            elif subject == 'parameters set':
+                self.get_parmz()
             elif subject == 'data elements set':
                 self.on_remote_data_elements_set(content)
             elif subject == 'de added':
@@ -3265,7 +3268,7 @@ class Main(QMainWindow):
         Handle local dispatcher signal for "act mods" -- specifically some of
         the properties (parameters and/or data elements) of the activities in a
         timeline have been modified. The vger.set_properties rpc will publish
-        the modified properties in "properties set" message, including the
+        the modified properties in a "properties set" message, including the
         time-date stamp for the related objects.
         """
         if prop_mods and state.get('connected'):
@@ -3384,6 +3387,29 @@ class Main(QMainWindow):
             # ------------------------------------------------------------
             # END OF OFFLINE LOCAL UPDATES
             # ------------------------------------------------------------
+
+    def on_parms_set(self, parms=None):
+        """
+        Handle local dispatcher signal "parms set".
+        """
+        orb.log.debug(f'* on_parms_set({parms})')
+        if parms and state.get('connected'):
+            try:
+                rpc = self.mbus.session.call('vger.set_parameters',
+                                             parms=parms)
+                rpc.addCallback(self.on_vger_set_parameters_result)
+                rpc.addErrback(self.on_failure)
+            except:
+                orb.log.debug('  ** rpc failed (possible loss of transport)')
+                orb.log.debug('     trying to reconnect ...')
+                self.set_bus_state()
+
+    def on_vger_set_parameters_result(self, msg):
+        if msg:
+            orb.log.info(f'* vger: {msg}.')
+            if not msg.startswith('failure'):
+                # if successful, msg is stringified datetime stamp
+                state['parmz_dts'] = msg
 
     def on_parm_added(self, oid='', pid=''):
         """
@@ -3541,19 +3567,26 @@ class Main(QMainWindow):
 
     def on_remote_data_elements_set(self, content):
         """
-        Handle vger pubsub msg "data elements set", with content in the format
-        of the data_elementz dict -- {oid: {deid: value}}.
+        Handle vger pubsub messages "data element set" and "data elements set".
         """
-        orb.log.debug('* vger pubsub: "data elements set"')
+        # orb.log.debug('* vger pubsub: "data element(s) set"')
         try:
-            for oid in content:
-                if oid in data_elementz:
-                    data_elementz[oid].update(content[oid])
-                else:
-                    data_elementz[oid] = content[oid].copy()
-            orb.log.debug('  success: data_elementz updated.')
+            if isinstance(content, str):
+                orb.log.debug(f'  failed: {content}')
+            else:
+                # content from rpc "set_data_elements"
+                orb.log.debug('  vger rpc: set_data_elements()')
+                orb.log.debug(f'  message content: {content}')
+                modified, dez_dts = content
+                for oid in modified:
+                    if oid in data_elementz:
+                        data_elementz[oid].update(modified[oid])
+                    else:
+                        data_elementz[oid] = modified[oid].copy()
+                state['dez_dts'] = dez_dts
+                orb.log.debug('  success: data_elementz updated.')
         except:
-            orb.log.debug('  failed: exception encountered.')
+            orb.log.debug('  failed: exception while processing msg content.')
 
     def on_remote_de_added(self, content):
         """
@@ -3674,8 +3707,8 @@ class Main(QMainWindow):
                     # txt = 'rebuild_dashboard(force=True) ...'
                     # orb.log.info(f'  [ovgpr] calling {txt}')
                     self.rebuild_dashboard(force=True)
-            # "parameters recomputed" triggers pgxnobject, rqtmanager, and
-            # wizard (data import) ...
+            # "parameters recomputed" triggers pgxnobject, rqtmanager,
+            # powerdashboard, and wizard (data import) ...
             dispatcher.send("parameters recomputed")
         else:
             # orb.log.info('  [ovgpr] no parmz data, check other updates ...')

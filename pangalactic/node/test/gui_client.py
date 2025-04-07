@@ -39,7 +39,10 @@ from pangalactic.core                 import __version__
 from pangalactic.core                 import orb
 from pangalactic.core                 import state
 from pangalactic.core.clone           import clone
-from pangalactic.core.parametrics     import add_parameter, set_dval
+from pangalactic.core.parametrics     import (add_parameter,
+                                              get_dval, get_pval,
+                                              round_to,
+                                              set_dval, set_pval)
 from pangalactic.core.refdata         import core
 from pangalactic.core.serializers     import deserialize, serialize
 from pangalactic.core.test.utils      import (create_test_project,
@@ -143,7 +146,6 @@ class MainWindow(QMainWindow):
         dispatcher.connect(self.on_leave, 'onleave')
         self.new_index = 0
         self.test_oid = ''
-        self.cold_units_val = 0
         self.cloaked = []
         self.decloaked = []
         self.last_saved_obj = None
@@ -201,14 +203,12 @@ class MainWindow(QMainWindow):
                 obj_oid = content['oid']
                 obj_id = content['id']
                 text += obj_id
-            elif subject == 'parameter set':
-                oid, pid, value, units, mod_datetime = content
-            elif subject == 'data element set':
-                oid, deid, value, mod_datetime = content
-                if deid == 'cold_units':
-                    self.log(f'*** pubsub msg "{subject}" ...')
-                    self.log(f'    oid: "{oid}"')
-                    self.log(f'    deid: "{deid}", value: {value}')
+            elif subject == 'parameters set':
+                self.log(f'*** pubsub msg "{subject}":')
+                self.log(f'{content}')
+            elif subject == 'data elements set':
+                self.log(f'*** pubsub msg "{subject}":')
+                self.log(f'{content}')
             w = NotificationDialog(text, parent=self)
             w.setWidth(200)
             w.show()
@@ -251,9 +251,12 @@ class MainWindow(QMainWindow):
         self.add_acu_button = QPushButton('Add an Assembly Component Usage')
         self.add_acu_button.setVisible(False)
         self.add_acu_button.clicked.connect(self.on_add_acu)
-        self.mod_dval_button = QPushButton('Modify a Data Element')
-        self.mod_dval_button.setVisible(False)
-        self.mod_dval_button.clicked.connect(self.on_mod_dval)
+        self.mod_parms_button = QPushButton('Modify Parameters')
+        self.mod_parms_button.setVisible(False)
+        self.mod_parms_button.clicked.connect(self.on_mod_parameters)
+        self.mod_des_button = QPushButton('Modify Data Elements')
+        self.mod_des_button.setVisible(False)
+        self.mod_des_button.clicked.connect(self.on_mod_data_elements)
         self.remove_comp_button = QPushButton('Remove Component (leave position)')
         self.remove_comp_button.setVisible(False)
         self.remove_comp_button.clicked.connect(self.on_remove_component)
@@ -292,7 +295,8 @@ class MainWindow(QMainWindow):
                                                 alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_psu_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.add_acu_button, alignment=Qt.AlignVCenter)
-        vbox.addWidget(self.mod_dval_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.mod_parms_button, alignment=Qt.AlignVCenter)
+        vbox.addWidget(self.mod_des_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.remove_comp_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.get_object_button, alignment=Qt.AlignVCenter)
         vbox.addWidget(self.get_mode_defz_button, alignment=Qt.AlignVCenter)
@@ -376,7 +380,8 @@ class MainWindow(QMainWindow):
         self.check_version_button.setVisible(True)
         self.ldap_search_button.setVisible(True)
         self.ldap_result_button.setVisible(True)
-        self.mod_dval_button.setVisible(True)
+        self.mod_parms_button.setVisible(True)
+        self.mod_des_button.setVisible(True)
         self.get_proj_parms_button.setVisible(True)
         self.upload_file_button.setVisible(True)
         self.save_object_button.setVisible(True)
@@ -576,12 +581,60 @@ class MainWindow(QMainWindow):
 
     def on_get_proj_parms(self):
         """
-        Upload a selected file.
+        Call vger.get_project_parameters().
         """
         self.log('* calling rpc "vger.get_project_parameters(H2G2)" ...')
         rpc = message_bus.session.call('vger.get_project_parameters', 'H2G2')
         rpc.addCallback(self.on_result)
         rpc.addErrback(self.on_failure)
+
+    def on_mod_parameters(self):
+        """
+        Call vger.set_parameters().
+        """
+        self.log('* calling rpc "vger.parameters()" ...')
+        oid = 'test:overthruster'
+        self.log('  modifying parameters for Oscillation Overthruster')
+        p = get_pval(oid, 'P') or 10.0
+        if p < 100.0:
+            p = round_to(p + 10.0)
+        else:
+            p = round_to(p - 10.0)
+        pp = round_to(p + 20.0)
+        ps = round_to(p / 10.0)
+        set_pval(oid, 'P', p)
+        set_pval(oid, 'P[peak]', pp)
+        set_pval(oid, 'P[standby]', ps)
+        parms_dict = {oid: {'P': p,
+                         'P[peak]': pp,
+                         'P[standby]': ps}}
+        rpc = message_bus.session.call('vger.set_parameters', parms=parms_dict)
+        rpc.addCallback(self.on_set_parms_success)
+        rpc.addErrback(self.on_set_parms_failure)
+
+    def on_mod_data_elements(self):
+        """
+        Call vger.set_data_elements().
+        """
+        self.log('* calling rpc "vger.set_data_elements()" ...')
+        oid = 'test:overthruster'
+        self.log('  modifying data elements for Oscillation Overthruster')
+        cu = get_dval(oid, 'cold_units') or 0
+        if cu < 2:
+            cu += 1
+        else:
+            cu -= 1
+        hu = cu + 1
+        fu = hu + cu
+        set_dval(oid, 'cold_units', cu)
+        set_dval(oid, 'hot_units', cu + 1)
+        set_dval(oid, 'flight_units', hu + cu)
+        de_dict = {oid: {'cold_units': cu,
+                         'hot_units': hu,
+                         'flight_units': fu}}
+        rpc = message_bus.session.call('vger.set_data_elements', des=de_dict)
+        rpc.addCallback(self.on_set_des_success)
+        rpc.addErrback(self.on_set_des_failure)
 
     def on_upload_file(self, chunk_size=None):
         """
@@ -723,10 +776,17 @@ class MainWindow(QMainWindow):
     def on_null_result(self):
         self.log('* no result expected.')
 
-    def on_mod_dval_success(self, stuff):
+    def on_set_parms_success(self, stuff):
+        self.log(f'* result from "vger.set_parameters":  "{stuff}"')
+
+    def on_set_parms_failure(self, f):
+        self.log('* "vger.set_parameters" failure: {}'.format(
+                                                         f.getTraceback()))
+
+    def on_set_des_success(self, stuff):
         self.log(f'* result from "vger.set_data_elements":  "{stuff}"')
 
-    def on_mod_dval_failure(self, f):
+    def on_set_des_failure(self, f):
         self.log('* "vger.set_data_elements" failure: {}'.format(
                                                          f.getTraceback()))
 
@@ -783,19 +843,6 @@ class MainWindow(QMainWindow):
         rpc = message_bus.session.call('vger.save', [acu])
         rpc.addCallback(self.on_vger_save_result)
         rpc.addErrback(self.on_failure)
-
-    def on_mod_dval(self):
-        self.log("* on_mod_dval()")
-        # hard-coded for a specific generated entity for the Oscillation
-        # Overthruster ...
-        oid = 'test:overthruster'
-        self.log('  modifying "cold units" for Oscillation Overthruster')
-        self.cold_units_val += 1
-        set_dval(oid, 'cold_units', self.cold_units_val, local=True)
-        de_dict = {oid: {'cold_units': self.cold_units_val}}
-        rpc = message_bus.session.call('vger.set_data_elements', des=de_dict)
-        rpc.addCallback(self.on_mod_dval_success)
-        rpc.addErrback(self.on_mod_dval_failure)
 
     def on_remove_component(self):
         self.log("* on_remove_component()")
@@ -919,6 +966,8 @@ class MainWindow(QMainWindow):
         self.ldap_search_button.setVisible(False)
         self.ldap_result_button.setVisible(False)
         self.get_proj_parms_button.setVisible(False)
+        self.mod_parms_button.setVisible(False)
+        self.mod_des_button.setVisible(False)
         self.upload_file_button.setVisible(False)
         self.save_object_button.setVisible(False)
         self.save_public_object_button.setVisible(False)

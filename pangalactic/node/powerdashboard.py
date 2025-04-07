@@ -26,8 +26,8 @@ from pangalactic.core.parametrics import (get_pval, get_power_contexts,
                                           mode_defz, round_to,
                                           set_modal_context)
 from pangalactic.core.validation  import get_assembly
-from pangalactic.node.buttons     import SizedButton
-from pangalactic.node.dialogs     import PowerSpecDialog
+from pangalactic.node.buttons     import ItemButton, SizedButton
+from pangalactic.node.pgxnobject  import PgxnObject
 from pangalactic.node.systemtree  import SystemTreeModel, SystemTreeProxyModel
 from pangalactic.node.utils       import get_all_project_usages
 from pangalactic.node.widgets     import ColorLabel, ValueLabel
@@ -279,6 +279,7 @@ class ModeDefinitionDashboard(QWidget):
         dispatcher.connect(self.on_new_timeline, "new timeline")
         dispatcher.connect(self.on_modes_edited, 'modes edited')
         dispatcher.connect(self.on_modes_published, 'modes published')
+        dispatcher.connect(self.on_parmz_recomputed, 'parameters recomputed')
         dispatcher.connect(self.on_set_no_compute, 'set no compute')
         dispatcher.connect(self.on_remote_sys_mode_datum,
                            'remote sys mode datum')
@@ -405,6 +406,13 @@ class ModeDefinitionDashboard(QWidget):
 
     def on_modes_published(self):
         orb.log.debug('* MDD: "modes published" signal received ...')
+        if self.edit_state:
+            self.on_edit(None)
+        else:
+            self.on_view(None)
+
+    def on_parmz_recomputed(self):
+        orb.log.debug('* MDD: "parameters recomputed" signal received ...')
         if self.edit_state:
             self.on_edit(None)
         else:
@@ -687,18 +695,23 @@ class ModeDefinitionDashboard(QWidget):
                     datum=(self.project.oid, sys_oid, oid, mode_oid, value))
         self.on_edit(None)
 
-    def edit_power_spec(self, oid):
+    def edit_power_spec(self, evt):
         """
         Activate EditPowerSpec dialog for an item.
 
         Args:
             oid (str): oid of the item whose power spec is to be edited
         """
-        dlg = PowerSpecDialog(oid)
-        dlg.setAttribute(Qt.WA_DeleteOnClose)
-        if dlg.exec_():
-            dispatcher.send('power spec updated', parms=dlg.parms)
-            dlg.close()
+        orb.log.debug('* edit_power_spec() ')
+        state['current_parm_dim'] = 'power'
+        oid = self.sender().oid
+        obj = orb.get(oid)
+        if obj:
+            win = PgxnObject(obj, panels='parameters', enable_delete=False,
+                             modal_mode=True)
+            win.show()
+        else:
+            orb.log.debug('  component with oid "{oid}" not found.')
 
     def set_row_fields(self, usage, row):
         name = usage.id
@@ -722,7 +735,7 @@ class ModeDefinitionDashboard(QWidget):
         # edit buttons (col 1)
         # --------------------
         if self.edit_state and not modal_context == '[computed]':
-            edit_button = SizedButton("Edit Spec", color="green")
+            edit_button = ItemButton("Edit Spec", oid=comp.oid, color="green")
             if 'modify' in get_perms(comp):
                 edit_button.clicked.connect(self.edit_power_spec)
             else:
