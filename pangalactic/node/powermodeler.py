@@ -726,7 +726,7 @@ class PowerModeler(QWidget):
         t_units = time_units or 'seconds'
         d_text = f'  duration of {act.name}: {total_duration} {t_units}'
         orb.log.debug(d_text)
-        max_val = max(list(p_mev_dict.values()))
+        max_val = max(list(p_mev_dict.values()), default=0)
         plot = qwt.QwtPlot(f"{comp.name} Power vs Time")
         plot.setFlatStyle(False)
         plot.setAxisTitle(qwt.QwtPlot.xBottom, f"time ({time_units})")
