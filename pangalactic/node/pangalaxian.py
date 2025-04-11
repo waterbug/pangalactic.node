@@ -410,6 +410,9 @@ class Main(QMainWindow):
         dispatcher.connect(self.on_new_hardware_clone, 'new hardware clone')
         dispatcher.connect(self.on_new_object_signal, 'new object')
         dispatcher.connect(self.on_mod_object_signal, 'modified object')
+        # "updated objects" will be a lightweight alternative to
+        # "modified objects"
+        # dispatcher.connect(self.on_updated_object_signal, 'updated objects')
         dispatcher.connect(self.on_act_mods_signal, 'act mods')
         dispatcher.connect(self.on_new_objects_signal, 'new objects')
         dispatcher.connect(self.on_mod_objects_signal, 'modified objects')
@@ -3269,8 +3272,8 @@ class Main(QMainWindow):
         Handle local dispatcher signal for "act mods" -- specifically some of
         the properties (parameters and/or data elements) of the activities in a
         timeline have been modified. The vger.set_properties rpc will publish
-        the modified properties in a "properties set" message, including the
-        time-date stamp for the related objects.
+        the modified properties in a "properties set" message, which includes
+        the date-time stamp.
         """
         if prop_mods and state.get('connected'):
             try:
@@ -3537,10 +3540,11 @@ class Main(QMainWindow):
 
     def on_remote_properties_set(self, content):
         """
-        Handle vger pubsub msg "properties set", with content in the format
-        (prop_mods, mod_datetime_string), where prop_mods has the format
-        {oid: {prop_id: value}}, where prop_id is the id of a parameter of a
-        data element, and value must be in base (mks) units.
+        Handle vger pubsub msg "properties set" (parameters, data elements, or
+        attributes), with content in the format (prop_mods,
+        mod_datetime_string), where prop_mods has the format {oid: {prop_id:
+        value}}, where prop_id is the id of parameter, data element, or
+        attribute, and if a parameter then value must be in base (mks) units.
         """
         orb.log.debug('* vger pubsub: "properties set"')
         prop_mods, mod_dt_str = content
