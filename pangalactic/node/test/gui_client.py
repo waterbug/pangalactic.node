@@ -203,6 +203,9 @@ class MainWindow(QMainWindow):
                 obj_oid = content['oid']
                 obj_id = content['id']
                 text += obj_id
+            elif subject == 'properties set':
+                self.log(f'*** pubsub msg "{subject}":')
+                self.log(f'{content}')
             elif subject == 'parameters set':
                 self.log(f'*** pubsub msg "{subject}":')
                 self.log(f'{content}')

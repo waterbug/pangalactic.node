@@ -202,9 +202,8 @@ class PowerModeler(QWidget):
         self.setLayout(main_layout)
         main_layout.addWidget(self.main_splitter, stretch=1)
         # ===================================================================
-        # TODO: power modes should get a signal from TimelineModeler AFTER it
-        # has processed "remote new or mod acts", and should respond to THAT
-        # signal rather than directly to "remote new or mod acts" ...
+        # NOTE: TimelineModeler processes "remote new or mod acts" signal ...
+        # so far it appears powermodeler itself doesn't need a handler for it.
         # ===================================================================
         # dispatcher.connect(self.on_remote_mod_acts, "remote new or mod acts")
         # ===================================================================

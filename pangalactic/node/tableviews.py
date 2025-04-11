@@ -455,6 +455,8 @@ class ActInfoTable(QTableWidget):
                 orb.save([act])
                 # self.resizeColumnsToContents()
                 dispatcher.send(signal="act name mod", act=act, remote=False)
+                props = {oid : {'name' : str_val}}
+                dispatcher.send(signal="act mods", prop_mods=props)
             elif pname == 'time_units':
                 # TODO: when time units are set, convert existing values (if
                 # any) and do other computations as necessary ...
@@ -730,11 +732,11 @@ class SystemInfoTable(QTableWidget):
         if usages:
             if self.sort_by_field:
                 if self.sort_on == 'component':
-                    usages.sort(key=lambda x:orb.get_prop_val(x.component,
+                    usages.sort(key=lambda x:orb.get_prop_val(x.component.oid,
                                                           self.sort_by_field))
                 elif self.sort_on == 'usage':
                     usages.sort(key=lambda x:
-                                orb.get_prop_val(x, self.sort_by_field))
+                                orb.get_prop_val(x.oid, self.sort_by_field))
             for i, usage in enumerate(usages):
                 for j, ptuple in enumerate(self.view):
                     pname, colname, otype = ptuple

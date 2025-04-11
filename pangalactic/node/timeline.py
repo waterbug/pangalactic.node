@@ -363,7 +363,8 @@ class Timeline(QGraphicsPathItem):
         # self.evt_blocks.sort(key=lambda x: x.scenePos().x())
         # orb.log.debug('  - setting sub_activity_sequence(s) ...')
         NOW = dtstamp()
-        mod_objs = []
+        # mod_objs = []
+        props = {}
         if remote:
             # activity sequence was set by the remote operation, do not change
             # acts = remote_mod_acts or []
@@ -392,16 +393,21 @@ class Timeline(QGraphicsPathItem):
                 if act.sub_activity_sequence != i:
                     act.sub_activity_sequence = i
                     act.mod_datetime = NOW
-                    orb.save([act])
-                    mod_objs.append(act)
+                    # orb.save([act])
+                    orb.db.commit()
+                    # mod_objs.append(act)
+                    props[act.oid] = {'sub_activity_sequence': i,
+                                      'mod_datetime': str(NOW)}
             dispatcher.send("order changed")
             self.update()
-            if mod_objs:
+            # if mod_objs:
                 # orb.log.debug('  - sending "modified objects" signal on:')
                 # names = [o.name for o in mod_objs]
                 # for name in names:
                     # orb.log.debug(f'    + {name}')
-                dispatcher.send("modified objects", objs=mod_objs)
+                # dispatcher.send("modified objects", objs=mod_objs)
+            if props:
+                dispatcher.send("act mods", prop_mods=props)
 
 
 class TimelineScene(QGraphicsScene):
@@ -521,8 +527,6 @@ class TimelineScene(QGraphicsScene):
             # orb.log.debug(f'  checking for {item.activity.name} by oid')
             if item.activity.oid == act.oid:
                 item.update_block_label()
-                if not remote:
-                    dispatcher.send("modified object", obj=item.activity)
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)

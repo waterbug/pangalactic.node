@@ -3270,10 +3270,10 @@ class Main(QMainWindow):
     def on_act_mods_signal(self, prop_mods=None):
         """
         Handle local dispatcher signal for "act mods" -- specifically some of
-        the properties (parameters and/or data elements) of the activities in a
-        timeline have been modified. The vger.set_properties rpc will publish
-        the modified properties in a "properties set" message, which includes
-        the date-time stamp.
+        the properties (parameters, data elements, or attributes) of the
+        activities in a timeline have been modified. The vger.set_properties
+        rpc will publish the modified properties in a "properties set" message,
+        which includes the date-time stamp.
         """
         if prop_mods and state.get('connected'):
             try:
