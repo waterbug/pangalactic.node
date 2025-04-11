@@ -769,7 +769,7 @@ class PowerModeler(QWidget):
                 linestyle=qwt.QwtPlotMarker.VLine,
                 width=2.0,
                 z=0.0,
-                color="green",
+                color="lightGray",
                 plot=plot
             )
             # insert a label for each activity (aka "mode")
