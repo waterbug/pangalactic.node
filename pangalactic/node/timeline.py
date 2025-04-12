@@ -95,7 +95,7 @@ class ActivityBlock(QGraphicsPolygonItem):
                      QPointF(0, 0), QPointF(-50, 80),
                      QPointF(50, 80)])
         elif self.activity.activity_type.name == "Cycle":
-            path.addEllipse(-70, 0, 140, 140)
+            path.addEllipse(-70, 0, 120, 120)
             self.myPolygon = path.toFillPolygon(QTransform())
             # only Cycles can accept drops ...
             self.setAcceptDrops(True)
@@ -516,6 +516,7 @@ class TimelineScene(QGraphicsScene):
         evt_block.setPos(event.scenePos())
         self.addItem(evt_block)
         self.timeline.update_timeline()
+        dispatcher.send(signal='modified objects', objs=mod_acts)
 
     def on_act_name_mod(self, act=None, remote=False):
         """
